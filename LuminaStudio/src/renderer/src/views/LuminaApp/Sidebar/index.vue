@@ -1,0 +1,54 @@
+<template>
+  <div class="ls-sidebar w-16 h-full bg-white border-r border-slate-200 flex flex-col items-center py-6 z-30 shadow-[4px_0_24px_-12px_rgba(16,185,129,0.1)]">
+    <!-- Logo -->
+    <div class="mb-8 p-2 bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-xl shadow-lg shadow-emerald-900/20 ring-1 ring-white/20 flex-shrink-0">
+      <svg class="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+      </svg>
+    </div>
+
+    <!-- Navigation -->
+    <div class="flex-1 flex flex-col w-full px-2 gap-2">
+      <SidebarItem 
+        icon="grid"
+        :active="activeTab === 'dashboard'" 
+        @click="$emit('change-tab', 'dashboard')" 
+      />
+      <SidebarItem 
+        icon="file"
+        :active="activeTab === 'reader'" 
+        @click="$emit('change-tab', 'reader')" 
+      />
+      <SidebarItem 
+        icon="network"
+        :active="activeTab === 'graph'" 
+        @click="$emit('change-tab', 'graph')" 
+      />
+    </div>
+
+    <!-- Bottom -->
+    <div class="mb-4 w-full px-2 gap-2 flex flex-col">
+      <SidebarItem icon="settings" :active="false" @click="() => {}" />
+      <div class="w-full h-[1px] bg-slate-100 my-2"></div>
+      <div class="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 cursor-pointer transition-colors flex-shrink-0">
+        <svg class="w-[18px] h-[18px] flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+          <circle cx="12" cy="7" r="4"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import SidebarItem from './SidebarItem.vue'
+
+defineProps<{
+  activeTab: string
+}>()
+
+defineEmits<{
+  (e: 'change-tab', tab: string): void
+}>()
+</script>
