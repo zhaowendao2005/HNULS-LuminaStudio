@@ -1,0 +1,594 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  Settings, 
+  Plus, 
+  Search, 
+  Trash2, 
+  Check, 
+  X, 
+  ChevronRight,
+  Server,
+  Cpu,
+  Globe,
+  ToggleLeft,
+  ToggleRight,
+  Edit2,
+  Box,
+  Zap,
+  MoreHorizontal,
+  RefreshCw,
+  ListFilter,
+  CheckSquare,
+  Square
+} from 'lucide-react';
+
+// --- 模拟数据 ---
+
+// 本地已保存的初始提供商数据
+const INITIAL_PROVIDERS = [
+  {
+    id: 'openai-1',
+    type: 'openai',
+    name: 'OpenAI',
+    apiKey: 'sk-xxxxxxxxxxxxxxxx',
+    baseUrl: 'https://api.openai.com/v1',
+    icon: 'openai',
+    enabled: true,
+    models: [
+      { id: 'gpt-4o', name: 'GPT-4o', context: '128k', enabled: true },
+    ]
+  },
+  {
+    id: 'custom-1',
+    type: 'openai', 
+    name: 'DeepSeek (OpenAI)',
+    apiKey: 'sk-deepseek-xxxx',
+    baseUrl: 'https://api.deepseek.com',
+    icon: 'server',
+    enabled: true,
+    models: [
+      { id: 'deepseek-chat', name: 'DeepSeek V3', context: '64k', enabled: true },
+    ]
+  }
+];
+
+// 模拟从 API (如 GET /v1/models) 获取的远程模型列表
+const MOCK_REMOTE_MODELS = {
+  'GPT-4 Series': [
+    { id: 'gpt-4o', object: 'model', created: 1715367049, owned_by: 'system' },
+    { id: 'gpt-4-turbo', object: 'model', created: 1712361441, owned_by: 'system' },
+    { id: 'gpt-4-0125-preview', object: 'model', created: 1706037612, owned_by: 'system' },
+    { id: 'gpt-4-vision-preview', object: 'model', created: 1698894907, owned_by: 'system' },
+  ],
+  'GPT-3.5 Series': [
+    { id: 'gpt-3.5-turbo', object: 'model', created: 1677610602, owned_by: 'openai' },
+    { id: 'gpt-3.5-turbo-0125', object: 'model', created: 1706048358, owned_by: 'system' },
+    { id: 'gpt-3.5-turbo-16k', object: 'model', created: 1683758102, owned_by: 'openai-internal' },
+  ],
+  'Embeddings': [
+    { id: 'text-embedding-3-large', object: 'model', created: 1705953180, owned_by: 'system' },
+    { id: 'text-embedding-3-small', object: 'model', created: 1705953180, owned_by: 'system' },
+    { id: 'text-embedding-ada-002', object: 'model', created: 1671217299, owned_by: 'openai-internal' },
+  ]
+};
+
+const PROVIDER_TYPES = [
+  { id: 'openai', name: 'OpenAI', description: '标准 OpenAI 格式', available: true },
+  { id: 'gemini', name: 'Google Gemini', description: 'Google Generative AI', available: false },
+  { id: 'oneapi', name: 'OneAPI', description: '统一接口聚合', available: false },
+];
+
+export default function CherryStudioDemo() {
+  const [providers, setProviders] = useState(INITIAL_PROVIDERS);
+  const [selectedId, setSelectedId] = useState(INITIAL_PROVIDERS[0].id);
+  
+  // 弹窗状态
+  const [isAddProviderModalOpen, setIsAddProviderModalOpen] = useState(false);
+  const [isAddModelModalOpen, setIsAddModelModalOpen] = useState(false);
+  const [isManageModelsModalOpen, setIsManageModelsModalOpen] = useState(false);
+
+  // 管理模型弹窗的状态
+  const [isLoadingModels, setIsLoadingModels] = useState(false);
+  const [remoteModelGroups, setRemoteModelGroups] = useState({});
+  const [selectedRemoteModels, setSelectedRemoteModels] = useState(new Set());
+
+  // 添加提供商表单
+  const [newProviderForm, setNewProviderForm] = useState({ type: 'openai', name: '' });
+  // 添加模型表单
+  const [newModelForm, setNewModelForm] = useState({ id: '', name: '', context: '4k' });
+
+  const selectedProvider = providers.find(p => p.id === selectedId) || providers[0];
+
+  // --- Actions ---
+
+  // 1. 打开管理模态框并模拟 Fetch
+  const openManageModels = () => {
+    setIsManageModelsModalOpen(true);
+    setIsLoadingModels(true);
+    setRemoteModelGroups({});
+    
+    // 模拟网络请求延迟
+    setTimeout(() => {
+      setRemoteModelGroups(MOCK_REMOTE_MODELS);
+      setIsLoadingModels(false);
+      
+      // 默认选中当前列表中已存在的模型
+      const currentModelIds = new Set(selectedProvider.models.map(m => m.id));
+      setSelectedRemoteModels(currentModelIds);
+    }, 1200);
+  };
+
+  // 2. 处理远程模型的勾选/取消
+  const toggleRemoteModelSelection = (modelId) => {
+    const newSet = new Set(selectedRemoteModels);
+    if (newSet.has(modelId)) {
+      newSet.delete(modelId);
+    } else {
+      newSet.add(modelId);
+    }
+    setSelectedRemoteModels(newSet);
+  };
+
+  // 3. 确认批量添加模型
+  const handleBatchAddModels = () => {
+    // 找出所有被选中的模型详情
+    const modelsToAdd = [];
+    Object.values(remoteModelGroups).flat().forEach(remoteModel => {
+      if (selectedRemoteModels.has(remoteModel.id)) {
+        // 检查是否已存在，如果存在保留旧配置(如 enabled 状态)，如果不存在则新建
+        const existing = selectedProvider.models.find(m => m.id === remoteModel.id);
+        if (existing) {
+          modelsToAdd.push(existing);
+        } else {
+          modelsToAdd.push({
+            id: remoteModel.id,
+            name: remoteModel.id, // 默认用 ID 作名称
+            context: 'Unknown', // API 通常不返回 context，这里置默认
+            enabled: true
+          });
+        }
+      }
+    });
+
+    // 更新 Provider
+    const updatedProviders = providers.map(p => {
+      if (p.id === selectedId) {
+        return { ...p, models: modelsToAdd };
+      }
+      return p;
+    });
+
+    setProviders(updatedProviders);
+    setIsManageModelsModalOpen(false);
+  };
+
+  // 4. 手动添加单个模型
+  const handleManualAddModel = () => {
+    if (!newModelForm.id) return;
+    const newModel = { ...newModelForm, enabled: true };
+    const updatedProviders = providers.map(p => {
+      if (p.id === selectedId) {
+        return { ...p, models: [...p.models, newModel] };
+      }
+      return p;
+    });
+    setProviders(updatedProviders);
+    setIsAddModelModalOpen(false);
+    setNewModelForm({ id: '', name: '', context: '4k' });
+  };
+
+  // 5. 添加提供商
+  const handleAddProvider = () => {
+    const newProvider = {
+      id: `provider-${Date.now()}`,
+      type: newProviderForm.type,
+      name: newProviderForm.name || 'New Provider',
+      apiKey: '',
+      baseUrl: '',
+      icon: 'box',
+      enabled: true,
+      models: []
+    };
+    setProviders([...providers, newProvider]);
+    setSelectedId(newProvider.id);
+    setIsAddProviderModalOpen(false);
+    setNewProviderForm({ type: 'openai', name: '' });
+  };
+
+  // 6. 删除提供商
+  const handleDeleteProvider = (id, e) => {
+    e.stopPropagation();
+    const newList = providers.filter(p => p.id !== id);
+    setProviders(newList);
+    if (selectedId === id && newList.length > 0) setSelectedId(newList[0].id);
+  };
+
+  // 7. Toggle 开关
+  const toggleModelStatus = (modelId) => {
+    const updatedProviders = providers.map(p => {
+      if (p.id === selectedId) {
+        return {
+          ...p,
+          models: p.models.map(m => m.id === modelId ? { ...m, enabled: !m.enabled } : m)
+        };
+      }
+      return p;
+    });
+    setProviders(updatedProviders);
+  };
+
+  const getIcon = (type) => {
+    switch (type) {
+      case 'openai': return <Zap className="w-5 h-5" />;
+      case 'server': return <Server className="w-5 h-5" />;
+      default: return <Box className="w-5 h-5" />;
+    }
+  };
+
+  return (
+    <div className="flex h-screen w-full bg-[#f9f9f9] text-gray-800 font-sans overflow-hidden">
+      
+      {/* --- 左侧边栏 --- */}
+      <div className="w-72 flex-shrink-0 bg-white border-r border-gray-200 flex flex-col z-20 shadow-[2px_0_15px_rgba(0,0,0,0.03)]">
+        <div className="h-16 flex items-center px-5 border-b border-gray-100">
+          <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center text-white mr-3 shadow-md shadow-gray-200">
+            <Cpu size={18} />
+          </div>
+          <span className="font-bold text-lg tracking-tight text-gray-900">Cherry Studio</span>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-3 py-3 space-y-1 custom-scrollbar">
+          <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-3 py-2 mb-1">
+            模型服务商
+          </div>
+          {providers.map((provider) => (
+            <div 
+              key={provider.id}
+              onClick={() => setSelectedId(provider.id)}
+              className={`group relative flex items-center justify-between px-3 py-3 rounded-xl cursor-pointer transition-all duration-200 border ${
+                selectedId === provider.id 
+                  ? 'bg-blue-50/80 border-blue-200 text-blue-700 shadow-sm' 
+                  : 'bg-white border-transparent hover:bg-gray-100 hover:border-gray-200 text-gray-700'
+              }`}
+            >
+              <div className="flex items-center gap-3 overflow-hidden">
+                <div className={`flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center border transition-colors ${
+                  selectedId === provider.id ? 'bg-white border-blue-100 text-blue-600' : 'bg-gray-50 border-gray-100 text-gray-500'
+                }`}>
+                  {getIcon(provider.icon)}
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <span className={`font-semibold text-sm truncate ${selectedId === provider.id ? 'text-blue-900' : 'text-gray-700'}`}>
+                    {provider.name}
+                  </span>
+                  <span className="text-[10px] text-gray-400 truncate flex items-center gap-1.5 mt-0.5">
+                    <span className={`w-1.5 h-1.5 rounded-full ${provider.enabled ? 'bg-green-500' : 'bg-gray-300'}`}></span>
+                    {provider.type === 'openai' ? 'OpenAI Protocol' : 'Custom'}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center">
+                 {selectedId === provider.id ? (
+                   <ChevronRight size={14} className="text-blue-400 opacity-80" />
+                 ) : (
+                   <button 
+                    onClick={(e) => handleDeleteProvider(provider.id, e)}
+                    className="p-1.5 rounded-md text-gray-400 hover:bg-red-50 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                   >
+                     <Trash2 size={14} />
+                   </button>
+                 )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="p-4 border-t border-gray-100 bg-gray-50/30 backdrop-blur-sm">
+          <button 
+            onClick={() => setIsAddProviderModalOpen(true)}
+            className="w-full flex items-center justify-center gap-2 bg-white border border-gray-200 hover:border-blue-300 hover:text-blue-600 hover:shadow-md text-gray-600 font-medium py-3 rounded-xl transition-all duration-200 shadow-sm"
+          >
+            <Plus size={16} />
+            <span className="text-sm">添加提供商</span>
+          </button>
+        </div>
+      </div>
+
+      {/* --- 右侧主区域 --- */}
+      <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#fafafa]">
+        {/* Header */}
+        <div className="h-16 bg-white/80 backdrop-blur-md border-b border-gray-200 px-8 flex items-center justify-between sticky top-0 z-10">
+          <div className="flex items-center gap-4">
+             <div className="flex flex-col">
+               <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                 {selectedProvider?.name}
+                 <span className="px-2 py-0.5 bg-gray-100 text-gray-500 text-[10px] font-mono rounded border border-gray-200 tracking-wide uppercase">
+                   {selectedProvider?.type}
+                 </span>
+               </h1>
+             </div>
+          </div>
+          <div className="flex gap-3">
+            <button className="px-5 py-2 text-sm font-medium text-white bg-black hover:bg-gray-800 rounded-lg shadow-lg shadow-gray-200 transition-all flex items-center gap-2">
+              <Check size={16} /> 保存配置
+            </button>
+          </div>
+        </div>
+
+        {/* 内容滚动区 */}
+        <div className="flex-1 overflow-y-auto p-8">
+          <div className="max-w-4xl mx-auto space-y-8 pb-20">
+            
+            {/* Settings Card */}
+            <section className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+              <div className="flex items-center gap-2 mb-2">
+                 <div className="p-1.5 bg-blue-100 text-blue-600 rounded-lg">
+                   <Settings size={18} />
+                 </div>
+                 <h2 className="text-lg font-bold text-gray-900">服务配置</h2>
+              </div>
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden p-6 grid grid-cols-1 gap-6">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">API Key</label>
+                  <input 
+                    type="password" 
+                    defaultValue={selectedProvider?.apiKey}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-mono"
+                    placeholder="sk-..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">API Host URL</label>
+                  <input 
+                    type="text" 
+                    defaultValue={selectedProvider?.baseUrl}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-mono"
+                    placeholder="https://api.openai.com/v1"
+                  />
+                </div>
+              </div>
+            </section>
+
+            {/* Models Card */}
+            <section className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100">
+              <div className="flex items-center justify-between mb-2">
+                 <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-purple-100 text-purple-600 rounded-lg">
+                      <Box size={18} />
+                    </div>
+                    <h2 className="text-lg font-bold text-gray-900">模型列表</h2>
+                    <span className="px-2 py-0.5 bg-gray-200 text-gray-600 text-xs rounded-full font-medium">{selectedProvider?.models.length || 0}</span>
+                 </div>
+                 <div className="flex gap-2">
+                    {/* 改名后的管理按钮 */}
+                    <button 
+                      onClick={openManageModels}
+                      className="text-xs font-medium bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-2 rounded-lg transition-all flex items-center gap-2 shadow-sm"
+                    >
+                       <ListFilter size={14} /> 管理模型
+                    </button>
+                    <button 
+                      onClick={() => setIsAddModelModalOpen(true)}
+                      className="text-xs font-medium bg-black text-white px-3 py-2 rounded-lg hover:bg-gray-800 transition-all flex items-center gap-1.5 shadow-sm"
+                    >
+                       <Plus size={14} /> 手动添加
+                    </button>
+                 </div>
+              </div>
+
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden min-h-[120px]">
+                 {selectedProvider?.models.length > 0 ? (
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-gray-100 text-xs font-semibold text-gray-500 bg-gray-50/50">
+                          <th className="px-6 py-4 w-16 text-center">#</th>
+                          <th className="px-6 py-4">模型 ID</th>
+                          <th className="px-6 py-4">名称</th>
+                          <th className="px-6 py-4 text-right">状态</th>
+                          <th className="px-6 py-4 w-16"></th>
+                        </tr>
+                      </thead>
+                      <tbody className="text-sm">
+                        {selectedProvider?.models.map((model, idx) => (
+                          <tr key={model.id} className="group hover:bg-blue-50/20 transition-colors border-b border-gray-50 last:border-0">
+                            <td className="px-6 py-4 text-center text-gray-400 text-xs">{idx + 1}</td>
+                            <td className="px-6 py-4">
+                              <span className="font-mono text-xs text-gray-600 px-2 py-1 bg-gray-100 rounded border border-gray-200">{model.id}</span>
+                            </td>
+                            <td className="px-6 py-4 text-gray-800 font-medium">{model.name}</td>
+                            <td className="px-6 py-4 text-right">
+                              <button onClick={() => toggleModelStatus(model.id)} className={`inline-flex items-center transition-colors ${model.enabled ? 'text-blue-600' : 'text-gray-300'}`}>
+                                {model.enabled ? <ToggleRight size={32} /> : <ToggleLeft size={32} className="text-gray-300" />}
+                              </button>
+                            </td>
+                            <td className="px-6 py-4 text-right opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-700">
+                                <Edit2 size={14} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                 ) : (
+                    <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+                       <p className="text-sm">暂无模型</p>
+                       <p className="text-xs mt-1 opacity-60">点击“管理模型”从 API 获取列表，或手动添加</p>
+                    </div>
+                 )}
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+
+      {/* --- 弹窗 1：管理模型 (API 获取 & 批量选择) --- */}
+      {isManageModelsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm animate-in fade-in duration-200">
+          <div 
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200 border border-gray-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-white">
+              <div className="flex flex-col">
+                <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                  <ListFilter size={18} className="text-blue-600"/>
+                  管理模型列表
+                </h2>
+                <p className="text-xs text-gray-500 mt-0.5">从 API 获取模型并勾选需要显示的项目</p>
+              </div>
+              <button onClick={() => setIsManageModelsModalOpen(false)} className="text-gray-400 hover:text-gray-600 bg-gray-50 hover:bg-gray-100 rounded-full p-2 transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto bg-gray-50/50 p-6">
+              {isLoadingModels ? (
+                <div className="flex flex-col items-center justify-center h-64 space-y-4">
+                  <RefreshCw size={32} className="animate-spin text-blue-500" />
+                  <p className="text-sm text-gray-500 font-medium">正在连接 API 获取模型列表...</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {Object.entries(remoteModelGroups).map(([groupName, models]) => (
+                    <div key={groupName} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                      <div className="px-4 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+                         <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">{groupName}</span>
+                         <span className="text-[10px] bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded-md">{models.length}</span>
+                      </div>
+                      <div className="divide-y divide-gray-50">
+                        {models.map(model => {
+                          const isSelected = selectedRemoteModels.has(model.id);
+                          return (
+                            <div 
+                              key={model.id} 
+                              onClick={() => toggleRemoteModelSelection(model.id)}
+                              className={`flex items-center justify-between px-4 py-3 cursor-pointer transition-colors ${isSelected ? 'bg-blue-50/50' : 'hover:bg-gray-50'}`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className={`transition-colors ${isSelected ? 'text-blue-600' : 'text-gray-300'}`}>
+                                   {isSelected ? <CheckSquare size={18} /> : <Square size={18} />}
+                                </div>
+                                <div className="flex flex-col">
+                                   <span className={`text-sm font-medium ${isSelected ? 'text-gray-900' : 'text-gray-600'}`}>{model.id}</span>
+                                   <span className="text-[10px] text-gray-400">Created: {new Date(model.created * 1000).toLocaleDateString()}</span>
+                                </div>
+                              </div>
+                              {isSelected && <span className="text-xs font-bold text-blue-600 px-2 py-1 bg-blue-100 rounded">已选</span>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {Object.keys(remoteModelGroups).length === 0 && !isLoadingModels && (
+                     <div className="text-center py-10 text-gray-400">未能获取到模型数据</div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 bg-white border-t border-gray-100 flex justify-between items-center z-10">
+              <div className="text-xs text-gray-500">
+                已选择 <span className="font-bold text-gray-900">{selectedRemoteModels.size}</span> 个模型
+              </div>
+              <div className="flex gap-3">
+                 <button 
+                  onClick={() => setIsManageModelsModalOpen(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                 >
+                   取消
+                 </button>
+                 <button 
+                  onClick={handleBatchAddModels}
+                  disabled={isLoadingModels}
+                  className="px-5 py-2 text-sm font-medium text-white bg-black hover:bg-gray-800 rounded-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                 >
+                   更新列表
+                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- 弹窗 2：手动添加模型 --- */}
+      {isAddModelModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/20 backdrop-blur-[1px] animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm border border-gray-100 p-6 animate-in zoom-in-95 duration-200">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">手动添加模型</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">模型 ID</label>
+                <input 
+                  type="text" 
+                  value={newModelForm.id}
+                  onChange={e => setNewModelForm({...newModelForm, id: e.target.value})}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  placeholder="e.g. gpt-4-32k"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">显示名称</label>
+                <input 
+                  type="text" 
+                  value={newModelForm.name}
+                  onChange={e => setNewModelForm({...newModelForm, name: e.target.value})}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  placeholder="e.g. GPT-4 32K"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-6">
+              <button onClick={() => setIsAddModelModalOpen(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">取消</button>
+              <button onClick={handleManualAddModel} className="px-4 py-2 text-sm text-white bg-black hover:bg-gray-800 rounded-lg">添加</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- 弹窗 3：添加提供商 --- */}
+      {isAddProviderModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/20 backdrop-blur-[2px] animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200 border border-gray-100">
+             {/* 略：复用之前的添加提供商弹窗逻辑 */}
+             <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-gray-800">添加模型服务</h2>
+              <button onClick={() => setIsAddProviderModalOpen(false)} className="text-gray-400 hover:text-gray-600 bg-gray-50 hover:bg-gray-100 rounded-full p-1.5 transition-colors">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase">类型</label>
+                <div className="space-y-2">
+                   {PROVIDER_TYPES.map(type => (
+                      <label key={type.id} className={`flex items-center justify-between px-4 py-3 rounded-xl border cursor-pointer transition-all ${!type.available ? 'bg-gray-50 border-gray-100 opacity-60 cursor-not-allowed' : newProviderForm.type === type.id ? 'bg-blue-50 border-blue-200 ring-1 ring-blue-100' : 'bg-white border-gray-200 hover:border-gray-300'}`}>
+                         <div className="flex items-center gap-3">
+                           <input type="radio" name="providerType" value={type.id} checked={newProviderForm.type === type.id} disabled={!type.available} onChange={(e) => setNewProviderForm({...newProviderForm, type: e.target.value})} className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500" />
+                           <span className={`text-sm font-medium ${!type.available ? 'text-gray-400' : 'text-gray-700'}`}>{type.name}</span>
+                         </div>
+                      </label>
+                   ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase">名称</label>
+                <input type="text" value={newProviderForm.name} onChange={(e) => setNewProviderForm({...newProviderForm, name: e.target.value})} placeholder="例如：My Workspace" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" />
+              </div>
+            </div>
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-2">
+              <button onClick={() => setIsAddProviderModalOpen(false)} className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-200 rounded-lg transition-colors">取消</button>
+              <button onClick={handleAddProvider} className="px-6 py-2 text-sm font-medium text-white bg-black hover:bg-gray-800 rounded-lg shadow-sm transition-all">添加</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}

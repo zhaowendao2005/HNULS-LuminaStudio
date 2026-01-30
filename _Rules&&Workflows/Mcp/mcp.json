@@ -1,0 +1,27 @@
+{
+  "mcpServers": {
+    "deepwiki": {
+      "url": "https://mcp.deepwiki.com/sse",
+      "autoApprove": [
+        "ask_question",
+        "read_wiki_contents"
+      ]
+    },
+    "filesystem": {
+      "args": [
+        "D:\\code\\mcp\\filesystem-mcp-server\\dist\\index.js",
+        "/Users/zhaowendao2005/Desktop",
+        "D:\\",
+        "E:\\"
+      ],
+      "command": "node"
+    },
+    "devin": {
+      "url": "https://mcp.devin.ai/mcp",
+      "transport": "sse",
+      "headers": {
+        "Authorization": "Bearer apk_user_Z2l0aHVifDE0MDUyODk5MF9vcmctNzI3MTcxYThlMTUyNGJhNDhjMDFlZTdmNDkwNDYzZWM6ZWQ3ZDM0ZTMzNjJjNDI1OGEyYTUzNDYyOTlkODcyNTE="
+      }
+    }
+  }
+}

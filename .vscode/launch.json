@@ -1,0 +1,53 @@
+{
+    // 使用 IntelliSense 了解相关属性。 
+    // 悬停以查看现有属性的描述。
+    // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "启动程序",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "program": "${file}"
+        },
+        {
+            "name": "调试: 开发模式 (dev)",
+            "type": "node",
+            "request": "launch",
+            "preLaunchTask": "开发模式 (dev)",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "cwd": "${workspaceFolder}/KnowledgeDatabase-src",
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen"
+        },
+        {
+            "name": "调试: 开发模式 (dev:trace)",
+            "type": "node",
+            "request": "launch",
+            "preLaunchTask": "开发模式 (dev:trace)",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "cwd": "${workspaceFolder}/KnowledgeDatabase-src",
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen"
+        },
+        {
+            "name": "调试: 构建 Windows (build:win)",
+            "type": "node",
+            "request": "launch",
+            "preLaunchTask": "构建 Windows (build:win)",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "cwd": "${workspaceFolder}/KnowledgeDatabase-src",
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen"
+        }
+    ]
+}

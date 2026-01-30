@@ -1,0 +1,15 @@
+{
+  "enabled": true,
+  "name": "Git 提交信息生成器",
+  "description": "深度分析当前工作区变更，生成简短凝练的中文 Git 提交信息。可选择对比上一次提交以获得更全面的分析。",
+  "version": "1",
+  "when": {
+    "type": "userTriggered"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "请帮我生成 Git 提交信息：\n\n1. 使用 `git diff --cached` 或 `git diff HEAD` 查看当前暂存/工作区的变更\n2. 深度分析变更内容：\n   - 识别修改的文件和功能模块\n   - 理解变更的业务意图和技术实现\n   - 提取关键改动点\n3. 生成简短凝练的中文提交信息（遵循 Git 最佳实践）：\n   - 第一行：简短摘要（50字以内），清晰描述\"做了什么\"\n   - 如有必要，第二行空行后补充详细说明（每行72字以内）\n   - 使用动词开头（如：添加、修复、优化、重构、更新）\n\n**可选增强**：如果我明确要求\"对比上次提交\"，请额外执行：\n- 使用 `git log -1 --pretty=format:\"%H%n%s%n%b\"` 获取上次提交信息\n- 对比本次变更与上次提交的关联性\n- 生成更全面的提交描述\n\n请直接输出生成的提交信息，格式清晰便于复制使用。"
+  },
+  "workspaceFolderName": "HNULS-KnowledgeDatabase",
+  "shortName": "git-commit-generator"
+}
