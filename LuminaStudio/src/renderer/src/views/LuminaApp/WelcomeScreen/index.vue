@@ -2,6 +2,16 @@
   <div class="ls-welcome fixed inset-0 bg-white z-50 flex flex-col items-center justify-center animate-fade-in overflow-hidden">
     <!-- Background -->
     <div class="absolute inset-0 pointer-events-none">
+      <video
+        class="absolute inset-0 w-full h-full object-cover"
+        autoplay
+        muted
+        loop
+        playsinline
+      >
+        <source :src="dnaVideo" type="video/mp4" />
+      </video>
+      <div class="absolute inset-0 bg-white/70"></div>
       <div class="absolute top-[-20%] left-[-10%] w-[60vw] h-[60vw] bg-emerald-100/40 rounded-full blur-[100px] animate-pulse-slow"></div>
       <div class="absolute bottom-[-10%] right-[-10%] w-[50vw] h-[50vw] bg-teal-100/40 rounded-full blur-[100px] animate-pulse-slow" style="animation-delay: 2s"></div>
     </div>
@@ -38,6 +48,8 @@
 </template>
 
 <script setup lang="ts">
+import dnaVideo from '@renderer/assets/videos/dna_black.mp4'
+
 defineEmits<{
   (e: 'start'): void
 }>()

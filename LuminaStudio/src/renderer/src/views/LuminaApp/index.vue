@@ -20,9 +20,9 @@ import { ref } from 'vue'
 import WelcomeScreen from './WelcomeScreen/index.vue'
 import Sidebar from './Sidebar/index.vue'
 import TopBar from './TopBar/index.vue'
-import DashboardView from './DashboardView/index.vue'
-import ReaderView from './ReaderView/index.vue'
-import GraphView from './GraphView/index.vue'
+import DashboardView from './Maincontent/DashboardView/index.vue'
+import ReaderView from './Maincontent/ReaderView/index.vue'
+import GraphView from './Maincontent/GraphView/index.vue'
 
 const hasStarted = ref(false)
 const activeTab = ref('dashboard')

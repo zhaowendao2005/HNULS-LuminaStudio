@@ -1,12 +1,5 @@
 <template>
   <div class="ls-sidebar w-16 h-full bg-white border-r border-slate-200 flex flex-col items-center py-6 z-30 shadow-[4px_0_24px_-12px_rgba(16,185,129,0.1)]">
-    <!-- Logo -->
-    <div class="mb-8 p-2 bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-xl shadow-lg shadow-emerald-900/20 ring-1 ring-white/20 flex-shrink-0">
-      <svg class="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
-        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-      </svg>
-    </div>
 
     <!-- Navigation -->
     <div class="flex-1 flex flex-col w-full px-2 gap-2">
