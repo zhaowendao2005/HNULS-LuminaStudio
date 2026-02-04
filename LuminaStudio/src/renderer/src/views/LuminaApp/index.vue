@@ -9,11 +9,17 @@
       <Sidebar :active-tab="activeTab" @change-tab="activeTab = $event" />
       <div class="flex-1 flex flex-col min-h-0 overflow-hidden relative">
         <TopBar :active-tab="activeTab" />
-        <main class="flex-1 min-h-0 p-6 overflow-y-auto overflow-x-hidden relative">
+        <main
+          :class="[
+            'flex-1 min-h-0 overflow-y-auto overflow-x-hidden relative',
+            activeTab === 'settings' ? '' : 'p-6'
+          ]"
+        >
           <DashboardView v-if="activeTab === 'dashboard'" />
           <NormalChat v-else-if="activeTab === 'normal-chat'" />
           <ReaderView v-else-if="activeTab === 'reader'" />
           <GraphView v-else-if="activeTab === 'graph'" />
+          <UserSettingView v-else-if="activeTab === 'settings'" />
         </main>
       </div>
     </div>
@@ -36,6 +42,7 @@ import DashboardView from './Maincontent/DashboardView/index.vue'
 import NormalChat from './Maincontent/NormalChat/index.vue'
 import ReaderView from './Maincontent/ReaderView/index.vue'
 import GraphView from './Maincontent/GraphView/index.vue'
+import UserSettingView from './Maincontent/UserSettingView/index.vue'
 
 const hasStarted = ref(false)
 const activeTab = ref('dashboard')

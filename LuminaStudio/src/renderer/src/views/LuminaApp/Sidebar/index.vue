@@ -28,10 +28,15 @@
 
     <!-- Bottom -->
     <div class="mb-4 w-full px-3 gap-2 flex flex-col">
-      <SidebarItem icon="settings" :active="false" @click="() => {}" />
       <div class="w-full h-[1px] bg-slate-100 my-2"></div>
       <div
-        class="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 cursor-pointer transition-colors flex-shrink-0"
+        :class="[
+          'w-10 h-10 rounded-full flex items-center justify-center cursor-pointer transition-colors flex-shrink-0',
+          activeTab === 'settings'
+            ? 'bg-emerald-100 text-emerald-600'
+            : 'bg-slate-50 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'
+        ]"
+        @click="$emit('change-tab', 'settings')"
       >
         <svg
           class="w-[18px] h-[18px] flex-shrink-0"
