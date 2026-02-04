@@ -2,6 +2,10 @@ import { app } from 'electron'
 import Database from 'better-sqlite3'
 import path from 'path'
 import fs from 'fs'
+import { logger } from './logger'
+
+// 创建模块作用域日志器
+const log = logger.scope('DatabaseService')
 
 /**
  * DatabaseService
@@ -32,7 +36,7 @@ export class DatabaseService {
       // 打开或创建数据库
       this.db = new Database(this.dbPath)
 
-      console.log(`[DatabaseService] Database initialized at: ${this.dbPath}`)
+      log.info('Database initialized', { path: this.dbPath })
 
       // 启用外键约束
       this.db.pragma('foreign_keys = ON')
@@ -40,7 +44,7 @@ export class DatabaseService {
       // 创建初始表结构
       this.createTables()
     } catch (error) {
-      console.error('[DatabaseService] Failed to initialize database:', error)
+      log.error('Failed to initialize database', error)
       throw error
     }
   }
@@ -73,7 +77,7 @@ export class DatabaseService {
       )
     `)
 
-    console.log('[DatabaseService] Tables created successfully')
+    log.debug('Tables created successfully')
   }
 
   /**
@@ -93,7 +97,7 @@ export class DatabaseService {
     if (this.db) {
       this.db.close()
       this.db = null
-      console.log('[DatabaseService] Database connection closed')
+      log.info('Database connection closed')
     }
   }
 
@@ -106,7 +110,7 @@ export class DatabaseService {
     }
 
     this.db.backup(backupPath)
-    console.log(`[DatabaseService] Database backed up to: ${backupPath}`)
+    log.info('Database backed up', { path: backupPath })
   }
 }
 

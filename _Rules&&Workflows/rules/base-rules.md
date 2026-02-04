@@ -201,7 +201,52 @@ trigger: always_on
 
 ---
 
-## 9. 规则变更制度（强制）
+## 9. 日志系统规范（强制）
+
+### 9.1 日志服务位置
+- **路径**：`src/main/services/base-service/logger/`
+- **导入**：`import { logger } from '@main/services/base-service/logger'`
+
+### 9.2 日志使用规范
+- **禁止**：在主进程代码中使用 `console.log`、`console.error` 等原生方法
+- **必须**：统一使用 `logger` 或其作用域日志器
+
+### 9.3 日志级别选择
+| 级别 | 场景 |
+|------|------|
+| `error` | 程序错误、异常捕获、操作失败 |
+| `warn` | 潜在问题、降级处理、非预期但可恢复的情况 |
+| `info` | 重要业务节点（启动、连接、关闭等） |
+| `debug` | 调试信息、流程追踪、变量状态 |
+| `verbose` | 详细信息、循环内部、大量数据 |
+| `silly` | 最详细追踪，仅调试时使用 |
+
+### 9.4 作用域日志器（推荐）
+```typescript
+// 在 Service/模块顶部创建作用域日志器
+import { logger } from '@main/services/base-service/logger'
+
+const log = logger.scope('MyService')
+
+// 使用
+log.info('Service initialized')  // 输出: [MyService] Service initialized
+log.error('Failed to connect', error, { host: 'localhost' })
+```
+
+### 9.5 开发脚本
+| 脚本 | 日志级别 | 说明 |
+|------|----------|------|
+| `pnpm dev` | debug | 默认开发 |
+| `pnpm dev:info` | info | 仅重要信息 |
+| `pnpm dev:debug` | debug | 含调试信息 |
+| `pnpm dev:verbose` | verbose | 详细信息 |
+| `pnpm dev:silly` | silly | 最详细 |
+| `pnpm dev:warn` | warn | 仅警告和错误 |
+| `pnpm dev:error` | error | 仅错误 |
+
+---
+
+## 10. 规则变更制度（强制）
 
 - **必须**：任何新增目录规则、命名规则、跨层通信规则，都要同步更新本 Rules 或对应 README，确保"规则可追溯且唯一"。
 - **禁止**：只口头约定、不落文档，导致后续 agent/新人无法按形式推进。
