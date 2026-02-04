@@ -3,7 +3,8 @@
   <div v-if="visible" class="nc_ModelSelector_Root_a8d3 fixed inset-0 z-50 flex items-center justify-center p-4">
     <!-- Backdrop -->
     <div 
-      class="absolute inset-0 bg-black/20 backdrop-blur-sm transition-opacity" 
+      class="absolute inset-0 bg-black/20 backdrop-blur-sm" 
+      style="animation: fadeIn 0.3s ease-out;"
       @click="$emit('update:visible', false)"
     ></div>
 
@@ -11,7 +12,7 @@
     <div 
       class="nc_ModelSelector_Content_a8d3 relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-100 flex flex-col max-h-[80vh] overflow-hidden" 
       style="
-        animation: bounceIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+        animation: slideUpBounce 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
       "
     >
       <!-- nc_ModelSelector_Header_a8d3: 对话框头部 -->
@@ -185,11 +186,26 @@ const handleSelect = (provider: Provider, model: Model) => {
 }
 </script>
 
-<style scoped>
-@keyframes bounceIn {
-  0% { opacity: 0; transform: scale(0.3); }
-  50% { opacity: 1; transform: scale(1.05); }
-  70% { transform: scale(0.95); }
-  100% { transform: scale(1); }
+<style>
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUpBounce {
+  0% { 
+    opacity: 0; 
+    transform: translateY(100px) scale(0.95); 
+  }
+  50% { 
+    opacity: 1; 
+    transform: translateY(-10px) scale(1.02); 
+  }
+  75% { 
+    transform: translateY(5px) scale(0.99); 
+  }
+  100% { 
+    transform: translateY(0) scale(1); 
+  }
 }
 </style>

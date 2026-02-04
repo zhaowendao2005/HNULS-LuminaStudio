@@ -723,8 +723,8 @@ import ModelSelectorModal from './components/ModelSelectorModal.vue'
 import ConversationListModal from './components/ConversationListModal.vue'
 
 // ===== 面板控制 =====
-const leftCollapsed = ref(false)
-const rightCollapsed = ref(false)
+const leftCollapsed = ref(true) // 默认折叠左侧栏
+const rightCollapsed = ref(true) // 默认折叠右侧栏
 
 // ===== 模态框控制 =====
 const showModelSelector = ref(false)
