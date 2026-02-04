@@ -9,6 +9,7 @@
  */
 export interface ConversationRow {
   id: string
+  agent_id: string
   title: string | null
   provider_id: string
   model_id: string
@@ -16,6 +17,30 @@ export interface ConversationRow {
   memory_rounds: number
   created_at: string
   updated_at: string
+}
+
+/**
+ * 数据库中的 agent 表行
+ */
+export interface AgentRow {
+  id: string
+  name: string
+  description: string | null
+  created_at: string
+  updated_at: string
+}
+
+/**
+ * 对话列表聚合行
+ */
+export interface ConversationSummaryRow {
+  id: string
+  agent_id: string
+  title: string | null
+  provider_id: string
+  model_id: string
+  updated_at: string
+  message_count: number
 }
 
 /**

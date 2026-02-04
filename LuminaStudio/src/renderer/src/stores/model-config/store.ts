@@ -262,7 +262,7 @@ export const useModelConfigStore = defineStore('model-config', () => {
   /**
    * 9. 取消订阅整组模型
    */
-  async function removeGroupModels(groupName: string, models: any[]): Promise<void> {
+  async function removeGroupModels(_groupName: string, models: any[]): Promise<void> {
     if (!selectedProviderId.value) return
     const modelIdsToRemove = new Set(models.map((m) => m.id))
     providers.value = providers.value.map((p) => {

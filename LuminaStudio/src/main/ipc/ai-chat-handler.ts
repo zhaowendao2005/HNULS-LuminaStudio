@@ -4,7 +4,8 @@ import type { AiChatService } from '../services/ai-chat/ai-chat-service'
 import type {
   AiChatStartRequest,
   AiChatAbortRequest,
-  AiChatHistoryRequest
+  AiChatHistoryRequest,
+  AiChatConversationListRequest
 } from '@preload/types'
 
 /**
@@ -34,14 +35,15 @@ export class AiChatIPCHandler extends BaseIPCHandler {
     event: IpcMainInvokeEvent,
     request: AiChatStartRequest
   ): Promise<{ success: true; data: unknown } | { success: false; error: string }> {
-    const { conversationId, providerId, modelId, input, enableThinking } = request
+    const { conversationId, agentId, providerId, modelId, input, enableThinking } = request
 
-    if (!conversationId || !providerId || !modelId || !input) {
+    if (!conversationId || !agentId || !providerId || !modelId || !input) {
       return { success: false, error: 'Missing required parameters' }
     }
 
     const result = await this.aiChatService.startStream(event.sender, {
       conversationId,
+      agentId,
       providerId,
       modelId,
       input,
@@ -82,6 +84,33 @@ export class AiChatIPCHandler extends BaseIPCHandler {
     }
 
     const result = await this.aiChatService.getHistory(conversationId, limit, offset)
+    return { success: true, data: result }
+  }
+
+  /**
+   * 获取 Agent 列表
+   */
+  async handleAgents(
+    _event: IpcMainInvokeEvent
+  ): Promise<{ success: true; data: unknown } | { success: false; error: string }> {
+    const result = await this.aiChatService.listAgents()
+    return { success: true, data: result }
+  }
+
+  /**
+   * 获取指定 Agent 下的对话列表
+   */
+  async handleConversations(
+    _event: IpcMainInvokeEvent,
+    request: AiChatConversationListRequest
+  ): Promise<{ success: true; data: unknown } | { success: false; error: string }> {
+    const { agentId } = request
+
+    if (!agentId) {
+      return { success: false, error: 'Missing agentId' }
+    }
+
+    const result = await this.aiChatService.listConversations(agentId)
     return { success: true, data: result }
   }
 }

@@ -850,6 +850,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useModelConfigStore } from '@renderer/stores/model-config/store'
+import type { Model } from '@renderer/stores/model-config/types'
 import { storeToRefs } from 'pinia'
 
 const emit = defineEmits<{
@@ -875,7 +876,7 @@ const {
 const PROVIDER_TYPES = [
   { id: 'openai', name: 'OpenAI Protocol', available: true },
   { id: 'custom', name: 'Custom', available: false }
-]
+] as const
 
 // 本地 UI 状态
 const apiKeyDraft = ref('')
@@ -1010,7 +1011,7 @@ function isModelAdded(modelId: string): boolean {
   return selectedProvider.value?.models.some((m) => m.id === modelId) || false
 }
 
-function isGroupFullyAdded(groupName: string, models: any[]): boolean {
+function isGroupFullyAdded(_groupName: string, models: any[]): boolean {
   if (!models.length) return false
   return models.every((model) => isModelAdded(model.id))
 }
@@ -1043,14 +1044,6 @@ function clearSearch(): void {
   modelSearchQuery.value = ''
 }
 
-function findGroupNameForModel(modelId: string): string {
-  for (const [groupName, models] of Object.entries(remoteModelGroups.value)) {
-    if (models.some((m: any) => m.id === modelId)) {
-      return groupName
-    }
-  }
-  return 'default'
-}
 </script>
 
 <style scoped>

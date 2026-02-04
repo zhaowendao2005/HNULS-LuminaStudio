@@ -21,7 +21,7 @@ function mapConfigToProviders(config: ModelConfig | null): ModelProvider[] {
   if (!config || !config.providers) return []
   return config.providers.map((p) => ({
     id: p.id,
-    type: p.protocol as 'openai',
+    type: p.protocol,
     name: p.name,
     apiKey: p.apiKey,
     baseUrl: p.baseUrl,

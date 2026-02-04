@@ -8,6 +8,6 @@ import { USERDATA_TABLES } from './tables'
  */
 export const USERDATA_SCHEMA: DatabaseSchema = {
   name: 'userdata',
-  version: 1,
+  version: 2,
   tables: USERDATA_TABLES
 }

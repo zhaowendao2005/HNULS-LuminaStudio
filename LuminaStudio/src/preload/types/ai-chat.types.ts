@@ -11,6 +11,7 @@ import type { ApiResponse } from './base.types'
  */
 export interface AiChatStartRequest {
   conversationId: string
+  agentId: string
   providerId: string
   modelId: string
   input: string
@@ -39,6 +40,35 @@ export interface AiChatHistoryRequest {
   conversationId: string
   limit?: number
   offset?: number
+}
+
+/**
+ * 获取指定 Agent 下的对话列表请求
+ */
+export interface AiChatConversationListRequest {
+  agentId: string
+}
+
+/**
+ * Agent 信息
+ */
+export interface AiChatAgent {
+  id: string
+  name: string
+  description?: string | null
+}
+
+/**
+ * 对话列表条目
+ */
+export interface AiChatConversation {
+  id: string
+  agentId: string
+  title?: string | null
+  providerId: string
+  modelId: string
+  updatedAt: string
+  messageCount: number
 }
 
 /**
@@ -207,6 +237,16 @@ export interface AiChatAPI {
    * 获取对话历史
    */
   history: (request: AiChatHistoryRequest) => Promise<ApiResponse<AiChatHistoryResponse>>
+
+  /**
+   * 获取 Agent 列表
+   */
+  agents: () => Promise<ApiResponse<AiChatAgent[]>>
+
+  /**
+   * 获取指定 Agent 下的对话列表
+   */
+  conversations: (request: AiChatConversationListRequest) => Promise<ApiResponse<AiChatConversation[]>>
 
   /**
    * 订阅流式事件

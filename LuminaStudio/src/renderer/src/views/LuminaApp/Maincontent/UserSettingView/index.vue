@@ -46,7 +46,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import ModelConfigView from './ModelConfigView/index.vue'
 
 const emit = defineEmits<{

@@ -160,9 +160,9 @@
           class="flex items-center gap-2 px-4 py-1.5 bg-white border border-slate-200 rounded-full text-xs font-medium text-slate-600 hover:border-emerald-200 hover:text-emerald-700 hover:shadow-sm transition-all"
         >
           <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span class="uppercase">{{ currentProviderId }}</span>
+          <span class="uppercase">{{ displayProviderId }}</span>
           <span class="text-slate-300">/</span>
-          <span>{{ currentModelId }}</span>
+          <span>{{ displayModelId }}</span>
           <svg
             class="w-3 h-3 text-slate-400 ml-1"
             viewBox="0 0 24 24"
@@ -362,11 +362,11 @@
                       <div class="flex-1 space-y-1">
                         <!-- 如果是搜索结果，美化展示 -->
                         <div
-                          v-if="tool.result.results"
+                          v-if="tool.result?.results?.length"
                           class="space-y-1.5 bg-white/70 p-2 rounded border border-slate-100"
                         >
                           <div
-                            v-for="(item, idx) in tool.result.results.slice(0, 3)"
+                            v-for="(item, idx) in (tool.result?.results || []).slice(0, 3)"
                             :key="idx"
                             class="text-[11px]"
                           >
@@ -710,10 +710,7 @@
       @select="handleModelSelect"
     />
 
-    <ConversationListModal
-      v-model:visible="showConversationList"
-      @select="handleConversationSelect"
-    />
+    <ConversationListModal v-model:visible="showConversationList" />
   </div>
 </template>
 
@@ -721,6 +718,11 @@
 import { ref, nextTick, watch, computed } from 'vue'
 import ModelSelectorModal from './components/ModelSelectorModal.vue'
 import ConversationListModal from './components/ConversationListModal.vue'
+import { useAiChatStore } from '@renderer/stores/ai-chat/store'
+import { useModelConfigStore } from '@renderer/stores/model-config/store'
+
+const chatStore = useAiChatStore()
+const modelConfigStore = useModelConfigStore()
 
 // ===== 面板控制 =====
 const leftCollapsed = ref(true) // 默认折叠左侧栏
@@ -729,20 +731,6 @@ const rightCollapsed = ref(true) // 默认折叠右侧栏
 // ===== 模态框控制 =====
 const showModelSelector = ref(false)
 const showConversationList = ref(false)
-
-const currentProviderId = ref('openai')
-const currentModelId = ref('gpt-4o')
-
-const handleModelSelect = (provider: any, model: any) => {
-  currentProviderId.value = provider.id
-  currentModelId.value = model.id
-  // TODO: 切换模型逻辑
-}
-
-const handleConversationSelect = (conversation: any) => {
-  // TODO: 切换对话逻辑
-  console.log('Switched to conversation:', conversation.title)
-}
 
 // ===== 静态数据 =====
 const sourceItems = [
@@ -808,48 +796,16 @@ const notes = [
   { id: 4, title: '细胞工程原理与应用概论', time: '53 天前' }
 ]
 
-// ===== 类型定义 =====
-interface ThinkingStep {
-  id: string
-  content: string
-}
-
-interface ToolCall {
-  id: string
-  name: string
-  input: Record<string, unknown>
-  result?: unknown
-}
-
-interface Message {
-  id: string
-  role: 'user' | 'assistant'
-  content: string // 主文本内容
-  isStreaming?: boolean
-  thinkingSteps?: ThinkingStep[] // 深度思考步骤
-  isThinking?: boolean // 是否正在思考中
-  toolCalls?: ToolCall[] // 工具调用列表
-  usage?: {
-    inputTokens: number
-    outputTokens: number
-    reasoningTokens?: number
-    totalTokens: number
-  }
-}
-
-// ===== 消息状态 =====
-const messages = ref<Message[]>([
-  {
-    id: 'init-1',
-    role: 'assistant',
-    content: '你好！我是 LuminaStudio AI 助手。你可以问我任何问题，我支持深度思考模式和工具调用。'
-  }
-])
-
 const userInput = ref('')
-const isGenerating = ref(false)
-const currentRequestId = ref<string | null>(null)
 const messagesContainerRef = ref<HTMLElement | null>(null)
+
+const messages = computed(() => chatStore.currentMessages)
+const isGenerating = computed(() => chatStore.isGenerating)
+
+const currentProviderId = computed(() => chatStore.currentProviderId)
+const currentModelId = computed(() => chatStore.currentModelId)
+const displayProviderId = computed(() => currentProviderId.value || 'provider')
+const displayModelId = computed(() => currentModelId.value || 'model')
 
 // ===== 自动滚动 =====
 const scrollToBottom = async () => {
@@ -860,9 +816,9 @@ const scrollToBottom = async () => {
 }
 
 watch(
-  () => messages.value.length,
+  messages,
   () => scrollToBottom(),
-  { flush: 'post' }
+  { deep: true, flush: 'post' }
 )
 
 // ===== 深度思考折叠状态 =====
@@ -876,115 +832,8 @@ const isThinkingExpanded = (msgId: string) => {
   return thinkingExpandedMap.value[msgId] ?? true // 默认展开
 }
 
-// ===== 临时模拟：IPC 调用 =====
-// TODO: 后续替换为真实的 window.api.aiChat.* 调用
-
-const mockStreamAIResponse = async (userMessage: string, msgId: string) => {
-  const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
-
-  // 1. 创建 assistant 消息（初始状态：空白）
-  const aiMsg: Message = {
-    id: msgId,
-    role: 'assistant',
-    content: '',
-    isStreaming: true,
-    isThinking: true,
-    thinkingSteps: [],
-    toolCalls: []
-  }
-
-  messages.value.push(aiMsg)
-  thinkingExpandedMap.value[msgId] = true // 默认展开思考过程
-  await delay(300) // 稍微延迟，让用户看到消息框出现
-
-  // ===== 阶段 1: 深度思考流式追加 =====
-  const thinkingTexts = [
-    '正在分析用户的问题结构...',
-    '检索相关知识库和上下文...',
-    '识别关键概念和潜在的关联性...',
-    '评估最佳回复策略...',
-    '构建结构化的回复框架...'
-  ]
-
-  for (let i = 0; i < thinkingTexts.length; i++) {
-    await delay(500 + Math.random() * 300) // 随机延迟，更自然
-    const stepId = `${msgId}-thinking-${i}`
-    aiMsg.thinkingSteps!.push({ id: stepId, content: thinkingTexts[i] })
-    scrollToBottom()
-  }
-
-  // 思考完成
-  await delay(400)
-  aiMsg.isThinking = false
-  
-  // 延迟 800ms 后自动折叠思考区域
-  setTimeout(() => {
-    thinkingExpandedMap.value[msgId] = false
-  }, 800)
-
-  // ===== 阶段 2: 工具调用（如果需要）=====
-  const needsToolCall = userMessage.includes('搜索') || userMessage.includes('查找') || userMessage.includes('文档')
-  
-  if (needsToolCall) {
-    await delay(400)
-    
-    // 2.1 显示工具调用开始（无结果）
-    const toolCallId = `${msgId}-tool-${Date.now()}`
-    aiMsg.toolCalls!.push({
-      id: toolCallId,
-      name: 'web_search',
-      input: { query: userMessage.slice(0, 30) }
-    })
-    scrollToBottom()
-
-    // 2.2 模拟工具执行中...
-    await delay(1200 + Math.random() * 500)
-    
-    // 2.3 返回工具结果
-    const toolCall = aiMsg.toolCalls!.find((t) => t.id === toolCallId)
-    if (toolCall) {
-      toolCall.result = {
-        success: true,
-        results: [
-          { title: '核酸分子生物学研究进展', url: 'https://example.com/1', snippet: '关于核酸结构与功能的最新研究...' },
-          { title: '基因工程技术应用综述', url: 'https://example.com/2', snippet: '详细介绍了现代基因工程的核心技术...' },
-          { title: '分子生物学实验指南', url: 'https://example.com/3', snippet: '涵盖常用的分子生物学实验方法...' }
-        ]
-      }
-    }
-    scrollToBottom()
-    
-    await delay(500) // 给用户时间看到工具结果
-  }
-
-  // ===== 阶段 3: 流式文本生成 =====
-  await delay(400)
-  
-  const responseText = `我理解你的问题是关于「${userMessage}」。\n\n基于我的分析${needsToolCall ? '和检索结果' : ''}，这是一个很有深度的问题。让我为你详细解答：\n\n核心要点在于理解概念之间的内在联系。从理论基础到实际应用，需要建立系统性的认知框架。\n\n如果你需要了解某个特定方面的细节，欢迎继续提问。`
-
-  // 逐字符流式输出
-  const chars = responseText.split('')
-  for (let i = 0; i < chars.length; i++) {
-    await delay(15 + Math.random() * 25) // 随机延迟，模拟真实打字效果
-    aiMsg.content += chars[i]
-    
-    // 每 10 个字符滚动一次，避免频繁滚动
-    if (i % 10 === 0) {
-      scrollToBottom()
-    }
-  }
-
-  // ===== 阶段 4: 完成生成 =====
-  await delay(300)
-  scrollToBottom() // 最后确保滚动到底部
-  
-  aiMsg.isStreaming = false
-  aiMsg.usage = {
-    inputTokens: 180 + Math.floor(Math.random() * 50),
-    outputTokens: 320 + Math.floor(Math.random() * 80),
-    reasoningTokens: needsToolCall ? 150 + Math.floor(Math.random() * 50) : undefined,
-    totalTokens: 650 + Math.floor(Math.random() * 100)
-  }
+const handleModelSelect = (provider: any, model: any) => {
+  chatStore.setCurrentModel(provider.id, model.id)
 }
 
 // ===== 发送消息 =====
@@ -992,46 +841,17 @@ const handleSend = async () => {
   const input = userInput.value.trim()
   if (!input || isGenerating.value) return
 
-  // 添加用户消息
-  const userMsg: Message = {
-    id: `user-${Date.now()}`,
-    role: 'user',
-    content: input
-  }
-  messages.value.push(userMsg)
-  userInput.value = ''
-
-  // 开始生成
-  isGenerating.value = true
-  const requestId = `req-${Date.now()}`
-  currentRequestId.value = requestId
-
   try {
-    await mockStreamAIResponse(input, `ai-${Date.now()}`)
+    await chatStore.sendMessage(input)
+    userInput.value = ''
   } catch (error) {
     console.error('AI 生成失败:', error)
-    messages.value.push({
-      id: `error-${Date.now()}`,
-      role: 'assistant',
-      content: '抱歉，生成过程中出现了错误。请稍后重试。'
-    })
-  } finally {
-    isGenerating.value = false
-    currentRequestId.value = null
   }
 }
 
 // ===== 中断生成 =====
-const handleAbort = () => {
-  if (!isGenerating.value || !currentRequestId.value) return
-  // TODO: 调用 window.api.aiChat.abort({ requestId: currentRequestId.value })
-  isGenerating.value = false
-  currentRequestId.value = null
-  const lastMsg = messages.value[messages.value.length - 1]
-  if (lastMsg && lastMsg.isStreaming) {
-    lastMsg.isStreaming = false
-    lastMsg.content += '\n\n[生成已中断]'
-  }
+const handleAbort = async () => {
+  await chatStore.abortGeneration()
 }
 
 // ===== 输入框回车发送 =====
@@ -1041,4 +861,21 @@ const handleInputKeydown = (e: KeyboardEvent) => {
     handleSend()
   }
 }
+
+// 初始化模型配置
+modelConfigStore.fetchProviders().catch(() => {})
+chatStore.loadAgents().catch(() => {})
+
+watch(
+  () => modelConfigStore.providers,
+  (providers) => {
+    if (chatStore.currentProviderId || providers.length === 0) return
+    const firstProvider = providers[0]
+    const firstModel = firstProvider.models[0]
+    if (firstModel) {
+      chatStore.setCurrentModel(firstProvider.id, firstModel.id)
+    }
+  },
+  { deep: true, immediate: true }
+)
 </script>

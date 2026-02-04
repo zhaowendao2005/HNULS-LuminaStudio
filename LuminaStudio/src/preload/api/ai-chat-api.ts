@@ -4,7 +4,8 @@ import type {
   AiChatStartRequest,
   AiChatAbortRequest,
   AiChatHistoryRequest,
-  AiChatStreamEvent
+  AiChatStreamEvent,
+  AiChatConversationListRequest
 } from '../types'
 
 /**
@@ -23,6 +24,14 @@ export const aiChatAPI: AiChatAPI = {
 
   history: (request: AiChatHistoryRequest) => {
     return ipcRenderer.invoke('aiChat:history', request)
+  },
+
+  agents: () => {
+    return ipcRenderer.invoke('aiChat:agents')
+  },
+
+  conversations: (request: AiChatConversationListRequest) => {
+    return ipcRenderer.invoke('aiChat:conversations', request)
   },
 
   onStream: (handler: (event: AiChatStreamEvent) => void) => {

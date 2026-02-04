@@ -8,7 +8,7 @@ import { logger } from '../logger'
 import type { DatabaseManager } from '../database-sqlite'
 import type { ModelConfigService } from '../model-config'
 import type { AiChatStreamEvent } from '@preload/types'
-import type { StreamState, MessageRow } from './types'
+import type { StreamState, MessageRow, AgentRow, ConversationSummaryRow } from './types'
 
 const log = logger.scope('AiChatService')
 
@@ -40,6 +40,7 @@ export class AiChatService {
     sender: WebContents,
     payload: {
       conversationId: string
+      agentId: string
       providerId: string
       modelId: string
       input: string
@@ -47,12 +48,13 @@ export class AiChatService {
     }
   ): Promise<{ requestId: string; conversationId: string }> {
     const requestId = randomUUID()
-    const { conversationId, providerId, modelId, input, enableThinking } = payload
+    const { conversationId, agentId, providerId, modelId, input, enableThinking } = payload
 
-    log.info('Starting stream', { requestId, conversationId, providerId, modelId })
+    log.info('Starting stream', { requestId, conversationId, agentId, providerId, modelId })
 
     // 1. 确保 conversation 存在（如不存在则创建）
-    await this.ensureConversation(conversationId, providerId, modelId)
+    await this.ensureAgent(agentId)
+    await this.ensureConversation(conversationId, agentId, providerId, modelId)
 
     // 2. 创建 user message
     const userMessageId = randomUUID()
@@ -156,6 +158,60 @@ export class AiChatService {
     }
   }
 
+  /**
+   * 获取 Agent 列表
+   */
+  async listAgents(): Promise<Array<{ id: string; name: string; description?: string | null }>> {
+    this.ensureDefaultAgents()
+    const rows = this.db
+      .prepare('SELECT * FROM agents ORDER BY created_at ASC')
+      .all() as AgentRow[]
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      description: row.description ?? null
+    }))
+  }
+
+  /**
+   * 获取指定 Agent 下的对话列表
+   */
+  async listConversations(
+    agentId: string
+  ): Promise<
+    Array<{
+      id: string
+      agentId: string
+      title: string | null
+      providerId: string
+      modelId: string
+      updatedAt: string
+      messageCount: number
+    }>
+  > {
+    this.ensureDefaultAgents()
+    const rows = this.db
+      .prepare(
+        `SELECT c.id, c.agent_id, c.title, c.provider_id, c.model_id, c.updated_at,
+                COUNT(m.id) as message_count
+         FROM conversations c
+         LEFT JOIN messages m ON m.conversation_id = c.id
+         WHERE c.agent_id = ?
+         GROUP BY c.id
+         ORDER BY c.updated_at DESC`
+      )
+      .all(agentId) as ConversationSummaryRow[]
+    return rows.map((row) => ({
+      id: row.id,
+      agentId: row.agent_id,
+      title: row.title ?? null,
+      providerId: row.provider_id,
+      modelId: row.model_id,
+      updatedAt: row.updated_at,
+      messageCount: row.message_count
+    }))
+  }
+
   // ==================== 私有方法 ====================
 
   /**
@@ -163,6 +219,7 @@ export class AiChatService {
    */
   private async ensureConversation(
     conversationId: string,
+    agentId: string,
     providerId: string,
     modelId: string
   ): Promise<void> {
@@ -173,11 +230,53 @@ export class AiChatService {
     if (!exists) {
       this.db
         .prepare(
-          `INSERT INTO conversations (id, title, provider_id, model_id, enable_thinking, memory_rounds)
-           VALUES (?, ?, ?, ?, 0, 10)`
+          `INSERT INTO conversations (id, agent_id, title, provider_id, model_id, enable_thinking, memory_rounds)
+           VALUES (?, ?, ?, ?, ?, 0, 10)`
         )
-        .run(conversationId, `对话 ${conversationId.slice(0, 8)}`, providerId, modelId)
+        .run(
+          conversationId,
+          agentId,
+          `对话 ${conversationId.slice(0, 8)}`,
+          providerId,
+          modelId
+        )
       log.debug('Created new conversation', { conversationId })
+    }
+  }
+
+  /**
+   * 确保默认 Agent 列表存在
+   */
+  private ensureDefaultAgents(): void {
+    const countRow = this.db.prepare('SELECT COUNT(*) as count FROM agents').get() as {
+      count: number
+    }
+
+    if (countRow.count > 0) return
+
+    const defaults = [
+      { id: 'agent-1', name: 'LuminaStudio AI', description: '通用助手' },
+      { id: 'agent-2', name: 'Code Expert', description: '编程专家' },
+      { id: 'agent-3', name: 'Writer Pro', description: '文案大师' },
+      { id: 'agent-4', name: 'Research Assistant', description: '科研助手' }
+    ]
+
+    const stmt = this.db.prepare(`INSERT INTO agents (id, name, description) VALUES (?, ?, ?)`)
+    for (const agent of defaults) {
+      stmt.run(agent.id, agent.name, agent.description)
+    }
+  }
+
+  /**
+   * 确保指定 Agent 存在
+   */
+  private async ensureAgent(agentId: string): Promise<void> {
+    this.ensureDefaultAgents()
+    const exists = this.db.prepare('SELECT id FROM agents WHERE id = ?').get(agentId)
+    if (!exists) {
+      this.db
+        .prepare(`INSERT INTO agents (id, name, description) VALUES (?, ?, ?)`)
+        .run(agentId, agentId, null)
     }
   }
 
@@ -207,6 +306,10 @@ export class AiChatService {
         params.status,
         params.error ?? null
       )
+
+    this.db
+      .prepare(`UPDATE conversations SET updated_at = datetime('now') WHERE id = ?`)
+      .run(params.conversation_id)
   }
 
   /**

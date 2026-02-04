@@ -34,7 +34,7 @@ export interface PersistedModelConfig {
 /**
  * 模型提供商协议类型
  */
-export type ModelProviderProtocol = 'openai'
+export type ModelProviderProtocol = 'openai' | 'custom'
 
 /**
  * 单个模型提供商配置

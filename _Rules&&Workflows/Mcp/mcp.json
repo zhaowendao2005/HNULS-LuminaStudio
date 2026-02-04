@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "deepwiki": {
-      "url": "https://mcp.deepwiki.com/sse",
+      "url": "https://mcp.deepwiki.com/mcp",
       "autoApprove": [
         "ask_question",
         "read_wiki_contents"

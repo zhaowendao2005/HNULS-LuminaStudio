@@ -75,7 +75,9 @@
                   >
                     {{ model.name }}
                   </div>
-                  <div class="text-[10px] text-slate-400">{{ model.desc }}</div>
+                  <div class="text-[10px] text-slate-400">
+                    {{ model.group || model.id }}
+                  </div>
                 </div>
               </div>
               
@@ -103,87 +105,55 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-
-interface Model {
-  id: string
-  name: string
-  desc: string
-}
-
-interface Provider {
-  id: string
-  name: string
-  models: Model[]
-}
+import { ref, computed, watch } from 'vue'
+import { useModelConfigStore } from '@renderer/stores/model-config/store'
+import type { ModelProvider, Model } from '@renderer/stores/model-config/types'
 
 const props = defineProps<{
   visible: boolean
-  currentProviderId: string
-  currentModelId: string
+  currentProviderId: string | null
+  currentModelId: string | null
 }>()
 
 const emit = defineEmits<{
   (e: 'update:visible', value: boolean): void
-  (e: 'select', provider: Provider, model: Model): void
+  (e: 'select', provider: ModelProvider, model: Model): void
 }>()
 
 const searchQuery = ref('')
 
-// Mock Data - 后续可替换为 IPC 数据
-const providers: Provider[] = [
-  {
-    id: 'openai',
-    name: 'OpenAI',
-    models: [
-      { id: 'gpt-4o', name: 'GPT-4o', desc: '最新旗舰模型，能力最强' },
-      { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', desc: '快速且强大的推理能力' },
-      { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo', desc: '经济实惠，响应快速' }
-    ]
-  },
-  {
-    id: 'anthropic',
-    name: 'Anthropic',
-    models: [
-      { id: 'claude-3-5-sonnet', name: 'Claude 3.5 Sonnet', desc: '编码与推理能力卓越' },
-      { id: 'claude-3-opus', name: 'Claude 3 Opus', desc: '最强推理模型' }
-    ]
-  },
-  {
-    id: 'google',
-    name: 'Google',
-    models: [
-      { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', desc: '超长上下文窗口支持' },
-      { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', desc: '极致速度' }
-    ]
-  },
-  {
-    id: 'deepseek',
-    name: 'DeepSeek',
-    models: [
-      { id: 'deepseek-chat', name: 'DeepSeek V3', desc: '综合能力优秀的开源模型' },
-      { id: 'deepseek-coder', name: 'DeepSeek Coder', desc: '代码生成专精' }
-    ]
-  }
-]
+const modelConfigStore = useModelConfigStore()
+const providers = computed<ModelProvider[]>(() => modelConfigStore.providers)
 
 const filteredProviders = computed(() => {
-  if (!searchQuery.value) return providers
-  
+  if (!searchQuery.value) return providers.value
+
   const query = searchQuery.value.toLowerCase()
-  return providers.map(p => ({
-    ...p,
-    models: p.models.filter(m => 
-      m.name.toLowerCase().includes(query) || 
-      p.name.toLowerCase().includes(query)
-    )
-  })).filter(p => p.models.length > 0)
+  return providers.value
+    .map((p) => ({
+      ...p,
+      models: p.models.filter(
+        (m) =>
+          m.name.toLowerCase().includes(query) ||
+          m.id.toLowerCase().includes(query) ||
+          p.name.toLowerCase().includes(query)
+      )
+    }))
+    .filter((p) => p.models.length > 0)
 })
 
-const handleSelect = (provider: Provider, model: Model) => {
+const handleSelect = (provider: ModelProvider, model: Model) => {
   emit('select', provider, model)
   emit('update:visible', false)
 }
+
+watch(
+  () => props.visible,
+  async (visible) => {
+    if (!visible) return
+    await modelConfigStore.fetchProviders()
+  }
+)
 </script>
 
 <style>

@@ -4,7 +4,7 @@
  * 注意：这些类型仅用于前端 Store 和组件，与 Preload 跨进程类型不同
  */
 
-export type ProviderType = 'openai'
+export type ProviderType = 'openai' | 'custom'
 export type ProviderIcon = 'openai' | 'server' | 'box'
 
 /**
