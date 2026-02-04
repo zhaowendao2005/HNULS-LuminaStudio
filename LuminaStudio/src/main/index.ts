@@ -4,7 +4,12 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { registerAllHandlers } from './ipc'
 import { windowService } from './services/base-service/window-service'
-import { databaseService } from './services/base-service/database-service'
+import { sqliteTestService } from './services/base-service/sqlite-test-service'
+
+// 确保开发环境也使用 LuminaStudio 作为应用名称（生产环境自动使用 productName）
+if (!app.isPackaged) {
+  app.setName('LuminaStudio')
+}
 
 function createWindow(): void {
   // Create the browser window.
@@ -56,8 +61,8 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  // 初始化数据库
-  databaseService.initialize()
+  // 初始化 SQLite 测试数据库
+  sqliteTestService.initialize()
 
   // 注册所有 IPC handlers
   registerAllHandlers()
@@ -82,7 +87,7 @@ app.on('window-all-closed', () => {
 
 // 应用退出前清理数据库连接
 app.on('before-quit', () => {
-  databaseService.close()
+  sqliteTestService.close()
 })
 
 // In this file you can include the rest of your app's specific main process

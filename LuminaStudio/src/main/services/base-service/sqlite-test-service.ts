@@ -5,53 +5,52 @@ import fs from 'fs'
 import { logger } from '../logger'
 
 // 创建模块作用域日志器
-const log = logger.scope('DatabaseService')
+const log = logger.scope('SqliteTestService')
 
 /**
- * DatabaseService
- * 负责 SQLite 数据库的初始化、连接管理和基础操作。
+ * SqliteTestService
+ * 专门用于测试 SQLite 是否可用，验证 better-sqlite3 模块功能
  */
-export class DatabaseService {
+export class SqliteTestService {
   private db: Database.Database | null = null
   private dbPath: string
 
   constructor() {
-    ensureAppDisplayName()
-    // 获取用户数据目录并创建 databases 子目录
+    // 获取用户数据目录并创建 databases/test 子目录
     const userDataPath = app.getPath('userData')
-    const dbDir = path.join(userDataPath, 'databases')
+    const dbDir = path.join(userDataPath, 'databases', 'test')
 
     // 确保目录存在
     if (!fs.existsSync(dbDir)) {
       fs.mkdirSync(dbDir, { recursive: true })
     }
 
-    this.dbPath = path.join(dbDir, 'app.db')
+    this.dbPath = path.join(dbDir, 'sqlitetest.db')
   }
 
   /**
-   * 初始化数据库连接并创建初始表结构
+   * 初始化测试数据库连接并创建测试表结构
    */
   initialize(): void {
     try {
       // 打开或创建数据库
       this.db = new Database(this.dbPath)
 
-      log.info('Database initialized', { path: this.dbPath })
+      log.info('SQLite test database initialized', { path: this.dbPath })
 
       // 启用外键约束
       this.db.pragma('foreign_keys = ON')
 
-      // 创建初始表结构
+      // 创建测试表结构
       this.createTables()
     } catch (error) {
-      log.error('Failed to initialize database', error)
+      log.error('Failed to initialize SQLite test database', error)
       throw error
     }
   }
 
   /**
-   * 创建初始数据库表结构
+   * 创建测试数据库表结构
    */
   private createTables(): void {
     if (!this.db) {
@@ -78,7 +77,7 @@ export class DatabaseService {
       )
     `)
 
-    log.debug('Tables created successfully')
+    log.debug('Test tables created successfully')
   }
 
   /**
@@ -98,7 +97,7 @@ export class DatabaseService {
     if (this.db) {
       this.db.close()
       this.db = null
-      log.info('Database connection closed')
+      log.info('SQLite test database connection closed')
     }
   }
 
@@ -111,8 +110,8 @@ export class DatabaseService {
     }
 
     this.db.backup(backupPath)
-    log.info('Database backed up', { path: backupPath })
+    log.info('SQLite test database backed up', { path: backupPath })
   }
 }
 
-export const databaseService = new DatabaseService()
+export const sqliteTestService = new SqliteTestService()
