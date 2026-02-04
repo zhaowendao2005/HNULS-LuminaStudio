@@ -1,6 +1,7 @@
 # LuminaStudio 项目结构
 
 ## 概述
+
 LuminaStudio 是一个基于 Electron + Vue 3 + TypeScript 的桌面应用项目。
 
 ## 目录结构
@@ -64,42 +65,50 @@ LuminaStudio/
 ## 路径别名
 
 ### Main & Preload & Utility
+
 - `@main/*` → `src/main/*`
 - `@preload/*` → `src/preload/*`
 - `@preload/types` → `src/preload/types`
 - `@utility/*` → `src/utility/*`
 
 ### Renderer
+
 - `@renderer/*` → `src/renderer/src/*`
 - `@preload/types` → `src/preload/types`
 
 ## 核心原则
 
 ### 1. 目录职责清晰
+
 - 每个目录都有明确的职责，参见各目录下的 README.md
 - 禁止在顶层随意堆放未归类文件
 
 ### 2. 类型系统
+
 - `src/preload/types/` 是跨进程类型的唯一权威来源
 - 局部私有类型就近放置
 - 跨域复用的类型必须提升到公共类型目录
 
 ### 3. 单一事实来源（SSOT）
+
 - Pinia store 是业务数据的唯一权威来源
 - 避免在多处复制状态导致不一致
 
 ### 4. 定位类规范
+
 - 每个组件根容器必须包含定位类
 - 格式：`{页面简写}-{功能区域}`
 - 定位类无样式意义，仅用于快速定位代码
 
 ### 5. Tailwind 优先
+
 - 页面私有组件优先直接使用 Tailwind class
 - 公共组件适度封装，保持可读性
 
 ## 开发流程
 
 ### 添加新功能
+
 1. 在 `src/main/services/` 创建业务逻辑
 2. 在 `src/main/ipc/` 创建 IPC handler
 3. 在 `src/preload/types/` 定义跨进程类型
@@ -109,9 +118,11 @@ LuminaStudio/
 7. 在 `src/renderer/src/views/` 创建页面视图
 
 ### 类型同步
+
 - 修改 `src/preload/types/` 后，确保 `index.ts` 导出
 - `src/preload/index.d.ts` 会自动同步类型到渲染进程
 
 ## 参考文档
+
 - 详细规范：`_Rules&&Workflows/rules/base-rules.md`
 - 各目录职责：查看对应目录下的 `README.md`

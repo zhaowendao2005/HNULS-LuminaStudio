@@ -26,6 +26,7 @@ pnpm build
 ## Tailwind CSS v4 说明
 
 项目使用最新的 Tailwind CSS v4，配置方式已简化：
+
 - ✅ 不再需要 `tailwind.config.js`
 - ✅ 不再需要 `postcss.config.js`
 - ✅ 只需在 CSS 中使用 `@import "tailwindcss"`
@@ -53,6 +54,7 @@ src/renderer/src/
 ## 功能特性
 
 ### 已实现
+
 - ✅ 欢迎屏幕（带动画背景）
 - ✅ 侧边栏导航
 - ✅ 顶部搜索栏
@@ -64,6 +66,7 @@ src/renderer/src/
 - ✅ Tailwind CSS 样式
 
 ### 设计原则
+
 - 所有样式直接写在标签的 class 中（Tailwind 方式）
 - 数据写死在组件中（不使用 store）
 - 组件结构映射 UI 布局
@@ -72,6 +75,7 @@ src/renderer/src/
 ## 下一步
 
 ### 可添加的通用组件（components/）
+
 - Select 下拉选择器
 - Button 按钮组件
 - Input 输入框组件
@@ -79,6 +83,7 @@ src/renderer/src/
 - Tooltip 提示组件
 
 ### 可扩展的功能
+
 - 文献管理系统
 - 基因数据库集成
 - AI 对话历史

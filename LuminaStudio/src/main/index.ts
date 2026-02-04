@@ -3,6 +3,7 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { registerAllHandlers } from './ipc'
+import { windowService } from './services/base-service/window-service'
 
 function createWindow(): void {
   // Create the browser window.
@@ -11,12 +12,16 @@ function createWindow(): void {
     height: 670,
     show: false,
     autoHideMenuBar: true,
+    frame: false,
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false
     }
   })
+
+  // 标题栏相关事件同步（最大化/还原）
+  windowService.bind(mainWindow)
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()

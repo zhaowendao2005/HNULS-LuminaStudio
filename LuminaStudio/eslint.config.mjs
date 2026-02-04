@@ -33,7 +33,10 @@ export default defineConfig(
             lang: 'ts'
           }
         }
-      ]
+      ],
+      'vue/max-attributes-per-line': 'off',
+      'vue/singleline-html-element-content-newline': 'off',
+      'vue/multiline-html-element-content-newline': 'off'
     }
   },
   eslintConfigPrettier
