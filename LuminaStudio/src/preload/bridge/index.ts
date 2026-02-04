@@ -6,10 +6,12 @@
 import { contextBridge } from 'electron'
 import { utilsAPI } from '../api/utils-api'
 import { windowAPI } from '../api/window-api'
+import { modelConfigAPI } from '../api/model-config-api'
 
 const api = {
   utils: utilsAPI,
-  window: windowAPI
+  window: windowAPI,
+  modelConfig: modelConfigAPI
 }
 
 contextBridge.exposeInMainWorld('api', api)

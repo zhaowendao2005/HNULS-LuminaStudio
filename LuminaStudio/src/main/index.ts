@@ -5,6 +5,9 @@ import icon from '../../resources/icon.png?asset'
 import { registerAllHandlers } from './ipc'
 import { windowService } from './services/base-service/window-service'
 import { sqliteTestService } from './services/base-service/sqlite-test-service'
+import { databaseManager } from './services/database-sqlite'
+import { ModelConfigService } from './services/model-config'
+import { ModelConfigIPCHandler } from './ipc/model-config-handler'
 
 // 确保开发环境也使用 LuminaStudio 作为应用名称（生产环境自动使用 productName）
 if (!app.isPackaged) {
@@ -64,6 +67,13 @@ app.whenReady().then(() => {
   // 初始化 SQLite 测试数据库
   sqliteTestService.initialize()
 
+  // 初始化 DatabaseManager（正式数据库）
+  databaseManager.initialize()
+
+  // 初始化 Model Config Service 和 IPC Handler
+  const modelConfigService = new ModelConfigService(databaseManager)
+  new ModelConfigIPCHandler(modelConfigService)
+
   // 注册所有 IPC handlers
   registerAllHandlers()
 
@@ -88,6 +98,7 @@ app.on('window-all-closed', () => {
 // 应用退出前清理数据库连接
 app.on('before-quit', () => {
   sqliteTestService.close()
+  databaseManager.close()
 })
 
 // In this file you can include the rest of your app's specific main process

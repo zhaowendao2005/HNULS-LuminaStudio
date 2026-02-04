@@ -5,3 +5,4 @@
 
 export * from './base.types'
 export * from './window.types'
+export * from './model-config.types'
