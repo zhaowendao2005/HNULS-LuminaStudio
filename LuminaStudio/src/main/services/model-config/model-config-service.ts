@@ -81,7 +81,7 @@ const DEFAULT_MODEL_CONFIG: ModelConfig = {
 export class ModelConfigService {
   private db: Database.Database
 
-  constructor(private readonly databaseManager: DatabaseManager) {
+  constructor(databaseManager: DatabaseManager) {
     this.db = databaseManager.getDatabase('BaseConfig')
   }
 

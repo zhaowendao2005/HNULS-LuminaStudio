@@ -5,6 +5,7 @@ import fs from 'fs'
 import { logger } from '../logger'
 import type { DatabaseSchema, DatabaseInstance } from './types'
 import { BASE_CONFIG_SCHEMA } from './schema/base-config'
+import { USERDATA_SCHEMA } from './schema/userdata'
 
 const log = logger.scope('DatabaseManager')
 
@@ -29,6 +30,7 @@ export class DatabaseManager {
 
     // 注册所有数据库 Schema
     this.registerSchema(BASE_CONFIG_SCHEMA)
+    this.registerSchema(USERDATA_SCHEMA)
   }
 
   /**

@@ -29,12 +29,15 @@
     "build:linux": "npm run build && electron-builder --linux"
   },
   "dependencies": {
+    "@ai-sdk/openai-compatible": "^2.0.26",
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
+    "ai": "^6.0.69",
     "better-sqlite3": "^12.6.2",
     "electron-log": "^5.4.3",
     "electron-updater": "^6.3.9",
-    "pinia": "^3.0.4"
+    "pinia": "^3.0.4",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config-prettier": "3.0.0",

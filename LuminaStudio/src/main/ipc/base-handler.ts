@@ -66,7 +66,7 @@ export abstract class BaseIPCHandler {
     return async (event: IpcMainInvokeEvent, ...args: unknown[]) => {
       try {
         const handlerName = `handle${method.charAt(0).toUpperCase() + method.slice(1)}`
-        const handler = (this as never)[handlerName]
+        const handler = (this as any)[handlerName]
 
         if (typeof handler === 'function') {
           return await handler.call(this, event, ...args)

@@ -7,11 +7,13 @@ import { contextBridge } from 'electron'
 import { utilsAPI } from '../api/utils-api'
 import { windowAPI } from '../api/window-api'
 import { modelConfigAPI } from '../api/model-config-api'
+import { aiChatAPI } from '../api/ai-chat-api'
 
 const api = {
   utils: utilsAPI,
   window: windowAPI,
-  modelConfig: modelConfigAPI
+  modelConfig: modelConfigAPI,
+  aiChat: aiChatAPI
 }
 
 contextBridge.exposeInMainWorld('api', api)

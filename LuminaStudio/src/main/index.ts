@@ -8,6 +8,8 @@ import { sqliteTestService } from './services/base-service/sqlite-test-service'
 import { databaseManager } from './services/database-sqlite'
 import { ModelConfigService } from './services/model-config'
 import { ModelConfigIPCHandler } from './ipc/model-config-handler'
+import { AiChatService } from './services/ai-chat/ai-chat-service'
+import { AiChatIPCHandler } from './ipc/ai-chat-handler'
 
 // 确保开发环境也使用 LuminaStudio 作为应用名称（生产环境自动使用 productName）
 if (!app.isPackaged) {
@@ -73,6 +75,10 @@ app.whenReady().then(() => {
   // 初始化 Model Config Service 和 IPC Handler
   const modelConfigService = new ModelConfigService(databaseManager)
   new ModelConfigIPCHandler(modelConfigService)
+
+  // 初始化 AI Chat Service 和 IPC Handler
+  const aiChatService = new AiChatService(databaseManager, modelConfigService)
+  new AiChatIPCHandler(aiChatService)
 
   // 注册所有 IPC handlers
   registerAllHandlers()

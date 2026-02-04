@@ -6,3 +6,4 @@
 export * from './base.types'
 export * from './window.types'
 export * from './model-config.types'
+export * from './ai-chat.types'
