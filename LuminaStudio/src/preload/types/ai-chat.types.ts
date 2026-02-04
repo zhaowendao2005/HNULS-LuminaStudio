@@ -41,6 +41,24 @@ export interface AiChatHistoryRequest {
   limit?: number
   offset?: number
 }
+/**
+ * 创建助手请求
+ */
+export interface AiChatCreateAgentRequest {
+  name: string
+  description?: string | null
+}
+
+/**
+ * 创建对话请求
+ */
+export interface AiChatCreateConversationRequest {
+  agentId: string
+  title?: string | null
+  providerId: string
+  modelId: string
+  enableThinking?: boolean
+}
 
 /**
  * 获取指定 Agent 下的对话列表请求
@@ -237,6 +255,17 @@ export interface AiChatAPI {
    * 获取对话历史
    */
   history: (request: AiChatHistoryRequest) => Promise<ApiResponse<AiChatHistoryResponse>>
+  /**
+   * 创建助手
+   */
+  createAgent: (request: AiChatCreateAgentRequest) => Promise<ApiResponse<AiChatAgent>>
+
+  /**
+   * 创建对话
+   */
+  createConversation: (
+    request: AiChatCreateConversationRequest
+  ) => Promise<ApiResponse<AiChatConversation>>
 
   /**
    * 获取 Agent 列表

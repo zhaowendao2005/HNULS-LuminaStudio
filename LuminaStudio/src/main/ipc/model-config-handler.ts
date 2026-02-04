@@ -43,7 +43,7 @@ export class ModelConfigIPCHandler extends BaseIPCHandler {
   /**
    * 从提供商同步模型列表
    */
-  async handleSyncmodels(
+  async handleSyncModels(
     _event: unknown,
     providerId: unknown
   ): Promise<{ success: true; data: unknown } | { success: false; error: string }> {

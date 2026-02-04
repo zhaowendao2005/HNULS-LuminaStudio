@@ -10,7 +10,9 @@ import type {
   AiChatStreamEvent,
   AiChatAgent,
   AiChatConversation,
-  AiChatMessage
+  AiChatMessage,
+  AiChatCreateAgentRequest,
+  AiChatCreateConversationRequest
 } from '@preload/types'
 import type { AgentInfo, ConversationSummary, ChatMessage, ThinkingStep } from './types'
 
@@ -107,6 +109,22 @@ export const AiChatDataSource = {
       throw new Error(res.error || 'Failed to load conversations')
     }
     return res.data.map(mapConversation)
+  },
+
+  async createAgent(request: AiChatCreateAgentRequest): Promise<AgentInfo> {
+    const res = await window.api.aiChat.createAgent(request)
+    if (!res.success || !res.data) {
+      throw new Error(res.error || 'Failed to create agent')
+    }
+    return mapAgent(res.data)
+  },
+
+  async createConversation(request: AiChatCreateConversationRequest): Promise<ConversationSummary> {
+    const res = await window.api.aiChat.createConversation(request)
+    if (!res.success || !res.data) {
+      throw new Error(res.error || 'Failed to create conversation')
+    }
+    return mapConversation(res.data)
   },
 
   subscribeStream(handler: (event: AiChatStreamEvent) => void): () => void {

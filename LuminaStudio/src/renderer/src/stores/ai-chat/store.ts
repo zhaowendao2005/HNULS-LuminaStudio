@@ -48,12 +48,6 @@ export const useAiChatStore = defineStore('ai-chat', () => {
     return messagesByConversation.value.get(conversationId)!
   }
 
-  const createConversationId = (): string => {
-    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-      return crypto.randomUUID()
-    }
-    return `conv-${Date.now()}`
-  }
 
   const createMessageId = (requestId: string): string => `msg-${requestId}`
 
@@ -95,6 +89,29 @@ export const useAiChatStore = defineStore('ai-chat', () => {
     }
   }
 
+  async function createAgent(name: string, description?: string | null): Promise<void> {
+    const agent = await AiChatDataSource.createAgent({ name, description })
+    agents.value = [...agents.value, agent]
+    currentAgentId.value = agent.id
+    conversationsByAgent.value = { ...conversationsByAgent.value, [agent.id]: [] }
+    currentConversationId.value = null
+  }
+
+  async function createConversation(payload: {
+    agentId: string
+    title?: string | null
+    providerId: string
+    modelId: string
+    enableThinking?: boolean
+  }): Promise<void> {
+    const conversation = await AiChatDataSource.createConversation(payload)
+    await loadConversations(payload.agentId)
+    currentConversationId.value = conversation.id
+    currentProviderId.value = payload.providerId
+    currentModelId.value = payload.modelId
+    ensureConversationMessages(conversation.id)
+  }
+
   async function switchConversation(conversationId: string): Promise<void> {
     currentConversationId.value = conversationId
     const res = await AiChatDataSource.loadHistory({
@@ -127,8 +144,20 @@ export const useAiChatStore = defineStore('ai-chat', () => {
     if (!currentProviderId.value || !currentModelId.value) {
       throw new Error('Model is not selected')
     }
+    let conversationId = currentConversationId.value
+    if (!conversationId) {
+      await createConversation({
+        agentId: currentAgentId.value,
+        providerId: currentProviderId.value,
+        modelId: currentModelId.value,
+        enableThinking: enableThinking.value
+      })
+      conversationId = currentConversationId.value
+    }
 
-    const conversationId = currentConversationId.value || createConversationId()
+    if (!conversationId) {
+      throw new Error('Conversation is not available')
+    }
     currentConversationId.value = conversationId
 
     const list = ensureConversationMessages(conversationId)
@@ -328,6 +357,8 @@ export const useAiChatStore = defineStore('ai-chat', () => {
     loadAgents,
     selectAgent,
     loadConversations,
+    createAgent,
+    createConversation,
     switchConversation,
     sendMessage,
     abortGeneration,

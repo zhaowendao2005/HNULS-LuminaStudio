@@ -16,7 +16,6 @@ export const modelConfigAPI: ModelConfigAPI = {
   },
 
   syncModels: (providerId: string) => {
-    // BaseIPCHandler 会把 handleSyncmodels 注册成 'syncmodels'（全小写）
-    return ipcRenderer.invoke('modelConfig:syncmodels', providerId)
+    return ipcRenderer.invoke('modelConfig:syncModels', providerId)
   }
 }

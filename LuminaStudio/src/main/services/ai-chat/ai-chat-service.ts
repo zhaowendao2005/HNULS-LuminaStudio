@@ -8,7 +8,7 @@ import { logger } from '../logger'
 import type { DatabaseManager } from '../database-sqlite'
 import type { ModelConfigService } from '../model-config'
 import type { AiChatStreamEvent } from '@preload/types'
-import type { StreamState, MessageRow, AgentRow, ConversationSummaryRow } from './types'
+import type { StreamState, MessageRow, AgentRow, ConversationSummaryRow, ConversationRow } from './types'
 
 const log = logger.scope('AiChatService')
 
@@ -210,6 +210,72 @@ export class AiChatService {
       updatedAt: row.updated_at,
       messageCount: row.message_count
     }))
+  }
+
+  /**
+   * 创建 Agent
+   */
+  async createAgent(
+    name: string,
+    description?: string | null
+  ): Promise<{ id: string; name: string; description?: string | null }> {
+    const trimmedName = name.trim()
+    if (!trimmedName) {
+      throw new Error('Agent name is required')
+    }
+
+    const id = randomUUID()
+    this.db
+      .prepare(`INSERT INTO agents (id, name, description) VALUES (?, ?, ?)`)
+      .run(id, trimmedName, description ?? null)
+
+    return { id, name: trimmedName, description: description ?? null }
+  }
+
+  /**
+   * 创建对话
+   */
+  async createConversation(payload: {
+    agentId: string
+    title?: string | null
+    providerId: string
+    modelId: string
+    enableThinking?: boolean
+  }): Promise<{
+    id: string
+    agentId: string
+    title: string | null
+    providerId: string
+    modelId: string
+    updatedAt: string
+    messageCount: number
+  }> {
+    const { agentId, title, providerId, modelId, enableThinking } = payload
+    await this.ensureAgent(agentId)
+
+    const id = randomUUID()
+    const resolvedTitle = title?.trim() || `对话 ${id.slice(0, 8)}`
+
+    this.db
+      .prepare(
+        `INSERT INTO conversations (id, agent_id, title, provider_id, model_id, enable_thinking, memory_rounds)
+         VALUES (?, ?, ?, ?, ?, ?, 10)`
+      )
+      .run(id, agentId, resolvedTitle, providerId, modelId, enableThinking ? 1 : 0)
+
+    const row = this.db
+      .prepare('SELECT * FROM conversations WHERE id = ?')
+      .get(id) as ConversationRow
+
+    return {
+      id: row.id,
+      agentId: row.agent_id,
+      title: row.title ?? null,
+      providerId: row.provider_id,
+      modelId: row.model_id,
+      updatedAt: row.updated_at,
+      messageCount: 0
+    }
   }
 
   // ==================== 私有方法 ====================

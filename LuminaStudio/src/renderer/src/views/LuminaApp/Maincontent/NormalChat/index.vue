@@ -389,11 +389,16 @@
               </div>
 
               <!-- 主文本内容 -->
+              <div v-if="msg.role === 'assistant'" class="text-[15px] leading-relaxed text-slate-800">
+                <div v-html="renderMarkdown(msg.content)"></div>
+                <span
+                  v-if="msg.isStreaming"
+                  class="inline-block w-1 h-4 bg-emerald-500 animate-pulse ml-0.5 align-middle"
+                ></span>
+              </div>
               <div
-                :class="[
-                  'text-[15px] leading-relaxed text-slate-800 whitespace-pre-wrap',
-                  msg.role === 'user' ? 'bg-emerald-50 px-4 py-3 rounded-2xl inline-block' : ''
-                ]"
+                v-else
+                class="text-[15px] leading-relaxed text-slate-800 whitespace-pre-wrap bg-emerald-50 px-4 py-3 rounded-2xl inline-block"
               >
                 {{ msg.content }}
                 <span
@@ -716,6 +721,7 @@
 
 <script setup lang="ts">
 import { ref, nextTick, watch, computed } from 'vue'
+import MarkdownIt from 'markdown-it'
 import ModelSelectorModal from './components/ModelSelectorModal.vue'
 import ConversationListModal from './components/ConversationListModal.vue'
 import { useAiChatStore } from '@renderer/stores/ai-chat/store'
@@ -806,6 +812,16 @@ const currentProviderId = computed(() => chatStore.currentProviderId)
 const currentModelId = computed(() => chatStore.currentModelId)
 const displayProviderId = computed(() => currentProviderId.value || 'provider')
 const displayModelId = computed(() => currentModelId.value || 'model')
+
+const markdown = new MarkdownIt({
+  html: false,
+  linkify: true,
+  breaks: true
+})
+
+const renderMarkdown = (content: string) => {
+  return markdown.render(content || '')
+}
 
 // ===== 自动滚动 =====
 const scrollToBottom = async () => {

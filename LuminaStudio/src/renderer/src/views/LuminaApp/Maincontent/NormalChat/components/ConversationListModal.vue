@@ -45,7 +45,10 @@
         </div>
         
         <div class="p-3 border-t border-slate-100">
-          <button class="w-full flex items-center justify-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-600 hover:text-emerald-600 hover:border-emerald-200 transition-colors">
+          <button
+            class="w-full flex items-center justify-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-600 hover:text-emerald-600 hover:border-emerald-200 transition-colors"
+            @click="openCreateAgentModal"
+          >
             <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M12 5v14" />
               <path d="M5 12h14" />
@@ -60,16 +63,24 @@
         <!-- Header -->
         <div class="h-16 flex items-center justify-between px-6 border-b border-slate-100">
           <h2 class="text-lg font-semibold text-slate-800">对话历史</h2>
-          <div class="relative w-64">
-            <svg class="absolute left-3 top-2.5 w-4 h-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="11" cy="11" r="8" />
-              <path d="m21 21-4.35-4.35" />
-            </svg>
-            <input 
-              type="text" 
-              placeholder="搜索对话记录..." 
-              class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
-            />
+          <div class="flex items-center gap-3">
+            <button
+              class="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 transition-colors"
+              @click="openCreateConversationModal"
+            >
+              新建对话
+            </button>
+            <div class="relative w-64">
+              <svg class="absolute left-3 top-2.5 w-4 h-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.35-4.35" />
+              </svg>
+              <input 
+                type="text" 
+                placeholder="搜索对话记录..." 
+                class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+              />
+            </div>
           </div>
         </div>
 
@@ -131,12 +142,114 @@
         </svg>
       </button>
     </div>
+
+    <!-- Create Agent Modal -->
+    <div
+      v-if="showCreateAgentModal"
+      class="nc_ConversationList_SubModal_a8d3 absolute inset-0 z-20 flex items-center justify-center"
+    >
+      <div class="absolute inset-0 bg-black/30" @click="closeCreateAgentModal"></div>
+      <div class="relative w-full max-w-md rounded-2xl bg-white shadow-2xl border border-slate-100 p-6">
+        <div class="text-lg font-semibold text-slate-800">新建助手</div>
+        <div class="mt-4 space-y-3">
+          <input
+            v-model="newAgentName"
+            type="text"
+            placeholder="助手名称（必填）"
+            class="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
+          />
+          <textarea
+            v-model="newAgentDescription"
+            rows="3"
+            placeholder="描述（可选）"
+            class="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 resize-none"
+          ></textarea>
+        </div>
+        <div class="mt-6 flex items-center justify-end gap-2">
+          <button
+            class="px-4 py-2 rounded-lg text-xs text-slate-500 hover:text-slate-700 transition-colors"
+            @click="closeCreateAgentModal"
+          >
+            取消
+          </button>
+          <button
+            class="px-4 py-2 rounded-lg bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed"
+            :disabled="!newAgentName.trim()"
+            @click="handleCreateAgent"
+          >
+            创建
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Create Conversation Modal -->
+    <div
+      v-if="showCreateConversationModal"
+      class="nc_ConversationList_SubModal_a8d3 absolute inset-0 z-20 flex items-center justify-center"
+    >
+      <div class="absolute inset-0 bg-black/30" @click="closeCreateConversationModal"></div>
+      <div class="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl border border-slate-100 p-6">
+        <div class="text-lg font-semibold text-slate-800">新建对话</div>
+        <div class="mt-4 space-y-4">
+          <input
+            v-model="newConversationTitle"
+            type="text"
+            placeholder="对话标题（可选）"
+            class="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
+          />
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <div class="text-xs text-slate-500 mb-2">Provider</div>
+              <select
+                v-model="selectedProviderId"
+                class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
+              >
+                <option v-for="provider in providers" :key="provider.id" :value="provider.id">
+                  {{ provider.name || provider.id }}
+                </option>
+              </select>
+            </div>
+            <div>
+              <div class="text-xs text-slate-500 mb-2">Model</div>
+              <select
+                v-model="selectedModelId"
+                class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
+              >
+                <option v-for="model in providerModels" :key="model.id" :value="model.id">
+                  {{ model.name || model.id }}
+                </option>
+              </select>
+            </div>
+          </div>
+          <div v-if="providers.length === 0" class="text-xs text-amber-500">
+            暂无可用 Provider，请先在模型配置中添加。
+          </div>
+        </div>
+        <div class="mt-6 flex items-center justify-end gap-2">
+          <button
+            class="px-4 py-2 rounded-lg text-xs text-slate-500 hover:text-slate-700 transition-colors"
+            @click="closeCreateConversationModal"
+          >
+            取消
+          </button>
+          <button
+            class="px-4 py-2 rounded-lg bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed"
+            :disabled="!selectedProviderId || !selectedModelId"
+            @click="handleCreateConversation"
+          >
+            创建
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useAiChatStore } from '@renderer/stores/ai-chat/store'
+import { useModelConfigStore } from '@renderer/stores/model-config/store'
 
 const props = defineProps<{
   visible: boolean
@@ -147,6 +260,7 @@ const emit = defineEmits<{
 }>()
 
 const chatStore = useAiChatStore()
+const modelConfigStore = useModelConfigStore()
 
 const agentColorClasses = [
   'bg-gradient-to-tr from-emerald-500 to-teal-600',
@@ -158,6 +272,20 @@ const agentColorClasses = [
 const agents = computed(() => chatStore.agents)
 const selectedAgentId = computed(() => chatStore.currentAgentId)
 const currentAgentConversations = computed(() => chatStore.currentConversations)
+const providers = computed(() => modelConfigStore.providers)
+
+const showCreateAgentModal = ref(false)
+const showCreateConversationModal = ref(false)
+const newAgentName = ref('')
+const newAgentDescription = ref('')
+const newConversationTitle = ref('')
+const selectedProviderId = ref<string | null>(null)
+const selectedModelId = ref<string | null>(null)
+
+const providerModels = computed(() => {
+  const provider = providers.value.find((p) => p.id === selectedProviderId.value)
+  return provider?.models || []
+})
 
 const handleSelectAgent = async (agentId: string) => {
   await chatStore.selectAgent(agentId)
@@ -165,6 +293,63 @@ const handleSelectAgent = async (agentId: string) => {
 
 const handleSelectConversation = async (conversationId: string) => {
   await chatStore.switchConversation(conversationId)
+  emit('update:visible', false)
+}
+
+const openCreateAgentModal = () => {
+  newAgentName.value = ''
+  newAgentDescription.value = ''
+  showCreateAgentModal.value = true
+}
+
+const closeCreateAgentModal = () => {
+  showCreateAgentModal.value = false
+}
+
+const handleCreateAgent = async () => {
+  const name = newAgentName.value.trim()
+  if (!name) return
+  await chatStore.createAgent(name, newAgentDescription.value.trim() || null)
+  showCreateAgentModal.value = false
+}
+
+const openCreateConversationModal = async () => {
+  showCreateConversationModal.value = true
+  await modelConfigStore.fetchProviders().catch(() => {})
+  if (providers.value.length > 0) {
+    const preferredProvider =
+      chatStore.currentProviderId &&
+      providers.value.some((p) => p.id === chatStore.currentProviderId)
+        ? chatStore.currentProviderId
+        : providers.value[0].id
+    selectedProviderId.value = preferredProvider
+
+    const models = providers.value.find((p) => p.id === preferredProvider)?.models || []
+    if (models.length > 0) {
+      const preferredModel =
+        chatStore.currentModelId && models.some((m) => m.id === chatStore.currentModelId)
+          ? chatStore.currentModelId
+          : models[0].id
+      selectedModelId.value = preferredModel
+    }
+  }
+}
+
+const closeCreateConversationModal = () => {
+  showCreateConversationModal.value = false
+}
+
+const handleCreateConversation = async () => {
+  const agentId = chatStore.currentAgentId
+  if (!agentId || !selectedProviderId.value || !selectedModelId.value) return
+  await chatStore.createConversation({
+    agentId,
+    title: newConversationTitle.value.trim() || null,
+    providerId: selectedProviderId.value,
+    modelId: selectedModelId.value,
+    enableThinking: chatStore.enableThinking
+  })
+  showCreateConversationModal.value = false
   emit('update:visible', false)
 }
 
@@ -180,9 +365,42 @@ watch(
   async (visible) => {
     if (!visible) return
     await chatStore.loadAgents()
+    await modelConfigStore.fetchProviders().catch(() => {})
     if (chatStore.currentAgentId) {
       await chatStore.loadConversations(chatStore.currentAgentId)
     }
+  }
+)
+
+watch(
+  providers,
+  (list) => {
+    if (!selectedProviderId.value && list.length > 0) {
+      selectedProviderId.value = chatStore.currentProviderId || list[0].id
+    }
+  },
+  { immediate: true }
+)
+
+watch(
+  providerModels,
+  (models) => {
+    if (models.length === 0) {
+      selectedModelId.value = null
+      return
+    }
+    if (!models.some((m) => m.id === selectedModelId.value)) {
+      selectedModelId.value = chatStore.currentModelId || models[0].id
+    }
+  },
+  { immediate: true }
+)
+
+watch(
+  () => showCreateConversationModal.value,
+  (visible) => {
+    if (!visible) return
+    newConversationTitle.value = ''
   }
 )
 </script>

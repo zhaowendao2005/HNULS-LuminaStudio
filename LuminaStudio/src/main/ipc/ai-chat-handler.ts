@@ -5,7 +5,9 @@ import type {
   AiChatStartRequest,
   AiChatAbortRequest,
   AiChatHistoryRequest,
-  AiChatConversationListRequest
+  AiChatConversationListRequest,
+  AiChatCreateAgentRequest,
+  AiChatCreateConversationRequest
 } from '@preload/types'
 
 /**
@@ -98,6 +100,23 @@ export class AiChatIPCHandler extends BaseIPCHandler {
   }
 
   /**
+   * 创建 Agent
+   */
+  async handleCreateAgent(
+    _event: IpcMainInvokeEvent,
+    request: AiChatCreateAgentRequest
+  ): Promise<{ success: true; data: unknown } | { success: false; error: string }> {
+    const { name, description } = request
+
+    if (!name?.trim()) {
+      return { success: false, error: 'Missing name' }
+    }
+
+    const result = await this.aiChatService.createAgent(name.trim(), description ?? null)
+    return { success: true, data: result }
+  }
+
+  /**
    * 获取指定 Agent 下的对话列表
    */
   async handleConversations(
@@ -111,6 +130,30 @@ export class AiChatIPCHandler extends BaseIPCHandler {
     }
 
     const result = await this.aiChatService.listConversations(agentId)
+    return { success: true, data: result }
+  }
+
+  /**
+   * 创建对话
+   */
+  async handleCreateConversation(
+    _event: IpcMainInvokeEvent,
+    request: AiChatCreateConversationRequest
+  ): Promise<{ success: true; data: unknown } | { success: false; error: string }> {
+    const { agentId, title, providerId, modelId, enableThinking } = request
+
+    if (!agentId || !providerId || !modelId) {
+      return { success: false, error: 'Missing required parameters' }
+    }
+
+    const result = await this.aiChatService.createConversation({
+      agentId,
+      title,
+      providerId,
+      modelId,
+      enableThinking
+    })
+
     return { success: true, data: result }
   }
 }

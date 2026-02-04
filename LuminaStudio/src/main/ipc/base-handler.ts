@@ -50,8 +50,9 @@ export abstract class BaseIPCHandler {
         typeof prototype[name] === 'function' &&
         name.startsWith('handle')
       ) {
-        // 将 handleReadFile 转换为 readfile（全小写）
-        const methodName = name.replace(/^handle/, '').toLowerCase()
+        // 将 handleReadFile 转换为 readFile（驼峰，首字母小写）
+        const stripped = name.replace(/^handle/, '')
+        const methodName = stripped.charAt(0).toLowerCase() + stripped.slice(1)
         methods.push(methodName)
       }
     })
