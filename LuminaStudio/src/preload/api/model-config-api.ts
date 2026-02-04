@@ -3,7 +3,7 @@ import type { ModelConfig, ModelConfigAPI } from '../types'
 
 /**
  * Model Config API
- * 
+ *
  * 通过 IPC 与主进程通信，实现模型配置管理
  */
 export const modelConfigAPI: ModelConfigAPI = {

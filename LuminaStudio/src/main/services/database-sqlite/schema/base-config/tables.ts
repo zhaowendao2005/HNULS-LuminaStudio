@@ -2,7 +2,7 @@ import type { TableDefinition } from '../../types'
 
 /**
  * BaseConfig 数据库表结构定义
- * 
+ *
  * 包含：
  * - _schema_version: 版本元数据表
  * - model_providers: 模型提供商表

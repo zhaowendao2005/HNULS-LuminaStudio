@@ -64,7 +64,6 @@ const modelCardStyle = computed(() => ({
   backgroundPosition: 'center'
 }))
 
-
 const handleOpenModelConfig = (): void => {
   currentView.value = 'model-config'
   emit('enter-detail', '模型管理')

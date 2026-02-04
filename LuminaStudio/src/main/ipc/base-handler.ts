@@ -2,15 +2,15 @@ import { ipcMain, IpcMainInvokeEvent, BrowserWindow } from 'electron'
 
 /**
  * BaseIPCHandler
- * 
+ *
  * IPC Handler 基类，提供自动注册和统一错误处理
- * 
+ *
  * 使用方式：
  * 1. 继承此基类
  * 2. 实现 getChannelPrefix() 返回 channel 前缀
  * 3. 定义 handle* 方法（如 handleGet、handleUpdate）
  * 4. 在构造函数中调用 register()
- * 
+ *
  * 示例：
  * ```typescript
  * class FooHandler extends BaseIPCHandler {

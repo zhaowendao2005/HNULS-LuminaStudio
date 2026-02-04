@@ -72,7 +72,7 @@ const DEFAULT_MODEL_CONFIG: ModelConfig = {
 
 /**
  * ModelConfigService
- * 
+ *
  * 负责模型配置的业务逻辑：
  * - 从 SQLite 读取/写入配置
  * - 从远程 API 同步模型列表
@@ -105,9 +105,7 @@ export class ModelConfigService {
 
       for (const row of providerRows) {
         const modelRows = this.db
-          .prepare(
-            'SELECT * FROM model_configs WHERE provider_id = ? ORDER BY sort_order, id'
-          )
+          .prepare('SELECT * FROM model_configs WHERE provider_id = ? ORDER BY sort_order, id')
           .all(row.id) as ModelConfigRow[]
 
         const models: PersistedModelConfig[] = modelRows.map((m) => ({

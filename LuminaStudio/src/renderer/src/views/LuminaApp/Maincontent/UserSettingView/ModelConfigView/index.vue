@@ -241,9 +241,9 @@
               class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden p-6 grid grid-cols-1 gap-6"
             >
               <div>
-                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2"
-                  >API Key</label
-                >
+                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
+                  API Key
+                </label>
                 <input
                   v-model="apiKeyDraft"
                   type="password"
@@ -253,9 +253,9 @@
                 />
               </div>
               <div>
-                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2"
-                  >API Host URL</label
-                >
+                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
+                  API Host URL
+                </label>
                 <input
                   v-model="baseUrlDraft"
                   type="text"
@@ -358,13 +358,12 @@
                   <!-- 分组标题 -->
                   <div class="flex items-center justify-between mb-3">
                     <div class="flex items-center gap-2">
-                      <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">{{
-                        groupName || '未分组'
-                      }}</span>
-                      <span
-                        class="text-[10px] bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded-md"
-                        >{{ models.length }}</span
-                      >
+                      <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                        {{ groupName || '未分组' }}
+                      </span>
+                      <span class="text-[10px] bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded-md">
+                        {{ models.length }}
+                      </span>
                     </div>
                   </div>
                   <!-- 模型列表 -->
@@ -380,9 +379,9 @@
                         >
                           {{ model.id }}
                         </span>
-                        <span class="text-sm text-gray-800 font-medium truncate">{{
-                          model.name
-                        }}</span>
+                        <span class="text-sm text-gray-800 font-medium truncate">
+                          {{ model.name }}
+                        </span>
                       </div>
                       <div class="flex items-center gap-2 flex-shrink-0">
                         <button
@@ -506,9 +505,13 @@
           <!-- Search Stats -->
           <div v-if="modelSearchQuery" class="flex items-center justify-between text-xs">
             <span class="text-gray-500">
-              找到 <span class="font-semibold text-blue-600">{{ filteredModelCount }}</span> 个模型
+              找到
+              <span class="font-semibold text-blue-600">{{ filteredModelCount }}</span>
+              个模型
               <span v-if="filteredGroupCount < totalGroupCount">
-                在 <span class="font-semibold text-blue-600">{{ filteredGroupCount }}</span> 个分组中
+                在
+                <span class="font-semibold text-blue-600">{{ filteredGroupCount }}</span>
+                个分组中
               </span>
             </span>
             <button class="text-blue-600 hover:text-blue-700 font-medium" @click="clearSearch">
@@ -566,12 +569,12 @@
                 class="px-4 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between"
               >
                 <div class="flex items-center gap-2">
-                  <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">{{
-                    groupName
-                  }}</span>
-                  <span class="text-[10px] bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded-md">{{
-                    models.length
-                  }}</span>
+                  <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    {{ groupName }}
+                  </span>
+                  <span class="text-[10px] bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded-md">
+                    {{ models.length }}
+                  </span>
                 </div>
                 <!-- 批量添加/取消订阅整组按钮 -->
                 <button

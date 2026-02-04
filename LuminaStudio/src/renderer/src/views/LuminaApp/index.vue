@@ -6,23 +6,23 @@
     <template v-if="hasStarted">
       <CustomTitlebar class="relative z-50" />
       <div class="flex flex-1 h-[calc(100vh-32px)] w-full">
-      <Sidebar :active-tab="activeTab" @change-tab="activeTab = $event" />
-      <div class="flex-1 flex flex-col min-h-0 overflow-hidden relative">
-        <TopBar :active-tab="activeTab" />
-        <main
-          :class="[
-            'flex-1 min-h-0 overflow-y-auto overflow-x-hidden relative',
-            activeTab === 'settings' ? '' : 'p-6'
-          ]"
-        >
-          <DashboardView v-if="activeTab === 'dashboard'" />
-          <NormalChat v-else-if="activeTab === 'normal-chat'" />
-          <ReaderView v-else-if="activeTab === 'reader'" />
-          <GraphView v-else-if="activeTab === 'graph'" />
-          <UserSettingView v-else-if="activeTab === 'settings'" />
-        </main>
+        <Sidebar :active-tab="activeTab" @change-tab="activeTab = $event" />
+        <div class="flex-1 flex flex-col min-h-0 overflow-hidden relative">
+          <TopBar :active-tab="activeTab" />
+          <main
+            :class="[
+              'flex-1 min-h-0 overflow-y-auto overflow-x-hidden relative',
+              activeTab === 'settings' ? '' : 'p-6'
+            ]"
+          >
+            <DashboardView v-if="activeTab === 'dashboard'" />
+            <NormalChat v-else-if="activeTab === 'normal-chat'" />
+            <ReaderView v-else-if="activeTab === 'reader'" />
+            <GraphView v-else-if="activeTab === 'graph'" />
+            <UserSettingView v-else-if="activeTab === 'settings'" />
+          </main>
+        </div>
       </div>
-    </div>
     </template>
 
     <!-- 欢迎页：全屏并带有自己的轻量标题栏 -->

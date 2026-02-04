@@ -15,7 +15,13 @@
           title="最小化"
           @click="handleMinimize"
         >
-          <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg
+            class="w-3 h-3"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
             <path d="M5 12h14" />
           </svg>
         </button>
@@ -24,10 +30,24 @@
           :title="isMaximized ? '还原' : '最大化'"
           @click="handleToggleMaximize"
         >
-          <svg v-if="!isMaximized" class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg
+            v-if="!isMaximized"
+            class="w-3 h-3"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
             <rect x="4" y="4" width="16" height="16" rx="2" />
           </svg>
-          <svg v-else class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg
+            v-else
+            class="w-3 h-3"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
             <rect x="8" y="4" width="12" height="12" rx="1" />
             <path d="M4 8v12a1 1 0 0 0 1 1h12" />
           </svg>
@@ -37,7 +57,13 @@
           title="关闭"
           @click="handleClose"
         >
-          <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg
+            class="w-3 h-3"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
             <path d="M18 6 6 18M6 6l12 12" />
           </svg>
         </button>
@@ -96,7 +122,9 @@
           style="animation-delay: 0.4s"
         >
           The biological research platform driven by
-          <span class="text-slate-700 font-semibold">Life Intelligence</span>.<br />
+          <span class="text-slate-700 font-semibold">Life Intelligence</span>
+          .
+          <br />
           Seamlessly connecting literature, gene networks, and AI.
         </p>
       </div>

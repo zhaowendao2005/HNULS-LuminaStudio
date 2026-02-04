@@ -10,7 +10,7 @@ const log = logger.scope('DatabaseManager')
 
 /**
  * DatabaseManager
- * 
+ *
  * 管理多个 SQLite 数据库实例的生命周期
  * 职责：
  * - 注册数据库 Schema
@@ -154,9 +154,7 @@ export class DatabaseManager {
         }
 
         if (versionRow.version !== schema.version) {
-          log.warn(
-            `Version mismatch: expected ${schema.version}, got ${versionRow.version}`
-          )
+          log.warn(`Version mismatch: expected ${schema.version}, got ${versionRow.version}`)
           return false
         }
 
@@ -166,9 +164,7 @@ export class DatabaseManager {
       // 2. 检查所有表是否存在
       for (const table of schema.tables) {
         const tableExists = db
-          .prepare(
-            `SELECT name FROM sqlite_master WHERE type='table' AND name=?`
-          )
+          .prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`)
           .get(table.name)
 
         if (!tableExists) {

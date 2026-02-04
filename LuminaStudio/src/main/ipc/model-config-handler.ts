@@ -3,9 +3,9 @@ import type { ModelConfigService } from '../services/model-config'
 
 /**
  * ModelConfigIPCHandler
- * 
+ *
  * 处理模型配置相关的 IPC 请求
- * 
+ *
  * 注册的 channels:
  * - modelConfig:get
  * - modelConfig:update
