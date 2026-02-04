@@ -16,6 +16,7 @@ export class DatabaseService {
   private dbPath: string
 
   constructor() {
+    ensureAppDisplayName()
     // 获取用户数据目录并创建 databases 子目录
     const userDataPath = app.getPath('userData')
     const dbDir = path.join(userDataPath, 'databases')

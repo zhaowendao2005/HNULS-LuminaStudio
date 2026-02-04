@@ -242,7 +242,17 @@ log.error('Failed to connect', error, { host: 'localhost' })
 | `pnpm dev:verbose` | verbose | 详细信息 |
 | `pnpm dev:silly` | silly | 最详细 |
 | `pnpm dev:warn` | warn | 仅警告和错误 |
-| `pnpm dev:error` | error | 仅错误 |
+|| `pnpm dev:error` | error | 仅错误 |
+
+### 9.6 应用名称与数据目录（Electron 标准做法）
+- **package.json 配置**：
+  - `"name"`: 必须全小写（npm 规范），例如 `"luminastudio"`
+  - `"productName"`: 应用展示名称，例如 `"LuminaStudio"`
+- **用户数据目录**：
+  - 开发环境：`app.name` = `productName` （如果有）或 `name`
+  - 打包后：`app.name` = `productName`
+  - 最终路径：`%APPDATA%/LuminaStudio`
+- **禁止**：主进程代码中手动调用 `app.setName()`，交由 Electron 从 `package.json` 自动读取。
 
 ---
 
