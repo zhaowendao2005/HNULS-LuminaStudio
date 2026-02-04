@@ -1,5 +1,10 @@
 <template>
   <div class="nc_NormalChat_Root_a8d3 flex h-full w-full gap-4">
+    <!-- nc = NormalChat -->
+    <!-- nc_NormalChat_Root_a8d3: 页面根容器 -->
+    <!-- nc_NormalChat_LeftPanel_a8d3: 左侧来源面板 -->
+    <!-- nc_NormalChat_Center_a8d3: 中间对话区 -->
+    <!-- nc_NormalChat_RightPanel_a8d3: 右侧工具面板 -->
     <!-- Left Panel -->
     <section
       class="nc_NormalChat_LeftPanel_a8d3 flex-shrink-0 bg-white border border-slate-200 rounded-2xl overflow-hidden transition-[width] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] flex flex-col"
@@ -132,9 +137,44 @@
       <header
         class="nc_NormalChat_CenterHeader_a8d3 h-12 flex items-center justify-between px-6 border-b border-slate-100 bg-white/60 backdrop-blur-sm"
       >
-        <div class="flex items-center gap-2 text-sm font-semibold text-slate-700">
+        <!-- Left: Conversation List Trigger -->
+        <button
+          @click="showConversationList = true"
+          class="flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-emerald-600 transition-colors group"
+        >
           <span>对话</span>
-        </div>
+          <svg
+            class="w-4 h-4 text-slate-400 group-hover:text-emerald-500 transition-colors"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </button>
+
+        <!-- Center: Model Selector -->
+        <button
+          @click="showModelSelector = true"
+          class="flex items-center gap-2 px-4 py-1.5 bg-white border border-slate-200 rounded-full text-xs font-medium text-slate-600 hover:border-emerald-200 hover:text-emerald-700 hover:shadow-sm transition-all"
+        >
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span class="uppercase">{{ currentProviderId }}</span>
+          <span class="text-slate-300">/</span>
+          <span>{{ currentModelId }}</span>
+          <svg
+            class="w-3 h-3 text-slate-400 ml-1"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </button>
+
+        <!-- Right: Actions -->
         <div class="flex items-center gap-2 text-slate-400">
           <button
             class="w-8 h-8 rounded-full hover:bg-slate-100 transition-colors flex items-center justify-center"
@@ -170,40 +210,217 @@
         </div>
       </header>
 
-      <main class="nc_NormalChat_CenterMain_a8d3 flex-1 overflow-y-auto px-6 pt-5 pb-44">
+      <main
+        ref="messagesContainerRef"
+        class="nc_NormalChat_CenterMain_a8d3 flex-1 overflow-y-auto px-6 pt-5 pb-44"
+      >
         <div class="max-w-3xl mx-auto space-y-8">
-          <div v-for="msg in messages" :key="msg.id" class="flex w-full gap-4">
+          <!-- 消息列表 -->
+          <div v-for="msg in messages" :key="msg.id" class="flex w-full gap-4 animate-in fade-in">
+            <!-- Avatar -->
             <div
               :class="[
-                'w-9 h-9 rounded-xl flex items-center justify-center text-white flex-shrink-0',
-                msg.role === 'ai'
+                'w-9 h-9 rounded-xl flex items-center justify-center text-white flex-shrink-0 shadow-sm',
+                msg.role === 'assistant'
                   ? 'bg-gradient-to-tr from-emerald-500 to-teal-600'
                   : 'bg-slate-100 text-slate-500'
               ]"
             >
-              <span v-if="msg.role === 'ai'" class="text-xs font-bold">AI</span>
+              <span v-if="msg.role === 'assistant'" class="text-xs font-bold">AI</span>
               <span v-else class="text-[10px] font-bold">YOU</span>
             </div>
-            <div class="flex-1 min-w-0">
-              <div class="text-xs text-slate-400 font-medium mb-2">
-                {{ msg.role === 'ai' ? 'EcoMind Agent' : 'User' }}
+
+            <!-- 消息内容 -->
+            <div class="flex-1 min-w-0 space-y-3">
+              <!-- 角色名称 -->
+              <div class="text-xs text-slate-400 font-medium">
+                {{ msg.role === 'assistant' ? 'LuminaStudio AI' : 'User' }}
               </div>
+
+              <!-- 深度思考区域 (AI only) -->
+              <div
+                v-if="msg.role === 'assistant' && msg.thinkingSteps && msg.thinkingSteps.length > 0"
+                class="mb-4 w-full"
+              >
+                <button
+                  @click="toggleThinking(msg.id)"
+                  :class="[
+                    'flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-300 border',
+                    isThinkingExpanded(msg.id)
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                      : 'bg-white text-slate-500 border-slate-100 hover:bg-slate-50'
+                  ]"
+                >
+                  <div class="relative flex items-center justify-center w-5 h-5">
+                    <svg
+                      v-if="!msg.isThinking"
+                      class="w-4 h-4"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <path d="M12 2v4" />
+                      <path d="M12 18v4" />
+                      <path d="m4.93 4.93 2.83 2.83" />
+                      <path d="m16.24 16.24 2.83 2.83" />
+                      <path d="M2 12h4" />
+                      <path d="M18 12h4" />
+                      <path d="m4.93 19.07 2.83-2.83" />
+                      <path d="m16.24 7.76 2.83-2.83" />
+                    </svg>
+                    <div
+                      v-else
+                      class="animate-spin rounded-full h-4 w-4 border-2 border-emerald-500 border-t-transparent"
+                    ></div>
+                  </div>
+                  <span>{{ msg.isThinking ? '正在思考...' : '深度思考已完成' }}</span>
+                  <svg
+                    :class="[
+                      'w-3.5 h-3.5 ml-auto opacity-50 transition-transform',
+                      isThinkingExpanded(msg.id) ? 'rotate-180' : ''
+                    ]"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
+                </button>
+
+                <!-- 思考步骤展开 -->
+                <div
+                  :class="[
+                    'overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]',
+                    isThinkingExpanded(msg.id) ? 'max-h-[500px] opacity-100 mt-2' : 'max-h-0 opacity-0'
+                  ]"
+                >
+                  <div class="pl-4 border-l-2 border-emerald-100 space-y-3 py-2">
+                    <div
+                      v-for="(step, idx) in msg.thinkingSteps"
+                      :key="step.id"
+                      class="flex items-start gap-3 text-xs animate-in fade-in"
+                    >
+                      <span class="text-emerald-500 font-mono mt-0.5">{{
+                        String(idx + 1).padStart(2, '0')
+                      }}</span>
+                      <span class="text-slate-600 leading-relaxed">{{ step.content }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 工具调用区域 (AI only) -->
+              <div
+                v-if="msg.role === 'assistant' && msg.toolCalls && msg.toolCalls.length > 0"
+                class="space-y-2"
+              >
+                <div
+                  v-for="tool in msg.toolCalls"
+                  :key="tool.id"
+                  :class="[
+                    'border rounded-xl px-3 py-2.5 text-xs transition-all',
+                    tool.result
+                      ? 'bg-blue-50 border-blue-200'
+                      : 'bg-amber-50 border-amber-200 animate-pulse'
+                  ]"
+                >
+                  <div class="flex items-center gap-2 font-medium mb-2">
+                    <!-- 动态图标：执行中 vs 已完成 -->
+                    <div
+                      v-if="!tool.result"
+                      class="w-4 h-4 rounded-full border-2 border-amber-500 border-t-transparent animate-spin"
+                    ></div>
+                    <svg
+                      v-else
+                      class="w-4 h-4 text-blue-600"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <path d="M20 6L9 17l-5-5" />
+                    </svg>
+                    <span :class="tool.result ? 'text-blue-700' : 'text-amber-700'">
+                      {{ tool.result ? '工具调用完成' : '正在调用工具...' }}: {{ tool.name }}
+                    </span>
+                  </div>
+
+                  <!-- 输入参数 -->
+                  <div class="pl-6 text-slate-600 space-y-1">
+                    <div class="flex items-start gap-2">
+                      <span class="text-slate-400 font-medium">输入:</span>
+                      <span class="flex-1 font-mono text-[11px] bg-white/50 px-2 py-1 rounded">{{
+                        JSON.stringify(tool.input, null, 2)
+                      }}</span>
+                    </div>
+
+                    <!-- 结果区域（只在有结果时显示） -->
+                    <div v-if="tool.result" class="flex items-start gap-2 mt-2">
+                      <span class="text-slate-400 font-medium">结果:</span>
+                      <div class="flex-1 space-y-1">
+                        <!-- 如果是搜索结果，美化展示 -->
+                        <div
+                          v-if="tool.result.results"
+                          class="space-y-1.5 bg-white/70 p-2 rounded border border-slate-100"
+                        >
+                          <div
+                            v-for="(item, idx) in tool.result.results.slice(0, 3)"
+                            :key="idx"
+                            class="text-[11px]"
+                          >
+                            <div class="font-medium text-blue-600">• {{ item.title }}</div>
+                            <div v-if="item.snippet" class="text-slate-500 ml-3 mt-0.5">
+                              {{ item.snippet }}
+                            </div>
+                          </div>
+                        </div>
+                        <!-- 其他类型的结果 -->
+                        <pre
+                          v-else
+                          class="font-mono text-[10px] bg-white/50 px-2 py-1 rounded overflow-x-auto"
+                          >{{ JSON.stringify(tool.result, null, 2).slice(0, 200) }}...</pre
+                        >
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 主文本内容 -->
               <div
                 :class="[
-                  'text-sm leading-relaxed text-slate-800',
+                  'text-[15px] leading-relaxed text-slate-800 whitespace-pre-wrap',
                   msg.role === 'user' ? 'bg-emerald-50 px-4 py-3 rounded-2xl inline-block' : ''
                 ]"
               >
-                <p v-for="(line, idx) in msg.lines" :key="idx" class="mb-2 last:mb-0">
-                  {{ line }}
-                </p>
-                <ul v-if="msg.points" class="list-disc pl-5 space-y-1 text-slate-700">
-                  <li v-for="(point, idx) in msg.points" :key="idx">{{ point }}</li>
-                </ul>
+                {{ msg.content }}
+                <span
+                  v-if="msg.isStreaming"
+                  class="inline-block w-1 h-4 bg-emerald-500 animate-pulse ml-0.5 align-middle"
+                ></span>
               </div>
-              <div v-if="msg.role === 'ai'" class="mt-3 flex items-center gap-2 text-slate-400">
+
+              <!-- Token 使用信息 -->
+              <div
+                v-if="msg.role === 'assistant' && msg.usage && !msg.isStreaming"
+                class="text-[10px] text-slate-400 mt-2"
+              >
+                Tokens: {{ msg.usage.totalTokens }} (输入: {{ msg.usage.inputTokens }}, 输出:
+                {{ msg.usage.outputTokens }}<span v-if="msg.usage.reasoningTokens">
+                  , 思考: {{ msg.usage.reasoningTokens }}</span
+                >)
+              </div>
+
+              <!-- 操作按钮 (AI only) -->
+              <div
+                v-if="msg.role === 'assistant' && !msg.isStreaming"
+                class="mt-3 flex items-center gap-2 text-slate-400"
+              >
                 <button
                   class="w-7 h-7 rounded-full hover:bg-slate-100 transition-colors flex items-center justify-center"
+                  title="复制"
                 >
                   <svg
                     class="w-4 h-4"
@@ -213,11 +430,12 @@
                     stroke-width="2"
                   >
                     <rect x="9" y="9" width="13" height="13" rx="2" />
-                    <rect x="2" y="2" width="13" height="13" rx="2" />
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
                   </svg>
                 </button>
                 <button
                   class="w-7 h-7 rounded-full hover:bg-slate-100 transition-colors flex items-center justify-center"
+                  title="点赞"
                 >
                   <svg
                     class="w-4 h-4"
@@ -232,6 +450,7 @@
                 </button>
                 <button
                   class="w-7 h-7 rounded-full hover:bg-slate-100 transition-colors flex items-center justify-center"
+                  title="点踩"
                 >
                   <svg
                     class="w-4 h-4"
@@ -240,11 +459,28 @@
                     stroke="currentColor"
                     stroke-width="2"
                   >
-                    <path d="M10 9V5a3 3 0 0 1 6 0v4" />
-                    <path d="M5 11h14l-1 9H6l-1-9z" />
+                    <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17" />
                   </svg>
                 </button>
               </div>
+            </div>
+          </div>
+
+          <!-- 正在生成提示 -->
+          <div v-if="isGenerating" class="flex gap-4 animate-pulse">
+            <div
+              class="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-sm"
+            >
+              <span class="text-xs font-bold">AI</span>
+            </div>
+            <div class="flex items-center gap-1.5 mt-3">
+              <span class="w-1.5 h-1.5 bg-emerald-300 rounded-full animate-bounce"></span>
+              <span
+                class="w-1.5 h-1.5 bg-emerald-300 rounded-full animate-bounce [animation-delay:0.2s]"
+              ></span>
+              <span
+                class="w-1.5 h-1.5 bg-emerald-300 rounded-full animate-bounce [animation-delay:0.4s]"
+              ></span>
             </div>
           </div>
         </div>
@@ -254,64 +490,25 @@
         class="nc_NormalChat_CenterInput_a8d3 absolute bottom-0 left-0 w-full px-6 pb-6 pt-16 bg-gradient-to-t from-white via-white/95 to-transparent"
       >
         <div class="max-w-3xl mx-auto">
-          <div class="flex gap-2 mb-3 ml-2">
+          <!-- 智能工具栏 (暂时隐藏，后续可扩展) -->
+          <!-- <div class="flex gap-2 mb-3 ml-2">
             <button
               class="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-full text-xs font-medium text-emerald-600 hover:border-emerald-200 transition-colors"
             >
-              <svg
-                class="w-3 h-3"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <path d="M12 20l9-17-9 6-9-6 9 17z" />
-              </svg>
               智能润色
             </button>
-            <button
-              class="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-full text-xs font-medium text-blue-600 hover:border-blue-200 transition-colors"
-            >
-              <svg
-                class="w-3 h-3"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <path d="M6 3h12" />
-                <path d="M6 8h12" />
-                <path d="M6 13h12" />
-                <path d="M6 18h12" />
-              </svg>
-              智能扩写
-            </button>
-            <button
-              class="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-full text-xs font-medium text-orange-600 hover:border-orange-200 transition-colors"
-            >
-              <svg
-                class="w-3 h-3"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <path d="M4 6h16" />
-                <path d="M4 12h16" />
-                <path d="M4 18h10" />
-              </svg>
-              智能总结
-            </button>
-          </div>
+          </div> -->
 
           <div
             class="relative bg-white border border-slate-200 rounded-[24px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] focus-within:shadow-[0_8px_40px_rgba(16,185,129,0.12)] focus-within:border-emerald-200 transition-all"
           >
-            <div
-              contenteditable="true"
-              class="w-full min-h-[56px] max-h-40 overflow-y-auto px-12 py-4 focus:outline-none text-[15px] leading-relaxed text-slate-700 empty:before:content-[attr(placeholder)] empty:before:text-slate-300"
+            <textarea
+              v-model="userInput"
+              @keydown="handleInputKeydown"
+              class="w-full min-h-[56px] max-h-40 overflow-y-auto px-12 py-4 focus:outline-none text-[15px] leading-relaxed text-slate-700 placeholder:text-slate-300 resize-none bg-transparent"
               placeholder="开始输入..."
-            ></div>
+              :disabled="isGenerating"
+            ></textarea>
             <div
               class="absolute left-4 top-4 text-slate-300 hover:text-emerald-500 transition-colors cursor-pointer"
             >
@@ -328,8 +525,30 @@
               </svg>
             </div>
             <div class="absolute right-3 bottom-3">
+              <!-- 中断按钮 (生成中显示) -->
               <button
-                class="w-9 h-9 flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white rounded-full transition-all hover:scale-105 active:scale-95 shadow-lg shadow-emerald-100"
+                v-if="isGenerating"
+                @click="handleAbort"
+                class="w-9 h-9 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded-full transition-all hover:scale-105 active:scale-95 shadow-lg"
+                title="中断生成"
+              >
+                <svg
+                  class="w-4 h-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <rect x="3" y="3" width="18" height="18" rx="2" />
+                </svg>
+              </button>
+              <!-- 发送按钮 (默认显示) -->
+              <button
+                v-else
+                @click="handleSend"
+                :disabled="!userInput.trim()"
+                class="w-9 h-9 flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white rounded-full transition-all hover:scale-105 active:scale-95 shadow-lg shadow-emerald-100 disabled:bg-slate-300 disabled:cursor-not-allowed"
+                title="发送消息"
               >
                 <svg
                   class="w-5 h-5"
@@ -344,7 +563,9 @@
               </button>
             </div>
           </div>
-          <p class="text-center mt-3 text-[10px] text-slate-300">Powered by Gemini 2.5</p>
+          <p class="text-center mt-3 text-[10px] text-slate-300">
+            LuminaStudio AI · 支持深度思考与工具调用
+          </p>
         </div>
       </div>
     </section>
@@ -480,15 +701,50 @@
       </div>
       <div v-else class="nc_NormalChat_RightCollapsed_a8d3 flex-1" />
     </section>
+
+    <!-- Modals -->
+    <ModelSelectorModal
+      v-model:visible="showModelSelector"
+      :current-provider-id="currentProviderId"
+      :current-model-id="currentModelId"
+      @select="handleModelSelect"
+    />
+
+    <ConversationListModal
+      v-model:visible="showConversationList"
+      @select="handleConversationSelect"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, nextTick, watch, computed } from 'vue'
+import ModelSelectorModal from './components/ModelSelectorModal.vue'
+import ConversationListModal from './components/ConversationListModal.vue'
 
+// ===== 面板控制 =====
 const leftCollapsed = ref(false)
 const rightCollapsed = ref(false)
 
+// ===== 模态框控制 =====
+const showModelSelector = ref(false)
+const showConversationList = ref(false)
+
+const currentProviderId = ref('openai')
+const currentModelId = ref('gpt-4o')
+
+const handleModelSelect = (provider: any, model: any) => {
+  currentProviderId.value = provider.id
+  currentModelId.value = model.id
+  // TODO: 切换模型逻辑
+}
+
+const handleConversationSelect = (conversation: any) => {
+  // TODO: 切换对话逻辑
+  console.log('Switched to conversation:', conversation.title)
+}
+
+// ===== 静态数据 =====
 const sourceItems = [
   { id: 12, title: '核酸理论.pdf', checked: true },
   { id: 13, title: '核酸的结构.pdf', checked: true },
@@ -552,31 +808,237 @@ const notes = [
   { id: 4, title: '细胞工程原理与应用概论', time: '53 天前' }
 ]
 
-const messages = [
-  {
-    id: 1,
-    role: 'ai',
-    lines: [
-      '体细胞杂交技术的应用价值主要体现在突破生殖隔离，创造常规育种无法获得的新材料。',
-      '下面是关键要点摘要：'
-    ],
-    points: [
-      '改良基因控制的复杂性状，使多基因协同成为可能。',
-      '促进细胞质遗传性状的转移与重组。',
-      '为远缘杂交和特异性状导入提供路径。'
-    ]
-  },
-  {
-    id: 2,
-    role: 'user',
-    lines: ['请补充一点：原生质体培养在现代育种中的核心价值。']
-  },
-  {
-    id: 3,
-    role: 'ai',
-    lines: [
-      '原生质体培养是实现植物细胞全能性的基础平台，可用于无性系快速扩繁、突变体筛选与定向改良。'
-    ]
+// ===== 类型定义 =====
+interface ThinkingStep {
+  id: string
+  content: string
+}
+
+interface ToolCall {
+  id: string
+  name: string
+  input: Record<string, unknown>
+  result?: unknown
+}
+
+interface Message {
+  id: string
+  role: 'user' | 'assistant'
+  content: string // 主文本内容
+  isStreaming?: boolean
+  thinkingSteps?: ThinkingStep[] // 深度思考步骤
+  isThinking?: boolean // 是否正在思考中
+  toolCalls?: ToolCall[] // 工具调用列表
+  usage?: {
+    inputTokens: number
+    outputTokens: number
+    reasoningTokens?: number
+    totalTokens: number
   }
-]
+}
+
+// ===== 消息状态 =====
+const messages = ref<Message[]>([
+  {
+    id: 'init-1',
+    role: 'assistant',
+    content: '你好！我是 LuminaStudio AI 助手。你可以问我任何问题，我支持深度思考模式和工具调用。'
+  }
+])
+
+const userInput = ref('')
+const isGenerating = ref(false)
+const currentRequestId = ref<string | null>(null)
+const messagesContainerRef = ref<HTMLElement | null>(null)
+
+// ===== 自动滚动 =====
+const scrollToBottom = async () => {
+  await nextTick()
+  if (messagesContainerRef.value) {
+    messagesContainerRef.value.scrollTop = messagesContainerRef.value.scrollHeight
+  }
+}
+
+watch(
+  () => messages.value.length,
+  () => scrollToBottom(),
+  { flush: 'post' }
+)
+
+// ===== 深度思考折叠状态 =====
+const thinkingExpandedMap = ref<Record<string, boolean>>({})
+
+const toggleThinking = (msgId: string) => {
+  thinkingExpandedMap.value[msgId] = !thinkingExpandedMap.value[msgId]
+}
+
+const isThinkingExpanded = (msgId: string) => {
+  return thinkingExpandedMap.value[msgId] ?? true // 默认展开
+}
+
+// ===== 临时模拟：IPC 调用 =====
+// TODO: 后续替换为真实的 window.api.aiChat.* 调用
+
+const mockStreamAIResponse = async (userMessage: string, msgId: string) => {
+  const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+  // 1. 创建 assistant 消息（初始状态：空白）
+  const aiMsg: Message = {
+    id: msgId,
+    role: 'assistant',
+    content: '',
+    isStreaming: true,
+    isThinking: true,
+    thinkingSteps: [],
+    toolCalls: []
+  }
+
+  messages.value.push(aiMsg)
+  thinkingExpandedMap.value[msgId] = true // 默认展开思考过程
+  await delay(300) // 稍微延迟，让用户看到消息框出现
+
+  // ===== 阶段 1: 深度思考流式追加 =====
+  const thinkingTexts = [
+    '正在分析用户的问题结构...',
+    '检索相关知识库和上下文...',
+    '识别关键概念和潜在的关联性...',
+    '评估最佳回复策略...',
+    '构建结构化的回复框架...'
+  ]
+
+  for (let i = 0; i < thinkingTexts.length; i++) {
+    await delay(500 + Math.random() * 300) // 随机延迟，更自然
+    const stepId = `${msgId}-thinking-${i}`
+    aiMsg.thinkingSteps!.push({ id: stepId, content: thinkingTexts[i] })
+    scrollToBottom()
+  }
+
+  // 思考完成
+  await delay(400)
+  aiMsg.isThinking = false
+  
+  // 延迟 800ms 后自动折叠思考区域
+  setTimeout(() => {
+    thinkingExpandedMap.value[msgId] = false
+  }, 800)
+
+  // ===== 阶段 2: 工具调用（如果需要）=====
+  const needsToolCall = userMessage.includes('搜索') || userMessage.includes('查找') || userMessage.includes('文档')
+  
+  if (needsToolCall) {
+    await delay(400)
+    
+    // 2.1 显示工具调用开始（无结果）
+    const toolCallId = `${msgId}-tool-${Date.now()}`
+    aiMsg.toolCalls!.push({
+      id: toolCallId,
+      name: 'web_search',
+      input: { query: userMessage.slice(0, 30) }
+    })
+    scrollToBottom()
+
+    // 2.2 模拟工具执行中...
+    await delay(1200 + Math.random() * 500)
+    
+    // 2.3 返回工具结果
+    const toolCall = aiMsg.toolCalls!.find((t) => t.id === toolCallId)
+    if (toolCall) {
+      toolCall.result = {
+        success: true,
+        results: [
+          { title: '核酸分子生物学研究进展', url: 'https://example.com/1', snippet: '关于核酸结构与功能的最新研究...' },
+          { title: '基因工程技术应用综述', url: 'https://example.com/2', snippet: '详细介绍了现代基因工程的核心技术...' },
+          { title: '分子生物学实验指南', url: 'https://example.com/3', snippet: '涵盖常用的分子生物学实验方法...' }
+        ]
+      }
+    }
+    scrollToBottom()
+    
+    await delay(500) // 给用户时间看到工具结果
+  }
+
+  // ===== 阶段 3: 流式文本生成 =====
+  await delay(400)
+  
+  const responseText = `我理解你的问题是关于「${userMessage}」。\n\n基于我的分析${needsToolCall ? '和检索结果' : ''}，这是一个很有深度的问题。让我为你详细解答：\n\n核心要点在于理解概念之间的内在联系。从理论基础到实际应用，需要建立系统性的认知框架。\n\n如果你需要了解某个特定方面的细节，欢迎继续提问。`
+
+  // 逐字符流式输出
+  const chars = responseText.split('')
+  for (let i = 0; i < chars.length; i++) {
+    await delay(15 + Math.random() * 25) // 随机延迟，模拟真实打字效果
+    aiMsg.content += chars[i]
+    
+    // 每 10 个字符滚动一次，避免频繁滚动
+    if (i % 10 === 0) {
+      scrollToBottom()
+    }
+  }
+
+  // ===== 阶段 4: 完成生成 =====
+  await delay(300)
+  scrollToBottom() // 最后确保滚动到底部
+  
+  aiMsg.isStreaming = false
+  aiMsg.usage = {
+    inputTokens: 180 + Math.floor(Math.random() * 50),
+    outputTokens: 320 + Math.floor(Math.random() * 80),
+    reasoningTokens: needsToolCall ? 150 + Math.floor(Math.random() * 50) : undefined,
+    totalTokens: 650 + Math.floor(Math.random() * 100)
+  }
+}
+
+// ===== 发送消息 =====
+const handleSend = async () => {
+  const input = userInput.value.trim()
+  if (!input || isGenerating.value) return
+
+  // 添加用户消息
+  const userMsg: Message = {
+    id: `user-${Date.now()}`,
+    role: 'user',
+    content: input
+  }
+  messages.value.push(userMsg)
+  userInput.value = ''
+
+  // 开始生成
+  isGenerating.value = true
+  const requestId = `req-${Date.now()}`
+  currentRequestId.value = requestId
+
+  try {
+    await mockStreamAIResponse(input, `ai-${Date.now()}`)
+  } catch (error) {
+    console.error('AI 生成失败:', error)
+    messages.value.push({
+      id: `error-${Date.now()}`,
+      role: 'assistant',
+      content: '抱歉，生成过程中出现了错误。请稍后重试。'
+    })
+  } finally {
+    isGenerating.value = false
+    currentRequestId.value = null
+  }
+}
+
+// ===== 中断生成 =====
+const handleAbort = () => {
+  if (!isGenerating.value || !currentRequestId.value) return
+  // TODO: 调用 window.api.aiChat.abort({ requestId: currentRequestId.value })
+  isGenerating.value = false
+  currentRequestId.value = null
+  const lastMsg = messages.value[messages.value.length - 1]
+  if (lastMsg && lastMsg.isStreaming) {
+    lastMsg.isStreaming = false
+    lastMsg.content += '\n\n[生成已中断]'
+  }
+}
+
+// ===== 输入框回车发送 =====
+const handleInputKeydown = (e: KeyboardEvent) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault()
+    handleSend()
+  }
+}
 </script>
