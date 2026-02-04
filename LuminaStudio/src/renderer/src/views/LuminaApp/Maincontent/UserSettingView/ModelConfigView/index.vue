@@ -38,7 +38,7 @@
           模型服务商
         </div>
         <div
-          v-for="provider in mockProviders"
+          v-for="provider in providers"
           :key="provider.id"
           class="group relative flex items-center justify-between px-3 py-3 rounded-xl cursor-pointer transition-all duration-200 border"
           :class="
@@ -194,8 +194,8 @@
       <div class="flex-1 overflow-y-auto p-8">
         <!-- 骨架屏：没有提供商时显示 -->
         <div
-          v-if="!selectedProvider && mockProviders.length === 0"
-          class="max-w-4xl mx-auto space-y-8 pb-20"
+          v-if="!selectedProvider && providers.length === 0"
+          class="max-w-4xl mx-auto space-y-8 pb-20">
         >
           <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden p-8">
             <div class="animate-pulse space-y-6">
@@ -673,7 +673,7 @@
             </div>
 
             <div
-              v-if="!modelSearchQuery && Object.keys(mockRemoteModelGroups).length === 0"
+              v-if="!modelSearchQuery && Object.keys(remoteModelGroups).length === 0"
               class="text-center py-10 text-gray-400"
             >
               未能获取到模型数据
@@ -849,82 +849,27 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
+import { useModelConfigStore } from '@renderer/stores/model-config/store'
+import { storeToRefs } from 'pinia'
 
 const emit = defineEmits<{
   (e: 'back'): void
 }>()
 
-// Mock 数据类型定义
-interface Model {
-  id: string
-  name: string
-  group: string
-  created?: number
-}
-
-interface Provider {
-  id: string
-  name: string
-  type: 'openai' | 'custom'
-  icon: 'openai' | 'server' | 'box'
-  enabled: boolean
-  apiKey: string
-  baseUrl: string
-  models: Model[]
-}
-
-interface RemoteModel {
-  id: string
-  created: number
-}
-
-// Mock 数据 - 提供商
-const mockProviders = ref<Provider[]>([
-  {
-    id: 'provider-1',
-    name: 'OpenAI',
-    type: 'openai',
-    icon: 'openai',
-    enabled: true,
-    apiKey: '',
-    baseUrl: 'https://api.openai.com',
-    models: [
-      { id: 'gpt-4', name: 'GPT-4', group: 'GPT-4 系列' },
-      { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', group: 'GPT-4 系列' },
-      { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo', group: 'GPT-3.5 系列' }
-    ]
-  },
-  {
-    id: 'provider-2',
-    name: 'DeepSeek',
-    type: 'openai',
-    icon: 'server',
-    enabled: true,
-    apiKey: '',
-    baseUrl: 'https://api.deepseek.com',
-    models: [
-      { id: 'deepseek-chat', name: 'DeepSeek Chat', group: 'DeepSeek' },
-      { id: 'deepseek-coder', name: 'DeepSeek Coder', group: 'DeepSeek' }
-    ]
-  }
-])
-
-// Mock 数据 - 远程模型（从 API 获取的模型列表）
-const mockRemoteModelGroups = ref<Record<string, RemoteModel[]>>({
-  'GPT-4 系列': [
-    { id: 'gpt-4', created: 1687478400 },
-    { id: 'gpt-4-turbo', created: 1699315200 },
-    { id: 'gpt-4-32k', created: 1687478400 }
-  ],
-  'GPT-3.5 系列': [
-    { id: 'gpt-3.5-turbo', created: 1677628800 },
-    { id: 'gpt-3.5-turbo-16k', created: 1686182400 }
-  ],
-  DeepSeek: [
-    { id: 'deepseek-chat', created: 1704067200 },
-    { id: 'deepseek-coder', created: 1704067200 }
-  ]
-})
+// 使用 Store
+const store = useModelConfigStore()
+const {
+  providers,
+  selectedProviderId,
+  selectedProvider,
+  isAddProviderModalOpen,
+  isAddModelModalOpen,
+  isManageModelsModalOpen,
+  isLoadingModels,
+  remoteModelGroups,
+  newProviderForm,
+  newModelForm
+} = storeToRefs(store)
 
 // Provider 类型选项
 const PROVIDER_TYPES = [
@@ -932,37 +877,10 @@ const PROVIDER_TYPES = [
   { id: 'custom', name: 'Custom', available: false }
 ]
 
-// 状态管理
-const selectedProviderId = ref<string>('provider-1')
-const isAddProviderModalOpen = ref(false)
-const isAddModelModalOpen = ref(false)
-const isManageModelsModalOpen = ref(false)
-const isLoadingModels = ref(false)
-
-// API Key 和 Base URL 的草稿状态
+// 本地 UI 状态
 const apiKeyDraft = ref('')
 const baseUrlDraft = ref('')
-
-// 模型搜索状态
 const modelSearchQuery = ref('')
-
-// 新增提供商表单
-const newProviderForm = ref({
-  type: 'openai',
-  name: ''
-})
-
-// 新增模型表单
-const newModelForm = ref({
-  id: '',
-  name: '',
-  group: ''
-})
-
-// 计算属性
-const selectedProvider = computed(() => {
-  return mockProviders.value.find((p) => p.id === selectedProviderId.value)
-})
 
 const computedModelsEndpoint = computed(() => {
   if (!baseUrlDraft.value) return ''
@@ -1003,18 +921,15 @@ const groupedModels = computed(() => {
 // 过滤模型分组（基于搜索）
 const filteredModelGroups = computed(() => {
   if (!modelSearchQuery.value.trim()) {
-    return Object.entries(mockRemoteModelGroups.value)
+    return Object.entries(remoteModelGroups.value)
   }
 
   const query = modelSearchQuery.value.toLowerCase().trim()
-  const filtered: [string, RemoteModel[]][] = []
+  const filtered: [string, any[]][] = []
 
-  Object.entries(mockRemoteModelGroups.value).forEach(([groupName, models]) => {
-    // 检查分组名是否匹配
+  Object.entries(remoteModelGroups.value).forEach(([groupName, models]) => {
     const groupMatches = groupName.toLowerCase().includes(query)
-
-    // 过滤模型列表
-    const matchedModels = models.filter((model) => {
+    const matchedModels = models.filter((model: any) => {
       const modelIdMatches = model.id.toLowerCase().includes(query)
       return groupMatches || modelIdMatches
     })
@@ -1027,7 +942,6 @@ const filteredModelGroups = computed(() => {
   return filtered
 })
 
-// 搜索统计
 const filteredModelCount = computed(() => {
   return filteredModelGroups.value.reduce((sum, [, models]) => sum + models.length, 0)
 })
@@ -1037,11 +951,14 @@ const filteredGroupCount = computed(() => {
 })
 
 const totalGroupCount = computed(() => {
-  return Object.keys(mockRemoteModelGroups.value).length
+  return Object.keys(remoteModelGroups.value).length
 })
 
 // 初始化
 onMounted(async () => {
+  // 从后端加载配置
+  await store.fetchProviders()
+  
   if (selectedProvider.value) {
     apiKeyDraft.value = selectedProvider.value.apiKey
     baseUrlDraft.value = selectedProvider.value.baseUrl
@@ -1057,49 +974,36 @@ watch(selectedProvider, (provider) => {
 })
 
 // 方法
-function selectProvider(id: string): void {
-  selectedProviderId.value = id
+async function selectProvider(id: string): Promise<void> {
+  await store.selectProvider(id)
 }
 
-function handleDeleteProvider(id: string): void {
+async function handleDeleteProvider(id: string): Promise<void> {
   if (confirm('确定要删除该提供商吗？')) {
-    mockProviders.value = mockProviders.value.filter((p) => p.id !== id)
-    if (selectedProviderId.value === id && mockProviders.value.length > 0) {
-      selectedProviderId.value = mockProviders.value[0].id
-    }
+    await store.handleDeleteProvider(id)
   }
 }
 
 async function handleOpenManageModels(): Promise<void> {
-  isManageModelsModalOpen.value = true
-  isLoadingModels.value = true
-
-  // Mock: 模拟加载延迟
-  await new Promise((resolve) => setTimeout(resolve, 1000))
-  isLoadingModels.value = false
+  await store.openManageModels()
 }
 
 async function handleApiKeyBlur(): Promise<void> {
-  if (!selectedProvider.value) return
+  if (!selectedProvider.value || !selectedProviderId.value) return
   if (apiKeyDraft.value !== selectedProvider.value.apiKey) {
-    // Mock: 保存 API Key
-    selectedProvider.value.apiKey = apiKeyDraft.value
-    console.log('Mock: API Key 已保存')
+    await store.updateProviderApiKey(selectedProviderId.value, apiKeyDraft.value)
   }
 }
 
 async function handleBaseUrlBlur(): Promise<void> {
-  if (!selectedProvider.value) return
+  if (!selectedProvider.value || !selectedProviderId.value) return
   if (baseUrlDraft.value !== selectedProvider.value.baseUrl) {
-    // Mock: 保存 Base URL
-    selectedProvider.value.baseUrl = baseUrlDraft.value
-    console.log('Mock: Base URL 已保存')
+    await store.updateProviderBaseUrl(selectedProviderId.value, baseUrlDraft.value)
   }
 }
 
-function removeModel(modelId: string): void {
-  if (!selectedProvider.value) return
-  selectedProvider.value.models = selectedProvider.value.models.filter((m) => m.id !== modelId)
+async function removeModel(modelId: string): Promise<void> {
+  await store.removeModel(modelId)
 }
 
 function isModelAdded(modelId: string): boolean {
@@ -1111,88 +1015,28 @@ function isGroupFullyAdded(groupName: string, models: any[]): boolean {
   return models.every((model) => isModelAdded(model.id))
 }
 
-async function handleAddSingleModel(model: RemoteModel): Promise<void> {
-  if (!selectedProvider.value) return
-  const newModel: Model = {
-    id: model.id,
-    name: model.id,
-    group: findGroupNameForModel(model.id)
-  }
-  selectedProvider.value.models.push(newModel)
+async function handleAddSingleModel(model: any): Promise<void> {
+  await store.addSingleRemoteModel(model)
 }
 
 async function handleRemoveSingleModel(modelId: string): Promise<void> {
-  if (!selectedProvider.value) return
-  selectedProvider.value.models = selectedProvider.value.models.filter((m) => m.id !== modelId)
+  await store.removeSingleRemoteModel(modelId)
 }
 
-async function handleAddGroupModels(groupName: string, models: RemoteModel[]): Promise<void> {
-  if (!selectedProvider.value) return
-  models.forEach((model) => {
-    if (!isModelAdded(model.id)) {
-      const newModel: Model = {
-        id: model.id,
-        name: model.id,
-        group: groupName
-      }
-      selectedProvider.value!.models.push(newModel)
-    }
-  })
+async function handleAddGroupModels(groupName: string, models: any[]): Promise<void> {
+  await store.addGroupModels(groupName, models)
 }
 
-async function handleRemoveGroupModels(groupName: string, models: RemoteModel[]): Promise<void> {
-  if (!selectedProvider.value) return
-  const modelIds = models.map((m) => m.id)
-  selectedProvider.value.models = selectedProvider.value.models.filter(
-    (m) => !modelIds.includes(m.id)
-  )
+async function handleRemoveGroupModels(groupName: string, models: any[]): Promise<void> {
+  await store.removeGroupModels(groupName, models)
 }
 
-function handleManualAddModel(): void {
-  if (!selectedProvider.value || !newModelForm.value.id) return
-
-  const newModel: Model = {
-    id: newModelForm.value.id,
-    name: newModelForm.value.name || newModelForm.value.id,
-    group: newModelForm.value.group || 'default'
-  }
-
-  selectedProvider.value.models.push(newModel)
-
-  // 重置表单
-  newModelForm.value = {
-    id: '',
-    name: '',
-    group: ''
-  }
-
-  isAddModelModalOpen.value = false
+async function handleManualAddModel(): Promise<void> {
+  await store.handleManualAddModel()
 }
 
-function handleAddProvider(): void {
-  if (!newProviderForm.value.name) return
-
-  const newProvider: Provider = {
-    id: `provider-${Date.now()}`,
-    name: newProviderForm.value.name,
-    type: newProviderForm.value.type as 'openai' | 'custom',
-    icon: newProviderForm.value.type === 'openai' ? 'openai' : 'server',
-    enabled: true,
-    apiKey: '',
-    baseUrl: '',
-    models: []
-  }
-
-  mockProviders.value.push(newProvider)
-  selectedProviderId.value = newProvider.id
-
-  // 重置表单
-  newProviderForm.value = {
-    type: 'openai',
-    name: ''
-  }
-
-  isAddProviderModalOpen.value = false
+async function handleAddProvider(): Promise<void> {
+  await store.handleAddProvider()
 }
 
 function clearSearch(): void {
@@ -1200,8 +1044,8 @@ function clearSearch(): void {
 }
 
 function findGroupNameForModel(modelId: string): string {
-  for (const [groupName, models] of Object.entries(mockRemoteModelGroups.value)) {
-    if (models.some((m) => m.id === modelId)) {
+  for (const [groupName, models] of Object.entries(remoteModelGroups.value)) {
+    if (models.some((m: any) => m.id === modelId)) {
       return groupName
     }
   }
