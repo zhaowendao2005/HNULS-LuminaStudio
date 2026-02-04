@@ -1,583 +1,394 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
-  BookOpen, 
-  Network, 
-  Search, 
-  LayoutGrid, 
-  Settings, 
   Sparkles, 
-  FileText, 
-  Highlighter, 
   MessageSquare, 
-  ChevronRight,
-  Plus,
-  Bell,
-  User,
-  ArrowUpRight,
-  Database,
-  DownloadCloud,
+  Search, 
+  Brain, 
+  Paperclip, 
+  ArrowUp, 
+  MoreHorizontal, 
+  ChevronDown, 
+  ChevronRight, 
+  Globe, 
+  Database, 
+  FileText, 
   X,
-  Activity,
-  Dna
+  Copy,
+  ThumbsUp,
+  ThumbsDown,
+  RefreshCw,
+  Cpu,
+  Leaf,
+  Plus,
+  Wand2,
+  Type,
+  AlignLeft
 } from 'lucide-react';
 
-// --- Theme Config ---
-const THEME = {
-  primary: "text-emerald-700",
-  primaryBg: "bg-emerald-600",
-  primaryLight: "bg-emerald-50",
-  accent: "text-teal-600",
-  accentBg: "bg-teal-50",
-  gradient: "from-emerald-500 to-teal-500",
+// --- Gemini API 配置 ---
+const apiKey = ""; 
+const GEMINI_MODEL = "gemini-2.5-flash-preview-09-2025";
+
+// --- 配置：提及项的样式定义 ---
+const MENTION_TYPES = {
+  'Google Search': { color: 'bg-blue-100 text-blue-700 border-blue-200', icon: <Globe size={12} /> },
+  'Google Drive': { color: 'bg-emerald-100 text-emerald-700 border-emerald-200', icon: <Database size={12} /> },
+  'Project Specs.pdf': { color: 'bg-orange-100 text-orange-700 border-orange-200', icon: <FileText size={12} /> }
 };
 
-// --- Mock Data ---
+// --- 组件部分 ---
 
-const RECENT_PAPERS = [
-  { id: 1, title: "CRISPR-Cas9 Gene Editing Mechanisms", authors: "Doudna et al.", journal: "Science 2014", status: "Read", added: "2 hours ago" },
-  { id: 2, title: "AlphaFold: Protein Structure Prediction", authors: "Jumper et al.", journal: "Nature 2021", status: "Reading", added: "5 hours ago" },
-  { id: 3, title: "mRNA Vaccine Technology Overview", authors: "Karikó et al.", journal: "Immunity 2020", status: "New", added: "1 day ago" },
-];
-
-const STATS = [
-  { label: "Total Papers", value: "1,284", unit: "Docs", trend: "+12%", icon: FileText, color: "text-emerald-600", bg: "bg-emerald-50" },
-  { label: "Bio-Entities", value: "12.9k", unit: "Nodes", trend: "+5%", icon: Dna, color: "text-teal-600", bg: "bg-teal-50" },
-  { label: "AI Insights", value: "840", unit: "Chats", trend: "+84", icon: Sparkles, color: "text-lime-600", bg: "bg-lime-50" },
-];
-
-// --- Dynamic Background Components ---
-
-const OrganicBackground = ({ type }) => {
-  if (type === 'dashboard') {
-    return (
-      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-        {/* Cellular Matrix: Hexagons */}
-        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] opacity-20 animate-float-slow">
-           <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-             <path fill="#10b981" d="M44.7,-76.4C58.9,-69.2,71.8,-59.1,81.6,-46.6C91.4,-34.1,98.1,-19.2,95.8,-4.9C93.5,9.4,82.2,23.1,70.9,34.4C59.6,45.7,48.3,54.6,36.3,61.9C24.3,69.2,11.6,74.9,-1.9,78.2C-15.4,81.5,-30.5,82.4,-44.1,76.5C-57.7,70.6,-69.8,57.9,-78.6,43.5C-87.4,29.1,-92.9,13,-91.2,-2.4C-89.5,-17.8,-80.6,-32.5,-69.7,-44.6C-58.8,-56.7,-45.9,-66.2,-32.2,-73.7C-18.5,-81.2,-4,-86.7,10.2,-86.3L20.4,-85.9" transform="translate(100 100) scale(1.1)" />
-           </svg>
-        </div>
-        
-        <div className="absolute bottom-[-10%] right-[-5%] w-[40%] h-[40%] opacity-10 animate-float-reverse">
-           <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-             <path fill="#0d9488" d="M41.7,-65.4C53.5,-56.1,62.3,-43.3,68.9,-29.4C75.5,-15.5,79.9,-0.5,77.3,13.2C74.7,26.9,65.1,39.3,53.8,49.2C42.5,59.1,29.5,66.5,15.6,69.2C1.7,71.9,-13.1,69.9,-27.1,64.2C-41.1,58.5,-54.3,49.1,-63.9,37C-73.5,24.9,-79.5,10.1,-78.3,-4.2C-77.1,-18.5,-68.7,-32.3,-57.4,-42.9C-46.1,-53.5,-31.9,-60.9,-17.9,-63.8C-3.9,-66.7,9.1,-65.1,20.1,-61.5L29.9,-74.7" transform="translate(100 100)" />
-           </svg>
-        </div>
-
-        {/* Floating Polygons */}
-        <div className="absolute top-[20%] right-[20%] w-32 h-32 bg-emerald-100/30 rotate-12 rounded-3xl animate-pulse-slow backdrop-blur-3xl blur-2xl"></div>
-        <div className="absolute top-[60%] left-[10%] w-48 h-48 bg-teal-100/30 -rotate-12 rounded-full animate-float blur-3xl"></div>
-      </div>
-    );
-  }
+const ThinkingProcess = ({ steps, isComplete }) => {
+  const [isOpen, setIsOpen] = useState(!isComplete);
   
-  if (type === 'reader') {
-    return (
-      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-        {/* Subtle Strand / DNA abstraction on the right */}
-        <svg className="absolute right-0 top-0 h-full w-1/3 opacity-20" viewBox="0 0 100 400" preserveAspectRatio="none">
-          <path d="M50 0 C 80 100, 20 200, 50 400" stroke="url(#grad1)" strokeWidth="2" fill="none" className="animate-dash" />
-          <path d="M60 0 C 90 100, 30 200, 60 400" stroke="url(#grad1)" strokeWidth="2" fill="none" className="animate-dash" style={{animationDelay: '1s'}} />
-          <defs>
-            <linearGradient id="grad1" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" style={{stopColor:'#10b981', stopOpacity:0}} />
-              <stop offset="50%" style={{stopColor:'#10b981', stopOpacity:0.5}} />
-              <stop offset="100%" style={{stopColor:'#10b981', stopOpacity:0}} />
-            </linearGradient>
-          </defs>
-        </svg>
-        <div className="absolute inset-0 bg-gradient-to-r from-white via-white/80 to-emerald-50/20"></div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (isComplete) {
+      const timer = setTimeout(() => setIsOpen(false), 800);
+      return () => clearTimeout(timer);
+    }
+  }, [isComplete]);
 
-  return null; // Graph handles its own background
-};
-
-// --- Components ---
-
-const SidebarItem = ({ icon: Icon, active, onClick }) => (
-  <button 
-    onClick={onClick}
-    className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all duration-300 mb-4 group relative ${
-      active 
-        ? 'bg-gradient-to-br from-emerald-600 to-teal-700 text-white shadow-lg shadow-emerald-200' 
-        : 'text-slate-400 hover:bg-emerald-50 hover:text-emerald-700'
-    }`}
-  >
-    <Icon size={20} strokeWidth={2} />
-    {!active && <div className="absolute right-2 top-2 w-1.5 h-1.5 bg-emerald-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />}
-  </button>
-);
-
-const StatCard = ({ stat }) => (
-  <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl border border-emerald-100/50 shadow-sm hover:shadow-lg hover:shadow-emerald-100/50 transition-all duration-300 flex flex-col justify-between h-40 group">
-    <div className="flex justify-between items-start">
-      <div className={`p-3 rounded-xl transition-colors ${stat.bg} ${stat.color} group-hover:scale-110 duration-300`}>
-        <stat.icon size={20} />
-      </div>
-      <span className="text-xs font-medium px-2 py-1 rounded-full bg-white text-emerald-600 border border-emerald-100 shadow-sm">
-        {stat.trend}
-      </span>
-    </div>
-    <div>
-      <h3 className="text-3xl font-bold text-slate-800 tracking-tight">{stat.value}</h3>
-      <p className="text-sm text-slate-500 font-medium mt-1">{stat.label}</p>
-    </div>
-  </div>
-);
-
-const WelcomeScreen = ({ onStart }) => (
-  <div className="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center animate-fade-in overflow-hidden">
-    {/* Welcome Background */}
-    <div className="absolute inset-0 pointer-events-none">
-       <div className="absolute top-[-20%] left-[-10%] w-[60vw] h-[60vw] bg-emerald-100/40 rounded-full blur-[100px] animate-pulse-slow"></div>
-       <div className="absolute bottom-[-10%] right-[-10%] w-[50vw] h-[50vw] bg-teal-100/40 rounded-full blur-[100px] animate-pulse-slow" style={{animationDelay: '2s'}}></div>
-    </div>
-
-    <div className="w-full max-w-4xl px-8 flex flex-col items-center text-center relative z-10">
-      <div className="mb-8 relative group cursor-pointer" onClick={onStart}>
-        <div className="absolute -inset-6 bg-gradient-to-tr from-emerald-200 to-teal-200 rounded-full blur-xl opacity-60 group-hover:opacity-100 transition-opacity duration-500"></div>
-        <div className="relative bg-white p-5 rounded-2xl shadow-xl border border-emerald-50">
-          <Dna size={56} className="text-emerald-600 animate-float" />
-        </div>
-      </div>
-      
-      <h1 className="text-6xl font-bold text-slate-900 mb-6 tracking-tight">
-        Lumina.
-      </h1>
-      <p className="text-xl text-slate-500 max-w-2xl mb-10 leading-relaxed">
-        The biological research platform driven by <span className="text-emerald-700 font-semibold bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100">Life Intelligence</span>. 
-        <br/>Seamlessly connecting literature, gene networks, and AI.
-      </p>
-      
+  return (
+    <div className="mb-4 w-full">
       <button 
-        onClick={onStart}
-        className="group relative inline-flex items-center justify-center px-10 py-4 text-lg font-medium text-white transition-all duration-300 bg-slate-900 rounded-full hover:bg-emerald-900 hover:shadow-xl hover:shadow-emerald-900/20 hover:-translate-y-1"
+        onClick={() => setIsOpen(!isOpen)}
+        className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-300 border
+          ${isOpen 
+            ? 'bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-900/50' 
+            : 'bg-white text-gray-500 border-gray-100 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'
+          }`}
       >
-        <span>Initialize Workspace</span>
-        <ArrowUpRight className="ml-2 w-5 h-5 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+        <div className="relative flex items-center justify-center w-5 h-5">
+          {isComplete ? <Brain size={16} /> : <div className="animate-spin rounded-full h-4 w-4 border-2 border-emerald-500 border-t-transparent" />}
+        </div>
+        <span>{isComplete ? '深度思考已完成' : '正在思考...'}</span>
+        {isOpen ? <ChevronDown size={14} className="ml-auto opacity-50" /> : <ChevronRight size={14} className="ml-auto opacity-50" />}
       </button>
-    </div>
-  </div>
-);
 
-// --- Sub-Views ---
-
-const DashboardView = () => (
-  <div className="relative space-y-8 animate-fade-in-up">
-    {/* Background Injection */}
-    <OrganicBackground type="dashboard" />
-    
-    {/* Content */}
-    <div className="relative z-10">
-      {/* Header Section */}
-      <div className="flex justify-between items-end">
-        <div>
-          <h2 className="text-3xl font-bold text-slate-800">Bio-Research Overview</h2>
-          <p className="text-slate-500 mt-2 flex items-center gap-2">
-            <span className="flex h-3 w-3 relative">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-            </span>
-            System Online • Nexus Core v3.0 (Life Sciences)
-          </p>
-        </div>
-        <div className="flex gap-3">
-          <button className="px-4 py-2 bg-white/60 backdrop-blur border border-slate-200 text-slate-600 rounded-lg text-sm font-medium hover:bg-white hover:border-emerald-200 transition-all shadow-sm">
-            Import FASTA/PDF
-          </button>
-          <button className="px-4 py-2 bg-gradient-to-r from-slate-900 to-slate-800 text-white rounded-lg text-sm font-medium hover:shadow-lg hover:shadow-slate-900/20 transition-all flex items-center gap-2">
-            <Plus size={16} />
-            New Experiment
-          </button>
-        </div>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
-        {STATS.map((stat, idx) => (
-          <StatCard key={idx} stat={stat} />
-        ))}
-      </div>
-
-      {/* Recent Activity / Papers */}
-      <div className="bg-white/80 backdrop-blur-md rounded-2xl border border-emerald-100/50 shadow-sm overflow-hidden mt-8">
-        <div className="p-6 border-b border-emerald-50 flex justify-between items-center bg-emerald-50/30">
-          <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
-            <Activity size={18} className="text-emerald-600" />
-            Recent Literature
-          </h3>
-          <button className="text-sm text-emerald-600 hover:text-emerald-700 font-medium">View Library</button>
-        </div>
-        <div className="divide-y divide-emerald-50">
-          {RECENT_PAPERS.map((paper) => (
-            <div key={paper.id} className="p-4 hover:bg-emerald-50/50 transition-colors flex items-center justify-between group cursor-pointer">
-              <div className="flex items-start gap-4">
-                <div className="p-2 bg-white border border-emerald-100 text-emerald-600 rounded-lg group-hover:bg-emerald-600 group-hover:text-white transition-all duration-300">
-                  <FileText size={20} />
-                </div>
-                <div>
-                  <h4 className="text-sm font-semibold text-slate-900 group-hover:text-emerald-800 transition-colors">{paper.title}</h4>
-                  <p className="text-xs text-slate-500 mt-1">{paper.authors} • <span className="italic">{paper.journal}</span></p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                <span className={`text-xs px-2 py-1 rounded-md font-medium border ${
-                  paper.status === 'Reading' ? 'bg-amber-50 text-amber-700 border-amber-100' :
-                  paper.status === 'New' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-slate-50 text-slate-500 border-slate-100'
-                }`}>
-                  {paper.status}
-                </span>
-                <span className="text-xs text-slate-400 w-20 text-right">{paper.added}</span>
-                <button className="p-1 text-slate-300 hover:text-emerald-600 transition-colors">
-                  <ChevronRight size={16} />
-                </button>
-              </div>
+      <div className={`overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${isOpen ? 'max-h-[500px] opacity-100 mt-2' : 'max-h-0 opacity-0'}`}>
+        <div className="pl-4 border-l-2 border-emerald-100 dark:border-emerald-900/50 space-y-3 py-2">
+          {steps.map((step, idx) => (
+            <div key={idx} className="flex items-start gap-3 text-xs animate-fadeIn">
+              <span className="text-emerald-500 font-mono mt-0.5">{String(idx + 1).padStart(2, '0')}</span>
+              <span className="text-gray-600 dark:text-gray-300 leading-relaxed">{step}</span>
             </div>
           ))}
         </div>
       </div>
     </div>
-  </div>
-);
-
-const ReaderView = () => {
-  const [selectedText, setSelectedText] = useState(null);
-  const [showAskTooltip, setShowAskTooltip] = useState(false);
-  const [chatOpen, setChatOpen] = useState(true);
-
-  // Mock function to simulate selecting text
-  const handleTextSelect = (e) => {
-    e.stopPropagation();
-    setSelectedText("Cas9 is a dual-RNA-guided DNA endonuclease that uses base pairing to recognize and cleave target DNAs.");
-    setShowAskTooltip(true);
-  };
-
-  return (
-    <div className="flex h-full gap-6 relative">
-      <OrganicBackground type="reader" />
-      
-      {/* PDF / Document Area */}
-      <div className="flex-1 bg-white/90 backdrop-blur-sm rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col relative z-10 transition-all duration-300 hover:shadow-md">
-        <div className="h-12 border-b border-slate-100 flex items-center px-4 justify-between bg-white/50">
-          <span className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            CRISPR-Cas9 Gene Editing Mechanisms.pdf
-          </span>
-          <div className="flex gap-2 text-slate-400">
-             <Search size={16} className="hover:text-emerald-600 cursor-pointer transition-colors"/>
-             <DownloadCloud size={16} className="hover:text-emerald-600 cursor-pointer transition-colors"/>
-          </div>
-        </div>
-        <div className="flex-1 p-10 overflow-y-auto font-serif text-slate-800 leading-relaxed text-lg" onClick={() => setShowAskTooltip(false)}>
-           <h1 className="text-3xl font-bold mb-4 font-sans text-slate-900">Abstract</h1>
-           <p className="mb-6 text-slate-600">
-             The CRISPR-Cas9 system has revolutionized genomic engineering. Originating from the adaptive immune system of Streptococcus pyogenes, this mechanism allows for precise cleavage of DNA sequences.
-           </p>
-           <p 
-             className="mb-6 p-1 hover:bg-emerald-50/80 cursor-text transition-colors rounded relative selection:bg-emerald-200"
-             onClick={handleTextSelect}
-           >
-             Cas9 is a dual-RNA-guided DNA endonuclease that uses base pairing to recognize and cleave target DNAs. <span className="text-emerald-400 text-sm ml-2 font-sans opacity-60">[Select Text]</span>
-           </p>
-           <p className="mb-6 text-slate-600">
-             Structural studies have revealed the distinct conformational states of Cas9 during the process of DNA interrogation and cleavage, highlighting the role of the PAM sequence in target recognition.
-           </p>
-           
-           {/* Context Menu / Tooltip for Ask */}
-           {showAskTooltip && (
-             <div 
-                className="absolute bg-slate-900 text-white text-sm px-4 py-2.5 rounded-lg shadow-xl cursor-pointer flex items-center gap-2 animate-bounce-short z-20 hover:bg-emerald-900 transition-colors"
-                style={{ top: '220px', left: '120px' }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setChatOpen(true);
-                }}
-             >
-               <Sparkles size={14} className="text-emerald-400" />
-               Analyze with Lumina
-             </div>
-           )}
-        </div>
-      </div>
-
-      {/* AI Sidebar */}
-      {chatOpen && (
-        <div className="w-80 flex flex-col bg-white/95 backdrop-blur rounded-xl border border-emerald-100 shadow-lg z-10 animate-fade-in">
-          <div className="p-4 border-b border-emerald-50 flex justify-between items-center bg-emerald-50/30">
-            <div className="flex items-center gap-2">
-              <Sparkles size={16} className="text-emerald-600" />
-              <span className="font-semibold text-slate-700 text-sm">Lumina Bio-AI</span>
-            </div>
-            <button onClick={() => setChatOpen(false)} className="text-slate-400 hover:text-slate-600">
-              <X size={16} />
-            </button>
-          </div>
-          
-          <div className="flex-1 p-4 overflow-y-auto space-y-4">
-            <div className="flex gap-3">
-              <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
-                <Dna size={14} className="text-emerald-600"/>
-              </div>
-              <div className="bg-emerald-50 p-3 rounded-2xl rounded-tl-none text-sm text-slate-700 border border-emerald-100">
-                Analyzing gene sequences and protein structures in this document. How can I assist?
-              </div>
-            </div>
-            
-            {selectedText && (
-               <div className="flex gap-3 flex-row-reverse">
-                 <div className="bg-slate-900 p-3 rounded-2xl rounded-tr-none text-sm text-white shadow-sm">
-                   Explain the enzymatic function.
-                 </div>
-               </div>
-            )}
-
-            {selectedText && (
-               <div className="flex gap-3 animate-fade-in-up">
-                 <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
-                   <Sparkles size={14} className="text-emerald-600"/>
-                 </div>
-                 <div className="bg-white p-3 rounded-2xl rounded-tl-none text-sm text-slate-700 border border-emerald-100 shadow-sm">
-                   Cas9 functions as molecular scissors. The "dual-RNA-guide" refers to the crRNA and tracrRNA complex that directs the protein to the specific DNA sequence.
-                   <div className="mt-3 flex flex-wrap gap-2">
-                     <span className="text-[10px] bg-emerald-50 text-emerald-700 px-2 py-1 rounded-full border border-emerald-100 cursor-pointer hover:bg-emerald-100">Show 3D Structure</span>
-                     <span className="text-[10px] bg-emerald-50 text-emerald-700 px-2 py-1 rounded-full border border-emerald-100 cursor-pointer hover:bg-emerald-100">Find Related Papers</span>
-                   </div>
-                 </div>
-               </div>
-            )}
-          </div>
-
-          <div className="p-4 border-t border-slate-100">
-             <div className="relative">
-               <input 
-                 type="text" 
-                 placeholder="Ask about protein folding..." 
-                 className="w-full pl-4 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 transition-all"
-               />
-               <button className="absolute right-2 top-2 p-1 bg-emerald-600 text-white rounded hover:bg-emerald-700 transition-colors">
-                 <ArrowUpRight size={14} />
-               </button>
-             </div>
-          </div>
-        </div>
-      )}
-    </div>
   );
-}
+};
 
-const GraphView = () => (
-  <div className="h-full bg-slate-900 rounded-2xl border border-slate-800 shadow-inner relative overflow-hidden flex items-center justify-center">
-    {/* Graph-Specific Background: Synaptic Fog */}
-    <div className="absolute inset-0">
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-emerald-900/20 rounded-full blur-[100px] animate-pulse-slow"></div>
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-teal-900/20 rounded-full blur-[100px] animate-pulse-slow" style={{animationDelay: '1s'}}></div>
-    </div>
-    
-    <div className="absolute top-4 left-4 z-10 bg-slate-800/90 backdrop-blur border border-slate-700 p-2 rounded-lg text-xs font-medium text-slate-300">
-      <div className="flex items-center gap-2 mb-1"><span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_#10b981]"></span> Target Protein</div>
-      <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-slate-500"></span> Related Gene</div>
-    </div>
-    
-    <svg width="100%" height="100%" viewBox="0 0 800 600" className="z-10 relative">
-      <defs>
-        <pattern id="grid-dark" width="40" height="40" patternUnits="userSpaceOnUse">
-          <circle cx="1" cy="1" r="1" fill="#1e293b" />
-        </pattern>
-        <filter id="glow">
-          <feGaussianBlur stdDeviation="2.5" result="coloredBlur"/>
-          <feMerge>
-            <feMergeNode in="coloredBlur"/>
-            <feMergeNode in="SourceGraphic"/>
-          </feMerge>
-        </filter>
-      </defs>
-      <rect width="100%" height="100%" fill="url(#grid-dark)" />
-      
-      {/* Edges */}
-      <g stroke="#334155" strokeWidth="1">
-        <line x1="400" y1="300" x2="250" y2="150" className="animate-pulse-slow"/>
-        <line x1="400" y1="300" x2="550" y2="150" />
-        <line x1="400" y1="300" x2="250" y2="450" />
-        <line x1="400" y1="300" x2="550" y2="450" />
-        <line x1="400" y1="300" x2="600" y2="300" />
-        <line x1="250" y1="150" x2="150" y2="100" />
-        <line x1="550" y1="150" x2="650" y2="100" />
-      </g>
-      
-      {/* Nodes */}
-      {/* Central Node */}
-      <g filter="url(#glow)">
-        <circle cx="400" cy="300" r="30" fill="#064e3b" stroke="#10b981" strokeWidth="2" className="animate-pulse-slow" />
-        <circle cx="400" cy="300" r="10" fill="#10b981" />
-      </g>
-      
-      {/* Satellite Nodes */}
-      {[
-        {cx:250, cy:150}, {cx:550, cy:150}, 
-        {cx:250, cy:450}, {cx:550, cy:450}, {cx:600, cy:300}
-      ].map((pos, i) => (
-        <circle key={i} cx={pos.cx} cy={pos.cy} r="12" fill="#1e293b" stroke="#64748b" strokeWidth="2" className="hover:fill-emerald-900 hover:stroke-emerald-500 transition-all duration-300 cursor-pointer" />
-      ))}
-      
-      {/* Text Labels */}
-      <text x="400" y="355" textAnchor="middle" className="text-sm fill-emerald-400 font-semibold tracking-wide" style={{fontSize: '12px'}}>Cas9 Enzyme</text>
-    </svg>
+const renderContent = (content) => {
+  if (typeof content !== 'string') return content;
+  const mentionRegex = /(@Google Search|@Google Drive|@Project Specs\.pdf)/g;
+  const parts = content.split(mentionRegex);
 
-    <div className="absolute bottom-6 right-6 bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-lg hover:bg-emerald-500 cursor-pointer flex items-center gap-2 transition-all hover:scale-105">
-      <DownloadCloud size={16} />
-      Export Dataset
-    </div>
-  </div>
-);
+  return parts.map((part, index) => {
+    if (MENTION_TYPES[part]) {
+      const { color, icon } = MENTION_TYPES[part];
+      return (
+        <span key={index} className={`inline-flex items-center px-2 py-0.5 mx-0.5 rounded-full text-[13px] font-medium border ${color}`}>
+          <span className="mr-1">{icon}</span>
+          {part.replace('@', '')}
+        </span>
+      );
+    }
+    return <span key={index} dangerouslySetInnerHTML={{ __html: part.replace(/\n/g, '<br/>') }} />;
+  });
+};
 
-// --- Main App Component ---
-
-const LuminaApp = () => {
-  const [hasStarted, setHasStarted] = useState(false);
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [searchFocused, setSearchFocused] = useState(false);
-
-  useEffect(() => {
-    // Auth check simulation
-  }, []);
-
-  if (!hasStarted) {
-    return <WelcomeScreen onStart={() => setHasStarted(true)} />;
-  }
-
+const MessageBubble = ({ message }) => {
+  const isAI = message.role === 'ai';
   return (
-    <div className="flex h-screen w-full bg-[#f8fafc] font-sans text-slate-900 overflow-hidden selection:bg-emerald-200 selection:text-emerald-900">
-      
-      {/* Left Navbar */}
-      <div className="w-16 h-full bg-white border-r border-slate-200 flex flex-col items-center py-6 z-30 shadow-[4px_0_24px_-12px_rgba(16,185,129,0.1)]">
-        {/* Logo Icon */}
-        <div className="mb-8 p-2 bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-xl shadow-lg shadow-emerald-900/20 ring-1 ring-white/20">
-          <BookOpen size={20} />
+    <div className={`flex w-full ${isAI ? 'justify-start' : 'justify-end'} mb-10 group animate-fadeIn`}>
+      <div className={`max-w-3xl w-full flex gap-5 ${isAI ? 'flex-row' : 'flex-row-reverse'}`}>
+        <div className={`flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center mt-1 shadow-sm
+          ${isAI ? 'bg-gradient-to-tr from-emerald-500 to-teal-600 text-white' : 'bg-gray-100 text-gray-400'}`}>
+          {isAI ? <Sparkles size={18} /> : <div className="text-[10px] font-bold">YOU</div>}
         </div>
-
-        {/* Navigation */}
-        <div className="flex-1 flex flex-col w-full px-2 gap-2">
-          <SidebarItem 
-            icon={LayoutGrid} 
-            active={activeTab === 'dashboard'} 
-            onClick={() => setActiveTab('dashboard')} 
-          />
-          <SidebarItem 
-            icon={FileText} 
-            active={activeTab === 'reader'} 
-            onClick={() => setActiveTab('reader')} 
-          />
-          <SidebarItem 
-            icon={Network} 
-            active={activeTab === 'graph'} 
-            onClick={() => setActiveTab('graph')} 
-          />
-        </div>
-
-        <div className="mb-4 w-full px-2 gap-2 flex flex-col">
-           <SidebarItem icon={Settings} active={false} onClick={() => {}} />
-           <div className="w-full h-[1px] bg-slate-100 my-2"></div>
-           <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 cursor-pointer transition-colors">
-              <User size={18} />
-           </div>
+        <div className={`flex-1 min-w-0 space-y-4 ${!isAI && 'text-right'}`}>
+          <div className="text-xs text-gray-400 font-medium">{isAI ? 'EcoMind Agent' : 'User'}</div>
+          {isAI && message.thinkingSteps && <ThinkingProcess steps={message.thinkingSteps} isComplete={!message.isThinking} />}
+          <div className={`text-[15px] leading-relaxed text-gray-800 dark:text-gray-100
+            ${!isAI ? 'bg-emerald-50 dark:bg-emerald-900/20 px-4 py-3 rounded-2xl inline-block text-left' : ''}`}>
+            {renderContent(message.content)}
+          </div>
         </div>
       </div>
-
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden relative">
-        
-        {/* Top Bar */}
-        <header className="h-16 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-8 z-20 shrink-0 sticky top-0">
-          <div className="flex items-center gap-2 text-sm text-slate-500 select-none drag-region">
-            <span className="font-bold text-slate-800 tracking-tight">Lumina</span>
-            <span className="text-slate-300">/</span>
-            <span className="capitalize text-slate-600">{activeTab}</span>
-          </div>
-
-          <div className={`transition-all duration-300 ${searchFocused ? 'w-96' : 'w-64'} relative group`}>
-            <Search className="absolute left-3 top-2.5 text-slate-400 group-focus-within:text-emerald-500 transition-colors" size={18} />
-            <div className="absolute right-3 top-2.5 flex gap-1">
-               <span className="text-[10px] font-mono bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded border border-slate-200">⌘K</span>
-            </div>
-            <input 
-              type="text" 
-              placeholder="Search DNA, proteins, papers..." 
-              className="w-full bg-slate-50/50 border border-slate-200 text-slate-800 text-sm rounded-lg pl-10 pr-12 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-slate-400"
-              onFocus={() => setSearchFocused(true)}
-              onBlur={() => setSearchFocused(false)}
-            />
-          </div>
-
-          <div className="flex items-center gap-4">
-            <button className="relative p-2 text-slate-400 hover:text-emerald-600 transition-colors">
-              <Bell size={20} />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-emerald-500 rounded-full border-2 border-white shadow-sm"></span>
-            </button>
-            <div className="text-right hidden lg:block">
-              <div className="text-xs font-bold text-slate-800">Dr. Chen</div>
-              <div className="text-[10px] text-emerald-600 font-medium tracking-wide">Genomics Lead</div>
-            </div>
-          </div>
-        </header>
-
-        {/* Content Wrapper */}
-        <main className="flex-1 p-6 overflow-y-auto overflow-x-hidden relative">
-          {activeTab === 'dashboard' && <DashboardView />}
-          {activeTab === 'reader' && <ReaderView />}
-          {activeTab === 'graph' && <GraphView />}
-        </main>
-
-      </div>
-      
-      <style jsx global>{`
-        .drag-region {
-          -webkit-app-region: drag;
-        }
-        button, input {
-          -webkit-app-region: no-drag;
-        }
-        @keyframes float {
-          0% { transform: translate(0, 0); }
-          50% { transform: translate(0, -10px); }
-          100% { transform: translate(0, 0); }
-        }
-        @keyframes float-slow {
-          0% { transform: translate(0, 0) rotate(0deg); }
-          50% { transform: translate(10px, -15px) rotate(2deg); }
-          100% { transform: translate(0, 0) rotate(0deg); }
-        }
-        @keyframes float-reverse {
-          0% { transform: translate(0, 0) rotate(0deg); }
-          50% { transform: translate(-10px, 15px) rotate(-2deg); }
-          100% { transform: translate(0, 0) rotate(0deg); }
-        }
-        @keyframes pulse-slow {
-          0%, 100% { opacity: 0.4; transform: scale(1); }
-          50% { opacity: 0.6; transform: scale(1.05); }
-        }
-        @keyframes dash {
-          to {
-            stroke-dashoffset: -1000;
-          }
-        }
-        .animate-float { animation: float 3s ease-in-out infinite; }
-        .animate-float-slow { animation: float-slow 8s ease-in-out infinite; }
-        .animate-float-reverse { animation: float-reverse 10s ease-in-out infinite; }
-        .animate-pulse-slow { animation: pulse-slow 4s ease-in-out infinite; }
-        .animate-dash { stroke-dasharray: 10; animation: dash 20s linear infinite; }
-        
-        /* Typography Polish */
-        h1, h2, h3 { letter-spacing: -0.025em; }
-        
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #d1fae5; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: #10b981; }
-      `}</style>
     </div>
   );
 };
 
-export default LuminaApp;
+// --- 主应用 ---
+
+export default function App() {
+  const [isTyping, setIsTyping] = useState(false);
+  const [showAtMenu, setShowAtMenu] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [messages, setMessages] = useState([
+    { id: 1, role: 'ai', content: '你好！我是接入了 Gemini 2.5 的智能助手。你可以输入 @ 来引用文档，或者使用上方的智能工具来优化你的输入。', thinkingSteps: null }
+  ]);
+  
+  const editableRef = useRef(null);
+  const messagesEndRef = useRef(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isTyping]);
+
+  // 指数退避的 API 调用函数
+  const callGemini = async (prompt, systemInstruction = "") => {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+    const payload = {
+      contents: [{ parts: [{ text: prompt }] }],
+      systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined
+    };
+
+    for (let i = 0; i < 5; i++) {
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!response.ok) throw new Error('API request failed');
+        const data = await response.json();
+        return data.candidates?.[0]?.content?.parts?.[0]?.text;
+      } catch (err) {
+        if (i === 4) throw err;
+        await new Promise(r => setTimeout(r, Math.pow(2, i) * 1000));
+      }
+    }
+  };
+
+  const handleInput = () => {
+    const selection = window.getSelection();
+    if (selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      const preCursorText = range.startContainer.textContent?.substring(0, range.startOffset) || "";
+      setShowAtMenu(preCursorText.endsWith('@'));
+    }
+  };
+
+  const insertMention = (name) => {
+    const selection = window.getSelection();
+    if (!selection.rangeCount) return;
+    const range = selection.getRangeAt(0);
+    range.setStart(range.startContainer, range.startOffset - 1);
+    range.deleteContents();
+    const chip = document.createElement('span');
+    chip.contentEditable = false;
+    chip.className = `inline-flex items-center px-2 py-0.5 mx-1 rounded-full text-sm font-medium border align-baseline ${MENTION_TYPES[name].color}`;
+    chip.dataset.mention = name;
+    chip.innerHTML = `<span class="mr-1 opacity-70">#</span>${name.replace('@', '')}`;
+    range.insertNode(chip);
+    const space = document.createTextNode('\u00A0');
+    chip.after(space);
+    range.setStartAfter(space);
+    range.setEndAfter(space);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    setShowAtMenu(false);
+    editableRef.current.focus();
+  };
+
+  // ✨ 智能增强功能：润色/扩写
+  const handleSmartFeature = async (type) => {
+    const currentText = editableRef.current.innerText;
+    if (!currentText.trim() || isProcessing) return;
+
+    setIsProcessing(true);
+    let prompt = "";
+    if (type === 'polish') prompt = `请润色以下文字，使其更加专业且通顺：\n"${currentText}"`;
+    if (type === 'expand') prompt = `请扩写以下文字，增加细节和深度：\n"${currentText}"`;
+    if (type === 'summarize') prompt = `请总结以下长文的核心要点：\n"${currentText}"`;
+
+    try {
+      const result = await callGemini(prompt, "你是一个专业的文案编辑和助手。");
+      if (result) {
+        editableRef.current.innerText = result;
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleSend = async () => {
+    const content = editableRef.current.innerText;
+    if (!content.trim() || isTyping) return;
+
+    const userMsg = { id: Date.now(), role: 'user', content: content };
+    setMessages(prev => [...prev, userMsg]);
+    editableRef.current.innerHTML = "";
+    setIsTyping(true);
+
+    try {
+      // 模拟深度思考步骤生成
+      const aiId = Date.now() + 1;
+      const thinkingSteps = ["正在分析用户请求...", "解析上下文关联...", "从知识库中检索信息..."];
+      
+      setMessages(prev => [...prev, {
+        id: aiId,
+        role: 'ai',
+        isThinking: true,
+        content: '',
+        thinkingSteps: thinkingSteps
+      }]);
+
+      const response = await callGemini(
+        `用户输入：${content}\n请基于上下文提供详细回复。如果用户提到了文档或搜索，请模拟你正在参考这些资料。`,
+        "你是一个名为 EcoMind 的高级 AI 助手。你擅长逻辑分析和资料归纳。请用温和且专业的语气回复。支持 HTML 标签如 <b>, <i>, <ul>, <li> 等。"
+      );
+
+      setMessages(prev => prev.map(msg => msg.id === aiId ? {
+        ...msg,
+        isThinking: false,
+        content: response || "抱歉，我现在无法回答这个问题。",
+        thinkingSteps: [...thinkingSteps, "生成最终回复..."]
+      } : msg));
+
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsTyping(false);
+    }
+  };
+
+  return (
+    <div className="flex h-screen bg-[#fafcfb] dark:bg-[#0f1117] text-gray-900 overflow-hidden">
+      
+      {/* 侧边栏 */}
+      <div className="hidden md:flex w-64 flex-col border-r border-gray-100 bg-white p-6">
+        <div className="flex items-center gap-2 mb-10">
+          <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center text-white shadow-lg shadow-emerald-100">
+            <Leaf size={18} />
+          </div>
+          <span className="text-lg font-bold">EcoMind</span>
+        </div>
+        <button className="flex items-center gap-3 w-full px-4 py-3 bg-emerald-50 text-emerald-700 rounded-2xl hover:bg-emerald-100 transition-all font-medium border border-emerald-100/50">
+          <Plus size={18} />
+          <span>新对话</span>
+        </button>
+      </div>
+
+      {/* 主聊天区 */}
+      <div className="flex-1 flex flex-col relative bg-[#fafcfb] dark:bg-transparent">
+        
+        <header className="h-16 flex items-center justify-between px-8 bg-white/40 backdrop-blur-md z-10">
+          <div className="flex items-center gap-3">
+             <div className="px-3 py-1 bg-white border border-gray-100 rounded-full text-[11px] font-bold text-emerald-600 uppercase tracking-tighter">
+               Gemini 2.5 Flash ✨
+             </div>
+          </div>
+          <div className="flex gap-2">
+             <button className="p-2 text-gray-400 hover:bg-gray-100 rounded-full transition-colors"><Search size={18}/></button>
+             <button className="p-2 text-gray-400 hover:bg-gray-100 rounded-full transition-colors"><MoreHorizontal size={18}/></button>
+          </div>
+        </header>
+
+        <main className="flex-1 overflow-y-auto pt-4 px-6 md:px-0 scrollbar-hide">
+          <div className="max-w-3xl mx-auto pb-48">
+            {messages.map(msg => <MessageBubble key={msg.id} message={msg} />)}
+            {isTyping && (
+              <div className="flex gap-5 max-w-3xl animate-pulse">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-600 flex items-center justify-center text-white"><Sparkles size={18} /></div>
+                <div className="flex items-center gap-1.5 mt-3">
+                  <span className="w-1.5 h-1.5 bg-emerald-300 rounded-full animate-bounce"></span>
+                  <span className="w-1.5 h-1.5 bg-emerald-300 rounded-full animate-bounce [animation-delay:0.2s]"></span>
+                  <span className="w-1.5 h-1.5 bg-emerald-300 rounded-full animate-bounce [animation-delay:0.4s]"></span>
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+        </main>
+
+        {/* 底部输入框 */}
+        <div className="absolute bottom-0 left-0 w-full p-6 bg-gradient-to-t from-[#fafcfb] via-[#fafcfb] to-transparent pt-24">
+          <div className="max-w-3xl mx-auto relative">
+            
+            {/* ✨ 智能工具栏 */}
+            <div className="flex gap-2 mb-3 ml-2 animate-in fade-in slide-in-from-bottom-1">
+              <button 
+                onClick={() => handleSmartFeature('polish')}
+                disabled={isProcessing}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-100 rounded-full text-xs font-medium text-emerald-600 hover:shadow-sm hover:border-emerald-200 transition-all disabled:opacity-50"
+              >
+                <Wand2 size={12} /> ✨ 润色
+              </button>
+              <button 
+                onClick={() => handleSmartFeature('expand')}
+                disabled={isProcessing}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-100 rounded-full text-xs font-medium text-blue-600 hover:shadow-sm hover:border-blue-200 transition-all disabled:opacity-50"
+              >
+                <Type size={12} /> ✨ 扩写
+              </button>
+              <button 
+                onClick={() => handleSmartFeature('summarize')}
+                disabled={isProcessing}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-100 rounded-full text-xs font-medium text-orange-600 hover:shadow-sm hover:border-orange-200 transition-all disabled:opacity-50"
+              >
+                <AlignLeft size={12} /> ✨ 总结
+              </button>
+              {isProcessing && <div className="ml-2 flex items-center text-[10px] text-gray-400 animate-pulse">正在智能处理...</div>}
+            </div>
+
+            {/* @ 菜单 */}
+            {showAtMenu && (
+              <div className="absolute bottom-full left-0 mb-4 w-72 bg-white/90 backdrop-blur-xl border border-gray-100 rounded-2xl shadow-2xl p-2 z-50 animate-in fade-in slide-in-from-bottom-2">
+                <div className="px-3 py-2 text-[10px] font-bold text-gray-300 uppercase tracking-widest">引用资料</div>
+                {Object.keys(MENTION_TYPES).map(name => (
+                  <button key={name} onClick={() => insertMention(name)} className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-emerald-50 rounded-xl transition-all group">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center border transition-transform group-hover:scale-110 ${MENTION_TYPES[name].color}`}>
+                      {MENTION_TYPES[name].icon}
+                    </div>
+                    <div className="text-sm font-medium text-gray-700">{name}</div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* 输入栏容器 */}
+            <div className={`relative bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[24px] transition-all duration-500 
+              focus-within:shadow-[0_8px_40px_rgba(16,185,129,0.12)] border border-white focus-within:border-emerald-100/50`}>
+              
+              <div
+                ref={editableRef}
+                contentEditable
+                onInput={handleInput}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
+                className="w-full min-h-[56px] max-h-48 overflow-y-auto px-12 py-4 focus:outline-none text-[15px] leading-relaxed text-gray-700 empty:before:content-[attr(placeholder)] empty:before:text-gray-300"
+                placeholder="询问任何问题，或输入 @ 引用..."
+              />
+
+              <div className="absolute left-4 top-4 text-gray-300 hover:text-emerald-500 transition-colors cursor-pointer">
+                <Paperclip size={18} />
+              </div>
+
+              <div className="absolute right-3 bottom-3">
+                 <button 
+                   onClick={handleSend}
+                   disabled={isTyping}
+                   className="w-9 h-9 flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white rounded-full transition-all hover:scale-105 active:scale-95 shadow-lg shadow-emerald-100 disabled:bg-gray-200"
+                 >
+                   <ArrowUp size={20} strokeWidth={2.5} />
+                 </button>
+              </div>
+            </div>
+            
+            <p className="text-center mt-3 text-[10px] text-gray-300">由 Gemini 2.5 驱动的智能对话环境</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}

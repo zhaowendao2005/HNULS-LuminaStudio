@@ -8,6 +8,7 @@
       <TopBar :active-tab="activeTab" />
       <main class="flex-1 p-6 overflow-y-auto overflow-x-hidden relative">
         <DashboardView v-if="activeTab === 'dashboard'" />
+        <NormalChat v-else-if="activeTab === 'normal-chat'" />
         <ReaderView v-else-if="activeTab === 'reader'" />
         <GraphView v-else-if="activeTab === 'graph'" />
       </main>
@@ -21,6 +22,7 @@ import WelcomeScreen from './WelcomeScreen/index.vue'
 import Sidebar from './Sidebar/index.vue'
 import TopBar from './TopBar/index.vue'
 import DashboardView from './Maincontent/DashboardView/index.vue'
+import NormalChat from './Maincontent/NormalChat/index.vue'
 import ReaderView from './Maincontent/ReaderView/index.vue'
 import GraphView from './Maincontent/GraphView/index.vue'
 

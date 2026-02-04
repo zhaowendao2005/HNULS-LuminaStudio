@@ -22,6 +22,11 @@
         <line x1="16" y1="17" x2="8" y2="17"/>
         <polyline points="10 9 9 9 8 9"/>
       </template>
+      <template v-else-if="icon === 'chat'">
+        <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/>
+        <path d="M8 9h8"/>
+        <path d="M8 13h5"/>
+      </template>
       <template v-else-if="icon === 'network'">
         <circle cx="12" cy="12" r="2"/>
         <path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/>

@@ -9,6 +9,11 @@
         @click="$emit('change-tab', 'dashboard')" 
       />
       <SidebarItem 
+        icon="chat"
+        :active="activeTab === 'normal-chat'" 
+        @click="$emit('change-tab', 'normal-chat')" 
+      />
+      <SidebarItem 
         icon="file"
         :active="activeTab === 'reader'" 
         @click="$emit('change-tab', 'reader')" 
