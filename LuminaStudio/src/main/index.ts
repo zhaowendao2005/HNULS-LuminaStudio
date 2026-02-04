@@ -4,6 +4,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { registerAllHandlers } from './ipc'
 import { windowService } from './services/base-service/window-service'
+import { databaseService } from './services/base-service/database-service'
 
 function createWindow(): void {
   // Create the browser window.
@@ -55,6 +56,9 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
+  // 初始化数据库
+  databaseService.initialize()
+
   // 注册所有 IPC handlers
   registerAllHandlers()
 
@@ -74,6 +78,11 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit()
   }
+})
+
+// 应用退出前清理数据库连接
+app.on('before-quit', () => {
+  databaseService.close()
 })
 
 // In this file you can include the rest of your app's specific main process

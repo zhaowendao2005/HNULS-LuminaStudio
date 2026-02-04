@@ -3,7 +3,7 @@
     class="ls-sidebar w-16 h-full bg-white border-r border-slate-200 flex flex-col items-center py-6 z-30 shadow-[4px_0_24px_-12px_rgba(16,185,129,0.1)]"
   >
     <!-- Navigation -->
-    <div class="flex-1 flex flex-col w-full px-2 gap-2">
+    <div class="flex-1 flex flex-col w-full px-3 gap-2">
       <SidebarItem
         icon="grid"
         :active="activeTab === 'dashboard'"
@@ -27,7 +27,7 @@
     </div>
 
     <!-- Bottom -->
-    <div class="mb-4 w-full px-2 gap-2 flex flex-col">
+    <div class="mb-4 w-full px-3 gap-2 flex flex-col">
       <SidebarItem icon="settings" :active="false" @click="() => {}" />
       <div class="w-full h-[1px] bg-slate-100 my-2"></div>
       <div
