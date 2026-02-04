@@ -27,8 +27,9 @@
       <div class="absolute right-3 top-2.5 flex gap-1">
         <span
           class="text-[10px] font-mono bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded border border-slate-200"
-          >⌘K</span
         >
+          ⌘K
+        </span>
       </div>
       <input
         type="text"

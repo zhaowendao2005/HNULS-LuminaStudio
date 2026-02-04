@@ -26,7 +26,8 @@
           {{ paper.title }}
         </h4>
         <p class="text-xs text-slate-500 mt-1 truncate">
-          {{ paper.authors }} • <span class="italic">{{ paper.journal }}</span>
+          {{ paper.authors }} •
+          <span class="italic">{{ paper.journal }}</span>
         </p>
       </div>
     </div>
@@ -43,9 +44,9 @@
       >
         {{ paper.status }}
       </span>
-      <span class="text-xs text-slate-400 w-20 text-right whitespace-nowrap">{{
-        paper.added
-      }}</span>
+      <span class="text-xs text-slate-400 w-20 text-right whitespace-nowrap">
+        {{ paper.added }}
+      </span>
       <button class="p-1 text-slate-300 hover:text-emerald-600 transition-colors flex-shrink-0">
         <svg
           class="w-4 h-4 flex-shrink-0"

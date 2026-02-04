@@ -83,12 +83,14 @@
           <div class="mt-3 flex flex-wrap gap-2">
             <span
               class="text-[10px] bg-emerald-50 text-emerald-700 px-2 py-1 rounded-full border border-emerald-100 cursor-pointer hover:bg-emerald-100"
-              >Show 3D Structure</span
             >
+              Show 3D Structure
+            </span>
             <span
               class="text-[10px] bg-emerald-50 text-emerald-700 px-2 py-1 rounded-full border border-emerald-100 cursor-pointer hover:bg-emerald-100"
-              >Find Related Papers</span
             >
+              Find Related Papers
+            </span>
           </div>
         </div>
       </div>

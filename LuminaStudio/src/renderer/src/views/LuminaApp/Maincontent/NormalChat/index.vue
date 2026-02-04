@@ -39,8 +39,9 @@
         >
           <span
             class="w-5 h-5 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center text-sm font-bold"
-            >+</span
           >
+            +
+          </span>
           添加来源
         </button>
 
@@ -81,8 +82,9 @@
           >
             <span
               class="w-4 h-4 rounded-full bg-slate-100 flex items-center justify-center text-[10px]"
-              >W</span
             >
+              W
+            </span>
             Web
           </button>
           <button
@@ -90,8 +92,9 @@
           >
             <span
               class="w-4 h-4 rounded-full bg-slate-100 flex items-center justify-center text-[10px]"
-              >F</span
             >
+              F
+            </span>
             Fast Research
           </button>
         </div>

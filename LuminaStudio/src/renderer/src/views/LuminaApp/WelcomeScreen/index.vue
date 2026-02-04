@@ -40,8 +40,12 @@
         The biological research platform driven by
         <span
           class="text-emerald-700 font-semibold bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100"
-          >Life Intelligence</span
-        >. <br />Seamlessly connecting literature, gene networks, and AI.
+        >
+          Life Intelligence
+        </span>
+        .
+        <br />
+        Seamlessly connecting literature, gene networks, and AI.
       </p>
 
       <button

@@ -66,7 +66,7 @@
           v-if="showAskTooltip"
           class="absolute bg-slate-900 text-white text-sm px-4 py-2.5 rounded-lg shadow-xl cursor-pointer flex items-center gap-2 animate-bounce-short z-20 hover:bg-emerald-900 transition-colors"
           style="top: 220px; left: 120px"
-          @click.stop="chatOpen = true; showAskTooltip = false"
+          @click.stop="handleAskClick"
         >
           <svg
             class="w-[14px] h-[14px] flex-shrink-0 text-emerald-400"
@@ -100,6 +100,11 @@ const handleTextSelect = () => {
   selectedText.value =
     'Cas9 is a dual-RNA-guided DNA endonuclease that uses base pairing to recognize and cleave target DNAs.'
   showAskTooltip.value = true
+}
+
+const handleAskClick = () => {
+  chatOpen.value = true
+  showAskTooltip.value = false
 }
 </script>
 
