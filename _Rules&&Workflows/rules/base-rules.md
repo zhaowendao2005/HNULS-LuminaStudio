@@ -8,7 +8,9 @@ trigger: always_on
    Learn about inclusion modes: https://kiro.dev/docs/steering/#inclusion-modes
 -------------------------------------------------------------------------------------> 
 
-# 项目基本原则（Rules）草案 
+# 项目基本原则（Rules） 
+
+
 
 ## 0. 权威来源与适用范围（必须遵守）
 
@@ -24,6 +26,11 @@ trigger: always_on
 
 ---
 
+## 1.5 关键依赖和技术栈的仓库名称、参考资料搜索方式
+1. vercel/ai 使用devin/deepwiki mcp来进行检索 多使用提问方式 
+链接与仓库https://github.com/vercel/ai  https://deepwiki.com/vercel/ai 官方文档：https://docs.vercel.com/docs/rest-api/reference/sdk
+2. sqlite 数据库1 https://deepwiki.com/sqlite/sqlite https://github.com/sqlite/sqlite
+ 
 ## 1. 目录结构与文件放置（强制）
 
 ### 1.1 顶层目录禁止"散乱文件"
