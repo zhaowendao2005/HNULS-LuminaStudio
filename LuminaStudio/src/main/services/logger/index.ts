@@ -5,7 +5,7 @@
  *
  * @example
  * ```typescript
- * import { logger } from '@main/services/base-service/logger'
+ * import { logger } from '@main/services/logger'
  *
  * // 基础用法
  * logger.info('Application started')

@@ -36,7 +36,7 @@ export interface LogContext {
  *
  * 使用方式：
  * ```typescript
- * import { logger } from '@main/services/base-service/logger'
+ * import { logger } from '@main/services/logger'
  *
  * logger.info('Application started')
  * logger.debug('Processing data', { count: 100, type: 'batch' })

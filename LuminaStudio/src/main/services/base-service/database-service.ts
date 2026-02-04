@@ -2,7 +2,7 @@ import { app } from 'electron'
 import Database from 'better-sqlite3'
 import path from 'path'
 import fs from 'fs'
-import { logger } from './logger'
+import { logger } from '../logger'
 
 // 创建模块作用域日志器
 const log = logger.scope('DatabaseService')

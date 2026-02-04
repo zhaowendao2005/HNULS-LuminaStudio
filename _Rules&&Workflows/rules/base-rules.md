@@ -204,8 +204,8 @@ trigger: always_on
 ## 9. 日志系统规范（强制）
 
 ### 9.1 日志服务位置
-- **路径**：`src/main/services/base-service/logger/`
-- **导入**：`import { logger } from '@main/services/base-service/logger'`
+- **路径**：`src/main/services/logger/`
+- **导入**：`import { logger } from '@main/services/logger'`
 
 ### 9.2 日志使用规范
 - **禁止**：在主进程代码中使用 `console.log`、`console.error` 等原生方法
