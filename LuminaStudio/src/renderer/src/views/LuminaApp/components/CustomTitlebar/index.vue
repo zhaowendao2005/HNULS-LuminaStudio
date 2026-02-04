@@ -1,6 +1,6 @@
 <template>
   <header
-    class="ls-titlebar ls-titlebar_root flex h-12 w-full items-center justify-between border-b border-slate-200 bg-white/80 px-4 backdrop-blur-md select-none"
+    class="ls-titlebar ls-titlebar_root flex h-8 w-full items-center justify-between border-b border-slate-200 bg-white/80 px-4 backdrop-blur-md select-none"
     @dblclick="handleToggleMaximize"
   >
     <div class="ls-titlebar_drag flex flex-1 items-center gap-2 min-w-0">

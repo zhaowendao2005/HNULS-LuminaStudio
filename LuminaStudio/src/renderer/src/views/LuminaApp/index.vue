@@ -1,13 +1,11 @@
 <template>
-  <div v-if="!hasStarted">
-    <WelcomeScreen @start="hasStarted = true" />
-  </div>
   <div
-    v-else
-    class="ls-app flex flex-col h-screen w-full bg-[#f8fafc] font-sans text-slate-900 overflow-hidden selection:bg-emerald-200 selection:text-emerald-900"
+    class="ls-app relative h-screen w-full bg-[#f8fafc] font-sans text-slate-900 overflow-hidden selection:bg-emerald-200 selection:text-emerald-900"
   >
-    <CustomTitlebar />
-    <div class="flex flex-1 min-h-0 w-full">
+    <!-- 主界面内容（包含标题栏） -->
+    <template v-if="hasStarted">
+      <CustomTitlebar class="relative z-50" />
+      <div class="flex flex-1 h-[calc(100vh-32px)] w-full">
       <Sidebar :active-tab="activeTab" @change-tab="activeTab = $event" />
       <div class="flex-1 flex flex-col min-h-0 overflow-hidden relative">
         <TopBar :active-tab="activeTab" />
@@ -19,6 +17,12 @@
         </main>
       </div>
     </div>
+    </template>
+
+    <!-- 欢迎页：全屏并带有自己的轻量标题栏 -->
+    <Transition name="welcome-fade">
+      <WelcomeScreen v-if="!hasStarted" @start="hasStarted = true" />
+    </Transition>
   </div>
 </template>
 
@@ -38,6 +42,16 @@ const activeTab = ref('dashboard')
 </script>
 
 <style scoped>
+.welcome-fade-enter-active,
+.welcome-fade-leave-active {
+  transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.welcome-fade-enter-from,
+.welcome-fade-leave-to {
+  opacity: 0;
+}
+
 ::-webkit-scrollbar {
   width: 6px;
 }

@@ -1,7 +1,9 @@
 <template>
   <div class="ls-dashboard relative space-y-8 animate-fade-in-up">
-    <!-- Background -->
-    <OrganicBackground type="dashboard" />
+    <!-- Background: 负 margin 扩展填满 main -->
+    <div class="absolute -inset-6 z-0">
+      <OrganicBackground type="dashboard" />
+    </div>
 
     <!-- Content -->
     <div class="relative z-10">
