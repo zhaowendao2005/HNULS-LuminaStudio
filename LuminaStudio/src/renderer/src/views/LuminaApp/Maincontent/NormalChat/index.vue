@@ -11,7 +11,6 @@
       v-model:collapsed="leftCollapsed"
       v-model:currentTab="currentTab"
       :tab-options="leftTabOptions"
-      :source-items="sourceItems"
     />
 
     <!-- Center Chat -->
@@ -73,15 +72,6 @@ const showModelSelector = ref(false)
 const showConversationList = ref(false)
 
 // ===== 静态数据 =====
-const sourceItems = [
-  { id: 12, title: '核酸理论.pdf', checked: true },
-  { id: 13, title: '核酸的结构.pdf', checked: true },
-  { id: 14, title: '核酸的物理化学性质.pdf', checked: true },
-  { id: 15, title: '核酸的研究方法.pdf', checked: true },
-  { id: 23, title: '春季汇总.pdf', checked: false },
-  { id: 40, title: '基因工程及蛋白质工程.pdf', checked: false }
-]
-
 const tools = [
   {
     id: 'audio',
