@@ -1,6 +1,6 @@
 /**
  * AiChatService 内部类型定义
- * 
+ *
  * 注意：跨进程类型定义在 @preload/types 中
  */
 

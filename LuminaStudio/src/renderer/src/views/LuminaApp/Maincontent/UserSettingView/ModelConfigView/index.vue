@@ -195,8 +195,9 @@
         <!-- 骨架屏：没有提供商时显示 -->
         <div
           v-if="!selectedProvider && providers.length === 0"
-          class="max-w-4xl mx-auto space-y-8 pb-20">
+          class="max-w-4xl mx-auto space-y-8 pb-20"
         >
+          >
           <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden p-8">
             <div class="animate-pulse space-y-6">
               <div class="h-4 bg-gray-200 rounded w-1/4"></div>
@@ -959,7 +960,7 @@ const totalGroupCount = computed(() => {
 onMounted(async () => {
   // 从后端加载配置
   await store.fetchProviders()
-  
+
   if (selectedProvider.value) {
     apiKeyDraft.value = selectedProvider.value.apiKey
     baseUrlDraft.value = selectedProvider.value.baseUrl
@@ -1043,7 +1044,6 @@ async function handleAddProvider(): Promise<void> {
 function clearSearch(): void {
   modelSearchQuery.value = ''
 }
-
 </script>
 
 <style scoped>

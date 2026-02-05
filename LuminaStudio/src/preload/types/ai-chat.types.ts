@@ -275,7 +275,9 @@ export interface AiChatAPI {
   /**
    * 获取指定 Agent 下的对话列表
    */
-  conversations: (request: AiChatConversationListRequest) => Promise<ApiResponse<AiChatConversation[]>>
+  conversations: (
+    request: AiChatConversationListRequest
+  ) => Promise<ApiResponse<AiChatConversation[]>>
 
   /**
    * 订阅流式事件

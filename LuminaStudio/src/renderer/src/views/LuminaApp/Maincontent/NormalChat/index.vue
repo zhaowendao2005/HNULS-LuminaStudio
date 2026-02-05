@@ -336,7 +336,9 @@
                 <div
                   :class="[
                     'overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]',
-                    isThinkingExpanded(msg.id) ? 'max-h-[500px] opacity-100 mt-2' : 'max-h-0 opacity-0'
+                    isThinkingExpanded(msg.id)
+                      ? 'max-h-[500px] opacity-100 mt-2'
+                      : 'max-h-0 opacity-0'
                   ]"
                 >
                   <div class="pl-4 border-l-2 border-emerald-100 space-y-3 py-2">
@@ -345,9 +347,9 @@
                       :key="step.id"
                       class="flex items-start gap-3 text-xs animate-in fade-in"
                     >
-                      <span class="text-emerald-500 font-mono mt-0.5">{{
-                        String(idx + 1).padStart(2, '0')
-                      }}</span>
+                      <span class="text-emerald-500 font-mono mt-0.5">
+                        {{ String(idx + 1).padStart(2, '0') }}
+                      </span>
                       <span class="text-slate-600 leading-relaxed">{{ step.content }}</span>
                     </div>
                   </div>
@@ -394,9 +396,9 @@
                   <div class="pl-6 text-slate-600 space-y-1">
                     <div class="flex items-start gap-2">
                       <span class="text-slate-400 font-medium">输入:</span>
-                      <span class="flex-1 font-mono text-[11px] bg-white/50 px-2 py-1 rounded">{{
-                        JSON.stringify(tool.input, null, 2)
-                      }}</span>
+                      <span class="flex-1 font-mono text-[11px] bg-white/50 px-2 py-1 rounded">
+                        {{ JSON.stringify(tool.input, null, 2) }}
+                      </span>
                     </div>
 
                     <!-- 结果区域（只在有结果时显示） -->
@@ -432,7 +434,10 @@
               </div>
 
               <!-- 主文本内容 -->
-              <div v-if="msg.role === 'assistant'" class="text-[15px] leading-relaxed text-slate-800">
+              <div
+                v-if="msg.role === 'assistant'"
+                class="text-[15px] leading-relaxed text-slate-800"
+              >
                 <div v-html="renderMarkdown(msg.content)"></div>
                 <span
                   v-if="msg.isStreaming"
@@ -456,9 +461,11 @@
                 class="text-[10px] text-slate-400 mt-2"
               >
                 Tokens: {{ msg.usage.totalTokens }} (输入: {{ msg.usage.inputTokens }}, 输出:
-                {{ msg.usage.outputTokens }}<span v-if="msg.usage.reasoningTokens">
-                  , 思考: {{ msg.usage.reasoningTokens }}</span
-                >)
+                {{ msg.usage.outputTokens }}
+                <span v-if="msg.usage.reasoningTokens">
+                  , 思考: {{ msg.usage.reasoningTokens }}
+                </span>
+                )
               </div>
 
               <!-- 操作按钮 (AI only) -->
@@ -507,7 +514,9 @@
                     stroke="currentColor"
                     stroke-width="2"
                   >
-                    <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17" />
+                    <path
+                      d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"
+                    />
                   </svg>
                 </button>
               </div>
@@ -883,11 +892,7 @@ const scrollToBottom = async () => {
   }
 }
 
-watch(
-  messages,
-  () => scrollToBottom(),
-  { deep: true, flush: 'post' }
-)
+watch(messages, () => scrollToBottom(), { deep: true, flush: 'post' })
 
 // ===== 深度思考折叠状态 =====
 const thinkingExpandedMap = ref<Record<string, boolean>>({})

@@ -1,6 +1,6 @@
 /**
  * Model Config DataSource
- * 
+ *
  * 数据源适配器：负责 Renderer ↔ Preload API 之间的类型映射和数据转换
  */
 import type { ModelProvider, RemoteModelGroups, ProviderIcon } from './types'

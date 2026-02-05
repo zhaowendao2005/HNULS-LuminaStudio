@@ -1,6 +1,6 @@
 /**
  * Model Config Store 本地类型定义（UI 层）
- * 
+ *
  * 注意：这些类型仅用于前端 Store 和组件，与 Preload 跨进程类型不同
  */
 

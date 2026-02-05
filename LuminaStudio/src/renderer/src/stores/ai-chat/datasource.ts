@@ -62,7 +62,9 @@ function mapConversation(row: AiChatConversation): ConversationSummary {
 }
 
 export const AiChatDataSource = {
-  async startStream(request: AiChatStartRequest): Promise<{ requestId: string; conversationId: string }> {
+  async startStream(
+    request: AiChatStartRequest
+  ): Promise<{ requestId: string; conversationId: string }> {
     const res = await window.api.aiChat.start(request)
     if (!res.success || !res.data) {
       throw new Error(res.error || 'Failed to start stream')
@@ -85,9 +87,7 @@ export const AiChatDataSource = {
       throw new Error(res.error || 'Failed to load history')
     }
 
-    const mapped = (res.data.messages || [])
-      .map(mapMessage)
-      .filter(Boolean) as ChatMessage[]
+    const mapped = (res.data.messages || []).map(mapMessage).filter(Boolean) as ChatMessage[]
 
     return {
       messages: mapped,

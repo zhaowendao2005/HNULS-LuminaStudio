@@ -8,7 +8,13 @@ import { logger } from '../logger'
 import type { DatabaseManager } from '../database-sqlite'
 import type { ModelConfigService } from '../model-config'
 import type { AiChatStreamEvent } from '@preload/types'
-import type { StreamState, MessageRow, AgentRow, ConversationSummaryRow, ConversationRow } from './types'
+import type {
+  StreamState,
+  MessageRow,
+  AgentRow,
+  ConversationSummaryRow,
+  ConversationRow
+} from './types'
 
 const log = logger.scope('AiChatService')
 
@@ -163,9 +169,7 @@ export class AiChatService {
    */
   async listAgents(): Promise<Array<{ id: string; name: string; description?: string | null }>> {
     this.ensureDefaultAgents()
-    const rows = this.db
-      .prepare('SELECT * FROM agents ORDER BY created_at ASC')
-      .all() as AgentRow[]
+    const rows = this.db.prepare('SELECT * FROM agents ORDER BY created_at ASC').all() as AgentRow[]
     return rows.map((row) => ({
       id: row.id,
       name: row.name,
@@ -176,9 +180,7 @@ export class AiChatService {
   /**
    * 获取指定 Agent 下的对话列表
    */
-  async listConversations(
-    agentId: string
-  ): Promise<
+  async listConversations(agentId: string): Promise<
     Array<{
       id: string
       agentId: string
@@ -289,9 +291,7 @@ export class AiChatService {
     providerId: string,
     modelId: string
   ): Promise<void> {
-    const exists = this.db
-      .prepare('SELECT id FROM conversations WHERE id = ?')
-      .get(conversationId)
+    const exists = this.db.prepare('SELECT id FROM conversations WHERE id = ?').get(conversationId)
 
     if (!exists) {
       this.db
@@ -299,13 +299,7 @@ export class AiChatService {
           `INSERT INTO conversations (id, agent_id, title, provider_id, model_id, enable_thinking, memory_rounds)
            VALUES (?, ?, ?, ?, ?, 0, 10)`
         )
-        .run(
-          conversationId,
-          agentId,
-          `对话 ${conversationId.slice(0, 8)}`,
-          providerId,
-          modelId
-        )
+        .run(conversationId, agentId, `对话 ${conversationId.slice(0, 8)}`, providerId, modelId)
       log.debug('Created new conversation', { conversationId })
     }
   }
@@ -502,8 +496,7 @@ export class AiChatService {
     if (enableThinking) {
       messages.unshift({
         role: 'system',
-        content:
-          '请把思考过程放在 <think>...</think> 标签内，最终回答不要包含 <think> 标签。'
+        content: '请把思考过程放在 <think>...</think> 标签内，最终回答不要包含 <think> 标签。'
       })
     }
 

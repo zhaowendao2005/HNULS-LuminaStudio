@@ -48,7 +48,6 @@ export const useAiChatStore = defineStore('ai-chat', () => {
     return messagesByConversation.value.get(conversationId)!
   }
 
-
   const createMessageId = (requestId: string): string => `msg-${requestId}`
 
   const getStreamMessage = (requestId: string): ChatMessage | null => {
