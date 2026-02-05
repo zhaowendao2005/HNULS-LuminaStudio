@@ -7,24 +7,14 @@ import type {
   KnowledgeDatabaseListDocsRequest,
   KnowledgeDatabaseConnectionStatus
 } from '@preload/types'
-import type { KnowledgeBaseInfo, DocumentInfo } from '@shared/knowledge-database-api.types'
-import type { SourceKnowledgeBase, SourceDocument, DocumentStatus, ConnectionState } from './sources.types'
-
-/**
- * 从嵌入状态映射到 UI 文档状态
- */
-function mapEmbeddingStatusToDocStatus(embeddingStatus: string): DocumentStatus {
-  // 简化映射：如果有嵌入状态，视为已解析和分块
-  const embedded = embeddingStatus === 'completed'
-  const chunked = embeddingStatus !== 'none' && embeddingStatus !== 'pending'
-  const parsed = embeddingStatus !== 'none'
-
-  return {
-    parsed,
-    chunked,
-    embedded
-  }
-}
+import type { KnowledgeBaseInfo, DocumentInfo, DocumentEmbeddingItem } from '@shared/knowledge-database-api.types'
+import type {
+  SourceKnowledgeBase,
+  SourceDocument,
+  EmbeddingConfigStatus,
+  DocumentStatusSummary,
+  ConnectionState
+} from './sources.types'
 
 /**
  * 从文件类型推断 UI 类型
@@ -38,15 +28,54 @@ function mapFileType(fileType: string): 'pdf' | 'md' | 'txt' | 'other' {
 }
 
 /**
+ * 映射单个嵌入配置到 UI 模型
+ */
+function mapEmbeddingConfig(item: DocumentEmbeddingItem): EmbeddingConfigStatus {
+  return {
+    configId: item.embeddingConfigId,
+    dimensions: item.dimensions,
+    status: item.status,
+    chunkCount: item.chunkCount,
+    updatedAt: item.updatedAt
+  }
+}
+
+/**
+ * 计算文档状态摘要
+ */
+function computeStatusSummary(embeddings: EmbeddingConfigStatus[]): DocumentStatusSummary {
+  const totalConfigs = embeddings.length
+  const completedConfigs = embeddings.filter((e) => e.status === 'completed').length
+  const hasRunning = embeddings.some((e) => e.status === 'running')
+  const hasFailed = embeddings.some((e) => e.status === 'failed')
+  const allCompleted = totalConfigs > 0 && completedConfigs === totalConfigs
+
+  return {
+    hasEmbeddings: totalConfigs > 0,
+    allCompleted,
+    hasRunning,
+    hasFailed,
+    totalConfigs,
+    completedConfigs
+  }
+}
+
+/**
  * 映射外部 API 文档到 UI 文档模型
  */
 function mapDocument(doc: DocumentInfo): SourceDocument {
+  const embeddings = doc.embeddings.map(mapEmbeddingConfig)
+  const statusSummary = computeStatusSummary(embeddings)
+
   return {
     id: doc.id,
     name: doc.fileName,
+    fileKey: doc.fileKey,
     type: mapFileType(doc.fileType),
-    status: mapEmbeddingStatusToDocStatus(doc.embeddingStatus),
-    selected: false
+    embeddings,
+    statusSummary,
+    selected: false,
+    updatedAt: doc.updatedAt
   }
 }
 

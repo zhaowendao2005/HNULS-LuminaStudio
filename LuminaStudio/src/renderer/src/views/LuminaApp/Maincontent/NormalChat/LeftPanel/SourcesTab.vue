@@ -210,21 +210,47 @@
 
               <!-- 状态标签 -->
               <div class="flex items-center gap-1 flex-shrink-0">
+                <!-- 无嵌入配置 -->
                 <span
-                  v-if="doc.status.parsed"
-                  class="inline-flex items-center justify-center w-1.5 h-1.5 rounded-full bg-emerald-500"
-                  title="已解析"
+                  v-if="!doc.statusSummary.hasEmbeddings"
+                  class="inline-flex items-center justify-center w-1.5 h-1.5 rounded-full bg-slate-300"
+                  title="无嵌入"
                 ></span>
+                <!-- 有嵌入配置：显示状态 -->
+                <template v-else>
+                  <!-- 运行中 -->
+                  <span
+                    v-if="doc.statusSummary.hasRunning"
+                    class="inline-flex items-center justify-center w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"
+                    title="嵌入中..."
+                  ></span>
+                  <!-- 有失败 -->
+                  <span
+                    v-else-if="doc.statusSummary.hasFailed"
+                    class="inline-flex items-center justify-center w-1.5 h-1.5 rounded-full bg-rose-500"
+                    title="部分嵌入失败"
+                  ></span>
+                  <!-- 全部完成 -->
+                  <span
+                    v-else-if="doc.statusSummary.allCompleted"
+                    class="inline-flex items-center justify-center w-1.5 h-1.5 rounded-full bg-emerald-500"
+                    title="嵌入完成"
+                  ></span>
+                  <!-- pending -->
+                  <span
+                    v-else
+                    class="inline-flex items-center justify-center w-1.5 h-1.5 rounded-full bg-amber-400"
+                    title="等待嵌入"
+                  ></span>
+                </template>
+                <!-- 嵌入配置计数 -->
                 <span
-                  v-if="doc.status.chunked"
-                  class="inline-flex items-center justify-center w-1.5 h-1.5 rounded-full bg-blue-500"
-                  title="已分块"
-                ></span>
-                <span
-                  v-if="doc.status.embedded"
-                  class="inline-flex items-center justify-center w-1.5 h-1.5 rounded-full bg-purple-500"
-                  title="已嵌入"
-                ></span>
+                  v-if="doc.statusSummary.totalConfigs > 0"
+                  class="text-[10px] text-slate-400"
+                  :title="`${doc.statusSummary.completedConfigs}/${doc.statusSummary.totalConfigs} 配置已完成`"
+                >
+                  {{ doc.statusSummary.completedConfigs }}/{{ doc.statusSummary.totalConfigs }}
+                </span>
               </div>
 
               <!-- 文档选择框 -->
@@ -269,19 +295,27 @@
 
     <!-- 状态说明 -->
     <div class="pt-2 border-t border-slate-100">
-      <div class="text-xs text-slate-400 mb-2">状态说明：</div>
+      <div class="text-xs text-slate-400 mb-2">嵌入状态：</div>
       <div class="flex flex-wrap gap-2 text-xs">
         <div class="flex items-center gap-1.5">
-          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-          <span class="text-slate-500">已解析</span>
+          <span class="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
+          <span class="text-slate-500">无嵌入</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+          <span class="text-slate-500">等待中</span>
         </div>
         <div class="flex items-center gap-1.5">
           <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-          <span class="text-slate-500">已分块</span>
+          <span class="text-slate-500">嵌入中</span>
         </div>
         <div class="flex items-center gap-1.5">
-          <span class="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
-          <span class="text-slate-500">已嵌入</span>
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+          <span class="text-slate-500">已完成</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+          <span class="text-slate-500">失败</span>
         </div>
       </div>
     </div>

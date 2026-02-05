@@ -4,13 +4,40 @@
  * 注意：跨进程类型定义在 @preload/types 中
  */
 
+import type { DocumentEmbeddingStatus } from '@shared/knowledge-database-api.types'
+
 /**
- * 文档状态信息 (UI展示用)
+ * 单个嵌入配置的状态信息 (UI展示用)
  */
-export interface DocumentStatus {
-  parsed: boolean
-  chunked: boolean
-  embedded: boolean
+export interface EmbeddingConfigStatus {
+  /** 嵌入配置 ID */
+  configId: string
+  /** 向量维度 */
+  dimensions: number
+  /** 状态 */
+  status: DocumentEmbeddingStatus
+  /** 分片数量 */
+  chunkCount: number
+  /** 更新时间 */
+  updatedAt: string
+}
+
+/**
+ * 文档整体状态摘要 (UI展示用)
+ */
+export interface DocumentStatusSummary {
+  /** 是否有任何嵌入配置 */
+  hasEmbeddings: boolean
+  /** 是否所有配置都已完成 */
+  allCompleted: boolean
+  /** 是否有正在运行的配置 */
+  hasRunning: boolean
+  /** 是否有失败的配置 */
+  hasFailed: boolean
+  /** 嵌入配置总数 */
+  totalConfigs: number
+  /** 已完成配置数 */
+  completedConfigs: number
 }
 
 /**
@@ -19,9 +46,14 @@ export interface DocumentStatus {
 export interface SourceDocument {
   id: string
   name: string
+  fileKey: string
   type: 'pdf' | 'md' | 'txt' | 'other'
-  status: DocumentStatus
+  /** 文档的所有嵌入配置状态列表 */
+  embeddings: EmbeddingConfigStatus[]
+  /** 文档状态摘要（聚合计算）*/
+  statusSummary: DocumentStatusSummary
   selected: boolean
+  updatedAt: string
 }
 
 /**
