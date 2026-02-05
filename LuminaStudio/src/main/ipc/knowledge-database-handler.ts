@@ -25,7 +25,9 @@ export class KnowledgeDatabaseIPCHandler extends BaseIPCHandler {
   /**
    * 检查与外部服务的连接状态
    */
-  async handleCheckConnection(): Promise<{ success: true; data: unknown } | { success: false; error: string }> {
+  async handleCheckConnection(): Promise<
+    { success: true; data: unknown } | { success: false; error: string }
+  > {
     try {
       const result = await this.service.checkConnection()
       return { success: true, data: result }
@@ -40,7 +42,9 @@ export class KnowledgeDatabaseIPCHandler extends BaseIPCHandler {
   /**
    * 获取所有知识库列表
    */
-  async handleListKnowledgeBases(): Promise<{ success: true; data: unknown } | { success: false; error: string }> {
+  async handleListKnowledgeBases(): Promise<
+    { success: true; data: unknown } | { success: false; error: string }
+  > {
     try {
       const knowledgeBases = await this.service.listKnowledgeBases()
       return { success: true, data: { knowledgeBases } }

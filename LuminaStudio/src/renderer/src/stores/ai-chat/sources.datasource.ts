@@ -7,7 +7,11 @@ import type {
   KnowledgeDatabaseListDocsRequest,
   KnowledgeDatabaseConnectionStatus
 } from '@preload/types'
-import type { KnowledgeBaseInfo, DocumentInfo, DocumentEmbeddingItem } from '@shared/knowledge-database-api.types'
+import type {
+  KnowledgeBaseInfo,
+  DocumentInfo,
+  DocumentEmbeddingItem
+} from '@shared/knowledge-database-api.types'
 import type {
   SourceKnowledgeBase,
   SourceDocument,

@@ -140,7 +140,9 @@ export class KnowledgeDatabaseBridgeService {
       total: response.data?.pagination?.total ?? 0
     })
 
-    return response.data || { documents: [], pagination: { total: 0, page: 1, pageSize, totalPages: 0 } }
+    return (
+      response.data || { documents: [], pagination: { total: 0, page: 1, pageSize, totalPages: 0 } }
+    )
   }
 
   /**
