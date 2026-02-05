@@ -4,14 +4,16 @@
     "src/renderer/src/env.d.ts",
     "src/renderer/src/**/*",
     "src/renderer/src/**/*.vue",
-    "src/preload/*.d.ts"
+    "src/preload/*.d.ts",
+    "src/Public/**/*"
   ],
   "compilerOptions": {
     "composite": true,
     "baseUrl": ".",
     "paths": {
       "@renderer/*": ["src/renderer/src/*"],
-      "@preload/types": ["src/preload/types"]
+      "@preload/types": ["src/preload/types"],
+      "@shared/*": ["src/Public/ShareTypes/*"]
     }
   }
 }

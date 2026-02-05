@@ -1,5 +1,34 @@
 <template>
   <div class="space-y-3">
+    <!-- 连接状态/错误提示 -->
+    <div
+      v-if="sourcesStore.error || !sourcesStore.connectionState.connected"
+      class="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-700"
+    >
+      <div v-if="sourcesStore.connectionState.checking" class="flex items-center gap-2">
+        <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+          <circle
+            class="opacity-25"
+            cx="12"
+            cy="12"
+            r="10"
+            stroke="currentColor"
+            stroke-width="4"
+          />
+          <path
+            class="opacity-75"
+            fill="currentColor"
+            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+          />
+        </svg>
+        <span>检查连接中...</span>
+      </div>
+      <div v-else>
+        {{ sourcesStore.error || '知识库服务未连接' }}
+        <button @click="handleRetry" class="ml-2 underline hover:text-amber-900">重试</button>
+      </div>
+    </div>
+
     <!-- 搜索框 -->
     <div class="relative">
       <svg
@@ -23,7 +52,7 @@
     <!-- 操作按钮组 -->
     <div class="flex gap-2">
       <button
-        @click="selectAll"
+        @click="sourcesStore.selectAll()"
         class="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-medium text-slate-600 hover:border-emerald-200 hover:text-emerald-600 transition-colors"
       >
         <svg
@@ -38,7 +67,7 @@
         全选
       </button>
       <button
-        @click="deselectAll"
+        @click="sourcesStore.deselectAll()"
         class="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-medium text-slate-600 hover:border-slate-300 transition-colors"
       >
         <svg
@@ -55,8 +84,20 @@
       </button>
     </div>
 
+    <!-- 加载中状态 -->
+    <div v-if="sourcesStore.isLoading" class="flex items-center justify-center py-8">
+      <svg class="w-6 h-6 animate-spin text-emerald-500" viewBox="0 0 24 24" fill="none">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+        <path
+          class="opacity-75"
+          fill="currentColor"
+          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+        />
+      </svg>
+    </div>
+
     <!-- 知识库树形列表 -->
-    <div class="space-y-2">
+    <div v-else class="space-y-2">
       <div
         v-for="kb in filteredKnowledgeBases"
         :key="kb.id"
@@ -65,13 +106,13 @@
         <!-- 知识库节点 -->
         <div
           class="flex items-center gap-2 px-3 py-2.5 cursor-pointer"
-          @click="toggleKnowledgeBase(kb.id)"
+          @click="sourcesStore.toggleKnowledgeBase(kb.id)"
         >
           <!-- 展开/折叠图标 -->
           <svg
             :class="[
               'w-3.5 h-3.5 text-slate-400 transition-transform flex-shrink-0',
-              expandedKbs.has(kb.id) ? 'rotate-90' : ''
+              sourcesStore.isKnowledgeBaseExpanded(kb.id) ? 'rotate-90' : ''
             ]"
             viewBox="0 0 24 24"
             fill="none"
@@ -100,83 +141,116 @@
           <!-- 知识库名称 -->
           <div class="flex-1 min-w-0">
             <div class="text-sm font-medium text-slate-700 truncate">{{ kb.name }}</div>
-            <div class="text-xs text-slate-400">{{ kb.documents.length }} 个文档</div>
+            <div class="text-xs text-slate-400">
+              <span v-if="kb.documentsLoading">加载中...</span>
+              <span v-else>{{ kb.documents.length }} 个文档</span>
+            </div>
           </div>
 
           <!-- 知识库选择框 -->
           <input
             type="checkbox"
-            :checked="isKnowledgeBaseSelected(kb.id)"
+            :checked="sourcesStore.isKnowledgeBaseSelected(kb.id)"
             @click.stop
-            @change="toggleKnowledgeBaseSelection(kb.id)"
+            @change="sourcesStore.toggleKnowledgeBaseSelection(kb.id)"
             class="w-4 h-4 accent-emerald-500 cursor-pointer"
           />
         </div>
 
         <!-- 文档列表 -->
         <div
-          v-if="expandedKbs.has(kb.id)"
+          v-if="sourcesStore.isKnowledgeBaseExpanded(kb.id)"
           class="border-t border-slate-100 bg-slate-50/50 px-2 py-2 space-y-1"
         >
-          <div
-            v-for="doc in kb.documents"
-            :key="doc.id"
-            class="flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-white transition-colors group"
-          >
-            <!-- 文档图标 -->
-            <div
-              :class="[
-                'w-6 h-6 rounded flex items-center justify-center text-[10px] font-bold flex-shrink-0',
-                getDocIconStyle(doc.type)
-              ]"
+          <!-- 文档加载中 -->
+          <div v-if="kb.documentsLoading" class="text-center py-4 text-xs text-slate-400">
+            <svg
+              class="w-4 h-4 animate-spin mx-auto mb-1 text-emerald-500"
+              viewBox="0 0 24 24"
+              fill="none"
             >
-              {{ getDocIconText(doc.type) }}
-            </div>
-
-            <!-- 文档名称 -->
-            <div class="flex-1 min-w-0">
-              <div class="text-xs text-slate-700 truncate font-medium">{{ doc.name }}</div>
-            </div>
-
-            <!-- 状态标签 -->
-            <div class="flex items-center gap-1 flex-shrink-0">
-              <span
-                v-if="doc.status.parsed"
-                class="inline-flex items-center justify-center w-1.5 h-1.5 rounded-full bg-emerald-500"
-                title="已解析"
-              ></span>
-              <span
-                v-if="doc.status.chunked"
-                class="inline-flex items-center justify-center w-1.5 h-1.5 rounded-full bg-blue-500"
-                title="已分块"
-              ></span>
-              <span
-                v-if="doc.status.embedded"
-                class="inline-flex items-center justify-center w-1.5 h-1.5 rounded-full bg-purple-500"
-                title="已嵌入"
-              ></span>
-            </div>
-
-            <!-- 文档选择框 -->
-            <input
-              type="checkbox"
-              :checked="doc.selected"
-              @click.stop
-              @change="toggleDocumentSelection(kb.id, doc.id)"
-              class="w-3.5 h-3.5 accent-emerald-500 cursor-pointer"
-            />
+              <circle
+                class="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                stroke-width="4"
+              />
+              <path
+                class="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+              />
+            </svg>
+            加载文档中...
           </div>
 
-          <!-- 空状态 -->
-          <div v-if="kb.documents.length === 0" class="text-center py-4 text-xs text-slate-400">
-            暂无文档
-          </div>
+          <!-- 文档列表 -->
+          <template v-else>
+            <div
+              v-for="doc in kb.documents"
+              :key="doc.id"
+              class="flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-white transition-colors group"
+            >
+              <!-- 文档图标 -->
+              <div
+                :class="[
+                  'w-6 h-6 rounded flex items-center justify-center text-[10px] font-bold flex-shrink-0',
+                  getDocIconStyle(doc.type)
+                ]"
+              >
+                {{ getDocIconText(doc.type) }}
+              </div>
+
+              <!-- 文档名称 -->
+              <div class="flex-1 min-w-0">
+                <div class="text-xs text-slate-700 truncate font-medium">{{ doc.name }}</div>
+              </div>
+
+              <!-- 状态标签 -->
+              <div class="flex items-center gap-1 flex-shrink-0">
+                <span
+                  v-if="doc.status.parsed"
+                  class="inline-flex items-center justify-center w-1.5 h-1.5 rounded-full bg-emerald-500"
+                  title="已解析"
+                ></span>
+                <span
+                  v-if="doc.status.chunked"
+                  class="inline-flex items-center justify-center w-1.5 h-1.5 rounded-full bg-blue-500"
+                  title="已分块"
+                ></span>
+                <span
+                  v-if="doc.status.embedded"
+                  class="inline-flex items-center justify-center w-1.5 h-1.5 rounded-full bg-purple-500"
+                  title="已嵌入"
+                ></span>
+              </div>
+
+              <!-- 文档选择框 -->
+              <input
+                type="checkbox"
+                :checked="doc.selected"
+                @click.stop
+                @change="sourcesStore.toggleDocumentSelection(kb.id, doc.id)"
+                class="w-3.5 h-3.5 accent-emerald-500 cursor-pointer"
+              />
+            </div>
+
+            <!-- 空状态 -->
+            <div
+              v-if="kb.documentsLoaded && kb.documents.length === 0"
+              class="text-center py-4 text-xs text-slate-400"
+            >
+              暂无文档
+            </div>
+          </template>
         </div>
       </div>
 
       <!-- 空状态 -->
       <div
-        v-if="filteredKnowledgeBases.length === 0"
+        v-if="filteredKnowledgeBases.length === 0 && !sourcesStore.isLoading"
         class="text-center py-8 text-sm text-slate-400"
       >
         <svg
@@ -215,101 +289,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useSourcesStore } from '@renderer/stores/ai-chat/sources.store'
 
-interface DocumentStatus {
-  parsed: boolean
-  chunked: boolean
-  embedded: boolean
-}
-
-interface Document {
-  id: string
-  name: string
-  type: 'pdf' | 'md' | 'txt'
-  status: DocumentStatus
-  selected: boolean
-}
-
-interface KnowledgeBase {
-  id: string
-  name: string
-  documents: Document[]
-}
-
-// 示例数据
-const knowledgeBases = ref<KnowledgeBase[]>([
-  {
-    id: 'kb-1',
-    name: '分子生物学知识库',
-    documents: [
-      {
-        id: 'doc-1',
-        name: '核酸理论.pdf',
-        type: 'pdf',
-        status: { parsed: true, chunked: true, embedded: true },
-        selected: true
-      },
-      {
-        id: 'doc-2',
-        name: '核酸的结构.pdf',
-        type: 'pdf',
-        status: { parsed: true, chunked: true, embedded: true },
-        selected: true
-      },
-      {
-        id: 'doc-3',
-        name: '核酸研究方法.md',
-        type: 'md',
-        status: { parsed: true, chunked: true, embedded: false },
-        selected: false
-      }
-    ]
-  },
-  {
-    id: 'kb-2',
-    name: '细胞生物学知识库',
-    documents: [
-      {
-        id: 'doc-4',
-        name: '细胞工程原理.pdf',
-        type: 'pdf',
-        status: { parsed: true, chunked: false, embedded: false },
-        selected: false
-      },
-      {
-        id: 'doc-5',
-        name: '细胞结构笔记.txt',
-        type: 'txt',
-        status: { parsed: false, chunked: false, embedded: false },
-        selected: false
-      }
-    ]
-  },
-  {
-    id: 'kb-3',
-    name: '基因工程知识库',
-    documents: [
-      {
-        id: 'doc-6',
-        name: '基因工程及蛋白质工程.pdf',
-        type: 'pdf',
-        status: { parsed: true, chunked: true, embedded: true },
-        selected: false
-      }
-    ]
-  }
-])
-
+const sourcesStore = useSourcesStore()
 const searchQuery = ref('')
-const expandedKbs = ref<Set<string>>(new Set(['kb-1'])) // 默认展开第一个
 
 // 过滤知识库
 const filteredKnowledgeBases = computed(() => {
-  if (!searchQuery.value.trim()) return knowledgeBases.value
+  if (!searchQuery.value.trim()) return sourcesStore.knowledgeBases
 
   const query = searchQuery.value.toLowerCase()
-  return knowledgeBases.value
+  return sourcesStore.knowledgeBases
     .map((kb) => ({
       ...kb,
       documents: kb.documents.filter((doc) => doc.name.toLowerCase().includes(query))
@@ -317,60 +308,12 @@ const filteredKnowledgeBases = computed(() => {
     .filter((kb) => kb.name.toLowerCase().includes(query) || kb.documents.length > 0)
 })
 
-// 切换知识库展开/折叠
-const toggleKnowledgeBase = (kbId: string) => {
-  if (expandedKbs.value.has(kbId)) {
-    expandedKbs.value.delete(kbId)
-  } else {
-    expandedKbs.value.add(kbId)
+// 重试加载
+const handleRetry = async () => {
+  await sourcesStore.checkConnection()
+  if (sourcesStore.connectionState.connected) {
+    await sourcesStore.loadKnowledgeBases()
   }
-}
-
-// 判断知识库是否全选
-const isKnowledgeBaseSelected = (kbId: string) => {
-  const kb = knowledgeBases.value.find((k) => k.id === kbId)
-  if (!kb || kb.documents.length === 0) return false
-  return kb.documents.every((doc) => doc.selected)
-}
-
-// 切换知识库选择（全选/取消全选该知识库下的所有文档）
-const toggleKnowledgeBaseSelection = (kbId: string) => {
-  const kb = knowledgeBases.value.find((k) => k.id === kbId)
-  if (!kb) return
-
-  const allSelected = isKnowledgeBaseSelected(kbId)
-  kb.documents.forEach((doc) => {
-    doc.selected = !allSelected
-  })
-}
-
-// 切换单个文档选择
-const toggleDocumentSelection = (kbId: string, docId: string) => {
-  const kb = knowledgeBases.value.find((k) => k.id === kbId)
-  if (!kb) return
-
-  const doc = kb.documents.find((d) => d.id === docId)
-  if (doc) {
-    doc.selected = !doc.selected
-  }
-}
-
-// 全选所有文档
-const selectAll = () => {
-  knowledgeBases.value.forEach((kb) => {
-    kb.documents.forEach((doc) => {
-      doc.selected = true
-    })
-  })
-}
-
-// 清空所有选择
-const deselectAll = () => {
-  knowledgeBases.value.forEach((kb) => {
-    kb.documents.forEach((doc) => {
-      doc.selected = false
-    })
-  })
 }
 
 // 获取文档图标样式
@@ -391,4 +334,20 @@ const getDocIconStyle = (type: string) => {
 const getDocIconText = (type: string) => {
   return type.toUpperCase()
 }
+
+// 组件挂载时初始化数据
+onMounted(async () => {
+  // 先检查连接状态
+  await sourcesStore.checkConnection()
+
+  // 如果已连接，加载知识库列表
+  if (sourcesStore.connectionState.connected) {
+    await sourcesStore.loadKnowledgeBases()
+
+    // 加载第一个展开的知识库的文档
+    for (const kbId of sourcesStore.expandedKbIds) {
+      await sourcesStore.loadDocuments(kbId)
+    }
+  }
+})
 </script>

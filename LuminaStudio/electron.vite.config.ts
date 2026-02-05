@@ -9,7 +9,8 @@ export default defineConfig({
         '@main': resolve('src/main'),
         '@preload': resolve('src/preload'),
         '@preload/types': resolve('src/preload/types'),
-        '@utility': resolve('src/utility')
+        '@utility': resolve('src/utility'),
+        '@shared': resolve('src/Public/ShareTypes')
       }
     }
   },
@@ -19,7 +20,8 @@ export default defineConfig({
         '@main': resolve('src/main'),
         '@preload': resolve('src/preload'),
         '@preload/types': resolve('src/preload/types'),
-        '@utility': resolve('src/utility')
+        '@utility': resolve('src/utility'),
+        '@shared': resolve('src/Public/ShareTypes')
       }
     }
   },
@@ -27,7 +29,8 @@ export default defineConfig({
     resolve: {
       alias: {
         '@renderer': resolve('src/renderer/src'),
-        '@preload/types': resolve('src/preload/types')
+        '@preload/types': resolve('src/preload/types'),
+        '@shared': resolve('src/Public/ShareTypes')
       }
     },
     plugins: [vue()]

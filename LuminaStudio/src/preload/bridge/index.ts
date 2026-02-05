@@ -8,12 +8,14 @@ import { utilsAPI } from '../api/utils-api'
 import { windowAPI } from '../api/window-api'
 import { modelConfigAPI } from '../api/model-config-api'
 import { aiChatAPI } from '../api/ai-chat-api'
+import { knowledgeDatabaseAPI } from '../api/knowledge-database-api'
 
 const api = {
   utils: utilsAPI,
   window: windowAPI,
   modelConfig: modelConfigAPI,
-  aiChat: aiChatAPI
+  aiChat: aiChatAPI,
+  knowledgeDatabase: knowledgeDatabaseAPI
 }
 
 contextBridge.exposeInMainWorld('api', api)

@@ -10,6 +10,8 @@ import { ModelConfigService } from './services/model-config'
 import { ModelConfigIPCHandler } from './ipc/model-config-handler'
 import { AiChatService } from './services/ai-chat/ai-chat-service'
 import { AiChatIPCHandler } from './ipc/ai-chat-handler'
+import { KnowledgeDatabaseBridgeService } from './services/knowledge-database-bridge'
+import { KnowledgeDatabaseIPCHandler } from './ipc/knowledge-database-handler'
 
 // 确保开发环境也使用 LuminaStudio 作为应用名称（生产环境自动使用 productName）
 if (!app.isPackaged) {
@@ -79,6 +81,10 @@ app.whenReady().then(() => {
   // 初始化 AI Chat Service 和 IPC Handler
   const aiChatService = new AiChatService(databaseManager, modelConfigService)
   new AiChatIPCHandler(aiChatService)
+
+  // 初始化 KnowledgeDatabase Bridge Service 和 IPC Handler
+  const knowledgeDatabaseService = new KnowledgeDatabaseBridgeService()
+  new KnowledgeDatabaseIPCHandler(knowledgeDatabaseService)
 
   // 注册所有 IPC handlers
   registerAllHandlers()
