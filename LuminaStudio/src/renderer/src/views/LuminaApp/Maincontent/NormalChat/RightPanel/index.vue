@@ -15,23 +15,14 @@
         class="w-7 h-7 rounded-lg border border-slate-200 text-slate-500 hover:text-emerald-600 hover:border-emerald-200 transition-colors flex items-center justify-center"
         @click="$emit('update:collapsed', !collapsed)"
       >
-        <svg
-          class="w-4 h-4"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-        >
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path v-if="collapsed" d="M15 6l-6 6 6 6" />
           <path v-else d="M9 6l6 6-6 6" />
         </svg>
       </button>
     </div>
 
-    <div
-      v-if="!collapsed"
-      class="nc_NormalChat_RightContent_a8d3 flex-1 overflow-y-auto px-4 py-4"
-    >
+    <div v-if="!collapsed" class="nc_NormalChat_RightContent_a8d3 flex-1 overflow-y-auto px-4 py-4">
       <div class="grid grid-cols-2 gap-3">
         <button
           v-for="tool in tools"

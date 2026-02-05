@@ -28,11 +28,7 @@
     />
 
     <!-- Right Panel -->
-    <RightPanel
-      v-model:collapsed="rightCollapsed"
-      :tools="tools"
-      :notes="notes"
-    />
+    <RightPanel v-model:collapsed="rightCollapsed" :tools="tools" :notes="notes" />
 
     <!-- Modals -->
     <ModelSelectorModal

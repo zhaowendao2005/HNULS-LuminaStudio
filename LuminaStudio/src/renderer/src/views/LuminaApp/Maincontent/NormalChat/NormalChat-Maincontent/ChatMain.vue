@@ -259,10 +259,7 @@
             </div>
 
             <!-- 主文本内容 -->
-            <div
-              v-if="msg.role === 'assistant'"
-              class="text-[15px] leading-relaxed text-slate-800"
-            >
+            <div v-if="msg.role === 'assistant'" class="text-[15px] leading-relaxed text-slate-800">
               <div v-html="renderMarkdown(msg.content)"></div>
               <span
                 v-if="msg.isStreaming"
@@ -287,9 +284,7 @@
             >
               Tokens: {{ msg.usage.totalTokens }} (输入: {{ msg.usage.inputTokens }}, 输出:
               {{ msg.usage.outputTokens }}
-              <span v-if="msg.usage.reasoningTokens">
-                , 思考: {{ msg.usage.reasoningTokens }}
-              </span>
+              <span v-if="msg.usage.reasoningTokens">, 思考: {{ msg.usage.reasoningTokens }}</span>
               )
             </div>
 
@@ -506,7 +501,11 @@ const scrollToBottom = async () => {
   }
 }
 
-watch(() => props.messages, () => scrollToBottom(), { deep: true, flush: 'post' })
+watch(
+  () => props.messages,
+  () => scrollToBottom(),
+  { deep: true, flush: 'post' }
+)
 
 const handleInputKeydown = (e: KeyboardEvent) => {
   if (e.key === 'Enter' && !e.shiftKey) {

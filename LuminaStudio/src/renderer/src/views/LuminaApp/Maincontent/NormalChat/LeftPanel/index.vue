@@ -20,13 +20,7 @@
         class="w-7 h-7 flex-shrink-0 rounded-lg border border-slate-200 text-slate-500 hover:text-emerald-600 hover:border-emerald-200 transition-colors flex items-center justify-center"
         @click="$emit('update:collapsed', !collapsed)"
       >
-        <svg
-          class="w-4 h-4"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-        >
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path v-if="collapsed" d="M9 6l6 6-6 6" />
           <path v-else d="M15 18l-6-6 6-6" />
         </svg>
