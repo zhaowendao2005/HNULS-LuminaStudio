@@ -78,8 +78,18 @@
               <input 
                 type="text" 
                 placeholder="搜索对话记录..." 
-                class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-12 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
               />
+              <!-- Close Button -->
+              <button 
+                class="absolute right-2 top-1.5 w-7 h-7 flex items-center justify-center rounded-full bg-white text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-colors"
+                @click="$emit('update:visible', false)"
+              >
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M18 6L6 18" />
+                  <path d="M6 6l12 12" />
+                </svg>
+              </button>
             </div>
           </div>
         </div>
@@ -130,17 +140,6 @@
           </div>
         </div>
       </div>
-      
-      <!-- Close Button -->
-      <button 
-        class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-colors"
-        @click="$emit('update:visible', false)"
-      >
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M18 6L6 18" />
-          <path d="M6 6l12 12" />
-        </svg>
-      </button>
     </div>
 
     <!-- Create Agent Modal -->

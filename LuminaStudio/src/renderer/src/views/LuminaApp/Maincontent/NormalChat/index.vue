@@ -11,15 +11,19 @@
       :style="{ width: leftCollapsed ? '64px' : '320px' }"
     >
       <div
-        class="nc_NormalChat_LeftHeader_a8d3 flex items-center border-b border-slate-100"
-        :class="leftCollapsed ? 'justify-center px-2 py-3' : 'justify-between px-4 py-3'"
+        class="nc_NormalChat_LeftHeader_a8d3 flex items-center gap-2 border-b border-slate-100"
+        :class="leftCollapsed ? 'justify-center px-2 py-3' : 'px-4 py-3'"
       >
-        <div v-if="!leftCollapsed" class="flex items-center gap-2">
-          <div class="w-2 h-2 rounded-full bg-emerald-500"></div>
-          <span class="text-sm font-semibold text-slate-700">来源</span>
+        <div v-if="!leftCollapsed" class="flex-1 min-w-0">
+          <WhiteSelect
+            v-model="currentTab"
+            :options="leftTabOptions"
+            placeholder="选择页面"
+            trigger-class="!px-3 !py-2 !text-sm !font-semibold border-0 hover:bg-slate-50"
+          />
         </div>
         <button
-          class="w-7 h-7 rounded-lg border border-slate-200 text-slate-500 hover:text-emerald-600 hover:border-emerald-200 transition-colors flex items-center justify-center"
+          class="w-7 h-7 flex-shrink-0 rounded-lg border border-slate-200 text-slate-500 hover:text-emerald-600 hover:border-emerald-200 transition-colors flex items-center justify-center"
           @click="leftCollapsed = !leftCollapsed"
         >
           <svg
@@ -39,91 +43,130 @@
         v-if="!leftCollapsed"
         class="nc_NormalChat_LeftContent_a8d3 flex-1 overflow-y-auto px-4 py-4 space-y-4"
       >
-        <button
-          class="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-full border border-slate-200 text-sm font-medium text-slate-600 hover:border-emerald-200 hover:text-emerald-600 transition-colors"
-        >
-          <span
-            class="w-5 h-5 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center text-sm font-bold"
+        <!-- Tab: 来源 -->
+        <div v-if="currentTab === 'sources'" class="space-y-4">
+          <button
+            class="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-full border border-slate-200 text-sm font-medium text-slate-600 hover:border-emerald-200 hover:text-emerald-600 transition-colors"
           >
-            +
-          </span>
-          添加来源
-        </button>
+            <span
+              class="w-5 h-5 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center text-sm font-bold"
+            >
+              +
+            </span>
+            添加来源
+          </button>
 
-        <div class="relative">
-          <svg
-            class="absolute left-3 top-2.5 w-4 h-4 text-slate-400"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <circle cx="11" cy="11" r="8" />
-            <path d="m21 21-4.35-4.35" />
-          </svg>
-          <input
-            type="text"
-            placeholder="在网络中搜索新来源"
-            class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-10 py-2.5 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all"
-          />
-          <div
-            class="absolute right-2 top-2 w-7 h-7 rounded-full bg-white border border-slate-200 text-slate-500 flex items-center justify-center"
-          >
+          <div class="relative">
             <svg
-              class="w-3.5 h-3.5"
+              class="absolute left-3 top-2.5 w-4 h-4 text-slate-400"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
               stroke-width="2"
             >
-              <path d="M9 18l6-6-6-6" />
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.35-4.35" />
             </svg>
+            <input
+              type="text"
+              placeholder="在网络中搜索新来源"
+              class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-10 py-2.5 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all"
+            />
+            <div
+              class="absolute right-2 top-2 w-7 h-7 rounded-full bg-white border border-slate-200 text-slate-500 flex items-center justify-center"
+            >
+              <svg
+                class="w-3.5 h-3.5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M9 18l6-6-6-6" />
+              </svg>
+            </div>
+          </div>
+
+          <div class="flex gap-2">
+            <button
+              class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-slate-200 text-xs text-slate-600"
+            >
+              <span
+                class="w-4 h-4 rounded-full bg-slate-100 flex items-center justify-center text-[10px]"
+              >
+                W
+              </span>
+              Web
+            </button>
+            <button
+              class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-slate-200 text-xs text-slate-600"
+            >
+              <span
+                class="w-4 h-4 rounded-full bg-slate-100 flex items-center justify-center text-[10px]"
+              >
+                F
+              </span>
+              Fast Research
+            </button>
+          </div>
+
+          <div class="flex items-center justify-between text-xs text-slate-400">
+            <span>选择所有来源</span>
+            <input type="checkbox" checked class="w-4 h-4 accent-emerald-500" />
+          </div>
+
+          <div class="space-y-3">
+            <div
+              v-for="item in sourceItems"
+              :key="item.id"
+              class="flex items-center justify-between gap-3"
+            >
+              <div class="flex items-center gap-3 min-w-0">
+                <div
+                  class="w-7 h-7 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center text-[10px] font-bold"
+                >
+                  PDF
+                </div>
+                <div class="text-sm text-slate-600 truncate">{{ item.title }}</div>
+              </div>
+              <input type="checkbox" :checked="item.checked" class="w-4 h-4 accent-emerald-500" />
+            </div>
           </div>
         </div>
 
-        <div class="flex gap-2">
-          <button
-            class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-slate-200 text-xs text-slate-600"
-          >
-            <span
-              class="w-4 h-4 rounded-full bg-slate-100 flex items-center justify-center text-[10px]"
+        <!-- Tab: 设置 -->
+        <div v-else-if="currentTab === 'settings'" class="space-y-4">
+          <div class="text-center text-slate-400 py-8">
+            <svg
+              class="w-12 h-12 mx-auto mb-3 text-slate-300"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
             >
-              W
-            </span>
-            Web
-          </button>
-          <button
-            class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-slate-200 text-xs text-slate-600"
-          >
-            <span
-              class="w-4 h-4 rounded-full bg-slate-100 flex items-center justify-center text-[10px]"
-            >
-              F
-            </span>
-            Fast Research
-          </button>
+              <circle cx="12" cy="12" r="3" />
+              <path
+                d="M12 1v6m0 6v6m-9-9h6m6 0h6M4.93 4.93l4.24 4.24m5.66 5.66l4.24 4.24M4.93 19.07l4.24-4.24m5.66-5.66l4.24-4.24"
+              />
+            </svg>
+            <p class="text-sm">设置功能开发中...</p>
+          </div>
         </div>
 
-        <div class="flex items-center justify-between text-xs text-slate-400">
-          <span>选择所有来源</span>
-          <input type="checkbox" checked class="w-4 h-4 accent-emerald-500" />
-        </div>
-
-        <div class="space-y-3">
-          <div
-            v-for="item in sourceItems"
-            :key="item.id"
-            class="flex items-center justify-between gap-3"
-          >
-            <div class="flex items-center gap-3 min-w-0">
-              <div
-                class="w-7 h-7 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center text-[10px] font-bold"
-              >
-                PDF
-              </div>
-              <div class="text-sm text-slate-600 truncate">{{ item.title }}</div>
-            </div>
-            <input type="checkbox" :checked="item.checked" class="w-4 h-4 accent-emerald-500" />
+        <!-- Tab: 历史 -->
+        <div v-else-if="currentTab === 'history'" class="space-y-4">
+          <div class="text-center text-slate-400 py-8">
+            <svg
+              class="w-12 h-12 mx-auto mb-3 text-slate-300"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
+            </svg>
+            <p class="text-sm">历史记录功能开发中...</p>
           </div>
         </div>
       </div>
@@ -724,6 +767,7 @@ import { ref, nextTick, watch, computed } from 'vue'
 import MarkdownIt from 'markdown-it'
 import ModelSelectorModal from './components/ModelSelectorModal.vue'
 import ConversationListModal from './components/ConversationListModal.vue'
+import WhiteSelect, { type WhiteSelectOption } from './components/WhiteSelect.vue'
 import { useAiChatStore } from '@renderer/stores/ai-chat/store'
 import { useModelConfigStore } from '@renderer/stores/model-config/store'
 
@@ -733,6 +777,14 @@ const modelConfigStore = useModelConfigStore()
 // ===== 面板控制 =====
 const leftCollapsed = ref(true) // 默认折叠左侧栏
 const rightCollapsed = ref(true) // 默认折叠右侧栏
+
+// ===== Tab 控制 =====
+const currentTab = ref<string>('sources')
+const leftTabOptions: WhiteSelectOption[] = [
+  { label: '来源', value: 'sources' },
+  { label: '设置', value: 'settings' },
+  { label: '历史', value: 'history' }
+]
 
 // ===== 模态框控制 =====
 const showModelSelector = ref(false)
