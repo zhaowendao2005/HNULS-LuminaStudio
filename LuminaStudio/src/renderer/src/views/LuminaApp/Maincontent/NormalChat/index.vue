@@ -48,11 +48,11 @@
 
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
-import LeftPanel from './components/LeftPanel.vue'
-import RightPanel from './components/RightPanel.vue'
-import ChatMain from './components/ChatMain.vue'
-import ModelSelectorModal from './components/ModelSelectorModal.vue'
-import ConversationListModal from './components/ConversationListModal.vue'
+import LeftPanel from './LeftPanel/index.vue'
+import RightPanel from './RightPanel/index.vue'
+import ChatMain from './NormalChat-Maincontent/ChatMain.vue'
+import ModelSelectorModal from './NormalChat-Maincontent/ModelSelectorModal.vue'
+import ConversationListModal from './NormalChat-Maincontent/ConversationListModal.vue'
 import { type WhiteSelectOption } from './components/WhiteSelect.vue'
 import { useAiChatStore } from '@renderer/stores/ai-chat/store'
 import { useModelConfigStore } from '@renderer/stores/model-config/store'

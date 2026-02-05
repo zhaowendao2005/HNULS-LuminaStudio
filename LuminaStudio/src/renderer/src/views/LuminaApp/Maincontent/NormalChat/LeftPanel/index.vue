@@ -169,7 +169,7 @@
 </template>
 
 <script setup lang="ts">
-import WhiteSelect, { type WhiteSelectOption } from './WhiteSelect.vue'
+import WhiteSelect, { type WhiteSelectOption } from '../components/WhiteSelect.vue'
 
 defineProps<{
   collapsed: boolean
