@@ -20,6 +20,10 @@ export interface EmbeddingConfigStatus {
   chunkCount: number
   /** 更新时间 */
   updatedAt: string
+  /** 是否为推荐（默认）配置 */
+  isDefault: boolean
+  /** 当前是否被选中 */
+  selected: boolean
 }
 
 /**
@@ -52,7 +56,12 @@ export interface SourceDocument {
   embeddings: EmbeddingConfigStatus[]
   /** 文档状态摘要（聚合计算）*/
   statusSummary: DocumentStatusSummary
-  selected: boolean
+  /** UI：文档节点是否展开 */
+  expanded: boolean
+  /** 当前选中的嵌入（由点击子节点产生）；未选择时为 null */
+  selectedEmbedding: { configId: string; dimensions: number } | null
+  /** 是否已选择（等价于 selectedEmbedding != null，保留便于模板使用） */
+  hasSelectedEmbedding: boolean
   updatedAt: string
 }
 

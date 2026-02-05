@@ -19,19 +19,27 @@ export const useSourcesStore = defineStore('ai-chat-sources', () => {
 
   // ===== Computed =====
   const selectedDocuments = computed(() => {
-    const result: { kbId: number; kbName: string; doc: SourceDocument }[] = []
+    const result: Array<{
+      kbId: number
+      kbName: string
+      doc: SourceDocument
+      embedding: { configId: string; dimensions: number }
+    }> = []
+
     for (const kb of knowledgeBases.value) {
       for (const doc of kb.documents) {
-        if (doc.selected) {
-          result.push({ kbId: kb.id, kbName: kb.name, doc })
+        if (doc.selectedEmbedding) {
+          result.push({ kbId: kb.id, kbName: kb.name, doc, embedding: doc.selectedEmbedding })
         }
       }
     }
+
     return result
   })
 
+  // 兼容旧调用：返回 fileKey 列表（比 id 更稳定）
   const selectedDocumentIds = computed(() => {
-    return selectedDocuments.value.map((item) => item.doc.id)
+    return selectedDocuments.value.map((item) => item.doc.fileKey)
   })
 
   const hasSelection = computed(() => selectedDocuments.value.length > 0)
@@ -133,42 +141,77 @@ export const useSourcesStore = defineStore('ai-chat-sources', () => {
   function isKnowledgeBaseSelected(kbId: number): boolean {
     const kb = knowledgeBases.value.find((k) => k.id === kbId)
     if (!kb || kb.documents.length === 0) return false
-    return kb.documents.every((doc) => doc.selected)
+    return kb.documents.every((doc) => doc.hasSelectedEmbedding)
   }
 
-  /**
-   * 切换知识库选择状态（全选/取消全选该知识库下的所有文档）
-   */
-  function toggleKnowledgeBaseSelection(kbId: number): void {
-    const kb = knowledgeBases.value.find((k) => k.id === kbId)
-    if (!kb) return
-
-    const allSelected = isKnowledgeBaseSelected(kbId)
-    kb.documents.forEach((doc) => {
-      doc.selected = !allSelected
+  function setSelectedEmbedding(doc: SourceDocument, embedding: { configId: string; dimensions: number } | null): void {
+    // 清空所有高亮
+    doc.embeddings.forEach((e) => {
+      e.selected = false
     })
+
+    doc.selectedEmbedding = embedding
+    doc.hasSelectedEmbedding = !!embedding
+
+    if (!embedding) return
+
+    const match = doc.embeddings.find((e) => e.configId === embedding.configId && e.dimensions === embedding.dimensions)
+    if (match) {
+      match.selected = true
+    }
+  }
+
+  function selectDefaultEmbedding(doc: SourceDocument): void {
+    const preferred = doc.embeddings.find((e) => e.isDefault) || doc.embeddings[0]
+    if (!preferred) {
+      setSelectedEmbedding(doc, null)
+      return
+    }
+    setSelectedEmbedding(doc, { configId: preferred.configId, dimensions: preferred.dimensions })
   }
 
   /**
-   * 切换单个文档选择状态
+   * 切换文档展开/折叠状态
    */
-  function toggleDocumentSelection(kbId: number, docId: string): void {
+  function toggleDocumentExpanded(kbId: number, docId: string): void {
     const kb = knowledgeBases.value.find((k) => k.id === kbId)
     if (!kb) return
 
     const doc = kb.documents.find((d) => d.id === docId)
-    if (doc) {
-      doc.selected = !doc.selected
+    if (!doc) return
+
+    doc.expanded = !doc.expanded
+
+    // 展开时，如果还没选择过嵌入配置，则自动选择推荐配置
+    if (doc.expanded && !doc.selectedEmbedding) {
+      selectDefaultEmbedding(doc)
     }
   }
 
   /**
-   * 全选所有文档
+   * 点击嵌入子节点：选择该嵌入版本（高亮）
+   */
+  function selectEmbeddingVersion(
+    kbId: number,
+    docId: string,
+    embedding: { configId: string; dimensions: number }
+  ): void {
+    const kb = knowledgeBases.value.find((k) => k.id === kbId)
+    if (!kb) return
+
+    const doc = kb.documents.find((d) => d.id === docId)
+    if (!doc) return
+
+    setSelectedEmbedding(doc, embedding)
+  }
+
+  /**
+   * 全选所有文档（选择每个文档的推荐配置）
    */
   function selectAll(): void {
     knowledgeBases.value.forEach((kb) => {
       kb.documents.forEach((doc) => {
-        doc.selected = true
+        selectDefaultEmbedding(doc)
       })
     })
   }
@@ -179,7 +222,7 @@ export const useSourcesStore = defineStore('ai-chat-sources', () => {
   function deselectAll(): void {
     knowledgeBases.value.forEach((kb) => {
       kb.documents.forEach((doc) => {
-        doc.selected = false
+        setSelectedEmbedding(doc, null)
       })
     })
   }
@@ -222,8 +265,8 @@ export const useSourcesStore = defineStore('ai-chat-sources', () => {
     toggleKnowledgeBase,
     isKnowledgeBaseExpanded,
     isKnowledgeBaseSelected,
-    toggleKnowledgeBaseSelection,
-    toggleDocumentSelection,
+    toggleDocumentExpanded,
+    selectEmbeddingVersion,
     selectAll,
     deselectAll,
     refresh

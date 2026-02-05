@@ -34,14 +34,34 @@ function mapFileType(fileType: string): 'pdf' | 'md' | 'txt' | 'other' {
 /**
  * 映射单个嵌入配置到 UI 模型
  */
-function mapEmbeddingConfig(item: DocumentEmbeddingItem): EmbeddingConfigStatus {
+function mapEmbeddingConfig(item: DocumentEmbeddingItem, isDefault: boolean): EmbeddingConfigStatus {
   return {
     configId: item.embeddingConfigId,
     dimensions: item.dimensions,
     status: item.status,
     chunkCount: item.chunkCount,
-    updatedAt: item.updatedAt
+    updatedAt: item.updatedAt,
+    isDefault,
+    selected: false
   }
+}
+
+/**
+ * 计算推荐的默认嵌入配置（用于 UI 默认展示顺序/标记，不会自动选中）
+ * 优先级：completed > dimensions 大 > updatedAt 新
+ */
+function determineDefaultEmbedding(embeddings: DocumentEmbeddingItem[]): { configId: string; dimensions: number } | null {
+  if (!embeddings || embeddings.length === 0) return null
+
+  const completed = embeddings.filter((e) => e.status === 'completed')
+  const candidates = completed.length > 0 ? completed : embeddings
+
+  const sorted = [...candidates].sort((a, b) => {
+    if (a.dimensions !== b.dimensions) return b.dimensions - a.dimensions
+    return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+  })
+
+  return { configId: sorted[0].embeddingConfigId, dimensions: sorted[0].dimensions }
 }
 
 /**
@@ -68,7 +88,17 @@ function computeStatusSummary(embeddings: EmbeddingConfigStatus[]): DocumentStat
  * 映射外部 API 文档到 UI 文档模型
  */
 function mapDocument(doc: DocumentInfo): SourceDocument {
-  const embeddings = doc.embeddings.map(mapEmbeddingConfig)
+  const defaultEmbedding = determineDefaultEmbedding(doc.embeddings)
+  const embeddings = doc.embeddings
+    .map((item) =>
+      mapEmbeddingConfig(
+        item,
+        !!defaultEmbedding && item.embeddingConfigId === defaultEmbedding.configId && item.dimensions === defaultEmbedding.dimensions
+      )
+    )
+    // 推荐配置排前面（仅影响展示顺序）
+    .sort((a, b) => Number(b.isDefault) - Number(a.isDefault))
+
   const statusSummary = computeStatusSummary(embeddings)
 
   return {
@@ -78,7 +108,9 @@ function mapDocument(doc: DocumentInfo): SourceDocument {
     type: mapFileType(doc.fileType),
     embeddings,
     statusSummary,
-    selected: false,
+    expanded: false,
+    selectedEmbedding: null,
+    hasSelectedEmbedding: false,
     updatedAt: doc.updatedAt
   }
 }

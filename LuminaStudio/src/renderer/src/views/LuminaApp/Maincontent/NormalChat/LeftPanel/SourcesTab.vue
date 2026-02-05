@@ -82,6 +82,22 @@
         </svg>
         清空
       </button>
+      <button
+        @click="sourcesStore.refresh()"
+        :disabled="sourcesStore.isLoading"
+        class="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-medium text-slate-600 hover:border-blue-200 hover:text-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        title="刷新知识库列表"
+      >
+        <svg
+          :class="['w-3.5 h-3.5', sourcesStore.isLoading && 'animate-spin']"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" />
+        </svg>
+      </button>
     </div>
 
     <!-- 加载中状态 -->
@@ -147,14 +163,10 @@
             </div>
           </div>
 
-          <!-- 知识库选择框 -->
-          <input
-            type="checkbox"
-            :checked="sourcesStore.isKnowledgeBaseSelected(kb.id)"
-            @click.stop
-            @change="sourcesStore.toggleKnowledgeBaseSelection(kb.id)"
-            class="w-4 h-4 accent-emerald-500 cursor-pointer"
-          />
+          <!-- 知识库选择（已改为嵌入版本选择，不在此处做全选复选框） -->
+          <div class="text-[10px] text-slate-400 flex-shrink-0" :title="`已选择 ${kb.documents.filter(d => d.hasSelectedEmbedding).length} 个文档`">
+            {{ kb.documents.filter(d => d.hasSelectedEmbedding).length }}/{{ kb.documents.length }}
+          </div>
         </div>
 
         <!-- 文档列表 -->
@@ -188,79 +200,143 @@
 
           <!-- 文档列表 -->
           <template v-else>
-            <div
-              v-for="doc in kb.documents"
-              :key="doc.id"
-              class="flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-white transition-colors group"
-            >
-              <!-- 文档图标 -->
+            <div v-for="doc in kb.documents" :key="doc.id" class="space-y-1">
+              <!-- 文档主节点（点击展开/折叠） -->
               <div
-                :class="[
-                  'w-6 h-6 rounded flex items-center justify-center text-[10px] font-bold flex-shrink-0',
-                  getDocIconStyle(doc.type)
-                ]"
+                class="flex items-center gap-2 px-2 py-2 rounded-lg transition-colors group cursor-pointer hover:bg-white"
+                @click="sourcesStore.toggleDocumentExpanded(kb.id, doc.id)"
               >
-                {{ getDocIconText(doc.type) }}
-              </div>
-
-              <!-- 文档名称 -->
-              <div class="flex-1 min-w-0">
-                <div class="text-xs text-slate-700 truncate font-medium">{{ doc.name }}</div>
-              </div>
-
-              <!-- 状态标签 -->
-              <div class="flex items-center gap-1 flex-shrink-0">
-                <!-- 无嵌入配置 -->
-                <span
-                  v-if="!doc.statusSummary.hasEmbeddings"
-                  class="inline-flex items-center justify-center w-1.5 h-1.5 rounded-full bg-slate-300"
-                  title="无嵌入"
-                ></span>
-                <!-- 有嵌入配置：显示状态 -->
-                <template v-else>
-                  <!-- 运行中 -->
-                  <span
-                    v-if="doc.statusSummary.hasRunning"
-                    class="inline-flex items-center justify-center w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"
-                    title="嵌入中..."
-                  ></span>
-                  <!-- 有失败 -->
-                  <span
-                    v-else-if="doc.statusSummary.hasFailed"
-                    class="inline-flex items-center justify-center w-1.5 h-1.5 rounded-full bg-rose-500"
-                    title="部分嵌入失败"
-                  ></span>
-                  <!-- 全部完成 -->
-                  <span
-                    v-else-if="doc.statusSummary.allCompleted"
-                    class="inline-flex items-center justify-center w-1.5 h-1.5 rounded-full bg-emerald-500"
-                    title="嵌入完成"
-                  ></span>
-                  <!-- pending -->
-                  <span
-                    v-else
-                    class="inline-flex items-center justify-center w-1.5 h-1.5 rounded-full bg-amber-400"
-                    title="等待嵌入"
-                  ></span>
-                </template>
-                <!-- 嵌入配置计数 -->
-                <span
-                  v-if="doc.statusSummary.totalConfigs > 0"
-                  class="text-[10px] text-slate-400"
-                  :title="`${doc.statusSummary.completedConfigs}/${doc.statusSummary.totalConfigs} 配置已完成`"
+                <!-- 展开/折叠图标 -->
+                <svg
+                  :class="[
+                    'w-3.5 h-3.5 text-slate-400 transition-transform flex-shrink-0',
+                    doc.expanded ? 'rotate-90' : ''
+                  ]"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
                 >
-                  {{ doc.statusSummary.completedConfigs }}/{{ doc.statusSummary.totalConfigs }}
-                </span>
+                  <path d="M9 18l6-6-6-6" />
+                </svg>
+
+                <!-- 文档图标 -->
+                <div
+                  :class="[
+                    'w-6 h-6 rounded flex items-center justify-center text-[10px] font-bold flex-shrink-0',
+                    getDocIconStyle(doc.type)
+                  ]"
+                >
+                  {{ getDocIconText(doc.type) }}
+                </div>
+
+                <!-- 文档名称 -->
+                <div class="flex-1 min-w-0">
+                  <div class="text-xs text-slate-700 truncate font-medium">{{ doc.name }}</div>
+                  <div v-if="doc.embeddings.length > 0" class="text-[10px] text-slate-400">
+                    {{ doc.embeddings.length }} 个嵌入版本
+                  </div>
+                </div>
+
+                <!-- 状态标签（摘要） -->
+                <div class="flex items-center gap-1 flex-shrink-0">
+                  <!-- 无嵌入配置 -->
+                  <span
+                    v-if="!doc.statusSummary.hasEmbeddings"
+                    class="inline-flex items-center justify-center w-1.5 h-1.5 rounded-full bg-slate-300"
+                    title="无嵌入"
+                  ></span>
+                  <!-- 有嵌入配置：显示状态 -->
+                  <template v-else>
+                    <span
+                      v-if="doc.statusSummary.hasRunning"
+                      class="inline-flex items-center justify-center w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"
+                      title="嵌入中..."
+                    ></span>
+                    <span
+                      v-else-if="doc.statusSummary.hasFailed"
+                      class="inline-flex items-center justify-center w-1.5 h-1.5 rounded-full bg-rose-500"
+                      title="部分嵌入失败"
+                    ></span>
+                    <span
+                      v-else-if="doc.statusSummary.allCompleted"
+                      class="inline-flex items-center justify-center w-1.5 h-1.5 rounded-full bg-emerald-500"
+                      title="嵌入完成"
+                    ></span>
+                    <span
+                      v-else
+                      class="inline-flex items-center justify-center w-1.5 h-1.5 rounded-full bg-amber-400"
+                      title="等待嵌入"
+                    ></span>
+                  </template>
+
+                  <!-- 嵌入配置计数 -->
+                  <span
+                    v-if="doc.statusSummary.totalConfigs > 0"
+                    class="text-[10px] text-slate-400"
+                    :title="`${doc.statusSummary.completedConfigs}/${doc.statusSummary.totalConfigs} 配置已完成`"
+                  >
+                    {{ doc.statusSummary.completedConfigs }}/{{ doc.statusSummary.totalConfigs }}
+                  </span>
+                </div>
               </div>
 
-              <!-- 文档选择框 -->
-              <input
-                type="checkbox"
-                :checked="doc.selected"
-                @click.stop
-                @change="sourcesStore.toggleDocumentSelection(kb.id, doc.id)"
-                class="w-3.5 h-3.5 accent-emerald-500 cursor-pointer"
-              />
+              <!-- 嵌入子节点（点击高亮选择） -->
+              <div
+                v-if="doc.expanded && doc.embeddings.length > 0"
+                class="ml-6 pl-2 border-l border-slate-200 space-y-1"
+              >
+                <div
+                  v-for="emb in doc.embeddings"
+                  :key="`${emb.configId}-${emb.dimensions}`"
+                  class="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer transition-colors"
+                  :class="emb.selected ? 'bg-emerald-100/70' : 'hover:bg-white'"
+                  @click.stop="sourcesStore.selectEmbeddingVersion(kb.id, doc.id, { configId: emb.configId, dimensions: emb.dimensions })"
+                >
+                  <div class="min-w-0 flex-1">
+                    <div class="flex items-center gap-1.5">
+                      <span class="text-xs font-medium text-slate-700 truncate">{{ emb.configId }}</span>
+                      <span v-if="emb.isDefault" class="text-[9px] px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">
+                        默认
+                      </span>
+                    </div>
+                    <div class="text-[10px] text-slate-500">
+                      {{ emb.dimensions }}维 · {{ emb.chunkCount }}块
+                    </div>
+                  </div>
+
+                  <!-- 状态点（使用与文档节点相同的样式） -->
+                  <div class="flex items-center gap-1 flex-shrink-0">
+                    <span
+                      v-if="emb.status === 'completed'"
+                      class="inline-flex items-center justify-center w-1.5 h-1.5 rounded-full bg-emerald-500"
+                      title="嵌入完成"
+                    ></span>
+                    <span
+                      v-else-if="emb.status === 'running'"
+                      class="inline-flex items-center justify-center w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"
+                      title="嵌入中"
+                    ></span>
+                    <span
+                      v-else-if="emb.status === 'failed'"
+                      class="inline-flex items-center justify-center w-1.5 h-1.5 rounded-full bg-rose-500"
+                      title="嵌入失败"
+                    ></span>
+                    <span
+                      v-else-if="emb.status === 'pending'"
+                      class="inline-flex items-center justify-center w-1.5 h-1.5 rounded-full bg-amber-400"
+                      title="等待嵌入"
+                    ></span>
+                    
+                    <!-- 默认配置紫色点 -->
+                    <span
+                      v-if="emb.isDefault"
+                      class="inline-flex items-center justify-center w-1.5 h-1.5 rounded-full bg-purple-500"
+                      title="推荐配置"
+                    ></span>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <!-- 空状态 -->
@@ -367,6 +443,36 @@ const getDocIconStyle = (type: string) => {
 // 获取文档图标文本
 const getDocIconText = (type: string) => {
   return type.toUpperCase()
+}
+
+const getEmbeddingStatusText = (status: string) => {
+  switch (status) {
+    case 'completed':
+      return '完成'
+    case 'running':
+      return '进行中'
+    case 'failed':
+      return '失败'
+    case 'pending':
+      return '等待'
+    default:
+      return '未知'
+  }
+}
+
+const getEmbeddingStatusPillClass = (status: string) => {
+  switch (status) {
+    case 'completed':
+      return 'bg-emerald-100 text-emerald-700'
+    case 'running':
+      return 'bg-blue-100 text-blue-700'
+    case 'failed':
+      return 'bg-rose-100 text-rose-700'
+    case 'pending':
+      return 'bg-amber-100 text-amber-700'
+    default:
+      return 'bg-slate-100 text-slate-600'
+  }
 }
 
 // 组件挂载时初始化数据
