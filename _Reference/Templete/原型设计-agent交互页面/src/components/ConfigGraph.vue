@@ -4,6 +4,7 @@ import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
 import { useAppStore } from '@/stores/appStore'
 import CustomNode from './nodes/CustomNode.vue'
+import { ref } from 'vue'
 
 const store = useAppStore()
 
@@ -11,14 +12,21 @@ const store = useAppStore()
 const nodeTypes = {
   custom: CustomNode,
 }
+
+const onNodeClick = (event: any) => {
+    store.openDrawer(event.node)
+}
 </script>
 
 <template>
-  <div class="h-full w-full">
+  <div class="h-full w-full relative">
     <VueFlow
       v-model:nodes="store.configNodes"
       v-model:edges="store.configEdges"
       :node-types="nodeTypes"
+      :nodes-connectable="false"
+      :edges-updatable="false"
+      @node-click="onNodeClick"
       fit-view-on-init
       class="bg-gray-50"
     >
