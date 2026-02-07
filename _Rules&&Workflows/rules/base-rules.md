@@ -26,11 +26,16 @@ trigger: always_on
 
 ---
 
-## 1.5 关键依赖和技术栈的仓库名称、参考资料搜索方式
+## 0.5 关键依赖和技术栈的仓库名称、参考资料搜索方式
 1. vercel/ai 使用devin/deepwiki mcp来进行检索 多使用提问方式 
+### 私有仓库 我们自己的仓库
+使用devin进行查询：
+- https://app.devin.ai/wiki/HNULS-LabHub/HNULS-KnowledgeDatabase
+- https://app.devin.ai/org/zhao-wen-dao/wiki/zhaowendao2005/HNULS-LuminaStudio（本项目）
+### 公共仓库 使用deepwiki查询
 链接与仓库https://github.com/vercel/ai  https://deepwiki.com/vercel/ai 官方文档：https://docs.vercel.com/docs/rest-api/reference/sdk
 2. sqlite 数据库1 https://deepwiki.com/sqlite/sqlite https://github.com/sqlite/sqlite
-3 langchainjs https://deepwiki.com/langchainjs/langchainjs
+3 langchainjs https://deepwiki.com/langchain-ai/langchainjs
  
 ## 1. 目录结构与文件放置（强制）
 
