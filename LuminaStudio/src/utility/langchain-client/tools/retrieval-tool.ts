@@ -1,7 +1,7 @@
 import { tool } from 'langchain'
 import { z } from 'zod'
 import { logger } from '@main/services/logger'
-import type { LangchainClientRetrievalConfig, LangchainClientRetrievalScope } from '@shared/langchain-client.types'
+import type { LangchainClientRetrievalConfig } from '@shared/langchain-client.types'
 
 const log = logger.scope('LangchainClient.Tool.knowledge_search')
 
@@ -27,40 +27,18 @@ export interface RetrievalHit {
   rerank_score?: number
 }
 
-function truncate(text: string, maxLen: number): string {
-  if (text.length <= maxLen) return text
-  return text.slice(0, maxLen) + '…'
+interface KnowledgeSearchResultScope {
+  knowledgeBaseId: number
+  tableName: string
+  fileKeysCount: number
+  hits?: RetrievalHit[]
+  error?: string
 }
 
-function formatHits(hits: RetrievalHit[]): string {
-  if (!hits || hits.length === 0) {
-    return '【知识库检索结果】\n(无召回结果)'
-  }
-
-  const lines: string[] = []
-  lines.push(`【知识库检索结果】共 ${hits.length} 条`)
-
-  hits.forEach((hit, idx) => {
-    const header = [
-      `#${idx + 1}`,
-      hit.file_name ? `file=${hit.file_name}` : null,
-      hit.chunk_index !== undefined ? `chunk=${hit.chunk_index}` : null,
-      hit.distance !== undefined ? `distance=${hit.distance}` : null,
-      hit.rerank_score !== undefined ? `rerank=${hit.rerank_score}` : null
-    ]
-      .filter(Boolean)
-      .join(' | ')
-
-    lines.push(header)
-    lines.push(truncate(hit.content ?? '', 1200))
-  })
-
-  return lines.join('\n')
-}
-
-function formatScopeHeader(scope: LangchainClientRetrievalScope): string {
-  const fileKeysCount = scope.fileKeys?.length ?? 0
-  return `scope(kb=${scope.knowledgeBaseId} | table=${scope.tableName} | fileKeys=${fileKeysCount})`
+interface KnowledgeSearchResult {
+  query: string
+  totalScopes: number
+  scopes: KnowledgeSearchResultScope[]
 }
 
 export function createKnowledgeSearchTool(params: {
@@ -77,7 +55,19 @@ export function createKnowledgeSearchTool(params: {
       const scopes = retrieval?.scopes ?? []
 
       if (!retrieval || scopes.length === 0) {
-        return '【知识库检索结果】\n(未选择检索范围：请在左侧 SourcesTab 选择文档/嵌入版本后再试)'
+        const emptyResult: KnowledgeSearchResult = {
+          query,
+          totalScopes: 0,
+          scopes: [
+            {
+              knowledgeBaseId: 0,
+              tableName: '',
+              fileKeysCount: 0,
+              error: '未选择检索范围：请在左侧 SourcesTab 选择文档/嵌入版本后再试'
+            }
+          ]
+        }
+        return JSON.stringify(emptyResult)
       }
 
       const totalK = retrieval.k ?? 10
@@ -92,7 +82,7 @@ export function createKnowledgeSearchTool(params: {
         rerankTopN: retrieval.rerankTopN ?? null
       })
 
-      const blocks: string[] = []
+      const resultScopes: KnowledgeSearchResultScope[] = []
 
       for (const scope of scopes) {
         const body = {
@@ -125,7 +115,12 @@ export function createKnowledgeSearchTool(params: {
           })
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err)
-          blocks.push(`【${formatScopeHeader(scope)}】\n(请求失败: ${msg})`)
+          resultScopes.push({
+            knowledgeBaseId: scope.knowledgeBaseId,
+            tableName: scope.tableName,
+            fileKeysCount: scope.fileKeys?.length ?? 0,
+            error: `请求失败: ${msg}`
+          })
           continue
         }
 
@@ -141,15 +136,31 @@ export function createKnowledgeSearchTool(params: {
             (json && typeof json.error === 'object' && json.error?.message) ||
             (json && typeof json.error === 'string' && json.error) ||
             `HTTP_${resp.status}`
-          blocks.push(`【${formatScopeHeader(scope)}】\n(检索失败: ${msg})`)
+          resultScopes.push({
+            knowledgeBaseId: scope.knowledgeBaseId,
+            tableName: scope.tableName,
+            fileKeysCount: scope.fileKeys?.length ?? 0,
+            error: `检索失败: ${msg}`
+          })
           continue
         }
 
         const hits = (json.data ?? []) as RetrievalHit[]
-        blocks.push(`【${formatScopeHeader(scope)}】\n${formatHits(hits)}`)
+        resultScopes.push({
+          knowledgeBaseId: scope.knowledgeBaseId,
+          tableName: scope.tableName,
+          fileKeysCount: scope.fileKeys?.length ?? 0,
+          hits
+        })
       }
 
-      return blocks.join('\n\n')
+      const result: KnowledgeSearchResult = {
+        query,
+        totalScopes: scopes.length,
+        scopes: resultScopes
+      }
+
+      return JSON.stringify(result)
     },
     {
       name: 'knowledge_search',

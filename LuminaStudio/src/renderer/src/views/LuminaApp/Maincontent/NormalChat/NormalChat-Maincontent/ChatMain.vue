@@ -81,7 +81,11 @@
 
     <main class="nc_NormalChat_CenterMain_a8d3 flex-1 overflow-y-auto flex flex-col-reverse">
       <div class="px-6 pt-5" :style="{ paddingBottom: inputBarHeight + 'px' }">
-        <ChatMainMessage :messages="messages" :is-generating="isGenerating" />
+        <ChatMainMessage
+          :messages="messages"
+          :is-generating="isGenerating"
+          @show-knowledge-detail="handleShowKnowledgeDetail"
+        />
       </div>
     </main>
 
@@ -103,6 +107,12 @@
         </p>
       </div>
     </div>
+
+    <!-- 知识库检索详情对话框 -->
+    <KnowledgeSearchDetailDialog
+      v-model="showDetailDialog"
+      :detail="selectedDetail"
+    />
   </section>
 </template>
 
@@ -110,6 +120,7 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import ChatMainMessage from './ChatMain-Message/index.vue'
 import ChatInput from './ChatInput/index.vue'
+import KnowledgeSearchDetailDialog from './ChatMain-Message/KnowledgeSearchDetailDialog.vue'
 
 defineProps<{
   messages: any[]
@@ -129,6 +140,16 @@ defineEmits<{
 
 const inputBarRef = ref<HTMLElement | null>(null)
 const inputBarHeight = ref(176) // 默认值 pb-44 = 11rem = 176px
+
+// 知识库检索详情对话框状态
+const showDetailDialog = ref(false)
+const selectedDetail = ref<any>(null)
+
+// 处理展示知识库检索详情
+function handleShowKnowledgeDetail(payload: any) {
+  selectedDetail.value = payload
+  showDetailDialog.value = true
+}
 
 // 使用 ResizeObserver 监听输入栏高度变化
 let resizeObserver: ResizeObserver | null = null
