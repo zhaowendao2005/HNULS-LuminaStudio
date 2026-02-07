@@ -292,7 +292,11 @@ export const useChatMessageStore = defineStore('chat-message', () => {
         const ctx = getStreamContext(event.requestId)
         if (!msg) break
         const blocks = ensureBlocks(msg)
-        const block: ThinkingBlock = { type: 'thinking', steps: [{ id: event.id, content: '' }], isThinking: true }
+        const block: ThinkingBlock = {
+          type: 'thinking',
+          steps: [{ id: event.id, content: '' }],
+          isThinking: true
+        }
         blocks.push(block)
         if (ctx) {
           ctx.thinkingBlockIndexById.set(event.id, blocks.length - 1)
@@ -312,7 +316,11 @@ export const useChatMessageStore = defineStore('chat-message', () => {
           if (step) step.content += event.delta
           else block.steps.push({ id: event.id, content: event.delta })
         } else {
-          const block: ThinkingBlock = { type: 'thinking', steps: [{ id: event.id, content: event.delta }], isThinking: true }
+          const block: ThinkingBlock = {
+            type: 'thinking',
+            steps: [{ id: event.id, content: event.delta }],
+            isThinking: true
+          }
           blocks.push(block)
           ctx?.thinkingBlockIndexById.set(event.id, blocks.length - 1)
         }

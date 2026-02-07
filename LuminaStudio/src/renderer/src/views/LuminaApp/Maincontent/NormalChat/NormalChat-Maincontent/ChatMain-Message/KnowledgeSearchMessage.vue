@@ -84,7 +84,13 @@
                 class="flex-shrink-0 text-[10px] text-purple-500 hover:text-purple-700 font-medium transition-colors flex items-center gap-0.5"
               >
                 <span>详情</span>
-                <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <svg
+                  class="w-3 h-3"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
                   <path d="M9 18l6-6-6-6" />
                 </svg>
               </button>
@@ -96,7 +102,10 @@
             </div>
 
             <!-- Metadata -->
-            <div v-if="hit.distance !== undefined || hit.rerank_score !== undefined" class="flex items-center gap-3 mt-1.5 pl-6">
+            <div
+              v-if="hit.distance !== undefined || hit.rerank_score !== undefined"
+              class="flex items-center gap-3 mt-1.5 pl-6"
+            >
               <span v-if="hit.distance !== undefined" class="text-[9px] text-slate-400">
                 距离: {{ hit.distance.toFixed(4) }}
               </span>
@@ -155,7 +164,15 @@ const props = defineProps<{
 }>()
 
 defineEmits<{
-  (e: 'show-detail', payload: { scope: KnowledgeSearchResultScope; hit: RetrievalHit; scopeIdx: number; hitIdx: number }): void
+  (
+    e: 'show-detail',
+    payload: {
+      scope: KnowledgeSearchResultScope
+      hit: RetrievalHit
+      scopeIdx: number
+      hitIdx: number
+    }
+  ): void
 }>()
 
 // 解析结果

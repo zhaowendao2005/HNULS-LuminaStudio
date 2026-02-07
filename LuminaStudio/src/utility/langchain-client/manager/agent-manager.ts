@@ -23,7 +23,9 @@ export class AgentManager {
   private agents = new Map<string, AgentInstance>()
   private abortControllers = new Map<string, AbortController>()
 
-  private readonly invokeContext = new AsyncLocalStorage<{ retrieval?: LangchainClientRetrievalConfig }>()
+  private readonly invokeContext = new AsyncLocalStorage<{
+    retrieval?: LangchainClientRetrievalConfig
+  }>()
 
   constructor(private readonly send: (msg: LangchainClientToMainMessage) => void) {}
 
@@ -124,7 +126,6 @@ export class AgentManager {
       retrievalScopes: retrieval?.scopes?.length ?? 0,
       fileKeysCount: retrieval?.scopes?.reduce((acc, s) => acc + (s.fileKeys?.length ?? 0), 0) ?? 0
     })
-
 
     try {
       const result = await this.invokeContext.run(

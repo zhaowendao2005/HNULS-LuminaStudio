@@ -1,6 +1,6 @@
 /**
  * Input Bar Store
- * 
+ *
  * 管理输入栏相关的全局状态
  */
 import { defineStore } from 'pinia'

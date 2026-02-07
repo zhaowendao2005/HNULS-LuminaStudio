@@ -60,7 +60,11 @@ export class AiChatService {
       enableThinking?: boolean
       mode?: 'normal' | 'agent'
       retrieval?: AiChatRetrievalConfig
-      providerOverride?: { baseUrl: string; apiKey: string; defaultHeaders?: Record<string, string> }
+      providerOverride?: {
+        baseUrl: string
+        apiKey: string
+        defaultHeaders?: Record<string, string>
+      }
     }
   ): Promise<{ requestId: string; conversationId: string }> {
     const requestId = randomUUID()
@@ -720,9 +724,7 @@ export class AiChatService {
     return part.delta ?? part.text ?? part.textDelta ?? ''
   }
 
-  private toLangchainHistory(
-    conversationId: string
-  ): LangchainClientChatMessage[] {
+  private toLangchainHistory(conversationId: string): LangchainClientChatMessage[] {
     const rows = this.db
       .prepare(
         `SELECT role, text 
@@ -739,7 +741,9 @@ export class AiChatService {
       .map((r) => ({ role: r.role as 'user' | 'assistant', content: r.text! }))
   }
 
-  private toLangchainRetrievalConfig(retrieval?: AiChatRetrievalConfig): LangchainClientRetrievalConfig | undefined {
+  private toLangchainRetrievalConfig(
+    retrieval?: AiChatRetrievalConfig
+  ): LangchainClientRetrievalConfig | undefined {
     if (!retrieval) return undefined
     if (!Array.isArray(retrieval.scopes) || retrieval.scopes.length === 0) return undefined
 
@@ -796,7 +800,11 @@ export class AiChatService {
       input: string
       enableThinking: boolean
       retrieval?: AiChatRetrievalConfig
-      providerOverride?: { baseUrl: string; apiKey: string; defaultHeaders?: Record<string, string> }
+      providerOverride?: {
+        baseUrl: string
+        apiKey: string
+        defaultHeaders?: Record<string, string>
+      }
     }
   ): Promise<{ requestId: string; conversationId: string }> {
     const {
@@ -934,7 +942,8 @@ export class AiChatService {
         requestId,
         utilityAgentId,
         scopes: lcRetrieval?.scopes?.length ?? 0,
-        fileKeysCount: lcRetrieval?.scopes?.reduce((acc, s) => acc + (s.fileKeys?.length ?? 0), 0) ?? 0
+        fileKeysCount:
+          lcRetrieval?.scopes?.reduce((acc, s) => acc + (s.fileKeys?.length ?? 0), 0) ?? 0
       })
     } catch (err) {
       unsubscribe()
@@ -1039,7 +1048,8 @@ export class AiChatService {
 
       case 'invoke:finish': {
         const finishReason = msg.finishReason
-        const status = finishReason === 'stop' ? 'final' : finishReason === 'aborted' ? 'aborted' : 'error'
+        const status =
+          finishReason === 'stop' ? 'final' : finishReason === 'aborted' ? 'aborted' : 'error'
 
         // persist final assistant message
         this.updateAssistantMessage(

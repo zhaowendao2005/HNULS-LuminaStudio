@@ -335,7 +335,6 @@ export class LangchainClientBridgeService {
         log.warn('Unknown message from utility process', { type: (msg as any).type })
     }
   }
-
 }
 
 export const langchainClientBridge = new LangchainClientBridgeService()

@@ -13,9 +13,9 @@
 
     <!-- 原始数据展示 -->
     <div class="bg-white rounded-lg p-3 border border-purple-100 overflow-hidden">
-      <pre
-        class="text-xs text-slate-700 overflow-auto max-h-96 font-mono leading-relaxed"
-      >{{ formattedData }}</pre>
+      <pre class="text-xs text-slate-700 overflow-auto max-h-96 font-mono leading-relaxed">{{
+        formattedData
+      }}</pre>
     </div>
 
     <!-- 底部信息 -->

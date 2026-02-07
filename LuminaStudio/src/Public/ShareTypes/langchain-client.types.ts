@@ -63,11 +63,7 @@ export interface LangchainClientChatMessage {
  * - final_answer: 生成最终回答节点
  * - custom: 其他自定义节点
  */
-export type LangchainClientNodeKind =
-  | 'knowledge_retrieval'
-  | 'tool'
-  | 'final_answer'
-  | 'custom'
+export type LangchainClientNodeKind = 'knowledge_retrieval' | 'tool' | 'final_answer' | 'custom'
 
 /**
  * 可选的 UI 提示，用于 renderer 组件选择

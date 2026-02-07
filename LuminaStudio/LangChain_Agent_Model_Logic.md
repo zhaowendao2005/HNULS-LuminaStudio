@@ -3,6 +3,7 @@
 ## 1. Agent 核心概念
 
 LangChain Agent 是一个智能决策系统，能够：
+
 - 理解用户问题
 - 判断是否需要使用工具
 - 动态调用工具获取信息
@@ -321,16 +322,16 @@ knowledge_search   knowledge_search    具体工具
 // Agent 运行过程（伪代码）
 
 async function agentLoop() {
-  let messages = buildInitialMessages()  // 系统提示 + 历史 + 当前问题
+  let messages = buildInitialMessages() // 系统提示 + 历史 + 当前问题
   let stepIndex = 0
-  const maxSteps = 10  // 防止无限循环
-  
+  const maxSteps = 10 // 防止无限循环
+
   while (stepIndex < maxSteps) {
     stepIndex++
-    
+
     // Step 1: LLM 推理
     const response = await llm.invoke(messages)
-    
+
     // Step 2: 检查是否需要工具
     if (response.hasToolCalls() === false) {
       // 直接回答 - 完成
@@ -339,15 +340,12 @@ async function agentLoop() {
         fullText: response.content
       }
     }
-    
+
     // Step 3: 执行工具调用
     const toolResults = []
     for (const toolCall of response.toolCalls) {
       try {
-        const result = await executeTool(
-          toolCall.name, 
-          toolCall.args
-        )
+        const result = await executeTool(toolCall.name, toolCall.args)
         toolResults.push({
           toolCallId: toolCall.id,
           toolName: toolCall.name,
@@ -361,9 +359,9 @@ async function agentLoop() {
         })
       }
     }
-    
+
     // Step 4: 将工具结果加入消息链
-    messages.push(response)  // AI 的工具调用消息
+    messages.push(response) // AI 的工具调用消息
     for (const toolResult of toolResults) {
       messages.push({
         type: 'ToolMessage',
@@ -371,11 +369,11 @@ async function agentLoop() {
         content: toolResult.result || toolResult.error
       })
     }
-    
+
     // Step 5: 循环继续
     // 下一次迭代，LLM 会基于工具结果继续推理
   }
-  
+
   // 如果超过最大步数
   return {
     finishReason: 'max_steps',
@@ -597,30 +595,30 @@ Timeline
 ```typescript
 interface LangchainClientAgentCreateConfig {
   // Model Configuration
-  modelId: string                              // e.g., "gpt-4", "claude-3"
-  
+  modelId: string // e.g., "gpt-4", "claude-3"
+
   // Provider Configuration
   provider: {
-    baseUrl: string                            // e.g., "https://api.openai.com"
-    apiKey: string                             // LLM API Key
-    defaultHeaders?: Record<string, string>    // Custom headers
+    baseUrl: string // e.g., "https://api.openai.com"
+    apiKey: string // LLM API Key
+    defaultHeaders?: Record<string, string> // Custom headers
   }
-  
+
   // Knowledge Retrieval Configuration
   retrieval?: {
     scopes: Array<{
-      knowledgeBaseId: number                  // Which knowledge base
-      tableName: string                        // Which embedding table
-      fileKeys?: string[]                      // Selected document keys
+      knowledgeBaseId: number // Which knowledge base
+      tableName: string // Which embedding table
+      fileKeys?: string[] // Selected document keys
     }>
-    k?: number                                 // Top K results (default: 10)
-    ef?: number                                // Search parameter
-    rerankModelId?: string                     // Rerank model (optional)
-    rerankTopN?: number                        // Top N for reranking
+    k?: number // Top K results (default: 10)
+    ef?: number // Search parameter
+    rerankModelId?: string // Rerank model (optional)
+    rerankTopN?: number // Top N for reranking
   }
-  
+
   // System Prompt Configuration
-  systemPrompt?: string                        // Custom system prompt
+  systemPrompt?: string // Custom system prompt
 }
 ```
 

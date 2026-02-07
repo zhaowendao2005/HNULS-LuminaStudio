@@ -165,7 +165,10 @@
           </div>
 
           <!-- 知识库名称 -->
-          <div class="flex-1 min-w-0 cursor-pointer" @click="sourcesStore.toggleKnowledgeBase(kb.id)">
+          <div
+            class="flex-1 min-w-0 cursor-pointer"
+            @click="sourcesStore.toggleKnowledgeBase(kb.id)"
+          >
             <div class="text-sm font-medium text-slate-700 truncate">{{ kb.name }}</div>
             <div class="text-xs text-slate-400">
               <span v-if="kb.documentsLoading">加载中...</span>
@@ -270,7 +273,10 @@
                 </div>
 
                 <!-- 文档名称 -->
-                <div class="flex-1 min-w-0 cursor-pointer" @click="sourcesStore.toggleDocumentExpanded(kb.id, doc.id)">
+                <div
+                  class="flex-1 min-w-0 cursor-pointer"
+                  @click="sourcesStore.toggleDocumentExpanded(kb.id, doc.id)"
+                >
                   <div class="text-xs text-slate-700 truncate font-medium">{{ doc.name }}</div>
                   <div v-if="doc.embeddings.length > 0" class="text-[10px] text-slate-400">
                     {{ doc.embeddings.length }} 个嵌入版本
@@ -337,10 +343,10 @@
                   ]"
                   @click.stop="
                     sourcesStore.isDocumentSelected(kb.id, doc.fileKey) &&
-                      sourcesStore.selectEmbeddingVersion(kb.id, doc.id, {
-                        configId: emb.configId,
-                        dimensions: emb.dimensions
-                      })
+                    sourcesStore.selectEmbeddingVersion(kb.id, doc.id, {
+                      configId: emb.configId,
+                      dimensions: emb.dimensions
+                    })
                   "
                 >
                   <div class="min-w-0 flex-1">
@@ -562,7 +568,6 @@ const handleGlobalEmbeddingChange = (kbId: number, value: string) => {
   })
 }
 
-
 // 组件挂载时初始化数据
 onMounted(async () => {
   // 先检查连接状态
@@ -575,5 +580,4 @@ onMounted(async () => {
 })
 </script>
 
-<style scoped>
-</style>
+<style scoped></style>

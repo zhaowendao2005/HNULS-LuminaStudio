@@ -109,10 +109,7 @@
     </div>
 
     <!-- 知识库检索详情对话框 -->
-    <KnowledgeSearchDetailDialog
-      v-model="showDetailDialog"
-      :detail="selectedDetail"
-    />
+    <KnowledgeSearchDetailDialog v-model="showDetailDialog" :detail="selectedDetail" />
   </section>
 </template>
 

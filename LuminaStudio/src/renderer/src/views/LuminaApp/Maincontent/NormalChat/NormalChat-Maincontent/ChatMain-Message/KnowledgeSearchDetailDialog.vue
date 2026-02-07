@@ -68,7 +68,11 @@
               <div class="flex items-center gap-2">
                 <span class="text-xs font-semibold text-slate-500 w-20">文档块:</span>
                 <span class="text-xs text-slate-700">
-                  {{ detail?.hit.chunk_index !== undefined ? `第 ${detail.hit.chunk_index} 块` : '未知' }}
+                  {{
+                    detail?.hit.chunk_index !== undefined
+                      ? `第 ${detail.hit.chunk_index} 块`
+                      : '未知'
+                  }}
                 </span>
               </div>
               <div v-if="detail?.hit.distance !== undefined" class="flex items-center gap-2">
