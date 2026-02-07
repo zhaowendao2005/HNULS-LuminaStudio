@@ -297,10 +297,7 @@
                   :class="
                     store.config.retrievalNode.enableRerank ? 'bg-emerald-500' : 'bg-slate-200'
                   "
-                  @click="
-                    store.config.retrievalNode.enableRerank =
-                      !store.config.retrievalNode.enableRerank
-                  "
+                  @click="toggleEnableRerank"
                 >
                   <span
                     class="absolute top-1 left-1 bg-white w-3 h-3 rounded-full transition-transform"
@@ -333,7 +330,8 @@
                 <label class="text-sm font-medium text-slate-700">Top K (最大检索数)</label>
                 <div class="flex items-center gap-3">
                   <input
-                    v-model.number="store.config.retrievalNode.topK"
+                    :value="store.config.retrievalNode.topK"
+                    @input="updateTopK"
                     type="range"
                     min="1"
                     max="20"
@@ -377,7 +375,8 @@
               <div class="text-xs text-slate-500">防止规划-判断循环过多的安全限制</div>
               <div class="flex items-center gap-3">
                 <input
-                  v-model.number="store.config.graph.maxIterations"
+                  :value="store.config.graph.maxIterations"
+                  @input="updateMaxIterations"
                   type="number"
                   min="1"
                   max="10"
@@ -472,6 +471,16 @@ const openRerankSelector = () => {
   showRerankSelector.value = true
 }
 
+const toggleEnableRerank = () => {
+  const newValue = !store.config.retrievalNode.enableRerank
+  store.updateRetrievalNode(
+    newValue,
+    store.config.retrievalNode.rerankProviderId,
+    store.config.retrievalNode.rerankModelId,
+    store.config.retrievalNode.topK
+  )
+}
+
 const handleModelSelect = (provider: ModelProvider, model: Model) => {
   switch (currentSelectorTarget.value) {
     case 'plan':
@@ -520,6 +529,25 @@ const getRerankModelDisplayName = (): string => {
   const modelId = store.config.retrievalNode.rerankModelId
   if (!modelId) return ''
   return rerankModelStore.getModelDisplayName(modelId)
+}
+
+const updateTopK = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const newValue = parseInt(target.value, 10)
+  store.updateRetrievalNode(
+    store.config.retrievalNode.enableRerank,
+    store.config.retrievalNode.rerankProviderId,
+    store.config.retrievalNode.rerankModelId,
+    newValue
+  )
+}
+
+const updateMaxIterations = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const newValue = parseInt(target.value, 10)
+  if (newValue >= 1 && newValue <= 10) {
+    store.updateGraph(newValue)
+  }
 }
 </script>
 

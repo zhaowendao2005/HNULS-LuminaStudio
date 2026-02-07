@@ -45,8 +45,13 @@ export const useKnowledgeQaConfigStore = defineStore(
     })
 
     function updatePlanNode(providerId: string | null, modelId: string | null) {
-      config.value.planNode.providerId = providerId
-      config.value.planNode.modelId = modelId
+      config.value = {
+        ...config.value,
+        planNode: {
+          providerId,
+          modelId
+        }
+      }
     }
 
     function updateRetrievalNode(
@@ -55,19 +60,34 @@ export const useKnowledgeQaConfigStore = defineStore(
       rerankModelId: string | null,
       topK: number
     ) {
-      config.value.retrievalNode.enableRerank = enableRerank
-      config.value.retrievalNode.rerankProviderId = rerankProviderId
-      config.value.retrievalNode.rerankModelId = rerankModelId
-      config.value.retrievalNode.topK = topK
+      config.value = {
+        ...config.value,
+        retrievalNode: {
+          enableRerank,
+          rerankProviderId,
+          rerankModelId,
+          topK
+        }
+      }
     }
 
     function updateSummaryNode(providerId: string | null, modelId: string | null) {
-      config.value.summaryNode.providerId = providerId
-      config.value.summaryNode.modelId = modelId
+      config.value = {
+        ...config.value,
+        summaryNode: {
+          providerId,
+          modelId
+        }
+      }
     }
 
     function updateGraph(maxIterations: number) {
-      config.value.graph.maxIterations = maxIterations
+      config.value = {
+        ...config.value,
+        graph: {
+          maxIterations
+        }
+      }
     }
 
     return {
@@ -79,6 +99,9 @@ export const useKnowledgeQaConfigStore = defineStore(
     }
   },
   {
-    persist: true
+    persist: {
+      key: 'knowledge-qa-config',
+      storage: localStorage
+    }
   }
 )
