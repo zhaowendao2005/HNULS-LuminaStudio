@@ -266,25 +266,45 @@
         <div class="flex-1 overflow-y-auto p-4 space-y-6">
           <!-- Plan Node Settings -->
           <template v-if="activeNode === 'plan'">
-             <div class="space-y-3">
-               <label class="text-sm font-medium text-slate-700">模型选择</label>
-               <div class="text-xs text-slate-500 mb-2">负责任务分解与规划的模型</div>
-               
-               <button
-                 @click="openModelSelector('plan')"
-                 class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white hover:bg-slate-50 hover:border-indigo-300 transition-all flex items-center justify-between group"
-               >
-                 <div class="flex items-center gap-2">
-                   <svg class="w-4 h-4 text-slate-400 group-hover:text-indigo-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                     <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
-                     <path d="M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2z"/>
-                   </svg>
-                   <span v-if="store.config.planModel.modelId" class="text-slate-700">{{ getModelDisplayName('plan') }}</span>
-                   <span v-else class="text-slate-400">选择模型</span>
-                 </div>
-                 <svg class="w-4 h-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
-               </button>
-             </div>
+            <div class="space-y-3">
+              <label class="text-sm font-medium text-slate-700">模型选择</label>
+              <div class="text-xs text-slate-500 mb-2">负责任务分解与规划的模型</div>
+
+              <button
+                @click="openModelSelector('plan')"
+                class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white hover:bg-slate-50 hover:border-indigo-300 transition-all flex items-center justify-between group"
+              >
+                <div class="flex items-center gap-2">
+                  <svg
+                    class="w-4 h-4 text-slate-400 group-hover:text-indigo-500"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path
+                      d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"
+                    />
+                    <path
+                      d="M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2z"
+                    />
+                  </svg>
+                  <span v-if="store.config.planModel.modelId" class="text-slate-700">
+                    {{ getModelDisplayName('plan') }}
+                  </span>
+                  <span v-else class="text-slate-400">选择模型</span>
+                </div>
+                <svg
+                  class="w-4 h-4 text-slate-400"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M6 9l6 6 6-6" />
+                </svg>
+              </button>
+            </div>
           </template>
 
           <!-- Retrieval Node Settings -->
@@ -294,37 +314,56 @@
                 <label class="text-sm font-medium text-slate-700">开启重排 (Rerank)</label>
                 <button
                   class="w-10 h-5 rounded-full relative transition-colors focus:outline-none"
-                  :class="
-                    store.config.retrieval.enableRerank ? 'bg-emerald-500' : 'bg-slate-200'
-                  "
+                  :class="store.config.retrieval.enableRerank ? 'bg-emerald-500' : 'bg-slate-200'"
                   @click="toggleEnableRerank"
                 >
                   <span
                     class="absolute top-1 left-1 bg-white w-3 h-3 rounded-full transition-transform"
-                    :class="
-                      store.config.retrieval.enableRerank ? 'translate-x-5' : 'translate-x-0'
-                    "
+                    :class="store.config.retrieval.enableRerank ? 'translate-x-5' : 'translate-x-0'"
                   ></span>
                 </button>
               </div>
 
-               <div v-if="store.config.retrieval.enableRerank" class="space-y-3 p-3 bg-slate-50 rounded-lg border border-slate-100">
-                 <label class="text-sm font-medium text-slate-700">重排模型</label>
-                 <button
-                   @click="openRerankSelector()"
-                   class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white hover:bg-slate-50 hover:border-amber-300 transition-all flex items-center justify-between group"
-                 >
-                   <div class="flex items-center gap-2">
-                     <svg class="w-4 h-4 text-slate-400 group-hover:text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                       <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
-                       <path d="M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2z"/>
-                     </svg>
-                     <span v-if="store.config.retrieval.rerankModelId" class="text-slate-700">{{ getRerankModelDisplayName() }}</span>
-                     <span v-else class="text-slate-400">选择重排模型</span>
-                   </div>
-                   <svg class="w-4 h-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
-                 </button>
-               </div>
+              <div
+                v-if="store.config.retrieval.enableRerank"
+                class="space-y-3 p-3 bg-slate-50 rounded-lg border border-slate-100"
+              >
+                <label class="text-sm font-medium text-slate-700">重排模型</label>
+                <button
+                  @click="openRerankSelector()"
+                  class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white hover:bg-slate-50 hover:border-amber-300 transition-all flex items-center justify-between group"
+                >
+                  <div class="flex items-center gap-2">
+                    <svg
+                      class="w-4 h-4 text-slate-400 group-hover:text-amber-500"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <path
+                        d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"
+                      />
+                      <path
+                        d="M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2z"
+                      />
+                    </svg>
+                    <span v-if="store.config.retrieval.rerankModelId" class="text-slate-700">
+                      {{ getRerankModelDisplayName() }}
+                    </span>
+                    <span v-else class="text-slate-400">选择重排模型</span>
+                  </div>
+                  <svg
+                    class="w-4 h-4 text-slate-400"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path d="M6 9l6 6 6-6" />
+                  </svg>
+                </button>
+              </div>
 
               <div class="space-y-3">
                 <label class="text-sm font-medium text-slate-700">Top K (最大检索数)</label>
@@ -347,25 +386,45 @@
 
           <!-- Summary Node Settings -->
           <template v-if="activeNode === 'summary'">
-             <div class="space-y-3">
-               <label class="text-sm font-medium text-slate-700">模型选择</label>
-               <div class="text-xs text-slate-500 mb-2">负责总结检索结果并判断质量的模型</div>
-               
-               <button
-                 @click="openModelSelector('summary')"
-                 class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white hover:bg-slate-50 hover:border-indigo-300 transition-all flex items-center justify-between group"
-               >
-                 <div class="flex items-center gap-2">
-                   <svg class="w-4 h-4 text-slate-400 group-hover:text-indigo-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                     <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
-                     <path d="M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2z"/>
-                   </svg>
-                   <span v-if="store.config.summaryModel.modelId" class="text-slate-700">{{ getModelDisplayName('summary') }}</span>
-                   <span v-else class="text-slate-400">选择模型</span>
-                 </div>
-                 <svg class="w-4 h-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
-               </button>
-             </div>
+            <div class="space-y-3">
+              <label class="text-sm font-medium text-slate-700">模型选择</label>
+              <div class="text-xs text-slate-500 mb-2">负责总结检索结果并判断质量的模型</div>
+
+              <button
+                @click="openModelSelector('summary')"
+                class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white hover:bg-slate-50 hover:border-indigo-300 transition-all flex items-center justify-between group"
+              >
+                <div class="flex items-center gap-2">
+                  <svg
+                    class="w-4 h-4 text-slate-400 group-hover:text-indigo-500"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path
+                      d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"
+                    />
+                    <path
+                      d="M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2z"
+                    />
+                  </svg>
+                  <span v-if="store.config.summaryModel.modelId" class="text-slate-700">
+                    {{ getModelDisplayName('summary') }}
+                  </span>
+                  <span v-else class="text-slate-400">选择模型</span>
+                </div>
+                <svg
+                  class="w-4 h-4 text-slate-400"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M6 9l6 6 6-6" />
+                </svg>
+              </button>
+            </div>
           </template>
 
           <!-- Global Settings -->
@@ -386,7 +445,7 @@
             </div>
           </template>
         </div>
-        
+
         <!-- Drawer Footer -->
         <div class="p-4 border-t border-slate-100 bg-slate-50 text-xs text-slate-400 text-center">
           配置将自动保存
@@ -433,27 +492,38 @@ const currentSelectorTarget = ref<'plan' | 'summary'>('plan')
 
 const drawerTitle = computed(() => {
   switch (activeNode.value) {
-    case 'plan': return '规划节点配置'
-    case 'retrieval': return '检索节点配置'
-    case 'summary': return '总结与判断节点配置'
-    case 'global': return '全局参数设置'
-    default: return '配置'
+    case 'plan':
+      return '规划节点配置'
+    case 'retrieval':
+      return '检索节点配置'
+    case 'summary':
+      return '总结与判断节点配置'
+    case 'global':
+      return '全局参数设置'
+    default:
+      return '配置'
   }
 })
 
 const currentProviderId = computed(() => {
   switch (currentSelectorTarget.value) {
-    case 'plan': return store.config.planModel.providerId
-    case 'summary': return store.config.summaryModel.providerId
-    default: return null
+    case 'plan':
+      return store.config.planModel.providerId
+    case 'summary':
+      return store.config.summaryModel.providerId
+    default:
+      return null
   }
 })
 
 const currentModelId = computed(() => {
   switch (currentSelectorTarget.value) {
-    case 'plan': return store.config.planModel.modelId
-    case 'summary': return store.config.summaryModel.modelId
-    default: return null
+    case 'plan':
+      return store.config.planModel.modelId
+    case 'summary':
+      return store.config.summaryModel.modelId
+    default:
+      return null
   }
 })
 
@@ -502,7 +572,7 @@ const handleRerankModelSelect = (model: RerankModel) => {
 const getModelDisplayName = (target: 'plan' | 'summary'): string => {
   let providerId: string | null = null
   let modelId: string | null = null
-  
+
   switch (target) {
     case 'plan':
       providerId = store.config.planModel.providerId
@@ -516,10 +586,10 @@ const getModelDisplayName = (target: 'plan' | 'summary'): string => {
 
   if (!providerId || !modelId) return ''
 
-  const provider = modelConfigStore.providers.find(p => p.id === providerId)
+  const provider = modelConfigStore.providers.find((p) => p.id === providerId)
   if (!provider) return modelId
 
-  const model = provider.models.find(m => m.id === modelId)
+  const model = provider.models.find((m) => m.id === modelId)
   return model ? `${provider.name} / ${model.name}` : modelId
 }
 

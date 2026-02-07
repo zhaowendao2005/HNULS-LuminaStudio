@@ -1,8 +1,5 @@
 <template>
-  <div
-    v-if="visible"
-    class="fixed inset-0 z-[60] flex items-center justify-center p-4"
-  >
+  <div v-if="visible" class="fixed inset-0 z-[60] flex items-center justify-center p-4">
     <!-- Backdrop -->
     <div
       class="absolute inset-0 bg-black/20 backdrop-blur-sm"
@@ -61,22 +58,43 @@
       <div class="flex-1 overflow-y-auto p-2 space-y-1">
         <!-- Loading -->
         <div v-if="rerankStore.isLoading" class="text-center py-8 text-slate-400">
-          <svg class="w-8 h-8 mx-auto mb-3 animate-spin text-slate-300" viewBox="0 0 24 24" fill="none">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          <svg
+            class="w-8 h-8 mx-auto mb-3 animate-spin text-slate-300"
+            viewBox="0 0 24 24"
+            fill="none"
+          >
+            <circle
+              class="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              stroke-width="4"
+            ></circle>
+            <path
+              class="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+            ></path>
           </svg>
           <p class="text-sm">加载中...</p>
         </div>
 
         <!-- Error -->
         <div v-else-if="rerankStore.error" class="text-center py-8 text-red-400">
-          <svg class="w-8 h-8 mx-auto mb-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg
+            class="w-8 h-8 mx-auto mb-3"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
             <circle cx="12" cy="12" r="10" />
             <path d="M12 8v4m0 4h.01" />
           </svg>
           <p class="text-sm">{{ rerankStore.error }}</p>
-          <button 
-            @click="rerankStore.fetchModels(true)" 
+          <button
+            @click="rerankStore.fetchModels(true)"
             class="mt-2 text-xs text-emerald-600 hover:underline"
           >
             重试
@@ -85,7 +103,11 @@
 
         <!-- Model Groups -->
         <template v-else-if="filteredGroups && Object.keys(filteredGroups).length > 0">
-          <div v-for="(models, groupName) in filteredGroups" :key="groupName" class="mb-2 last:mb-0">
+          <div
+            v-for="(models, groupName) in filteredGroups"
+            :key="groupName"
+            class="mb-2 last:mb-0"
+          >
             <div
               class="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2"
             >
@@ -140,11 +162,14 @@
         </template>
 
         <!-- Empty -->
-        <div
-          v-else
-          class="text-center py-8 text-slate-400 text-sm"
-        >
-          <svg class="w-8 h-8 mx-auto mb-3 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <div v-else class="text-center py-8 text-slate-400 text-sm">
+          <svg
+            class="w-8 h-8 mx-auto mb-3 text-slate-300"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
             <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
             <path d="M12 8v8m-4-4h8" />
           </svg>
@@ -158,8 +183,8 @@
         class="p-3 bg-slate-50 border-t border-slate-100 flex justify-between items-center text-xs text-slate-400 px-5"
       >
         <span>从 KnowledgeDatabase 获取</span>
-        <button 
-          @click="rerankStore.fetchModels(true)" 
+        <button
+          @click="rerankStore.fetchModels(true)"
           class="hover:text-emerald-600 transition-colors"
         >
           刷新列表
@@ -225,14 +250,28 @@ watch(
 
 <style scoped>
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes slideUpBounce {
-  0% { opacity: 0; transform: translateY(100px) scale(0.95); }
-  50% { opacity: 1; transform: translateY(-10px) scale(1.02); }
-  75% { transform: translateY(5px) scale(0.99); }
-  100% { transform: translateY(0) scale(1); }
+  0% {
+    opacity: 0;
+    transform: translateY(100px) scale(0.95);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-10px) scale(1.02);
+  }
+  75% {
+    transform: translateY(5px) scale(0.99);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
 }
 </style>

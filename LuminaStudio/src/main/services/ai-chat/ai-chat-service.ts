@@ -988,9 +988,11 @@ export class AiChatService {
     }
 
     // 7. Subscribe and invoke
-    const unsubscribe = this.langchainClientBridge.onMessage((msg: LangchainClientToMainMessage) => {
-      this.handleUtilityStreamMessage(sender, state, msg)
-    })
+    const unsubscribe = this.langchainClientBridge.onMessage(
+      (msg: LangchainClientToMainMessage) => {
+        this.handleUtilityStreamMessage(sender, state, msg)
+      }
+    )
 
     const history = this.toLangchainHistory(conversationId)
 

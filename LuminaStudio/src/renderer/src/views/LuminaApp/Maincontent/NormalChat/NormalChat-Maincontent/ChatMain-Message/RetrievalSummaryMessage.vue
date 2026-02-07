@@ -62,9 +62,7 @@
       </svg>
 
       <span :class="headerTextClass">{{ statusLabel }}: 总结与判断</span>
-      <span v-if="modelId" class="text-[10px] text-slate-400 font-normal">
-        ({{ modelId }})
-      </span>
+      <span v-if="modelId" class="text-[10px] text-slate-400 font-normal">({{ modelId }})</span>
     </div>
 
     <!-- Body -->

@@ -49,9 +49,7 @@
       <span :class="isError ? 'text-rose-700' : 'text-indigo-700'">
         {{ statusLabel }}: 检索规划
       </span>
-      <span v-if="modelId" class="text-[10px] text-slate-400 font-normal">
-        ({{ modelId }})
-      </span>
+      <span v-if="modelId" class="text-[10px] text-slate-400 font-normal">({{ modelId }})</span>
     </div>
 
     <!-- Body -->

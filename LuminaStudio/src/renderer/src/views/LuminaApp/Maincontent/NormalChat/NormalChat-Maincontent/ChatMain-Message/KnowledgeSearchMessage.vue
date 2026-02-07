@@ -236,10 +236,6 @@ function truncateText(text: string, maxChars: number): string {
 
 // 重排模型 ID
 const rerankModelId = computed(() => {
-  return (
-    props.nodeBlock?.start?.rerankModelId ||
-    props.nodeBlock?.result?.rerankModelId ||
-    null
-  )
+  return props.nodeBlock?.start?.rerankModelId || props.nodeBlock?.result?.rerankModelId || null
 })
 </script>
