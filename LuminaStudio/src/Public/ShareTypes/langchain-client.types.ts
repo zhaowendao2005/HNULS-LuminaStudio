@@ -24,9 +24,16 @@ export interface LangchainClientProviderConfig {
   defaultHeaders?: Record<string, string>
 }
 
-export interface LangchainClientRetrievalConfig {
+export interface LangchainClientRetrievalScope {
   knowledgeBaseId: number
   tableName: string
+  fileKeys?: string[]
+}
+
+export interface LangchainClientRetrievalConfig {
+  /** Allow multi-scope retrieval (multiple embedding spaces) */
+  scopes: LangchainClientRetrievalScope[]
+  /** Total topK budget across scopes */
   k?: number
   ef?: number
   rerankModelId?: string
@@ -73,6 +80,8 @@ export type MainToLangchainClientMessage =
       requestId: string
       input: string
       history?: LangchainClientChatMessage[]
+      /** Per-invoke retrieval config snapshot (scopes + fileKeys) */
+      retrieval?: LangchainClientRetrievalConfig
     }
   | {
       type: 'agent:abort'
@@ -91,8 +100,20 @@ export type LangchainClientToMainMessage =
   | { type: 'agent:destroyed'; agentId: string }
   | { type: 'invoke:start'; requestId: string; agentId: string }
   | { type: 'invoke:text-delta'; requestId: string; delta: string }
-  | { type: 'invoke:tool-start'; requestId: string; toolName: string; toolArgs: unknown }
-  | { type: 'invoke:tool-result'; requestId: string; toolName: string; result: unknown }
+  | {
+      type: 'invoke:tool-start'
+      requestId: string
+      toolCallId: string
+      toolName: string
+      toolArgs: unknown
+    }
+  | {
+      type: 'invoke:tool-result'
+      requestId: string
+      toolCallId: string
+      toolName: string
+      result: unknown
+    }
   | { type: 'invoke:step-complete'; requestId: string; stepIndex: number; nodeNames?: string[] }
   | {
       type: 'invoke:finish'

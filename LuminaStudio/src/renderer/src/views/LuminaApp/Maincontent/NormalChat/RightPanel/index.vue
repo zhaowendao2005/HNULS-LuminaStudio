@@ -60,7 +60,7 @@ const pageOptions = [
   { label: 'Dev', value: 'dev' }
 ]
 
-const handlePageChange = (value: string) => {
-  currentPage.value = value
+const handlePageChange = (value: string | number | null) => {
+  currentPage.value = String(value ?? 'studio')
 }
 </script>

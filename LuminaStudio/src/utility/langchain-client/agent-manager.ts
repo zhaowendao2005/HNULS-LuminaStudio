@@ -3,6 +3,7 @@ import type {
   LangchainClientAgentCreateConfig,
   LangchainClientChatMessage,
   LangchainClientLangsmithConfig,
+  LangchainClientRetrievalConfig,
   LangchainClientToMainMessage
 } from '@shared/langchain-client.types'
 import { logger } from '@main/services/logger'
@@ -15,6 +16,7 @@ import {
 } from '@langchain/core/messages'
 import { buildChatModel } from './model-factory'
 import { buildAgentTools } from './tools'
+import { AsyncLocalStorage } from 'node:async_hooks'
 
 const log = logger.scope('LangchainClient.AgentManager')
 
@@ -65,6 +67,8 @@ export class AgentManager {
   private agents = new Map<string, any>()
   private abortControllers = new Map<string, AbortController>()
 
+  private readonly invokeContext = new AsyncLocalStorage<{ retrieval?: LangchainClientRetrievalConfig }>()
+
   constructor(private readonly send: (msg: LangchainClientToMainMessage) => void) {}
 
   init(params: { knowledgeApiUrl: string; langsmith?: LangchainClientLangsmithConfig }): void {
@@ -101,7 +105,10 @@ export class AgentManager {
     })
 
     const model = buildChatModel(config)
-    const tools = buildAgentTools({ knowledgeApiUrl: this.knowledgeApiUrl, config })
+    const tools = buildAgentTools({
+      knowledgeApiUrl: this.knowledgeApiUrl,
+      getRetrievalConfig: () => this.invokeContext.getStore()?.retrieval
+    })
 
     const agent = createAgent({
       model,
@@ -138,8 +145,9 @@ export class AgentManager {
     requestId: string
     input: string
     history?: LangchainClientChatMessage[]
+    retrieval?: LangchainClientRetrievalConfig
   }): Promise<void> {
-    const { agentId, requestId, input, history } = params
+    const { agentId, requestId, input, history, retrieval } = params
 
     const agent = this.agents.get(agentId)
     if (!agent) {
@@ -151,7 +159,12 @@ export class AgentManager {
     this.abortControllers.set(requestId, abortController)
 
     this.send({ type: 'invoke:start', requestId, agentId })
-    log.info('Invoke started', { requestId, agentId })
+    log.info('Invoke started', {
+      requestId,
+      agentId,
+      retrievalScopes: retrieval?.scopes?.length ?? 0,
+      fileKeysCount: retrieval?.scopes?.reduce((acc, s) => acc + (s.fileKeys?.length ?? 0), 0) ?? 0
+    })
 
     const messages = toMessages(history, input)
 
@@ -160,12 +173,16 @@ export class AgentManager {
     const seenToolCallIds = new Set<string>()
 
     try {
-      const stream = await agent.stream(
-        { messages },
-        {
-          streamMode: ['messages', 'updates'],
-          signal: abortController.signal
-        }
+      const stream = await this.invokeContext.run(
+        { retrieval },
+        async () =>
+          await agent.stream(
+            { messages },
+            {
+              streamMode: ['messages', 'updates'],
+              signal: abortController.signal
+            }
+          )
       )
 
       for await (const chunk of stream as any) {
@@ -205,6 +222,7 @@ export class AgentManager {
               this.send({
                 type: 'invoke:tool-start',
                 requestId,
+                toolCallId: id,
                 toolName: String(tc?.name ?? 'unknown'),
                 toolArgs: tc?.args
               })
@@ -223,11 +241,13 @@ export class AgentManager {
 
         if (msgType === 'tool' || ToolMessage.isInstance(message)) {
           const toolName = String((message as any).name ?? 'tool')
+          const toolCallId = String((message as any).tool_call_id ?? '')
           const resultText = extractTextFromContent((message as any).content)
 
           this.send({
             type: 'invoke:tool-result',
             requestId,
+            toolCallId: toolCallId || 'unknown',
             toolName,
             result: resultText || (message as any).content
           })

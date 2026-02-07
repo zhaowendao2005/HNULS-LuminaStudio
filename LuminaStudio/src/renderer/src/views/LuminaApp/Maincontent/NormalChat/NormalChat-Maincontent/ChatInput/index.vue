@@ -267,7 +267,7 @@
         <div class="relative z-10">
           <WhiteSelect
             :model-value="inputBarStore.mode"
-            @update:model-value="inputBarStore.setMode"
+            @update:model-value="(v) => inputBarStore.setMode((v as any) ?? 'normal')"
             :options="modeOptions"
             placeholder="选择模式"
             root-class="w-28"

@@ -3,18 +3,17 @@ import { createKnowledgeSearchTool } from './retrieval-tool'
 
 export function buildAgentTools(params: {
   knowledgeApiUrl: string
-  config: LangchainClientAgentCreateConfig
+  getRetrievalConfig: () => LangchainClientAgentCreateConfig['retrieval']
 }): any[] {
   const tools: any[] = []
 
-  if (params.config.retrieval) {
-    tools.push(
-      createKnowledgeSearchTool({
-        apiBaseUrl: params.knowledgeApiUrl,
-        retrieval: params.config.retrieval
-      })
-    )
-  }
+  // Always register the tool in agent mode; tool will guide user if no scopes selected.
+  tools.push(
+    createKnowledgeSearchTool({
+      apiBaseUrl: params.knowledgeApiUrl,
+      getRetrievalConfig: params.getRetrievalConfig
+    })
+  )
 
   return tools
 }

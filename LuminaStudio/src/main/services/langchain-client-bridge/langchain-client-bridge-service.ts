@@ -5,10 +5,11 @@ import { randomUUID } from 'crypto'
 import { logger } from '../logger'
 import type {
   LangchainClientAgentCreateConfig,
+  LangchainClientChatMessage,
+  LangchainClientRetrievalConfig,
   LangchainClientToMainMessage,
   MainToLangchainClientMessage
 } from '@shared/langchain-client.types'
-import { LANGCHAIN_CLIENT_DEV_CONFIG } from './dev-config'
 
 const log = logger.scope('LangchainClientBridge')
 
@@ -35,8 +36,9 @@ function redactCreateConfig(config: LangchainClientAgentCreateConfig): Record<st
     hasRetrieval: Boolean(config.retrieval),
     retrieval: config.retrieval
       ? {
-          knowledgeBaseId: config.retrieval.knowledgeBaseId,
-          tableName: config.retrieval.tableName,
+          scopeCount: config.retrieval.scopes?.length ?? 0,
+          fileKeysCount:
+            config.retrieval.scopes?.reduce((acc, s) => acc + (s.fileKeys?.length ?? 0), 0) ?? 0,
           k: config.retrieval.k ?? null,
           ef: config.retrieval.ef ?? null,
           rerankModelId: config.retrieval.rerankModelId ?? null,
@@ -53,6 +55,17 @@ export class LangchainClientBridgeService {
   private readyResolve: (() => void) | null = null
 
   private pendingCreate: Map<string, PendingRequest<void>> = new Map()
+  private createdAgents = new Set<string>()
+
+  private messageHandlers: Array<(msg: LangchainClientToMainMessage) => void> = []
+
+  onMessage(handler: (msg: LangchainClientToMainMessage) => void): () => void {
+    this.messageHandlers.push(handler)
+    return () => {
+      const idx = this.messageHandlers.indexOf(handler)
+      if (idx >= 0) this.messageHandlers.splice(idx, 1)
+    }
+  }
 
   async spawn(): Promise<void> {
     if (this.process) {
@@ -87,6 +100,9 @@ export class LangchainClientBridgeService {
     log.info('Killing utility process')
     this.process.kill()
     this.process = null
+    this.createdAgents.clear()
+    this.pendingCreate.clear()
+    this.messageHandlers = []
   }
 
   init(params: {
@@ -104,6 +120,19 @@ export class LangchainClientBridgeService {
       langsmithEnabled: Boolean(params.langsmith),
       langsmithProject: params.langsmith?.project ?? null
     })
+  }
+
+  hasAgent(agentId: string): boolean {
+    return this.createdAgents.has(agentId)
+  }
+
+  async ensureAgent(
+    agentId: string,
+    config: LangchainClientAgentCreateConfig,
+    timeoutMs = 30000
+  ): Promise<void> {
+    if (this.createdAgents.has(agentId)) return
+    await this.createAgent(agentId, config, timeoutMs)
   }
 
   async createAgent(
@@ -136,7 +165,13 @@ export class LangchainClientBridgeService {
     this.send({ type: 'agent:destroy', agentId })
   }
 
-  invoke(params: { agentId: string; requestId?: string; input: string }): string {
+  invoke(params: {
+    agentId: string
+    requestId?: string
+    input: string
+    history?: LangchainClientChatMessage[]
+    retrieval?: LangchainClientRetrievalConfig
+  }): string {
     const requestId = params.requestId ?? randomUUID()
 
     log.info('Sending agent:invoke', {
@@ -148,7 +183,9 @@ export class LangchainClientBridgeService {
       type: 'agent:invoke',
       agentId: params.agentId,
       requestId,
-      input: params.input
+      input: params.input,
+      history: params.history,
+      retrieval: params.retrieval
     })
 
     return requestId
@@ -167,6 +204,15 @@ export class LangchainClientBridgeService {
   }
 
   private handleMessage(msg: LangchainClientToMainMessage): void {
+    // Notify external subscribers first (for streaming)
+    for (const handler of this.messageHandlers) {
+      try {
+        handler(msg)
+      } catch (err) {
+        log.error('Bridge message handler error', err)
+      }
+    }
+
     switch (msg.type) {
       case 'process:ready':
         this.readyResolve?.()
@@ -186,6 +232,7 @@ export class LangchainClientBridgeService {
           this.pendingCreate.delete(msg.agentId)
           pending.resolve()
         }
+        this.createdAgents.add(msg.agentId)
         log.info('Agent created', { agentId: msg.agentId })
         break
       }
@@ -202,6 +249,7 @@ export class LangchainClientBridgeService {
       }
 
       case 'agent:destroyed':
+        this.createdAgents.delete(msg.agentId)
         log.info('Agent destroyed', { agentId: msg.agentId })
         break
 
@@ -210,7 +258,11 @@ export class LangchainClientBridgeService {
         break
 
       case 'invoke:tool-start':
-        log.info('Tool start', { requestId: msg.requestId, toolName: msg.toolName })
+        log.info('Tool start', {
+          requestId: msg.requestId,
+          toolName: msg.toolName,
+          toolCallId: msg.toolCallId
+        })
         break
 
       case 'invoke:tool-result': {
@@ -218,7 +270,12 @@ export class LangchainClientBridgeService {
           typeof msg.result === 'string'
             ? msg.result.slice(0, 200)
             : JSON.stringify(msg.result)?.slice(0, 200)
-        log.info('Tool result', { requestId: msg.requestId, toolName: msg.toolName, preview })
+        log.info('Tool result', {
+          requestId: msg.requestId,
+          toolName: msg.toolName,
+          toolCallId: msg.toolCallId,
+          preview
+        })
         break
       }
 
@@ -254,36 +311,6 @@ export class LangchainClientBridgeService {
     }
   }
 
-  /**
-   * MVP：在不接入前端的情况下，自动跑通关键链路。
-   *
-   * - 配置写在 dev-config.ts
-   * - 全部过程使用 info 日志输出关键环节
-   */
-  async runDevMvpIfEnabled(): Promise<void> {
-    const cfg = LANGCHAIN_CLIENT_DEV_CONFIG
-
-    if (!cfg.enabled) {
-      log.info('Dev MVP disabled (LANGCHAIN_CLIENT_DEV_CONFIG.enabled=false)')
-      return
-    }
-
-    if (cfg.agentConfig.provider.apiKey === 'FILL_ME') {
-      log.warn('Dev MVP enabled but provider.apiKey is not set (still FILL_ME)')
-    }
-
-    try {
-      await this.spawn()
-      this.init({ knowledgeApiUrl: cfg.knowledgeApiUrl, langsmith: cfg.langsmith })
-      await this.createAgent(cfg.agentId, cfg.agentConfig)
-
-      if (cfg.autoInvoke?.input) {
-        this.invoke({ agentId: cfg.agentId, input: cfg.autoInvoke.input })
-      }
-    } catch (error) {
-      log.error('Dev MVP failed', error)
-    }
-  }
 }
 
 export const langchainClientBridge = new LangchainClientBridgeService()

@@ -80,6 +80,13 @@ export interface StreamState {
   modelId: string
   userMessageId: string
   assistantMessageId: string
+
+  /** normal: Vercel AI SDK; agent: LangChain utility process */
+  mode?: 'normal' | 'agent'
+
+  /** Agent-mode: the langchain utility agent instance id */
+  utilityAgentId?: string
+
   abortController: AbortController
   answerText: string
   reasoningText: string

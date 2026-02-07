@@ -3,6 +3,10 @@ import { computed, ref } from 'vue'
 import { AiChatDataSource } from './datasource'
 import type { AgentInfo, ChatMessage, ConversationSummary } from './types'
 import { useChatMessageStore } from './chat-message/store'
+import { useInputBarStore } from './input-bar.store'
+import { useSourcesStore } from './sources.store'
+import { useModelConfigStore } from '@renderer/stores/model-config/store'
+import type { AiChatRetrievalConfig, AiChatRetrievalScope } from '@preload/types'
 
 export const useAiChatStore = defineStore('ai-chat', () => {
   // ===== Chat Message Store =====
@@ -25,7 +29,8 @@ export const useAiChatStore = defineStore('ai-chat', () => {
     return messageStore.getMessages(currentConversationId.value)
   })
 
-  const isGenerating = computed(() => messageStore.isGenerating.value)
+  // Pinia setup-store unwraps refs on the store instance
+  const isGenerating = computed(() => messageStore.isGenerating)
 
   const currentConversations = computed<ConversationSummary[]>(() => {
     if (!currentAgentId.value) return []
@@ -93,6 +98,54 @@ export const useAiChatStore = defineStore('ai-chat', () => {
     }
   }
 
+  function safeVectorTableName(configId: string, dimensions: number): string {
+    const safeId = String(configId).replace(/[^a-zA-Z0-9_]/g, '_')
+    return `emb_cfg_${safeId}_${dimensions}_chunks`
+  }
+
+  function buildRetrievalConfigFromSources(): AiChatRetrievalConfig | undefined {
+    const sourcesStore = useSourcesStore()
+    const selected = sourcesStore.selectedDocuments
+
+    if (!selected || selected.length === 0) return undefined
+
+    // group by kbId + configId + dimensions
+    const scopeMap = new Map<string, AiChatRetrievalScope>()
+
+    for (const item of selected) {
+      const kbId = item.kbId
+      const configId = item.embedding.configId
+      const dimensions = item.embedding.dimensions
+      const fileKey = item.doc.fileKey
+
+      const tableName = safeVectorTableName(configId, dimensions)
+      const key = `${kbId}::${tableName}`
+
+      const existing = scopeMap.get(key)
+      if (!existing) {
+        scopeMap.set(key, {
+          knowledgeBaseId: kbId,
+          tableName,
+          fileKeys: fileKey ? [fileKey] : []
+        })
+      } else {
+        if (fileKey && !existing.fileKeys?.includes(fileKey)) {
+          existing.fileKeys = [...(existing.fileKeys || []), fileKey]
+        }
+      }
+    }
+
+    const scopes = Array.from(scopeMap.values()).filter((s) => (s.fileKeys?.length ?? 0) > 0)
+    if (scopes.length === 0) return undefined
+
+    return {
+      scopes,
+      // sensible defaults; can be exposed in UI later
+      k: 10,
+      ef: 100
+    }
+  }
+
   async function sendMessage(input: string): Promise<void> {
     if (!input.trim()) return
 
@@ -125,21 +178,42 @@ export const useAiChatStore = defineStore('ai-chat', () => {
 
     messageStore.addUserMessage(conversationId, input)
 
+    const inputBarStore = useInputBarStore()
+    const mode = inputBarStore.mode
+
+    // Agent mode: attach retrieval scope snapshot + provider override
+    const retrieval = mode === 'agent' ? buildRetrievalConfigFromSources() : undefined
+
+    const modelConfigStore = useModelConfigStore()
+    const provider = modelConfigStore.providers.find((p) => p.id === currentProviderId.value)
+
+    const providerOverride =
+      mode === 'agent' && provider
+        ? {
+            baseUrl: provider.baseUrl,
+            apiKey: provider.apiKey,
+            defaultHeaders: undefined
+          }
+        : undefined
+
     const startRes = await AiChatDataSource.startStream({
       conversationId,
       agentId: currentAgentId.value,
       providerId: currentProviderId.value,
       modelId: currentModelId.value,
       input,
-      enableThinking: enableThinking.value
+      enableThinking: enableThinking.value,
+      mode,
+      retrieval,
+      providerOverride
     })
 
     messageStore.startGenerating(startRes.requestId)
   }
 
   async function abortGeneration(): Promise<void> {
-    if (!messageStore.currentRequestId.value) return
-    await AiChatDataSource.abortStream({ requestId: messageStore.currentRequestId.value })
+    if (!messageStore.currentRequestId) return
+    await AiChatDataSource.abortStream({ requestId: messageStore.currentRequestId })
   }
 
   function setCurrentModel(providerId: string, modelId: string): void {

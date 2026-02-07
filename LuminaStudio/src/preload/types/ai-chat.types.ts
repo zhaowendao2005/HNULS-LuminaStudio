@@ -9,6 +9,28 @@ import type { ApiResponse } from './base.types'
 /**
  * 启动流式生成请求
  */
+export interface AiChatRetrievalScope {
+  /** Knowledge base ID */
+  knowledgeBaseId: number
+  /** Vector table name (e.g. emb_cfg_xxx_3072_chunks) */
+  tableName: string
+  /** Optional: restrict retrieval within these documents */
+  fileKeys?: string[]
+}
+
+export interface AiChatRetrievalConfig {
+  /** One request can query multiple vector tables (different embeddings) */
+  scopes: AiChatRetrievalScope[]
+  /** Total topK budget across scopes (tool will split per scope) */
+  k?: number
+  /** HNSW ef parameter */
+  ef?: number
+  /** Optional: rerank model id */
+  rerankModelId?: string
+  /** Optional: rerank topN */
+  rerankTopN?: number
+}
+
 export interface AiChatStartRequest {
   conversationId: string
   agentId: string
@@ -16,6 +38,19 @@ export interface AiChatStartRequest {
   modelId: string
   input: string
   enableThinking?: boolean
+
+  /** normal: Vercel AI SDK pipeline; agent: LangChain utility process */
+  mode?: 'normal' | 'agent'
+
+  /** Agent-mode-only: retrieval scope snapshot derived from SourcesTab selection */
+  retrieval?: AiChatRetrievalConfig
+
+  /** Agent-mode-only: allow renderer to override provider config (from model-config store) */
+  providerOverride?: {
+    baseUrl: string
+    apiKey: string
+    defaultHeaders?: Record<string, string>
+  }
 }
 
 /**

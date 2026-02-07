@@ -37,7 +37,17 @@ export class AiChatIPCHandler extends BaseIPCHandler {
     event: IpcMainInvokeEvent,
     request: AiChatStartRequest
   ): Promise<{ success: true; data: unknown } | { success: false; error: string }> {
-    const { conversationId, agentId, providerId, modelId, input, enableThinking } = request
+    const {
+      conversationId,
+      agentId,
+      providerId,
+      modelId,
+      input,
+      enableThinking,
+      mode,
+      retrieval,
+      providerOverride
+    } = request
 
     if (!conversationId || !agentId || !providerId || !modelId || !input) {
       return { success: false, error: 'Missing required parameters' }
@@ -49,7 +59,10 @@ export class AiChatIPCHandler extends BaseIPCHandler {
       providerId,
       modelId,
       input,
-      enableThinking
+      enableThinking,
+      mode,
+      retrieval,
+      providerOverride
     })
 
     return { success: true, data: result }

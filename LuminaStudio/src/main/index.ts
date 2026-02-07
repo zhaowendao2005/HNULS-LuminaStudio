@@ -92,8 +92,7 @@ app.whenReady().then(() => {
 
   createWindow()
 
-  // LangChain Agent MVP（dev-config 控制开关）
-  void langchainClientBridge.runDevMvpIfEnabled()
+  // LangChain Agent runs on-demand via aiChat:start (mode='agent')
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the

@@ -1,7 +1,7 @@
 import { tool } from 'langchain'
 import { z } from 'zod'
 import { logger } from '@main/services/logger'
-import type { LangchainClientRetrievalConfig } from '@shared/langchain-client.types'
+import type { LangchainClientRetrievalConfig, LangchainClientRetrievalScope } from '@shared/langchain-client.types'
 
 const log = logger.scope('LangchainClient.Tool.knowledge_search')
 
@@ -58,71 +58,98 @@ function formatHits(hits: RetrievalHit[]): string {
   return lines.join('\n')
 }
 
+function formatScopeHeader(scope: LangchainClientRetrievalScope): string {
+  const fileKeysCount = scope.fileKeys?.length ?? 0
+  return `scope(kb=${scope.knowledgeBaseId} | table=${scope.tableName} | fileKeys=${fileKeysCount})`
+}
+
 export function createKnowledgeSearchTool(params: {
   apiBaseUrl: string
-  retrieval: LangchainClientRetrievalConfig
+  getRetrievalConfig: () => LangchainClientRetrievalConfig | undefined
 }) {
   const apiBaseUrl = params.apiBaseUrl.trim().replace(/\/$/, '')
-  const retrieval = params.retrieval
 
   return tool(
     async ({ query }: { query: string }) => {
       const url = `${apiBaseUrl}/api/v1/retrieval/search`
 
-      const body = {
-        knowledgeBaseId: retrieval.knowledgeBaseId,
-        tableName: retrieval.tableName,
-        queryText: query,
-        k: retrieval.k,
-        ef: retrieval.ef,
-        rerankModelId: retrieval.rerankModelId,
-        rerankTopN: retrieval.rerankTopN
+      const retrieval = params.getRetrievalConfig()
+      const scopes = retrieval?.scopes ?? []
+
+      if (!retrieval || scopes.length === 0) {
+        return '【知识库检索结果】\n(未选择检索范围：请在左侧 SourcesTab 选择文档/嵌入版本后再试)'
       }
 
-      log.info('Retrieval search request', {
-        knowledgeBaseId: retrieval.knowledgeBaseId,
-        tableName: retrieval.tableName,
-        k: retrieval.k ?? null,
+      const totalK = retrieval.k ?? 10
+      const perScopeK = Math.max(1, Math.floor(totalK / scopes.length))
+
+      log.info('Retrieval search start', {
+        scopeCount: scopes.length,
+        totalK,
+        perScopeK,
         ef: retrieval.ef ?? null,
         rerankModelId: retrieval.rerankModelId ?? null,
         rerankTopN: retrieval.rerankTopN ?? null
       })
 
-      const resp = await globalThis.fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(body)
-      })
+      const blocks: string[] = []
 
-      let json: ApiResponse<RetrievalHit[]> | null = null
-      try {
-        json = (await resp.json()) as ApiResponse<RetrievalHit[]>
-      } catch {
-        // ignore parse error, handle below
+      for (const scope of scopes) {
+        const body = {
+          knowledgeBaseId: scope.knowledgeBaseId,
+          tableName: scope.tableName,
+          queryText: query,
+          fileKeys: scope.fileKeys,
+          k: perScopeK,
+          ef: retrieval.ef,
+          rerankModelId: retrieval.rerankModelId,
+          rerankTopN: retrieval.rerankTopN
+        }
+
+        log.info('Retrieval search request', {
+          knowledgeBaseId: scope.knowledgeBaseId,
+          tableName: scope.tableName,
+          fileKeysCount: scope.fileKeys?.length ?? 0,
+          k: perScopeK,
+          ef: retrieval.ef ?? null
+        })
+
+        let resp: any
+        try {
+          resp = await globalThis.fetch(url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(body)
+          })
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err)
+          blocks.push(`【${formatScopeHeader(scope)}】\n(请求失败: ${msg})`)
+          continue
+        }
+
+        let json: ApiResponse<RetrievalHit[]> | null = null
+        try {
+          json = (await resp.json()) as ApiResponse<RetrievalHit[]>
+        } catch {
+          // ignore parse error, handle below
+        }
+
+        if (!resp.ok || !json?.success) {
+          const msg =
+            (json && typeof json.error === 'object' && json.error?.message) ||
+            (json && typeof json.error === 'string' && json.error) ||
+            `HTTP_${resp.status}`
+          blocks.push(`【${formatScopeHeader(scope)}】\n(检索失败: ${msg})`)
+          continue
+        }
+
+        const hits = (json.data ?? []) as RetrievalHit[]
+        blocks.push(`【${formatScopeHeader(scope)}】\n${formatHits(hits)}`)
       }
 
-      if (!resp.ok) {
-        const msg =
-          (json && typeof json.error === 'object' && json.error?.message) ||
-          (json && typeof json.error === 'string' && json.error) ||
-          `HTTP_${resp.status}`
-        throw new Error(`Knowledge retrieval failed: ${msg}`)
-      }
-
-      if (!json?.success) {
-        const msg =
-          (json && typeof json.error === 'object' && json.error?.message) ||
-          (json && typeof json.error === 'string' && json.error) ||
-          'Unknown retrieval error'
-        throw new Error(`Knowledge retrieval failed: ${msg}`)
-      }
-
-      const hits = (json.data ?? []) as RetrievalHit[]
-      log.info('Retrieval search response', { count: hits.length })
-
-      return formatHits(hits)
+      return blocks.join('\n\n')
     },
     {
       name: 'knowledge_search',

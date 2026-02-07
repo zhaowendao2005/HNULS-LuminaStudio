@@ -7,7 +7,14 @@ import type { LanguageModel } from 'ai'
 import { logger } from '../logger'
 import type { DatabaseManager } from '../database-sqlite'
 import type { ModelConfigService } from '../model-config'
-import type { AiChatStreamEvent } from '@preload/types'
+import type { AiChatRetrievalConfig, AiChatStreamEvent } from '@preload/types'
+import type {
+  LangchainClientAgentCreateConfig,
+  LangchainClientChatMessage,
+  LangchainClientRetrievalConfig,
+  LangchainClientToMainMessage
+} from '@shared/langchain-client.types'
+import { langchainClientBridge } from '../langchain-client-bridge/langchain-client-bridge-service'
 import type {
   StreamState,
   MessageRow,
@@ -51,12 +58,39 @@ export class AiChatService {
       modelId: string
       input: string
       enableThinking?: boolean
+      mode?: 'normal' | 'agent'
+      retrieval?: AiChatRetrievalConfig
+      providerOverride?: { baseUrl: string; apiKey: string; defaultHeaders?: Record<string, string> }
     }
   ): Promise<{ requestId: string; conversationId: string }> {
     const requestId = randomUUID()
     const { conversationId, agentId, providerId, modelId, input, enableThinking } = payload
 
-    log.info('Starting stream', { requestId, conversationId, agentId, providerId, modelId })
+    const mode = payload.mode ?? 'normal'
+
+    log.info('Starting stream', {
+      requestId,
+      conversationId,
+      agentId,
+      providerId,
+      modelId,
+      mode,
+      retrievalScopes: payload.retrieval?.scopes?.length ?? 0
+    })
+
+    if (mode === 'agent') {
+      return await this.startAgentStream(sender, {
+        requestId,
+        conversationId,
+        agentId,
+        providerId,
+        modelId,
+        input,
+        enableThinking: enableThinking ?? false,
+        retrieval: payload.retrieval,
+        providerOverride: payload.providerOverride
+      })
+    }
 
     // 1. 确保 conversation 存在（如不存在则创建）
     await this.ensureAgent(agentId)
@@ -98,6 +132,7 @@ export class AiChatService {
       modelId,
       userMessageId,
       assistantMessageId,
+      mode: 'normal',
       abortController,
       answerText: '',
       reasoningText: '',
@@ -133,7 +168,16 @@ export class AiChatService {
       return
     }
 
-    log.info('Aborting stream', { requestId })
+    log.info('Aborting stream', { requestId, mode: state.mode ?? 'normal' })
+
+    if (state.mode === 'agent') {
+      try {
+        langchainClientBridge.abort(requestId)
+      } catch (err) {
+        log.error('Failed to abort agent stream', err, { requestId })
+      }
+    }
+
     state.abortController.abort()
   }
 
@@ -674,6 +718,335 @@ export class AiChatService {
    */
   private extractDelta(part: any): string {
     return part.delta ?? part.text ?? part.textDelta ?? ''
+  }
+
+  private toLangchainHistory(
+    conversationId: string
+  ): LangchainClientChatMessage[] {
+    const rows = this.db
+      .prepare(
+        `SELECT role, text 
+         FROM messages 
+         WHERE conversation_id = ? AND role IN ('user', 'assistant') AND status = 'final'
+         ORDER BY created_at DESC 
+         LIMIT 20`
+      )
+      .all(conversationId) as Array<{ role: string; text: string | null }>
+
+    return rows
+      .reverse()
+      .filter((r) => r.text)
+      .map((r) => ({ role: r.role as 'user' | 'assistant', content: r.text! }))
+  }
+
+  private toLangchainRetrievalConfig(retrieval?: AiChatRetrievalConfig): LangchainClientRetrievalConfig | undefined {
+    if (!retrieval) return undefined
+    if (!Array.isArray(retrieval.scopes) || retrieval.scopes.length === 0) return undefined
+
+    return {
+      scopes: retrieval.scopes.map((s) => ({
+        knowledgeBaseId: s.knowledgeBaseId,
+        tableName: s.tableName,
+        fileKeys: s.fileKeys
+      })),
+      k: retrieval.k,
+      ef: retrieval.ef,
+      rerankModelId: retrieval.rerankModelId,
+      rerankTopN: retrieval.rerankTopN
+    }
+  }
+
+  private async resolveProviderOverride(payload: {
+    providerId: string
+    providerOverride?: { baseUrl: string; apiKey: string; defaultHeaders?: Record<string, string> }
+  }): Promise<{ baseUrl: string; apiKey: string; defaultHeaders?: Record<string, string> }> {
+    if (payload.providerOverride?.baseUrl && payload.providerOverride?.apiKey) {
+      return payload.providerOverride
+    }
+
+    // fallback to persisted config
+    const config = await this.modelConfigService.getConfig()
+    const provider = config.providers.find((p) => p.id === payload.providerId)
+    if (!provider) {
+      throw new Error(`Provider not found: ${payload.providerId}`)
+    }
+    if (!provider.baseUrl || !provider.apiKey) {
+      throw new Error(`Provider missing baseUrl/apiKey: ${payload.providerId}`)
+    }
+
+    log.warn('providerOverride not provided; falling back to persisted provider config', {
+      providerId: payload.providerId
+    })
+
+    return {
+      baseUrl: provider.baseUrl,
+      apiKey: provider.apiKey,
+      defaultHeaders: provider.defaultHeaders
+    }
+  }
+
+  private async startAgentStream(
+    sender: WebContents,
+    payload: {
+      requestId: string
+      conversationId: string
+      agentId: string
+      providerId: string
+      modelId: string
+      input: string
+      enableThinking: boolean
+      retrieval?: AiChatRetrievalConfig
+      providerOverride?: { baseUrl: string; apiKey: string; defaultHeaders?: Record<string, string> }
+    }
+  ): Promise<{ requestId: string; conversationId: string }> {
+    const {
+      requestId,
+      conversationId,
+      agentId,
+      providerId,
+      modelId,
+      input,
+      retrieval,
+      providerOverride
+    } = payload
+
+    // 1. 确保 conversation 存在（如不存在则创建）
+    await this.ensureAgent(agentId)
+    await this.ensureConversation(conversationId, agentId, providerId, modelId)
+
+    // 2. 创建 user message
+    const userMessageId = randomUUID()
+    this.insertMessage({
+      id: userMessageId,
+      conversation_id: conversationId,
+      role: 'user',
+      text: input,
+      status: 'final'
+    })
+
+    // 3. 创建 assistant message（status='streaming'）
+    const assistantMessageId = randomUUID()
+    this.insertMessage({
+      id: assistantMessageId,
+      conversation_id: conversationId,
+      role: 'assistant',
+      status: 'streaming',
+      text: null,
+      reasoning: null
+    })
+
+    // 4. 创建 AbortController
+    const abortController = new AbortController()
+
+    // Use conversationId as utility agentId to isolate memory per conversation.
+    const utilityAgentId = `conv-${conversationId}`
+
+    const state: StreamState = {
+      requestId,
+      conversationId,
+      providerId,
+      modelId,
+      userMessageId,
+      assistantMessageId,
+      mode: 'agent',
+      utilityAgentId,
+      abortController,
+      answerText: '',
+      reasoningText: '',
+      startedAt: new Date()
+    }
+
+    this.activeStreams.set(requestId, state)
+
+    // 5. 发送 stream-start
+    this.sendEvent(sender, {
+      type: 'stream-start',
+      requestId,
+      conversationId,
+      providerId,
+      modelId,
+      startedAt: state.startedAt.toISOString()
+    })
+
+    // 6. 准备 langchain-client
+    const provider = await this.resolveProviderOverride({ providerId, providerOverride })
+
+    const lcRetrieval = this.toLangchainRetrievalConfig(retrieval)
+
+    // enable tool even if no selection; tool will guide user
+    const agentCreateConfig: LangchainClientAgentCreateConfig = {
+      provider: {
+        baseUrl: provider.baseUrl,
+        apiKey: provider.apiKey,
+        defaultHeaders: provider.defaultHeaders
+      },
+      modelId,
+      systemPrompt: undefined,
+      retrieval: { scopes: [] }
+    }
+
+    try {
+      await langchainClientBridge.spawn()
+      langchainClientBridge.init({ knowledgeApiUrl: 'http://127.0.0.1:3721' })
+
+      await langchainClientBridge.ensureAgent(utilityAgentId, agentCreateConfig)
+    } catch (err) {
+      log.error('Failed to prepare langchain-client', err, { requestId, utilityAgentId })
+      this.sendEvent(sender, {
+        type: 'error',
+        requestId,
+        message: err instanceof Error ? err.message : String(err)
+      })
+      this.sendEvent(sender, {
+        type: 'finish',
+        requestId,
+        finishReason: 'error',
+        messageId: assistantMessageId
+      })
+      this.updateAssistantMessage(
+        assistantMessageId,
+        state.answerText,
+        state.reasoningText,
+        'error',
+        err instanceof Error ? err.message : String(err)
+      )
+      this.activeStreams.delete(requestId)
+      return { requestId, conversationId }
+    }
+
+    // 7. Subscribe and invoke
+    const unsubscribe = langchainClientBridge.onMessage((msg: LangchainClientToMainMessage) => {
+      this.handleUtilityStreamMessage(sender, state, msg)
+    })
+
+    const history = this.toLangchainHistory(conversationId)
+
+    try {
+      langchainClientBridge.invoke({
+        agentId: utilityAgentId,
+        requestId,
+        input,
+        history,
+        retrieval: lcRetrieval
+      })
+
+      log.info('Agent invoke dispatched', {
+        requestId,
+        utilityAgentId,
+        scopes: lcRetrieval?.scopes?.length ?? 0,
+        fileKeysCount: lcRetrieval?.scopes?.reduce((acc, s) => acc + (s.fileKeys?.length ?? 0), 0) ?? 0
+      })
+    } catch (err) {
+      unsubscribe()
+      log.error('Failed to invoke agent', err, { requestId, utilityAgentId })
+      this.sendEvent(sender, {
+        type: 'error',
+        requestId,
+        message: err instanceof Error ? err.message : String(err)
+      })
+      this.sendEvent(sender, {
+        type: 'finish',
+        requestId,
+        finishReason: 'error',
+        messageId: assistantMessageId
+      })
+      this.updateAssistantMessage(
+        assistantMessageId,
+        state.answerText,
+        state.reasoningText,
+        'error',
+        err instanceof Error ? err.message : String(err)
+      )
+      this.activeStreams.delete(requestId)
+      return { requestId, conversationId }
+    }
+
+    // Ensure cleanup after finish/error
+    ;(state as any).unsubscribe = unsubscribe
+
+    return { requestId, conversationId }
+  }
+
+  private handleUtilityStreamMessage(
+    sender: WebContents,
+    state: StreamState,
+    msg: LangchainClientToMainMessage
+  ): void {
+    // Only handle current request
+    if ('requestId' in (msg as any) && (msg as any).requestId !== state.requestId) return
+
+    switch (msg.type) {
+      case 'invoke:text-delta': {
+        state.answerText += msg.delta
+        this.sendEvent(sender, { type: 'text-delta', requestId: state.requestId, delta: msg.delta })
+        break
+      }
+
+      case 'invoke:tool-start': {
+        this.sendEvent(sender, {
+          type: 'tool-call',
+          requestId: state.requestId,
+          toolCallId: msg.toolCallId,
+          toolName: msg.toolName,
+          input: msg.toolArgs
+        })
+        break
+      }
+
+      case 'invoke:tool-result': {
+        this.sendEvent(sender, {
+          type: 'tool-result',
+          requestId: state.requestId,
+          toolCallId: msg.toolCallId,
+          toolName: msg.toolName,
+          result: msg.result
+        })
+        break
+      }
+
+      case 'invoke:error': {
+        this.sendEvent(sender, {
+          type: 'error',
+          requestId: state.requestId,
+          message: msg.message,
+          stack: msg.stack
+        })
+        break
+      }
+
+      case 'invoke:finish': {
+        const finishReason = msg.finishReason
+        const status = finishReason === 'stop' ? 'final' : finishReason === 'aborted' ? 'aborted' : 'error'
+
+        // persist final assistant message
+        this.updateAssistantMessage(
+          state.assistantMessageId,
+          state.answerText,
+          '',
+          status,
+          finishReason === 'error' ? 'Agent stream error' : undefined
+        )
+
+        this.sendEvent(sender, {
+          type: 'finish',
+          requestId: state.requestId,
+          finishReason,
+          messageId: state.assistantMessageId
+        })
+
+        // cleanup
+        try {
+          ;(state as any).unsubscribe?.()
+        } catch (err) {
+          log.warn('Failed to unsubscribe utility stream', { requestId: state.requestId })
+        }
+        this.activeStreams.delete(state.requestId)
+        break
+      }
+
+      default:
+        break
+    }
   }
 
   /**

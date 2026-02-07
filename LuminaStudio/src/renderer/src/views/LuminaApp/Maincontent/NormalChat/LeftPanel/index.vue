@@ -10,7 +10,7 @@
       <div v-if="!collapsed" class="flex-1 min-w-0">
         <WhiteSelect
           :model-value="currentTab"
-          @update:model-value="$emit('update:currentTab', $event)"
+          @update:model-value="(v) => emit('update:currentTab', String(v))"
           :options="tabOptions"
           placeholder="选择页面"
           trigger-class="!px-3 !py-2 !text-sm !font-semibold border-0 hover:bg-slate-50"
@@ -18,7 +18,7 @@
       </div>
       <button
         class="w-7 h-7 flex-shrink-0 rounded-lg border border-slate-200 text-slate-500 hover:text-emerald-600 hover:border-emerald-200 transition-colors flex items-center justify-center"
-        @click="$emit('update:collapsed', !collapsed)"
+        @click="emit('update:collapsed', !collapsed)"
       >
         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path v-if="collapsed" d="M9 6l6 6-6 6" />
@@ -85,7 +85,7 @@ defineProps<{
   sourcesDisabled?: boolean
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   (e: 'update:collapsed', value: boolean): void
   (e: 'update:currentTab', value: string): void
 }>()

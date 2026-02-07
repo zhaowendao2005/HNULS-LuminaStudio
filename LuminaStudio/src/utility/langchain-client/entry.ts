@@ -61,7 +61,8 @@ parentPort.on('message', async (event: { data: MainToLangchainClientMessage }) =
             agentId: msg.agentId,
             requestId: msg.requestId,
             input: msg.input,
-            history: msg.history
+            history: msg.history,
+            retrieval: msg.retrieval
           })
           .catch((err) => {
             const errorMsg = err instanceof Error ? err.message : String(err)
