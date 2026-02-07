@@ -66,6 +66,7 @@
           <KnowledgeSearchMessage
             v-else-if="isKnowledgeSearchNodeBlock(block)"
             :result="getKnowledgeNodeResult(block)"
+            :node-block="block"
             @show-detail="emit('show-knowledge-detail', $event)"
           />
 

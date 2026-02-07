@@ -18,6 +18,9 @@
           <path d="M8 11h6" />
         </svg>
         <span class="text-xs font-semibold text-purple-700">知识库检索</span>
+        <span v-if="rerankModelId" class="text-[10px] text-purple-400 font-normal">
+          (rerank: {{ rerankModelId }})
+        </span>
       </div>
     </div>
 
@@ -159,8 +162,11 @@ interface KnowledgeSearchResult {
   scopes: KnowledgeSearchResultScope[]
 }
 
+import type { NodeBlock } from '@renderer/stores/ai-chat/chat-message/types'
+
 const props = defineProps<{
   result?: string | object | undefined // 可以是 JSON 字符串、已解析的对象或 undefined
+  nodeBlock?: NodeBlock // 可选：如果传入 nodeBlock，可以访问 rerankModelId
 }>()
 
 defineEmits<{
@@ -227,4 +233,13 @@ function truncateText(text: string, maxChars: number): string {
   if (text.length <= maxChars) return text
   return text.slice(0, maxChars) + '...'
 }
+
+// 重排模型 ID
+const rerankModelId = computed(() => {
+  return (
+    props.nodeBlock?.start?.rerankModelId ||
+    props.nodeBlock?.result?.rerankModelId ||
+    null
+  )
+})
 </script>

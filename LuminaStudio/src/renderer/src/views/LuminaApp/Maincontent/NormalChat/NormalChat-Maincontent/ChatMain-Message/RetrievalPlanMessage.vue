@@ -49,6 +49,9 @@
       <span :class="isError ? 'text-rose-700' : 'text-indigo-700'">
         {{ statusLabel }}: 检索规划
       </span>
+      <span v-if="modelId" class="text-[10px] text-slate-400 font-normal">
+        ({{ modelId }})
+      </span>
     </div>
 
     <!-- Body -->
@@ -150,5 +153,10 @@ const queries = computed(() => {
       k: Number.isFinite(q?.k) ? q.k : maxK.value
     }))
     .filter((q: any) => q.query.trim())
+})
+
+// 模型 ID
+const modelId = computed(() => {
+  return props.nodeBlock.start?.modelId || props.nodeBlock.result?.modelId || null
 })
 </script>

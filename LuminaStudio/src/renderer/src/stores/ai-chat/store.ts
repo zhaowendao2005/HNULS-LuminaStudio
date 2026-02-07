@@ -184,7 +184,10 @@ export const useAiChatStore = defineStore('ai-chat', () => {
     const mode = inputBarStore.mode
 
     const knowledgeQaStore = useKnowledgeQaConfigStore()
-    const knowledgeQaConfig = knowledgeQaStore.config as KnowledgeQaModelConfig
+    // 解包 ref 并深拷贝为纯对象，避免 IPC 序列化问题
+    const knowledgeQaConfig = JSON.parse(
+      JSON.stringify(knowledgeQaStore.config)
+    ) as KnowledgeQaModelConfig
 
     if (mode === 'agent') {
       if (
@@ -193,7 +196,7 @@ export const useAiChatStore = defineStore('ai-chat', () => {
         !knowledgeQaConfig.summaryModel.providerId ||
         !knowledgeQaConfig.summaryModel.modelId
       ) {
-        window.alert('请先在 Agent设置 中配置“规划模型”和“总结模型”。')
+        window.alert('请先在 Agent设置 中配置"规划模型"和"总结模型"。')
         return
       }
     }
@@ -216,6 +219,7 @@ export const useAiChatStore = defineStore('ai-chat', () => {
     const modelConfigStore = useModelConfigStore()
     const provider = modelConfigStore.providers.find((p) => p.id === currentProviderId.value)
 
+    // 提取为纯对象，避免响应式包装器导致 IPC 序列化失败
     const providerOverride =
       mode === 'agent' && provider
         ? {

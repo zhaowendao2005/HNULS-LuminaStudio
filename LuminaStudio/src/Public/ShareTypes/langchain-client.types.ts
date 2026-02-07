@@ -129,6 +129,10 @@ export interface LangchainClientNodeBasePayload {
   inputs?: Record<string, unknown>
   /** 输出摘要（可序列化） */
   outputs?: Record<string, unknown>
+  /** 节点使用的模型 ID（用于显示，如：规划节点、总结节点） */
+  modelId?: string
+  /** 节点使用的重排模型 ID（用于显示，如：检索节点） */
+  rerankModelId?: string
 }
 
 export interface LangchainClientNodeStartPayload extends LangchainClientNodeBasePayload {

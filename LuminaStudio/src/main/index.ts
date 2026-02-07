@@ -82,7 +82,7 @@ app.whenReady().then(() => {
   new ModelConfigIPCHandler(modelConfigService)
 
   // 初始化 AI Chat Service 和 IPC Handler
-  const aiChatService = new AiChatService(databaseManager, modelConfigService)
+  const aiChatService = new AiChatService(databaseManager, modelConfigService, langchainClientBridge)
   new AiChatIPCHandler(aiChatService)
 
   // 初始化 KnowledgeDatabase Bridge Service 和 IPC Handler

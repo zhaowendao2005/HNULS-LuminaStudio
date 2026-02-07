@@ -7,6 +7,7 @@ import type { LanguageModel } from 'ai'
 import { logger } from '../logger'
 import type { DatabaseManager } from '../database-sqlite'
 import type { ModelConfigService } from '../model-config'
+import type { LangchainClientBridgeService } from '../langchain-client-bridge'
 import type { AiChatRetrievalConfig, AiChatStreamEvent } from '@preload/types'
 import type {
   KnowledgeQaModelConfig,
@@ -42,7 +43,8 @@ export class AiChatService {
 
   constructor(
     databaseManager: DatabaseManager,
-    private readonly modelConfigService: ModelConfigService
+    private readonly modelConfigService: ModelConfigService,
+    private readonly langchainClientBridge: LangchainClientBridgeService
   ) {
     this.db = databaseManager.getDatabase('userdata')
   }
@@ -181,7 +183,7 @@ export class AiChatService {
 
     if (state.mode === 'agent') {
       try {
-        langchainClientBridge.abort(requestId)
+        this.langchainClientBridge.abort(requestId)
       } catch (err) {
         log.error('Failed to abort agent stream', err, { requestId })
       }
@@ -957,10 +959,10 @@ export class AiChatService {
     }
 
     try {
-      await langchainClientBridge.spawn()
-      langchainClientBridge.init({ knowledgeApiUrl: 'http://127.0.0.1:3721' })
+      await this.langchainClientBridge.spawn()
+      this.langchainClientBridge.init({ knowledgeApiUrl: 'http://127.0.0.1:3721' })
 
-      await langchainClientBridge.ensureAgent(utilityAgentId, agentCreateConfig)
+      await this.langchainClientBridge.ensureAgent(utilityAgentId, agentCreateConfig)
     } catch (err) {
       log.error('Failed to prepare langchain-client', err, { requestId, utilityAgentId })
       this.sendEvent(sender, {
@@ -986,14 +988,14 @@ export class AiChatService {
     }
 
     // 7. Subscribe and invoke
-    const unsubscribe = langchainClientBridge.onMessage((msg: LangchainClientToMainMessage) => {
+    const unsubscribe = this.langchainClientBridge.onMessage((msg: LangchainClientToMainMessage) => {
       this.handleUtilityStreamMessage(sender, state, msg)
     })
 
     const history = this.toLangchainHistory(conversationId)
 
     try {
-      langchainClientBridge.invoke({
+      this.langchainClientBridge.invoke({
         agentId: utilityAgentId,
         requestId,
         input,

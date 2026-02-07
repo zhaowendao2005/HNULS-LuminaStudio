@@ -182,6 +182,7 @@ export function buildKnowledgeQaGraph(params: {
         nodeKind: 'retrieval_plan',
         label: '检索规划',
         uiHint: { component: 'retrieval-plan', title: '检索规划' },
+        modelId: knowledgeQaConfig.planModel.modelId,
         inputs: {
           userInput: state.input,
           planningInput,
@@ -213,6 +214,7 @@ export function buildKnowledgeQaGraph(params: {
           nodeKind: 'retrieval_plan',
           label: '检索规划',
           uiHint: { component: 'retrieval-plan', title: '检索规划' },
+          modelId: knowledgeQaConfig.planModel.modelId,
           error: { message: `规划节点失败: ${msg}` }
         }
       })
@@ -250,6 +252,7 @@ export function buildKnowledgeQaGraph(params: {
         nodeKind: 'retrieval_plan',
         label: '检索规划',
         uiHint: { component: 'retrieval-plan', title: '检索规划' },
+        modelId: knowledgeQaConfig.planModel.modelId,
         outputs: {
           ...normalizedPlan
         }
@@ -289,6 +292,7 @@ export function buildKnowledgeQaGraph(params: {
           nodeKind: 'knowledge_retrieval',
           label: '知识库检索',
           uiHint: { component: 'knowledge-search', title: '知识库检索' },
+          rerankModelId: knowledgeQaConfig.retrieval?.rerankModelId,
           inputs: {
             query: q.query,
             k: q.k,
@@ -316,6 +320,7 @@ export function buildKnowledgeQaGraph(params: {
             nodeKind: 'knowledge_retrieval',
             label: '知识库检索',
             uiHint: { component: 'knowledge-search', title: '知识库检索' },
+            rerankModelId: knowledgeQaConfig.retrieval?.rerankModelId,
             outputs: {
               // 前端 KnowledgeSearchMessage 只关心 outputs.result
               result: resultText
@@ -335,6 +340,7 @@ export function buildKnowledgeQaGraph(params: {
             nodeKind: 'knowledge_retrieval',
             label: '知识库检索',
             uiHint: { component: 'knowledge-search', title: '知识库检索' },
+            rerankModelId: knowledgeQaConfig.retrieval?.rerankModelId,
             error: { message: `检索节点异常: ${msg}` }
           }
         })
@@ -361,6 +367,7 @@ export function buildKnowledgeQaGraph(params: {
             nodeKind: 'knowledge_retrieval',
             label: '知识库检索',
             uiHint: { component: 'knowledge-search', title: '知识库检索' },
+            rerankModelId: knowledgeQaConfig.retrieval?.rerankModelId,
             outputs: { result: fallback }
           }
         })
@@ -392,6 +399,7 @@ export function buildKnowledgeQaGraph(params: {
         nodeKind: 'retrieval_summary',
         label: '总结与判断',
         uiHint: { component: 'retrieval-summary', title: '总结与判断' },
+        modelId: knowledgeQaConfig.summaryModel.modelId,
         inputs: {
           userInput: state.input,
           planningInput: state.planningInput?.trim() || state.input,
@@ -421,6 +429,7 @@ export function buildKnowledgeQaGraph(params: {
           nodeKind: 'retrieval_summary',
           label: '总结与判断',
           uiHint: { component: 'retrieval-summary', title: '总结与判断' },
+          modelId: knowledgeQaConfig.summaryModel.modelId,
           error: { message: `总结节点失败: ${msg}` }
         }
       })
@@ -439,6 +448,7 @@ export function buildKnowledgeQaGraph(params: {
         nodeKind: 'retrieval_summary',
         label: '总结与判断',
         uiHint: { component: 'retrieval-summary', title: '总结与判断' },
+        modelId: knowledgeQaConfig.summaryModel.modelId,
         outputs: {
           ...decision
         }

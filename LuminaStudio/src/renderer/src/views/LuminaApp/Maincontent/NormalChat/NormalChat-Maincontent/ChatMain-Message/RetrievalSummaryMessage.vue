@@ -62,6 +62,9 @@
       </svg>
 
       <span :class="headerTextClass">{{ statusLabel }}: 总结与判断</span>
+      <span v-if="modelId" class="text-[10px] text-slate-400 font-normal">
+        ({{ modelId }})
+      </span>
     </div>
 
     <!-- Body -->
@@ -131,5 +134,10 @@ const headerTextClass = computed(() => {
   if (isError.value) return 'text-rose-700'
   if (!isDone.value) return 'text-slate-600'
   return shouldLoop.value ? 'text-amber-700' : 'text-emerald-700'
+})
+
+// 模型 ID
+const modelId = computed(() => {
+  return props.nodeBlock.start?.modelId || props.nodeBlock.result?.modelId || null
 })
 </script>
