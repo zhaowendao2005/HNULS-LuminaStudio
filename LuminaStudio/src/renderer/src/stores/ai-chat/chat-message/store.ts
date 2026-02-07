@@ -7,11 +7,22 @@ import { defineStore } from 'pinia'
 import { ref, onScopeDispose } from 'vue'
 import type { AiChatStreamEvent } from '@preload/types'
 import { ChatMessageDataSource } from './datasource'
-import type { ChatMessage, ToolCallResult } from './types'
+import type {
+  ChatMessage,
+  MessageBlock,
+  MetaBlock,
+  NodeBlock,
+  TextBlock,
+  ThinkingBlock,
+  ToolBlock
+} from './types'
 
 interface StreamContext {
   conversationId: string
   messageId: string
+  toolBlockIndexById: Map<string, number>
+  nodeBlockIndexById: Map<string, number>
+  thinkingBlockIndexById: Map<string, number>
 }
 
 export const useChatMessageStore = defineStore('chat-message', () => {
@@ -40,6 +51,25 @@ export const useChatMessageStore = defineStore('chat-message', () => {
     return list.find((m) => m.id === ctx.messageId) || null
   }
 
+  const getStreamContext = (requestId: string): StreamContext | null => {
+    return streamContexts.get(requestId) || null
+  }
+
+  const ensureBlocks = (msg: ChatMessage): MessageBlock[] => {
+    if (!msg.blocks) msg.blocks = []
+    return msg.blocks
+  }
+
+  const appendTextDelta = (msg: ChatMessage, delta: string): void => {
+    const blocks = ensureBlocks(msg)
+    const last = blocks[blocks.length - 1]
+    if (last && last.type === 'text') {
+      ;(last as TextBlock).content += delta
+      return
+    }
+    blocks.push({ type: 'text', content: delta })
+  }
+
   const updateStreamMessageId = (requestId: string, newId: string) => {
     const ctx = streamContexts.get(requestId)
     if (!ctx) return
@@ -64,7 +94,7 @@ export const useChatMessageStore = defineStore('chat-message', () => {
     const userMessage: ChatMessage = {
       id: `user-${Date.now()}`,
       role: 'user',
-      content,
+      blocks: [{ type: 'text', content }],
       status: 'final'
     }
     list.push(userMessage)
@@ -75,7 +105,7 @@ export const useChatMessageStore = defineStore('chat-message', () => {
     const testMessage: ChatMessage = {
       id: `test-${Date.now()}`,
       role: 'test',
-      content: '',
+      blocks: [],
       rawData: data,
       status: 'final'
     }
@@ -98,18 +128,19 @@ export const useChatMessageStore = defineStore('chat-message', () => {
         const messageId = createMessageId(event.requestId)
         streamContexts.set(event.requestId, {
           conversationId: event.conversationId,
-          messageId
+          messageId,
+          toolBlockIndexById: new Map(),
+          nodeBlockIndexById: new Map(),
+          thinkingBlockIndexById: new Map()
         })
 
         const list = ensureConversationMessages(event.conversationId)
         list.push({
           id: messageId,
           role: 'assistant',
-          content: '',
+          blocks: [],
           isStreaming: true,
-          isThinking: false,
-          thinkingSteps: [],
-          toolCalls: []
+          status: 'streaming'
         })
 
         isGenerating.value = true
@@ -120,76 +151,149 @@ export const useChatMessageStore = defineStore('chat-message', () => {
       case 'text-delta': {
         const msg = getStreamMessage(event.requestId)
         if (!msg) break
-        msg.content += event.delta
+        appendTextDelta(msg, event.delta)
         break
       }
 
       case 'reasoning-start': {
         const msg = getStreamMessage(event.requestId)
+        const ctx = getStreamContext(event.requestId)
         if (!msg) break
-        msg.isThinking = true
-        msg.thinkingSteps = msg.thinkingSteps || []
-        msg.thinkingSteps.push({ id: event.id, content: '' })
+        const blocks = ensureBlocks(msg)
+        const block: ThinkingBlock = { type: 'thinking', steps: [{ id: event.id, content: '' }], isThinking: true }
+        blocks.push(block)
+        if (ctx) {
+          ctx.thinkingBlockIndexById.set(event.id, blocks.length - 1)
+        }
         break
       }
 
       case 'reasoning-delta': {
         const msg = getStreamMessage(event.requestId)
+        const ctx = getStreamContext(event.requestId)
         if (!msg) break
-        msg.thinkingSteps = msg.thinkingSteps || []
-        const step = msg.thinkingSteps.find((s) => s.id === event.id)
-        if (step) {
-          step.content += event.delta
+        const blocks = ensureBlocks(msg)
+        const idx = ctx?.thinkingBlockIndexById.get(event.id)
+        if (idx !== undefined && blocks[idx]?.type === 'thinking') {
+          const block = blocks[idx] as ThinkingBlock
+          const step = block.steps.find((s) => s.id === event.id)
+          if (step) step.content += event.delta
+          else block.steps.push({ id: event.id, content: event.delta })
         } else {
-          msg.thinkingSteps.push({ id: event.id, content: event.delta })
+          const block: ThinkingBlock = { type: 'thinking', steps: [{ id: event.id, content: event.delta }], isThinking: true }
+          blocks.push(block)
+          ctx?.thinkingBlockIndexById.set(event.id, blocks.length - 1)
         }
         break
       }
 
       case 'reasoning-end': {
         const msg = getStreamMessage(event.requestId)
+        const ctx = getStreamContext(event.requestId)
         if (!msg) break
-        msg.isThinking = false
+        const blocks = ensureBlocks(msg)
+        const idx = ctx?.thinkingBlockIndexById.get(event.id)
+        if (idx !== undefined && blocks[idx]?.type === 'thinking') {
+          ;(blocks[idx] as ThinkingBlock).isThinking = false
+        }
         break
       }
 
       case 'tool-call': {
         const msg = getStreamMessage(event.requestId)
+        const ctx = getStreamContext(event.requestId)
         if (!msg) break
-        msg.toolCalls = msg.toolCalls || []
-        msg.toolCalls.push({
-          id: event.toolCallId,
-          name: event.toolName,
-          input: event.input
-        })
+        const blocks = ensureBlocks(msg)
+        const block: ToolBlock = { type: 'tool', call: event.payload }
+        blocks.push(block)
+        ctx?.toolBlockIndexById.set(event.payload.toolCallId, blocks.length - 1)
         break
       }
 
       case 'tool-call-delta': {
         const msg = getStreamMessage(event.requestId)
+        const ctx = getStreamContext(event.requestId)
         if (!msg) break
-        msg.toolCalls = msg.toolCalls || []
-        const call = msg.toolCalls.find((c) => c.id === event.toolCallId)
-        if (call) {
-          call.argsText = (call.argsText || '') + event.argsTextDelta
+        const blocks = ensureBlocks(msg)
+        const idx = ctx?.toolBlockIndexById.get(event.toolCallId)
+        if (idx !== undefined && blocks[idx]?.type === 'tool') {
+          const block = blocks[idx] as ToolBlock
+          block.argsText = (block.argsText || '') + event.argsTextDelta
         } else {
-          msg.toolCalls.push({
-            id: event.toolCallId,
-            name: event.toolName,
-            input: {},
+          const block: ToolBlock = {
+            type: 'tool',
+            call: { toolCallId: event.toolCallId, toolName: event.toolName, toolArgs: {} },
             argsText: event.argsTextDelta
-          })
+          }
+          blocks.push(block)
+          ctx?.toolBlockIndexById.set(event.toolCallId, blocks.length - 1)
         }
         break
       }
 
       case 'tool-result': {
         const msg = getStreamMessage(event.requestId)
+        const ctx = getStreamContext(event.requestId)
         if (!msg) break
-        msg.toolCalls = msg.toolCalls || []
-        const call = msg.toolCalls.find((c) => c.id === event.toolCallId)
-        if (call) {
-          call.result = event.result as ToolCallResult
+        const blocks = ensureBlocks(msg)
+        const idx = ctx?.toolBlockIndexById.get(event.payload.toolCallId)
+        if (idx !== undefined && blocks[idx]?.type === 'tool') {
+          ;(blocks[idx] as ToolBlock).result = event.payload.result
+        } else {
+          const block: ToolBlock = {
+            type: 'tool',
+            call: {
+              toolCallId: event.payload.toolCallId,
+              toolName: event.payload.toolName,
+              toolArgs: {}
+            },
+            result: event.payload.result
+          }
+          blocks.push(block)
+          ctx?.toolBlockIndexById.set(event.payload.toolCallId, blocks.length - 1)
+        }
+        break
+      }
+
+      case 'node-start': {
+        const msg = getStreamMessage(event.requestId)
+        const ctx = getStreamContext(event.requestId)
+        if (!msg) break
+        const blocks = ensureBlocks(msg)
+        const block: NodeBlock = { type: 'node', start: event.payload }
+        blocks.push(block)
+        ctx?.nodeBlockIndexById.set(event.payload.nodeId, blocks.length - 1)
+        break
+      }
+
+      case 'node-result': {
+        const msg = getStreamMessage(event.requestId)
+        const ctx = getStreamContext(event.requestId)
+        if (!msg) break
+        const blocks = ensureBlocks(msg)
+        const idx = ctx?.nodeBlockIndexById.get(event.payload.nodeId)
+        if (idx !== undefined && blocks[idx]?.type === 'node') {
+          ;(blocks[idx] as NodeBlock).result = event.payload
+        } else {
+          const block: NodeBlock = { type: 'node', start: event.payload, result: event.payload }
+          blocks.push(block)
+          ctx?.nodeBlockIndexById.set(event.payload.nodeId, blocks.length - 1)
+        }
+        break
+      }
+
+      case 'node-error': {
+        const msg = getStreamMessage(event.requestId)
+        const ctx = getStreamContext(event.requestId)
+        if (!msg) break
+        const blocks = ensureBlocks(msg)
+        const idx = ctx?.nodeBlockIndexById.get(event.payload.nodeId)
+        if (idx !== undefined && blocks[idx]?.type === 'node') {
+          ;(blocks[idx] as NodeBlock).error = event.payload
+        } else {
+          const block: NodeBlock = { type: 'node', start: event.payload, error: event.payload }
+          blocks.push(block)
+          ctx?.nodeBlockIndexById.set(event.payload.nodeId, blocks.length - 1)
         }
         break
       }
@@ -199,7 +303,7 @@ export const useChatMessageStore = defineStore('chat-message', () => {
         if (msg) {
           msg.isStreaming = false
           msg.status = 'error'
-          msg.content += `\n\n[Error] ${event.message}`
+          appendTextDelta(msg, `\n\n[Error] ${event.message}`)
         }
         isGenerating.value = false
         currentRequestId.value = null
@@ -211,7 +315,10 @@ export const useChatMessageStore = defineStore('chat-message', () => {
         if (msg) {
           msg.isStreaming = false
           msg.status = event.finishReason === 'stop' ? 'final' : 'aborted'
-          msg.usage = event.usage
+          if (event.usage) {
+            const block: MetaBlock = { type: 'meta', usage: event.usage }
+            ensureBlocks(msg).push(block)
+          }
         }
         if (event.messageId) {
           updateStreamMessageId(event.requestId, event.messageId)

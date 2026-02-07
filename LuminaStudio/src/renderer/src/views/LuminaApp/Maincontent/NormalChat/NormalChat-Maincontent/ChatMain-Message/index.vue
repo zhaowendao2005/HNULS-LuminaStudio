@@ -43,40 +43,47 @@
         <!-- 根据消息类型渲染不同组件 -->
         <TestMessage v-if="msg.role === 'test'" :message="msg" />
 
-        <ThinkingMessage
-          v-if="msg.role === 'assistant' && msg.thinkingSteps && msg.thinkingSteps.length > 0"
-          :thinking-steps="msg.thinkingSteps"
-          :is-thinking="msg.isThinking"
-          :message-id="msg.id"
-        />
-
-        <!-- 知识库检索结果 -->
-        <template v-if="msg.role === 'assistant' && msg.toolCalls && msg.toolCalls.length > 0">
-          <template v-for="toolCall in separateToolCalls(msg.toolCalls).knowledgeSearchCalls" :key="toolCall.id">
-            <KnowledgeSearchMessage
-              :result="toolCall.result"
-              @show-detail="emit('show-knowledge-detail', $event)"
-            />
-          </template>
-
-          <!-- 其他工具调用 -->
-          <ToolCallMessage
-            v-if="separateToolCalls(msg.toolCalls).otherToolCalls.length > 0"
-            :tool-calls="separateToolCalls(msg.toolCalls).otherToolCalls"
+        <!-- Blocks 渲染 -->
+        <template v-for="(block, blockIdx) in msg.blocks" :key="`${msg.id}-${blockIdx}`">
+          <!-- Thinking -->
+          <ThinkingMessage
+            v-if="block.type === 'thinking'"
+            :thinking-steps="block.steps"
+            :is-thinking="block.isThinking"
+            :message-id="msg.id"
           />
+
+          <!-- Knowledge Search (tool) -->
+          <KnowledgeSearchMessage
+            v-else-if="isKnowledgeSearchToolBlock(block)"
+            :result="block.result"
+            @show-detail="emit('show-knowledge-detail', $event)"
+          />
+
+          <!-- Knowledge Search (node) -->
+          <KnowledgeSearchMessage
+            v-else-if="isKnowledgeSearchNodeBlock(block)"
+            :result="getKnowledgeNodeResult(block)"
+            @show-detail="emit('show-knowledge-detail', $event)"
+          />
+
+          <!-- Tool block -->
+          <ToolCallMessage v-else-if="block.type === 'tool'" :tool-blocks="[block]" />
+
+          <!-- Node block (generic) -->
+          <NodeMessage v-else-if="block.type === 'node'" :node-block="block" />
+
+          <!-- Text block -->
+          <TextMessage
+            v-else-if="block.type === 'text'"
+            :content="block.content"
+            :role="msg.role"
+            :is-streaming="msg.isStreaming"
+          />
+
+          <!-- Meta block (usage) -->
+          <UsageMessage v-else-if="block.type === 'meta' && block.usage" :usage="block.usage" />
         </template>
-
-        <TextMessage
-          v-if="msg.role !== 'test'"
-          :content="msg.content"
-          :role="msg.role"
-          :is-streaming="msg.isStreaming"
-        />
-
-        <UsageMessage
-          v-if="msg.role === 'assistant' && msg.usage && !msg.isStreaming"
-          :usage="msg.usage"
-        />
 
         <ActionButtons v-if="msg.role === 'assistant' && !msg.isStreaming" />
       </div>
@@ -93,6 +100,7 @@ import KnowledgeSearchMessage from './KnowledgeSearchMessage.vue'
 import TextMessage from './TextMessage.vue'
 import UsageMessage from './UsageMessage.vue'
 import ActionButtons from './ActionButtons.vue'
+import NodeMessage from './NodeMessage.vue'
 
 const props = defineProps<{
   messages: any[]
@@ -106,18 +114,27 @@ const emit = defineEmits<{
 // 反转消息顺序以配合 column-reverse
 const reversedMessages = computed(() => [...props.messages].reverse())
 
-// 判断是否是knowledge_search工具调用
-function isKnowledgeSearchTool(toolCall: any): boolean {
-  return toolCall?.name === 'knowledge_search' && toolCall?.result
+// 判断是否是 knowledge_search 工具 block
+function isKnowledgeSearchToolBlock(block: any): boolean {
+  return block?.type === 'tool' && block?.call?.toolName === 'knowledge_search' && block?.result
 }
 
-// 分离knowledge_search和其他工具调用
-function separateToolCalls(toolCalls: any[]) {
-  if (!toolCalls || toolCalls.length === 0) {
-    return { knowledgeSearchCalls: [], otherToolCalls: [] }
+// 判断是否是 knowledge_retrieval 节点 block
+function isKnowledgeSearchNodeBlock(block: any): boolean {
+  return (
+    block?.type === 'node' &&
+    block?.start?.nodeKind === 'knowledge_retrieval' &&
+    (block?.result || block?.start)
+  )
+}
+
+function getKnowledgeNodeResult(block: any): any {
+  // 优先从 result.outputs.result 获取
+  const outputs = block?.result?.outputs
+  if (outputs && typeof outputs === 'object' && 'result' in outputs) {
+    return (outputs as any).result
   }
-  const knowledgeSearchCalls = toolCalls.filter(isKnowledgeSearchTool)
-  const otherToolCalls = toolCalls.filter((tc) => !isKnowledgeSearchTool(tc))
-  return { knowledgeSearchCalls, otherToolCalls }
+  // 如果还没有 result，返回 undefined（会显示“等待中”）
+  return undefined
 }
 </script>

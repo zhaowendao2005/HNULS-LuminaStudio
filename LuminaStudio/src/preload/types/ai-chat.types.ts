@@ -1,4 +1,11 @@
 import type { ApiResponse } from './base.types'
+import type {
+  LangchainClientNodeErrorPayload,
+  LangchainClientNodeResultPayload,
+  LangchainClientNodeStartPayload,
+  LangchainClientToolCallPayload,
+  LangchainClientToolResultPayload
+} from '@shared/langchain-client.types'
 
 /**
  * AI Chat 跨进程类型定义（Preload 权威来源）
@@ -16,6 +23,24 @@ export interface AiChatRetrievalScope {
   tableName: string
   /** Optional: restrict retrieval within these documents */
   fileKeys?: string[]
+}
+
+/** Node 开始事件 */
+export interface NodeStartEvent extends BaseStreamEvent {
+  type: 'node-start'
+  payload: LangchainClientNodeStartPayload
+}
+
+/** Node 完成事件 */
+export interface NodeResultEvent extends BaseStreamEvent {
+  type: 'node-result'
+  payload: LangchainClientNodeResultPayload
+}
+
+/** Node 错误事件 */
+export interface NodeErrorEvent extends BaseStreamEvent {
+  type: 'node-error'
+  payload: LangchainClientNodeErrorPayload
 }
 
 export interface AiChatRetrievalConfig {
@@ -205,9 +230,7 @@ export interface ReasoningEndEvent extends BaseStreamEvent {
  */
 export interface ToolCallEvent extends BaseStreamEvent {
   type: 'tool-call'
-  toolCallId: string
-  toolName: string
-  input: unknown
+  payload: LangchainClientToolCallPayload
 }
 
 /**
@@ -225,9 +248,7 @@ export interface ToolCallDeltaEvent extends BaseStreamEvent {
  */
 export interface ToolResultEvent extends BaseStreamEvent {
   type: 'tool-result'
-  toolCallId: string
-  toolName: string
-  result: unknown
+  payload: LangchainClientToolResultPayload
 }
 
 /**
@@ -267,6 +288,9 @@ export type AiChatStreamEvent =
   | ToolCallEvent
   | ToolCallDeltaEvent
   | ToolResultEvent
+  | NodeStartEvent
+  | NodeResultEvent
+  | NodeErrorEvent
   | ErrorEvent
   | FinishEvent
 

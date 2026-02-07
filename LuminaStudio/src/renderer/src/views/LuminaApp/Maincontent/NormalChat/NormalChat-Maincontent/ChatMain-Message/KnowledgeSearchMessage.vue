@@ -151,7 +151,7 @@ interface KnowledgeSearchResult {
 }
 
 const props = defineProps<{
-  result: string | object // 可以是 JSON 字符串或已解析的对象
+  result?: string | object | undefined // 可以是 JSON 字符串、已解析的对象或 undefined
 }>()
 
 defineEmits<{
@@ -161,12 +161,26 @@ defineEmits<{
 // 解析结果
 const parsedResult = computed<KnowledgeSearchResult>(() => {
   try {
+    if (!props.result) {
+      return {
+        query: '',
+        totalScopes: 0,
+        scopes: [
+          {
+            knowledgeBaseId: 0,
+            tableName: '等待中',
+            fileKeysCount: 0,
+            error: '检索结果尚未返回'
+          }
+        ]
+      }
+    }
     if (typeof props.result === 'string') {
       return JSON.parse(props.result)
     }
     return props.result as KnowledgeSearchResult
   } catch (err) {
-    console.error('Failed to parse knowledge search result:', err)
+    console.error('Failed to parse knowledge search result:', err, props.result)
     return {
       query: '',
       totalScopes: 0,
@@ -184,6 +198,7 @@ const parsedResult = computed<KnowledgeSearchResult>(() => {
 
 // 计算总命中数
 const totalHits = computed(() => {
+  if (!parsedResult.value?.scopes) return 0
   return parsedResult.value.scopes.reduce((total, scope) => {
     return total + (scope.hits?.length ?? 0)
   }, 0)

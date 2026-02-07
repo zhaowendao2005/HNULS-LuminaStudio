@@ -986,9 +986,34 @@ export class AiChatService {
         this.sendEvent(sender, {
           type: 'tool-call',
           requestId: state.requestId,
-          toolCallId: msg.toolCallId,
-          toolName: msg.toolName,
-          input: msg.toolArgs
+          payload: msg.payload
+        })
+        break
+      }
+
+      case 'invoke:node-start': {
+        this.sendEvent(sender, {
+          type: 'node-start',
+          requestId: state.requestId,
+          payload: msg.payload
+        })
+        break
+      }
+
+      case 'invoke:node-result': {
+        this.sendEvent(sender, {
+          type: 'node-result',
+          requestId: state.requestId,
+          payload: msg.payload
+        })
+        break
+      }
+
+      case 'invoke:node-error': {
+        this.sendEvent(sender, {
+          type: 'node-error',
+          requestId: state.requestId,
+          payload: msg.payload
         })
         break
       }
@@ -997,9 +1022,7 @@ export class AiChatService {
         this.sendEvent(sender, {
           type: 'tool-result',
           requestId: state.requestId,
-          toolCallId: msg.toolCallId,
-          toolName: msg.toolName,
-          result: msg.result
+          payload: msg.payload
         })
         break
       }

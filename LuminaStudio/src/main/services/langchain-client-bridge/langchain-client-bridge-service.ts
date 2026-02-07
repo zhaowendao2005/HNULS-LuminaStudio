@@ -260,24 +260,49 @@ export class LangchainClientBridgeService {
       case 'invoke:tool-start':
         log.info('Tool start', {
           requestId: msg.requestId,
-          toolName: msg.toolName,
-          toolCallId: msg.toolCallId
+          toolName: msg.payload.toolName,
+          toolCallId: msg.payload.toolCallId
         })
         break
 
       case 'invoke:tool-result': {
         const preview =
-          typeof msg.result === 'string'
-            ? msg.result.slice(0, 200)
-            : JSON.stringify(msg.result)?.slice(0, 200)
+          typeof msg.payload.result === 'string'
+            ? msg.payload.result.slice(0, 200)
+            : JSON.stringify(msg.payload.result)?.slice(0, 200)
         log.info('Tool result', {
           requestId: msg.requestId,
-          toolName: msg.toolName,
-          toolCallId: msg.toolCallId,
+          toolName: msg.payload.toolName,
+          toolCallId: msg.payload.toolCallId,
           preview
         })
         break
       }
+
+      case 'invoke:node-start':
+        log.info('Node start', {
+          requestId: msg.requestId,
+          nodeId: msg.payload.nodeId,
+          nodeKind: msg.payload.nodeKind
+        })
+        break
+
+      case 'invoke:node-result':
+        log.info('Node result', {
+          requestId: msg.requestId,
+          nodeId: msg.payload.nodeId,
+          nodeKind: msg.payload.nodeKind
+        })
+        break
+
+      case 'invoke:node-error':
+        log.error('Node error', undefined, {
+          requestId: msg.requestId,
+          nodeId: msg.payload.nodeId,
+          nodeKind: msg.payload.nodeKind,
+          message: msg.payload.error?.message
+        })
+        break
 
       case 'invoke:step-complete':
         log.info('Step complete', {

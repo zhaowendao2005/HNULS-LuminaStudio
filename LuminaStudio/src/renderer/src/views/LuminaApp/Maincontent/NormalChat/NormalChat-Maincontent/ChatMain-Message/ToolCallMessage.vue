@@ -1,8 +1,8 @@
 <template>
   <div class="space-y-2">
     <div
-      v-for="tool in toolCalls"
-      :key="tool.id"
+      v-for="tool in toolBlocks"
+      :key="tool.call.toolCallId"
       :class="[
         'border rounded-xl px-3 py-2.5 text-xs transition-all',
         tool.result ? 'bg-blue-50 border-blue-200' : 'bg-amber-50 border-amber-200 animate-pulse'
@@ -25,7 +25,7 @@
           <path d="M20 6L9 17l-5-5" />
         </svg>
         <span :class="tool.result ? 'text-blue-700' : 'text-amber-700'">
-          {{ tool.result ? '工具调用完成' : '正在调用工具...' }}: {{ tool.name }}
+          {{ tool.result ? '工具调用完成' : '正在调用工具...' }}: {{ tool.call.toolName }}
         </span>
       </div>
 
@@ -34,7 +34,7 @@
         <div class="flex items-start gap-2">
           <span class="text-slate-400 font-medium">输入:</span>
           <span class="flex-1 font-mono text-[11px] bg-white/50 px-2 py-1 rounded">
-            {{ JSON.stringify(tool.input, null, 2) }}
+            {{ JSON.stringify(tool.call.toolArgs, null, 2) }}
           </span>
         </div>
 
@@ -44,11 +44,11 @@
           <div class="flex-1 space-y-1">
             <!-- 如果是搜索结果，美化展示 -->
             <div
-              v-if="tool.result?.results?.length"
+              v-if="getKnowledgeResults(tool.result)?.length"
               class="space-y-1.5 bg-white/70 p-2 rounded border border-slate-100"
             >
               <div
-                v-for="(item, idx) in (tool.result?.results || []).slice(0, 3)"
+                v-for="(item, idx) in (getKnowledgeResults(tool.result) || []).slice(0, 3)"
                 :key="idx"
                 class="text-[11px]"
               >
@@ -70,12 +70,29 @@
 </template>
 
 <script setup lang="ts">
+import type { ToolBlock } from '@renderer/stores/ai-chat/chat-message/types'
+
 defineProps<{
-  toolCalls: Array<{
-    id: string
-    name: string
-    input: any
-    result?: any
-  }>
+  toolBlocks: ToolBlock[]
 }>()
+
+interface KnowledgeSearchResult {
+  results?: Array<{
+    title?: string
+    snippet?: string
+    [key: string]: unknown
+  }>
+  [key: string]: unknown
+}
+
+function isKnowledgeSearchResult(result: unknown): result is KnowledgeSearchResult {
+  return typeof result === 'object' && result !== null && 'results' in result
+}
+
+function getKnowledgeResults(result: unknown): KnowledgeSearchResult['results'] {
+  if (isKnowledgeSearchResult(result)) {
+    return result.results
+  }
+  return undefined
+}
 </script>

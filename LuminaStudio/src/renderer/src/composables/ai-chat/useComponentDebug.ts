@@ -309,18 +309,22 @@ export function useComponentDebug() {
       emit({
         type: 'tool-call',
         requestId,
-        toolCallId: toolId1,
-        toolName: 'web_search',
-        input: { query: '2024-2025 frontend architecture trends Vue3 Electron best practices' }
+        payload: {
+          toolCallId: toolId1,
+          toolName: 'web_search',
+          toolArgs: { query: '2024-2025 frontend architecture trends Vue3 Electron best practices' }
+        }
       })
       await sleep(1200)
 
       emit({
         type: 'tool-result',
         requestId,
-        toolCallId: toolId1,
-        toolName: 'web_search',
-        result: TOOL_SEARCH_RESULTS
+        payload: {
+          toolCallId: toolId1,
+          toolName: 'web_search',
+          result: TOOL_SEARCH_RESULTS
+        }
       })
       await sleep(400)
 
@@ -348,9 +352,11 @@ export function useComponentDebug() {
       emit({
         type: 'tool-result',
         requestId,
-        toolCallId: toolId2,
-        toolName: 'code_analysis',
-        result: TOOL_ANALYSIS_RESULT
+        payload: {
+          toolCallId: toolId2,
+          toolName: 'code_analysis',
+          result: TOOL_ANALYSIS_RESULT
+        }
       })
       await sleep(500)
 

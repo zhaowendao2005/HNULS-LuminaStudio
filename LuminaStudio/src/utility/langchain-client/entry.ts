@@ -3,7 +3,7 @@ import type {
   LangchainClientToMainMessage,
   MainToLangchainClientMessage
 } from '@shared/langchain-client.types'
-import { AgentManager } from './agent-manager'
+import { AgentManager } from './manager'
 
 const log = logger.scope('LangchainClient.entry')
 

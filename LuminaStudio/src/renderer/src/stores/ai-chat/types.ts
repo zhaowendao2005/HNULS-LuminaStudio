@@ -7,10 +7,14 @@
 // 重新导出消息相关类型
 export type {
   ChatMessage,
+  MessageBlock,
+  MessageBlockType,
+  TextBlock,
+  ThinkingBlock,
+  ToolBlock,
+  NodeBlock,
+  MetaBlock,
   ThinkingStep,
-  ToolCall,
-  ToolCallResult,
-  ToolResultItem,
   TokenUsage
 } from './chat-message/types'
 

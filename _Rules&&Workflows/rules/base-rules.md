@@ -1,13 +1,6 @@
 ---
-inclusion: always
-trigger: always_on
+description: 应用于HNULS-LuminaStudio项目下
 ---
-<!------------------------------------------------------------------------------------
-   Add rules to this file or a short description and have Kiro refine them for you.
-   
-   Learn about inclusion modes: https://kiro.dev/docs/steering/#inclusion-modes
--------------------------------------------------------------------------------------> 
-
 # 项目基本原则（Rules） 
 
 

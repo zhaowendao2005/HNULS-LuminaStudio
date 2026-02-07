@@ -53,6 +53,80 @@ export interface LangchainClientChatMessage {
   role: LangchainClientChatRole
   content: string
 }
+// ==================== Node Types ====================
+
+/**
+ * NodeKind: 语义级节点类型（用于 UI 路由与可视化）
+ *
+ * - knowledge_retrieval: 知识库检索节点
+ * - tool: 通用工具节点（外部工具执行）
+ * - final_answer: 生成最终回答节点
+ * - custom: 其他自定义节点
+ */
+export type LangchainClientNodeKind =
+  | 'knowledge_retrieval'
+  | 'tool'
+  | 'final_answer'
+  | 'custom'
+
+/**
+ * 可选的 UI 提示，用于 renderer 组件选择
+ */
+export interface LangchainClientNodeUiHint {
+  /** 推荐组件名（kebab-case），如 'knowledge-search' */
+  component?: string
+  /** UI 标题 */
+  title?: string
+  /** 图标名或 key */
+  icon?: string
+}
+
+export interface LangchainClientNodeBasePayload {
+  /** 节点唯一 ID（graph 内唯一即可） */
+  nodeId: string
+  /** 语义类型 */
+  nodeKind: LangchainClientNodeKind
+  /** 可读名称 */
+  label?: string
+  /** UI 提示 */
+  uiHint?: LangchainClientNodeUiHint
+  /** 输入摘要（可序列化） */
+  inputs?: Record<string, unknown>
+  /** 输出摘要（可序列化） */
+  outputs?: Record<string, unknown>
+}
+
+export interface LangchainClientNodeStartPayload extends LangchainClientNodeBasePayload {
+  startedAt?: string
+}
+
+export interface LangchainClientNodeResultPayload extends LangchainClientNodeBasePayload {
+  finishedAt?: string
+  summary?: string
+}
+
+export interface LangchainClientNodeErrorPayload extends LangchainClientNodeBasePayload {
+  error: { message: string; code?: string; details?: unknown }
+}
+
+// ==================== Tool Types ====================
+
+/**
+ * ToolName: 外部工具名（可扩展）
+ */
+export type LangchainClientToolName = 'knowledge_search' | (string & {})
+
+export interface LangchainClientToolCallPayload {
+  toolCallId: string
+  toolName: LangchainClientToolName
+  toolArgs: unknown
+}
+
+export interface LangchainClientToolResultPayload {
+  toolCallId: string
+  toolName: LangchainClientToolName
+  result: unknown
+}
 
 // ==================== Main -> Utility ====================
 
@@ -103,16 +177,27 @@ export type LangchainClientToMainMessage =
   | {
       type: 'invoke:tool-start'
       requestId: string
-      toolCallId: string
-      toolName: string
-      toolArgs: unknown
+      payload: LangchainClientToolCallPayload
     }
   | {
       type: 'invoke:tool-result'
       requestId: string
-      toolCallId: string
-      toolName: string
-      result: unknown
+      payload: LangchainClientToolResultPayload
+    }
+  | {
+      type: 'invoke:node-start'
+      requestId: string
+      payload: LangchainClientNodeStartPayload
+    }
+  | {
+      type: 'invoke:node-result'
+      requestId: string
+      payload: LangchainClientNodeResultPayload
+    }
+  | {
+      type: 'invoke:node-error'
+      requestId: string
+      payload: LangchainClientNodeErrorPayload
     }
   | { type: 'invoke:step-complete'; requestId: string; stepIndex: number; nodeNames?: string[] }
   | {
