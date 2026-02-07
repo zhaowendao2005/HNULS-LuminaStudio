@@ -1,7 +1,26 @@
 /**
- * Chat Message Store
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ * Chat Message Store - 消息状态管理
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  *
- * 负责消息状态管理和流式事件处理
+ * 🎯 核心职责：
+ * 1. 管理所有对话的消息列表
+ * 2. 处理流式事件，动态构建/更新 ChatMessage
+ * 3. 维护生成状态（isGenerating）
+ *
+ * 💡 核心设计：
+ * - messagesByConversation: 以对话 ID 为 key，存储每个对话的消息列表
+ * - streamContexts: 流式输出时，跟踪 requestId 对应的上下文信息
+ * - Block 索引映射：快速定位到已存在的 Block 进行更新
+ *
+ * 🔄 流式输出流程：
+ * 1. stream-start → 创建空消息，blocks = []
+ * 2. text-delta → 追加/更新 TextBlock
+ * 3. tool-call → 添加 ToolBlock
+ * 4. tool-result → 更新 ToolBlock.result
+ * 5. node-start → 添加 NodeBlock
+ * 6. node-result → 更新 NodeBlock.result
+ * 7. finish → 添加 MetaBlock，标记完成
  */
 import { defineStore } from 'pinia'
 import { ref, onScopeDispose } from 'vue'
@@ -17,24 +36,73 @@ import type {
   ToolBlock
 } from './types'
 
+/**
+ * StreamContext - 流式输出上下文
+ *
+ * 📌 作用：
+ * 在流式输出过程中，跟踪当前正在构建的消息信息
+ * 以及 Block 在数组中的索引位置，用于快速更新
+ *
+ * 🎯 为什么需要索引映射？
+ * - 当后端发送 tool-result 时，需要找到之前的 tool-call 创建的 ToolBlock
+ * - 直接遍历 blocks 效率低，用 Map 快速定位：O(1)
+ *
+ * 示例：
+ * toolBlockIndexById.set('tool-123', 2)  // 表示 ID='tool-123' 的 ToolBlock 在 blocks[2]
+ */
 interface StreamContext {
-  conversationId: string
-  messageId: string
-  toolBlockIndexById: Map<string, number>
-  nodeBlockIndexById: Map<string, number>
-  thinkingBlockIndexById: Map<string, number>
+  conversationId: string // 当前消息属于哪个对话
+  messageId: string // 当前正在构建的消息 ID
+  toolBlockIndexById: Map<string, number> // 工具调用 ID → Block 索引
+  nodeBlockIndexById: Map<string, number> // 节点 ID → Block 索引
+  thinkingBlockIndexById: Map<string, number> // 推理步骤 ID → Block 索引
 }
 
 export const useChatMessageStore = defineStore('chat-message', () => {
-  // ===== State =====
+  // ==================== 状态 (State) ====================
+
+  /**
+   * 消息列表：按对话 ID 组织
+   *
+   * 结构：Map<conversationId, ChatMessage[]>
+   * 示例：
+   * {
+   *   'conv-123': [
+   *     { id: 'msg-1', role: 'user', blocks: [...] },
+   *     { id: 'msg-2', role: 'assistant', blocks: [...] }
+   *   ],
+   *   'conv-456': [...]
+   * }
+   */
   const messagesByConversation = ref<Map<string, ChatMessage[]>>(new Map())
+
+  /**
+   * 是否正在生成回答
+   * 用于 UI 显示加载状态
+   */
   const isGenerating = ref(false)
+
+  /**
+   * 当前正在执行的请求 ID
+   * 用于取消请求时匹配
+   */
   const currentRequestId = ref<string | null>(null)
 
-  // stream context: requestId -> conversationId/messageId
+  /**
+   * 流式输出上下文映射
+   *
+   * 结构：Map<requestId, StreamContext>
+   * 作用：在流式输出过程中，根据 requestId 快速找到对应的消息和 Block
+   */
   const streamContexts = new Map<string, StreamContext>()
 
-  // ===== Helpers =====
+  // ==================== 辅助函数 (Helpers) ====================
+
+  /**
+   * 确保对话的消息列表存在
+   *
+   * 如果对话还没有消息列表，创建一个空数组
+   */
   const ensureConversationMessages = (conversationId: string): ChatMessage[] => {
     if (!messagesByConversation.value.has(conversationId)) {
       messagesByConversation.value.set(conversationId, [])
@@ -42,8 +110,18 @@ export const useChatMessageStore = defineStore('chat-message', () => {
     return messagesByConversation.value.get(conversationId)!
   }
 
+  /**
+   * 从 requestId 生成消息 ID
+   *
+   * 流式输出时使用临时 ID，完成后后端会返回数据库的真实 ID
+   */
   const createMessageId = (requestId: string): string => `msg-${requestId}`
 
+  /**
+   * 获取当前流式输出的消息
+   *
+   * 根据 requestId 查找对应的 ChatMessage 对象
+   */
   const getStreamMessage = (requestId: string): ChatMessage | null => {
     const ctx = streamContexts.get(requestId)
     if (!ctx) return null
@@ -51,25 +129,55 @@ export const useChatMessageStore = defineStore('chat-message', () => {
     return list.find((m) => m.id === ctx.messageId) || null
   }
 
+  /**
+   * 获取流式输出上下文
+   *
+   * 包含 conversationId, messageId, 和 Block 索引映射
+   */
   const getStreamContext = (requestId: string): StreamContext | null => {
     return streamContexts.get(requestId) || null
   }
 
+  /**
+   * 确保消息有 blocks 数组
+   *
+   * 防御性编程，避免 blocks 为 undefined
+   */
   const ensureBlocks = (msg: ChatMessage): MessageBlock[] => {
     if (!msg.blocks) msg.blocks = []
     return msg.blocks
   }
 
+  /**
+   * 追加文本增量 (delta)
+   *
+   * 💡 逻辑：
+   * 1. 如果最后一个 Block 是 TextBlock → 直接追加内容
+   * 2. 否则 → 创建新的 TextBlock
+   *
+   * 这样设计的好处：
+   * - 避免创建大量微小的 TextBlock
+   * - 保持文本连续性
+   */
   const appendTextDelta = (msg: ChatMessage, delta: string): void => {
     const blocks = ensureBlocks(msg)
     const last = blocks[blocks.length - 1]
+    // 如果最后一个 Block 是文本，直接追加
     if (last && last.type === 'text') {
       ;(last as TextBlock).content += delta
       return
     }
+    // 否则创建新的 TextBlock
     blocks.push({ type: 'text', content: delta })
   }
 
+  /**
+   * 更新流式消息的 ID
+   *
+   * 📌 何时调用？
+   * 流式输出完成后，后端会返回数据库保存的真实消息 ID
+   * 需要替换掉之前的临时 ID
+   */
   const updateStreamMessageId = (requestId: string, newId: string) => {
     const ctx = streamContexts.get(requestId)
     if (!ctx) return
@@ -122,6 +230,30 @@ export const useChatMessageStore = defineStore('chat-message', () => {
     currentRequestId.value = null
   }
 
+  /**
+   * 处理流式事件 - 核心函数
+   *
+   * 💡 这是整个 Store 最重要的函数！
+   *
+   * 🔄 工作流程：
+   * 1. 接收后端发送的流式事件
+   * 2. 根据事件类型，动态更新 ChatMessage 的 blocks 数组
+   * 3. 维护 Block 索引映射，确保快速定位
+   *
+   * 📚 事件类型：
+   * - stream-start: 开始流式输出，创建空消息
+   * - text-delta: 文本增量，追加到 TextBlock
+   * - reasoning-start/delta/end: 推理过程
+   * - tool-call/result: 工具调用
+   * - node-start/result/error: 节点执行
+   * - error: 错误
+   * - finish: 完成
+   *
+   * 🎯 关键设计：
+   * - 使用 requestId 查找对应的消息
+   * - 使用 Map 存储 Block 索引，实现 O(1) 更新
+   * - 支持乱序事件：即使事件乱序到达，也能正确处理
+   */
   function handleStreamEvent(event: AiChatStreamEvent): void {
     switch (event.type) {
       case 'stream-start': {

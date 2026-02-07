@@ -53,13 +53,6 @@
             :message-id="msg.id"
           />
 
-          <!-- Knowledge Search (tool) -->
-          <KnowledgeSearchMessage
-            v-else-if="isKnowledgeSearchToolBlock(block)"
-            :result="block.result"
-            @show-detail="emit('show-knowledge-detail', $event)"
-          />
-
           <!-- Knowledge Search (node) -->
           <KnowledgeSearchMessage
             v-else-if="isKnowledgeSearchNodeBlock(block)"
@@ -67,11 +60,8 @@
             @show-detail="emit('show-knowledge-detail', $event)"
           />
 
-          <!-- Tool block -->
+          <!-- Tool block (通用工具调用) -->
           <ToolCallMessage v-else-if="block.type === 'tool'" :tool-blocks="[block]" />
-
-          <!-- Node block (generic) -->
-          <NodeMessage v-else-if="block.type === 'node'" :node-block="block" />
 
           <!-- Text block -->
           <TextMessage
@@ -100,7 +90,6 @@ import KnowledgeSearchMessage from './KnowledgeSearchMessage.vue'
 import TextMessage from './TextMessage.vue'
 import UsageMessage from './UsageMessage.vue'
 import ActionButtons from './ActionButtons.vue'
-import NodeMessage from './NodeMessage.vue'
 
 const props = defineProps<{
   messages: any[]
@@ -113,11 +102,6 @@ const emit = defineEmits<{
 
 // 反转消息顺序以配合 column-reverse
 const reversedMessages = computed(() => [...props.messages].reverse())
-
-// 判断是否是 knowledge_search 工具 block
-function isKnowledgeSearchToolBlock(block: any): boolean {
-  return block?.type === 'tool' && block?.call?.toolName === 'knowledge_search' && block?.result
-}
 
 // 判断是否是 knowledge_retrieval 节点 block
 function isKnowledgeSearchNodeBlock(block: any): boolean {

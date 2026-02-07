@@ -94,17 +94,8 @@ export function buildKnowledgeQaGraph(params: {
             seenToolCallIds.add(id)
 
             const toolName = String(tc?.name ?? 'unknown')
-            params.emit({
-              type: 'invoke:tool-start',
-              requestId: state.requestId,
-              payload: {
-                toolCallId: id,
-                toolName,
-                toolArgs: tc?.args
-              }
-            })
-
-            // Knowledge retrieval node event（与 tool 同步发）
+            
+            // 知识检索：只发 node 事件，不发 tool 事件
             if (toolName === 'knowledge_search') {
               params.emit({
                 type: 'invoke:node-start',
@@ -115,6 +106,17 @@ export function buildKnowledgeQaGraph(params: {
                   label: '知识库检索',
                   uiHint: { component: 'knowledge-search', title: '知识库检索' },
                   inputs: { query: tc?.args?.query }
+                }
+              })
+            } else {
+              // 其他工具：发 tool 事件
+              params.emit({
+                type: 'invoke:tool-start',
+                requestId: state.requestId,
+                payload: {
+                  toolCallId: id,
+                  toolName,
+                  toolArgs: tc?.args
                 }
               })
             }
@@ -129,16 +131,7 @@ export function buildKnowledgeQaGraph(params: {
         const toolCallId = String((message as any).tool_call_id ?? '')
         const resultText = extractTextFromContent((message as any).content)
 
-        params.emit({
-          type: 'invoke:tool-result',
-          requestId: state.requestId,
-          payload: {
-            toolCallId: toolCallId || 'unknown',
-            toolName,
-            result: resultText || (message as any).content
-          }
-        })
-
+        // 知识检索：只发 node 事件，不发 tool 事件
         if (toolName === 'knowledge_search') {
           params.emit({
             type: 'invoke:node-result',
@@ -149,6 +142,17 @@ export function buildKnowledgeQaGraph(params: {
               label: '知识库检索',
               uiHint: { component: 'knowledge-search', title: '知识库检索' },
               outputs: { result: resultText || (message as any).content }
+            }
+          })
+        } else {
+          // 其他工具：发 tool 事件
+          params.emit({
+            type: 'invoke:tool-result',
+            requestId: state.requestId,
+            payload: {
+              toolCallId: toolCallId || 'unknown',
+              toolName,
+              result: resultText || (message as any).content
             }
           })
         }
