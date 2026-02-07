@@ -12,6 +12,8 @@ import { AiChatService } from './services/ai-chat/ai-chat-service'
 import { AiChatIPCHandler } from './ipc/ai-chat-handler'
 import { KnowledgeDatabaseBridgeService } from './services/knowledge-database-bridge'
 import { KnowledgeDatabaseIPCHandler } from './ipc/knowledge-database-handler'
+import { RerankModelService } from './services/rerank-model'
+import { RerankModelIPCHandler } from './ipc/rerank-model-handler'
 import { langchainClientBridge } from './services/langchain-client-bridge'
 
 // 确保开发环境也使用 LuminaStudio 作为应用名称（生产环境自动使用 productName）
@@ -86,6 +88,10 @@ app.whenReady().then(() => {
   // 初始化 KnowledgeDatabase Bridge Service 和 IPC Handler
   const knowledgeDatabaseService = new KnowledgeDatabaseBridgeService()
   new KnowledgeDatabaseIPCHandler(knowledgeDatabaseService)
+
+  // 初始化 RerankModel Service 和 IPC Handler
+  const rerankModelService = new RerankModelService()
+  new RerankModelIPCHandler(rerankModelService)
 
   // 注册所有 IPC handlers
   registerAllHandlers()

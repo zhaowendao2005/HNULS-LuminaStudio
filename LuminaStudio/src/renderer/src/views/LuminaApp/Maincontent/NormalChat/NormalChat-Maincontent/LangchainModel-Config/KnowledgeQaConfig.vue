@@ -314,15 +314,15 @@
                <div v-if="store.config.retrievalNode.enableRerank" class="space-y-3 p-3 bg-slate-50 rounded-lg border border-slate-100">
                  <label class="text-sm font-medium text-slate-700">重排模型</label>
                  <button
-                   @click="openModelSelector('rerank')"
-                   class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white hover:bg-slate-50 hover:border-indigo-300 transition-all flex items-center justify-between group"
+                   @click="openRerankSelector()"
+                   class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white hover:bg-slate-50 hover:border-amber-300 transition-all flex items-center justify-between group"
                  >
                    <div class="flex items-center gap-2">
-                     <svg class="w-4 h-4 text-slate-400 group-hover:text-indigo-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                     <svg class="w-4 h-4 text-slate-400 group-hover:text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                        <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
                        <path d="M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2z"/>
                      </svg>
-                     <span v-if="store.config.retrievalNode.rerankModelId" class="text-slate-700">{{ getModelDisplayName('rerank') }}</span>
+                     <span v-if="store.config.retrievalNode.rerankModelId" class="text-slate-700">{{ getRerankModelDisplayName() }}</span>
                      <span v-else class="text-slate-400">选择重排模型</span>
                    </div>
                    <svg class="w-4 h-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
@@ -395,12 +395,19 @@
       </div>
     </div>
 
-    <!-- Model Selector Modal -->
+    <!-- Model Selector Modal (for Plan/Summary) -->
     <ModelSelectorModal
       v-model:visible="showModelSelector"
       :current-provider-id="currentProviderId"
       :current-model-id="currentModelId"
       @select="handleModelSelect"
+    />
+
+    <!-- Rerank Model Selector Modal -->
+    <RerankModelSelectorModal
+      v-model:visible="showRerankSelector"
+      :current-model-id="store.config.retrievalNode.rerankModelId"
+      @select="handleRerankModelSelect"
     />
   </div>
 </template>
@@ -409,16 +416,21 @@
 import { ref, computed } from 'vue'
 import { useKnowledgeQaConfigStore } from '@renderer/stores/ai-chat/LangchainAgent-Config/knowledge-qa'
 import { useModelConfigStore } from '@renderer/stores/model-config/store'
+import { useRerankModelStore } from '@renderer/stores/rerank-model/store'
 import ModelSelectorModal from '../ModelSelectorModal.vue'
+import RerankModelSelectorModal from './RerankModelSelectorModal.vue'
 import type { ModelProvider, Model } from '@renderer/stores/model-config/types'
+import type { RerankModel } from '@renderer/stores/rerank-model/types'
 
 const store = useKnowledgeQaConfigStore()
 const modelConfigStore = useModelConfigStore()
+const rerankModelStore = useRerankModelStore()
 
 const drawerOpen = ref(false)
 const activeNode = ref<string>('')
 const showModelSelector = ref(false)
-const currentSelectorTarget = ref<'plan' | 'rerank' | 'summary'>('plan')
+const showRerankSelector = ref(false)
+const currentSelectorTarget = ref<'plan' | 'summary'>('plan')
 
 const drawerTitle = computed(() => {
   switch (activeNode.value) {
@@ -433,7 +445,6 @@ const drawerTitle = computed(() => {
 const currentProviderId = computed(() => {
   switch (currentSelectorTarget.value) {
     case 'plan': return store.config.planNode.providerId
-    case 'rerank': return store.config.retrievalNode.rerankProviderId
     case 'summary': return store.config.summaryNode.providerId
     default: return null
   }
@@ -442,7 +453,6 @@ const currentProviderId = computed(() => {
 const currentModelId = computed(() => {
   switch (currentSelectorTarget.value) {
     case 'plan': return store.config.planNode.modelId
-    case 'rerank': return store.config.retrievalNode.rerankModelId
     case 'summary': return store.config.summaryNode.modelId
     default: return null
   }
@@ -453,9 +463,13 @@ const openDrawer = (node: string) => {
   drawerOpen.value = true
 }
 
-const openModelSelector = (target: 'plan' | 'rerank' | 'summary') => {
+const openModelSelector = (target: 'plan' | 'summary') => {
   currentSelectorTarget.value = target
   showModelSelector.value = true
+}
+
+const openRerankSelector = () => {
+  showRerankSelector.value = true
 }
 
 const handleModelSelect = (provider: ModelProvider, model: Model) => {
@@ -463,21 +477,22 @@ const handleModelSelect = (provider: ModelProvider, model: Model) => {
     case 'plan':
       store.updatePlanNode(provider.id, model.id)
       break
-    case 'rerank':
-      store.updateRetrievalNode(
-        store.config.retrievalNode.enableRerank,
-        provider.id,
-        model.id,
-        store.config.retrievalNode.topK
-      )
-      break
     case 'summary':
       store.updateSummaryNode(provider.id, model.id)
       break
   }
 }
 
-const getModelDisplayName = (target: 'plan' | 'rerank' | 'summary'): string => {
+const handleRerankModelSelect = (model: RerankModel) => {
+  store.updateRetrievalNode(
+    store.config.retrievalNode.enableRerank,
+    null, // rerank 模型不需要 providerId
+    model.id,
+    store.config.retrievalNode.topK
+  )
+}
+
+const getModelDisplayName = (target: 'plan' | 'summary'): string => {
   let providerId: string | null = null
   let modelId: string | null = null
   
@@ -485,10 +500,6 @@ const getModelDisplayName = (target: 'plan' | 'rerank' | 'summary'): string => {
     case 'plan':
       providerId = store.config.planNode.providerId
       modelId = store.config.planNode.modelId
-      break
-    case 'rerank':
-      providerId = store.config.retrievalNode.rerankProviderId
-      modelId = store.config.retrievalNode.rerankModelId
       break
     case 'summary':
       providerId = store.config.summaryNode.providerId
@@ -503,6 +514,12 @@ const getModelDisplayName = (target: 'plan' | 'rerank' | 'summary'): string => {
 
   const model = provider.models.find(m => m.id === modelId)
   return model ? `${provider.name} / ${model.name}` : modelId
+}
+
+const getRerankModelDisplayName = (): string => {
+  const modelId = store.config.retrievalNode.rerankModelId
+  if (!modelId) return ''
+  return rerankModelStore.getModelDisplayName(modelId)
 }
 </script>
 
