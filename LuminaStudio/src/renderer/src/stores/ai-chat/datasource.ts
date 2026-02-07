@@ -7,39 +7,13 @@ import type {
   AiChatStartRequest,
   AiChatAbortRequest,
   AiChatHistoryRequest,
-  AiChatStreamEvent,
   AiChatAgent,
   AiChatConversation,
-  AiChatMessage,
   AiChatCreateAgentRequest,
   AiChatCreateConversationRequest
 } from '@preload/types'
-import type { AgentInfo, ConversationSummary, ChatMessage, ThinkingStep } from './types'
-
-function mapReasoningToSteps(reasoning?: string | null): ThinkingStep[] | undefined {
-  if (!reasoning) return undefined
-  const lines = reasoning
-    .split(/\n+/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-  if (lines.length === 0) return undefined
-  return lines.map((content, idx) => ({ id: `reasoning-${idx}`, content }))
-}
-
-function mapMessage(row: AiChatMessage): ChatMessage | null {
-  if (row.role !== 'user' && row.role !== 'assistant') return null
-
-  return {
-    id: row.id,
-    role: row.role,
-    content: row.text ?? '',
-    createdAt: row.createdAt,
-    status: row.status,
-    thinkingSteps: mapReasoningToSteps(row.reasoning),
-    isStreaming: row.status === 'streaming',
-    isThinking: false
-  }
-}
+import type { AgentInfo, ConversationSummary, ChatMessage } from './types'
+import { mapMessage } from './chat-message/datasource'
 
 function mapAgent(row: AiChatAgent): AgentInfo {
   return {
@@ -125,9 +99,5 @@ export const AiChatDataSource = {
       throw new Error(res.error || 'Failed to create conversation')
     }
     return mapConversation(res.data)
-  },
-
-  subscribeStream(handler: (event: AiChatStreamEvent) => void): () => void {
-    return window.api.aiChat.onStream(handler)
   }
 }

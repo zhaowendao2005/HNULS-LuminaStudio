@@ -78,14 +78,14 @@
       </div>
     </header>
 
-    <main
-      ref="messagesContainerRef"
-      class="nc_NormalChat_CenterMain_a8d3 flex-1 overflow-y-auto px-6 pt-5 pb-44"
-    >
-      <ChatMainMessage :messages="messages" :is-generating="isGenerating" />
+    <main class="nc_NormalChat_CenterMain_a8d3 flex-1 overflow-y-auto flex flex-col-reverse">
+      <div class="px-6 pt-5" :style="{ paddingBottom: inputBarHeight + 'px' }">
+        <ChatMainMessage :messages="messages" :is-generating="isGenerating" />
+      </div>
     </main>
 
     <div
+      ref="inputBarRef"
       class="nc_NormalChat_CenterInput_a8d3 absolute bottom-0 left-0 w-full px-6 pb-6 pt-16 bg-gradient-to-t from-white via-white/95 to-transparent"
     >
       <div class="max-w-3xl mx-auto">
@@ -106,11 +106,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import ChatMainMessage from './ChatMain-Message/index.vue'
 import ChatInput from './ChatInput/index.vue'
 
-const props = defineProps<{
+defineProps<{
   messages: any[]
   isGenerating: boolean
   userInput: string
@@ -118,7 +118,7 @@ const props = defineProps<{
   displayModelId: string
 }>()
 
-const emit = defineEmits<{
+defineEmits<{
   (e: 'update:userInput', value: string): void
   (e: 'send'): void
   (e: 'abort'): void
@@ -126,19 +126,33 @@ const emit = defineEmits<{
   (e: 'showModelSelector'): void
 }>()
 
-const messagesContainerRef = ref<HTMLElement | null>(null)
+const inputBarRef = ref<HTMLElement | null>(null)
+const inputBarHeight = ref(176) // 默认值 pb-44 = 11rem = 176px
 
-// ===== 自动滚动 =====
-const scrollToBottom = async () => {
-  await nextTick()
-  if (messagesContainerRef.value) {
-    messagesContainerRef.value.scrollTop = messagesContainerRef.value.scrollHeight
+// 使用 ResizeObserver 监听输入栏高度变化
+let resizeObserver: ResizeObserver | null = null
+
+const updateInputBarHeight = () => {
+  if (inputBarRef.value) {
+    inputBarHeight.value = inputBarRef.value.offsetHeight
   }
 }
 
-watch(
-  () => props.messages,
-  () => scrollToBottom(),
-  { deep: true, flush: 'post' }
-)
+onMounted(() => {
+  updateInputBarHeight()
+
+  // 监听输入栏尺寸变化
+  if (inputBarRef.value) {
+    resizeObserver = new ResizeObserver(() => {
+      updateInputBarHeight()
+    })
+    resizeObserver.observe(inputBarRef.value)
+  }
+})
+
+onUnmounted(() => {
+  if (resizeObserver) {
+    resizeObserver.disconnect()
+  }
+})
 </script>

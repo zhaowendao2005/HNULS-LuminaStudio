@@ -1,7 +1,25 @@
 <template>
-  <div class="max-w-3xl mx-auto space-y-8">
+  <div class="max-w-3xl mx-auto flex flex-col-reverse gap-8">
+    <!-- 正在生成提示 -->
+    <div v-if="isGenerating" class="flex gap-4 animate-pulse">
+      <div
+        class="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-sm"
+      >
+        <span class="text-xs font-bold">AI</span>
+      </div>
+      <div class="flex items-center gap-1.5 mt-3">
+        <span class="w-1.5 h-1.5 bg-emerald-300 rounded-full animate-bounce"></span>
+        <span
+          class="w-1.5 h-1.5 bg-emerald-300 rounded-full animate-bounce [animation-delay:0.2s]"
+        ></span>
+        <span
+          class="w-1.5 h-1.5 bg-emerald-300 rounded-full animate-bounce [animation-delay:0.4s]"
+        ></span>
+      </div>
+    </div>
+
     <!-- 消息列表 -->
-    <div v-for="msg in messages" :key="msg.id" class="flex w-full gap-4 animate-in fade-in">
+    <div v-for="msg in reversedMessages" :key="msg.id" class="flex w-full gap-4">
       <!-- Avatar -->
       <div
         :class="[
@@ -45,36 +63,22 @@
         <ActionButtons v-if="msg.role === 'assistant' && !msg.isStreaming" />
       </div>
     </div>
-
-    <!-- 正在生成提示 -->
-    <div v-if="isGenerating" class="flex gap-4 animate-pulse">
-      <div
-        class="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-sm"
-      >
-        <span class="text-xs font-bold">AI</span>
-      </div>
-      <div class="flex items-center gap-1.5 mt-3">
-        <span class="w-1.5 h-1.5 bg-emerald-300 rounded-full animate-bounce"></span>
-        <span
-          class="w-1.5 h-1.5 bg-emerald-300 rounded-full animate-bounce [animation-delay:0.2s]"
-        ></span>
-        <span
-          class="w-1.5 h-1.5 bg-emerald-300 rounded-full animate-bounce [animation-delay:0.4s]"
-        ></span>
-      </div>
-    </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import ThinkingMessage from './ThinkingMessage.vue'
 import ToolCallMessage from './ToolCallMessage.vue'
 import TextMessage from './TextMessage.vue'
 import UsageMessage from './UsageMessage.vue'
 import ActionButtons from './ActionButtons.vue'
 
-defineProps<{
+const props = defineProps<{
   messages: any[]
   isGenerating: boolean
 }>()
+
+// 反转消息顺序以配合 column-reverse
+const reversedMessages = computed(() => [...props.messages].reverse())
 </script>
