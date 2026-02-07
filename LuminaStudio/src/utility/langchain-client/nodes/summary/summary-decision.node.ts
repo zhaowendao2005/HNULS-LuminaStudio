@@ -94,7 +94,9 @@ function buildEvidenceDigest(results: RetrievalExecutionResult[]): string {
       const tableName = String(s?.tableName ?? '')
       const fileKeysCount = Number(s?.fileKeysCount ?? 0)
       const hits = Array.isArray(s?.hits) ? s.hits : []
-      parts.push(`- scope: tableName=${tableName}, fileKeysCount=${fileKeysCount}, hits=${hits.length}`)
+      parts.push(
+        `- scope: tableName=${tableName}, fileKeysCount=${fileKeysCount}, hits=${hits.length}`
+      )
 
       // 每个 hit 仅取前 1 段 snippet，避免全文 HTML 直接灌进模型
       for (const [hitIdx, hit] of hits.entries()) {
@@ -164,8 +166,14 @@ ${params.planningInput}
 ${evidence}
 `
 
-  const resp = await params.model.invoke([new SystemMessage(systemPrompt), new HumanMessage(userPrompt)])
-  const text = typeof (resp as any).content === 'string' ? (resp as any).content : JSON.stringify((resp as any).content)
+  const resp = await params.model.invoke([
+    new SystemMessage(systemPrompt),
+    new HumanMessage(userPrompt)
+  ])
+  const text =
+    typeof (resp as any).content === 'string'
+      ? (resp as any).content
+      : JSON.stringify((resp as any).content)
 
   try {
     const parsed = parseJsonFromModel(text)

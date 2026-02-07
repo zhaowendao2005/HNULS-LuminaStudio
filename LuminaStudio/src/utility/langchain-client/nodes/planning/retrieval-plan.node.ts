@@ -137,8 +137,14 @@ ${params.planningInput}
 ${available}
 `
 
-  const resp = await params.model.invoke([new SystemMessage(systemPrompt), new HumanMessage(userPrompt)])
-  const text = typeof (resp as any).content === 'string' ? (resp as any).content : JSON.stringify((resp as any).content)
+  const resp = await params.model.invoke([
+    new SystemMessage(systemPrompt),
+    new HumanMessage(userPrompt)
+  ])
+  const text =
+    typeof (resp as any).content === 'string'
+      ? (resp as any).content
+      : JSON.stringify((resp as any).content)
 
   let parsed: any
   try {
@@ -168,6 +174,7 @@ ${available}
   return {
     maxK,
     rationale: typeof parsed?.rationale === 'string' ? parsed.rationale : undefined,
-    queries: queries.length > 0 ? queries : [{ query: params.planningInput || params.userInput, k: maxK }]
+    queries:
+      queries.length > 0 ? queries : [{ query: params.planningInput || params.userInput, k: maxK }]
   }
 }

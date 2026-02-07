@@ -34,6 +34,12 @@
       <!-- Tab: 来源 -->
       <SourcesTab v-if="currentTab === 'sources'" :disabled="sourcesDisabled" />
 
+      <!-- Tab: Agent 设置 -->
+      <AgentSettingsTab
+        v-else-if="currentTab === 'agent-settings'"
+        @open-config="(type) => emit('open-config', type)"
+      />
+
       <!-- Tab: 设置 -->
       <div v-else-if="currentTab === 'settings'" class="space-y-4">
         <div class="text-center text-slate-400 py-8">
@@ -77,6 +83,7 @@
 <script setup lang="ts">
 import WhiteSelect, { type WhiteSelectOption } from '../components/WhiteSelect.vue'
 import SourcesTab from './SourcesTab.vue'
+import AgentSettingsTab from './AgentSettingsTab.vue'
 
 defineProps<{
   collapsed: boolean
@@ -88,5 +95,6 @@ defineProps<{
 const emit = defineEmits<{
   (e: 'update:collapsed', value: boolean): void
   (e: 'update:currentTab', value: string): void
+  (e: 'open-config', type: string): void
 }>()
 </script>

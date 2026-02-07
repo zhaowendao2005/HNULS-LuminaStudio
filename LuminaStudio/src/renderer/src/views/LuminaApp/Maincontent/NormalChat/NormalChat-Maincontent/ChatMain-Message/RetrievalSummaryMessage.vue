@@ -15,13 +15,18 @@
       isError
         ? 'bg-rose-50 border-rose-200'
         : isDone
-          ? (shouldLoop ? 'bg-amber-50 border-amber-200' : 'bg-emerald-50 border-emerald-200')
+          ? shouldLoop
+            ? 'bg-amber-50 border-amber-200'
+            : 'bg-emerald-50 border-emerald-200'
           : 'bg-slate-50 border-slate-200 animate-pulse'
     ]"
   >
     <!-- Header -->
     <div class="flex items-center gap-2 font-medium mb-2">
-      <div v-if="!isDone && !isError" class="w-4 h-4 rounded-full border-2 border-slate-400 border-t-transparent animate-spin"></div>
+      <div
+        v-if="!isDone && !isError"
+        class="w-4 h-4 rounded-full border-2 border-slate-400 border-t-transparent animate-spin"
+      ></div>
       <svg
         v-else-if="isDone && !isError && !shouldLoop"
         class="w-4 h-4 text-emerald-600"
@@ -56,17 +61,13 @@
         <path d="m6 6 12 12" />
       </svg>
 
-      <span :class="headerTextClass">
-        {{ statusLabel }}: 总结与判断
-      </span>
+      <span :class="headerTextClass">{{ statusLabel }}: 总结与判断</span>
     </div>
 
     <!-- Body -->
     <div class="pl-6 text-slate-700 space-y-2">
       <!-- Error -->
-      <div v-if="isError" class="text-rose-600">
-        ⚠️ {{ errorMessage }}
-      </div>
+      <div v-if="isError" class="text-rose-600">⚠️ {{ errorMessage }}</div>
 
       <!-- Decision -->
       <div v-if="isDone" class="space-y-1">
@@ -79,7 +80,9 @@
         </div>
 
         <div class="text-slate-400 font-medium mt-2">message</div>
-        <div class="text-[11px] bg-white/70 px-2 py-1 rounded border border-slate-100 whitespace-pre-wrap">
+        <div
+          class="text-[11px] bg-white/70 px-2 py-1 rounded border border-slate-100 whitespace-pre-wrap"
+        >
           {{ message || '(空)' }}
         </div>
 

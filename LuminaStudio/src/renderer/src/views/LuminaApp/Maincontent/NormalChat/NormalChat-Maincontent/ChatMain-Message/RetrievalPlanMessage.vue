@@ -20,7 +20,10 @@
   >
     <!-- Header -->
     <div class="flex items-center gap-2 font-medium mb-2">
-      <div v-if="!isDone && !isError" class="w-4 h-4 rounded-full border-2 border-slate-400 border-t-transparent animate-spin"></div>
+      <div
+        v-if="!isDone && !isError"
+        class="w-4 h-4 rounded-full border-2 border-slate-400 border-t-transparent animate-spin"
+      ></div>
       <svg
         v-else-if="isDone && !isError"
         class="w-4 h-4 text-indigo-600"
@@ -51,9 +54,7 @@
     <!-- Body -->
     <div class="pl-6 text-slate-700 space-y-2">
       <!-- Error -->
-      <div v-if="isError" class="text-rose-600">
-        ⚠️ {{ errorMessage }}
-      </div>
+      <div v-if="isError" class="text-rose-600">⚠️ {{ errorMessage }}</div>
 
       <!-- Inputs (debug / explain) -->
       <div class="space-y-1">
@@ -69,9 +70,7 @@
 
         <div class="text-[11px] text-slate-600">maxK: {{ maxK }}</div>
 
-        <div v-if="rationale" class="text-[11px] text-slate-600">
-          rationale: {{ rationale }}
-        </div>
+        <div v-if="rationale" class="text-[11px] text-slate-600">rationale: {{ rationale }}</div>
 
         <div v-if="queries.length" class="space-y-1.5">
           <div class="text-[10px] text-slate-500">queries（最多 10 条）</div>

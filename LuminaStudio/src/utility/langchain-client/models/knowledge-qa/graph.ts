@@ -50,9 +50,15 @@ import type {
   LangchainClientToMainMessage
 } from '@shared/langchain-client.types'
 import type { AgentRuntime } from '../../factory'
-import { runKnowledgeRetrieval, KNOWLEDGE_RETRIEVAL_MAX_K } from '../../nodes/knowledge/knowledge-retrieval.node'
+import {
+  runKnowledgeRetrieval,
+  KNOWLEDGE_RETRIEVAL_MAX_K
+} from '../../nodes/knowledge/knowledge-retrieval.node'
 import { runRetrievalPlanning } from '../../nodes/planning/retrieval-plan.node'
-import { runSummaryDecision, type RetrievalExecutionResult } from '../../nodes/summary/summary-decision.node'
+import {
+  runSummaryDecision,
+  type RetrievalExecutionResult
+} from '../../nodes/summary/summary-decision.node'
 
 /**
  * 最多迭代轮次（plan→retrieve→summary 算一轮）
@@ -185,14 +191,20 @@ export function buildKnowledgeQaGraph(params: {
 
     // 3) 二次规范化：最多 10 条、k clamp
     const normalizedPlan: LangchainClientRetrievalPlanOutput = {
-      maxK: Math.min(KNOWLEDGE_RETRIEVAL_MAX_K, Math.max(1, plan.maxK || KNOWLEDGE_RETRIEVAL_MAX_K)),
+      maxK: Math.min(
+        KNOWLEDGE_RETRIEVAL_MAX_K,
+        Math.max(1, plan.maxK || KNOWLEDGE_RETRIEVAL_MAX_K)
+      ),
       rationale: plan.rationale,
       queries: (plan.queries ?? [])
         .filter((q) => q && typeof q.query === 'string' && q.query.trim())
         .slice(0, MAX_RETRIEVES_PER_ITERATION)
         .map((q) => ({
           query: q.query.trim(),
-          k: Math.min(KNOWLEDGE_RETRIEVAL_MAX_K, Math.max(1, Math.floor(q.k || KNOWLEDGE_RETRIEVAL_MAX_K)))
+          k: Math.min(
+            KNOWLEDGE_RETRIEVAL_MAX_K,
+            Math.max(1, Math.floor(q.k || KNOWLEDGE_RETRIEVAL_MAX_K))
+          )
         }))
     }
 
@@ -407,7 +419,11 @@ export function buildKnowledgeQaGraph(params: {
 
     // A) 不需要回环：输出最终答案并结束
     if (!decision.shouldLoop) {
-      params.emit({ type: 'invoke:text-delta', requestId: state.requestId, delta: decision.message })
+      params.emit({
+        type: 'invoke:text-delta',
+        requestId: state.requestId,
+        delta: decision.message
+      })
       return {
         decision,
         fullText: decision.message

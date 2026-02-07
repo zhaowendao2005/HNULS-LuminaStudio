@@ -1,0 +1,524 @@
+<template>
+  <div class="flex h-full w-full relative bg-slate-50 overflow-hidden">
+    <!-- Main Canvas Area -->
+    <div class="flex-1 relative overflow-auto custom-scrollbar">
+      <!-- Dot Grid Background -->
+      <div
+        class="absolute inset-0 pointer-events-none"
+        style="
+          background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+          background-size: 20px 20px;
+          opacity: 0.5;
+        "
+      ></div>
+
+      <!-- Graph Visualization (SVG) -->
+      <div class="min-h-full min-w-full flex items-center justify-center p-10">
+        <svg width="600" height="800" class="overflow-visible">
+          <defs>
+            <marker
+              id="arrowhead"
+              markerWidth="10"
+              markerHeight="7"
+              refX="9"
+              refY="3.5"
+              orient="auto"
+            >
+              <polygon points="0 0, 10 3.5, 0 7" fill="#94a3b8" />
+            </marker>
+          </defs>
+
+          <!-- Links -->
+          <!-- Start -> Plan -->
+          <path
+            d="M300 80 C 300 100, 300 120, 300 150"
+            fill="none"
+            stroke="#94a3b8"
+            stroke-width="2"
+            marker-end="url(#arrowhead)"
+          />
+
+          <!-- Plan -> Retrieval -->
+          <path
+            d="M300 210 C 300 230, 300 250, 300 280"
+            fill="none"
+            stroke="#94a3b8"
+            stroke-width="2"
+            marker-end="url(#arrowhead)"
+          />
+
+          <!-- Retrieval -> Summary -->
+          <path
+            d="M300 340 C 300 360, 300 380, 300 410"
+            fill="none"
+            stroke="#94a3b8"
+            stroke-width="2"
+            marker-end="url(#arrowhead)"
+          />
+
+          <!-- Summary -> Output (Yes) -->
+          <path
+            d="M300 470 C 300 500, 300 520, 300 550"
+            fill="none"
+            stroke="#22c55e"
+            stroke-width="2"
+            marker-end="url(#arrowhead)"
+          />
+          <text x="310" y="510" fill="#22c55e" font-size="12" font-weight="bold">YES</text>
+
+          <!-- Summary -> Plan (No - Loopback) -->
+          <path
+            d="M360 440 C 500 440, 500 180, 360 180"
+            fill="none"
+            stroke="#ef4444"
+            stroke-width="2"
+            stroke-dasharray="5,5"
+            marker-end="url(#arrowhead)"
+          />
+          <text x="450" y="310" fill="#ef4444" font-size="12" font-weight="bold">NO</text>
+
+          <!-- Nodes -->
+          <!-- Start -->
+          <g transform="translate(240, 40)">
+            <rect
+              width="120"
+              height="40"
+              rx="20"
+              fill="#e2e8f0"
+              stroke="#94a3b8"
+              stroke-width="2"
+            />
+            <text
+              x="60"
+              y="25"
+              text-anchor="middle"
+              fill="#475569"
+              font-weight="bold"
+              font-size="14"
+            >
+              User Input
+            </text>
+          </g>
+
+          <!-- Plan Node -->
+          <g
+            transform="translate(220, 150)"
+            class="cursor-pointer hover:opacity-90 transition-opacity"
+            @contextmenu.prevent="openDrawer('plan')"
+            @click="openDrawer('plan')"
+          >
+            <rect
+              width="160"
+              height="60"
+              rx="12"
+              fill="white"
+              stroke="#6366f1"
+              stroke-width="2"
+              filter="drop-shadow(0 4px 6px rgb(0 0 0 / 0.1))"
+            />
+            <text
+              x="80"
+              y="25"
+              text-anchor="middle"
+              fill="#1e293b"
+              font-weight="bold"
+              font-size="14"
+            >
+              Planning
+            </text>
+            <text x="80" y="45" text-anchor="middle" fill="#64748b" font-size="10">
+              分解任务与规划
+            </text>
+          </g>
+
+          <!-- Retrieval Node -->
+          <g
+            transform="translate(220, 280)"
+            class="cursor-pointer hover:opacity-90 transition-opacity"
+            @contextmenu.prevent="openDrawer('retrieval')"
+            @click="openDrawer('retrieval')"
+          >
+            <rect
+              width="160"
+              height="60"
+              rx="12"
+              fill="white"
+              stroke="#f59e0b"
+              stroke-width="2"
+              filter="drop-shadow(0 4px 6px rgb(0 0 0 / 0.1))"
+            />
+            <text
+              x="80"
+              y="25"
+              text-anchor="middle"
+              fill="#1e293b"
+              font-weight="bold"
+              font-size="14"
+            >
+              Retrieval
+            </text>
+            <text x="80" y="45" text-anchor="middle" fill="#64748b" font-size="10">
+              知识库检索与重排
+            </text>
+          </g>
+
+          <!-- Summary & Judge Node -->
+          <g
+            transform="translate(220, 410)"
+            class="cursor-pointer hover:opacity-90 transition-opacity"
+            @contextmenu.prevent="openDrawer('summary')"
+            @click="openDrawer('summary')"
+          >
+            <rect
+              width="160"
+              height="60"
+              rx="12"
+              fill="white"
+              stroke="#ec4899"
+              stroke-width="2"
+              filter="drop-shadow(0 4px 6px rgb(0 0 0 / 0.1))"
+            />
+            <text
+              x="80"
+              y="25"
+              text-anchor="middle"
+              fill="#1e293b"
+              font-weight="bold"
+              font-size="14"
+            >
+              Summary & Judge
+            </text>
+            <text x="80" y="45" text-anchor="middle" fill="#64748b" font-size="10">
+              总结与质量判断
+            </text>
+          </g>
+
+          <!-- Output -->
+          <g transform="translate(240, 550)">
+            <rect
+              width="120"
+              height="40"
+              rx="20"
+              fill="#e2e8f0"
+              stroke="#94a3b8"
+              stroke-width="2"
+            />
+            <text
+              x="60"
+              y="25"
+              text-anchor="middle"
+              fill="#475569"
+              font-weight="bold"
+              font-size="14"
+            >
+              Output
+            </text>
+          </g>
+        </svg>
+      </div>
+
+      <!-- Global Settings Button (Floating) -->
+      <div class="absolute top-4 right-4">
+        <button
+          @click="openDrawer('global')"
+          class="px-4 py-2 bg-white border border-slate-200 shadow-sm rounded-lg text-sm font-medium text-slate-600 hover:text-emerald-600 hover:border-emerald-200 transition-colors flex items-center gap-2"
+        >
+          <svg
+            class="w-4 h-4"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
+            <path
+              d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z"
+            />
+          </svg>
+          全局设置
+        </button>
+      </div>
+    </div>
+
+    <!-- Right Drawer -->
+    <div
+      class="absolute top-0 right-0 h-full w-80 bg-white border-l border-slate-200 shadow-xl transform transition-transform duration-300 ease-in-out z-20"
+      :class="drawerOpen ? 'translate-x-0' : 'translate-x-full'"
+    >
+      <div class="h-full flex flex-col">
+        <!-- Drawer Header -->
+        <div class="p-4 border-b border-slate-100 flex items-center justify-between">
+          <h3 class="font-semibold text-slate-800">{{ drawerTitle }}</h3>
+          <button @click="drawerOpen = false" class="text-slate-400 hover:text-slate-600">
+            <svg
+              class="w-5 h-5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Drawer Content -->
+        <div class="flex-1 overflow-y-auto p-4 space-y-6">
+          <!-- Plan Node Settings -->
+          <template v-if="activeNode === 'plan'">
+             <div class="space-y-3">
+               <label class="text-sm font-medium text-slate-700">模型选择</label>
+               <div class="text-xs text-slate-500 mb-2">负责任务分解与规划的模型</div>
+               
+               <button
+                 @click="openModelSelector('plan')"
+                 class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white hover:bg-slate-50 hover:border-indigo-300 transition-all flex items-center justify-between group"
+               >
+                 <div class="flex items-center gap-2">
+                   <svg class="w-4 h-4 text-slate-400 group-hover:text-indigo-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                     <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
+                     <path d="M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2z"/>
+                   </svg>
+                   <span v-if="store.config.planNode.modelId" class="text-slate-700">{{ getModelDisplayName('plan') }}</span>
+                   <span v-else class="text-slate-400">选择模型</span>
+                 </div>
+                 <svg class="w-4 h-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+               </button>
+             </div>
+          </template>
+
+          <!-- Retrieval Node Settings -->
+          <template v-if="activeNode === 'retrieval'">
+            <div class="space-y-4">
+              <div class="flex items-center justify-between">
+                <label class="text-sm font-medium text-slate-700">开启重排 (Rerank)</label>
+                <button
+                  class="w-10 h-5 rounded-full relative transition-colors focus:outline-none"
+                  :class="
+                    store.config.retrievalNode.enableRerank ? 'bg-emerald-500' : 'bg-slate-200'
+                  "
+                  @click="
+                    store.config.retrievalNode.enableRerank =
+                      !store.config.retrievalNode.enableRerank
+                  "
+                >
+                  <span
+                    class="absolute top-1 left-1 bg-white w-3 h-3 rounded-full transition-transform"
+                    :class="
+                      store.config.retrievalNode.enableRerank ? 'translate-x-5' : 'translate-x-0'
+                    "
+                  ></span>
+                </button>
+              </div>
+
+               <div v-if="store.config.retrievalNode.enableRerank" class="space-y-3 p-3 bg-slate-50 rounded-lg border border-slate-100">
+                 <label class="text-sm font-medium text-slate-700">重排模型</label>
+                 <button
+                   @click="openModelSelector('rerank')"
+                   class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white hover:bg-slate-50 hover:border-indigo-300 transition-all flex items-center justify-between group"
+                 >
+                   <div class="flex items-center gap-2">
+                     <svg class="w-4 h-4 text-slate-400 group-hover:text-indigo-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                       <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
+                       <path d="M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2z"/>
+                     </svg>
+                     <span v-if="store.config.retrievalNode.rerankModelId" class="text-slate-700">{{ getModelDisplayName('rerank') }}</span>
+                     <span v-else class="text-slate-400">选择重排模型</span>
+                   </div>
+                   <svg class="w-4 h-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                 </button>
+               </div>
+
+              <div class="space-y-3">
+                <label class="text-sm font-medium text-slate-700">Top K (最大检索数)</label>
+                <div class="flex items-center gap-3">
+                  <input
+                    v-model.number="store.config.retrievalNode.topK"
+                    type="range"
+                    min="1"
+                    max="20"
+                    class="flex-1 accent-indigo-500"
+                  />
+                  <span class="text-sm font-mono w-8 text-center">
+                    {{ store.config.retrievalNode.topK }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <!-- Summary Node Settings -->
+          <template v-if="activeNode === 'summary'">
+             <div class="space-y-3">
+               <label class="text-sm font-medium text-slate-700">模型选择</label>
+               <div class="text-xs text-slate-500 mb-2">负责总结检索结果并判断质量的模型</div>
+               
+               <button
+                 @click="openModelSelector('summary')"
+                 class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white hover:bg-slate-50 hover:border-indigo-300 transition-all flex items-center justify-between group"
+               >
+                 <div class="flex items-center gap-2">
+                   <svg class="w-4 h-4 text-slate-400 group-hover:text-indigo-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                     <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
+                     <path d="M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2z"/>
+                   </svg>
+                   <span v-if="store.config.summaryNode.modelId" class="text-slate-700">{{ getModelDisplayName('summary') }}</span>
+                   <span v-else class="text-slate-400">选择模型</span>
+                 </div>
+                 <svg class="w-4 h-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+               </button>
+             </div>
+          </template>
+
+          <!-- Global Settings -->
+          <template v-if="activeNode === 'global'">
+            <div class="space-y-3">
+              <label class="text-sm font-medium text-slate-700">最大迭代次数</label>
+              <div class="text-xs text-slate-500">防止规划-判断循环过多的安全限制</div>
+              <div class="flex items-center gap-3">
+                <input
+                  v-model.number="store.config.graph.maxIterations"
+                  type="number"
+                  min="1"
+                  max="10"
+                  class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+            </div>
+          </template>
+        </div>
+        
+        <!-- Drawer Footer -->
+        <div class="p-4 border-t border-slate-100 bg-slate-50 text-xs text-slate-400 text-center">
+          配置将自动保存
+        </div>
+      </div>
+    </div>
+
+    <!-- Model Selector Modal -->
+    <ModelSelectorModal
+      v-model:visible="showModelSelector"
+      :current-provider-id="currentProviderId"
+      :current-model-id="currentModelId"
+      @select="handleModelSelect"
+    />
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, computed } from 'vue'
+import { useKnowledgeQaConfigStore } from '@renderer/stores/ai-chat/LangchainAgent-Config/knowledge-qa'
+import { useModelConfigStore } from '@renderer/stores/model-config/store'
+import ModelSelectorModal from '../ModelSelectorModal.vue'
+import type { ModelProvider, Model } from '@renderer/stores/model-config/types'
+
+const store = useKnowledgeQaConfigStore()
+const modelConfigStore = useModelConfigStore()
+
+const drawerOpen = ref(false)
+const activeNode = ref<string>('')
+const showModelSelector = ref(false)
+const currentSelectorTarget = ref<'plan' | 'rerank' | 'summary'>('plan')
+
+const drawerTitle = computed(() => {
+  switch (activeNode.value) {
+    case 'plan': return '规划节点配置'
+    case 'retrieval': return '检索节点配置'
+    case 'summary': return '总结与判断节点配置'
+    case 'global': return '全局参数设置'
+    default: return '配置'
+  }
+})
+
+const currentProviderId = computed(() => {
+  switch (currentSelectorTarget.value) {
+    case 'plan': return store.config.planNode.providerId
+    case 'rerank': return store.config.retrievalNode.rerankProviderId
+    case 'summary': return store.config.summaryNode.providerId
+    default: return null
+  }
+})
+
+const currentModelId = computed(() => {
+  switch (currentSelectorTarget.value) {
+    case 'plan': return store.config.planNode.modelId
+    case 'rerank': return store.config.retrievalNode.rerankModelId
+    case 'summary': return store.config.summaryNode.modelId
+    default: return null
+  }
+})
+
+const openDrawer = (node: string) => {
+  activeNode.value = node
+  drawerOpen.value = true
+}
+
+const openModelSelector = (target: 'plan' | 'rerank' | 'summary') => {
+  currentSelectorTarget.value = target
+  showModelSelector.value = true
+}
+
+const handleModelSelect = (provider: ModelProvider, model: Model) => {
+  switch (currentSelectorTarget.value) {
+    case 'plan':
+      store.updatePlanNode(provider.id, model.id)
+      break
+    case 'rerank':
+      store.updateRetrievalNode(
+        store.config.retrievalNode.enableRerank,
+        provider.id,
+        model.id,
+        store.config.retrievalNode.topK
+      )
+      break
+    case 'summary':
+      store.updateSummaryNode(provider.id, model.id)
+      break
+  }
+}
+
+const getModelDisplayName = (target: 'plan' | 'rerank' | 'summary'): string => {
+  let providerId: string | null = null
+  let modelId: string | null = null
+  
+  switch (target) {
+    case 'plan':
+      providerId = store.config.planNode.providerId
+      modelId = store.config.planNode.modelId
+      break
+    case 'rerank':
+      providerId = store.config.retrievalNode.rerankProviderId
+      modelId = store.config.retrievalNode.rerankModelId
+      break
+    case 'summary':
+      providerId = store.config.summaryNode.providerId
+      modelId = store.config.summaryNode.modelId
+      break
+  }
+
+  if (!providerId || !modelId) return ''
+
+  const provider = modelConfigStore.providers.find(p => p.id === providerId)
+  if (!provider) return modelId
+
+  const model = provider.models.find(m => m.id === modelId)
+  return model ? `${provider.name} / ${model.name}` : modelId
+}
+</script>
+
+<style scoped>
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.5);
+  border-radius: 3px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(148, 163, 184, 0.8);
+}
+</style>

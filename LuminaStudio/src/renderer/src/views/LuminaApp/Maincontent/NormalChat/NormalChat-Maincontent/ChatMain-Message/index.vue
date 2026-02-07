@@ -57,7 +57,10 @@
           <RetrievalPlanMessage v-else-if="isRetrievalPlanNodeBlock(block)" :node-block="block" />
 
           <!-- Retrieval Summary (node) -->
-          <RetrievalSummaryMessage v-else-if="isRetrievalSummaryNodeBlock(block)" :node-block="block" />
+          <RetrievalSummaryMessage
+            v-else-if="isRetrievalSummaryNodeBlock(block)"
+            :node-block="block"
+          />
 
           <!-- Knowledge Search (node) -->
           <KnowledgeSearchMessage

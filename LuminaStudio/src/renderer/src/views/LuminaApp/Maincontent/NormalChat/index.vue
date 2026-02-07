@@ -12,6 +12,7 @@
       v-model:currentTab="currentTab"
       :tab-options="leftTabOptions"
       :sources-disabled="inputBarStore.mode === 'normal'"
+      @open-config="handleOpenConfig"
     />
 
     <!-- Center Chat -->
@@ -39,6 +40,8 @@
     />
 
     <ConversationListModal v-model:visible="showConversationList" />
+
+    <LangchainModelConfig v-model:visible="showConfigDialog" />
   </div>
 </template>
 
@@ -49,6 +52,7 @@ import RightPanel from './RightPanel/index.vue'
 import ChatMain from './NormalChat-Maincontent/ChatMain.vue'
 import ModelSelectorModal from './NormalChat-Maincontent/ModelSelectorModal.vue'
 import ConversationListModal from './NormalChat-Maincontent/ConversationListModal.vue'
+import LangchainModelConfig from './NormalChat-Maincontent/LangchainModel-Config/index.vue'
 import { type WhiteSelectOption } from './components/WhiteSelect.vue'
 import { useAiChatStore } from '@renderer/stores/ai-chat/store'
 import { useModelConfigStore } from '@renderer/stores/model-config/store'
@@ -66,6 +70,7 @@ const rightCollapsed = ref(true) // 默认折叠右侧栏
 const currentTab = ref<string>('sources')
 const leftTabOptions: WhiteSelectOption[] = [
   { label: '来源', value: 'sources' },
+  { label: 'Agent设置', value: 'agent-settings' },
   { label: '设置', value: 'settings' },
   { label: '历史', value: 'history' }
 ]
@@ -73,6 +78,13 @@ const leftTabOptions: WhiteSelectOption[] = [
 // ===== 模态框控制 =====
 const showModelSelector = ref(false)
 const showConversationList = ref(false)
+const showConfigDialog = ref(false)
+
+const handleOpenConfig = (type: string) => {
+  if (type === 'knowledge-qa') {
+    showConfigDialog.value = true
+  }
+}
 
 // ===== 静态数据 =====
 const tools = [
