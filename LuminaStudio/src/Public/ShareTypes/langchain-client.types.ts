@@ -63,7 +63,20 @@ export interface LangchainClientChatMessage {
  * - final_answer: 生成最终回答节点
  * - custom: 其他自定义节点
  */
-export type LangchainClientNodeKind = 'knowledge_retrieval' | 'tool' | 'final_answer' | 'custom'
+/**
+ * NodeKind: 语义级节点类型（用于 UI 路由与可视化）
+ *
+ * 约定：新增节点必须
+ * 1) 在这里登记 nodeKind
+ * 2) 在 renderer 增加对应渲染组件（或明确复用某个组件）
+ */
+export type LangchainClientNodeKind =
+  | 'knowledge_retrieval'
+  | 'retrieval_plan'
+  | 'retrieval_summary'
+  | 'tool'
+  | 'final_answer'
+  | 'custom'
 
 /**
  * 可选的 UI 提示，用于 renderer 组件选择
@@ -103,6 +116,36 @@ export interface LangchainClientNodeResultPayload extends LangchainClientNodeBas
 
 export interface LangchainClientNodeErrorPayload extends LangchainClientNodeBasePayload {
   error: { message: string; code?: string; details?: unknown }
+}
+
+// ==================== Node Outputs (可选强类型) ====================
+
+/**
+ * 规划节点输出：检索计划
+ * - queries: 需要执行的检索列表（最多 10 条，graph 会二次裁剪）
+ * - maxK: 当前系统允许的最大 k（由检索节点硬编码，当前为 3）
+ */
+export interface LangchainClientRetrievalPlanQuery {
+  query: string
+  k: number
+}
+
+export interface LangchainClientRetrievalPlanOutput {
+  queries: LangchainClientRetrievalPlanQuery[]
+  maxK: number
+  rationale?: string
+}
+
+/**
+ * 总结与判断节点输出：
+ * - shouldLoop: 是否需要回环到规划节点
+ * - message:
+ *   - shouldLoop=false: 最终答案（给用户）
+ *   - shouldLoop=true: 追加问题/澄清点（给规划节点作为下一轮输入）
+ */
+export interface LangchainClientSummaryDecisionOutput {
+  shouldLoop: boolean
+  message: string
 }
 
 // ==================== Tool Types ====================

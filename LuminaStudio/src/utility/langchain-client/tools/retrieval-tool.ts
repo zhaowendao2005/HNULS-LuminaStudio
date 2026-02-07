@@ -42,19 +42,23 @@ export function createKnowledgeSearchTool(params: {
   getRetrievalConfig: () => LangchainClientRetrievalConfig | undefined
 }) {
   return tool(
-    async ({ query }: { query: string }) => {
+    async ({ query, k }: { query: string; k?: number }) => {
       const retrieval = params.getRetrievalConfig()
       return runKnowledgeRetrieval({
         apiBaseUrl: params.apiBaseUrl,
         query,
-        retrieval
+        retrieval,
+        // k 最终会在检索节点内部 clamp 到 1..MAX_K
+        k
       })
     },
     {
       name: 'knowledge_search',
       description: '从知识库中检索与问题相关的文档片段。',
       schema: z.object({
-        query: z.string().describe('检索查询文本')
+        query: z.string().describe('检索查询文本'),
+        // 可选：指定本次检索的 k（最大值由检索节点硬编码 MAX_K 限制）
+        k: z.number().int().min(1).optional().describe('本次检索返回的结果数（上限由系统限制）')
       })
     }
   )

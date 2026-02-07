@@ -23,7 +23,7 @@
  * 💡 设计亮点:
  * - 支持多范围检索（多个嵌入表）
  * - 支持 reranking（结果重排）
- * - 返回结果摘要（避免消息过大）
+ * - 硬编码最大 k（MAX_K），避免一次检索结果过多
  * - 详细的日志记录
  */
 import { logger } from '@main/services/logger'
@@ -73,10 +73,23 @@ interface KnowledgeSearchResult {
  * 该函数承载检索的所有业务逻辑。
  * tool 层只负责调用它并包装为 LangChain Tool。
  */
+/**
+ * 检索节点的最大 k（硬编码上限）。
+ *
+ * 说明：
+ * - 规划节点可以输出 k，但最终仍以这里的 MAX_K 为上限。
+ * - 未来如果要放开上限，只改这里即可。
+ */
+export const KNOWLEDGE_RETRIEVAL_MAX_K = 3
+
 export async function runKnowledgeRetrieval(params: {
   apiBaseUrl: string
   query: string
   retrieval?: LangchainClientRetrievalConfig
+  /** 本次检索的 k（会被 clamp 到 1..MAX_K） */
+  k?: number
+  /** 取消信号（用户中断时可停止 fetch） */
+  abortSignal?: AbortSignal
 }): Promise<string> {
   const apiBaseUrl = params.apiBaseUrl.trim().replace(/\/$/, '')
   const url = `${apiBaseUrl}/api/v1/retrieval/search`
@@ -100,13 +113,16 @@ export async function runKnowledgeRetrieval(params: {
     return JSON.stringify(emptyResult)
   }
 
-  const totalK = retrieval.k ?? 3
-  const perScopeK = Math.min(3, Math.max(1, Math.floor(totalK / scopes.length)))
+  // 计算本次检索的 k：优先使用 params.k，其次使用 retrieval.k，最后使用 MAX_K
+  // 最终一定会被 clamp 到 1..MAX_K
+  const requestedK = params.k ?? retrieval.k ?? KNOWLEDGE_RETRIEVAL_MAX_K
+  const k = Math.min(KNOWLEDGE_RETRIEVAL_MAX_K, Math.max(1, Math.floor(requestedK)))
 
   log.info('Retrieval search start', {
     scopeCount: scopes.length,
-    totalK,
-    perScopeK,
+    requestedK,
+    effectiveK: k,
+    maxK: KNOWLEDGE_RETRIEVAL_MAX_K,
     ef: retrieval.ef ?? null,
     rerankModelId: retrieval.rerankModelId ?? null,
     rerankTopN: retrieval.rerankTopN ?? null
@@ -120,7 +136,7 @@ export async function runKnowledgeRetrieval(params: {
       tableName: scope.tableName,
       queryText: params.query,
       fileKeys: scope.fileKeys,
-      k: perScopeK,
+      k,
       ef: retrieval.ef,
       rerankModelId: retrieval.rerankModelId,
       rerankTopN: retrieval.rerankTopN
@@ -130,7 +146,7 @@ export async function runKnowledgeRetrieval(params: {
       knowledgeBaseId: scope.knowledgeBaseId,
       tableName: scope.tableName,
       fileKeysCount: scope.fileKeys?.length ?? 0,
-      k: perScopeK,
+      k,
       ef: retrieval.ef ?? null
     })
 
@@ -141,7 +157,9 @@ export async function runKnowledgeRetrieval(params: {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(body)
+        body: JSON.stringify(body),
+        // 如果用户在前端点了“停止生成”，abortSignal 会被触发
+        signal: params.abortSignal
       })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
@@ -176,16 +194,12 @@ export async function runKnowledgeRetrieval(params: {
     }
 
     const hits = (json.data ?? []) as RetrievalHit[]
-    // 截断每个 hit 的 content，避免消息过大（最多保留 500 字符）
-    const truncatedHits = hits.map((hit) => ({
-      ...hit,
-      content: hit.content.length > 500 ? hit.content.slice(0, 500) + '...' : hit.content
-    }))
+    // 注意：不要在这里截断 hit.content（前端有详情查看；总结节点会自行做“证据摘要”）
     resultScopes.push({
       knowledgeBaseId: scope.knowledgeBaseId,
       tableName: scope.tableName,
       fileKeysCount: scope.fileKeys?.length ?? 0,
-      hits: truncatedHits
+      hits
     })
   }
 

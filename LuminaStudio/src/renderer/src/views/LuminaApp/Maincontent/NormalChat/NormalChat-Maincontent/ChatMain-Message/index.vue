@@ -53,6 +53,12 @@
             :message-id="msg.id"
           />
 
+          <!-- Retrieval Plan (node) -->
+          <RetrievalPlanMessage v-else-if="isRetrievalPlanNodeBlock(block)" :node-block="block" />
+
+          <!-- Retrieval Summary (node) -->
+          <RetrievalSummaryMessage v-else-if="isRetrievalSummaryNodeBlock(block)" :node-block="block" />
+
           <!-- Knowledge Search (node) -->
           <KnowledgeSearchMessage
             v-else-if="isKnowledgeSearchNodeBlock(block)"
@@ -87,6 +93,8 @@ import TestMessage from './TestMessage.vue'
 import ThinkingMessage from './ThinkingMessage.vue'
 import ToolCallMessage from './ToolCallMessage.vue'
 import KnowledgeSearchMessage from './KnowledgeSearchMessage.vue'
+import RetrievalPlanMessage from './RetrievalPlanMessage.vue'
+import RetrievalSummaryMessage from './RetrievalSummaryMessage.vue'
 import TextMessage from './TextMessage.vue'
 import UsageMessage from './UsageMessage.vue'
 import ActionButtons from './ActionButtons.vue'
@@ -102,6 +110,16 @@ const emit = defineEmits<{
 
 // 反转消息顺序以配合 column-reverse
 const reversedMessages = computed(() => [...props.messages].reverse())
+
+// 判断是否是 retrieval_plan 节点 block
+function isRetrievalPlanNodeBlock(block: any): boolean {
+  return block?.type === 'node' && block?.start?.nodeKind === 'retrieval_plan'
+}
+
+// 判断是否是 retrieval_summary 节点 block
+function isRetrievalSummaryNodeBlock(block: any): boolean {
+  return block?.type === 'node' && block?.start?.nodeKind === 'retrieval_summary'
+}
 
 // 判断是否是 knowledge_retrieval 节点 block
 function isKnowledgeSearchNodeBlock(block: any): boolean {
