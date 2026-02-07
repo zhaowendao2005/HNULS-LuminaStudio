@@ -32,7 +32,7 @@
       class="nc_NormalChat_LeftContent_a8d3 flex-1 overflow-y-auto px-4 py-4 space-y-4"
     >
       <!-- Tab: 来源 -->
-      <SourcesTab v-if="currentTab === 'sources'" />
+      <SourcesTab v-if="currentTab === 'sources'" :disabled="sourcesDisabled" />
 
       <!-- Tab: 设置 -->
       <div v-else-if="currentTab === 'settings'" class="space-y-4">
@@ -82,6 +82,7 @@ defineProps<{
   collapsed: boolean
   currentTab: string
   tabOptions: WhiteSelectOption[]
+  sourcesDisabled?: boolean
 }>()
 
 defineEmits<{

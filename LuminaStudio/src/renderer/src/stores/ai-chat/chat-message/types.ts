@@ -34,7 +34,7 @@ export interface TokenUsage {
 
 export interface ChatMessage {
   id: string
-  role: 'user' | 'assistant'
+  role: 'user' | 'assistant' | 'test'
   content: string
   thinkingSteps?: ThinkingStep[]
   toolCalls?: ToolCall[]
@@ -43,4 +43,5 @@ export interface ChatMessage {
   usage?: TokenUsage
   createdAt?: string
   status?: 'final' | 'streaming' | 'aborted' | 'error'
+  rawData?: any // 用于测试消息的原始IPC数据
 }

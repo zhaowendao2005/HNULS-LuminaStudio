@@ -11,6 +11,7 @@
       v-model:collapsed="leftCollapsed"
       v-model:currentTab="currentTab"
       :tab-options="leftTabOptions"
+      :sources-disabled="inputBarStore.mode === 'normal'"
     />
 
     <!-- Center Chat -->
@@ -51,9 +52,11 @@ import ConversationListModal from './NormalChat-Maincontent/ConversationListModa
 import { type WhiteSelectOption } from './components/WhiteSelect.vue'
 import { useAiChatStore } from '@renderer/stores/ai-chat/store'
 import { useModelConfigStore } from '@renderer/stores/model-config/store'
+import { useInputBarStore } from '@renderer/stores/ai-chat/input-bar.store'
 
 const chatStore = useAiChatStore()
 const modelConfigStore = useModelConfigStore()
+const inputBarStore = useInputBarStore()
 
 // ===== 面板控制 =====
 const leftCollapsed = ref(true) // 默认折叠左侧栏

@@ -1,5 +1,5 @@
 <template>
-  <div class="space-y-3">
+  <div class="space-y-3" :class="{ 'opacity-50 pointer-events-none': disabled }">
     <!-- 连接状态/错误提示 -->
     <div
       v-if="sourcesStore.error || !sourcesStore.connectionState.connected"
@@ -418,6 +418,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useSourcesStore } from '@renderer/stores/ai-chat/sources.store'
+
+defineProps<{
+  disabled?: boolean
+}>()
 
 const sourcesStore = useSourcesStore()
 const searchQuery = ref('')

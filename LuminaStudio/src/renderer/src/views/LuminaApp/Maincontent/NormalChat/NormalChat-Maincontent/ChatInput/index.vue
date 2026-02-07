@@ -1,6 +1,6 @@
 <template>
   <div
-    class="nc_ChatInput_Container relative bg-white border border-slate-200 rounded-2xl shadow-lg"
+    class="nc_ChatInput_Container relative z-20 bg-white border border-slate-200 rounded-2xl shadow-lg"
   >
     <!-- 文本输入区域 -->
     <textarea
@@ -18,7 +18,7 @@
     <!-- 底部工具栏 -->
     <div class="flex items-center justify-between px-3 py-2 border-t border-slate-100">
       <!-- 左侧工具按钮组 -->
-      <div class="flex items-center gap-1">
+      <div class="flex items-center gap-1 flex-shrink-0 overflow-x-auto max-w-[60%]">
         <!-- 新建对话 -->
         <button
           type="button"
@@ -262,32 +262,19 @@
       </div>
 
       <!-- 右侧操作按钮 -->
-      <div class="flex items-center gap-2">
-        <!-- 语言切换 -->
-        <button
-          type="button"
-          class="w-7 h-7 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
-          title="语言"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="m5 8 6 6"></path>
-            <path d="m4 14 6-6 2-3"></path>
-            <path d="M2 5h12"></path>
-            <path d="M7 2h1"></path>
-            <path d="m22 22-5-10-5 10"></path>
-            <path d="M14 18h6"></path>
-          </svg>
-        </button>
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <!-- 模式选择 -->
+        <div class="relative z-10">
+          <WhiteSelect
+            :model-value="inputBarStore.mode"
+            @update:model-value="inputBarStore.setMode"
+            :options="modeOptions"
+            placeholder="选择模式"
+            root-class="w-28"
+            trigger-class="!py-1.5 !px-2.5 !h-7 !text-xs"
+            panel-class="!w-32 !bottom-full !top-auto !mb-2 !mt-0"
+          />
+        </div>
 
         <!-- 中断按钮 (生成中显示) -->
         <button
@@ -346,6 +333,8 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import WhiteSelect, { type WhiteSelectOption } from '../../components/WhiteSelect.vue'
+import { useInputBarStore } from '@renderer/stores/ai-chat/input-bar.store'
 
 const props = defineProps<{
   userInput: string
@@ -358,6 +347,13 @@ const emit = defineEmits<{
   (e: 'abort'): void
   (e: 'showConversationList'): void
 }>()
+
+const inputBarStore = useInputBarStore()
+
+const modeOptions: WhiteSelectOption[] = [
+  { label: 'Normal', value: 'normal' },
+  { label: 'Agent', value: 'agent' }
+]
 
 const canSend = computed(() => props.userInput.trim().length > 0)
 

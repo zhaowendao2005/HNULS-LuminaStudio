@@ -70,6 +70,18 @@ export const useChatMessageStore = defineStore('chat-message', () => {
     list.push(userMessage)
   }
 
+  function addTestMessage(conversationId: string, data: any): void {
+    const list = ensureConversationMessages(conversationId)
+    const testMessage: ChatMessage = {
+      id: `test-${Date.now()}`,
+      role: 'test',
+      content: '',
+      rawData: data,
+      status: 'final'
+    }
+    list.push(testMessage)
+  }
+
   function startGenerating(requestId: string): void {
     isGenerating.value = true
     currentRequestId.value = requestId
@@ -230,6 +242,7 @@ export const useChatMessageStore = defineStore('chat-message', () => {
     getMessages,
     setMessages,
     addUserMessage,
+    addTestMessage,
     startGenerating,
     stopGenerating,
     handleStreamEvent

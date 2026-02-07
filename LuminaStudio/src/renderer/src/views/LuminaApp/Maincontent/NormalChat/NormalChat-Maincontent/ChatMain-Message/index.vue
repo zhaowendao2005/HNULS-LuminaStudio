@@ -41,6 +41,8 @@
         </div>
 
         <!-- 根据消息类型渲染不同组件 -->
+        <TestMessage v-if="msg.role === 'test'" :message="msg" />
+
         <ThinkingMessage
           v-if="msg.role === 'assistant' && msg.thinkingSteps && msg.thinkingSteps.length > 0"
           :thinking-steps="msg.thinkingSteps"
@@ -53,7 +55,12 @@
           :tool-calls="msg.toolCalls"
         />
 
-        <TextMessage :content="msg.content" :role="msg.role" :is-streaming="msg.isStreaming" />
+        <TextMessage
+          v-if="msg.role !== 'test'"
+          :content="msg.content"
+          :role="msg.role"
+          :is-streaming="msg.isStreaming"
+        />
 
         <UsageMessage
           v-if="msg.role === 'assistant' && msg.usage && !msg.isStreaming"
@@ -68,6 +75,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import TestMessage from './TestMessage.vue'
 import ThinkingMessage from './ThinkingMessage.vue'
 import ToolCallMessage from './ToolCallMessage.vue'
 import TextMessage from './TextMessage.vue'
