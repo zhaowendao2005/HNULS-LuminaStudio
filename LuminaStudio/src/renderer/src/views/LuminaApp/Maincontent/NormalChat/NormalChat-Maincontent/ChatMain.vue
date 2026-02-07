@@ -3,12 +3,13 @@
     class="nc_NormalChat_Center_a8d3 flex-1 min-w-0 bg-white/80 border border-slate-200 rounded-2xl overflow-hidden flex flex-col relative"
   >
     <header
-      class="nc_NormalChat_CenterHeader_a8d3 h-12 flex items-center justify-between px-6 border-b border-slate-100 bg-white/60 backdrop-blur-sm"
+      class="nc_NormalChat_CenterHeader_a8d3 h-12 flex items-center justify-between px-6 border-b border-slate-100 bg-white/60 backdrop-blur-sm overflow-x-auto"
+      style="min-width: min-content"
     >
       <!-- Left: Conversation List Trigger -->
       <button
         @click="$emit('showConversationList')"
-        class="flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-emerald-600 transition-colors group"
+        class="flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-emerald-600 transition-colors group flex-shrink-0"
       >
         <span>对话</span>
         <svg
@@ -25,7 +26,7 @@
       <!-- Center: Model Selector -->
       <button
         @click="$emit('showModelSelector')"
-        class="flex items-center gap-2 px-4 py-1.5 bg-white border border-slate-200 rounded-full text-xs font-medium text-slate-600 hover:border-emerald-200 hover:text-emerald-700 hover:shadow-sm transition-all"
+        class="flex items-center gap-2 px-4 py-1.5 bg-white border border-slate-200 rounded-full text-xs font-medium text-slate-600 hover:border-emerald-200 hover:text-emerald-700 hover:shadow-sm transition-all flex-shrink-0"
       >
         <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
         <span class="uppercase">{{ displayProviderId }}</span>
@@ -43,7 +44,7 @@
       </button>
 
       <!-- Right: Actions -->
-      <div class="flex items-center gap-2 text-slate-400">
+      <div class="flex items-center gap-2 text-slate-400 flex-shrink-0">
         <button
           class="w-8 h-8 rounded-full hover:bg-slate-100 transition-colors flex items-center justify-center"
         >
