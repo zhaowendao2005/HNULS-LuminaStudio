@@ -279,7 +279,7 @@
                      <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
                      <path d="M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2z"/>
                    </svg>
-                   <span v-if="store.config.planNode.modelId" class="text-slate-700">{{ getModelDisplayName('plan') }}</span>
+                   <span v-if="store.config.planModel.modelId" class="text-slate-700">{{ getModelDisplayName('plan') }}</span>
                    <span v-else class="text-slate-400">选择模型</span>
                  </div>
                  <svg class="w-4 h-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
@@ -295,20 +295,20 @@
                 <button
                   class="w-10 h-5 rounded-full relative transition-colors focus:outline-none"
                   :class="
-                    store.config.retrievalNode.enableRerank ? 'bg-emerald-500' : 'bg-slate-200'
+                    store.config.retrieval.enableRerank ? 'bg-emerald-500' : 'bg-slate-200'
                   "
                   @click="toggleEnableRerank"
                 >
                   <span
                     class="absolute top-1 left-1 bg-white w-3 h-3 rounded-full transition-transform"
                     :class="
-                      store.config.retrievalNode.enableRerank ? 'translate-x-5' : 'translate-x-0'
+                      store.config.retrieval.enableRerank ? 'translate-x-5' : 'translate-x-0'
                     "
                   ></span>
                 </button>
               </div>
 
-               <div v-if="store.config.retrievalNode.enableRerank" class="space-y-3 p-3 bg-slate-50 rounded-lg border border-slate-100">
+               <div v-if="store.config.retrieval.enableRerank" class="space-y-3 p-3 bg-slate-50 rounded-lg border border-slate-100">
                  <label class="text-sm font-medium text-slate-700">重排模型</label>
                  <button
                    @click="openRerankSelector()"
@@ -319,7 +319,7 @@
                        <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
                        <path d="M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2z"/>
                      </svg>
-                     <span v-if="store.config.retrievalNode.rerankModelId" class="text-slate-700">{{ getRerankModelDisplayName() }}</span>
+                     <span v-if="store.config.retrieval.rerankModelId" class="text-slate-700">{{ getRerankModelDisplayName() }}</span>
                      <span v-else class="text-slate-400">选择重排模型</span>
                    </div>
                    <svg class="w-4 h-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
@@ -330,7 +330,7 @@
                 <label class="text-sm font-medium text-slate-700">Top K (最大检索数)</label>
                 <div class="flex items-center gap-3">
                   <input
-                    :value="store.config.retrievalNode.topK"
+                    :value="store.config.retrieval.topK"
                     @input="updateTopK"
                     type="range"
                     min="1"
@@ -338,7 +338,7 @@
                     class="flex-1 accent-indigo-500"
                   />
                   <span class="text-sm font-mono w-8 text-center">
-                    {{ store.config.retrievalNode.topK }}
+                    {{ store.config.retrieval.topK }}
                   </span>
                 </div>
               </div>
@@ -360,7 +360,7 @@
                      <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
                      <path d="M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2z"/>
                    </svg>
-                   <span v-if="store.config.summaryNode.modelId" class="text-slate-700">{{ getModelDisplayName('summary') }}</span>
+                   <span v-if="store.config.summaryModel.modelId" class="text-slate-700">{{ getModelDisplayName('summary') }}</span>
                    <span v-else class="text-slate-400">选择模型</span>
                  </div>
                  <svg class="w-4 h-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
@@ -405,7 +405,7 @@
     <!-- Rerank Model Selector Modal -->
     <RerankModelSelectorModal
       v-model:visible="showRerankSelector"
-      :current-model-id="store.config.retrievalNode.rerankModelId"
+      :current-model-id="store.config.retrieval.rerankModelId"
       @select="handleRerankModelSelect"
     />
   </div>
@@ -443,16 +443,16 @@ const drawerTitle = computed(() => {
 
 const currentProviderId = computed(() => {
   switch (currentSelectorTarget.value) {
-    case 'plan': return store.config.planNode.providerId
-    case 'summary': return store.config.summaryNode.providerId
+    case 'plan': return store.config.planModel.providerId
+    case 'summary': return store.config.summaryModel.providerId
     default: return null
   }
 })
 
 const currentModelId = computed(() => {
   switch (currentSelectorTarget.value) {
-    case 'plan': return store.config.planNode.modelId
-    case 'summary': return store.config.summaryNode.modelId
+    case 'plan': return store.config.planModel.modelId
+    case 'summary': return store.config.summaryModel.modelId
     default: return null
   }
 })
@@ -472,12 +472,11 @@ const openRerankSelector = () => {
 }
 
 const toggleEnableRerank = () => {
-  const newValue = !store.config.retrievalNode.enableRerank
+  const newValue = !store.config.retrieval.enableRerank
   store.updateRetrievalNode(
     newValue,
-    store.config.retrievalNode.rerankProviderId,
-    store.config.retrievalNode.rerankModelId,
-    store.config.retrievalNode.topK
+    store.config.retrieval.rerankModelId,
+    store.config.retrieval.topK
   )
 }
 
@@ -494,10 +493,9 @@ const handleModelSelect = (provider: ModelProvider, model: Model) => {
 
 const handleRerankModelSelect = (model: RerankModel) => {
   store.updateRetrievalNode(
-    store.config.retrievalNode.enableRerank,
-    null, // rerank 模型不需要 providerId
+    store.config.retrieval.enableRerank,
     model.id,
-    store.config.retrievalNode.topK
+    store.config.retrieval.topK
   )
 }
 
@@ -507,12 +505,12 @@ const getModelDisplayName = (target: 'plan' | 'summary'): string => {
   
   switch (target) {
     case 'plan':
-      providerId = store.config.planNode.providerId
-      modelId = store.config.planNode.modelId
+      providerId = store.config.planModel.providerId
+      modelId = store.config.planModel.modelId
       break
     case 'summary':
-      providerId = store.config.summaryNode.providerId
-      modelId = store.config.summaryNode.modelId
+      providerId = store.config.summaryModel.providerId
+      modelId = store.config.summaryModel.modelId
       break
   }
 
@@ -526,7 +524,7 @@ const getModelDisplayName = (target: 'plan' | 'summary'): string => {
 }
 
 const getRerankModelDisplayName = (): string => {
-  const modelId = store.config.retrievalNode.rerankModelId
+  const modelId = store.config.retrieval.rerankModelId
   if (!modelId) return ''
   return rerankModelStore.getModelDisplayName(modelId)
 }
@@ -535,9 +533,8 @@ const updateTopK = (event: Event) => {
   const target = event.target as HTMLInputElement
   const newValue = parseInt(target.value, 10)
   store.updateRetrievalNode(
-    store.config.retrievalNode.enableRerank,
-    store.config.retrievalNode.rerankProviderId,
-    store.config.retrievalNode.rerankModelId,
+    store.config.retrieval.enableRerank,
+    store.config.retrieval.rerankModelId,
     newValue
   )
 }

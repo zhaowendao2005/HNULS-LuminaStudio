@@ -7,6 +7,8 @@ import { useInputBarStore } from './input-bar.store'
 import { useSourcesStore } from './sources.store'
 import { useModelConfigStore } from '@renderer/stores/model-config/store'
 import type { AiChatRetrievalConfig, AiChatRetrievalScope } from '@preload/types'
+import { useKnowledgeQaConfigStore } from '@renderer/stores/ai-chat/LangchainAgent-Config/knowledge-qa'
+import type { KnowledgeQaModelConfig } from '@shared/langchain-client.types'
 
 export const useAiChatStore = defineStore('ai-chat', () => {
   // ===== Chat Message Store =====
@@ -181,8 +183,35 @@ export const useAiChatStore = defineStore('ai-chat', () => {
     const inputBarStore = useInputBarStore()
     const mode = inputBarStore.mode
 
+    const knowledgeQaStore = useKnowledgeQaConfigStore()
+    const knowledgeQaConfig = knowledgeQaStore.config as KnowledgeQaModelConfig
+
+    if (mode === 'agent') {
+      if (
+        !knowledgeQaConfig.planModel.providerId ||
+        !knowledgeQaConfig.planModel.modelId ||
+        !knowledgeQaConfig.summaryModel.providerId ||
+        !knowledgeQaConfig.summaryModel.modelId
+      ) {
+        window.alert('请先在 Agent设置 中配置“规划模型”和“总结模型”。')
+        return
+      }
+    }
+
     // Agent mode: attach retrieval scope snapshot + provider override
-    const retrieval = mode === 'agent' ? buildRetrievalConfigFromSources() : undefined
+    let retrieval = mode === 'agent' ? buildRetrievalConfigFromSources() : undefined
+
+    if (mode === 'agent' && retrieval) {
+      retrieval.k = knowledgeQaConfig.retrieval.topK
+
+      if (knowledgeQaConfig.retrieval.enableRerank && knowledgeQaConfig.retrieval.rerankModelId) {
+        retrieval.rerankModelId = knowledgeQaConfig.retrieval.rerankModelId
+        retrieval.rerankTopN = knowledgeQaConfig.retrieval.topK
+      } else {
+        retrieval.rerankModelId = undefined
+        retrieval.rerankTopN = undefined
+      }
+    }
 
     const modelConfigStore = useModelConfigStore()
     const provider = modelConfigStore.providers.find((p) => p.id === currentProviderId.value)
@@ -205,7 +234,19 @@ export const useAiChatStore = defineStore('ai-chat', () => {
       enableThinking: enableThinking.value,
       mode,
       retrieval,
-      providerOverride
+      providerOverride,
+      agentModelConfig:
+        mode === 'agent'
+          ? {
+              knowledgeQa: {
+                ...knowledgeQaConfig,
+                retrieval: {
+                  ...knowledgeQaConfig.retrieval,
+                  rerankTopN: knowledgeQaConfig.retrieval.topK
+                }
+              }
+            }
+          : undefined
     })
 
     messageStore.startGenerating(startRes.requestId)

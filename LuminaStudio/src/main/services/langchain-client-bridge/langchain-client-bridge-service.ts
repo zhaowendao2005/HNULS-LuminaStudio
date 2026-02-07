@@ -45,7 +45,16 @@ function redactCreateConfig(config: LangchainClientAgentCreateConfig): Record<st
           rerankTopN: config.retrieval.rerankTopN ?? null
         }
       : null,
-    hasSystemPrompt: Boolean(config.systemPrompt && config.systemPrompt.trim())
+    hasSystemPrompt: Boolean(config.systemPrompt && config.systemPrompt.trim()),
+    modelConfig: config.modelConfig?.knowledgeQa
+      ? {
+          planModelId: config.modelConfig.knowledgeQa.planModel.modelId ?? null,
+          summaryModelId: config.modelConfig.knowledgeQa.summaryModel.modelId ?? null,
+          rerankModelId: config.modelConfig.knowledgeQa.retrieval?.rerankModelId ?? null,
+          topK: config.modelConfig.knowledgeQa.retrieval?.topK ?? null,
+          maxIterations: config.modelConfig.knowledgeQa.graph?.maxIterations ?? null
+        }
+      : null
   }
 }
 

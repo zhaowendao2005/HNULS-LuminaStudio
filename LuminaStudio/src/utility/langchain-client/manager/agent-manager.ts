@@ -74,7 +74,8 @@ export class AgentManager {
 
     const graph = modelDef.buildGraph({
       runtime,
-      emit: this.send
+      emit: this.send,
+      modelConfig: config.modelConfig
     })
 
     this.agents.set(agentId, { runtime, graph, systemPrompt })

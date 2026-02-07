@@ -4,7 +4,8 @@ import type {
   LangchainClientNodeResultPayload,
   LangchainClientNodeStartPayload,
   LangchainClientToolCallPayload,
-  LangchainClientToolResultPayload
+  LangchainClientToolResultPayload,
+  KnowledgeQaModelConfig
 } from '@shared/langchain-client.types'
 
 /**
@@ -75,6 +76,11 @@ export interface AiChatStartRequest {
     baseUrl: string
     apiKey: string
     defaultHeaders?: Record<string, string>
+  }
+
+  /** Agent-mode-only: model-bound config (Knowledge-QA, etc.) */
+  agentModelConfig?: {
+    knowledgeQa?: KnowledgeQaModelConfig
   }
 }
 

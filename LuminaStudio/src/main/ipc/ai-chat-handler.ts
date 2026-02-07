@@ -46,7 +46,8 @@ export class AiChatIPCHandler extends BaseIPCHandler {
       enableThinking,
       mode,
       retrieval,
-      providerOverride
+      providerOverride,
+      agentModelConfig
     } = request
 
     if (!conversationId || !agentId || !providerId || !modelId || !input) {
@@ -62,7 +63,8 @@ export class AiChatIPCHandler extends BaseIPCHandler {
       enableThinking,
       mode,
       retrieval,
-      providerOverride
+      providerOverride,
+      agentModelConfig
     })
 
     return { success: true, data: result }

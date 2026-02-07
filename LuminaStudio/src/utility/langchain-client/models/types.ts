@@ -7,7 +7,10 @@
  */
 
 import type { CompiledStateGraph } from '@langchain/langgraph'
-import type { LangchainClientToMainMessage } from '@shared/langchain-client.types'
+import type {
+  KnowledgeQaModelConfig,
+  LangchainClientToMainMessage
+} from '@shared/langchain-client.types'
 import type { AgentRuntime } from '../factory'
 
 export interface AgentModelGraphContext {
@@ -20,6 +23,13 @@ export interface AgentModelGraphContext {
    * 事件发送器（模型/节点通过它向 Main 发 IPC 消息）
    */
   emit: (msg: LangchainClientToMainMessage) => void
+
+  /**
+   * 模型绑定配置（由 Main 解析并下发）
+   */
+  modelConfig?: {
+    knowledgeQa?: KnowledgeQaModelConfig
+  }
 }
 
 export interface AgentModelDefinition {

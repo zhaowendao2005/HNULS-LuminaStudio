@@ -14,7 +14,10 @@
  * - 易测试：可以 mock 不同的模型配置
  */
 import { ChatOpenAI } from '@langchain/openai'
-import type { LangchainClientAgentCreateConfig } from '@shared/langchain-client.types'
+import type {
+  LangchainClientAgentCreateConfig,
+  LangchainClientProviderConfig
+} from '@shared/langchain-client.types'
 
 /**
  * 规范化 OpenAI 兼容 API 的基础 URL
@@ -61,6 +64,25 @@ export function buildChatModel(config: LangchainClientAgentCreateConfig): ChatOp
     configuration: {
       baseURL,
       defaultHeaders: config.provider.defaultHeaders
+    }
+  })
+}
+
+/**
+ * 使用 provider + modelId 构建 ChatModel
+ */
+export function buildChatModelFromProvider(
+  provider: LangchainClientProviderConfig,
+  modelId: string
+): ChatOpenAI {
+  const baseURL = normalizeOpenAICompatibleBaseUrl(provider.baseUrl)
+
+  return new ChatOpenAI({
+    model: modelId,
+    apiKey: provider.apiKey,
+    configuration: {
+      baseURL,
+      defaultHeaders: provider.defaultHeaders
     }
   })
 }

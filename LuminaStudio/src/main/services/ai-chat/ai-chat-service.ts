@@ -9,12 +9,13 @@ import type { DatabaseManager } from '../database-sqlite'
 import type { ModelConfigService } from '../model-config'
 import type { AiChatRetrievalConfig, AiChatStreamEvent } from '@preload/types'
 import type {
+  KnowledgeQaModelConfig,
   LangchainClientAgentCreateConfig,
   LangchainClientChatMessage,
   LangchainClientRetrievalConfig,
-  LangchainClientToMainMessage
+  LangchainClientToMainMessage,
+  MainToLangchainClientMessage
 } from '@shared/langchain-client.types'
-import { langchainClientBridge } from '../langchain-client-bridge/langchain-client-bridge-service'
 import type {
   StreamState,
   MessageRow,
@@ -65,6 +66,9 @@ export class AiChatService {
         apiKey: string
         defaultHeaders?: Record<string, string>
       }
+      agentModelConfig?: {
+        knowledgeQa?: KnowledgeQaModelConfig
+      }
     }
   ): Promise<{ requestId: string; conversationId: string }> {
     const requestId = randomUUID()
@@ -92,7 +96,8 @@ export class AiChatService {
         input,
         enableThinking: enableThinking ?? false,
         retrieval: payload.retrieval,
-        providerOverride: payload.providerOverride
+        providerOverride: payload.providerOverride,
+        agentModelConfig: payload.agentModelConfig
       })
     }
 
@@ -805,6 +810,9 @@ export class AiChatService {
         apiKey: string
         defaultHeaders?: Record<string, string>
       }
+      agentModelConfig?: {
+        knowledgeQa?: KnowledgeQaModelConfig
+      }
     }
   ): Promise<{ requestId: string; conversationId: string }> {
     const {
@@ -815,7 +823,8 @@ export class AiChatService {
       modelId,
       input,
       retrieval,
-      providerOverride
+      providerOverride,
+      agentModelConfig
     } = payload
 
     // 1. 确保 conversation 存在（如不存在则创建）
@@ -881,6 +890,55 @@ export class AiChatService {
 
     const lcRetrieval = this.toLangchainRetrievalConfig(retrieval)
 
+    const knowledgeQaConfig = agentModelConfig?.knowledgeQa
+    if (
+      knowledgeQaConfig &&
+      (!knowledgeQaConfig.planModel.providerId ||
+        !knowledgeQaConfig.planModel.modelId ||
+        !knowledgeQaConfig.summaryModel.providerId ||
+        !knowledgeQaConfig.summaryModel.modelId)
+    ) {
+      throw new Error('Knowledge-QA 配置不完整：请设置规划模型与总结模型')
+    }
+
+    const resolveProviderConfig = async (id: string) => {
+      const config = await this.modelConfigService.getConfig()
+      const provider = config.providers.find((p) => p.id === id)
+      if (!provider) throw new Error(`Provider not found: ${id}`)
+      if (!provider.baseUrl || !provider.apiKey) {
+        throw new Error(`Provider missing baseUrl/apiKey: ${id}`)
+      }
+      return {
+        baseUrl: provider.baseUrl,
+        apiKey: provider.apiKey,
+        defaultHeaders: provider.defaultHeaders
+      }
+    }
+
+    let knowledgeQaResolved: KnowledgeQaModelConfig | undefined
+    if (knowledgeQaConfig) {
+      const planProviderId = knowledgeQaConfig.planModel.providerId!
+      const summaryProviderId = knowledgeQaConfig.summaryModel.providerId!
+      const planProvider = await resolveProviderConfig(planProviderId)
+      const summaryProvider = await resolveProviderConfig(summaryProviderId)
+
+      knowledgeQaResolved = {
+        ...knowledgeQaConfig,
+        planModel: {
+          ...knowledgeQaConfig.planModel,
+          provider: planProvider
+        },
+        summaryModel: {
+          ...knowledgeQaConfig.summaryModel,
+          provider: summaryProvider
+        },
+        retrieval: {
+          ...knowledgeQaConfig.retrieval,
+          rerankTopN: knowledgeQaConfig.retrieval.topK
+        }
+      }
+    }
+
     // enable tool even if no selection; tool will guide user
     const agentCreateConfig: LangchainClientAgentCreateConfig = {
       provider: {
@@ -890,7 +948,12 @@ export class AiChatService {
       },
       modelId,
       systemPrompt: undefined,
-      retrieval: { scopes: [] }
+      retrieval: { scopes: [] },
+      modelConfig: knowledgeQaResolved
+        ? {
+            knowledgeQa: knowledgeQaResolved
+          }
+        : undefined
     }
 
     try {

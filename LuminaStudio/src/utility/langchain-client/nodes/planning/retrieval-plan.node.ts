@@ -102,7 +102,7 @@ export async function runRetrievalPlanning(params: {
   retrieval?: LangchainClientRetrievalConfig
   maxK?: number
 }): Promise<LangchainClientRetrievalPlanOutput> {
-  const maxK = Math.min(RETRIEVAL_MAX_K, Math.max(1, params.maxK ?? RETRIEVAL_MAX_K))
+  const maxK = Math.max(1, Math.floor(params.maxK ?? RETRIEVAL_MAX_K))
 
   const systemPrompt = `你是一个“知识库检索规划助手”。
 你不会直接回答用户问题；你的任务是生成检索计划。

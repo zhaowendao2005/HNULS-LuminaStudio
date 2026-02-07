@@ -50,6 +50,7 @@ import type {
   LangchainClientToMainMessage
 } from '@shared/langchain-client.types'
 import type { AgentRuntime } from '../../factory'
+import { buildChatModelFromProvider } from '../../model-factory'
 import {
   runKnowledgeRetrieval,
   KNOWLEDGE_RETRIEVAL_MAX_K
@@ -130,7 +131,41 @@ const State = Annotation.Root({
 export function buildKnowledgeQaGraph(params: {
   runtime: AgentRuntime
   emit: (msg: LangchainClientToMainMessage) => void
+  modelConfig?: {
+    knowledgeQa?: import('@shared/langchain-client.types').KnowledgeQaModelConfig
+  }
 }) {
+  const knowledgeQaConfig = params.modelConfig?.knowledgeQa
+
+  if (
+    !knowledgeQaConfig ||
+    !knowledgeQaConfig.planModel.provider ||
+    !knowledgeQaConfig.planModel.modelId ||
+    !knowledgeQaConfig.summaryModel.provider ||
+    !knowledgeQaConfig.summaryModel.modelId
+  ) {
+    throw new Error('Knowledge-QA 配置缺失：请设置规划模型与总结模型')
+  }
+
+  const maxIterations = Math.max(
+    1,
+    Math.floor(knowledgeQaConfig.graph?.maxIterations ?? MAX_ITERATIONS)
+  )
+
+  const maxK = Math.max(
+    1,
+    Math.floor(knowledgeQaConfig.retrieval?.topK ?? KNOWLEDGE_RETRIEVAL_MAX_K)
+  )
+
+  const planModel = buildChatModelFromProvider(
+    knowledgeQaConfig.planModel.provider,
+    knowledgeQaConfig.planModel.modelId
+  )
+
+  const summaryModel = buildChatModelFromProvider(
+    knowledgeQaConfig.summaryModel.provider,
+    knowledgeQaConfig.summaryModel.modelId
+  )
   /**
    * 节点 1：规划节点（retrieval_plan）
    */
@@ -150,7 +185,7 @@ export function buildKnowledgeQaGraph(params: {
         inputs: {
           userInput: state.input,
           planningInput,
-          maxK: KNOWLEDGE_RETRIEVAL_MAX_K,
+          maxK,
           iteration: state.iteration
         }
       }
@@ -160,11 +195,11 @@ export function buildKnowledgeQaGraph(params: {
     let plan: LangchainClientRetrievalPlanOutput
     try {
       plan = await runRetrievalPlanning({
-        model: params.runtime.model as any,
+        model: planModel as any,
         userInput: state.input,
         planningInput,
         retrieval: state.retrieval,
-        maxK: KNOWLEDGE_RETRIEVAL_MAX_K
+        maxK
       })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
@@ -183,33 +218,27 @@ export function buildKnowledgeQaGraph(params: {
       })
 
       plan = {
-        maxK: KNOWLEDGE_RETRIEVAL_MAX_K,
+        maxK,
         rationale: '规划节点失败：已回退为默认计划（使用 planningInput 作为唯一检索句）',
-        queries: [{ query: planningInput, k: KNOWLEDGE_RETRIEVAL_MAX_K }]
+        queries: [{ query: planningInput, k: maxK }]
       }
     }
 
     // 3) 二次规范化：最多 10 条、k clamp
     const normalizedPlan: LangchainClientRetrievalPlanOutput = {
-      maxK: Math.min(
-        KNOWLEDGE_RETRIEVAL_MAX_K,
-        Math.max(1, plan.maxK || KNOWLEDGE_RETRIEVAL_MAX_K)
-      ),
+      maxK: Math.min(maxK, Math.max(1, plan.maxK || maxK)),
       rationale: plan.rationale,
       queries: (plan.queries ?? [])
         .filter((q) => q && typeof q.query === 'string' && q.query.trim())
         .slice(0, MAX_RETRIEVES_PER_ITERATION)
         .map((q) => ({
           query: q.query.trim(),
-          k: Math.min(
-            KNOWLEDGE_RETRIEVAL_MAX_K,
-            Math.max(1, Math.floor(q.k || KNOWLEDGE_RETRIEVAL_MAX_K))
-          )
+          k: Math.min(maxK, Math.max(1, Math.floor(q.k || maxK)))
         }))
     }
 
     if (normalizedPlan.queries.length === 0) {
-      normalizedPlan.queries = [{ query: planningInput, k: KNOWLEDGE_RETRIEVAL_MAX_K }]
+      normalizedPlan.queries = [{ query: planningInput, k: maxK }]
     }
 
     // 4) 通知前端：节点完成
@@ -275,6 +304,7 @@ export function buildKnowledgeQaGraph(params: {
           query: q.query,
           k: q.k,
           retrieval: state.retrieval,
+          maxK,
           abortSignal: state.abortSignal
         })
 
@@ -374,7 +404,7 @@ export function buildKnowledgeQaGraph(params: {
     let decision: LangchainClientSummaryDecisionOutput
     try {
       decision = await runSummaryDecision({
-        model: params.runtime.model as any,
+        model: summaryModel as any,
         userInput: state.input,
         planningInput: state.planningInput?.trim() || state.input,
         iteration: state.iteration,
@@ -431,8 +461,8 @@ export function buildKnowledgeQaGraph(params: {
     }
 
     // B) 需要回环，但已到最大轮次：输出降级答案并结束
-    if (state.iteration >= MAX_ITERATIONS - 1) {
-      const finalText = `已达到最大迭代次数（${MAX_ITERATIONS}），仍不足以回答该问题。\n\n建议下一步检索方向：${decision.message}`
+    if (state.iteration >= maxIterations - 1) {
+      const finalText = `已达到最大迭代次数（${maxIterations}），仍不足以回答该问题。\n\n建议下一步检索方向：${decision.message}`
       params.emit({ type: 'invoke:text-delta', requestId: state.requestId, delta: finalText })
       return {
         decision,

@@ -1,53 +1,33 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-
-export interface KnowledgeQaConfig {
-  planNode: {
-    providerId: string | null
-    modelId: string | null
-  }
-  retrievalNode: {
-    enableRerank: boolean
-    rerankProviderId: string | null
-    rerankModelId: string | null
-    topK: number
-  }
-  summaryNode: {
-    providerId: string | null
-    modelId: string | null
-  }
-  graph: {
-    maxIterations: number
-  }
-}
+import type { KnowledgeQaModelConfig } from '@shared/langchain-client.types'
 
 export const useKnowledgeQaConfigStore = defineStore(
   'knowledge-qa-config',
   () => {
-    const config = ref<KnowledgeQaConfig>({
-      planNode: {
+    const config = ref<KnowledgeQaModelConfig>({
+      planModel: {
         providerId: null,
         modelId: null
       },
-      retrievalNode: {
+      summaryModel: {
+        providerId: null,
+        modelId: null
+      },
+      retrieval: {
         enableRerank: false,
-        rerankProviderId: null,
         rerankModelId: null,
         topK: 4
       },
-      summaryNode: {
-        providerId: null,
-        modelId: null
-      },
       graph: {
-        maxIterations: 5
+        maxIterations: 4
       }
     })
 
     function updatePlanNode(providerId: string | null, modelId: string | null) {
       config.value = {
         ...config.value,
-        planNode: {
+        planModel: {
           providerId,
           modelId
         }
@@ -56,15 +36,13 @@ export const useKnowledgeQaConfigStore = defineStore(
 
     function updateRetrievalNode(
       enableRerank: boolean,
-      rerankProviderId: string | null,
       rerankModelId: string | null,
       topK: number
     ) {
       config.value = {
         ...config.value,
-        retrievalNode: {
+        retrieval: {
           enableRerank,
-          rerankProviderId,
           rerankModelId,
           topK
         }
@@ -74,7 +52,7 @@ export const useKnowledgeQaConfigStore = defineStore(
     function updateSummaryNode(providerId: string | null, modelId: string | null) {
       config.value = {
         ...config.value,
-        summaryNode: {
+        summaryModel: {
           providerId,
           modelId
         }

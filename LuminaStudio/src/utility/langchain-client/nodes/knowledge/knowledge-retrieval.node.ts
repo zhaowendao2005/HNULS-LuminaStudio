@@ -88,6 +88,8 @@ export async function runKnowledgeRetrieval(params: {
   retrieval?: LangchainClientRetrievalConfig
   /** 本次检索的 k（会被 clamp 到 1..MAX_K） */
   k?: number
+  /** 动态 maxK（由上层 Graph 决定） */
+  maxK?: number
   /** 取消信号（用户中断时可停止 fetch） */
   abortSignal?: AbortSignal
 }): Promise<string> {
@@ -115,14 +117,15 @@ export async function runKnowledgeRetrieval(params: {
 
   // 计算本次检索的 k：优先使用 params.k，其次使用 retrieval.k，最后使用 MAX_K
   // 最终一定会被 clamp 到 1..MAX_K
-  const requestedK = params.k ?? retrieval.k ?? KNOWLEDGE_RETRIEVAL_MAX_K
-  const k = Math.min(KNOWLEDGE_RETRIEVAL_MAX_K, Math.max(1, Math.floor(requestedK)))
+  const maxK = Math.max(1, Math.floor(params.maxK ?? KNOWLEDGE_RETRIEVAL_MAX_K))
+  const requestedK = params.k ?? retrieval.k ?? maxK
+  const k = Math.min(maxK, Math.max(1, Math.floor(requestedK)))
 
   log.info('Retrieval search start', {
     scopeCount: scopes.length,
     requestedK,
     effectiveK: k,
-    maxK: KNOWLEDGE_RETRIEVAL_MAX_K,
+    maxK,
     ef: retrieval.ef ?? null,
     rerankModelId: retrieval.rerankModelId ?? null,
     rerankTopN: retrieval.rerankTopN ?? null

@@ -39,12 +39,38 @@ export interface LangchainClientRetrievalConfig {
   rerankModelId?: string
   rerankTopN?: number
 }
+// ==================== Model Config (Model-bound) ====================
+
+export interface KnowledgeQaModelSelectorConfig {
+  providerId: string | null
+  modelId: string | null
+  /** Optional: resolved provider config (filled by Main) */
+  provider?: LangchainClientProviderConfig
+}
+
+export interface KnowledgeQaModelConfig {
+  planModel: KnowledgeQaModelSelectorConfig
+  summaryModel: KnowledgeQaModelSelectorConfig
+  retrieval: {
+    enableRerank: boolean
+    rerankModelId: string | null
+    topK: number
+    rerankTopN?: number
+  }
+  graph: {
+    maxIterations: number
+  }
+}
 
 export interface LangchainClientAgentCreateConfig {
   provider: LangchainClientProviderConfig
   modelId: string
   systemPrompt?: string
   retrieval?: LangchainClientRetrievalConfig
+  /** Model-bound config (handled by Graph, not node/tool coupling) */
+  modelConfig?: {
+    knowledgeQa?: KnowledgeQaModelConfig
+  }
 }
 
 export type LangchainClientChatRole = 'system' | 'user' | 'assistant'
