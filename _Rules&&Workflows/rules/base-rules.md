@@ -30,6 +30,7 @@ trigger: always_on
 1. vercel/ai 使用devin/deepwiki mcp来进行检索 多使用提问方式 
 链接与仓库https://github.com/vercel/ai  https://deepwiki.com/vercel/ai 官方文档：https://docs.vercel.com/docs/rest-api/reference/sdk
 2. sqlite 数据库1 https://deepwiki.com/sqlite/sqlite https://github.com/sqlite/sqlite
+3 langchainjs https://deepwiki.com/langchainjs/langchainjs
  
 ## 1. 目录结构与文件放置（强制）
 
