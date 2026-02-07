@@ -26,49 +26,52 @@
       </svg>
     </button>
 
-    <Transition name="white-select-pop">
-      <div
-        v-if="open"
-        class="WhiteSelect_panel absolute z-50 mt-2 w-full rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden"
-        :class="panelClass"
-      >
-        <div v-if="$slots.header" class="WhiteSelect_header px-3 pt-3">
-          <slot name="header" />
-        </div>
+    <Teleport :to="teleportTo" :disabled="!teleportTo">
+      <Transition name="white-select-pop">
+        <div
+          v-if="open"
+          class="WhiteSelect_panel z-50 rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden"
+          :class="[panelClass, teleportTo ? 'fixed' : 'absolute mt-2 w-full']"
+          :style="teleportTo && panelStyle"
+        >
+          <div v-if="$slots.header" class="WhiteSelect_header px-3 pt-3">
+            <slot name="header" />
+          </div>
 
-        <div class="max-h-60 overflow-auto py-1">
-          <button
-            v-for="opt in options"
-            :key="String(opt.value)"
-            type="button"
-            class="WhiteSelect_option w-full text-left px-3 py-2 text-sm flex items-center gap-2 transition"
-            :class="optionClass(opt.value)"
-            @click="select(opt.value)"
-          >
-            <span class="min-w-0 flex-1 truncate" :title="opt.label">{{ opt.label }}</span>
-            <svg
-              v-if="opt.value === modelValue"
-              class="h-4 w-4 text-slate-900 shrink-0"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
+          <div class="max-h-60 overflow-auto py-1">
+            <button
+              v-for="opt in options"
+              :key="String(opt.value)"
+              type="button"
+              class="WhiteSelect_option w-full text-left px-3 py-2 text-sm flex items-center gap-2 transition"
+              :class="optionClass(opt.value)"
+              @click="select(opt.value)"
             >
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-          </button>
-        </div>
+              <span class="min-w-0 flex-1 truncate" :title="opt.label">{{ opt.label }}</span>
+              <svg
+                v-if="opt.value === modelValue"
+                class="h-4 w-4 text-slate-900 shrink-0"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </button>
+          </div>
 
-        <div v-if="$slots.footer" class="WhiteSelect_footer px-3 pb-3">
-          <slot name="footer" />
+          <div v-if="$slots.footer" class="WhiteSelect_footer px-3 pb-3">
+            <slot name="footer" />
+          </div>
         </div>
-      </div>
-    </Transition>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, Teleport } from 'vue'
 
 export type WhiteSelectOption<T = string> = {
   label: string
@@ -84,6 +87,7 @@ const props = defineProps<{
   rootClass?: string
   triggerClass?: string
   panelClass?: string
+  teleportTo?: string
 }>()
 
 const emit = defineEmits<{
@@ -94,6 +98,7 @@ const emit = defineEmits<{
 
 const open = ref(false)
 const rootRef = ref<HTMLElement | null>(null)
+const panelStyle = ref<Record<string, string>>({})
 
 const placeholder = computed(() => props.placeholder ?? '请选择')
 
@@ -102,9 +107,23 @@ const selectedLabel = computed(() => {
   return found?.label ?? ''
 })
 
+const updatePanelPosition = () => {
+  if (!props.teleportTo || !rootRef.value) return
+  const rect = rootRef.value.getBoundingClientRect()
+  panelStyle.value = {
+    position: 'fixed',
+    top: `${rect.bottom + 8}px`,
+    left: `${rect.left}px`,
+    width: `${rect.width}px`
+  }
+}
+
 const toggle = () => {
   if (props.disabled) return
   open.value = !open.value
+  if (open.value && props.teleportTo) {
+    updatePanelPosition()
+  }
   emit('open-change', open.value)
 }
 

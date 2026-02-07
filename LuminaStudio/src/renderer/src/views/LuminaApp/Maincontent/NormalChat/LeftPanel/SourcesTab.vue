@@ -195,6 +195,7 @@
             :placeholder="getKnowledgeBaseEmbeddingLabel(kb.id)"
             :disabled="getSelectedDocCount(kb.id) === 0"
             trigger-class="!py-1.5 !px-2 !text-xs"
+            teleport-to="body"
           />
         </div>
 
