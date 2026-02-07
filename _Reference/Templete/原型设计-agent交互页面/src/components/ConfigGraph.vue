@@ -14,7 +14,7 @@ const nodeTypes = {
 }
 
 const onNodeClick = (event: any) => {
-    store.openDrawer(event.node)
+  store.openDrawer(event.node)
 }
 </script>
 
@@ -32,7 +32,7 @@ const onNodeClick = (event: any) => {
     >
       <Background pattern-color="#aaa" gap="8" />
       <Controls />
-      
+
       <!-- Panel用于显示标题 -->
       <div class="absolute top-4 left-4 z-10 bg-white p-2 rounded shadow">
         <h3 class="font-bold text-lg">Agent Workflow Configuration</h3>

@@ -34,7 +34,10 @@ function mapFileType(fileType: string): 'pdf' | 'md' | 'txt' | 'other' {
 /**
  * 映射单个嵌入配置到 UI 模型
  */
-function mapEmbeddingConfig(item: DocumentEmbeddingItem, isDefault: boolean): EmbeddingConfigStatus {
+function mapEmbeddingConfig(
+  item: DocumentEmbeddingItem,
+  isDefault: boolean
+): EmbeddingConfigStatus {
   return {
     configId: item.embeddingConfigId,
     dimensions: item.dimensions,
@@ -50,7 +53,9 @@ function mapEmbeddingConfig(item: DocumentEmbeddingItem, isDefault: boolean): Em
  * 计算推荐的默认嵌入配置（用于 UI 默认展示顺序/标记，不会自动选中）
  * 优先级：completed > dimensions 大 > updatedAt 新
  */
-function determineDefaultEmbedding(embeddings: DocumentEmbeddingItem[]): { configId: string; dimensions: number } | null {
+function determineDefaultEmbedding(
+  embeddings: DocumentEmbeddingItem[]
+): { configId: string; dimensions: number } | null {
   if (!embeddings || embeddings.length === 0) return null
 
   const completed = embeddings.filter((e) => e.status === 'completed')
@@ -93,7 +98,9 @@ function mapDocument(doc: DocumentInfo): SourceDocument {
     .map((item) =>
       mapEmbeddingConfig(
         item,
-        !!defaultEmbedding && item.embeddingConfigId === defaultEmbedding.configId && item.dimensions === defaultEmbedding.dimensions
+        !!defaultEmbedding &&
+          item.embeddingConfigId === defaultEmbedding.configId &&
+          item.dimensions === defaultEmbedding.dimensions
       )
     )
     // 推荐配置排前面（仅影响展示顺序）

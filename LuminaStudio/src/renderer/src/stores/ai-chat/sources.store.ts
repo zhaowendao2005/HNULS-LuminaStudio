@@ -144,7 +144,10 @@ export const useSourcesStore = defineStore('ai-chat-sources', () => {
     return kb.documents.every((doc) => doc.hasSelectedEmbedding)
   }
 
-  function setSelectedEmbedding(doc: SourceDocument, embedding: { configId: string; dimensions: number } | null): void {
+  function setSelectedEmbedding(
+    doc: SourceDocument,
+    embedding: { configId: string; dimensions: number } | null
+  ): void {
     // 清空所有高亮
     doc.embeddings.forEach((e) => {
       e.selected = false
@@ -155,7 +158,9 @@ export const useSourcesStore = defineStore('ai-chat-sources', () => {
 
     if (!embedding) return
 
-    const match = doc.embeddings.find((e) => e.configId === embedding.configId && e.dimensions === embedding.dimensions)
+    const match = doc.embeddings.find(
+      (e) => e.configId === embedding.configId && e.dimensions === embedding.dimensions
+    )
     if (match) {
       match.selected = true
     }

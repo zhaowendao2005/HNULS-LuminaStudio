@@ -12,6 +12,7 @@ import { AiChatService } from './services/ai-chat/ai-chat-service'
 import { AiChatIPCHandler } from './ipc/ai-chat-handler'
 import { KnowledgeDatabaseBridgeService } from './services/knowledge-database-bridge'
 import { KnowledgeDatabaseIPCHandler } from './ipc/knowledge-database-handler'
+import { langchainClientBridge } from './services/langchain-client-bridge'
 
 // 确保开发环境也使用 LuminaStudio 作为应用名称（生产环境自动使用 productName）
 if (!app.isPackaged) {
@@ -91,6 +92,9 @@ app.whenReady().then(() => {
 
   createWindow()
 
+  // LangChain Agent MVP（dev-config 控制开关）
+  void langchainClientBridge.runDevMvpIfEnabled()
+
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
@@ -109,6 +113,7 @@ app.on('window-all-closed', () => {
 
 // 应用退出前清理数据库连接
 app.on('before-quit', () => {
+  langchainClientBridge.kill()
   sqliteTestService.close()
   databaseManager.close()
 })

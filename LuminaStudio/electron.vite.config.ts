@@ -12,6 +12,14 @@ export default defineConfig({
         '@utility': resolve('src/utility'),
         '@shared': resolve('src/Public/ShareTypes')
       }
+    },
+    build: {
+      rollupOptions: {
+        input: {
+          index: resolve('src/main/index.ts'),
+          'utility/langchain-client': resolve('src/utility/langchain-client/entry.ts')
+        }
+      }
     }
   },
   preload: {

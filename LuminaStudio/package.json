@@ -32,10 +32,13 @@
     "@ai-sdk/openai-compatible": "^2.0.26",
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
+    "@langchain/core": "^1.1.19",
+    "@langchain/openai": "^1.2.5",
     "ai": "^6.0.69",
     "better-sqlite3": "^12.6.2",
     "electron-log": "^5.4.3",
     "electron-updater": "^6.3.9",
+    "langchain": "^1.2.18",
     "markdown-it": "^14.1.0",
     "pinia": "^3.0.4",
     "zod": "^4.3.6"

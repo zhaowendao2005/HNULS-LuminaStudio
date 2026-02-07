@@ -95,7 +95,9 @@
           stroke="currentColor"
           stroke-width="2"
         >
-          <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" />
+          <path
+            d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"
+          />
         </svg>
       </button>
     </div>
@@ -164,8 +166,13 @@
           </div>
 
           <!-- 知识库选择（已改为嵌入版本选择，不在此处做全选复选框） -->
-          <div class="text-[10px] text-slate-400 flex-shrink-0" :title="`已选择 ${kb.documents.filter(d => d.hasSelectedEmbedding).length} 个文档`">
-            {{ kb.documents.filter(d => d.hasSelectedEmbedding).length }}/{{ kb.documents.length }}
+          <div
+            class="text-[10px] text-slate-400 flex-shrink-0"
+            :title="`已选择 ${kb.documents.filter((d) => d.hasSelectedEmbedding).length} 个文档`"
+          >
+            {{ kb.documents.filter((d) => d.hasSelectedEmbedding).length }}/{{
+              kb.documents.length
+            }}
           </div>
         </div>
 
@@ -291,12 +298,22 @@
                   :key="`${emb.configId}-${emb.dimensions}`"
                   class="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer transition-colors"
                   :class="emb.selected ? 'bg-emerald-100/70' : 'hover:bg-white'"
-                  @click.stop="sourcesStore.selectEmbeddingVersion(kb.id, doc.id, { configId: emb.configId, dimensions: emb.dimensions })"
+                  @click.stop="
+                    sourcesStore.selectEmbeddingVersion(kb.id, doc.id, {
+                      configId: emb.configId,
+                      dimensions: emb.dimensions
+                    })
+                  "
                 >
                   <div class="min-w-0 flex-1">
                     <div class="flex items-center gap-1.5">
-                      <span class="text-xs font-medium text-slate-700 truncate">{{ emb.configId }}</span>
-                      <span v-if="emb.isDefault" class="text-[9px] px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">
+                      <span class="text-xs font-medium text-slate-700 truncate">
+                        {{ emb.configId }}
+                      </span>
+                      <span
+                        v-if="emb.isDefault"
+                        class="text-[9px] px-1.5 py-0.5 rounded bg-purple-100 text-purple-700"
+                      >
                         默认
                       </span>
                     </div>
@@ -327,7 +344,7 @@
                       class="inline-flex items-center justify-center w-1.5 h-1.5 rounded-full bg-amber-400"
                       title="等待嵌入"
                     ></span>
-                    
+
                     <!-- 默认配置紫色点 -->
                     <span
                       v-if="emb.isDefault"

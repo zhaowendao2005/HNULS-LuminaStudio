@@ -1,7 +1,15 @@
 <script setup lang="ts">
 import { Handle, Position } from '@vue-flow/core'
 import { computed } from 'vue'
-import { CheckCircle, Clock, AlertCircle, Settings, Search, Database, BrainCircuit } from 'lucide-vue-next'
+import {
+  CheckCircle,
+  Clock,
+  AlertCircle,
+  Settings,
+  Search,
+  Database,
+  BrainCircuit,
+} from 'lucide-vue-next'
 
 const props = defineProps(['data'])
 
@@ -15,11 +23,16 @@ const statusColor = computed(() => {
 
 const typeIcon = computed(() => {
   switch (props.data.type) {
-    case 'tool': return Search
-    case 'decision': return BrainCircuit
-    case 'process': return Settings
-    case 'mcp': return Database
-    default: return Settings
+    case 'tool':
+      return Search
+    case 'decision':
+      return BrainCircuit
+    case 'process':
+      return Settings
+    case 'mcp':
+      return Database
+    default:
+      return Settings
   }
 })
 </script>
@@ -27,12 +40,12 @@ const typeIcon = computed(() => {
 <template>
   <div class="custom-node px-4 py-2 shadow-md rounded-md border-2" :class="statusColor">
     <Handle type="target" :position="Position.Top" class="w-3 h-3 !bg-gray-400" />
-    
+
     <div class="flex items-center gap-2">
       <component :is="typeIcon" class="w-4 h-4" />
       <div class="font-bold text-sm">{{ data.label }}</div>
     </div>
-    
+
     <div v-if="data.status" class="mt-1 flex items-center gap-1 text-xs opacity-80">
       <CheckCircle v-if="data.status === 'completed'" class="w-3 h-3" />
       <Clock v-if="data.status === 'waiting' || data.status === 'running'" class="w-3 h-3" />

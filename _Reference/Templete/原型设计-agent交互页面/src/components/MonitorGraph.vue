@@ -23,7 +23,7 @@ const nodeTypes = {
     >
       <Background pattern-color="#aaa" gap="8" />
       <Controls />
-      
+
       <div class="absolute top-4 left-4 z-10 bg-white p-2 rounded shadow">
         <h3 class="font-bold text-lg text-blue-600">Live Agent Monitor</h3>
         <p class="text-sm text-gray-500">Real-time execution trace & user feedback.</p>
