@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <section
     class="nc_NormalChat_Center_a8d3 flex-1 min-w-0 bg-white/80 border border-slate-200 rounded-2xl overflow-hidden flex flex-col relative"
   >
@@ -6,7 +6,6 @@
       class="nc_NormalChat_CenterHeader_a8d3 h-12 flex items-center justify-between px-6 border-b border-slate-100 bg-white/60 backdrop-blur-sm overflow-x-auto"
       style="min-width: min-content"
     >
-      <!-- Left: Conversation List Trigger -->
       <button
         @click="$emit('showConversationList')"
         class="flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-emerald-600 transition-colors group flex-shrink-0"
@@ -23,7 +22,6 @@
         </svg>
       </button>
 
-      <!-- Center: Model Selector -->
       <button
         @click="$emit('showModelSelector')"
         class="flex items-center gap-2 px-4 py-1.5 bg-white border border-slate-200 rounded-full text-xs font-medium text-slate-600 hover:border-emerald-200 hover:text-emerald-700 hover:shadow-sm transition-all flex-shrink-0"
@@ -43,7 +41,6 @@
         </svg>
       </button>
 
-      <!-- Right: Actions -->
       <div class="flex items-center gap-2 text-slate-400 flex-shrink-0">
         <button
           class="w-8 h-8 rounded-full hover:bg-slate-100 transition-colors flex items-center justify-center"
@@ -108,16 +105,19 @@
       </div>
     </div>
 
-    <!-- 知识库检索详情对话框 -->
-    <KnowledgeSearchDetailDialog v-model="showDetailDialog" :detail="selectedDetail" />
+    <MessageComponentsKnowledgeSearchDetailDialog
+      v-model="showDetailDialog"
+      :detail="selectedDetail"
+    />
   </section>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import ChatMainMessage from './ChatMain-Message/index.vue'
 import ChatInput from './ChatInput/index.vue'
-import KnowledgeSearchDetailDialog from './ChatMain-Message/KnowledgeSearchDetailDialog.vue'
+import MessageComponentsKnowledgeSearchDetailDialog from './ChatMain-Message/MessageComponents-KnowledgeSearch-DetailDialog.vue'
+import { useKnowledgeSearchMessageStore } from '@renderer/stores/ai-chat/chat-message/message-components-store/KnowledgeSearch-store'
 
 defineProps<{
   messages: any[]
@@ -136,19 +136,23 @@ defineEmits<{
 }>()
 
 const inputBarRef = ref<HTMLElement | null>(null)
-const inputBarHeight = ref(176) // 默认值 pb-44 = 11rem = 176px
+const inputBarHeight = ref(176)
 
-// 知识库检索详情对话框状态
-const showDetailDialog = ref(false)
-const selectedDetail = ref<any>(null)
+const knowledgeSearchMessageStore = useKnowledgeSearchMessageStore()
+const showDetailDialog = computed({
+  get: () => knowledgeSearchMessageStore.showDetailDialog,
+  set: (value: boolean) => {
+    if (!value) {
+      knowledgeSearchMessageStore.closeDetailDialog()
+    }
+  }
+})
+const selectedDetail = computed(() => knowledgeSearchMessageStore.selectedDetail)
 
-// 处理展示知识库检索详情
 function handleShowKnowledgeDetail(payload: any) {
-  selectedDetail.value = payload
-  showDetailDialog.value = true
+  knowledgeSearchMessageStore.openDetailDialog(payload)
 }
 
-// 使用 ResizeObserver 监听输入栏高度变化
 let resizeObserver: ResizeObserver | null = null
 
 const updateInputBarHeight = () => {
@@ -160,7 +164,6 @@ const updateInputBarHeight = () => {
 onMounted(() => {
   updateInputBarHeight()
 
-  // 监听输入栏尺寸变化
   if (inputBarRef.value) {
     resizeObserver = new ResizeObserver(() => {
       updateInputBarHeight()

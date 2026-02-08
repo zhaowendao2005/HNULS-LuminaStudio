@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="mb-4 w-full">
     <button
       @click="toggleExpanded"
@@ -47,7 +47,6 @@
       </svg>
     </button>
 
-    <!-- 思考步骤展开 -->
     <div
       :class="[
         'overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]',
@@ -71,7 +70,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed } from 'vue'
+import { useThinkingMessageStore } from '@renderer/stores/ai-chat/chat-message/message-components-store/Thinking-store'
 
 const props = defineProps<{
   thinkingSteps: Array<{ id: string; content: string }>
@@ -79,9 +79,10 @@ const props = defineProps<{
   messageId: string
 }>()
 
-const isExpanded = ref(true) // 默认展开
+const thinkingMessageStore = useThinkingMessageStore()
+const isExpanded = computed(() => thinkingMessageStore.getExpanded(props.messageId))
 
 const toggleExpanded = () => {
-  isExpanded.value = !isExpanded.value
+  thinkingMessageStore.toggleExpanded(props.messageId)
 }
 </script>

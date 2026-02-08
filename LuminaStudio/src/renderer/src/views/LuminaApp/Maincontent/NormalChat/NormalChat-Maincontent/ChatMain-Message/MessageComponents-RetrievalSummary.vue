@@ -73,7 +73,7 @@
       <!-- Decision -->
       <div v-if="isDone" class="space-y-1">
         <div class="text-slate-400 font-medium">判定</div>
-        
+
         <!-- 轮次显示 -->
         <div class="text-[11px] mb-1">
           <span class="font-medium text-slate-600">轮次：</span>

@@ -1,6 +1,6 @@
 /**
  * Knowledge QA 默认 System Prompts
- * 
+ *
  * 说明：
  * - 每个节点的 prompt 分为两部分：
  *   1. Instruction（业务逻辑提示）：描述节点的任务和目标

@@ -114,7 +114,8 @@ export async function runRetrievalPlanning(params: {
 
   // 组合两部分 prompt：指令 + 约束
   const instruction = params.systemPromptInstruction ?? DEFAULT_PLAN_INSTRUCTION
-  const constraint = params.systemPromptConstraint ?? getDefaultPlanConstraint(maxK, RETRIEVAL_MAX_QUERIES)
+  const constraint =
+    params.systemPromptConstraint ?? getDefaultPlanConstraint(maxK, RETRIEVAL_MAX_QUERIES)
   const systemPrompt = `${instruction}
 
 ${constraint}`

@@ -311,23 +311,25 @@
               <!-- Instruction Part -->
               <div class="space-y-2">
                 <div class="flex items-center justify-between">
-                  <label class="text-sm font-medium text-slate-700">
-                    系统提示词 - 提示区
-                  </label>
+                  <label class="text-sm font-medium text-slate-700">系统提示词 - 提示区</label>
                   <button
                     @click="resetPlanInstruction"
                     class="text-xs text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
                   >
-                    <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <svg
+                      class="w-3 h-3"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
                       <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
                       <path d="M3 3v5h5" />
                     </svg>
                     恢复默认
                   </button>
                 </div>
-                <div class="text-xs text-slate-500">
-                  业务逻辑提示，描述节点任务和目标
-                </div>
+                <div class="text-xs text-slate-500">业务逻辑提示，描述节点任务和目标</div>
                 <textarea
                   :value="getPlanInstruction()"
                   @input="updatePlanInstruction"
@@ -343,23 +345,25 @@
               <!-- Constraint Part -->
               <div class="space-y-2">
                 <div class="flex items-center justify-between">
-                  <label class="text-sm font-medium text-slate-700">
-                    系统提示词 - 约束区
-                  </label>
+                  <label class="text-sm font-medium text-slate-700">系统提示词 - 约束区</label>
                   <button
                     @click="resetPlanConstraint"
                     class="text-xs text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
                   >
-                    <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <svg
+                      class="w-3 h-3"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
                       <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
                       <path d="M3 3v5h5" />
                     </svg>
                     恢复默认
                   </button>
                 </div>
-                <div class="text-xs text-slate-500">
-                  JSON 格式约束，一般不需要修改
-                </div>
+                <div class="text-xs text-slate-500">JSON 格式约束，一般不需要修改</div>
                 <textarea
                   :value="getPlanConstraint()"
                   @input="updatePlanConstraint"
@@ -498,23 +502,25 @@
               <!-- Instruction Part -->
               <div class="space-y-2">
                 <div class="flex items-center justify-between">
-                  <label class="text-sm font-medium text-slate-700">
-                    系统提示词 - 提示区
-                  </label>
+                  <label class="text-sm font-medium text-slate-700">系统提示词 - 提示区</label>
                   <button
                     @click="resetSummaryInstruction"
                     class="text-xs text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
                   >
-                    <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <svg
+                      class="w-3 h-3"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
                       <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
                       <path d="M3 3v5h5" />
                     </svg>
                     恢复默认
                   </button>
                 </div>
-                <div class="text-xs text-slate-500">
-                  业务逻辑提示，描述节点任务和目标
-                </div>
+                <div class="text-xs text-slate-500">业务逻辑提示，描述节点任务和目标</div>
                 <textarea
                   :value="getSummaryInstruction()"
                   @input="updateSummaryInstruction"
@@ -530,23 +536,25 @@
               <!-- Constraint Part -->
               <div class="space-y-2">
                 <div class="flex items-center justify-between">
-                  <label class="text-sm font-medium text-slate-700">
-                    系统提示词 - 约束区
-                  </label>
+                  <label class="text-sm font-medium text-slate-700">系统提示词 - 约束区</label>
                   <button
                     @click="resetSummaryConstraint"
                     class="text-xs text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
                   >
-                    <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <svg
+                      class="w-3 h-3"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
                       <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
                       <path d="M3 3v5h5" />
                     </svg>
                     恢复默认
                   </button>
                 </div>
-                <div class="text-xs text-slate-500">
-                  JSON 格式约束，一般不需要修改
-                </div>
+                <div class="text-xs text-slate-500">JSON 格式约束，一般不需要修改</div>
                 <textarea
                   :value="getSummaryConstraint()"
                   @input="updateSummaryConstraint"
@@ -779,7 +787,9 @@ const updatePlanInstruction = (event: Event) => {
   const target = event.target as HTMLTextAreaElement
   const value = target.value.trim()
   // 空值或与默认相同，则设为 undefined 以显示灰色
-  store.updatePlanPromptInstruction(value === DEFAULT_PLAN_INSTRUCTION ? undefined : value || undefined)
+  store.updatePlanPromptInstruction(
+    value === DEFAULT_PLAN_INSTRUCTION ? undefined : value || undefined
+  )
 }
 
 const updatePlanConstraint = (event: Event) => {
@@ -806,8 +816,7 @@ const getSummaryInstruction = () => {
 const getSummaryConstraint = () => {
   const maxIterations = Math.max(1, Math.floor(store.config.graph?.maxIterations ?? 3))
   return (
-    store.config.summaryModel.systemPromptConstraint ??
-    getDefaultSummaryConstraint(maxIterations)
+    store.config.summaryModel.systemPromptConstraint ?? getDefaultSummaryConstraint(maxIterations)
   )
 }
 

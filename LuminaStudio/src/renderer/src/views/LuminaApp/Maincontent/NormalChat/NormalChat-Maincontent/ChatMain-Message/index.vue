@@ -41,12 +41,12 @@
         </div>
 
         <!-- 根据消息类型渲染不同组件 -->
-        <TestMessage v-if="msg.role === 'test'" :message="msg" />
+        <MessageComponentsTest v-if="msg.role === 'test'" :message="msg" />
 
         <!-- Blocks 渲染 -->
         <template v-for="(block, blockIdx) in msg.blocks" :key="`${msg.id}-${blockIdx}`">
           <!-- Thinking -->
-          <ThinkingMessage
+          <MessageComponentsThinking
             v-if="block.type === 'thinking'"
             :thinking-steps="block.steps"
             :is-thinking="block.isThinking"
@@ -54,16 +54,19 @@
           />
 
           <!-- Retrieval Plan (node) -->
-          <RetrievalPlanMessage v-else-if="isRetrievalPlanNodeBlock(block)" :node-block="block" />
+          <MessageComponentsRetrievalPlan
+            v-else-if="isRetrievalPlanNodeBlock(block)"
+            :node-block="block"
+          />
 
           <!-- Retrieval Summary (node) -->
-          <RetrievalSummaryMessage
+          <MessageComponentsRetrievalSummary
             v-else-if="isRetrievalSummaryNodeBlock(block)"
             :node-block="block"
           />
 
           <!-- Knowledge Search (node) -->
-          <KnowledgeSearchMessage
+          <MessageComponentsKnowledgeSearch
             v-else-if="isKnowledgeSearchNodeBlock(block)"
             :result="getKnowledgeNodeResult(block)"
             :node-block="block"
@@ -71,10 +74,10 @@
           />
 
           <!-- Tool block (通用工具调用) -->
-          <ToolCallMessage v-else-if="block.type === 'tool'" :tool-blocks="[block]" />
+          <MessageComponentsToolCall v-else-if="block.type === 'tool'" :tool-blocks="[block]" />
 
           <!-- Text block -->
-          <TextMessage
+          <MessageComponentsText
             v-else-if="block.type === 'text'"
             :content="block.content"
             :role="msg.role"
@@ -82,10 +85,13 @@
           />
 
           <!-- Meta block (usage) -->
-          <UsageMessage v-else-if="block.type === 'meta' && block.usage" :usage="block.usage" />
+          <MessageComponentsUsage
+            v-else-if="block.type === 'meta' && block.usage"
+            :usage="block.usage"
+          />
         </template>
 
-        <ActionButtons v-if="msg.role === 'assistant' && !msg.isStreaming" />
+        <MessageComponentsActionButtons v-if="msg.role === 'assistant' && !msg.isStreaming" />
       </div>
     </div>
   </div>
@@ -93,15 +99,15 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import TestMessage from './TestMessage.vue'
-import ThinkingMessage from './ThinkingMessage.vue'
-import ToolCallMessage from './ToolCallMessage.vue'
-import KnowledgeSearchMessage from './KnowledgeSearchMessage.vue'
-import RetrievalPlanMessage from './RetrievalPlanMessage.vue'
-import RetrievalSummaryMessage from './RetrievalSummaryMessage.vue'
-import TextMessage from './TextMessage.vue'
-import UsageMessage from './UsageMessage.vue'
-import ActionButtons from './ActionButtons.vue'
+import MessageComponentsTest from './MessageComponents-Test.vue'
+import MessageComponentsThinking from './MessageComponents-Thinking.vue'
+import MessageComponentsToolCall from './MessageComponents-ToolCall.vue'
+import MessageComponentsKnowledgeSearch from './MessageComponents-KnowledgeSearch.vue'
+import MessageComponentsRetrievalPlan from './MessageComponents-RetrievalPlan.vue'
+import MessageComponentsRetrievalSummary from './MessageComponents-RetrievalSummary.vue'
+import MessageComponentsText from './MessageComponents-Text.vue'
+import MessageComponentsUsage from './MessageComponents-Usage.vue'
+import MessageComponentsActionButtons from './MessageComponents-ActionButtons.vue'
 
 const props = defineProps<{
   messages: any[]
