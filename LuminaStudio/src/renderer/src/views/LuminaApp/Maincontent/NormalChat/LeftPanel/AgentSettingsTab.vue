@@ -4,10 +4,12 @@
     <div
       class="bg-white border border-slate-200 rounded-xl p-3 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group"
     >
-      <!-- Background (Abstract Gradient) -->
-      <div
-        class="absolute inset-0 opacity-10 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 pointer-events-none"
-      ></div>
+      <!-- Background Image -->
+      <img
+        :src="knowledgeQaBg"
+        class="absolute inset-0 w-full h-full object-cover pointer-events-none opacity-30"
+        alt=""
+      />
 
       <div class="relative z-10">
         <div class="flex items-center gap-2 mb-2">
@@ -59,6 +61,8 @@
 </template>
 
 <script setup lang="ts">
+import knowledgeQaBg from '@renderer/assets/images/KnowledgeQA-Graph-Backendground.png'
+
 defineEmits<{
   (e: 'open-config', type: string): void
 }>()
