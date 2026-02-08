@@ -486,6 +486,7 @@ export function buildKnowledgeQaGraph(params: {
           userInput: state.input,
           planningInput: state.planningInput?.trim() || state.input,
           iteration: state.iteration,
+          maxIterations,
           resultsCount: state.retrievalResults?.length ?? 0
         }
       }

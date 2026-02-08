@@ -73,6 +73,22 @@
       <!-- Decision -->
       <div v-if="isDone" class="space-y-1">
         <div class="text-slate-400 font-medium">判定</div>
+        
+        <!-- 轮次显示 -->
+        <div class="text-[11px] mb-1">
+          <span class="font-medium text-slate-600">轮次：</span>
+          <span
+            :class="
+              currentIteration >= maxIterations - 1
+                ? 'text-amber-700 font-semibold'
+                : 'text-slate-700'
+            "
+          >
+            {{ iterationText }}
+          </span>
+          <span class="text-[10px] ml-1.5 text-slate-400">({{ iterationLabel }})</span>
+        </div>
+
         <div class="text-[11px]">
           <span class="font-medium">shouldLoop:</span>
           <span :class="shouldLoop ? 'text-amber-700' : 'text-emerald-700'">
@@ -88,7 +104,7 @@
         </div>
 
         <div v-if="shouldLoop" class="text-[10px] text-amber-600 mt-1">
-          说明：本轮证据不足，会回到“规划节点”继续检索（最多 3 轮）。
+          说明：本轮证据不足，会回到“规划节点”继续检索（最多 {{ maxIterations }} 轮）。
         </div>
         <div v-else class="text-[10px] text-emerald-600 mt-1">
           说明：证据足够，message 即最终答案。
@@ -101,10 +117,13 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { NodeBlock } from '@renderer/stores/ai-chat/chat-message/types'
+import { useKnowledgeQaConfigStore } from '@renderer/stores/ai-chat/LangchainAgent-Config/knowledge-qa'
 
 const props = defineProps<{
   nodeBlock: NodeBlock
 }>()
+
+const knowledgeQaConfigStore = useKnowledgeQaConfigStore()
 
 const isDone = computed(() => Boolean(props.nodeBlock.result))
 const isError = computed(() => Boolean(props.nodeBlock.error))
@@ -137,5 +156,28 @@ const headerTextClass = computed(() => {
 // 模型 ID
 const modelId = computed(() => {
   return props.nodeBlock.start?.modelId || props.nodeBlock.result?.modelId || null
+})
+
+// 当前轮次（从 0 开始）
+const currentIteration = computed(() => {
+  const iter = props.nodeBlock.start?.inputs?.iteration
+  return typeof iter === 'number' ? iter : 0
+})
+
+// 最大轮次（优先从 inputs 读取，回退到 store）
+const maxIterations = computed(() => {
+  const fromInputs = props.nodeBlock.start?.inputs?.maxIterations
+  if (typeof fromInputs === 'number') return fromInputs
+  return knowledgeQaConfigStore.config.graph.maxIterations ?? 3
+})
+
+// 轮次显示文本
+const iterationText = computed(() => {
+  return `${currentIteration.value} / ${maxIterations.value - 1}`
+})
+
+const iterationLabel = computed(() => {
+  const current = currentIteration.value
+  return current === 0 ? '首轮' : `第 ${current + 1} 轮`
 })
 </script>
