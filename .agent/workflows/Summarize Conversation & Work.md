@@ -1,5 +1,0 @@
----
-description: Generates a concise summary of the current conversation context and completed work when manually triggered
----
-
-请总结当前对话的上下文和已完成的工作。包括：1) 讨论的主要话题和需求 2) 已完成的关键任务和代码变更 3) 当前进展状态 4) 待处理的事项（如果有）。保持简洁，使用中文回复。5 列出所有的相关组件和文件\n保持简洁，使用中文回复。
