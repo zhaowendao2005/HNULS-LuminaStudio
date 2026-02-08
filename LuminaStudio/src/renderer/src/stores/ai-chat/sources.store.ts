@@ -9,6 +9,9 @@ export const useSourcesStore = defineStore('ai-chat-sources', () => {
   const isLoading = ref(false)
   const error = ref<string | null>(null)
 
+  // 刷新版本号，用于防止旧请求覆盖新数据
+  let refreshVersion = 0
+
   const connectionState = ref<ConnectionState>({
     connected: false,
     checking: false
@@ -135,8 +138,10 @@ export const useSourcesStore = defineStore('ai-chat-sources', () => {
         expandedKbIds.value.add(list[0].id)
       }
 
-      // 立即加载所有知识库的文档
-      await Promise.all(list.map((kb) => loadDocuments(kb.id)))
+      // 顺序加载所有知识库的文档，避免并发竞态
+      for (const kb of list) {
+        await loadDocuments(kb.id)
+      }
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to load knowledge bases'
       knowledgeBases.value = []
@@ -152,9 +157,10 @@ export const useSourcesStore = defineStore('ai-chat-sources', () => {
     const kb = knowledgeBases.value.find((k) => k.id === kbId)
     if (!kb) return
 
-    // 如果已经加载过，不重复加载
-    if (kb.documentsLoaded) return
+    // 如果已经加载过或正在加载，不重复加载
+    if (kb.documentsLoaded || kb.documentsLoading) return
 
+    const version = refreshVersion
     kb.documentsLoading = true
 
     try {
@@ -164,13 +170,25 @@ export const useSourcesStore = defineStore('ai-chat-sources', () => {
         pageSize: 200 // 一次性加载较多文档
       })
 
-      kb.documents = result.documents
-      kb.documentsLoaded = true
+      // 请求期间如果已触发新刷新，丢弃本次结果
+      if (version !== refreshVersion) return
+
+      // 二次查找，防止请求期间数组被替换
+      const currentKb = knowledgeBases.value.find((k) => k.id === kbId)
+      if (!currentKb) return
+
+      currentKb.documents = result.documents
+      currentKb.documentsLoaded = true
     } catch (err) {
+      if (version !== refreshVersion) return
       console.error(`Failed to load documents for kb ${kbId}:`, err)
-      kb.documents = []
+      const currentKb = knowledgeBases.value.find((k) => k.id === kbId)
+      if (currentKb) currentKb.documents = []
     } finally {
-      kb.documentsLoading = false
+      if (version === refreshVersion) {
+        const currentKb = knowledgeBases.value.find((k) => k.id === kbId)
+        if (currentKb) currentKb.documentsLoading = false
+      }
     }
   }
 
@@ -409,9 +427,13 @@ export const useSourcesStore = defineStore('ai-chat-sources', () => {
    * 刷新数据（重新加载知识库列表和所有文档）
    */
   async function refresh(): Promise<void> {
+    // 递增版本号，使所有进行中的旧请求自动失效
+    refreshVersion++
+
     // 重置文档加载状态
     knowledgeBases.value.forEach((kb) => {
       kb.documentsLoaded = false
+      kb.documentsLoading = false
       kb.documents = []
     })
 
