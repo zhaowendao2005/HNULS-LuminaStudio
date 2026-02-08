@@ -1,3 +1,7 @@
+---
+name: anchor-trace-horizontal-extension
+description: Start from an anchor file, trace dependencies upward and downward, identify processing vs pass-through layers, and output a minimal cross-layer feature extension plan
+---
 ## Skills：基于"锚点文件"双向追踪链路并横向扩展
 
 ### 第一步：从用户给的文件/目录出发，确定"锚点"所在层级
