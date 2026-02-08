@@ -200,7 +200,9 @@ export function buildKnowledgeQaGraph(params: {
         userInput: state.input,
         planningInput,
         retrieval: state.retrieval,
-        maxK
+        maxK,
+        systemPromptInstruction: knowledgeQaConfig.planModel.systemPromptInstruction,
+        systemPromptConstraint: knowledgeQaConfig.planModel.systemPromptConstraint
       })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
@@ -416,7 +418,10 @@ export function buildKnowledgeQaGraph(params: {
         userInput: state.input,
         planningInput: state.planningInput?.trim() || state.input,
         iteration: state.iteration,
-        results: state.retrievalResults ?? []
+        results: state.retrievalResults ?? [],
+        maxIterations,
+        systemPromptInstruction: knowledgeQaConfig.summaryModel.systemPromptInstruction,
+        systemPromptConstraint: knowledgeQaConfig.summaryModel.systemPromptConstraint
       })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)

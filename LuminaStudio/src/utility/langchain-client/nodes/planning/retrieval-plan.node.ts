@@ -24,6 +24,10 @@ import type {
   LangchainClientRetrievalConfig,
   LangchainClientRetrievalPlanOutput
 } from '@shared/langchain-client.types'
+import {
+  DEFAULT_PLAN_INSTRUCTION,
+  getDefaultPlanConstraint
+} from '@shared/knowledge-qa-default-prompts'
 
 export const RETRIEVAL_MAX_K = 3
 export const RETRIEVAL_MAX_QUERIES = 10
@@ -92,8 +96,10 @@ function parseJsonFromModel(text: string): any {
  *
  * @param model - 原始 ChatModel（不是 agent）。我们需要它输出结构化 JSON。
  * @param userInput - 用户最初问题（不变）
- * @param planningInput - 规划输入（可能来自总结节点的“补充问题”）
- * @param retrieval - 当前可用的知识库范围（只用作“可用信息提示”）
+ * @param planningInput - 规划输入（可能来自总结节点的"补充问题"）
+ * @param retrieval - 当前可用的知识库范围（只用作"可用信息提示"）
+ * @param systemPromptInstruction - 可选的自定义业务逻辑提示
+ * @param systemPromptConstraint - 可选的自定义 JSON 格式约束
  */
 export async function runRetrievalPlanning(params: {
   model: ChatOpenAI
@@ -101,29 +107,17 @@ export async function runRetrievalPlanning(params: {
   planningInput: string
   retrieval?: LangchainClientRetrievalConfig
   maxK?: number
+  systemPromptInstruction?: string
+  systemPromptConstraint?: string
 }): Promise<LangchainClientRetrievalPlanOutput> {
   const maxK = Math.max(1, Math.floor(params.maxK ?? RETRIEVAL_MAX_K))
 
-  const systemPrompt = `你是一个“知识库检索规划助手”。
-你不会直接回答用户问题；你的任务是生成检索计划。
+  // 组合两部分 prompt：指令 + 约束
+  const instruction = params.systemPromptInstruction ?? DEFAULT_PLAN_INSTRUCTION
+  const constraint = params.systemPromptConstraint ?? getDefaultPlanConstraint(maxK, RETRIEVAL_MAX_QUERIES)
+  const systemPrompt = `${instruction}
 
-你已知：可用知识库范围列表（哪些 table、哪些文件）。你不需要也不允许真正检索。
-
-请输出一个 JSON 对象，不要输出任何多余文本，格式如下：
-{
-  "maxK": number,
-  "rationale": string,
-  "queries": [
-    { "query": string, "k": number }
-  ]
-}
-
-要求：
-- queries 最多 ${RETRIEVAL_MAX_QUERIES} 条；如果只需要 1-3 条也可以。
-- 每个 k 必须是 1..maxK 的整数。
-- query 要具体，能最大化命中用户需要的信息。
-- maxK 固定输出为 ${maxK}。
-`
+${constraint}`
 
   const available = formatAvailableKnowledge(params.retrieval)
 

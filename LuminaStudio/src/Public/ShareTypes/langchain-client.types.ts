@@ -46,6 +46,10 @@ export interface KnowledgeQaModelSelectorConfig {
   modelId: string | null
   /** Optional: resolved provider config (filled by Main) */
   provider?: LangchainClientProviderConfig
+  /** Optional: custom system prompt instruction part (业务逻辑提示) */
+  systemPromptInstruction?: string
+  /** Optional: custom system prompt constraint part (JSON 格式约束) */
+  systemPromptConstraint?: string
 }
 
 export interface KnowledgeQaModelConfig {

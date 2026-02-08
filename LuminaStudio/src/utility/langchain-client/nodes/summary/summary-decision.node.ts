@@ -21,6 +21,10 @@
 import type { ChatOpenAI } from '@langchain/openai'
 import { HumanMessage, SystemMessage } from '@langchain/core/messages'
 import type { LangchainClientSummaryDecisionOutput } from '@shared/langchain-client.types'
+import {
+  DEFAULT_SUMMARY_INSTRUCTION,
+  getDefaultSummaryConstraint
+} from '@shared/knowledge-qa-default-prompts'
 
 /**
  * 检索结果在 graph 内部的标准形态。
@@ -133,26 +137,19 @@ export async function runSummaryDecision(params: {
   planningInput: string
   iteration: number
   results: RetrievalExecutionResult[]
+  maxIterations?: number
+  systemPromptInstruction?: string
+  systemPromptConstraint?: string
 }): Promise<LangchainClientSummaryDecisionOutput> {
   const evidence = buildEvidenceDigest(params.results)
 
-  const systemPrompt = `你是一个“知识库检索总结与判断助手”。
-你的任务：基于用户问题与检索证据，判断信息是否足够回答。
+  // 组合两部分 prompt：指令 + 约束
+  const instruction = params.systemPromptInstruction ?? DEFAULT_SUMMARY_INSTRUCTION
+  const maxIterations = Math.max(1, Math.floor(params.maxIterations ?? 3))
+  const constraint = params.systemPromptConstraint ?? getDefaultSummaryConstraint(maxIterations)
+  const systemPrompt = `${instruction}
 
-请只输出一个 JSON 对象，不要输出任何多余文本，格式如下：
-{
-  "shouldLoop": boolean,
-  "message": string
-}
-
-判定规则：
-- 如果证据足以回答用户问题：shouldLoop=false，message=最终答案（直接面向用户）。
-- 如果证据不足以回答：shouldLoop=true，message=下一轮“规划节点”的输入（不要问用户，写成可检索的缺口/方向/关键词）。
-
-要求：
-- message 必须是中文。
-- 当 shouldLoop=true 时，message 应该非常具体，尽量给出 1-3 个推荐检索方向/关键词。
-`
+${constraint}`
 
   const userPrompt = `用户原始问题：
 ${params.userInput}

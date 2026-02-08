@@ -8,11 +8,15 @@ export const useKnowledgeQaConfigStore = defineStore(
     const config = ref<KnowledgeQaModelConfig>({
       planModel: {
         providerId: null,
-        modelId: null
+        modelId: null,
+        systemPromptInstruction: undefined,
+        systemPromptConstraint: undefined
       },
       summaryModel: {
         providerId: null,
-        modelId: null
+        modelId: null,
+        systemPromptInstruction: undefined,
+        systemPromptConstraint: undefined
       },
       retrieval: {
         enableRerank: false,
@@ -68,12 +72,56 @@ export const useKnowledgeQaConfigStore = defineStore(
       }
     }
 
+    function updatePlanPromptInstruction(instruction: string | undefined) {
+      config.value = {
+        ...config.value,
+        planModel: {
+          ...config.value.planModel,
+          systemPromptInstruction: instruction
+        }
+      }
+    }
+
+    function updatePlanPromptConstraint(constraint: string | undefined) {
+      config.value = {
+        ...config.value,
+        planModel: {
+          ...config.value.planModel,
+          systemPromptConstraint: constraint
+        }
+      }
+    }
+
+    function updateSummaryPromptInstruction(instruction: string | undefined) {
+      config.value = {
+        ...config.value,
+        summaryModel: {
+          ...config.value.summaryModel,
+          systemPromptInstruction: instruction
+        }
+      }
+    }
+
+    function updateSummaryPromptConstraint(constraint: string | undefined) {
+      config.value = {
+        ...config.value,
+        summaryModel: {
+          ...config.value.summaryModel,
+          systemPromptConstraint: constraint
+        }
+      }
+    }
+
     return {
       config,
       updatePlanNode,
       updateRetrievalNode,
       updateSummaryNode,
-      updateGraph
+      updateGraph,
+      updatePlanPromptInstruction,
+      updatePlanPromptConstraint,
+      updateSummaryPromptInstruction,
+      updateSummaryPromptConstraint
     }
   },
   {
