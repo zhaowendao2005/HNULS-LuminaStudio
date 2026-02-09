@@ -27,7 +27,7 @@
 import { tool } from 'langchain'
 import { z } from 'zod'
 import type { LangchainClientRetrievalConfig } from '@shared/langchain-client.types'
-import { runKnowledgeRetrieval } from '../nodes/knowledge/knowledge-retrieval.node'
+import { runKnowledgeRetrieval } from '../nodes/utils-knowledge/knowledge-retrieval.node'
 
 /**
  * 创建知识搜索 Tool

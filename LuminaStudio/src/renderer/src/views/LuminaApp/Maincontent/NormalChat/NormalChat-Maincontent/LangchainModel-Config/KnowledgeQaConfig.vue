@@ -14,7 +14,7 @@
 
       <!-- Graph Visualization (SVG) -->
       <div class="min-h-full min-w-full flex items-center justify-center p-10">
-        <svg width="600" height="800" class="overflow-visible">
+        <svg width="700" height="800" class="overflow-visible">
           <defs>
             <marker
               id="arrowhead"
@@ -38,18 +38,36 @@
             marker-end="url(#arrowhead)"
           />
 
-          <!-- Plan -> Retrieval -->
+          <!-- Plan -> Knowledge Retrieval (left branch) -->
           <path
-            d="M300 210 C 300 230, 300 250, 300 280"
+            d="M300 210 C 300 230, 180 250, 180 280"
             fill="none"
             stroke="#94a3b8"
             stroke-width="2"
             marker-end="url(#arrowhead)"
           />
 
-          <!-- Retrieval -> Summary -->
+          <!-- Plan -> PubMed Search (right branch) -->
           <path
-            d="M300 340 C 300 360, 300 380, 300 410"
+            d="M300 210 C 300 230, 420 250, 420 280"
+            fill="none"
+            stroke="#94a3b8"
+            stroke-width="2"
+            marker-end="url(#arrowhead)"
+          />
+
+          <!-- Knowledge Retrieval -> Summary -->
+          <path
+            d="M180 340 C 180 360, 300 380, 300 410"
+            fill="none"
+            stroke="#94a3b8"
+            stroke-width="2"
+            marker-end="url(#arrowhead)"
+          />
+
+          <!-- PubMed Search -> Summary -->
+          <path
+            d="M420 340 C 420 360, 300 380, 300 410"
             fill="none"
             stroke="#94a3b8"
             stroke-width="2"
@@ -131,9 +149,9 @@
             </text>
           </g>
 
-          <!-- Retrieval Node -->
+          <!-- Knowledge Retrieval Node (left) -->
           <g
-            transform="translate(220, 280)"
+            transform="translate(100, 280)"
             class="cursor-pointer hover:opacity-90 transition-opacity"
             @contextmenu.prevent="openDrawer('retrieval')"
             @click="openDrawer('retrieval')"
@@ -155,10 +173,41 @@
               font-weight="bold"
               font-size="14"
             >
-              Retrieval
+              Knowledge
             </text>
             <text x="80" y="45" text-anchor="middle" fill="#64748b" font-size="10">
               知识库检索与重排
+            </text>
+          </g>
+
+          <!-- PubMed Search Node (right) -->
+          <g
+            transform="translate(340, 280)"
+            class="cursor-pointer hover:opacity-90 transition-opacity"
+            @contextmenu.prevent="openDrawer('pubmed')"
+            @click="openDrawer('pubmed')"
+          >
+            <rect
+              width="160"
+              height="60"
+              rx="12"
+              fill="white"
+              stroke="#10b981"
+              stroke-width="2"
+              filter="drop-shadow(0 4px 6px rgb(0 0 0 / 0.1))"
+            />
+            <text
+              x="80"
+              y="25"
+              text-anchor="middle"
+              fill="#1e293b"
+              font-weight="bold"
+              font-size="14"
+            >
+              PubMed
+            </text>
+            <text x="80" y="45" text-anchor="middle" fill="#64748b" font-size="10">
+              文献检索（API Key 可选）
             </text>
           </g>
 
@@ -569,6 +618,22 @@
             </div>
           </template>
 
+          <!-- PubMed Node Settings -->
+          <template v-if="activeNode === 'pubmed'">
+            <div class="space-y-3">
+              <div class="text-sm text-slate-600">
+                <p class="mb-3">
+                  PubMed 文献检索工具已集成，无需额外配置。
+                </p>
+                <p class="text-xs text-slate-500">
+                  <strong>API Key 配置：</strong>请前往 【设置 → 秘钥管理】 配置 PubMed API Key。<br />
+                  • <strong>无 API Key</strong>：3 次/秒速率限制<br />
+                  • <strong>有 API Key</strong>：10 次/秒速率限制
+                </p>
+              </div>
+            </div>
+          </template>
+
           <!-- Global Settings -->
           <template v-if="activeNode === 'global'">
             <div class="space-y-3">
@@ -648,6 +713,8 @@ const drawerTitle = computed(() => {
       return '规划节点配置'
     case 'retrieval':
       return '检索节点配置'
+    case 'pubmed':
+      return 'PubMed 检索配置'
     case 'summary':
       return '总结与判断节点配置'
     case 'global':

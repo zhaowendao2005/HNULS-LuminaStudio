@@ -69,12 +69,31 @@
       <div v-if="isDone" class="space-y-1">
         <div class="text-slate-400 font-medium">规划结果</div>
 
-        <div class="text-[11px] text-slate-600">maxK: {{ maxK }}</div>
+        <div v-if="rationale" class="text-[11px] text-slate-600 mb-1">{{ rationale }}</div>
 
-        <div v-if="rationale" class="text-[11px] text-slate-600">rationale: {{ rationale }}</div>
+        <div v-if="toolCalls.length" class="space-y-1.5">
+          <div class="text-[10px] text-slate-500">工具调用（最多 10 条）</div>
+          <div class="space-y-1">
+            <div
+              v-for="(call, idx) in toolCalls"
+              :key="idx"
+              class="bg-white/70 px-2 py-1 rounded border border-slate-100"
+            >
+              <div class="flex items-start justify-between gap-2">
+                <div class="flex-1 space-y-0.5">
+                  <div class="font-mono text-[11px] text-slate-800 font-semibold">{{ call.toolId }}</div>
+                  <div class="text-[10px] text-slate-500 font-mono break-words">
+                    {{ formatParams(call.params) }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
-        <div v-if="queries.length" class="space-y-1.5">
-          <div class="text-[10px] text-slate-500">queries（最多 10 条）</div>
+        <!-- 兼容旧格式 queries -->
+        <div v-else-if="queries.length" class="space-y-1.5">
+          <div class="text-[10px] text-slate-500">queries（旧格式）</div>
           <div class="space-y-1">
             <div
               v-for="(q, idx) in queries"
@@ -89,7 +108,7 @@
           </div>
         </div>
 
-        <div v-else class="text-[11px] text-slate-400">（暂无 queries）</div>
+        <div v-else class="text-[11px] text-slate-400">（暂无工具调用）</div>
       </div>
     </div>
   </div>
@@ -132,26 +151,43 @@ const planningInput = computed(() => {
 // 规划输出在 node-result.outputs 里（graph.ts 里直接把 plan 的字段铺平输出）
 const outputs = computed(() => (props.nodeBlock.result?.outputs ?? {}) as any)
 
-const maxK = computed(() => {
-  const value = outputs.value?.maxK
-  return typeof value === 'number' ? value : 3
-})
-
 const rationale = computed(() => {
   const value = outputs.value?.rationale
   return typeof value === 'string' ? value : ''
 })
 
+// 新架构：toolCalls[]
+const toolCalls = computed(() => {
+  const list = outputs.value?.toolCalls
+  if (!Array.isArray(list)) return []
+  return list
+    .map((call: any) => ({
+      toolId: String(call?.toolId ?? ''),
+      params: call?.params ?? {}
+    }))
+    .filter((call: any) => call.toolId.trim())
+})
+
+// 兼容旧架构：queries[] (如果存在)
 const queries = computed(() => {
   const list = outputs.value?.queries
   if (!Array.isArray(list)) return []
   return list
     .map((q: any) => ({
       query: String(q?.query ?? ''),
-      k: Number.isFinite(q?.k) ? q.k : maxK.value
+      k: Number.isFinite(q?.k) ? q.k : 3
     }))
     .filter((q: any) => q.query.trim())
 })
+
+// 格式化 params 为简洁字符串
+function formatParams(params: any): string {
+  if (!params || typeof params !== 'object') return ''
+  const entries = Object.entries(params)
+    .map(([k, v]) => `${k}: ${JSON.stringify(v)}`)
+    .join(', ')
+  return entries || '{}'
+}
 
 // 模型 ID
 const modelId = computed(() => {

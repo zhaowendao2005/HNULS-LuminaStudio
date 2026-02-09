@@ -8,6 +8,7 @@ import { useSourcesStore } from './sources.store'
 import { useModelConfigStore } from '@renderer/stores/model-config/store'
 import type { AiChatRetrievalConfig, AiChatRetrievalScope } from '@preload/types'
 import { useKnowledgeQaConfigStore } from '@renderer/stores/ai-chat/LangchainAgent-Config/knowledge-qa'
+import { useUserConfigStore } from '@renderer/stores/user-config/store'
 import type { KnowledgeQaModelConfig } from '@shared/langchain-client.types'
 
 export const useAiChatStore = defineStore('ai-chat', () => {
@@ -188,6 +189,17 @@ export const useAiChatStore = defineStore('ai-chat', () => {
     const knowledgeQaConfig = JSON.parse(
       JSON.stringify(knowledgeQaStore.config)
     ) as KnowledgeQaModelConfig
+
+    // 注入 PubMed API Key （从全局 user-config store 获取）
+    // 注意：apiKey 是可选的，无 key 时使用 3次/秒，有 key 时 10次/秒
+    if (mode === 'agent') {
+      const userConfigStore = useUserConfigStore()
+      const pubmedApiKey = userConfigStore.pubmedApiKey?.trim()
+      // 只在非空时注入，空字符串/undefined 都不注入
+      if (pubmedApiKey) {
+        knowledgeQaConfig.pubmed = { apiKey: pubmedApiKey }
+      }
+    }
 
     if (mode === 'agent') {
       if (

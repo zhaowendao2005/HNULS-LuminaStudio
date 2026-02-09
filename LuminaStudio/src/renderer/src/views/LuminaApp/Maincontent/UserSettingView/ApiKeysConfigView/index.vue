@@ -211,6 +211,7 @@ async function handleSave(): Promise<void> {
   } catch (error) {
     console.error('Failed to save API keys:', error)
     // TODO: 显示错误提示
+  }
 }
 
 // 重置

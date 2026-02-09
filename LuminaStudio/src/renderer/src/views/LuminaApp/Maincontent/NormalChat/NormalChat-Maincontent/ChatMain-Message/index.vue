@@ -128,14 +128,20 @@ const emit = defineEmits<{
 // 反转消息顺序以配合 column-reverse
 const reversedMessages = computed(() => [...props.messages].reverse())
 
-// 判断是否是 retrieval_plan 节点 block
+// 判断是否是 planning 节点 block (新架构：通用规划器)
 function isRetrievalPlanNodeBlock(block: any): boolean {
-  return block?.type === 'node' && block?.start?.nodeKind === 'retrieval_plan'
+  return (
+    block?.type === 'node' &&
+    (block?.start?.nodeKind === 'planning' || block?.start?.nodeKind === 'retrieval_plan')
+  )
 }
 
-// 判断是否是 retrieval_summary 节点 block
+// 判断是否是 summary 节点 block (新架构：通用总结器)
 function isRetrievalSummaryNodeBlock(block: any): boolean {
-  return block?.type === 'node' && block?.start?.nodeKind === 'retrieval_summary'
+  return (
+    block?.type === 'node' &&
+    (block?.start?.nodeKind === 'summary' || block?.start?.nodeKind === 'retrieval_summary')
+  )
 }
 
 // 判断是否是 knowledge_retrieval 节点 block

@@ -61,6 +61,9 @@ export interface KnowledgeQaModelConfig {
     topK: number
     rerankTopN?: number
   }
+  pubmed?: {
+    apiKey?: string
+  }
   graph: {
     maxIterations: number
   }
@@ -102,8 +105,11 @@ export interface LangchainClientChatMessage {
  */
 export type LangchainClientNodeKind =
   | 'knowledge_retrieval'
+  | 'pubmed_search'
   | 'retrieval_plan'
   | 'retrieval_summary'
+  | 'planning'
+  | 'summary'
   | 'tool'
   | 'final_answer'
   | 'custom'
