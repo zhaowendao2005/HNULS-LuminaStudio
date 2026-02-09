@@ -53,29 +53,124 @@ export type LangchainClientNodeKind = 'planning' | 'summary' | ...
 
 ## 二、Renderer 配置面板（UI 层）
 
+### 0. 参考模板（Knowledge-QA）
+新增模型时**必须先对照 Knowledge-QA 的完整链路**：
+
+- 配置面板：  
+  `src/renderer/src/views/LuminaApp/Maincontent/NormalChat/NormalChat-Maincontent/LangchainModel-Config/KnowledgeQaConfig.vue`
+- 配置弹窗容器：  
+  `src/renderer/src/views/LuminaApp/Maincontent/NormalChat/NormalChat-Maincontent/LangchainModel-Config/index.vue`
+- 打开入口（LeftPanel → NormalChat）：  
+  `src/renderer/src/views/LuminaApp/Maincontent/NormalChat/index.vue`
+- Store（持久化）：  
+  `src/renderer/src/stores/ai-chat/LangchainAgent-Config/knowledge-qa.ts`
+
+**结论：新模型必须仿照 Knowledge-QA 的结构与链路。**
+
 ### 1. Store 层
 在 `src/renderer/src/stores/ai-chat/` 下建立 store：
 
-- `LangchainAgent-Config/<model>/store.ts`
+- `LangchainAgent-Config/<model>.ts`
 - 保存默认配置 + update 方法
 
-必须保证：
-✅ 有默认值  
-✅ 可 JSON 序列化（避免 ref 直接透传）  
+必须保证（对照 Knowledge-QA store）：
+
+✅ **有完整默认值**（`config = ref<Config>({...})`）  
+✅ **可 JSON 序列化**（避免 ref 直接透传 IPC）  
+✅ **提供 update 方法**（如 updatePlanNode/updateGraph 等）  
+✅ **持久化**（Pinia persist + localStorage）  
+
+**Knowledge-QA 的持久化模板：**
+
+```ts
+export const useKnowledgeQaConfigStore = defineStore(
+  'knowledge-qa-config',
+  () => {
+    const config = ref<KnowledgeQaModelConfig>({...})
+    return { config, updatePlanNode, updateSummaryNode, ... }
+  },
+  {
+    persist: {
+      key: 'knowledge-qa-config',
+      storage: localStorage
+    }
+  }
+)
+```
+
+新增模型必须：
+1. **在 store 中写 persist**  
+2. **persist.key 用新模型名**（如 `'xxx-config'`）  
+3. **storage 统一 localStorage**（保持一致）  
 
 ### 2. 配置页面
 在 `LangchainModel-Config/` 中新增页面：
 
 - `XxxModelConfig.vue`
 - SVG 流程图
-- 右侧 drawer 交互
+- 右侧 Drawer 交互
 
-### 3. 配置入口
-在 `LangchainModel-Config/index.vue` 注册新页面：
+**页面结构必须参考 KnowledgeQaConfig.vue：**
+
+- 左侧 SVG 流程图（节点可点击，打开右侧 Drawer）
+- 右侧 Drawer（根据 activeNode 切换内容）
+- 顶部“全局设置”按钮（Global Settings）
+
+### 2.1 Drawer 的标准结构（参考 QA）
+
+```vue
+<template v-if="activeNode === 'plan'">...</template>
+<template v-if="activeNode === 'summary'">...</template>
+<template v-if="activeNode === 'global'">...</template>
+```
+
+建议：
+- 至少保留 `global`（如 maxIterations）
+- 如果存在结构节点，保留 instruction / constraint 的输入入口
+
+### 3. 配置入口（弹窗容器）
+`LangchainModel-Config/index.vue` 是**配置弹窗容器**。
+
+当前 Knowledge-QA 只有一个配置页，因此直接渲染 `KnowledgeQaConfig`。
+
+新增模型时需要：
+
+1. 扩展容器，支持 `selected` 或 `type` 切换  
+2. 或者增加 Tab / Selector 来选择不同配置页  
+
+示例：
 
 ```vue
 <XxxModelConfig v-if="selected === 'xxx'" />
 ```
+
+### 4. 打开入口（LeftPanel → NormalChat）
+
+Knowledge-QA 的入口链路：
+
+```
+LeftPanel 触发 open-config('knowledge-qa')
+  ↓
+NormalChat/index.vue 监听 open-config
+  ↓
+showConfigDialog = true
+  ↓
+LangchainModelConfig modal 显示
+```
+
+对应实现：
+
+- `NormalChat/index.vue`
+  - `handleOpenConfig(type: string)`
+  - `if (type === 'knowledge-qa') showConfigDialog.value = true`
+- `LangchainModel-Config/index.vue`
+  - 弹窗容器
+
+新增模型时必须补充：
+
+✅ LeftPanel 发出 `open-config('xxx')`  
+✅ NormalChat 识别 `'xxx'` 并打开弹窗  
+✅ LangchainModel-Config 渲染新页面  
 
 ---
 

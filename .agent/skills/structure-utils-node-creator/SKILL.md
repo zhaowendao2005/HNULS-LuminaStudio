@@ -11,6 +11,18 @@ description: Create new nodes with the Structure/Utils split in LuminaStudio, in
 强调：**结构节点不要感知工具节点**，只消费 descriptor 与通用结果格式；工具节点只负责“执行 + 返回 JSON 字符串”。
 
 ---
+## 核心原则（必须牢记）
+1. **结构节点 = 通用编排**  
+   任何结构节点都不绑定具体工具，否则后续每加一个工具都要重写结构节点。
+2. **工具节点 = 插件执行**  
+   工具节点只做业务执行 + 输出 JSON，不参与“决策”。
+3. **系统参数与用户参数严格分离**  
+   - 系统参数：apiKey、apiBaseUrl、abortSignal（由 nodeFactory 注入）
+   - 用户参数：query、retMax（由 LLM 规划）
+4. **所有节点输出必须可 JSON 解析**  
+   结构节点/工具节点输出必须是稳定 JSON 字符串，否则解析失败会导致流程断裂。
+
+---
 
 ## 目录结构与职责
 
@@ -43,7 +55,7 @@ src/utility/langchain-client/nodes/
 ```
 src/utility/langchain-client/nodes/structure-<name>/
 ```
-
+### 2. 输入/输出接口（必须清晰且通用）
 ### 2. 输出接口（必须清晰）
 结构节点必须定义明确、**通用**的输入/输出。
 
@@ -55,6 +67,12 @@ export interface PlanningOutput {
   toolCalls: Array<{ toolId: string; params: Record<string, unknown> }>
 }
 ```
+> ⚠️ 当前 repo 中规划输出仍使用 `toolCalls + toolId`。  
+> 如果要改名为 `nodeCalls + nodeId`，必须同步更新：
+> - graph.ts（执行器匹配）
+> - summary.node.ts（结果消费）
+> - UI Message 组件（规划展示）
+> - types.ts（ToolExecutionResult）
 
 例如 Summary 节点：
 
@@ -64,11 +82,43 @@ export interface SummaryOutput {
   message: string
 }
 ```
-
+### 3. Prompt 设计原则（大坑点）
 ### 3. Prompt 设计原则
 - **Instruction**：说明节点职责
 - **Constraint**：强制 JSON 输出格式
 - **不要硬编码具体工具名**（保持通用）
+⚠️ **坑点/教训**：
+- 不写 JSON 约束 → LLM 输出自然语言 → 解析失败 → 整条链路崩
+- 在 prompt 里写死某个工具 → 结构节点和工具耦合 → 每次加工具都要改结构节点
+
+### 4. JSON 解析与容错（必须实现）
+建议统一使用 `parseJsonFromModel`：
+
+```ts
+const fence = trimmed.match(/```json\\s*([\\s\\S]*?)\\s*```/i)
+```
+
+**必须支持三种情况：**
+1. 纯 JSON
+2. ```json code fence
+3. 混杂文本
+
+⚠️ **坑点**：如果解析失败且不兜底，会直接导致图中断。
+
+### 5. Summary 节点的证据摘要（避免上下文爆炸）
+当工具返回大段文本时，必须做 evidence digest：
+- 只保留前 N 条
+- 只保留前 M 字符
+- 保留结构化字段（title/abstract/score）
+
+⚠️ **教训**：未压缩会导致 prompt 超长 → LLM 调用失败或费用暴涨。
+
+### 6. 回环逻辑（防死循环）
+结构节点必须配合 graph 控制迭代：
+- `shouldLoop=true` → 继续
+- 达到 `maxIterations` → 强制结束
+
+⚠️ **坑点**：没有上限 → 无限循环 → UI 卡死。
 
 ### 4. 结构节点职责边界（必须遵守）
 - ✅ 负责：LLM 调用、JSON 解析、错误兜底
@@ -84,7 +134,19 @@ export interface SummaryOutput {
 ```
 src/utility/langchain-client/nodes/utils-<name>/
 ```
+### 2. 系统参数 vs 用户参数（关键）
+**必须分层：**
 
+```ts
+export interface SystemParams { apiKey?: string; abortSignal?: AbortSignal }
+export interface UserParams { query: string; retMax?: number }
+```
+
+系统参数只能由 `nodeFactory` 注入，**不能让 LLM 生成**。
+
+⚠️ **坑点**：把 apiKey 放进 LLM 输入 → 泄露密钥。
+
+### 3. 实现 run()（返回 JSON 字符串）
 ### 2. 实现 run()（返回 JSON 字符串）
 工具节点应只做业务逻辑，返回 JSON 字符串：
 
@@ -94,7 +156,7 @@ export async function runXxx(params: XxxParams): Promise<string> {
   return JSON.stringify(result)
 }
 ```
-
+### 4. 写 descriptor（给 LLM 看）
 ### 3. 写 descriptor（给 LLM 看）
 descriptor 必须包含：
 - id（nodeKind）
@@ -114,7 +176,7 @@ descriptor: {
   outputDescription: 'JSON: { items: [...], total_found }'
 }
 ```
-
+### 5. 注册到 index.ts（nodeFactory）
 ### 4. 注册到 index.ts（nodeFactory）
 **必须通过 nodeFactory 注入系统参数**，用户参数由 LLM 提供。
 
@@ -126,6 +188,19 @@ export const pubmedSearchReg: UtilNodeRegistration = {
   })
 }
 ```
+### 6. 速率限制/重试/超时（强烈建议）
+- PubMed 这类 API 要区分是否有 apiKey（3/s vs 10/s）
+- 超时必须设置（避免卡住）
+- 对网络错误做轻量重试（最多 1-2 次）
+
+⚠️ **坑点**：没有限流 → 瞬间被封 IP。
+
+### 7. 输出结构稳定性
+工具输出一定要包含：
+- status / error / items 等稳定字段
+- 即使失败也要返回结构化 JSON（而不是 throw）
+
+⚠️ **教训**：工具抛错会导致 summary 解析不到结果 → LLM 判断失真。
 
 ---
 
@@ -184,6 +259,11 @@ runSummary({ results: toolResults })
 ```ts
 block?.start?.nodeKind === 'pubmed_search'
 ```
+### 额外提示
+如果 UI 不显示节点，请依次检查：
+1. graph.ts 是否 emit 了 `invoke:node-start/result`
+2. nodeKind 是否注册在 `LangchainClientNodeKind`
+3. Message 组件是否匹配该 nodeKind
 
 ---
 
@@ -199,14 +279,18 @@ block?.start?.nodeKind === 'pubmed_search'
 ✅ build 成功（无 TS / Vue 错误）  
 
 ---
-
+## 高频坑点 / 教训总结（务必阅读）
 ## 常见错误
 
-1. **结构节点直接调用工具** → 破坏解耦
-2. **descriptor 缺字段** → LLM 无法理解工具用途
-3. **toolCalls 格式不规范** → graph 无法执行
-4. **nodeFactory 未注入系统参数** → API Key / baseUrl 丢失
-5. **nodeKind 未注册** → UI 不显示节点
+1. **结构节点调用具体工具** → 彻底破坏解耦  
+2. **descriptor 太短/不清晰** → LLM 无法正确选工具  
+3. **toolCalls 输出格式变化未同步** → graph 直接崩  
+4. **nodeFactory 不注入系统参数** → API Key/baseUrl 丢失  
+5. **nodeKind 未注册** → UI 无节点显示  
+6. **工具输出非 JSON** → summary 解析失败  
+7. **缺少 evidence digest** → prompt 爆炸/超长失败  
+8. **无迭代上限** → 无限 loop  
+9. **把 apiKey 放在 userParams** → 密钥泄露  
 
 ---
 
