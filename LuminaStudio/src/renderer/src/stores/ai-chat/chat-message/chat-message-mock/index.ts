@@ -19,4 +19,3 @@ export function getMessageComponentMockCaseById(id: string): MessageComponentMoc
 }
 
 export type { MessageComponentMockCase, MessageComponentMockDeps } from './types'
-

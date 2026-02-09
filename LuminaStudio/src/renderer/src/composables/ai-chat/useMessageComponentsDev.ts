@@ -58,7 +58,12 @@ export function useMessageComponentsDev() {
           id: `dev-divider-${caseIdx}`,
           role: 'assistant',
           status: 'final',
-          blocks: [{ type: 'text', content: `### ${caseIdx + 1}. ${mockCase.label}\n${mockCase.description}` }]
+          blocks: [
+            {
+              type: 'text',
+              content: `### ${caseIdx + 1}. ${mockCase.label}\n${mockCase.description}`
+            }
+          ]
         }
         const caseMessages = mockCase.buildMessages().map((msg, msgIdx) => ({
           ...msg,
@@ -81,4 +86,3 @@ export function useMessageComponentsDev() {
     runAllComponentCases
   }
 }
-

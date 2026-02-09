@@ -39,4 +39,3 @@ export const mockCase: MessageComponentMockCase = {
   order: 40,
   buildMessages: () => messages
 }
-

@@ -22,4 +22,3 @@ export const mockCase: MessageComponentMockCase = {
   order: 100,
   buildMessages: () => messages
 }
-

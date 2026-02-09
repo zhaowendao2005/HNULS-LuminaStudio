@@ -21,9 +21,7 @@
               stroke-width="2"
             >
               <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-              <path
-                d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"
-              />
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
             </svg>
           </div>
           <div
@@ -56,22 +54,6 @@
       </div>
 
       <div class="flex items-center gap-3">
-        <!-- 检索词展示 Badge -->
-        <div
-          class="hidden sm:flex items-center gap-1 bg-white border border-slate-200 px-2 py-1 rounded text-xs text-slate-600 max-w-[200px]"
-        >
-          <svg
-            class="w-[10px] h-[10px] text-slate-400"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <circle cx="11" cy="11" r="8" />
-            <path d="m21 21-4.35-4.35" />
-          </svg>
-          <span class="truncate font-mono">{{ parsedResult.searchParams.query }}</span>
-        </div>
         <svg
           v-if="isExpanded"
           class="w-4 h-4 text-slate-400"
@@ -92,6 +74,30 @@
         >
           <path d="m6 9 6 6 6-6" />
         </svg>
+      </div>
+    </div>
+
+    <!-- Query Display (单独一行) -->
+    <div class="px-4 py-3 bg-blue-50/50 border-b border-slate-200">
+      <div class="flex items-start gap-2">
+        <svg
+          class="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <circle cx="11" cy="11" r="8" />
+          <path d="m21 21-4.35-4.35" />
+        </svg>
+        <div class="flex-1 min-w-0">
+          <div class="text-[10px] text-blue-600 font-semibold uppercase tracking-wider mb-1">
+            Search Query
+          </div>
+          <div class="text-xs text-slate-700 font-mono break-words leading-relaxed">
+            {{ parsedResult.searchParams.query }}
+          </div>
+        </div>
       </div>
     </div>
 
@@ -157,15 +163,14 @@
                   stroke-width="2"
                 >
                   <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-                  <path
-                    d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"
-                  />
+                  <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
                 </svg>
                 View Abstract
               </button>
 
               <!-- TODO: 加入知识库功能（后端对接留桩） -->
               <button
+                v-if="paper.fullTextAvailable"
                 @click="toggleAddToKnowledge(paper.uid)"
                 :class="[
                   'flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-md transition-all shadow-sm',
@@ -196,6 +201,26 @@
                 </svg>
                 {{ addedPaperIds.has(paper.uid) ? 'Added to Context' : 'Add to KB' }}
               </button>
+
+              <!-- Abstract Only (不可下载全文) -->
+              <div
+                v-else
+                class="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-md bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed"
+                title="Full text not available"
+              >
+                <svg
+                  class="w-[14px] h-[14px]"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M12 8v4" />
+                  <path d="M12 16h.01" />
+                </svg>
+                Abstract Only
+              </div>
             </div>
           </div>
         </div>
@@ -307,6 +332,7 @@ interface PubmedPaper {
   authors: string[]
   abstract: string
   doi: string
+  fullTextAvailable: boolean // 是否可下载全文
 }
 
 interface PubmedSearchParams {

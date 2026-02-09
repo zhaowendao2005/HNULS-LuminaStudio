@@ -23,7 +23,8 @@ const MOCK_PUBMED_RESULT = {
       authors: ['Frangoul H', 'Locatelli F', 'Sharma A', 'et al.'],
       abstract:
         'BACKGROUND: Sickle cell disease is a genetic disorder caused by a mutation in the beta-globin gene... METHODS: We administered ex vivo CRISPR-Cas9-edited CD34+ hematopoietic stem and progenitor cells... RESULTS: A total of 31 patients received the therapy. All patients had engraftment... CONCLUSIONS: Ex vivo CRISPR-Cas9-edited therapy eliminated vaso-occlusive episodes in patients with severe sickle cell disease.',
-      doi: '10.1056/NEJMoa2301234'
+      doi: '10.1056/NEJMoa2301234',
+      fullTextAvailable: true
     },
     {
       uid: '37581234',
@@ -35,7 +36,8 @@ const MOCK_PUBMED_RESULT = {
       authors: ['Gillmore JD', 'Gane E', 'Taubel J', 'et al.'],
       abstract:
         'Transthyretin amyloidosis is a progressive, fatal disease caused by accumulation of misfolded transthyretin protein. We report interim data from a phase 1 trial of NTLA-2001, an in vivo gene-editing therapeutic agent based on CRISPR-Cas9... Administration of NTLA-2001 was associated with dose-dependent reductions in serum transthyretin protein concentrations.',
-      doi: '10.1126/science.ade1234'
+      doi: '10.1126/science.ade1234',
+      fullTextAvailable: false
     },
     {
       uid: '36912345',
@@ -47,7 +49,8 @@ const MOCK_PUBMED_RESULT = {
       authors: ['Zhang Y', 'Liu X', 'Wang L'],
       abstract:
         'The clinical application of CRISPR-Cas9 requires high specificity. Here we present a comprehensive analysis of off-target effects using a newly developed detection method...',
-      doi: '10.1038/s41587-023-01678-z'
+      doi: '10.1038/s41587-023-01678-z',
+      fullTextAvailable: true
     }
   ]
 }

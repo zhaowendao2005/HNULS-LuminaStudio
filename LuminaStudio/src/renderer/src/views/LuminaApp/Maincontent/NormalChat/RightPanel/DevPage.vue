@@ -29,9 +29,7 @@
       <div class="text-left">
         <div>{{ isRunning ? '调试运行中...' : '调试全部 MessageComponents' }}</div>
         <div v-if="progress" class="text-[10px] text-indigo-400 mt-0.5">{{ progress }}</div>
-        <div v-else class="text-[10px] text-indigo-400/70 mt-0.5">
-          依次拼接所有消息组件示例
-        </div>
+        <div v-else class="text-[10px] text-indigo-400/70 mt-0.5">依次拼接所有消息组件示例</div>
       </div>
     </button>
 
