@@ -34,12 +34,19 @@ export interface UtilNodeDescriptor {
  *
  * 将纯函数包装为带元数据的插件
  */
-export interface UtilNodeRegistration<TParams = any> {
+export interface UtilNodeRegistration {
   /** 工具元数据 */
   descriptor: UtilNodeDescriptor
 
-  /** 实际执行函数（纯业务逻辑，返回 JSON 字符串） */
-  run: (params: TParams) => Promise<string>
+  /**
+   * 节点工厂函数
+   * 
+   * 接收系统参数（apiKey, abortSignal 等），返回节点实例
+   * 节点实例的 run() 方法接收用户参数（query, k 等）
+   */
+  nodeFactory: (systemParams: any) => {
+    run: (userParams: any) => Promise<string>
+  }
 }
 
 /**

@@ -23,7 +23,64 @@ Renderer UI  →  Main Service  →  Utility Process  →  Graph  →  Nodes
 
 ---
 
-## 一、类型与配置层（Shared Types）
+## 一、提示词管理（⚠️ 核心架构变更）
+
+**所有 Langchain 相关提示词统一管理在 `src/Public/Prompt/`**
+
+### 1. 模型提示词（Model Prompts）
+
+**文件位置**：`src/Public/Prompt/<model>.model.prompt.ts`
+
+**命名约定**：`*.model.prompt.ts`（区别于节点提示词 `*.node.prompt.ts`）
+
+**示例**：
+```ts
+// src/Public/Prompt/knowledge-qa.model.prompt.ts
+export const KNOWLEDGE_QA_MODEL_PROMPT = `你是一个专业的知识问答助手...`
+```
+
+### 2. 模型实现中引用提示词
+
+**在 Utility 模型中使用**：
+```ts
+// src/utility/langchain-client/models/knowledge-qa/index.ts
+import { KNOWLEDGE_QA_MODEL_PROMPT } from '@prompt/knowledge-qa.model.prompt'
+
+// 使用：用户可覆盖，但默认从 @prompt 加载
+const systemPrompt = config.systemPrompt ?? KNOWLEDGE_QA_MODEL_PROMPT
+```
+
+### 3. UI 配置面板引用提示词
+
+**在 Renderer 配置页面中使用**：
+```vue
+<!-- src/renderer/src/views/.../LangchainModel-Config/KnowledgeQaConfig.vue -->
+<script setup lang="ts">
+import { 
+  PLANNING_NODE_INSTRUCTION, 
+  getPlanningNodeConstraint 
+} from '@prompt/planning.node.prompt'
+
+// 显示默认值（在 textarea placeholder 或实际值中）
+const defaultPlanningPrompt = PLANNING_NODE_INSTRUCTION
+</script>
+```
+
+### 4. 节点提示词结构
+
+节点提示词分为两类（参见 `structure-utils-node-creator` skill）：
+- **Instruction**：业务逻辑提示（可安全修改）
+- **Constraint**：格式约束提示（与解析逻辑强绑定，谨慎修改）
+
+**⚠️ 架构原则**：
+- ✅ 所有提示词默认值必须从 `@prompt` 导入
+- ✅ Renderer Store 不存储完整提示词文本，只存储配置项
+- ✅ UI 和 Utility 使用同一提示词源，避免不同步
+- ❌ 禁止在 Vue/Node 代码中硬编码提示词字符串
+
+---
+
+## 二、类型与配置层（Shared Types）
 
 ### 1. 配置入口
 在 `src/Public/ShareTypes/langchain-client.types.ts` 中定义 model config：
@@ -51,7 +108,7 @@ export type LangchainClientNodeKind = 'planning' | 'summary' | ...
 
 ---
 
-## 二、Renderer 配置面板（UI 层）
+## 三、Renderer 配置面板（UI 层）
 
 ### 0. 参考模板（Knowledge-QA）
 新增模型时**必须先对照 Knowledge-QA 的完整链路**：
@@ -174,7 +231,7 @@ LangchainModelConfig modal 显示
 
 ---
 
-## 三、Main 层（配置解析与透传）
+## 四、Main 层（配置解析与透传）
 
 关键入口：
 `src/main/services/ai-chat/ai-chat-service.ts`
@@ -203,7 +260,7 @@ const agentCreateConfig = {
 
 ---
 
-## 四、Utility 层（Graph 创建）
+## 五、Utility 层（Graph 创建）
 
 关键入口：
 `src/utility/langchain-client/models/<model>/graph.ts`
@@ -243,7 +300,7 @@ invoke:node-error
 
 ---
 
-## 五、消息渲染（Chat Message）
+## 六、消息渲染（Chat Message）
 
 位置：
 `ChatMain-Message/index.vue`
@@ -261,7 +318,7 @@ block.start.nodeKind === 'planning'
 
 ---
 
-## 六、常见问题与排查
+## 七、常见问题与排查
 
 ### 1. 配置改了但不生效
 原因：
@@ -288,10 +345,13 @@ block.start.nodeKind === 'planning'
 
 ## Checklist（新增/修改 model 必做）
 
+✅ **在 `src/Public/Prompt/` 创建模型提示词** (`*.model.prompt.ts`)  
 ✅ Shared Types 新增 config  
-✅ Renderer Store 默认值 + update  
+✅ Renderer Store 默认值 + update（不存储提示词全文）  
+✅ **Renderer 配置面板从 `@prompt` 导入默认提示词**  
 ✅ Renderer 配置面板 + SVG  
 ✅ Main 解析 provider 并透传  
+✅ **Utility Graph 从 `@prompt` 导入默认提示词**  
 ✅ Utility Graph 完整实现  
 ✅ NodeKind 更新  
 ✅ ChatMain-Message 组件渲染  

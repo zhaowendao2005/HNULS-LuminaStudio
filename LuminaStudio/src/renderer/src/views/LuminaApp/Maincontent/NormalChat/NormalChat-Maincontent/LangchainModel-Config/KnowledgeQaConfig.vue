@@ -687,15 +687,13 @@ import RerankModelSelectorModal from './RerankModelSelectorModal.vue'
 import type { ModelProvider, Model } from '@renderer/stores/model-config/types'
 import type { RerankModel } from '@renderer/stores/rerank-model/types'
 import {
-  DEFAULT_PLAN_INSTRUCTION,
-  getDefaultPlanConstraint,
-  DEFAULT_SUMMARY_INSTRUCTION,
-  getDefaultSummaryConstraint
-} from '@shared/knowledge-qa-default-prompts'
-
-// 默认常量（与 node 层保持一致）
-const RETRIEVAL_MAX_K = 3
-const RETRIEVAL_MAX_QUERIES = 10
+  PLANNING_NODE_INSTRUCTION,
+  getPlanningNodeConstraint
+} from '@prompt/planning.node.prompt'
+import {
+  SUMMARY_NODE_INSTRUCTION,
+  getSummaryNodeConstraint
+} from '@prompt/summary.node.prompt'
 
 const store = useKnowledgeQaConfigStore()
 const modelConfigStore = useModelConfigStore()
@@ -839,14 +837,14 @@ const updateMaxIterations = (event: Event) => {
 // ==================== Plan Node Prompt Methods ====================
 
 const getPlanInstruction = () => {
-  return store.config.planModel.systemPromptInstruction ?? DEFAULT_PLAN_INSTRUCTION
+  return store.config.planModel.systemPromptInstruction ?? PLANNING_NODE_INSTRUCTION
 }
 
 const getPlanConstraint = () => {
-  const maxK = Math.max(1, Math.floor(store.config.retrieval?.topK ?? RETRIEVAL_MAX_K))
+  const maxToolCalls = 10 // PLANNING_MAX_TOOL_CALLS
   return (
     store.config.planModel.systemPromptConstraint ??
-    getDefaultPlanConstraint(maxK, RETRIEVAL_MAX_QUERIES)
+    getPlanningNodeConstraint(maxToolCalls)
   )
 }
 
@@ -855,7 +853,7 @@ const updatePlanInstruction = (event: Event) => {
   const value = target.value.trim()
   // 空值或与默认相同，则设为 undefined 以显示灰色
   store.updatePlanPromptInstruction(
-    value === DEFAULT_PLAN_INSTRUCTION ? undefined : value || undefined
+    value === PLANNING_NODE_INSTRUCTION ? undefined : value || undefined
   )
 }
 
@@ -877,13 +875,13 @@ const resetPlanConstraint = () => {
 // ==================== Summary Node Prompt Methods ====================
 
 const getSummaryInstruction = () => {
-  return store.config.summaryModel.systemPromptInstruction ?? DEFAULT_SUMMARY_INSTRUCTION
+  return store.config.summaryModel.systemPromptInstruction ?? SUMMARY_NODE_INSTRUCTION
 }
 
 const getSummaryConstraint = () => {
   const maxIterations = Math.max(1, Math.floor(store.config.graph?.maxIterations ?? 3))
   return (
-    store.config.summaryModel.systemPromptConstraint ?? getDefaultSummaryConstraint(maxIterations)
+    store.config.summaryModel.systemPromptConstraint ?? getSummaryNodeConstraint(maxIterations)
   )
 }
 
@@ -891,15 +889,16 @@ const updateSummaryInstruction = (event: Event) => {
   const target = event.target as HTMLTextAreaElement
   const value = target.value.trim()
   store.updateSummaryPromptInstruction(
-    value === DEFAULT_SUMMARY_INSTRUCTION ? undefined : value || undefined
+    value === SUMMARY_NODE_INSTRUCTION ? undefined : value || undefined
   )
 }
 
 const updateSummaryConstraint = (event: Event) => {
   const target = event.target as HTMLTextAreaElement
   const value = target.value.trim()
+  const defaultConstraint = getSummaryConstraint()
   store.updateSummaryPromptConstraint(
-    value === DEFAULT_SUMMARY_CONSTRAINT ? undefined : value || undefined
+    value === defaultConstraint ? undefined : value || undefined
   )
 }
 

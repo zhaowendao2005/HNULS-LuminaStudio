@@ -13,7 +13,8 @@
     "paths": {
       "@renderer/*": ["src/renderer/src/*"],
       "@preload/types": ["src/preload/types"],
-      "@shared/*": ["src/Public/ShareTypes/*"]
+      "@shared/*": ["src/Public/ShareTypes/*"],
+      "@prompt/*": ["src/Public/Prompt/*"]
     }
   }
 }

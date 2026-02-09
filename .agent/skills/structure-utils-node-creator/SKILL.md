@@ -83,13 +83,50 @@ export interface SummaryOutput {
 }
 ```
 ### 3. Prompt 设计原则（大坑点）
-### 3. Prompt 设计原则
-- **Instruction**：说明节点职责
-- **Constraint**：强制 JSON 输出格式
-- **不要硬编码具体工具名**（保持通用）
+### 3. Prompt 管理（重要！必须从 `@prompt` 导入）
+
+**所有节点提示词统一管理在 `src/Public/Prompt/`：**
+
+#### 结构节点提示词位置：
+```
+src/Public/Prompt/planning.node.prompt.ts     ← Planning 节点
+src/Public/Prompt/summary.node.prompt.ts      ← Summary 节点
+```
+
+#### 工具节点 descriptor 位置：
+```
+src/Public/Prompt/knowledge-retrieval.node.prompt.ts  ← Knowledge descriptor
+src/Public/Prompt/pubmed-search.node.prompt.ts        ← PubMed descriptor
+```
+
+#### 节点实现引用方式：
+```ts
+// 结构节点导入默认提示词
+import { PLANNING_NODE_INSTRUCTION, getPlanningNodeConstraint } from '@prompt/planning.node.prompt'
+
+// 在 node 实现中使用
+const instruction = params.systemPromptInstruction ?? PLANNING_NODE_INSTRUCTION
+const constraint = params.systemPromptConstraint ?? getPlanningNodeConstraint(maxToolCalls)
+```
+
+```ts
+// 工具节点导入 descriptor
+import { KNOWLEDGE_RETRIEVAL_DESCRIPTOR } from '@prompt/knowledge-retrieval.node.prompt'
+
+export const knowledgeRetrievalReg: UtilNodeRegistration = {
+  descriptor: KNOWLEDGE_RETRIEVAL_DESCRIPTOR,
+  nodeFactory: ...
+}
+```
+
+#### Prompt 结构设计：
+- **Instruction**：业务逻辑提示（可安全修改，控制 LLM 思考方向）
+- **Constraint**：格式约束提示（谨慎修改，与节点解析逻辑强绑定）
+
 ⚠️ **坑点/教训**：
 - 不写 JSON 约束 → LLM 输出自然语言 → 解析失败 → 整条链路崩
 - 在 prompt 里写死某个工具 → 结构节点和工具耦合 → 每次加工具都要改结构节点
+- **直接在 node 代码里硬编码 prompt** → UI 默认值与节点默认值不一致 → 用户困惑
 
 ### 4. JSON 解析与容错（必须实现）
 建议统一使用 `parseJsonFromModel`：
@@ -156,33 +193,39 @@ export async function runXxx(params: XxxParams): Promise<string> {
   return JSON.stringify(result)
 }
 ```
-### 4. 写 descriptor（给 LLM 看）
-### 3. 写 descriptor（给 LLM 看）
-descriptor 必须包含：
-- id（nodeKind）
-- name（人类可读名）
-- description（详细用途）
-- inputDescription（输入参数说明）
-- outputDescription（输出格式说明）
+### 4. 写 descriptor（给 LLM 看）——必须放在 `@prompt`
 
-示例：
+**新建文件**：`src/Public/Prompt/<tool-name>.node.prompt.ts`
 
 ```ts
-descriptor: {
+import type { UtilNodeDescriptor } from './knowledge-retrieval.node.prompt'
+
+export const PUBMED_SEARCH_DESCRIPTOR: UtilNodeDescriptor = {
   id: 'pubmed_search',
   name: 'PubMed 文献检索',
-  description: '...',
+  description: '从 NCBI PubMed 数据库检索生物医学文献...',
   inputDescription: 'query: 检索词; retMax: 返回数量',
   outputDescription: 'JSON: { items: [...], total_found }'
 }
 ```
+
+**在工具节点注册中引用**：
+```ts
+import { PUBMED_SEARCH_DESCRIPTOR } from '@prompt/pubmed-search.node.prompt'
+
+export const pubmedSearchReg: UtilNodeRegistration = {
+  descriptor: PUBMED_SEARCH_DESCRIPTOR,  // 从 @prompt 导入
+  nodeFactory: ...
+}
+```
 ### 5. 注册到 index.ts（nodeFactory）
-### 4. 注册到 index.ts（nodeFactory）
 **必须通过 nodeFactory 注入系统参数**，用户参数由 LLM 提供。
 
 ```ts
+import { PUBMED_SEARCH_DESCRIPTOR } from '@prompt/pubmed-search.node.prompt'
+
 export const pubmedSearchReg: UtilNodeRegistration = {
-  descriptor: { ... },
+  descriptor: PUBMED_SEARCH_DESCRIPTOR,
   nodeFactory: (systemParams) => ({
     run: async (userParams) => runPubmedSearch({ ...systemParams, ...userParams })
   })
@@ -270,13 +313,15 @@ block?.start?.nodeKind === 'pubmed_search'
 ## Checklist（必须逐项确认）
 
 ✅ 新建目录 `nodes/structure-xxx` 或 `nodes/utils-xxx`  
+✅ **提示词/descriptor 放在 `src/Public/Prompt/*.node.prompt.ts`**  
+✅ **节点代码从 `@prompt` 导入默认值**  
 ✅ `run()` 返回 JSON 字符串  
 ✅ descriptor 字段完整  
 ✅ nodeFactory 正确注入系统参数  
 ✅ Graph 注册 + toolCalls 执行  
 ✅ `LangchainClientNodeKind` 更新  
 ✅ UI Message 组件支持新 nodeKind  
-✅ build 成功（无 TS / Vue 错误）  
+✅ build 成功（无 TS / Vue 错误）
 
 ---
 ## 高频坑点 / 教训总结（务必阅读）

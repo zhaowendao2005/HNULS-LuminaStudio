@@ -14,8 +14,7 @@ import type {
   LangchainClientAgentCreateConfig,
   LangchainClientChatMessage,
   LangchainClientRetrievalConfig,
-  LangchainClientToMainMessage,
-  MainToLangchainClientMessage
+  LangchainClientToMainMessage
 } from '@shared/langchain-client.types'
 import type {
   StreamState,

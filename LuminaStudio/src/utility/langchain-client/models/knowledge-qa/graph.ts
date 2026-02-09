@@ -274,7 +274,7 @@ export function buildKnowledgeQaGraph(params: {
         nodeKind: 'planning',
         label: '工具规划',
         uiHint: { component: 'planning', title: '工具规划' },
-        modelId: knowledgeQaConfig.planModel.modelId,
+        modelId: knowledgeQaConfig.planModel.modelId ?? undefined,
         inputs: {
           userInput: state.input,
           planningInput,
@@ -306,7 +306,7 @@ export function buildKnowledgeQaGraph(params: {
           nodeKind: 'planning',
           label: '工具规划',
           uiHint: { component: 'planning', title: '工具规划' },
-          modelId: knowledgeQaConfig.planModel.modelId,
+          modelId: knowledgeQaConfig.planModel.modelId ?? undefined,
           error: { message: `规划节点失败: ${msg}` }
         }
       })
@@ -351,7 +351,7 @@ export function buildKnowledgeQaGraph(params: {
         nodeKind: 'planning',
         label: '工具规划',
         uiHint: { component: 'planning', title: '工具规划' },
-        modelId: knowledgeQaConfig.planModel.modelId,
+        modelId: knowledgeQaConfig.planModel.modelId ?? undefined,
         outputs: {
           ...normalizedPlan
         }
@@ -506,7 +506,7 @@ export function buildKnowledgeQaGraph(params: {
         nodeKind: 'summary',
         label: '总结与判断',
         uiHint: { component: 'summary', title: '总结与判断' },
-        modelId: knowledgeQaConfig.summaryModel.modelId,
+        modelId: knowledgeQaConfig.summaryModel.modelId ?? undefined,
         inputs: {
           userInput: state.input,
           planningInput: state.planningInput?.trim() || state.input,
@@ -540,7 +540,7 @@ export function buildKnowledgeQaGraph(params: {
           nodeKind: 'summary',
           label: '总结与判断',
           uiHint: { component: 'summary', title: '总结与判断' },
-          modelId: knowledgeQaConfig.summaryModel.modelId,
+          modelId: knowledgeQaConfig.summaryModel.modelId ?? undefined,
           error: { message: `总结节点失败: ${msg}` }
         }
       })
@@ -559,7 +559,7 @@ export function buildKnowledgeQaGraph(params: {
         nodeKind: 'summary',
         label: '总结与判断',
         uiHint: { component: 'summary', title: '总结与判断' },
-        modelId: knowledgeQaConfig.summaryModel.modelId,
+        modelId: knowledgeQaConfig.summaryModel.modelId ?? undefined,
         outputs: {
           ...decision
         }

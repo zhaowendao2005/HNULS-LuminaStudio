@@ -16,6 +16,7 @@
 import type { ChatOpenAI } from '@langchain/openai'
 import { HumanMessage, SystemMessage } from '@langchain/core/messages'
 import type { ToolExecutionResult } from '../types'
+import { SUMMARY_NODE_INSTRUCTION, getSummaryNodeConstraint } from '@prompt/summary.node.prompt'
 
 /**
  * 总结输出（通用格式）
@@ -125,29 +126,10 @@ export async function runSummary(params: {
 }): Promise<SummaryOutput> {
   const evidence = buildEvidenceDigest(params.results)
 
-  const defaultInstruction = `你是一个证据质量评估助手。根据工具执行结果，判断是否足够回答用户问题。
-
-你的任务：
-1. 综合所有工具返回的结果
-2. 判断这些结果是否足以完整、准确地回答用户问题
-3. 如果足够，生成最终答案
-4. 如果不够，说明缺少什么信息（这将作为下一轮检索的指引）`
-
   const maxIterations = Math.max(1, Math.floor(params.maxIterations ?? 3))
-  const defaultConstraint = `请严格按照以下 JSON 格式输出：
 
-{
-  "shouldLoop": true 或 false,
-  "message": "你的输出内容"
-}
-
-说明：
-- 如果 shouldLoop = false：message 是最终答案（给用户）
-- 如果 shouldLoop = true：message 说明还缺少什么信息（给规划器）
-- 当前迭代 ${params.iteration + 1}/${maxIterations}，达到上限会强制结束`
-
-  const instruction = params.systemPromptInstruction ?? defaultInstruction
-  const constraint = params.systemPromptConstraint ?? defaultConstraint
+  const instruction = params.systemPromptInstruction ?? SUMMARY_NODE_INSTRUCTION
+  const constraint = params.systemPromptConstraint ?? getSummaryNodeConstraint(maxIterations)
   const systemPrompt = `${instruction}\n\n${constraint}`
 
   const userPrompt = `用户原始问题：

@@ -16,6 +16,7 @@
 import type { ChatOpenAI } from '@langchain/openai'
 import { HumanMessage, SystemMessage } from '@langchain/core/messages'
 import type { UtilNodeDescriptor } from '../types'
+import { PLANNING_NODE_INSTRUCTION, getPlanningNodeConstraint } from '@prompt/planning.node.prompt'
 
 export const PLANNING_MAX_TOOL_CALLS = 10
 
@@ -89,35 +90,8 @@ export async function runPlanning(params: {
 }): Promise<PlanningOutput> {
   const toolDescriptions = buildToolDescriptionsPrompt(params.availableTools)
 
-  const defaultInstruction = `你是一个任务规划助手。根据用户问题和可用工具，制定工具调用计划。
-
-你的任务：
-1. 分析用户问题，理解核心需求
-2. 从可用工具中选择合适的工具
-3. 为每个工具调用确定合适的参数
-4. 如果需要多次调用同一工具（如不同检索词），分别列出`
-
-  const defaultConstraint = `请严格按照以下 JSON 格式输出：
-
-{
-  "rationale": "你的推理过程（为什么选择这些工具和参数）",
-  "toolCalls": [
-    {
-      "toolId": "工具ID（从可用工具列表中选择）",
-      "params": {
-        "参数名": "参数值"
-      }
-    }
-  ]
-}
-
-约束：
-- toolCalls 数组最多 ${PLANNING_MAX_TOOL_CALLS} 个元素
-- toolId 必须来自可用工具列表
-- params 必须包含工具所需的参数（参考工具的输入说明）`
-
-  const instruction = params.systemPromptInstruction ?? defaultInstruction
-  const constraint = params.systemPromptConstraint ?? defaultConstraint
+  const instruction = params.systemPromptInstruction ?? PLANNING_NODE_INSTRUCTION
+  const constraint = params.systemPromptConstraint ?? getPlanningNodeConstraint(PLANNING_MAX_TOOL_CALLS)
   const systemPrompt = `${instruction}\n\n${constraint}`
 
   const userPrompt = `用户原始问题：

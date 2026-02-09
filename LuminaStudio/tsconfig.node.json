@@ -10,7 +10,8 @@
       "@preload/*": ["src/preload/*"],
       "@preload/types": ["src/preload/types"],
       "@utility/*": ["src/utility/*"],
-      "@shared/*": ["src/Public/ShareTypes/*"]
+      "@shared/*": ["src/Public/ShareTypes/*"],
+      "@prompt/*": ["src/Public/Prompt/*"]
     }
   }
 }
