@@ -22,6 +22,7 @@ export class AgentManager {
   private knowledgeApiUrl = ''
   private agents = new Map<string, AgentInstance>()
   private abortControllers = new Map<string, AbortController>()
+  private activeRequests = new Map<string, string>()
 
   private readonly invokeContext = new AsyncLocalStorage<{
     retrieval?: LangchainClientRetrievalConfig
@@ -85,6 +86,14 @@ export class AgentManager {
   }
 
   destroyAgent(agentId: string): void {
+    for (const [requestId, requestAgentId] of this.activeRequests) {
+      if (requestAgentId !== agentId) continue
+      const controller = this.abortControllers.get(requestId)
+      if (controller) {
+        log.info('Aborting request due to agent destroy', { requestId, agentId })
+        controller.abort()
+      }
+    }
     const existed = this.agents.delete(agentId)
     this.send({ type: 'agent:destroyed', agentId })
 
@@ -119,6 +128,7 @@ export class AgentManager {
 
     const abortController = new AbortController()
     this.abortControllers.set(requestId, abortController)
+    this.activeRequests.set(requestId, agentId)
 
     this.send({ type: 'invoke:start', requestId, agentId })
     log.info('Invoke started', {
@@ -159,6 +169,7 @@ export class AgentManager {
       log.error('Invoke failed', error, { requestId, agentId })
     } finally {
       this.abortControllers.delete(requestId)
+      this.activeRequests.delete(requestId)
     }
   }
 }

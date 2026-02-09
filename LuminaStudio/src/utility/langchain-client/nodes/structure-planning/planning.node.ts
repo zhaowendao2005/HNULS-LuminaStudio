@@ -91,7 +91,8 @@ export async function runPlanning(params: {
   const toolDescriptions = buildToolDescriptionsPrompt(params.availableTools)
 
   const instruction = params.systemPromptInstruction ?? PLANNING_NODE_INSTRUCTION
-  const constraint = params.systemPromptConstraint ?? getPlanningNodeConstraint(PLANNING_MAX_TOOL_CALLS)
+  const constraint =
+    params.systemPromptConstraint ?? getPlanningNodeConstraint(PLANNING_MAX_TOOL_CALLS)
   const systemPrompt = `${instruction}\n\n${constraint}`
 
   const userPrompt = `用户原始问题：

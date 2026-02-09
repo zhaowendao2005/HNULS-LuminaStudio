@@ -1,6 +1,6 @@
 /**
  * Knowledge-QA 模型系统提示词
- * 
+ *
  * 定义：模型的角色定位与基础行为准则
  * 替代：src/utility/langchain-client/models/knowledge-qa/prompt.ts
  */

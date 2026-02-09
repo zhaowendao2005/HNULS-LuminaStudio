@@ -241,31 +241,41 @@ export const useAiChatStore = defineStore('ai-chat', () => {
           }
         : undefined
 
-    const startRes = await AiChatDataSource.startStream({
-      conversationId,
-      agentId: currentAgentId.value,
-      providerId: currentProviderId.value,
-      modelId: currentModelId.value,
-      input,
-      enableThinking: enableThinking.value,
-      mode,
-      retrieval,
-      providerOverride,
-      agentModelConfig:
-        mode === 'agent'
-          ? {
-              knowledgeQa: {
-                ...knowledgeQaConfig,
-                retrieval: {
-                  ...knowledgeQaConfig.retrieval,
-                  rerankTopN: knowledgeQaConfig.retrieval.topK
+    const requestId = crypto.randomUUID()
+    messageStore.startGenerating(requestId)
+    try {
+      const startRes = await AiChatDataSource.startStream({
+        requestId,
+        conversationId,
+        agentId: currentAgentId.value,
+        providerId: currentProviderId.value,
+        modelId: currentModelId.value,
+        input,
+        enableThinking: enableThinking.value,
+        mode,
+        retrieval,
+        providerOverride,
+        agentModelConfig:
+          mode === 'agent'
+            ? {
+                knowledgeQa: {
+                  ...knowledgeQaConfig,
+                  retrieval: {
+                    ...knowledgeQaConfig.retrieval,
+                    rerankTopN: knowledgeQaConfig.retrieval.topK
+                  }
                 }
               }
-            }
-          : undefined
-    })
+            : undefined
+      })
 
-    messageStore.startGenerating(startRes.requestId)
+      if (startRes.requestId !== requestId) {
+        messageStore.startGenerating(startRes.requestId)
+      }
+    } catch (err) {
+      messageStore.stopGenerating()
+      throw err
+    }
   }
 
   async function abortGeneration(): Promise<void> {

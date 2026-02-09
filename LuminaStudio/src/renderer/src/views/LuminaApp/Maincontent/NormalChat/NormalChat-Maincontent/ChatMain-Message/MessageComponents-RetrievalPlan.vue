@@ -81,7 +81,9 @@
             >
               <div class="flex items-start justify-between gap-2">
                 <div class="flex-1 space-y-0.5">
-                  <div class="font-mono text-[11px] text-slate-800 font-semibold">{{ call.nodeName }}</div>
+                  <div class="font-mono text-[11px] text-slate-800 font-semibold">
+                    {{ call.nodeName }}
+                  </div>
                   <div class="text-[10px] text-slate-500 font-mono break-words">
                     {{ formatParams(call.params) }}
                   </div>

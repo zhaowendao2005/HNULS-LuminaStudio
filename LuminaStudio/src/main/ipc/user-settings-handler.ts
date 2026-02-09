@@ -27,18 +27,15 @@ export class UserSettingsIPCHandler {
     })
 
     // 更新用户设置
-    ipcMain.handle(
-      'userSettings:updateSettings',
-      async (_, patch: Partial<UserSettings>) => {
-        try {
-          log.debug('IPC: updateSettings', { patch })
-          return await this.userSettingsService.updateSettings(patch)
-        } catch (error) {
-          log.error('Failed to update user settings', error)
-          throw error
-        }
+    ipcMain.handle('userSettings:updateSettings', async (_, patch: Partial<UserSettings>) => {
+      try {
+        log.debug('IPC: updateSettings', { patch })
+        return await this.userSettingsService.updateSettings(patch)
+      } catch (error) {
+        log.error('Failed to update user settings', error)
+        throw error
       }
-    )
+    })
 
     // 获取 API Keys
     ipcMain.handle('userSettings:getApiKeys', async () => {

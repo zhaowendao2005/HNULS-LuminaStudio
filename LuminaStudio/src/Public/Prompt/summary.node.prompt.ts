@@ -1,9 +1,9 @@
 /**
  * Summary 节点提示词（通用证据总结器）
- * 
+ *
  * 职责：汇总工具执行结果，判断是否足以回答用户问题
  * 输出格式：{ shouldLoop: boolean, message: string }
- * 
+ *
  * 替代：
  * - structure-summary/summary.node.ts 内硬编码默认值
  * - Public/ShareTypes/knowledge-qa-default-prompts.ts
@@ -22,7 +22,7 @@ export const SUMMARY_NODE_INSTRUCTION = `你是一个证据质量评估助手。
 
 /**
  * Constraint：格式约束提示（谨慎修改）
- * 
+ *
  * @param maxIterations 最大迭代轮次
  */
 export function getSummaryNodeConstraint(maxIterations: number = 3): string {

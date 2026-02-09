@@ -1,8 +1,8 @@
 /**
  * PubMed Search 工具描述符
- * 
+ *
  * 给 LLM 看的工具元数据（Planning 节点会把这些拼成 prompt）
- * 
+ *
  * 替代：src/utility/langchain-client/nodes/utils-pubmed/index.ts 内嵌文本
  */
 

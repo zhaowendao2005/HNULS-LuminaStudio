@@ -40,7 +40,7 @@ export interface UtilNodeRegistration {
 
   /**
    * 节点工厂函数
-   * 
+   *
    * 接收系统参数（apiKey, abortSignal 等），返回节点实例
    * 节点实例的 run() 方法接收用户参数（query, k 等）
    */

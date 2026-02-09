@@ -119,9 +119,7 @@ function parsePubmedXml(xml: string): PubmedPaper[] {
     const abstractTexts = extractAll('AbstractText', article).map(stripTags)
     const abstract = abstractTexts.join('\n').trim()
 
-    const doiRaw = extractAll('ArticleId', article).find((id) =>
-      /IdType="doi"/i.test(id)
-    )
+    const doiRaw = extractAll('ArticleId', article).find((id) => /IdType="doi"/i.test(id))
     const doi = doiRaw ? stripTags(doiRaw) : ''
 
     return {

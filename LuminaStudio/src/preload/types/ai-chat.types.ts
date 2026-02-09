@@ -58,6 +58,8 @@ export interface AiChatRetrievalConfig {
 }
 
 export interface AiChatStartRequest {
+  /** Optional: client-generated requestId for immediate stop availability */
+  requestId?: string
   conversationId: string
   agentId: string
   providerId: string

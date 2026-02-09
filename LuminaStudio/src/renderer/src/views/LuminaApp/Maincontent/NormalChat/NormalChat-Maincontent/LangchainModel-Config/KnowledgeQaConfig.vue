@@ -622,13 +622,18 @@
           <template v-if="activeNode === 'pubmed'">
             <div class="space-y-3">
               <div class="text-sm text-slate-600">
-                <p class="mb-3">
-                  PubMed 文献检索工具已集成，无需额外配置。
-                </p>
+                <p class="mb-3">PubMed 文献检索工具已集成，无需额外配置。</p>
                 <p class="text-xs text-slate-500">
-                  <strong>API Key 配置：</strong>请前往 【设置 → 秘钥管理】 配置 PubMed API Key。<br />
-                  • <strong>无 API Key</strong>：3 次/秒速率限制<br />
-                  • <strong>有 API Key</strong>：10 次/秒速率限制
+                  <strong>API Key 配置：</strong>
+                  请前往 【设置 → 秘钥管理】 配置 PubMed API Key。
+                  <br />
+                  •
+                  <strong>无 API Key</strong>
+                  ：3 次/秒速率限制
+                  <br />
+                  •
+                  <strong>有 API Key</strong>
+                  ：10 次/秒速率限制
                 </p>
               </div>
             </div>
@@ -686,14 +691,8 @@ import ModelSelectorModal from '../ModelSelectorModal.vue'
 import RerankModelSelectorModal from './RerankModelSelectorModal.vue'
 import type { ModelProvider, Model } from '@renderer/stores/model-config/types'
 import type { RerankModel } from '@renderer/stores/rerank-model/types'
-import {
-  PLANNING_NODE_INSTRUCTION,
-  getPlanningNodeConstraint
-} from '@prompt/planning.node.prompt'
-import {
-  SUMMARY_NODE_INSTRUCTION,
-  getSummaryNodeConstraint
-} from '@prompt/summary.node.prompt'
+import { PLANNING_NODE_INSTRUCTION, getPlanningNodeConstraint } from '@prompt/planning.node.prompt'
+import { SUMMARY_NODE_INSTRUCTION, getSummaryNodeConstraint } from '@prompt/summary.node.prompt'
 
 const store = useKnowledgeQaConfigStore()
 const modelConfigStore = useModelConfigStore()
@@ -842,10 +841,7 @@ const getPlanInstruction = () => {
 
 const getPlanConstraint = () => {
   const maxToolCalls = 10 // PLANNING_MAX_TOOL_CALLS
-  return (
-    store.config.planModel.systemPromptConstraint ??
-    getPlanningNodeConstraint(maxToolCalls)
-  )
+  return store.config.planModel.systemPromptConstraint ?? getPlanningNodeConstraint(maxToolCalls)
 }
 
 const updatePlanInstruction = (event: Event) => {
@@ -880,9 +876,7 @@ const getSummaryInstruction = () => {
 
 const getSummaryConstraint = () => {
   const maxIterations = Math.max(1, Math.floor(store.config.graph?.maxIterations ?? 3))
-  return (
-    store.config.summaryModel.systemPromptConstraint ?? getSummaryNodeConstraint(maxIterations)
-  )
+  return store.config.summaryModel.systemPromptConstraint ?? getSummaryNodeConstraint(maxIterations)
 }
 
 const updateSummaryInstruction = (event: Event) => {
@@ -897,9 +891,7 @@ const updateSummaryConstraint = (event: Event) => {
   const target = event.target as HTMLTextAreaElement
   const value = target.value.trim()
   const defaultConstraint = getSummaryConstraint()
-  store.updateSummaryPromptConstraint(
-    value === defaultConstraint ? undefined : value || undefined
-  )
+  store.updateSummaryPromptConstraint(value === defaultConstraint ? undefined : value || undefined)
 }
 
 const resetSummaryInstruction = () => {

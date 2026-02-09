@@ -39,6 +39,8 @@ const log = logger.scope('AiChatService')
 export class AiChatService {
   private db: Database.Database
   private activeStreams = new Map<string, StreamState>()
+  private abortedAgentRequests = new Set<string>()
+  private pendingAbortRequests = new Set<string>()
 
   constructor(
     databaseManager: DatabaseManager,
@@ -54,6 +56,7 @@ export class AiChatService {
   async startStream(
     sender: WebContents,
     payload: {
+      requestId?: string
       conversationId: string
       agentId: string
       providerId: string
@@ -72,7 +75,7 @@ export class AiChatService {
       }
     }
   ): Promise<{ requestId: string; conversationId: string }> {
-    const requestId = randomUUID()
+    const requestId = payload.requestId ?? randomUUID()
     const { conversationId, agentId, providerId, modelId, input, enableThinking } = payload
 
     const mode = payload.mode ?? 'normal'
@@ -159,6 +162,24 @@ export class AiChatService {
       modelId,
       startedAt: state.startedAt.toISOString()
     })
+    if (this.pendingAbortRequests.has(requestId)) {
+      this.pendingAbortRequests.delete(requestId)
+      this.updateAssistantMessage(
+        state.assistantMessageId,
+        state.answerText,
+        state.reasoningText,
+        'aborted',
+        'User aborted'
+      )
+      this.sendEvent(sender, {
+        type: 'finish',
+        requestId: state.requestId,
+        finishReason: 'aborted',
+        messageId: state.assistantMessageId
+      })
+      this.activeStreams.delete(state.requestId)
+      return { requestId, conversationId }
+    }
 
     // 8. 异步执行流式生成
     this.runStream(sender, state, model, messages).catch((error) => {
@@ -175,14 +196,19 @@ export class AiChatService {
     const state = this.activeStreams.get(requestId)
     if (!state) {
       log.warn('Abort called on non-existent stream', { requestId })
+      this.pendingAbortRequests.add(requestId)
       return
     }
 
     log.info('Aborting stream', { requestId, mode: state.mode ?? 'normal' })
 
     if (state.mode === 'agent') {
+      this.abortedAgentRequests.add(requestId)
       try {
         this.langchainClientBridge.abort(requestId)
+        if (state.utilityAgentId) {
+          this.langchainClientBridge.destroyAgent(state.utilityAgentId)
+        }
       } catch (err) {
         log.error('Failed to abort agent stream', err, { requestId })
       }
@@ -885,6 +911,24 @@ export class AiChatService {
       modelId,
       startedAt: state.startedAt.toISOString()
     })
+    if (this.pendingAbortRequests.has(requestId)) {
+      this.pendingAbortRequests.delete(requestId)
+      this.updateAssistantMessage(
+        state.assistantMessageId,
+        state.answerText,
+        state.reasoningText,
+        'aborted',
+        'User aborted'
+      )
+      this.sendEvent(sender, {
+        type: 'finish',
+        requestId: state.requestId,
+        finishReason: 'aborted',
+        messageId: state.assistantMessageId
+      })
+      this.activeStreams.delete(state.requestId)
+      return { requestId, conversationId }
+    }
 
     // 6. 准备 langchain-client
     const provider = await this.resolveProviderOverride({ providerId, providerOverride })
@@ -1049,6 +1093,9 @@ export class AiChatService {
   ): void {
     // Only handle current request
     if ('requestId' in (msg as any) && (msg as any).requestId !== state.requestId) return
+    if (this.abortedAgentRequests.has(state.requestId) && msg.type !== 'invoke:finish') {
+      return
+    }
 
     switch (msg.type) {
       case 'invoke:text-delta': {
@@ -1140,6 +1187,7 @@ export class AiChatService {
           log.warn('Failed to unsubscribe utility stream', { requestId: state.requestId })
         }
         this.activeStreams.delete(state.requestId)
+        this.abortedAgentRequests.delete(state.requestId)
         break
       }
 
