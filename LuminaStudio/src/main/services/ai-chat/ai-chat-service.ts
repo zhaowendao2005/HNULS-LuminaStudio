@@ -139,6 +139,7 @@ export class AiChatService {
     // 6. 创建 AbortController
     const abortController = new AbortController()
     const state: StreamState = {
+      sender,
       requestId,
       conversationId,
       providerId,
@@ -212,6 +213,29 @@ export class AiChatService {
       } catch (err) {
         log.error('Failed to abort agent stream', err, { requestId })
       }
+
+      this.updateAssistantMessage(
+        state.assistantMessageId,
+        state.answerText,
+        '',
+        'aborted',
+        'User aborted'
+      )
+      this.sendEvent(state.sender, {
+        type: 'finish',
+        requestId: state.requestId,
+        finishReason: 'aborted',
+        messageId: state.assistantMessageId
+      })
+      try {
+        ;(state as any).unsubscribe?.()
+      } catch (err) {
+        log.warn('Failed to unsubscribe utility stream', { requestId: state.requestId })
+      }
+      this.activeStreams.delete(state.requestId)
+      setTimeout(() => {
+        this.abortedAgentRequests.delete(requestId)
+      }, 10000)
     }
 
     state.abortController.abort()
@@ -886,6 +910,7 @@ export class AiChatService {
     const utilityAgentId = `conv-${conversationId}`
 
     const state: StreamState = {
+      sender,
       requestId,
       conversationId,
       providerId,
@@ -1093,7 +1118,7 @@ export class AiChatService {
   ): void {
     // Only handle current request
     if ('requestId' in (msg as any) && (msg as any).requestId !== state.requestId) return
-    if (this.abortedAgentRequests.has(state.requestId) && msg.type !== 'invoke:finish') {
+    if (this.abortedAgentRequests.has(state.requestId)) {
       return
     }
 

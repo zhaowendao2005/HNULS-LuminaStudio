@@ -73,7 +73,10 @@ export interface MessageUsageRow {
 /**
  * 流式生成的运行时状态
  */
+import type { WebContents } from 'electron'
+
 export interface StreamState {
+  sender: WebContents
   requestId: string
   conversationId: string
   providerId: string
