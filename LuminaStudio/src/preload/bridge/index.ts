@@ -10,6 +10,7 @@ import { modelConfigAPI } from '../api/model-config-api'
 import { aiChatAPI } from '../api/ai-chat-api'
 import { knowledgeDatabaseAPI } from '../api/knowledge-database-api'
 import { rerankModelAPI } from '../api/rerank-model-api'
+import { userSettingsAPI } from '../api/user-settings-api'
 
 const api = {
   utils: utilsAPI,
@@ -17,7 +18,8 @@ const api = {
   modelConfig: modelConfigAPI,
   aiChat: aiChatAPI,
   knowledgeDatabase: knowledgeDatabaseAPI,
-  rerankModel: rerankModelAPI
+  rerankModel: rerankModelAPI,
+  userSettings: userSettingsAPI
 }
 
 contextBridge.exposeInMainWorld('api', api)

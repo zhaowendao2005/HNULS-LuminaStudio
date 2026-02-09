@@ -15,6 +15,8 @@ import { KnowledgeDatabaseIPCHandler } from './ipc/knowledge-database-handler'
 import { RerankModelService } from './services/rerank-model'
 import { RerankModelIPCHandler } from './ipc/rerank-model-handler'
 import { langchainClientBridge } from './services/langchain-client-bridge'
+import { UserSettingsService } from './services/user-settings'
+import { UserSettingsIPCHandler } from './ipc/user-settings-handler'
 
 // 确保开发环境也使用 LuminaStudio 作为应用名称（生产环境自动使用 productName）
 if (!app.isPackaged) {
@@ -96,6 +98,11 @@ app.whenReady().then(() => {
   // 初始化 RerankModel Service 和 IPC Handler
   const rerankModelService = new RerankModelService()
   new RerankModelIPCHandler(rerankModelService)
+
+  // 初始化 UserSettings Service 和 IPC Handler
+  const userSettingsService = new UserSettingsService()
+  userSettingsService.initialize()
+  new UserSettingsIPCHandler(userSettingsService)
 
   // 注册所有 IPC handlers
   registerAllHandlers()
