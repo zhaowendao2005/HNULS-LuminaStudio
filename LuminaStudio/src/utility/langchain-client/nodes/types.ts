@@ -43,15 +43,15 @@ export interface UtilNodeRegistration<TParams = any> {
 }
 
 /**
- * 通用工具调用结果（structure-summary 节点消费）
+ * 通用节点执行结果（structure-summary 节点消费）
  */
 export interface ToolExecutionResult {
-  /** 工具 ID */
-  toolId: string
+  /** 节点 ID */
+  nodeId: string
 
   /** 调用参数（给 LLM 上下文） */
   params: Record<string, unknown>
 
-  /** 工具返回的 JSON 字符串 */
+  /** 节点返回的 JSON 字符串 */
   resultText: string
 }

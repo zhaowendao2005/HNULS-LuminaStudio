@@ -71,17 +71,17 @@
 
         <div v-if="rationale" class="text-[11px] text-slate-600 mb-1">{{ rationale }}</div>
 
-        <div v-if="toolCalls.length" class="space-y-1.5">
-          <div class="text-[10px] text-slate-500">工具调用（最多 10 条）</div>
+        <div v-if="nodeCalls.length" class="space-y-1.5">
+          <div class="text-[10px] text-slate-500">执行节点（最多 10 条）</div>
           <div class="space-y-1">
             <div
-              v-for="(call, idx) in toolCalls"
+              v-for="(call, idx) in nodeCalls"
               :key="idx"
               class="bg-white/70 px-2 py-1 rounded border border-slate-100"
             >
               <div class="flex items-start justify-between gap-2">
                 <div class="flex-1 space-y-0.5">
-                  <div class="font-mono text-[11px] text-slate-800 font-semibold">{{ call.toolId }}</div>
+                  <div class="font-mono text-[11px] text-slate-800 font-semibold">{{ call.nodeName }}</div>
                   <div class="text-[10px] text-slate-500 font-mono break-words">
                     {{ formatParams(call.params) }}
                   </div>
@@ -156,16 +156,16 @@ const rationale = computed(() => {
   return typeof value === 'string' ? value : ''
 })
 
-// 新架构：toolCalls[]
-const toolCalls = computed(() => {
+// 新架构：nodeCalls[] (执行节点列表)
+const nodeCalls = computed(() => {
   const list = outputs.value?.toolCalls
   if (!Array.isArray(list)) return []
   return list
     .map((call: any) => ({
-      toolId: String(call?.toolId ?? ''),
+      nodeName: String(call?.toolId ?? ''),
       params: call?.params ?? {}
     }))
-    .filter((call: any) => call.toolId.trim())
+    .filter((call: any) => call.nodeName.trim())
 })
 
 // 兼容旧架构：queries[] (如果存在)

@@ -53,7 +53,7 @@
             :message-id="msg.id"
           />
 
-          <!-- Retrieval Plan (node) -->
+          <!-- Planning Node (structure) -->
           <MessageComponentsRetrievalPlan
             v-else-if="isRetrievalPlanNodeBlock(block)"
             :node-block="block"

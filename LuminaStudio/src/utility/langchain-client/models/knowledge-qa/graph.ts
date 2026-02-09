@@ -311,7 +311,7 @@ export function buildKnowledgeQaGraph(params: {
         }
       })
 
-      // 容错：使用 knowledge_retrieval 作为默认工具
+      // 容错：使用 knowledge_retrieval 作为默认节点
       plan = {
         rationale: '规划节点失败：已回退为默认计划（使用知识库检索）',
         toolCalls: [
@@ -378,13 +378,13 @@ export function buildKnowledgeQaGraph(params: {
     const tasks = toolCalls.map(async (call, idx): Promise<ToolExecutionResult> => {
       const nodeId = `execute-tool:${state.requestId}:${state.iteration}:${idx}`
 
-      // 查找工具注册
+      // 查找节点注册
       const reg = registeredTools.find((r) => r.descriptor.id === call.toolId)
       if (!reg) {
         const fallbackText = JSON.stringify({
-          error: `未找到工具: ${call.toolId}`
+          error: `未找到节点: ${call.toolId}`
         })
-        return { toolId: call.toolId, params: call.params, resultText: fallbackText }
+        return { nodeId: call.toolId, params: call.params, resultText: fallbackText }
       }
 
       // emit: 节点开始
@@ -435,7 +435,7 @@ export function buildKnowledgeQaGraph(params: {
           }
         })
 
-        return { toolId: call.toolId, params: call.params, resultText }
+        return { nodeId: call.toolId, params: call.params, resultText }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
 
@@ -480,7 +480,7 @@ export function buildKnowledgeQaGraph(params: {
           }
         })
 
-        return { toolId: call.toolId, params: call.params, resultText: fallback }
+        return { nodeId: call.toolId, params: call.params, resultText: fallback }
       }
     })
 

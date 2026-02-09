@@ -64,8 +64,8 @@ function buildEvidenceDigest(results: ToolExecutionResult[]): string {
   const parts: string[] = []
 
   for (const [idx, r] of results.entries()) {
-    parts.push(`\n===== 工具执行 #${idx + 1} =====`)
-    parts.push(`toolId: ${r.toolId}`)
+    parts.push(`\n===== 节点执行 #${idx + 1} =====`)
+    parts.push(`nodeId: ${r.nodeId}`)
     parts.push(`params: ${JSON.stringify(r.params)}`)
 
     // 尝试解析结果 JSON 并压缩
