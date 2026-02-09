@@ -147,15 +147,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
+import { useUserConfigStore } from '@renderer/stores/user-config/store'
 
 defineEmits<{
   (e: 'back'): void
 }>()
 
+const userConfigStore = useUserConfigStore()
+
 // 状态管理
-const isLoading = ref(true)
-const isSaving = ref(false)
+const isLoading = computed(() => userConfigStore.isLoading)
+const isSaving = computed(() => userConfigStore.isSaving)
 const isModified = ref(false)
 const showSuccessMessage = ref(false)
 const showPubmedKey = ref(false)
@@ -173,15 +176,12 @@ const originalData = ref({
 // 加载 API Keys
 async function loadApiKeys(): Promise<void> {
   try {
-    isLoading.value = true
-    const keys = await window.api.userSettings.getApiKeys()
-    formData.value.pubmed = keys.pubmed || ''
-    originalData.value.pubmed = keys.pubmed || ''
+    await userConfigStore.fetchApiKeys()
+    formData.value.pubmed = userConfigStore.apiKeys.pubmed || ''
+    originalData.value.pubmed = userConfigStore.apiKeys.pubmed || ''
   } catch (error) {
     console.error('Failed to load API keys:', error)
     // TODO: 显示错误提示
-  } finally {
-    isLoading.value = false
   }
 }
 
@@ -194,9 +194,7 @@ function markAsModified(): void {
 // 保存
 async function handleSave(): Promise<void> {
   try {
-    isSaving.value = true
-
-    await window.api.userSettings.updateApiKeys({
+    await userConfigStore.updateApiKeys({
       pubmed: formData.value.pubmed || undefined
     })
 
@@ -213,9 +211,6 @@ async function handleSave(): Promise<void> {
   } catch (error) {
     console.error('Failed to save API keys:', error)
     // TODO: 显示错误提示
-  } finally {
-    isSaving.value = false
-  }
 }
 
 // 重置
@@ -229,6 +224,16 @@ function handleReset(): void {
 onMounted(() => {
   loadApiKeys()
 })
+
+watch(
+  () => userConfigStore.apiKeys.pubmed,
+  (next) => {
+    if (!isModified.value) {
+      formData.value.pubmed = next || ''
+      originalData.value.pubmed = next || ''
+    }
+  }
+)
 </script>
 
 <style scoped>
