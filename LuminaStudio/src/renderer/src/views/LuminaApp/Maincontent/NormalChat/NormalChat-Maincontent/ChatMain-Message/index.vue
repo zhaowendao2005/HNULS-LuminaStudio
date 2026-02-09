@@ -73,6 +73,12 @@
             @show-detail="emit('show-knowledge-detail', $event)"
           />
 
+          <!-- PubMed Search (node) -->
+          <MessageComponentsPubmedSearch
+            v-else-if="isPubmedSearchNodeBlock(block)"
+            :result="getPubmedNodeResult(block)"
+          />
+
           <!-- Tool block (通用工具调用) -->
           <MessageComponentsToolCall v-else-if="block.type === 'tool'" :tool-blocks="[block]" />
 
@@ -105,6 +111,7 @@ import MessageComponentsToolCall from './MessageComponents-ToolCall.vue'
 import MessageComponentsKnowledgeSearch from './MessageComponents-KnowledgeSearch.vue'
 import MessageComponentsRetrievalPlan from './MessageComponents-RetrievalPlan.vue'
 import MessageComponentsRetrievalSummary from './MessageComponents-RetrievalSummary.vue'
+import MessageComponentsPubmedSearch from './MessageComponents-PubmedSearch.vue'
 import MessageComponentsText from './MessageComponents-Text.vue'
 import MessageComponentsUsage from './MessageComponents-Usage.vue'
 import MessageComponentsActionButtons from './MessageComponents-ActionButtons.vue'
@@ -147,6 +154,23 @@ function getKnowledgeNodeResult(block: any): any {
     return (outputs as any).result
   }
   // 如果还没有 result，返回 undefined（会显示“等待中”）
+  return undefined
+}
+
+// 判断是否是 pubmed_search 节点 block
+function isPubmedSearchNodeBlock(block: any): boolean {
+  return (
+    block?.type === 'node' &&
+    block?.start?.nodeKind === 'pubmed_search' &&
+    (block?.result || block?.start)
+  )
+}
+
+function getPubmedNodeResult(block: any): any {
+  const outputs = block?.result?.outputs
+  if (outputs && typeof outputs === 'object' && 'result' in outputs) {
+    return (outputs as any).result
+  }
   return undefined
 }
 </script>
