@@ -1,33 +1,18 @@
 ---
-inclusion: always
+description: 应用于HNULS-LuminaStudio项目下
 trigger: always_on
 ---
-<!------------------------------------------------------------------------------------
-   Add rules to this file or a short description and have Kiro refine them for you.
-   
-   Learn about inclusion modes: https://kiro.dev/docs/steering/#inclusion-modes
--------------------------------------------------------------------------------------> 
-# 第一点 我让你给我计划 基本上都是让你根据我的已经深度的研究项目的相关组件和代码 之后给我提出一个方案或者计划 不需要你创建任何文件 直接告诉我即可
+# 项目基本原则（Rules） 
 
----
-inclusion: always
-trigger: always_on
----
-<!------------------------------------------------------------------------------------
-   Add rules to this file or a short description and have Kiro refine them for you.
-   
-   Learn about inclusion modes: https://kiro.dev/docs/steering/#inclusion-modes
--------------------------------------------------------------------------------------> 
 
-# 项目基本原则（Rules）草案 
 
 ## 0. 权威来源与适用范围（必须遵守）
 
 - **[权威来源]**
   - `_Documents/Base/Temeplate.md`：目录职责、工程原则、类型/视图/stores/service/composables 等总体规范。
-  - `KnowledgeDatabase-src/src/main/**/README.md`
-  - `KnowledgeDatabase-src/src/preload/**/README.md`（注意：preload 的 README 分散在子目录）
-  - `KnowledgeDatabase-src/src/renderer/**/README.md`
+  - `LuminaStudio/src/main/**/README.md`
+  - `LuminaStudio/src/preload/**/README.md`（注意：preload 的 README 分散在子目录）
+  - `LuminaStudio/src/renderer/**/README.md`
 - **[冲突处理]**
   - 若本 Rules 与上述权威来源冲突：以权威来源为准，并要求**同步更新本 Rules**，避免双重标准。
 - **[适用范围]**
@@ -35,6 +20,17 @@ trigger: always_on
 
 ---
 
+## 0.5 关键依赖和技术栈的仓库名称、参考资料搜索方式
+1. vercel/ai 使用devin/deepwiki mcp来进行检索 多使用提问方式 
+### 私有仓库 我们自己的仓库
+使用devin进行查询：
+- https://app.devin.ai/wiki/HNULS-LabHub/HNULS-KnowledgeDatabase
+- https://app.devin.ai/org/zhao-wen-dao/wiki/zhaowendao2005/HNULS-LuminaStudio（本项目）
+### 公共仓库 使用deepwiki查询
+链接与仓库https://github.com/vercel/ai  https://deepwiki.com/vercel/ai 官方文档：https://docs.vercel.com/docs/rest-api/reference/sdk
+2. sqlite 数据库1 https://deepwiki.com/sqlite/sqlite https://github.com/sqlite/sqlite
+3 langchainjs https://deepwiki.com/langchain-ai/langchainjs
+ 
 ## 1. 目录结构与文件放置（强制）
 
 ### 1.1 顶层目录禁止"散乱文件"
@@ -212,196 +208,64 @@ trigger: always_on
 
 ---
 
-## 9. 规则变更制度（强制）
+## 9. 日志系统规范（强制）
+
+### 9.1 日志服务位置
+- **路径**：`src/main/services/logger/`
+- **导入**：`import { logger } from '@main/services/logger'`
+
+### 9.2 日志使用规范
+- **禁止**：在主进程代码中使用 `console.log`、`console.error` 等原生方法
+- **必须**：统一使用 `logger` 或其作用域日志器
+
+### 9.3 日志级别选择
+| 级别 | 场景 |
+|------|------|
+| `error` | 程序错误、异常捕获、操作失败 |
+| `warn` | 潜在问题、降级处理、非预期但可恢复的情况 |
+| `info` | 重要业务节点（启动、连接、关闭等） |
+| `debug` | 调试信息、流程追踪、变量状态 |
+| `verbose` | 详细信息、循环内部、大量数据 |
+| `silly` | 最详细追踪，仅调试时使用 |
+
+### 9.4 作用域日志器（推荐）
+```typescript
+// 在 Service/模块顶部创建作用域日志器
+import { logger } from '@main/services/base-service/logger'
+
+const log = logger.scope('MyService')
+
+// 使用
+log.info('Service initialized')  // 输出: [MyService] Service initialized
+log.error('Failed to connect', error, { host: 'localhost' })
+```
+
+### 9.5 开发脚本
+| 脚本 | 日志级别 | 说明 |
+|------|----------|------|
+| `pnpm dev` | debug | 默认开发 |
+| `pnpm dev:info` | info | 仅重要信息 |
+| `pnpm dev:debug` | debug | 含调试信息 |
+| `pnpm dev:verbose` | verbose | 详细信息 |
+| `pnpm dev:silly` | silly | 最详细 |
+| `pnpm dev:warn` | warn | 仅警告和错误 |
+|| `pnpm dev:error` | error | 仅错误 |
+
+### 9.6 应用名称与数据目录（Electron 标准做法）
+- **package.json 配置**：
+  - `"name"`: 必须全小写（npm 规范），例如 `"luminastudio"`
+  - `"productName"`: 应用展示名称，例如 `"LuminaStudio"`
+- **用户数据目录**：
+  - 开发环境：`app.name` = `productName` （如果有）或 `name`
+  - 打包后：`app.name` = `productName`
+  - 最终路径：`%APPDATA%/LuminaStudio`
+- **禁止**：主进程代码中手动调用 `app.setName()`，交由 Electron 从 `package.json` 自动读取。
+
+---
+
+## 10. 规则变更制度（强制）
 
 - **必须**：任何新增目录规则、命名规则、跨层通信规则，都要同步更新本 Rules 或对应 README，确保"规则可追溯且唯一"。
 - **禁止**：只口头约定、不落文档，导致后续 agent/新人无法按形式推进。
 
 ---
-
-
-
----
-inclusion: fileMatch
-fileMatchPattern:
-  - '**/surrealdb-service/**/*.ts'
-  - '**/services/**/query-service.ts'
-  - '**/services/base-service/app-service.ts'
-  - '**/ipc/index.ts'
-  - '**/main/index.ts'
-  - '**/services/knowledgeBase-library/**/*.ts'
-  - '**/services/model-config/**/*.ts'
-  - '**/services/user-config-service/**/*.ts'
-trigger: model_decision
----
-<!------------------------------------------------------------------------------------
-   Add rules to this file or a short description and have Kiro refine them for you.
-   
-   Learn about inclusion modes: https://kiro.dev/docs/steering/#inclusion-modes
--------------------------------------------------------------------------------------> 
-# 单一实例统一注入
-# SurrealDB 服务实例管理注意事项
-
-## 核心原则：单一实例，统一注入
-
-### ⚠️ 关键问题
-**不要在多处创建 Service 实例！** 这会导致：
-- 依赖注入失效（如 QueryService 未注入）
-- 状态不一致（多个实例各自维护状态）
-- 资源浪费和潜在的并发问题
-
----
-
-## 正确的架构模式
-
-### 1. 服务实例的创建与管理
-```
-AppService (单例管理中心)
-  ├─ SurrealDBService (单例)
-  │   └─ QueryService (单例)
-  ├─ KnowledgeLibraryService (单例)
-  │   └─ 需要注入 QueryService
-  └─ 其他服务...
-```
-
-### 2. 依赖注入流程
-```typescript
-// ✅ 正确：在 AppService 中统一管理
-class AppService {
-  private surrealDBService: SurrealDBService
-  private knowledgeLibraryService: KnowledgeLibraryService
-  
-  async initialize() {
-    // 1. 启动 SurrealDB
-    await this.surrealDBService.start()
-    
-    // 2. 获取 QueryService
-    const queryService = this.surrealDBService.getQueryService()
-    
-    // 3. 注入到需要的服务
-    this.knowledgeLibraryService.setQueryService(queryService)
-  }
-  
-  // 暴露实例供其他模块使用
-  getKnowledgeLibraryService() { return this.knowledgeLibraryService }
-}
-```
-
-### 3. IPC Handler 使用服务实例
-```typescript
-// ❌ 错误：在 IPCManager 中创建新实例
-initialize() {
-  const knowledgeLibraryService = new KnowledgeLibraryService() // 新实例，没有 QueryService！
-  this.handlers.push(new KnowledgeLibraryIPCHandler(knowledgeLibraryService))
-}
-
-// ✅ 正确：使用 AppService 提供的实例
-initialize(surrealDBService, knowledgeLibraryService) {
-  // 使用传入的已注入依赖的实例
-  this.handlers.push(new KnowledgeLibraryIPCHandler(knowledgeLibraryService))
-}
-```
-
----
-
-## 检查清单
-
-### 创建新服务时必须检查：
-1. **是否需要 QueryService？**
-   - 需要操作 SurrealDB → 必须注入 QueryService
-   - 只读配置文件 → 不需要
-
-2. **在哪里创建实例？**
-   - 在 `AppService.constructor()` 中创建
-   - 在 `AppService.initialize()` 中注入依赖
-
-3. **如何暴露给 IPC？**
-   - 在 `AppService` 中添加 getter 方法
-   - 在 `IPCManager.initialize()` 中接收参数
-   - 在 `main/index.ts` 中传入实例
-
-### 调试时的日志检查：
-```typescript
-// 在服务中添加调试日志
-setQueryService(queryService: QueryService): void {
-  this.queryService = queryService
-  logger.info('QueryService injected', {
-    isConnected: queryService?.isConnected(),
-    hasQueryService: !!this.queryService
-  })
-}
-
-// 在使用前检查
-if (this.queryService) {
-  logger.debug('QueryService available', {
-    hasQueryService: !!this.queryService,
-    isConnected: this.queryService?.isConnected()
-  })
-} else {
-  logger.warn('QueryService not available')
-}
-```
-
----
-
-## 常见错误模式
-
-### ❌ 错误 1：多处创建实例
-```typescript
-// AppService 中
-this.knowledgeLibraryService = new KnowledgeLibraryService()
-
-// IPCManager 中又创建
-const knowledgeLibraryService = new KnowledgeLibraryService() // 这是新实例！
-```
-
-### ❌ 错误 2：忘记注入依赖
-```typescript
-// 创建了实例但忘记注入
-this.knowledgeLibraryService = new KnowledgeLibraryService()
-// 缺少：this.knowledgeLibraryService.setQueryService(queryService)
-```
-
-### ❌ 错误 3：注入时机错误
-```typescript
-// QueryService 还未连接就注入
-const queryService = this.surrealDBService.getQueryService()
-this.knowledgeLibraryService.setQueryService(queryService)
-await this.surrealDBService.start() // 太晚了！应该先 start
-```
-
----
-
-## 正确的初始化顺序
-
-```typescript
-async initialize() {
-  // 1. 启动 SurrealDB 服务
-  await this.surrealDBService.initialize()
-  await this.surrealDBService.start()
-  
-  // 2. 获取已连接的 QueryService
-  const queryService = this.surrealDBService.getQueryService()
-  
-  // 3. 注入到所有需要的服务
-  this.knowledgeLibraryService.setQueryService(queryService)
-  
-  // 4. 初始化 IPC（传入已注入依赖的实例）
-  this.ipcManager.initialize(
-    this.surrealDBService,
-    this.knowledgeLibraryService
-  )
-}
-```
-
----
-
-## 快速排查指南
-
-**症状**：创建知识库时提示 "QueryService not available"
-
-**排查步骤**：
-1. 检查日志中是否有 "QueryService injected into KnowledgeLibraryService"
-2. 检查 IPC Handler 使用的是否是同一个实例（添加实例 ID 日志）
-3. 检查 `IPCManager.initialize()` 是否接收并使用了传入的实例
-4. 检查 `main/index.ts` 是否传入了正确的实例
