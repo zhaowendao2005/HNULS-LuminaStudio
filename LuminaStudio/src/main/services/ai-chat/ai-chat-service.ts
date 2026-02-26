@@ -58,7 +58,7 @@ export class AiChatService {
     payload: {
       requestId?: string
       conversationId: string
-      agentId: string
+      presetId: string
       providerId: string
       modelId: string
       input: string
@@ -76,14 +76,14 @@ export class AiChatService {
     }
   ): Promise<{ requestId: string; conversationId: string }> {
     const requestId = payload.requestId ?? randomUUID()
-    const { conversationId, agentId, providerId, modelId, input, enableThinking } = payload
+    const { conversationId, presetId, providerId, modelId, input, enableThinking } = payload
 
     const mode = payload.mode ?? 'normal'
 
     log.info('Starting stream', {
       requestId,
       conversationId,
-      agentId,
+      presetId,
       providerId,
       modelId,
       mode,
@@ -94,7 +94,7 @@ export class AiChatService {
       return await this.startAgentStream(sender, {
         requestId,
         conversationId,
-        agentId,
+        presetId,
         providerId,
         modelId,
         input,
@@ -106,8 +106,8 @@ export class AiChatService {
     }
 
     // 1. 确保 conversation 存在（如不存在则创建）
-    await this.ensureAgent(agentId)
-    await this.ensureConversation(conversationId, agentId, providerId, modelId)
+    await this.ensurePreset(presetId)
+    await this.ensureConversation(conversationId, presetId, providerId, modelId)
 
     // 2. 创建 user message
     const userMessageId = randomUUID()
@@ -269,11 +269,11 @@ export class AiChatService {
   }
 
   /**
-   * 获取 Agent 列表
+   * 获取预设列表
    */
-  async listAgents(): Promise<Array<{ id: string; name: string; description?: string | null }>> {
-    this.ensureDefaultAgents()
-    const rows = this.db.prepare('SELECT * FROM agents ORDER BY created_at ASC').all() as AgentRow[]
+  async listPresets(): Promise<Array<{ id: string; name: string; description?: string | null }>> {
+    this.ensureDefaultPresets()
+    const rows = this.db.prepare('SELECT * FROM presets ORDER BY created_at ASC').all() as AgentRow[]
     return rows.map((row) => ({
       id: row.id,
       name: row.name,
@@ -282,12 +282,12 @@ export class AiChatService {
   }
 
   /**
-   * 获取指定 Agent 下的对话列表
+   * 获取指定预设下的对话列表
    */
-  async listConversations(agentId: string): Promise<
+  async listConversations(presetId: string): Promise<
     Array<{
       id: string
-      agentId: string
+      presetId: string
       title: string | null
       providerId: string
       modelId: string
@@ -295,21 +295,21 @@ export class AiChatService {
       messageCount: number
     }>
   > {
-    this.ensureDefaultAgents()
+    this.ensureDefaultPresets()
     const rows = this.db
       .prepare(
-        `SELECT c.id, c.agent_id, c.title, c.provider_id, c.model_id, c.updated_at,
+        `SELECT c.id, c.preset_id, c.title, c.provider_id, c.model_id, c.updated_at,
                 COUNT(m.id) as message_count
          FROM conversations c
          LEFT JOIN messages m ON m.conversation_id = c.id
-         WHERE c.agent_id = ?
+         WHERE c.preset_id = ?
          GROUP BY c.id
          ORDER BY c.updated_at DESC`
       )
-      .all(agentId) as ConversationSummaryRow[]
+      .all(presetId) as ConversationSummaryRow[]
     return rows.map((row) => ({
       id: row.id,
-      agentId: row.agent_id,
+      presetId: row.preset_id,
       title: row.title ?? null,
       providerId: row.provider_id,
       modelId: row.model_id,
@@ -319,20 +319,20 @@ export class AiChatService {
   }
 
   /**
-   * 创建 Agent
+   * 创建预设
    */
-  async createAgent(
+  async createPreset(
     name: string,
     description?: string | null
   ): Promise<{ id: string; name: string; description?: string | null }> {
     const trimmedName = name.trim()
     if (!trimmedName) {
-      throw new Error('Agent name is required')
+      throw new Error('Preset name is required')
     }
 
     const id = randomUUID()
     this.db
-      .prepare(`INSERT INTO agents (id, name, description) VALUES (?, ?, ?)`)
+      .prepare(`INSERT INTO presets (id, name, description) VALUES (?, ?, ?)`)
       .run(id, trimmedName, description ?? null)
 
     return { id, name: trimmedName, description: description ?? null }
@@ -342,32 +342,32 @@ export class AiChatService {
    * 创建对话
    */
   async createConversation(payload: {
-    agentId: string
+    presetId: string
     title?: string | null
     providerId: string
     modelId: string
     enableThinking?: boolean
   }): Promise<{
     id: string
-    agentId: string
+    presetId: string
     title: string | null
     providerId: string
     modelId: string
     updatedAt: string
     messageCount: number
   }> {
-    const { agentId, title, providerId, modelId, enableThinking } = payload
-    await this.ensureAgent(agentId)
+    const { presetId, title, providerId, modelId, enableThinking } = payload
+    await this.ensurePreset(presetId)
 
     const id = randomUUID()
     const resolvedTitle = title?.trim() || `对话 ${id.slice(0, 8)}`
 
     this.db
       .prepare(
-        `INSERT INTO conversations (id, agent_id, title, provider_id, model_id, enable_thinking, memory_rounds)
+        `INSERT INTO conversations (id, preset_id, title, provider_id, model_id, enable_thinking, memory_rounds)
          VALUES (?, ?, ?, ?, ?, ?, 10)`
       )
-      .run(id, agentId, resolvedTitle, providerId, modelId, enableThinking ? 1 : 0)
+      .run(id, presetId, resolvedTitle, providerId, modelId, enableThinking ? 1 : 0)
 
     const row = this.db
       .prepare('SELECT * FROM conversations WHERE id = ?')
@@ -375,7 +375,7 @@ export class AiChatService {
 
     return {
       id: row.id,
-      agentId: row.agent_id,
+      presetId: row.preset_id,
       title: row.title ?? null,
       providerId: row.provider_id,
       modelId: row.model_id,
@@ -424,30 +424,30 @@ export class AiChatService {
   }
 
   /**
-   * 删除 Agent（级联删除所有对话和消息）
+   * 删除预设（级联删除所有对话和消息）
    */
-  async deleteAgent(agentId: string): Promise<void> {
-    // 1. 检查 Agent 是否存在
-    const exists = this.db.prepare('SELECT id FROM agents WHERE id = ?').get(agentId)
+  async deletePreset(presetId: string): Promise<void> {
+    // 1. 检查预设是否存在
+    const exists = this.db.prepare('SELECT id FROM presets WHERE id = ?').get(presetId)
 
     if (!exists) {
-      throw new Error(`Agent not found: ${agentId}`)
+      throw new Error(`Preset not found: ${presetId}`)
     }
 
-    // 2. 获取该 Agent 下的所有对话
+    // 2. 获取该预设下的所有对话
     const conversations = this.db
-      .prepare('SELECT id FROM conversations WHERE agent_id = ?')
-      .all(agentId) as Array<{ id: string }>
+      .prepare('SELECT id FROM conversations WHERE preset_id = ?')
+      .all(presetId) as Array<{ id: string }>
 
     // 3. 逐个删除对话（会自动中断流式生成）
     for (const conv of conversations) {
       await this.deleteConversation(conv.id)
     }
 
-    // 4. 删除 Agent
-    this.db.prepare('DELETE FROM agents WHERE id = ?').run(agentId)
+    // 4. 删除预设
+    this.db.prepare('DELETE FROM presets WHERE id = ?').run(presetId)
 
-    log.info('Agent deleted', { agentId, conversationCount: conversations.length })
+    log.info('Preset deleted', { presetId, conversationCount: conversations.length })
   }
 
   // ==================== 私有方法 ====================
@@ -457,7 +457,7 @@ export class AiChatService {
    */
   private async ensureConversation(
     conversationId: string,
-    agentId: string,
+    presetId: string,
     providerId: string,
     modelId: string
   ): Promise<void> {
@@ -466,47 +466,47 @@ export class AiChatService {
     if (!exists) {
       this.db
         .prepare(
-          `INSERT INTO conversations (id, agent_id, title, provider_id, model_id, enable_thinking, memory_rounds)
+          `INSERT INTO conversations (id, preset_id, title, provider_id, model_id, enable_thinking, memory_rounds)
            VALUES (?, ?, ?, ?, ?, 0, 10)`
         )
-        .run(conversationId, agentId, `对话 ${conversationId.slice(0, 8)}`, providerId, modelId)
+        .run(conversationId, presetId, `对话 ${conversationId.slice(0, 8)}`, providerId, modelId)
       log.debug('Created new conversation', { conversationId })
     }
   }
 
   /**
-   * 确保默认 Agent 列表存在
+   * 确保默认预设列表存在
    */
-  private ensureDefaultAgents(): void {
-    const countRow = this.db.prepare('SELECT COUNT(*) as count FROM agents').get() as {
+  private ensureDefaultPresets(): void {
+    const countRow = this.db.prepare('SELECT COUNT(*) as count FROM presets').get() as {
       count: number
     }
 
     if (countRow.count > 0) return
 
     const defaults = [
-      { id: 'agent-1', name: 'LuminaStudio AI', description: '通用助手' },
-      { id: 'agent-2', name: 'Code Expert', description: '编程专家' },
-      { id: 'agent-3', name: 'Writer Pro', description: '文案大师' },
-      { id: 'agent-4', name: 'Research Assistant', description: '科研助手' }
+      { id: 'preset-1', name: '通用对话', description: '日常对话与问答' },
+      { id: 'preset-2', name: '编程助手', description: '代码编写与调试' },
+      { id: 'preset-3', name: '写作助手', description: '文案创作与润色' },
+      { id: 'preset-4', name: '科研助手', description: '学术研究与分析' }
     ]
 
-    const stmt = this.db.prepare(`INSERT INTO agents (id, name, description) VALUES (?, ?, ?)`)
-    for (const agent of defaults) {
-      stmt.run(agent.id, agent.name, agent.description)
+    const stmt = this.db.prepare(`INSERT INTO presets (id, name, description) VALUES (?, ?, ?)`)
+    for (const preset of defaults) {
+      stmt.run(preset.id, preset.name, preset.description)
     }
   }
 
   /**
-   * 确保指定 Agent 存在
+   * 确保指定预设存在
    */
-  private async ensureAgent(agentId: string): Promise<void> {
-    this.ensureDefaultAgents()
-    const exists = this.db.prepare('SELECT id FROM agents WHERE id = ?').get(agentId)
+  private async ensurePreset(presetId: string): Promise<void> {
+    this.ensureDefaultPresets()
+    const exists = this.db.prepare('SELECT id FROM presets WHERE id = ?').get(presetId)
     if (!exists) {
       this.db
-        .prepare(`INSERT INTO agents (id, name, description) VALUES (?, ?, ?)`)
-        .run(agentId, agentId, null)
+        .prepare(`INSERT INTO presets (id, name, description) VALUES (?, ?, ?)`)
+        .run(presetId, presetId, null)
     }
   }
 
@@ -916,7 +916,7 @@ export class AiChatService {
     payload: {
       requestId: string
       conversationId: string
-      agentId: string
+      presetId: string
       providerId: string
       modelId: string
       input: string
@@ -935,7 +935,7 @@ export class AiChatService {
     const {
       requestId,
       conversationId,
-      agentId,
+      presetId,
       providerId,
       modelId,
       input,
@@ -945,8 +945,8 @@ export class AiChatService {
     } = payload
 
     // 1. 确保 conversation 存在（如不存在则创建）
-    await this.ensureAgent(agentId)
-    await this.ensureConversation(conversationId, agentId, providerId, modelId)
+    await this.ensurePreset(presetId)
+    await this.ensureConversation(conversationId, presetId, providerId, modelId)
 
     // 2. 创建 user message
     const userMessageId = randomUUID()

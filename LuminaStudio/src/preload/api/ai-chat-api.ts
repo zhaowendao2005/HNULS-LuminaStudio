@@ -6,8 +6,10 @@ import type {
   AiChatHistoryRequest,
   AiChatStreamEvent,
   AiChatConversationListRequest,
-  AiChatCreateAgentRequest,
-  AiChatCreateConversationRequest
+  AiChatCreatePresetRequest,
+  AiChatCreateConversationRequest,
+  AiChatDeleteConversationRequest,
+  AiChatDeletePresetRequest
 } from '../types'
 
 /**
@@ -27,16 +29,16 @@ export const aiChatAPI: AiChatAPI = {
   history: (request: AiChatHistoryRequest) => {
     return ipcRenderer.invoke('aiChat:history', request)
   },
-  createAgent: (request: AiChatCreateAgentRequest) => {
-    return ipcRenderer.invoke('aiChat:createAgent', request)
+  createPreset: (request: AiChatCreatePresetRequest) => {
+    return ipcRenderer.invoke('aiChat:createPreset', request)
   },
 
   createConversation: (request: AiChatCreateConversationRequest) => {
     return ipcRenderer.invoke('aiChat:createConversation', request)
   },
 
-  agents: () => {
-    return ipcRenderer.invoke('aiChat:agents')
+  presets: () => {
+    return ipcRenderer.invoke('aiChat:presets')
   },
 
   conversations: (request: AiChatConversationListRequest) => {
@@ -47,8 +49,8 @@ export const aiChatAPI: AiChatAPI = {
     return ipcRenderer.invoke('aiChat:deleteConversation', request)
   },
 
-  deleteAgent: (request: AiChatDeleteAgentRequest) => {
-    return ipcRenderer.invoke('aiChat:deleteAgent', request)
+  deletePreset: (request: AiChatDeletePresetRequest) => {
+    return ipcRenderer.invoke('aiChat:deletePreset', request)
   },
 
   onStream: (handler: (event: AiChatStreamEvent) => void) => {

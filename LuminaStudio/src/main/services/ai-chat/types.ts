@@ -9,7 +9,7 @@
  */
 export interface ConversationRow {
   id: string
-  agent_id: string
+  preset_id: string
   title: string | null
   provider_id: string
   model_id: string
@@ -20,7 +20,7 @@ export interface ConversationRow {
 }
 
 /**
- * 数据库中的 agent 表行
+ * 数据库中的 preset 表行（原 agent 表）
  */
 export interface AgentRow {
   id: string
@@ -35,7 +35,7 @@ export interface AgentRow {
  */
 export interface ConversationSummaryRow {
   id: string
-  agent_id: string
+  preset_id: string
   title: string | null
   provider_id: string
   model_id: string

@@ -6,10 +6,10 @@ import type {
   AiChatAbortRequest,
   AiChatHistoryRequest,
   AiChatConversationListRequest,
-  AiChatCreateAgentRequest,
+  AiChatCreatePresetRequest,
   AiChatCreateConversationRequest,
   AiChatDeleteConversationRequest,
-  AiChatDeleteAgentRequest
+  AiChatDeletePresetRequest
 } from '@preload/types'
 
 /**
@@ -41,7 +41,7 @@ export class AiChatIPCHandler extends BaseIPCHandler {
   ): Promise<{ success: true; data: unknown } | { success: false; error: string }> {
     const {
       conversationId,
-      agentId,
+      presetId,
       providerId,
       modelId,
       input,
@@ -52,13 +52,13 @@ export class AiChatIPCHandler extends BaseIPCHandler {
       agentModelConfig
     } = request
 
-    if (!conversationId || !agentId || !providerId || !modelId || !input) {
+    if (!conversationId || !presetId || !providerId || !modelId || !input) {
       return { success: false, error: 'Missing required parameters' }
     }
 
     const result = await this.aiChatService.startStream(event.sender, {
       conversationId,
-      agentId,
+      presetId,
       providerId,
       modelId,
       input,
@@ -107,21 +107,21 @@ export class AiChatIPCHandler extends BaseIPCHandler {
   }
 
   /**
-   * 获取 Agent 列表
+   * 获取预设列表
    */
-  async handleAgents(
+  async handlePresets(
     _event: IpcMainInvokeEvent
   ): Promise<{ success: true; data: unknown } | { success: false; error: string }> {
-    const result = await this.aiChatService.listAgents()
+    const result = await this.aiChatService.listPresets()
     return { success: true, data: result }
   }
 
   /**
-   * 创建 Agent
+   * 创建预设
    */
-  async handleCreateAgent(
+  async handleCreatePreset(
     _event: IpcMainInvokeEvent,
-    request: AiChatCreateAgentRequest
+    request: AiChatCreatePresetRequest
   ): Promise<{ success: true; data: unknown } | { success: false; error: string }> {
     const { name, description } = request
 
@@ -129,24 +129,24 @@ export class AiChatIPCHandler extends BaseIPCHandler {
       return { success: false, error: 'Missing name' }
     }
 
-    const result = await this.aiChatService.createAgent(name.trim(), description ?? null)
+    const result = await this.aiChatService.createPreset(name.trim(), description ?? null)
     return { success: true, data: result }
   }
 
   /**
-   * 获取指定 Agent 下的对话列表
+   * 获取指定预设下的对话列表
    */
   async handleConversations(
     _event: IpcMainInvokeEvent,
     request: AiChatConversationListRequest
   ): Promise<{ success: true; data: unknown } | { success: false; error: string }> {
-    const { agentId } = request
+    const { presetId } = request
 
-    if (!agentId) {
-      return { success: false, error: 'Missing agentId' }
+    if (!presetId) {
+      return { success: false, error: 'Missing presetId' }
     }
 
-    const result = await this.aiChatService.listConversations(agentId)
+    const result = await this.aiChatService.listConversations(presetId)
     return { success: true, data: result }
   }
 
@@ -157,14 +157,14 @@ export class AiChatIPCHandler extends BaseIPCHandler {
     _event: IpcMainInvokeEvent,
     request: AiChatCreateConversationRequest
   ): Promise<{ success: true; data: unknown } | { success: false; error: string }> {
-    const { agentId, title, providerId, modelId, enableThinking } = request
+    const { presetId, title, providerId, modelId, enableThinking } = request
 
-    if (!agentId || !providerId || !modelId) {
+    if (!presetId || !providerId || !modelId) {
       return { success: false, error: 'Missing required parameters' }
     }
 
     const result = await this.aiChatService.createConversation({
-      agentId,
+      presetId,
       title,
       providerId,
       modelId,
@@ -199,20 +199,20 @@ export class AiChatIPCHandler extends BaseIPCHandler {
   }
 
   /**
-   * 删除 Agent
+   * 删除预设
    */
-  async handleDeleteAgent(
+  async handleDeletePreset(
     _event: IpcMainInvokeEvent,
-    request: AiChatDeleteAgentRequest
+    request: AiChatDeletePresetRequest
   ): Promise<{ success: true; data?: unknown } | { success: false; error: string }> {
-    const { agentId } = request
+    const { presetId } = request
 
-    if (!agentId) {
-      return { success: false, error: 'Missing agentId' }
+    if (!presetId) {
+      return { success: false, error: 'Missing presetId' }
     }
 
     try {
-      await this.aiChatService.deleteAgent(agentId)
+      await this.aiChatService.deletePreset(presetId)
       return { success: true }
     } catch (err) {
       return {

@@ -61,7 +61,7 @@ export interface AiChatStartRequest {
   /** Optional: client-generated requestId for immediate stop availability */
   requestId?: string
   conversationId: string
-  agentId: string
+  presetId: string
   providerId: string
   modelId: string
   input: string
@@ -110,9 +110,9 @@ export interface AiChatHistoryRequest {
   offset?: number
 }
 /**
- * 创建助手请求
+ * 创建预设请求
  */
-export interface AiChatCreateAgentRequest {
+export interface AiChatCreatePresetRequest {
   name: string
   description?: string | null
 }
@@ -121,7 +121,7 @@ export interface AiChatCreateAgentRequest {
  * 创建对话请求
  */
 export interface AiChatCreateConversationRequest {
-  agentId: string
+  presetId: string
   title?: string | null
   providerId: string
   modelId: string
@@ -129,10 +129,10 @@ export interface AiChatCreateConversationRequest {
 }
 
 /**
- * 获取指定 Agent 下的对话列表请求
+ * 获取指定预设下的对话列表请求
  */
 export interface AiChatConversationListRequest {
-  agentId: string
+  presetId: string
 }
 
 /**
@@ -143,16 +143,16 @@ export interface AiChatDeleteConversationRequest {
 }
 
 /**
- * 删除 Agent 请求
+ * 删除预设请求
  */
-export interface AiChatDeleteAgentRequest {
-  agentId: string
+export interface AiChatDeletePresetRequest {
+  presetId: string
 }
 
 /**
  * Agent 信息
  */
-export interface AiChatAgent {
+export interface AiChatPreset {
   id: string
   name: string
   description?: string | null
@@ -163,7 +163,7 @@ export interface AiChatAgent {
  */
 export interface AiChatConversation {
   id: string
-  agentId: string
+  presetId: string
   title?: string | null
   providerId: string
   modelId: string
@@ -337,9 +337,9 @@ export interface AiChatAPI {
    */
   history: (request: AiChatHistoryRequest) => Promise<ApiResponse<AiChatHistoryResponse>>
   /**
-   * 创建助手
+   * 创建预设
    */
-  createAgent: (request: AiChatCreateAgentRequest) => Promise<ApiResponse<AiChatAgent>>
+  createPreset: (request: AiChatCreatePresetRequest) => Promise<ApiResponse<AiChatPreset>>
 
   /**
    * 创建对话
@@ -349,12 +349,12 @@ export interface AiChatAPI {
   ) => Promise<ApiResponse<AiChatConversation>>
 
   /**
-   * 获取 Agent 列表
+   * 获取预设列表
    */
-  agents: () => Promise<ApiResponse<AiChatAgent[]>>
+  presets: () => Promise<ApiResponse<AiChatPreset[]>>
 
   /**
-   * 获取指定 Agent 下的对话列表
+   * 获取指定预设下的对话列表
    */
   conversations: (
     request: AiChatConversationListRequest
@@ -368,9 +368,9 @@ export interface AiChatAPI {
   ) => Promise<ApiResponse<void>>
 
   /**
-   * 删除 Agent
+   * 删除预设
    */
-  deleteAgent: (request: AiChatDeleteAgentRequest) => Promise<ApiResponse<void>>
+  deletePreset: (request: AiChatDeletePresetRequest) => Promise<ApiResponse<void>>
 
   /**
    * 订阅流式事件

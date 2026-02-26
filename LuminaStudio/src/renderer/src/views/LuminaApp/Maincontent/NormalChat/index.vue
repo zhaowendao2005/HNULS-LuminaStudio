@@ -175,7 +175,7 @@ const handleAbort = async () => {
 
 // 初始化模型配置
 modelConfigStore.fetchProviders().catch(() => {})
-chatStore.loadAgents().catch(() => {})
+chatStore.loadPresets().catch(() => {})
 
 watch(
   () => modelConfigStore.providers,

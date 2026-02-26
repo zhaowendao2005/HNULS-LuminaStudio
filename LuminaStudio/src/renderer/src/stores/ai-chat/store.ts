@@ -16,10 +16,10 @@ export const useAiChatStore = defineStore('ai-chat', () => {
   const messageStore = useChatMessageStore()
 
   // ===== State =====
-  const agents = ref<AgentInfo[]>([])
-  const conversationsByAgent = ref<Record<string, ConversationSummary[]>>({})
+  const presets = ref<AgentInfo[]>([])
+  const conversationsByPreset = ref<Record<string, ConversationSummary[]>>({})
 
-  const currentAgentId = ref<string | null>(null)
+  const currentPresetId = ref<string | null>(null)
   const currentConversationId = ref<string | null>(null)
 
   const currentProviderId = ref<string | null>(null)
@@ -36,48 +36,48 @@ export const useAiChatStore = defineStore('ai-chat', () => {
   const isGenerating = computed(() => messageStore.isGenerating)
 
   const currentConversations = computed<ConversationSummary[]>(() => {
-    if (!currentAgentId.value) return []
-    return conversationsByAgent.value[currentAgentId.value] || []
+    if (!currentPresetId.value) return []
+    return conversationsByPreset.value[currentPresetId.value] || []
   })
 
   // ===== Actions =====
-  async function loadAgents(): Promise<void> {
-    agents.value = await AiChatDataSource.listAgents()
-    if (!currentAgentId.value && agents.value.length > 0) {
-      currentAgentId.value = agents.value[0].id
+  async function loadPresets(): Promise<void> {
+    presets.value = await AiChatDataSource.listPresets()
+    if (!currentPresetId.value && presets.value.length > 0) {
+      currentPresetId.value = presets.value[0].id
     }
   }
 
-  async function selectAgent(agentId: string): Promise<void> {
-    currentAgentId.value = agentId
-    await loadConversations(agentId)
+  async function selectPreset(presetId: string): Promise<void> {
+    currentPresetId.value = presetId
+    await loadConversations(presetId)
   }
 
-  async function loadConversations(agentId: string): Promise<void> {
-    const list = await AiChatDataSource.listConversations(agentId)
-    conversationsByAgent.value = {
-      ...conversationsByAgent.value,
-      [agentId]: list
+  async function loadConversations(presetId: string): Promise<void> {
+    const list = await AiChatDataSource.listConversations(presetId)
+    conversationsByPreset.value = {
+      ...conversationsByPreset.value,
+      [presetId]: list
     }
   }
 
-  async function createAgent(name: string, description?: string | null): Promise<void> {
-    const agent = await AiChatDataSource.createAgent({ name, description })
-    agents.value = [...agents.value, agent]
-    currentAgentId.value = agent.id
-    conversationsByAgent.value = { ...conversationsByAgent.value, [agent.id]: [] }
+  async function createPreset(name: string, description?: string | null): Promise<void> {
+    const preset = await AiChatDataSource.createPreset({ name, description })
+    presets.value = [...presets.value, preset]
+    currentPresetId.value = preset.id
+    conversationsByPreset.value = { ...conversationsByPreset.value, [preset.id]: [] }
     currentConversationId.value = null
   }
 
   async function createConversation(payload: {
-    agentId: string
+    presetId: string
     title?: string | null
     providerId: string
     modelId: string
     enableThinking?: boolean
   }): Promise<void> {
     const conversation = await AiChatDataSource.createConversation(payload)
-    await loadConversations(payload.agentId)
+    await loadConversations(payload.presetId)
     currentConversationId.value = conversation.id
     currentProviderId.value = payload.providerId
     currentModelId.value = payload.modelId
@@ -152,12 +152,12 @@ export const useAiChatStore = defineStore('ai-chat', () => {
   async function sendMessage(input: string): Promise<void> {
     if (!input.trim()) return
 
-    if (!currentAgentId.value) {
-      await loadAgents()
+    if (!currentPresetId.value) {
+      await loadPresets()
     }
 
-    if (!currentAgentId.value) {
-      throw new Error('No agent available')
+    if (!currentPresetId.value) {
+      throw new Error('No preset available')
     }
 
     if (!currentProviderId.value || !currentModelId.value) {
@@ -166,7 +166,7 @@ export const useAiChatStore = defineStore('ai-chat', () => {
     let conversationId = currentConversationId.value
     if (!conversationId) {
       await createConversation({
-        agentId: currentAgentId.value,
+        presetId: currentPresetId.value,
         providerId: currentProviderId.value,
         modelId: currentModelId.value,
         enableThinking: enableThinking.value
@@ -247,7 +247,7 @@ export const useAiChatStore = defineStore('ai-chat', () => {
       const startRes = await AiChatDataSource.startStream({
         requestId,
         conversationId,
-        agentId: currentAgentId.value,
+        presetId: currentPresetId.value,
         providerId: currentProviderId.value,
         modelId: currentModelId.value,
         input,
@@ -302,29 +302,29 @@ export const useAiChatStore = defineStore('ai-chat', () => {
     }
 
     // 刷新对话列表
-    if (currentAgentId.value) {
-      await loadConversations(currentAgentId.value)
+    if (currentPresetId.value) {
+      await loadConversations(currentPresetId.value)
     }
   }
 
-  async function deleteAgent(agentId: string): Promise<void> {
-    await AiChatDataSource.deleteAgent(agentId)
+  async function deletePreset(presetId: string): Promise<void> {
+    await AiChatDataSource.deletePreset(presetId)
 
-    // 如果删除的是当前 Agent，切换到第一个 Agent
-    if (currentAgentId.value === agentId) {
+    // 如果删除的是当前 Preset，切换到第一个 Preset
+    if (currentPresetId.value === presetId) {
       currentConversationId.value = null
-      currentAgentId.value = null
+      currentPresetId.value = null
     }
 
-    // 刷新 Agent 列表
-    await loadAgents()
+    // 刷新 Preset 列表
+    await loadPresets()
   }
 
   return {
     // state
-    agents,
-    currentAgentId,
-    conversationsByAgent,
+    presets,
+    currentPresetId,
+    conversationsByPreset,
     currentConversationId,
     currentProviderId,
     currentModelId,
@@ -336,10 +336,10 @@ export const useAiChatStore = defineStore('ai-chat', () => {
     currentConversations,
 
     // actions
-    loadAgents,
-    selectAgent,
+    loadPresets,
+    selectPreset,
     loadConversations,
-    createAgent,
+    createPreset,
     createConversation,
     switchConversation,
     sendMessage,
@@ -347,6 +347,6 @@ export const useAiChatStore = defineStore('ai-chat', () => {
     setCurrentModel,
     setThinkingEnabled,
     deleteConversation,
-    deleteAgent
+    deletePreset
   }
 })

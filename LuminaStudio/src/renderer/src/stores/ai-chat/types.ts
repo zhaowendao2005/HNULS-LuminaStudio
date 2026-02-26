@@ -26,7 +26,7 @@ export interface AgentInfo {
 
 export interface ConversationSummary {
   id: string
-  agentId: string
+  presetId: string
   title?: string | null
   providerId: string
   modelId: string

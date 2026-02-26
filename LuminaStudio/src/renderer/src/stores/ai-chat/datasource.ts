@@ -7,15 +7,15 @@ import type {
   AiChatStartRequest,
   AiChatAbortRequest,
   AiChatHistoryRequest,
-  AiChatAgent,
+  AiChatPreset,
   AiChatConversation,
-  AiChatCreateAgentRequest,
+  AiChatCreatePresetRequest,
   AiChatCreateConversationRequest
 } from '@preload/types'
 import type { AgentInfo, ConversationSummary, ChatMessage } from './types'
 import { mapMessage } from './chat-message/datasource'
 
-function mapAgent(row: AiChatAgent): AgentInfo {
+function mapPreset(row: AiChatPreset): AgentInfo {
   return {
     id: row.id,
     name: row.name,
@@ -26,7 +26,7 @@ function mapAgent(row: AiChatAgent): AgentInfo {
 function mapConversation(row: AiChatConversation): ConversationSummary {
   return {
     id: row.id,
-    agentId: row.agentId,
+    presetId: row.presetId,
     title: row.title ?? null,
     providerId: row.providerId,
     modelId: row.modelId,
@@ -69,28 +69,28 @@ export const AiChatDataSource = {
     }
   },
 
-  async listAgents(): Promise<AgentInfo[]> {
-    const res = await window.api.aiChat.agents()
+  async listPresets(): Promise<AgentInfo[]> {
+    const res = await window.api.aiChat.presets()
     if (!res.success || !res.data) {
-      throw new Error(res.error || 'Failed to load agents')
+      throw new Error(res.error || 'Failed to load presets')
     }
-    return res.data.map(mapAgent)
+    return res.data.map(mapPreset)
   },
 
-  async listConversations(agentId: string): Promise<ConversationSummary[]> {
-    const res = await window.api.aiChat.conversations({ agentId })
+  async listConversations(presetId: string): Promise<ConversationSummary[]> {
+    const res = await window.api.aiChat.conversations({ presetId })
     if (!res.success || !res.data) {
       throw new Error(res.error || 'Failed to load conversations')
     }
     return res.data.map(mapConversation)
   },
 
-  async createAgent(request: AiChatCreateAgentRequest): Promise<AgentInfo> {
-    const res = await window.api.aiChat.createAgent(request)
+  async createPreset(request: AiChatCreatePresetRequest): Promise<AgentInfo> {
+    const res = await window.api.aiChat.createPreset(request)
     if (!res.success || !res.data) {
-      throw new Error(res.error || 'Failed to create agent')
+      throw new Error(res.error || 'Failed to create preset')
     }
-    return mapAgent(res.data)
+    return mapPreset(res.data)
   },
 
   async createConversation(request: AiChatCreateConversationRequest): Promise<ConversationSummary> {
@@ -108,10 +108,10 @@ export const AiChatDataSource = {
     }
   },
 
-  async deleteAgent(agentId: string): Promise<void> {
-    const res = await window.api.aiChat.deleteAgent({ agentId })
+  async deletePreset(presetId: string): Promise<void> {
+    const res = await window.api.aiChat.deletePreset({ presetId })
     if (!res.success) {
-      throw new Error(res.error || 'Failed to delete agent')
+      throw new Error(res.error || 'Failed to delete preset')
     }
   }
 }

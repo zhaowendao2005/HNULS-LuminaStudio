@@ -22,44 +22,44 @@
       >
         <div class="px-5 py-4 border-b border-slate-100 bg-slate-50/50">
           <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">
-            智能助手 (Agents)
+            对话预设 (Presets)
           </h3>
         </div>
 
         <div class="flex-1 overflow-y-auto p-3 space-y-1">
           <div
-            v-for="(agent, idx) in agents"
-            :key="agent.id"
-            class="relative group/agent"
+            v-for="(preset, idx) in presets"
+            :key="preset.id"
+            class="relative group/preset"
           >
             <button
-              @click="handleSelectAgent(agent.id)"
+              @click="handleSelectPreset(preset.id)"
               class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all"
               :class="
-                selectedAgentId === agent.id
+                selectedPresetId === preset.id
                   ? 'bg-white shadow-sm ring-1 ring-slate-100'
                   : 'hover:bg-slate-100'
               "
             >
               <div
                 class="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold shadow-sm"
-                :class="agentColorClasses[idx % agentColorClasses.length]"
+                :class="presetColorClasses[idx % presetColorClasses.length]"
               >
-                {{ agent.name[0] }}
+                {{ preset.name[0] }}
               </div>
               <div class="text-left flex-1 min-w-0">
-                <div class="text-sm font-medium text-slate-700 truncate">{{ agent.name }}</div>
+                <div class="text-sm font-medium text-slate-700 truncate">{{ preset.name }}</div>
                 <div class="text-[10px] text-slate-400 truncate">
-                  {{ agent.description || '智能助手' }}
+                  {{ preset.description || '对话预设' }}
                 </div>
               </div>
             </button>
-            <!-- 删除按钮：仅对非默认 Agent 显示 -->
+            <!-- 删除按钮：仅对非默认 Preset 显示 -->
             <button
-              v-if="!isDefaultAgent(agent.id)"
-              @click.stop="handleDeleteAgent(agent.id)"
-              class="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover/agent:opacity-100 transition-opacity px-2 py-1 rounded-md text-[10px] text-red-500 hover:bg-red-50"
-              title="删除助手"
+              v-if="!isDefaultPreset(preset.id)"
+              @click.stop="handleDeletePreset(preset.id)"
+              class="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover/preset:opacity-100 transition-opacity px-2 py-1 rounded-md text-[10px] text-red-500 hover:bg-red-50"
+              title="删除预设"
             >
               删除
             </button>
@@ -69,7 +69,7 @@
         <div class="p-3 border-t border-slate-100">
           <button
             class="w-full flex items-center justify-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-600 hover:text-emerald-600 hover:border-emerald-200 transition-colors"
-            @click="openCreateAgentModal"
+            @click="openCreatePresetModal"
           >
             <svg
               class="w-3.5 h-3.5"
@@ -81,7 +81,7 @@
               <path d="M12 5v14" />
               <path d="M5 12h14" />
             </svg>
-            新建助手
+            新建预设
           </button>
         </div>
       </div>
@@ -136,9 +136,9 @@
 
         <!-- List -->
         <div class="flex-1 overflow-y-auto p-6">
-          <div v-if="currentAgentConversations.length > 0" class="space-y-3">
+          <div v-if="currentPresetConversations.length > 0" class="space-y-3">
             <div
-              v-for="conv in currentAgentConversations"
+              v-for="conv in currentPresetConversations"
               :key="conv.id"
               class="group flex items-start gap-4 p-4 rounded-2xl border border-slate-100 hover:border-emerald-200 hover:shadow-md hover:shadow-emerald-500/5 transition-all cursor-pointer bg-white"
               @click="handleSelectConversation(conv.id)"
@@ -208,25 +208,25 @@
       </div>
     </div>
 
-    <!-- Create Agent Modal -->
+    <!-- Create Preset Modal -->
     <div
-      v-if="showCreateAgentModal"
+      v-if="showCreatePresetModal"
       class="nc_ConversationList_SubModal_a8d3 absolute inset-0 z-20 flex items-center justify-center"
     >
-      <div class="absolute inset-0 bg-black/30" @click="closeCreateAgentModal"></div>
+      <div class="absolute inset-0 bg-black/30" @click="closeCreatePresetModal"></div>
       <div
         class="relative w-full max-w-md rounded-2xl bg-white shadow-2xl border border-slate-100 p-6"
       >
-        <div class="text-lg font-semibold text-slate-800">新建助手</div>
+        <div class="text-lg font-semibold text-slate-800">新建预设</div>
         <div class="mt-4 space-y-3">
           <input
-            v-model="newAgentName"
+            v-model="newPresetName"
             type="text"
-            placeholder="助手名称（必填）"
+            placeholder="预设名称（必填）"
             class="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
           />
           <textarea
-            v-model="newAgentDescription"
+            v-model="newPresetDescription"
             rows="3"
             placeholder="描述（可选）"
             class="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 resize-none"
@@ -235,14 +235,14 @@
         <div class="mt-6 flex items-center justify-end gap-2">
           <button
             class="px-4 py-2 rounded-lg text-xs text-slate-500 hover:text-slate-700 transition-colors"
-            @click="closeCreateAgentModal"
+            @click="closeCreatePresetModal"
           >
             取消
           </button>
           <button
             class="px-4 py-2 rounded-lg bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed"
-            :disabled="!newAgentName.trim()"
-            @click="handleCreateAgent"
+            :disabled="!newPresetName.trim()"
+            @click="handleCreatePreset"
           >
             创建
           </button>
@@ -331,22 +331,22 @@ const emit = defineEmits<{
 const chatStore = useAiChatStore()
 const modelConfigStore = useModelConfigStore()
 
-const agentColorClasses = [
+const presetColorClasses = [
   'bg-gradient-to-tr from-emerald-500 to-teal-600',
   'bg-gradient-to-tr from-blue-500 to-indigo-600',
   'bg-gradient-to-tr from-orange-500 to-amber-600',
   'bg-gradient-to-tr from-purple-500 to-pink-600'
 ]
 
-const agents = computed(() => chatStore.agents)
-const selectedAgentId = computed(() => chatStore.currentAgentId)
-const currentAgentConversations = computed(() => chatStore.currentConversations)
+const presets = computed(() => chatStore.presets)
+const selectedPresetId = computed(() => chatStore.currentPresetId)
+const currentPresetConversations = computed(() => chatStore.currentConversations)
 const providers = computed(() => modelConfigStore.providers)
 
-const showCreateAgentModal = ref(false)
+const showCreatePresetModal = ref(false)
 const showCreateConversationModal = ref(false)
-const newAgentName = ref('')
-const newAgentDescription = ref('')
+const newPresetName = ref('')
+const newPresetDescription = ref('')
 const newConversationTitle = ref('')
 const selectedProviderId = ref<string | null>(null)
 const selectedModelId = ref<string | null>(null)
@@ -356,13 +356,13 @@ const providerModels = computed(() => {
   return provider?.models || []
 })
 
-const handleSelectAgent = async (agentId: string) => {
-  await chatStore.selectAgent(agentId)
+const handleSelectPreset = async (presetId: string) => {
+  await chatStore.selectPreset(presetId)
 }
 
-// 判断是否为默认 Agent（agent-1 到 agent-4）
-const isDefaultAgent = (agentId: string): boolean => {
-  return ['agent-1', 'agent-2', 'agent-3', 'agent-4'].includes(agentId)
+// 判断是否为默认 Preset（preset-1 到 preset-4）
+const isDefaultPreset = (presetId: string): boolean => {
+  return ['preset-1', 'preset-2', 'preset-3', 'preset-4'].includes(presetId)
 }
 
 const handleSelectConversation = async (conversationId: string) => {
@@ -370,21 +370,21 @@ const handleSelectConversation = async (conversationId: string) => {
   emit('update:visible', false)
 }
 
-const openCreateAgentModal = () => {
-  newAgentName.value = ''
-  newAgentDescription.value = ''
-  showCreateAgentModal.value = true
+const openCreatePresetModal = () => {
+  newPresetName.value = ''
+  newPresetDescription.value = ''
+  showCreatePresetModal.value = true
 }
 
-const closeCreateAgentModal = () => {
-  showCreateAgentModal.value = false
+const closeCreatePresetModal = () => {
+  showCreatePresetModal.value = false
 }
 
-const handleCreateAgent = async () => {
-  const name = newAgentName.value.trim()
+const handleCreatePreset = async () => {
+  const name = newPresetName.value.trim()
   if (!name) return
-  await chatStore.createAgent(name, newAgentDescription.value.trim() || null)
-  showCreateAgentModal.value = false
+  await chatStore.createPreset(name, newPresetDescription.value.trim() || null)
+  showCreatePresetModal.value = false
 }
 
 const openCreateConversationModal = async () => {
@@ -414,10 +414,10 @@ const closeCreateConversationModal = () => {
 }
 
 const handleCreateConversation = async () => {
-  const agentId = chatStore.currentAgentId
-  if (!agentId || !selectedProviderId.value || !selectedModelId.value) return
+  const presetId = chatStore.currentPresetId
+  if (!presetId || !selectedProviderId.value || !selectedModelId.value) return
   await chatStore.createConversation({
-    agentId,
+    presetId,
     title: newConversationTitle.value.trim() || null,
     providerId: selectedProviderId.value,
     modelId: selectedModelId.value,
@@ -439,13 +439,13 @@ const handleDeleteConversation = async (conversationId: string) => {
   }
 }
 
-const handleDeleteAgent = async (agentId: string) => {
-  if (!confirm('确定要删除这个助手吗？该助手下的所有对话也会被删除，此操作不可恢复。')) {
+const handleDeletePreset = async (presetId: string) => {
+  if (!confirm('确定要删除这个预设吗？该预设下的所有对话也会被删除，此操作不可恢复。')) {
     return
   }
 
   try {
-    await chatStore.deleteAgent(agentId)
+    await chatStore.deletePreset(presetId)
   } catch (err) {
     alert(`删除失败：${err instanceof Error ? err.message : String(err)}`)
   }
@@ -462,10 +462,10 @@ watch(
   () => props.visible,
   async (visible) => {
     if (!visible) return
-    await chatStore.loadAgents()
+    await chatStore.loadPresets()
     await modelConfigStore.fetchProviders().catch(() => {})
-    if (chatStore.currentAgentId) {
-      await chatStore.loadConversations(chatStore.currentAgentId)
+    if (chatStore.currentPresetId) {
+      await chatStore.loadConversations(chatStore.currentPresetId)
     }
   }
 )

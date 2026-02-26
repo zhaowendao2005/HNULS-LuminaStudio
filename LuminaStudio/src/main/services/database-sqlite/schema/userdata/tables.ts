@@ -22,10 +22,10 @@ export const SCHEMA_VERSION_TABLE: TableDefinition = {
   `
 }
 
-export const AGENTS_TABLE: TableDefinition = {
-  name: 'agents',
+export const PRESETS_TABLE: TableDefinition = {
+  name: 'presets',
   createSQL: `
-    CREATE TABLE IF NOT EXISTS agents (
+    CREATE TABLE IF NOT EXISTS presets (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       description TEXT,
@@ -40,7 +40,7 @@ export const CONVERSATIONS_TABLE: TableDefinition = {
   createSQL: `
     CREATE TABLE IF NOT EXISTS conversations (
       id TEXT PRIMARY KEY,
-      agent_id TEXT NOT NULL,
+      preset_id TEXT NOT NULL,
       title TEXT,
       provider_id TEXT NOT NULL,
       model_id TEXT NOT NULL,
@@ -48,10 +48,10 @@ export const CONVERSATIONS_TABLE: TableDefinition = {
       memory_rounds INTEGER NOT NULL DEFAULT 10,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE
+      FOREIGN KEY (preset_id) REFERENCES presets(id) ON DELETE CASCADE
     );
-    CREATE INDEX IF NOT EXISTS idx_conversations_agent_time 
-      ON conversations(agent_id, updated_at);
+    CREATE INDEX IF NOT EXISTS idx_conversations_preset_time 
+      ON conversations(preset_id, updated_at);
   `
 }
 
@@ -92,7 +92,7 @@ export const MESSAGE_USAGE_TABLE: TableDefinition = {
 
 export const USERDATA_TABLES: TableDefinition[] = [
   SCHEMA_VERSION_TABLE,
-  AGENTS_TABLE,
+  PRESETS_TABLE,
   CONVERSATIONS_TABLE,
   MESSAGES_TABLE,
   MESSAGE_USAGE_TABLE
