@@ -384,6 +384,72 @@ export class AiChatService {
     }
   }
 
+  /**
+   * 删除对话（级联删除所有消息）
+   */
+  async deleteConversation(conversationId: string): Promise<void> {
+    // 1. 检查对话是否存在
+    const exists = this.db
+      .prepare('SELECT id FROM conversations WHERE id = ?')
+      .get(conversationId)
+
+    if (!exists) {
+      throw new Error(`Conversation not found: ${conversationId}`)
+    }
+
+    // 2. 检查是否有正在进行的流式生成
+    for (const [requestId, state] of this.activeStreams.entries()) {
+      if (state.conversationId === conversationId) {
+        log.warn('Aborting active stream before deleting conversation', {
+          conversationId,
+          requestId
+        })
+        await this.abort(requestId)
+      }
+    }
+
+    // 3. 删除消息（级联）
+    this.db
+      .prepare(
+        'DELETE FROM message_usage WHERE message_id IN (SELECT id FROM messages WHERE conversation_id = ?)'
+      )
+      .run(conversationId)
+
+    this.db.prepare('DELETE FROM messages WHERE conversation_id = ?').run(conversationId)
+
+    // 4. 删除对话
+    this.db.prepare('DELETE FROM conversations WHERE id = ?').run(conversationId)
+
+    log.info('Conversation deleted', { conversationId })
+  }
+
+  /**
+   * 删除 Agent（级联删除所有对话和消息）
+   */
+  async deleteAgent(agentId: string): Promise<void> {
+    // 1. 检查 Agent 是否存在
+    const exists = this.db.prepare('SELECT id FROM agents WHERE id = ?').get(agentId)
+
+    if (!exists) {
+      throw new Error(`Agent not found: ${agentId}`)
+    }
+
+    // 2. 获取该 Agent 下的所有对话
+    const conversations = this.db
+      .prepare('SELECT id FROM conversations WHERE agent_id = ?')
+      .all(agentId) as Array<{ id: string }>
+
+    // 3. 逐个删除对话（会自动中断流式生成）
+    for (const conv of conversations) {
+      await this.deleteConversation(conv.id)
+    }
+
+    // 4. 删除 Agent
+    this.db.prepare('DELETE FROM agents WHERE id = ?').run(agentId)
+
+    log.info('Agent deleted', { agentId, conversationCount: conversations.length })
+  }
+
   // ==================== 私有方法 ====================
 
   /**

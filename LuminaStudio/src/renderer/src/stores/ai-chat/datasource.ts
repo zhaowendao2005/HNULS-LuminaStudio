@@ -99,5 +99,19 @@ export const AiChatDataSource = {
       throw new Error(res.error || 'Failed to create conversation')
     }
     return mapConversation(res.data)
+  },
+
+  async deleteConversation(conversationId: string): Promise<void> {
+    const res = await window.api.aiChat.deleteConversation({ conversationId })
+    if (!res.success) {
+      throw new Error(res.error || 'Failed to delete conversation')
+    }
+  },
+
+  async deleteAgent(agentId: string): Promise<void> {
+    const res = await window.api.aiChat.deleteAgent({ agentId })
+    if (!res.success) {
+      throw new Error(res.error || 'Failed to delete agent')
+    }
   }
 }

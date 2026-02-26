@@ -17,9 +17,8 @@
           >
             <DashboardView v-if="activeTab === 'dashboard'" />
             <NormalChat v-else-if="activeTab === 'normal-chat'" />
-            <ReaderView v-else-if="activeTab === 'reader'" />
-            <GraphView v-else-if="activeTab === 'graph'" />
             <UserSettingView v-else-if="activeTab === 'settings'" />
+            <DashboardView v-else />
           </main>
         </div>
       </div>
@@ -40,8 +39,6 @@ import TopBar from './TopBar/index.vue'
 import CustomTitlebar from './components/CustomTitlebar/index.vue'
 import DashboardView from './Maincontent/DashboardView/index.vue'
 import NormalChat from './Maincontent/NormalChat/index.vue'
-import ReaderView from './Maincontent/ReaderView/index.vue'
-import GraphView from './Maincontent/GraphView/index.vue'
 import UserSettingView from './Maincontent/UserSettingView/index.vue'
 
 const hasStarted = ref(false)

@@ -7,7 +7,9 @@ import type {
   AiChatHistoryRequest,
   AiChatConversationListRequest,
   AiChatCreateAgentRequest,
-  AiChatCreateConversationRequest
+  AiChatCreateConversationRequest,
+  AiChatDeleteConversationRequest,
+  AiChatDeleteAgentRequest
 } from '@preload/types'
 
 /**
@@ -170,5 +172,53 @@ export class AiChatIPCHandler extends BaseIPCHandler {
     })
 
     return { success: true, data: result }
+  }
+
+  /**
+   * 删除对话
+   */
+  async handleDeleteConversation(
+    _event: IpcMainInvokeEvent,
+    request: AiChatDeleteConversationRequest
+  ): Promise<{ success: true; data?: unknown } | { success: false; error: string }> {
+    const { conversationId } = request
+
+    if (!conversationId) {
+      return { success: false, error: 'Missing conversationId' }
+    }
+
+    try {
+      await this.aiChatService.deleteConversation(conversationId)
+      return { success: true }
+    } catch (err) {
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : String(err)
+      }
+    }
+  }
+
+  /**
+   * 删除 Agent
+   */
+  async handleDeleteAgent(
+    _event: IpcMainInvokeEvent,
+    request: AiChatDeleteAgentRequest
+  ): Promise<{ success: true; data?: unknown } | { success: false; error: string }> {
+    const { agentId } = request
+
+    if (!agentId) {
+      return { success: false, error: 'Missing agentId' }
+    }
+
+    try {
+      await this.aiChatService.deleteAgent(agentId)
+      return { success: true }
+    } catch (err) {
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : String(err)
+      }
+    }
   }
 }

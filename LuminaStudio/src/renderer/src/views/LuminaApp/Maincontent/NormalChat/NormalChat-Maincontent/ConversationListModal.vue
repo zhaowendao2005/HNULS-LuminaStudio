@@ -27,30 +27,43 @@
         </div>
 
         <div class="flex-1 overflow-y-auto p-3 space-y-1">
-          <button
+          <div
             v-for="(agent, idx) in agents"
             :key="agent.id"
-            @click="handleSelectAgent(agent.id)"
-            class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group"
-            :class="
-              selectedAgentId === agent.id
-                ? 'bg-white shadow-sm ring-1 ring-slate-100'
-                : 'hover:bg-slate-100'
-            "
+            class="relative group/agent"
           >
-            <div
-              class="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold shadow-sm"
-              :class="agentColorClasses[idx % agentColorClasses.length]"
+            <button
+              @click="handleSelectAgent(agent.id)"
+              class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all"
+              :class="
+                selectedAgentId === agent.id
+                  ? 'bg-white shadow-sm ring-1 ring-slate-100'
+                  : 'hover:bg-slate-100'
+              "
             >
-              {{ agent.name[0] }}
-            </div>
-            <div class="text-left flex-1 min-w-0">
-              <div class="text-sm font-medium text-slate-700 truncate">{{ agent.name }}</div>
-              <div class="text-[10px] text-slate-400 truncate">
-                {{ agent.description || '智能助手' }}
+              <div
+                class="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold shadow-sm"
+                :class="agentColorClasses[idx % agentColorClasses.length]"
+              >
+                {{ agent.name[0] }}
               </div>
-            </div>
-          </button>
+              <div class="text-left flex-1 min-w-0">
+                <div class="text-sm font-medium text-slate-700 truncate">{{ agent.name }}</div>
+                <div class="text-[10px] text-slate-400 truncate">
+                  {{ agent.description || '智能助手' }}
+                </div>
+              </div>
+            </button>
+            <!-- 删除按钮：仅对非默认 Agent 显示 -->
+            <button
+              v-if="!isDefaultAgent(agent.id)"
+              @click.stop="handleDeleteAgent(agent.id)"
+              class="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover/agent:opacity-100 transition-opacity px-2 py-1 rounded-md text-[10px] text-red-500 hover:bg-red-50"
+              title="删除助手"
+            >
+              删除
+            </button>
+          </div>
         </div>
 
         <div class="p-3 border-t border-slate-100">
@@ -166,6 +179,12 @@
                   >
                     {{ conv.messageCount }} 条消息
                   </span>
+                  <button
+                    class="ml-auto px-2 py-1 rounded-md text-[10px] text-red-500 hover:bg-red-50 transition-colors"
+                    @click.stop="handleDeleteConversation(conv.id)"
+                  >
+                    删除
+                  </button>
                 </div>
               </div>
             </div>
@@ -341,6 +360,11 @@ const handleSelectAgent = async (agentId: string) => {
   await chatStore.selectAgent(agentId)
 }
 
+// 判断是否为默认 Agent（agent-1 到 agent-4）
+const isDefaultAgent = (agentId: string): boolean => {
+  return ['agent-1', 'agent-2', 'agent-3', 'agent-4'].includes(agentId)
+}
+
 const handleSelectConversation = async (conversationId: string) => {
   await chatStore.switchConversation(conversationId)
   emit('update:visible', false)
@@ -401,6 +425,30 @@ const handleCreateConversation = async () => {
   })
   showCreateConversationModal.value = false
   emit('update:visible', false)
+}
+
+const handleDeleteConversation = async (conversationId: string) => {
+  if (!confirm('确定要删除这个对话吗？此操作不可恢复。')) {
+    return
+  }
+
+  try {
+    await chatStore.deleteConversation(conversationId)
+  } catch (err) {
+    alert(`删除失败：${err instanceof Error ? err.message : String(err)}`)
+  }
+}
+
+const handleDeleteAgent = async (agentId: string) => {
+  if (!confirm('确定要删除这个助手吗？该助手下的所有对话也会被删除，此操作不可恢复。')) {
+    return
+  }
+
+  try {
+    await chatStore.deleteAgent(agentId)
+  } catch (err) {
+    alert(`删除失败：${err instanceof Error ? err.message : String(err)}`)
+  }
 }
 
 const formatTime = (value: string) => {

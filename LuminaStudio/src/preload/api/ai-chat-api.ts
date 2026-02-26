@@ -43,6 +43,14 @@ export const aiChatAPI: AiChatAPI = {
     return ipcRenderer.invoke('aiChat:conversations', request)
   },
 
+  deleteConversation: (request: AiChatDeleteConversationRequest) => {
+    return ipcRenderer.invoke('aiChat:deleteConversation', request)
+  },
+
+  deleteAgent: (request: AiChatDeleteAgentRequest) => {
+    return ipcRenderer.invoke('aiChat:deleteAgent', request)
+  },
+
   onStream: (handler: (event: AiChatStreamEvent) => void) => {
     const listener = (_event: unknown, payload: AiChatStreamEvent) => handler(payload)
     ipcRenderer.on('aiChat:stream', listener)

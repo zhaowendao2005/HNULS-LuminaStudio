@@ -292,6 +292,34 @@ export const useAiChatStore = defineStore('ai-chat', () => {
     enableThinking.value = value
   }
 
+  async function deleteConversation(conversationId: string): Promise<void> {
+    await AiChatDataSource.deleteConversation(conversationId)
+
+    // 如果删除的是当前对话，清空当前对话 ID
+    // 消息会在下次 switchConversation 时自动加载新的消息列表
+    if (currentConversationId.value === conversationId) {
+      currentConversationId.value = null
+    }
+
+    // 刷新对话列表
+    if (currentAgentId.value) {
+      await loadConversations(currentAgentId.value)
+    }
+  }
+
+  async function deleteAgent(agentId: string): Promise<void> {
+    await AiChatDataSource.deleteAgent(agentId)
+
+    // 如果删除的是当前 Agent，切换到第一个 Agent
+    if (currentAgentId.value === agentId) {
+      currentConversationId.value = null
+      currentAgentId.value = null
+    }
+
+    // 刷新 Agent 列表
+    await loadAgents()
+  }
+
   return {
     // state
     agents,
@@ -317,6 +345,8 @@ export const useAiChatStore = defineStore('ai-chat', () => {
     sendMessage,
     abortGeneration,
     setCurrentModel,
-    setThinkingEnabled
+    setThinkingEnabled,
+    deleteConversation,
+    deleteAgent
   }
 })

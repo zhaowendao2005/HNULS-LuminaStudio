@@ -136,6 +136,20 @@ export interface AiChatConversationListRequest {
 }
 
 /**
+ * 删除对话请求
+ */
+export interface AiChatDeleteConversationRequest {
+  conversationId: string
+}
+
+/**
+ * 删除 Agent 请求
+ */
+export interface AiChatDeleteAgentRequest {
+  agentId: string
+}
+
+/**
  * Agent 信息
  */
 export interface AiChatAgent {
@@ -345,6 +359,18 @@ export interface AiChatAPI {
   conversations: (
     request: AiChatConversationListRequest
   ) => Promise<ApiResponse<AiChatConversation[]>>
+
+  /**
+   * 删除对话
+   */
+  deleteConversation: (
+    request: AiChatDeleteConversationRequest
+  ) => Promise<ApiResponse<void>>
+
+  /**
+   * 删除 Agent
+   */
+  deleteAgent: (request: AiChatDeleteAgentRequest) => Promise<ApiResponse<void>>
 
   /**
    * 订阅流式事件
