@@ -27,11 +27,7 @@
         </div>
 
         <div class="flex-1 overflow-y-auto p-3 space-y-1">
-          <div
-            v-for="(preset, idx) in presets"
-            :key="preset.id"
-            class="relative group/preset"
-          >
+          <div v-for="(preset, idx) in presets" :key="preset.id" class="relative group/preset">
             <button
               @click="handleSelectPreset(preset.id)"
               class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all"

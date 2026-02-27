@@ -9,7 +9,8 @@ import type {
   AiChatCreatePresetRequest,
   AiChatCreateConversationRequest,
   AiChatDeleteConversationRequest,
-  AiChatDeletePresetRequest
+  AiChatDeletePresetRequest,
+  AiChatUserInteractionResponseRequest
 } from '../types'
 
 /**
@@ -57,5 +58,9 @@ export const aiChatAPI: AiChatAPI = {
     const listener = (_event: unknown, payload: AiChatStreamEvent) => handler(payload)
     ipcRenderer.on('aiChat:stream', listener)
     return () => ipcRenderer.off('aiChat:stream', listener)
+  },
+
+  respondToUserInteraction: (request: AiChatUserInteractionResponseRequest) => {
+    return ipcRenderer.invoke('aiChat:respondToUserInteraction', request)
   }
 }

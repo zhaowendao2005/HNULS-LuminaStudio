@@ -203,12 +203,14 @@ export const useAiChatStore = defineStore('ai-chat', () => {
 
     if (mode === 'agent') {
       if (
-        !knowledgeQaConfig.planModel.providerId ||
-        !knowledgeQaConfig.planModel.modelId ||
+        !knowledgeQaConfig.initialPlanModel.providerId ||
+        !knowledgeQaConfig.initialPlanModel.modelId ||
+        !knowledgeQaConfig.loopPlanModel.providerId ||
+        !knowledgeQaConfig.loopPlanModel.modelId ||
         !knowledgeQaConfig.summaryModel.providerId ||
         !knowledgeQaConfig.summaryModel.modelId
       ) {
-        window.alert('请先在 Agent设置 中配置"规划模型"和"总结模型"。')
+        window.alert('请先在 Agent设置 中配置"首轮规划模型"、"回环规划模型"和"总结模型"。')
         return
       }
     }

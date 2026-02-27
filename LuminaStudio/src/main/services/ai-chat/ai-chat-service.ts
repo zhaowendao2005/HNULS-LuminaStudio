@@ -14,7 +14,8 @@ import type {
   LangchainClientAgentCreateConfig,
   LangchainClientChatMessage,
   LangchainClientRetrievalConfig,
-  LangchainClientToMainMessage
+  LangchainClientToMainMessage,
+  UserInteractionResponsePayload
 } from '@shared/langchain-client.types'
 import type {
   StreamState,
@@ -273,7 +274,9 @@ export class AiChatService {
    */
   async listPresets(): Promise<Array<{ id: string; name: string; description?: string | null }>> {
     this.ensureDefaultPresets()
-    const rows = this.db.prepare('SELECT * FROM presets ORDER BY created_at ASC').all() as AgentRow[]
+    const rows = this.db
+      .prepare('SELECT * FROM presets ORDER BY created_at ASC')
+      .all() as AgentRow[]
     return rows.map((row) => ({
       id: row.id,
       name: row.name,
@@ -389,9 +392,7 @@ export class AiChatService {
    */
   async deleteConversation(conversationId: string): Promise<void> {
     // 1. 检查对话是否存在
-    const exists = this.db
-      .prepare('SELECT id FROM conversations WHERE id = ?')
-      .get(conversationId)
+    const exists = this.db.prepare('SELECT id FROM conversations WHERE id = ?').get(conversationId)
 
     if (!exists) {
       throw new Error(`Conversation not found: ${conversationId}`)
@@ -448,6 +449,18 @@ export class AiChatService {
     this.db.prepare('DELETE FROM presets WHERE id = ?').run(presetId)
 
     log.info('Preset deleted', { presetId, conversationCount: conversations.length })
+  }
+
+  /**
+   * 转发用户交互响应到 Utility 进程
+   */
+  respondToUserInteraction(requestId: string, payload: UserInteractionResponsePayload): void {
+    log.info('Forwarding user interaction response', {
+      requestId,
+      interactionId: payload.interactionId,
+      action: payload.action
+    })
+    this.langchainClientBridge.sendUserInteractionResponse(requestId, payload)
   }
 
   // ==================== 私有方法 ====================
@@ -1029,12 +1042,14 @@ export class AiChatService {
     const knowledgeQaConfig = agentModelConfig?.knowledgeQa
     if (
       knowledgeQaConfig &&
-      (!knowledgeQaConfig.planModel.providerId ||
-        !knowledgeQaConfig.planModel.modelId ||
+      (!knowledgeQaConfig.initialPlanModel.providerId ||
+        !knowledgeQaConfig.initialPlanModel.modelId ||
+        !knowledgeQaConfig.loopPlanModel.providerId ||
+        !knowledgeQaConfig.loopPlanModel.modelId ||
         !knowledgeQaConfig.summaryModel.providerId ||
         !knowledgeQaConfig.summaryModel.modelId)
     ) {
-      throw new Error('Knowledge-QA 配置不完整：请设置规划模型与总结模型')
+      throw new Error('Knowledge-QA 配置不完整：请设置首轮规划模型、回环规划模型与总结模型')
     }
 
     const resolveProviderConfig = async (id: string) => {
@@ -1053,16 +1068,22 @@ export class AiChatService {
 
     let knowledgeQaResolved: KnowledgeQaModelConfig | undefined
     if (knowledgeQaConfig) {
-      const planProviderId = knowledgeQaConfig.planModel.providerId!
+      const initialPlanProviderId = knowledgeQaConfig.initialPlanModel.providerId!
+      const loopPlanProviderId = knowledgeQaConfig.loopPlanModel.providerId!
       const summaryProviderId = knowledgeQaConfig.summaryModel.providerId!
-      const planProvider = await resolveProviderConfig(planProviderId)
+      const initialPlanProvider = await resolveProviderConfig(initialPlanProviderId)
+      const loopPlanProvider = await resolveProviderConfig(loopPlanProviderId)
       const summaryProvider = await resolveProviderConfig(summaryProviderId)
 
       knowledgeQaResolved = {
         ...knowledgeQaConfig,
-        planModel: {
-          ...knowledgeQaConfig.planModel,
-          provider: planProvider
+        initialPlanModel: {
+          ...knowledgeQaConfig.initialPlanModel,
+          provider: initialPlanProvider
+        },
+        loopPlanModel: {
+          ...knowledgeQaConfig.loopPlanModel,
+          provider: loopPlanProvider
         },
         summaryModel: {
           ...knowledgeQaConfig.summaryModel,
@@ -1225,6 +1246,15 @@ export class AiChatService {
       case 'invoke:node-error': {
         this.sendEvent(sender, {
           type: 'node-error',
+          requestId: state.requestId,
+          payload: msg.payload
+        })
+        break
+      }
+
+      case 'invoke:user-interaction-request': {
+        this.sendEvent(sender, {
+          type: 'user-interaction-request',
           requestId: state.requestId,
           payload: msg.payload
         })

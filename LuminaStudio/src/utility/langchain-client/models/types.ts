@@ -9,7 +9,8 @@
 import type { CompiledStateGraph } from '@langchain/langgraph'
 import type {
   KnowledgeQaModelConfig,
-  LangchainClientToMainMessage
+  LangchainClientToMainMessage,
+  UserInteractionResponsePayload
 } from '@shared/langchain-client.types'
 import type { AgentRuntime } from '../factory'
 
@@ -30,6 +31,14 @@ export interface AgentModelGraphContext {
   modelConfig?: {
     knowledgeQa?: KnowledgeQaModelConfig
   }
+
+  /**
+   * 等待用户交互响应的 Promise 工厂
+   *
+   * 由 AgentManager 注入，graph 中的 user-interaction 节点通过它暂停并等待用户响应。
+   * 内部通过 IPC 桥接实现：Utility → Main → Renderer → Main → Utility。
+   */
+  waitForResponse: (interactionId: string) => Promise<UserInteractionResponsePayload>
 }
 
 export interface AgentModelDefinition {

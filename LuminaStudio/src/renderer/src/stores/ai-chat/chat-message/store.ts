@@ -25,6 +25,7 @@
 import { defineStore } from 'pinia'
 import { ref, onScopeDispose } from 'vue'
 import type { AiChatStreamEvent } from '@preload/types'
+import type { UserInteractionRequestPayload } from '@shared/langchain-client.types'
 import { ChatMessageDataSource } from './datasource'
 import type {
   ChatMessage,
@@ -95,6 +96,16 @@ export const useChatMessageStore = defineStore('chat-message', () => {
    * 作用：在流式输出过程中，根据 requestId 快速找到对应的消息和 Block
    */
   const streamContexts = new Map<string, StreamContext>()
+
+  /**
+   * 待处理的用户交互请求
+   *
+   * 结构：Map<nodeId, UserInteractionRequestPayload>
+   * 当 graph 暂停等待用户输入时，payload 存放在这里，
+   * 由 MessageComponents-UserInteraction.vue 消费并展示 UI。
+   * 用户提交响应后从此 Map 中移除。
+   */
+  const pendingInteractions = ref<Map<string, UserInteractionRequestPayload>>(new Map())
 
   // ==================== 辅助函数 (Helpers) ====================
 
@@ -422,6 +433,13 @@ export const useChatMessageStore = defineStore('chat-message', () => {
         break
       }
 
+      case 'user-interaction-request': {
+        // 将交互请求存入 pendingInteractions，供 UI 组件消费
+        const payload = event.payload
+        pendingInteractions.value.set(payload.nodeId, payload)
+        break
+      }
+
       case 'node-error': {
         const msg = getStreamMessage(event.requestId)
         const ctx = getStreamContext(event.requestId)
@@ -479,11 +497,26 @@ export const useChatMessageStore = defineStore('chat-message', () => {
     unsubscribe()
   })
 
+  /**
+   * 获取指定节点的 pending 交互请求
+   */
+  function getPendingInteraction(nodeId: string): UserInteractionRequestPayload | null {
+    return pendingInteractions.value.get(nodeId) ?? null
+  }
+
+  /**
+   * 清除指定节点的 pending 交互请求（用户提交后调用）
+   */
+  function clearPendingInteraction(nodeId: string): void {
+    pendingInteractions.value.delete(nodeId)
+  }
+
   return {
     // state
     messagesByConversation,
     isGenerating,
     currentRequestId,
+    pendingInteractions,
 
     // actions
     getMessages,
@@ -492,6 +525,8 @@ export const useChatMessageStore = defineStore('chat-message', () => {
     addTestMessage,
     startGenerating,
     stopGenerating,
-    handleStreamEvent
+    handleStreamEvent,
+    getPendingInteraction,
+    clearPendingInteraction
   }
 })

@@ -59,6 +59,13 @@
             :node-block="block"
           />
 
+          <!-- User Interaction Node -->
+          <MessageComponentsUserInteraction
+            v-else-if="isUserInteractionNodeBlock(block)"
+            :node-block="block"
+            :interaction-payload="getUserInteractionPayload(block)"
+          />
+
           <!-- Retrieval Summary (node) -->
           <MessageComponentsRetrievalSummary
             v-else-if="isRetrievalSummaryNodeBlock(block)"
@@ -112,9 +119,11 @@ import MessageComponentsKnowledgeSearch from './MessageComponents-KnowledgeSearc
 import MessageComponentsRetrievalPlan from './MessageComponents-RetrievalPlan.vue'
 import MessageComponentsRetrievalSummary from './MessageComponents-RetrievalSummary.vue'
 import MessageComponentsPubmedSearch from './MessageComponents-PubmedSearch.vue'
+import MessageComponentsUserInteraction from './MessageComponents-UserInteraction.vue'
 import MessageComponentsText from './MessageComponents-Text.vue'
 import MessageComponentsUsage from './MessageComponents-Usage.vue'
 import MessageComponentsActionButtons from './MessageComponents-ActionButtons.vue'
+import { useChatMessageStore } from '@renderer/stores/ai-chat/chat-message/store'
 
 const props = defineProps<{
   messages: any[]
@@ -125,6 +134,8 @@ const emit = defineEmits<{
   (e: 'show-knowledge-detail', payload: any): void
 }>()
 
+const chatMessageStore = useChatMessageStore()
+
 // 反转消息顺序以配合 column-reverse
 const reversedMessages = computed(() => [...props.messages].reverse())
 
@@ -132,8 +143,22 @@ const reversedMessages = computed(() => [...props.messages].reverse())
 function isRetrievalPlanNodeBlock(block: any): boolean {
   return (
     block?.type === 'node' &&
-    (block?.start?.nodeKind === 'planning' || block?.start?.nodeKind === 'retrieval_plan')
+    (block?.start?.nodeKind === 'planning' ||
+      block?.start?.nodeKind === 'initial_planning' ||
+      block?.start?.nodeKind === 'retrieval_plan')
   )
+}
+
+// 判断是否是 user_interaction 节点 block
+function isUserInteractionNodeBlock(block: any): boolean {
+  return block?.type === 'node' && block?.start?.nodeKind === 'user_interaction'
+}
+
+// 获取 user interaction 的 pending payload
+function getUserInteractionPayload(block: any): any {
+  const nodeId = block?.start?.nodeId
+  if (!nodeId) return null
+  return chatMessageStore.getPendingInteraction(nodeId)
 }
 
 // 判断是否是 summary 节点 block (新架构：通用总结器)

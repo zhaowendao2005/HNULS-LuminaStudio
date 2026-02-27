@@ -53,7 +53,10 @@ export interface KnowledgeQaModelSelectorConfig {
 }
 
 export interface KnowledgeQaModelConfig {
-  planModel: KnowledgeQaModelSelectorConfig
+  /** 首轮深度规划模型（agent 第一次规划，需用户审批） */
+  initialPlanModel: KnowledgeQaModelSelectorConfig
+  /** 回环规划模型（summary 打回后直接规划，无需审批） */
+  loopPlanModel: KnowledgeQaModelSelectorConfig
   summaryModel: KnowledgeQaModelSelectorConfig
   retrieval: {
     enableRerank: boolean
@@ -109,7 +112,9 @@ export type LangchainClientNodeKind =
   | 'retrieval_plan'
   | 'retrieval_summary'
   | 'planning'
+  | 'initial_planning'
   | 'summary'
+  | 'user_interaction'
   | 'tool'
   | 'final_answer'
   | 'custom'
@@ -188,6 +193,50 @@ export interface LangchainClientSummaryDecisionOutput {
   message: string
 }
 
+// ==================== User Interaction Types ====================
+
+/**
+ * 用户交互选项（LLM 可选生成，供用户选择）
+ */
+export interface UserInteractionOption {
+  id: string
+  label: string
+  description?: string
+}
+
+/**
+ * 用户交互请求（Utility → Main → Renderer）
+ *
+ * 由 graph 中的 user-interaction 节点发出，暂停 graph 执行等待用户响应。
+ * - message: LLM 生成的交互消息（支持 markdown）
+ * - options: 可选的选项列表（LLM 决定是否生成）
+ * - requiresTextInput: 是否需要文本输入（默认 true）
+ * - metadata: 节点可附加的额外数据（如规划详情）
+ */
+export interface UserInteractionRequestPayload {
+  interactionId: string
+  nodeId: string
+  message: string
+  options?: UserInteractionOption[]
+  requiresTextInput?: boolean
+  metadata?: Record<string, unknown>
+}
+
+/**
+ * 用户交互响应（Renderer → Main → Utility）
+ *
+ * 用户在 UI 中做出选择/输入后，将响应发回给 graph。
+ * - action: 'approve' 批准 | 'reject' 拒绝 | 'modify' 修改后批准
+ * - selectedOptionIds: 用户选中的选项 ID 列表
+ * - textInput: 用户输入的文本（补充意见等）
+ */
+export interface UserInteractionResponsePayload {
+  interactionId: string
+  selectedOptionIds?: string[]
+  textInput?: string
+  action: 'approve' | 'reject' | 'modify'
+}
+
 // ==================== Tool Types ====================
 
 /**
@@ -240,6 +289,12 @@ export type MainToLangchainClientMessage =
       type: 'agent:abort'
       requestId: string
     }
+  | {
+      /** 用户交互响应（Main → Utility，用于 resolve 暂停中的 graph） */
+      type: 'user-interaction:response'
+      requestId: string
+      payload: UserInteractionResponsePayload
+    }
 
 // ==================== Utility -> Main ====================
 
@@ -279,6 +334,12 @@ export type LangchainClientToMainMessage =
       payload: LangchainClientNodeErrorPayload
     }
   | { type: 'invoke:step-complete'; requestId: string; stepIndex: number; nodeNames?: string[] }
+  | {
+      /** 用户交互请求（Utility → Main，graph 暂停等待用户响应） */
+      type: 'invoke:user-interaction-request'
+      requestId: string
+      payload: UserInteractionRequestPayload
+    }
   | {
       type: 'invoke:finish'
       requestId: string

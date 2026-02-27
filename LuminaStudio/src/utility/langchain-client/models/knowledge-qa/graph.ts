@@ -1,100 +1,81 @@
 /**
  * ======================================================================
- * Knowledge-QA LangGraph —— 基于知识库+工具节点的问答状态机（通用架构版）
+ * Knowledge-QA LangGraph —— 基于知识库+工具节点的问答状态机（双分支规划版）
  * ======================================================================
  *
  * 概述
  * ----------------------------------------------------------------------
  * 本模块使用 LangGraph（@langchain/langgraph）构建一个"显式编排"的
  * 知识库问答流程。所有控制流由 Graph 拓扑决定，而非让 LLM 自行选择是否
- * 调用工具,因此流程确定、可观测、可迭代优化。
+ * 调用工具，因此流程确定、可观测、可迭代优化。
  *
- * 与旧版的差异（重大改造）
- * ----------------------------------------------------------------------
- * **旧架构**：规划节点直接输出 `{ queries: [...] }`，检索节点硬编码消费
- * **新架构**：
- *   - 规划节点：输出通用 `{ toolCalls: [{ toolId, params }] }`，不关心具体工具
- *   - 工具注册：通过 descriptor 机制注册 utils-knowledge / utils-pubmed 等工具
- *   - 总结节点：消费通用 `ToolExecutionResult[]`，不关心来自哪个工具
- *
- * Graph 拓扑
+ * Graph 拓扑（双分支规划）
  * ----------------------------------------------------------------------
  *
- *   START ──► planning ──► execute-tools ──► summary ──┬──► END
- *                 ▲                                     │
- *                 └──────── (shouldLoop=true) ◄─────────┘
+ *   START ──► router ──┬──► initial-planning ──► user-interaction ──► execute-tools ──► summary ──┬──► END
+ *                      │                                                    ▲                     │
+ *                      │    (iteration > 0)                                 │  (shouldLoop=true)  │
+ *                      └──► loop-planning ──────────────────────────────────┘                     │
+ *                                ▲                                                                │
+ *                                └────────────────────────────────────────────────────────────────┘
  *
- * 三个语义节点（NodeKind）
+ * 五个语义节点（NodeKind）
  * ----------------------------------------------------------------------
- * 1) planning (Structure Node)  —— 通用规划器
- *    调用 LLM 根据工具描述生成工具调用计划（toolId + params）。
- *    支持通过 systemPromptInstruction / systemPromptConstraint 自定义 Prompt。
+ * 1) router (内部) —— 根据 iteration 决定走 initial-planning 还是 loop-planning
  *
- * 2) execute-tools (内部编排节点) —— 工具执行器
- *    根据规划节点输出的 toolCalls，查找已注册的工具节点并调用其 run() 方法。
- *    并行执行所有工具调用，输出 ToolExecutionResult[] 供总结节点消费。
+ * 2) initial-planning (Structure Node) —— 首轮深度规划器（需用户审批）
+ *    - 使用 initialPlanModel 配置的 LLM
+ *    - 规划后输出待审批的交互请求，通过 user-interaction 节点寻求用户批准
  *
- * 3) summary (Structure Node) —— 通用总结器
- *    汇总所有工具执行结果，由 LLM 判断是否足以回答：
- *      - shouldLoop = false → message 为最终答案，流程结束
- *      - shouldLoop = true  → message 为下一轮规划的补充方向，回环至 planning
+ * 3) user-interaction (Structure Node) —— 通用用户交互节点
+ *    - 暂停 graph 等待用户响应（approve / reject / modify）
+ *    - 用户可选择方案、输入补充意见
+ *
+ * 4) loop-planning (Structure Node) —— 回环规划器（无需审批）
+ *    - 使用 loopPlanModel 配置的 LLM
+ *    - summary 打回后直接规划，不经过用户审批
+ *
+ * 5) execute-tools (内部编排节点) —— 工具执行器
+ *
+ * 6) summary (Structure Node) —— 通用总结器
  *
  * 工具注册机制
  * ----------------------------------------------------------------------
- * - 所有工具节点必须通过 `registeredTools` 数组注册到 Graph
- * - 注册内容包含：
- *   - descriptor: 元数据（id, name, description, inputDescription, outputDescription）
- *   - nodeFactory: 节点实例创建函数（接收系统注入参数，返回节点实例）
- * - 规划节点的 Prompt 自动包含所有工具的 descriptor（供 LLM 选择工具）
- * - 执行节点通过 toolId 查找对应的 nodeFactory 并实例化后调用 run()
+ * 与旧版相同：通过 registeredTools 数组注册，descriptor + nodeFactory。
  *
  * 回环策略
  * ----------------------------------------------------------------------
- * - 最大迭代轮次可通过 KnowledgeQaModelConfig.graph.maxIterations 配置，
- *   默认 {@link MAX_ITERATIONS}（3 轮）。
- * - 到达上限后即使 shouldLoop=true 也会输出降级答案并结束。
+ * 最大迭代轮次可通过 KnowledgeQaModelConfig.graph.maxIterations 配置。
  *
  * 事件协议（emit）
  * ----------------------------------------------------------------------
  * 每个节点在执行前后分别 emit：
- *   invoke:node-start  —— 节点开始（含输入摘要）
- *   invoke:node-result —— 节点完成（含输出摘要）
- *   invoke:node-error  —— 节点异常（容错后仍会继续）
- * 最终答案通过 invoke:text-delta 发出，renderer 侧显示为 assistant 文本。
- *
- * 依赖关系
- * ----------------------------------------------------------------------
- * - {@link runPlanning}              —— 通用规划节点核心逻辑（structure-planning）
- * - {@link runSummary}               —— 通用总结节点核心逻辑（structure-summary）
- * - {@link knowledgeRetrievalReg}    —— 知识库检索工具注册（utils-knowledge）
- * - {@link pubmedSearchReg}          —— PubMed 检索工具注册（utils-pubmed）
- * - {@link buildChatModelFromProvider} —— 根据 provider + modelId 创建 ChatOpenAI 实例
- * - {@link AgentRuntime}             —— 运行时上下文（提供 knowledgeApiUrl 等）
+ *   invoke:node-start / invoke:node-result / invoke:node-error
+ * 用户交互节点额外 emit：
+ *   invoke:user-interaction-request
+ * 最终答案通过 invoke:text-delta 发出。
  */
 
 import { Annotation, END, START, StateGraph } from '@langchain/langgraph'
 import type {
   LangchainClientChatMessage,
-  LangchainClientToMainMessage
+  LangchainClientToMainMessage,
+  UserInteractionResponsePayload
 } from '@shared/langchain-client.types'
 import type { AgentRuntime } from '../../factory'
+import type { AgentModelGraphContext } from '../types'
 import { buildChatModelFromProvider } from '../../model-factory'
 import { runPlanning, type PlanningOutput } from '../../nodes/structure-planning/planning.node'
 import { runSummary, type SummaryOutput } from '../../nodes/structure-summary/summary.node'
+import {
+  requestUserInteraction,
+  type UserInteractionRequest
+} from '../../nodes/structure-user-interaction'
 import { knowledgeRetrievalReg } from '../../nodes/utils-knowledge'
 import { pubmedSearchReg } from '../../nodes/utils-pubmed'
 import type { ToolExecutionResult, UtilNodeRegistration } from '../../nodes/types'
 
-/**
- * 默认最大迭代轮次（planning → execute-tools → summary 为一轮）。
- * 可被 KnowledgeQaModelConfig.graph.maxIterations 覆盖。
- */
 const MAX_ITERATIONS = 3
-
-/**
- * 单轮内最多并行工具调用次数。
- * 规划节点可能输出超过此数量的工具调用，超出部分会在 planNode 中被截断。
- */
 const MAX_TOOL_CALLS_PER_ITERATION = 10
 
 // ======================================================================
@@ -102,69 +83,51 @@ const MAX_TOOL_CALLS_PER_ITERATION = 10
 // ======================================================================
 
 const State = Annotation.Root({
-  // ————— 请求上下文（由调用方在 graph.invoke() 时一次性传入） —————
-
-  /** 本次请求的唯一 ID，用于 emit 事件中标识请求 */
   requestId: Annotation<string>(),
-
-  /** 用户原始输入（全流程不可变） */
   input: Annotation<string>(),
-
-  /** 对话历史（预留，当前节点暂未消费） */
   history: Annotation<LangchainClientChatMessage[]>({
     value: (_left, right) => right,
     default: () => []
   }),
-
-  /** 取消信号：用户点击"停止生成"时触发，传递给 fetch 以中断网络请求 */
   abortSignal: Annotation<AbortSignal | undefined>(),
 
-  // ————— 回环控制与中间产物 —————
-
-  /** 当前迭代轮次（从 0 开始，每次回环 +1） */
   iteration: Annotation<number>({
     value: (_left, right) => right,
     default: () => 0
   }),
 
-  /**
-   * 规划节点的输入文本。
-   * - 首轮 = 用户原始问题（state.input）
-   * - 后续轮 = 上一轮 summary 节点输出的"缺口/补充方向"
-   */
   planningInput: Annotation<string>({
     value: (_left, right) => right,
     default: () => ''
   }),
 
-  /** 当前轮规划节点的输出（工具调用计划），供执行节点消费 */
   plan: Annotation<PlanningOutput | null>({
     value: (_left, right) => right,
     default: () => null
   }),
 
-  /**
-   * 全部工具执行结果的累积列表（跨迭代保留）。
-   * summary 节点会综合所有已有结果进行判断，避免重复执行。
-   */
+  /** 待审批的用户交互请求（由 initial-planning 生成，user-interaction 消费） */
+  pendingInteraction: Annotation<UserInteractionRequest | null>({
+    value: (_left, right) => right,
+    default: () => null
+  }),
+
+  /** 用户的审批响应 */
+  userResponse: Annotation<UserInteractionResponsePayload | null>({
+    value: (_left, right) => right,
+    default: () => null
+  }),
+
   toolResults: Annotation<ToolExecutionResult[]>({
     value: (_left, right) => right,
     default: () => []
   }),
 
-  /** summary 节点的判断结果（shouldLoop + message） */
   decision: Annotation<SummaryOutput | null>({
     value: (_left, right) => right,
     default: () => null
   }),
 
-  // ————— 最终输出 —————
-
-  /**
-   * 最终答案文本。
-   * - 非空字符串时表示流程已产出结果，条件边据此判断走 END。
-   * - 空字符串（默认）表示尚未结束，条件边据此回环到 planning。
-   */
   fullText: Annotation<string>({
     value: (_left, right) => right,
     default: () => ''
@@ -172,54 +135,37 @@ const State = Annotation.Root({
 })
 
 /**
- * 构建 Knowledge-QA LangGraph 状态机。
- *
- * 该函数读取 KnowledgeQaModelConfig 中的配置，创建两个 ChatModel 实例
- * （planModel / summaryModel），定义三个节点函数，并组装为一个可 invoke 的
- * CompiledStateGraph。
- *
- * @param params.runtime   - AgentRuntime，提供 knowledgeApiUrl 等运行时信息
- * @param params.emit      - 事件发送回调，用于向 Main 进程推送节点状态与最终文本
- * @param params.modelConfig.knowledgeQa - Knowledge-QA 专属配置，包含：
- *   - planModel:    规划节点的 LLM 选择（provider + modelId + 可选自定义 Prompt）
- *   - summaryModel: 总结节点的 LLM 选择（同上）
- *   - retrieval:    知识库检索参数（scope + fileKeys 等）
- *   - pubmed:       PubMed 检索参数（apiKey 等）
- *   - graph:        图级参数（maxIterations）
- *
- * @returns CompiledStateGraph —— 调用方通过 graph.invoke(initialState) 启动流程
- *
- * @throws 当 knowledgeQaConfig 缺失或 planModel / summaryModel 未配置时抛出错误
+ * 构建 Knowledge-QA LangGraph 状态机（双分支规划版）。
  */
-export function buildKnowledgeQaGraph(params: {
-  runtime: AgentRuntime
-  emit: (msg: LangchainClientToMainMessage) => void
-  modelConfig?: {
-    knowledgeQa?: import('@shared/langchain-client.types').KnowledgeQaModelConfig
-  }
-}) {
+export function buildKnowledgeQaGraph(params: AgentModelGraphContext) {
   const knowledgeQaConfig = params.modelConfig?.knowledgeQa
 
   if (
     !knowledgeQaConfig ||
-    !knowledgeQaConfig.planModel.provider ||
-    !knowledgeQaConfig.planModel.modelId ||
+    !knowledgeQaConfig.initialPlanModel.provider ||
+    !knowledgeQaConfig.initialPlanModel.modelId ||
+    !knowledgeQaConfig.loopPlanModel.provider ||
+    !knowledgeQaConfig.loopPlanModel.modelId ||
     !knowledgeQaConfig.summaryModel.provider ||
     !knowledgeQaConfig.summaryModel.modelId
   ) {
-    throw new Error('Knowledge-QA 配置缺失：请设置规划模型与总结模型')
+    throw new Error('Knowledge-QA 配置缺失：请设置首轮规划模型、回环规划模型与总结模型')
   }
 
-  // 从用户配置中读取可配置参数，回退到默认常量
   const maxIterations = Math.max(
     1,
     Math.floor(knowledgeQaConfig.graph?.maxIterations ?? MAX_ITERATIONS)
   )
 
-  // 分别为规划节点和总结节点创建独立的 ChatModel 实例（可使用不同 provider/model）
-  const planModel = buildChatModelFromProvider(
-    knowledgeQaConfig.planModel.provider,
-    knowledgeQaConfig.planModel.modelId
+  // 为三个模型分别创建 ChatModel 实例
+  const initialPlanModel = buildChatModelFromProvider(
+    knowledgeQaConfig.initialPlanModel.provider,
+    knowledgeQaConfig.initialPlanModel.modelId
+  )
+
+  const loopPlanModel = buildChatModelFromProvider(
+    knowledgeQaConfig.loopPlanModel.provider,
+    knowledgeQaConfig.loopPlanModel.modelId
   )
 
   const summaryModel = buildChatModelFromProvider(
@@ -228,15 +174,10 @@ export function buildKnowledgeQaGraph(params: {
   )
 
   // ====================================================================
-  // 工具注册表（Tool Registry）
+  // 工具注册表
   // ====================================================================
-  //
-  // 此处注册所有可用工具节点。
-  // 注意：系统参数注入（如 apiBaseUrl / apiKey）在 nodeFactory 中完成，
-  // 用户参数（如 query / retMax）由规划节点的 LLM 决策。
 
   const registeredTools: UtilNodeRegistration[] = [
-    // 知识库检索工具
     {
       ...knowledgeRetrievalReg,
       nodeFactory: (systemParams: any) =>
@@ -246,8 +187,6 @@ export function buildKnowledgeQaGraph(params: {
           abortSignal: systemParams.abortSignal
         })
     },
-
-    // PubMed 检索工具
     {
       ...pubmedSearchReg,
       nodeFactory: (systemParams: any) =>
@@ -259,164 +198,253 @@ export function buildKnowledgeQaGraph(params: {
   ]
 
   // ====================================================================
-  // 节点 1：通用规划（planning）
+  // 辅助：通用规划执行函数（initial & loop 共用）
   // ====================================================================
-  const planNode = async (state: typeof State.State) => {
+  async function executePlanning(
+    state: typeof State.State,
+    model: any,
+    modelConfig: typeof knowledgeQaConfig.initialPlanModel,
+    nodeKind: 'initial_planning' | 'planning',
+    label: string
+  ): Promise<PlanningOutput> {
     const planningInput = state.planningInput?.trim() || state.input
-    const nodeId = `planning:${state.requestId}:${state.iteration}`
+    const nodeId = `${nodeKind}:${state.requestId}:${state.iteration}`
 
-    // emit: 节点开始
     params.emit({
       type: 'invoke:node-start',
       requestId: state.requestId,
       payload: {
         nodeId,
-        nodeKind: 'planning',
-        label: '工具规划',
-        uiHint: { component: 'planning', title: '工具规划' },
-        modelId: knowledgeQaConfig.planModel.modelId ?? undefined,
-        inputs: {
-          userInput: state.input,
-          planningInput,
-          iteration: state.iteration
-        }
+        nodeKind,
+        label,
+        uiHint: { component: 'planning', title: label },
+        modelId: modelConfig.modelId ?? undefined,
+        inputs: { userInput: state.input, planningInput, iteration: state.iteration }
       }
     })
 
-    // 调用通用规划节点
     let plan: PlanningOutput
     try {
       plan = await runPlanning({
-        model: planModel as any,
+        model,
         userInput: state.input,
         planningInput,
         availableTools: registeredTools.map((r) => r.descriptor),
-        systemPromptInstruction: knowledgeQaConfig.planModel.systemPromptInstruction,
-        systemPromptConstraint: knowledgeQaConfig.planModel.systemPromptConstraint
+        systemPromptInstruction: modelConfig.systemPromptInstruction,
+        systemPromptConstraint: modelConfig.systemPromptConstraint
       })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-
-      // emit: 节点错误（回退默认计划，不中断流程）
       params.emit({
         type: 'invoke:node-error',
         requestId: state.requestId,
         payload: {
           nodeId,
-          nodeKind: 'planning',
-          label: '工具规划',
-          uiHint: { component: 'planning', title: '工具规划' },
-          modelId: knowledgeQaConfig.planModel.modelId ?? undefined,
+          nodeKind,
+          label,
+          modelId: modelConfig.modelId ?? undefined,
           error: { message: `规划节点失败: ${msg}` }
         }
       })
-
-      // 容错：使用 knowledge_retrieval 作为默认节点
       plan = {
         rationale: '规划节点失败：已回退为默认计划（使用知识库检索）',
-        toolCalls: [
-          {
-            toolId: 'knowledge_retrieval',
-            params: { query: planningInput, k: 3 }
-          }
-        ]
+        toolCalls: [{ toolId: 'knowledge_retrieval', params: { query: planningInput, k: 3 } }]
       }
     }
 
-    // 二次规范化：截断到 MAX_TOOL_CALLS_PER_ITERATION 条
+    // 规范化
     const normalizedPlan: PlanningOutput = {
       rationale: plan.rationale,
       toolCalls: (plan.toolCalls ?? [])
-        .filter((call) => call && typeof call.toolId === 'string' && call.toolId.trim())
+        .filter((c) => c && typeof c.toolId === 'string' && c.toolId.trim())
         .slice(0, MAX_TOOL_CALLS_PER_ITERATION)
-        .map((call) => ({
-          toolId: call.toolId.trim(),
-          params: call.params ?? {}
-        }))
+        .map((c) => ({ toolId: c.toolId.trim(), params: c.params ?? {} }))
     }
-
     if (normalizedPlan.toolCalls.length === 0) {
-      // 回退默认：使用知识库检索
       normalizedPlan.toolCalls = [
         { toolId: 'knowledge_retrieval', params: { query: planningInput, k: 3 } }
       ]
     }
 
-    // emit: 节点完成
     params.emit({
       type: 'invoke:node-result',
       requestId: state.requestId,
       payload: {
         nodeId,
-        nodeKind: 'planning',
-        label: '工具规划',
-        uiHint: { component: 'planning', title: '工具规划' },
-        modelId: knowledgeQaConfig.planModel.modelId ?? undefined,
-        outputs: {
-          ...normalizedPlan
-        }
+        nodeKind,
+        label,
+        modelId: modelConfig.modelId ?? undefined,
+        outputs: { ...normalizedPlan }
       }
     })
 
-    // 返回增量 State
+    return normalizedPlan
+  }
+
+  // ====================================================================
+  // 节点：首轮深度规划（initial-planning）
+  // ====================================================================
+  const initialPlanNode = async (state: typeof State.State) => {
+    const planningInput = state.planningInput?.trim() || state.input
+
+    const plan = await executePlanning(
+      state,
+      initialPlanModel as any,
+      knowledgeQaConfig.initialPlanModel,
+      'initial_planning',
+      '首轮深度规划'
+    )
+
+    // 构建交互请求：将规划结果展示给用户审批
+    const optionsList = plan.toolCalls.map((call, idx) => ({
+      id: `plan-option-${idx}`,
+      label: `方案 ${idx + 1}: ${call.toolId}`,
+      description: Object.entries(call.params)
+        .map(([k, v]) => `${k}: ${JSON.stringify(v)}`)
+        .join(', ')
+    }))
+
+    const interactionMessage = [
+      '## 研究规划',
+      '',
+      plan.rationale ? `**规划思路：** ${plan.rationale}` : '',
+      '',
+      '我计划使用以下工具进行检索，请审阅并决定是否批准：',
+      '',
+      ...plan.toolCalls.map(
+        (call, idx) =>
+          `${idx + 1}. **${call.toolId}** — ${Object.entries(call.params)
+            .map(([k, v]) => `\`${k}\`: ${JSON.stringify(v)}`)
+            .join(', ')}`
+      ),
+      '',
+      '您可以批准当前方案、修改后批准（在输入框中补充意见），或拒绝重新规划。'
+    ]
+      .filter(Boolean)
+      .join('\n')
+
+    const pendingInteraction: UserInteractionRequest = {
+      message: interactionMessage,
+      options: optionsList,
+      requiresTextInput: true,
+      metadata: { plan }
+    }
+
     return {
       planningInput,
-      plan: normalizedPlan
+      plan,
+      pendingInteraction
     }
   }
 
   // ====================================================================
-  // 节点 2：工具执行（execute-tools）
+  // 节点：用户交互（user-interaction）
+  // ====================================================================
+  const userInteractionNode = async (state: typeof State.State) => {
+    if (!state.pendingInteraction) {
+      return { userResponse: null }
+    }
+
+    const response = await requestUserInteraction({
+      emit: params.emit,
+      requestId: state.requestId,
+      nodeId: `user-interaction:${state.requestId}:${state.iteration}`,
+      interactionRequest: state.pendingInteraction,
+      waitForResponse: params.waitForResponse,
+      abortSignal: state.abortSignal
+    })
+
+    // 根据用户响应调整计划
+    if (response.action === 'reject') {
+      // 用户拒绝：输出拒绝消息并结束
+      const rejectText = '用户拒绝了当前研究计划。如需重新规划，请重新提出问题。'
+      params.emit({
+        type: 'invoke:text-delta',
+        requestId: state.requestId,
+        delta: rejectText
+      })
+      return {
+        userResponse: response,
+        pendingInteraction: null,
+        fullText: rejectText
+      }
+    }
+
+    if (response.action === 'modify' && response.textInput) {
+      // 用户修改：将补充意见合入 planningInput，保持原计划但可能被后续处理调整
+      return {
+        userResponse: response,
+        pendingInteraction: null,
+        planningInput: `${state.planningInput}\n\n用户补充意见：${response.textInput}`
+      }
+    }
+
+    // approve：直接通过
+    return {
+      userResponse: response,
+      pendingInteraction: null
+    }
+  }
+
+  // ====================================================================
+  // 节点：回环规划（loop-planning）—— 无需审批
+  // ====================================================================
+  const loopPlanNode = async (state: typeof State.State) => {
+    const planningInput = state.planningInput?.trim() || state.input
+
+    const plan = await executePlanning(
+      state,
+      loopPlanModel as any,
+      knowledgeQaConfig.loopPlanModel,
+      'planning',
+      '回环规划'
+    )
+
+    return {
+      planningInput,
+      plan,
+      pendingInteraction: null,
+      userResponse: null
+    }
+  }
+
+  // ====================================================================
+  // 节点：工具执行（execute-tools）—— 与旧版相同
   // ====================================================================
   const executeToolsNode = async (state: typeof State.State) => {
     const toolCalls = state.plan?.toolCalls ?? []
-
     if (toolCalls.length === 0) {
       return { toolResults: state.toolResults }
     }
 
     const tasks = toolCalls.map(async (call, idx): Promise<ToolExecutionResult> => {
       const nodeId = `execute-tool:${state.requestId}:${state.iteration}:${idx}`
-
-      // 查找节点注册
       const reg = registeredTools.find((r) => r.descriptor.id === call.toolId)
+
       if (!reg) {
-        const fallbackText = JSON.stringify({
-          error: `未找到节点: ${call.toolId}`
-        })
+        const fallbackText = JSON.stringify({ error: `未找到节点: ${call.toolId}` })
         return { nodeId: call.toolId, params: call.params, resultText: fallbackText }
       }
 
-      // emit: 节点开始
       params.emit({
         type: 'invoke:node-start',
         requestId: state.requestId,
         payload: {
           nodeId,
-          nodeKind: call.toolId as any, // 使用 toolId 作为 nodeKind
+          nodeKind: call.toolId as any,
           label: reg.descriptor.name,
           uiHint: {
             component: call.toolId === 'knowledge_retrieval' ? 'knowledge-search' : 'pubmed-search',
             title: reg.descriptor.name
           },
-          inputs: {
-            ...call.params,
-            iteration: state.iteration,
-            index: idx
-          }
+          inputs: { ...call.params, iteration: state.iteration, index: idx }
         }
       })
 
       try {
-        // 实例化节点（注入系统参数）
-        const node = reg.nodeFactory({
-          abortSignal: state.abortSignal
-        })
-
-        // 调用节点的 run() 方法（传入用户参数）
+        const node = reg.nodeFactory({ abortSignal: state.abortSignal })
         const resultText = await node.run(call.params)
 
-        // emit: 节点完成
         params.emit({
           type: 'invoke:node-result',
           requestId: state.requestId,
@@ -429,17 +457,13 @@ export function buildKnowledgeQaGraph(params: {
                 call.toolId === 'knowledge_retrieval' ? 'knowledge-search' : 'pubmed-search',
               title: reg.descriptor.name
             },
-            outputs: {
-              result: resultText
-            }
+            outputs: { result: resultText }
           }
         })
 
         return { nodeId: call.toolId, params: call.params, resultText }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
-
-        // emit: 节点错误
         params.emit({
           type: 'invoke:node-error',
           requestId: state.requestId,
@@ -447,23 +471,16 @@ export function buildKnowledgeQaGraph(params: {
             nodeId,
             nodeKind: call.toolId as any,
             label: reg.descriptor.name,
-            uiHint: {
-              component:
-                call.toolId === 'knowledge_retrieval' ? 'knowledge-search' : 'pubmed-search',
-              title: reg.descriptor.name
-            },
             error: { message: `工具执行异常: ${msg}` }
           }
         })
 
-        // 异常时构造一个结构合法的 fallback JSON
         const fallback = JSON.stringify({
           toolId: call.toolId,
           params: call.params,
           error: `工具执行异常: ${msg}`
         })
 
-        // emit: fallback 结果
         params.emit({
           type: 'invoke:node-result',
           requestId: state.requestId,
@@ -471,11 +488,6 @@ export function buildKnowledgeQaGraph(params: {
             nodeId,
             nodeKind: call.toolId as any,
             label: reg.descriptor.name,
-            uiHint: {
-              component:
-                call.toolId === 'knowledge_retrieval' ? 'knowledge-search' : 'pubmed-search',
-              title: reg.descriptor.name
-            },
             outputs: { result: fallback }
           }
         })
@@ -485,15 +497,11 @@ export function buildKnowledgeQaGraph(params: {
     })
 
     const results = await Promise.all(tasks)
-
-    // 累积策略：保留所有迭代的工具执行结果
-    return {
-      toolResults: [...(state.toolResults ?? []), ...results]
-    }
+    return { toolResults: [...(state.toolResults ?? []), ...results] }
   }
 
   // ====================================================================
-  // 节点 3：总结与判断（summary）
+  // 节点：总结与判断（summary）—— 与旧版逻辑相同
   // ====================================================================
   const summaryNode = async (state: typeof State.State) => {
     const nodeId = `summary:${state.requestId}:${state.iteration}`
@@ -531,7 +539,6 @@ export function buildKnowledgeQaGraph(params: {
       })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-
       params.emit({
         type: 'invoke:node-error',
         requestId: state.requestId,
@@ -539,12 +546,10 @@ export function buildKnowledgeQaGraph(params: {
           nodeId,
           nodeKind: 'summary',
           label: '总结与判断',
-          uiHint: { component: 'summary', title: '总结与判断' },
           modelId: knowledgeQaConfig.summaryModel.modelId ?? undefined,
           error: { message: `总结节点失败: ${msg}` }
         }
       })
-
       decision = {
         shouldLoop: false,
         message: '总结节点调用失败，无法可靠生成最终答案。建议重试或缩小问题范围。'
@@ -558,15 +563,10 @@ export function buildKnowledgeQaGraph(params: {
         nodeId,
         nodeKind: 'summary',
         label: '总结与判断',
-        uiHint: { component: 'summary', title: '总结与判断' },
         modelId: knowledgeQaConfig.summaryModel.modelId ?? undefined,
-        outputs: {
-          ...decision
-        }
+        outputs: { ...decision }
       }
     })
-
-    // ===== 编排逻辑 =====
 
     // A) 不需要回环 → 输出最终答案
     if (!decision.shouldLoop) {
@@ -575,20 +575,14 @@ export function buildKnowledgeQaGraph(params: {
         requestId: state.requestId,
         delta: decision.message
       })
-      return {
-        decision,
-        fullText: decision.message
-      }
+      return { decision, fullText: decision.message }
     }
 
     // B) 需要回环但已达上限 → 输出降级答案
     if (state.iteration >= maxIterations - 1) {
       const finalText = `已达到最大迭代次数（${maxIterations}），仍不足以回答该问题。\n\n建议下一步检索方向：${decision.message}`
       params.emit({ type: 'invoke:text-delta', requestId: state.requestId, delta: finalText })
-      return {
-        decision,
-        fullText: finalText
-      }
+      return { decision, fullText: finalText }
     }
 
     // C) 需要回环且仍有次数 → 推进到下一迭代
@@ -600,26 +594,52 @@ export function buildKnowledgeQaGraph(params: {
   }
 
   // ====================================================================
-  // Graph 拓扑组装
+  // Graph 拓扑组装（双分支规划）
   // ====================================================================
   //
-  //   START ──► planning ──► execute-tools ──► summary
-  //                 ▲                             │
-  //                 │      (fullText 为空)         │
-  //                 └────── loop ◄─────────────────┤
-  //                                               │   (fullText 非空)
-  //                                               └──────► END
+  //   START ──► router ──┬──► initial-planning ──► user-interaction ──┬──► execute-tools ──► summary
+  //                      │                                            │         ▲                │
+  //                      └──► loop-planning ──────────────────────────┘         │                │
+  //                                ▲                                            │                │
+  //                                └──────────────── (shouldLoop) ◄─────────────┘────────────────┘
+  //                                                                                (fullText) ──► END
   //
-  // 条件边判断依据：state.fullText 是否为非空字符串。
-  // - 非空 → 'end'（流程结束）
-  // - 空   → 'loop'（回环至 planning 开始下一轮迭代）
   const graph = new StateGraph(State)
-    .addNode('planning', planNode)
+    .addNode('initial-planning', initialPlanNode)
+    .addNode('user-interaction', userInteractionNode)
+    .addNode('loop-planning', loopPlanNode)
     .addNode('execute-tools', executeToolsNode)
     .addNode('summary', summaryNode)
-    .addEdge(START, 'planning')
-    .addEdge('planning', 'execute-tools')
+    // START → router: 根据 iteration 走不同分支
+    .addConditionalEdges(
+      START,
+      (state: typeof State.State) => {
+        return state.iteration === 0 ? 'initial' : 'loop'
+      },
+      {
+        initial: 'initial-planning',
+        loop: 'loop-planning'
+      }
+    )
+    // initial-planning → user-interaction → execute-tools（条件：非 reject）
+    .addEdge('initial-planning', 'user-interaction')
+    .addConditionalEdges(
+      'user-interaction',
+      (state: typeof State.State) => {
+        // 如果用户拒绝或 fullText 已设置（reject 场景），直接结束
+        if (state.fullText && String(state.fullText).trim()) return 'end'
+        return 'execute'
+      },
+      {
+        execute: 'execute-tools',
+        end: END
+      }
+    )
+    // loop-planning → execute-tools
+    .addEdge('loop-planning', 'execute-tools')
+    // execute-tools → summary
     .addEdge('execute-tools', 'summary')
+    // summary → END or loop
     .addConditionalEdges(
       'summary',
       (state: typeof State.State) => {
@@ -627,7 +647,7 @@ export function buildKnowledgeQaGraph(params: {
         return hasFinal ? 'end' : 'loop'
       },
       {
-        loop: 'planning',
+        loop: 'loop-planning',
         end: END
       }
     )

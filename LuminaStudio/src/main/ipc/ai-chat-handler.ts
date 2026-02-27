@@ -9,7 +9,8 @@ import type {
   AiChatCreatePresetRequest,
   AiChatCreateConversationRequest,
   AiChatDeleteConversationRequest,
-  AiChatDeletePresetRequest
+  AiChatDeletePresetRequest,
+  AiChatUserInteractionResponseRequest
 } from '@preload/types'
 
 /**
@@ -213,6 +214,30 @@ export class AiChatIPCHandler extends BaseIPCHandler {
 
     try {
       await this.aiChatService.deletePreset(presetId)
+      return { success: true }
+    } catch (err) {
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : String(err)
+      }
+    }
+  }
+
+  /**
+   * 响应用户交互请求（resolve graph 中暂停的 user-interaction 节点）
+   */
+  async handleRespondToUserInteraction(
+    _event: IpcMainInvokeEvent,
+    request: AiChatUserInteractionResponseRequest
+  ): Promise<{ success: true; data?: unknown } | { success: false; error: string }> {
+    const { requestId, payload } = request
+
+    if (!requestId || !payload?.interactionId || !payload?.action) {
+      return { success: false, error: 'Missing required parameters' }
+    }
+
+    try {
+      this.aiChatService.respondToUserInteraction(requestId, payload)
       return { success: true }
     } catch (err) {
       return {

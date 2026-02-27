@@ -8,7 +8,8 @@ import type {
   LangchainClientChatMessage,
   LangchainClientRetrievalConfig,
   LangchainClientToMainMessage,
-  MainToLangchainClientMessage
+  MainToLangchainClientMessage,
+  UserInteractionResponsePayload
 } from '@shared/langchain-client.types'
 
 const log = logger.scope('LangchainClientBridge')
@@ -48,7 +49,8 @@ function redactCreateConfig(config: LangchainClientAgentCreateConfig): Record<st
     hasSystemPrompt: Boolean(config.systemPrompt && config.systemPrompt.trim()),
     modelConfig: config.modelConfig?.knowledgeQa
       ? {
-          planModelId: config.modelConfig.knowledgeQa.planModel.modelId ?? null,
+          initialPlanModelId: config.modelConfig.knowledgeQa.initialPlanModel.modelId ?? null,
+          loopPlanModelId: config.modelConfig.knowledgeQa.loopPlanModel.modelId ?? null,
           summaryModelId: config.modelConfig.knowledgeQa.summaryModel.modelId ?? null,
           rerankModelId: config.modelConfig.knowledgeQa.retrieval?.rerankModelId ?? null,
           topK: config.modelConfig.knowledgeQa.retrieval?.topK ?? null,
@@ -205,6 +207,18 @@ export class LangchainClientBridgeService {
     this.send({ type: 'agent:abort', requestId })
   }
 
+  /**
+   * 转发用户交互响应到 Utility 进程（resolve 暂停中的 graph）
+   */
+  sendUserInteractionResponse(requestId: string, payload: UserInteractionResponsePayload): void {
+    log.info('Sending user-interaction:response', {
+      requestId,
+      interactionId: payload.interactionId,
+      action: payload.action
+    })
+    this.send({ type: 'user-interaction:response', requestId, payload })
+  }
+
   private send(msg: MainToLangchainClientMessage): void {
     if (!this.process) {
       throw new Error('LangchainClient process not spawned')
@@ -333,6 +347,15 @@ export class LangchainClientBridgeService {
         log.error('Invoke error', undefined, {
           requestId: msg.requestId,
           message: msg.message
+        })
+        break
+
+      case 'invoke:user-interaction-request':
+        log.info('User interaction request', {
+          requestId: msg.requestId,
+          interactionId: msg.payload.interactionId,
+          nodeId: msg.payload.nodeId,
+          hasOptions: Boolean(msg.payload.options?.length)
         })
         break
 

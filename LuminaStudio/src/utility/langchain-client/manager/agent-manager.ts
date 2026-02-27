@@ -3,7 +3,8 @@ import type {
   LangchainClientChatMessage,
   LangchainClientLangsmithConfig,
   LangchainClientRetrievalConfig,
-  LangchainClientToMainMessage
+  LangchainClientToMainMessage,
+  UserInteractionResponsePayload
 } from '@shared/langchain-client.types'
 import { logger } from '@main/services/logger'
 import { createAgentRuntime } from '../factory'
@@ -18,11 +19,22 @@ interface AgentInstance {
   systemPrompt: string
 }
 
+/**
+ * 用户交互待处理项（Promise resolve/reject 对）
+ */
+interface PendingInteraction {
+  resolve: (response: UserInteractionResponsePayload) => void
+  reject: (error: Error) => void
+}
+
 export class AgentManager {
   private knowledgeApiUrl = ''
   private agents = new Map<string, AgentInstance>()
   private abortControllers = new Map<string, AbortController>()
   private activeRequests = new Map<string, string>()
+
+  /** 用户交互等待注册表：interactionId → pending Promise */
+  private pendingInteractions = new Map<string, PendingInteraction>()
 
   private readonly invokeContext = new AsyncLocalStorage<{
     retrieval?: LangchainClientRetrievalConfig
@@ -76,7 +88,8 @@ export class AgentManager {
     const graph = modelDef.buildGraph({
       runtime,
       emit: this.send,
-      modelConfig: config.modelConfig
+      modelConfig: config.modelConfig,
+      waitForResponse: (interactionId: string) => this.waitForResponse(interactionId)
     })
 
     this.agents.set(agentId, { runtime, graph, systemPrompt })
@@ -109,6 +122,40 @@ export class AgentManager {
 
     log.info('Aborting request', { requestId })
     controller.abort()
+
+    // 同时 reject 该 request 下所有 pending interactions
+    for (const [interactionId, pending] of this.pendingInteractions) {
+      pending.reject(new Error('Request aborted'))
+      this.pendingInteractions.delete(interactionId)
+    }
+  }
+
+  /**
+   * 等待用户交互响应（由 user-interaction 节点调用）
+   *
+   * 创建一个 Promise 并注册到 pendingInteractions，
+   * 当 entry.ts 收到 user-interaction:response 消息时 resolve。
+   */
+  waitForResponse(interactionId: string): Promise<UserInteractionResponsePayload> {
+    return new Promise<UserInteractionResponsePayload>((resolve, reject) => {
+      this.pendingInteractions.set(interactionId, { resolve, reject })
+      log.info('Registered pending interaction', { interactionId })
+    })
+  }
+
+  /**
+   * 解析用户交互响应（由 entry.ts 转发 user-interaction:response 时调用）
+   */
+  resolveUserInteraction(interactionId: string, response: UserInteractionResponsePayload): void {
+    const pending = this.pendingInteractions.get(interactionId)
+    if (!pending) {
+      log.warn('No pending interaction found', { interactionId })
+      return
+    }
+
+    this.pendingInteractions.delete(interactionId)
+    pending.resolve(response)
+    log.info('Resolved user interaction', { interactionId, action: response.action })
   }
 
   async invoke(params: {

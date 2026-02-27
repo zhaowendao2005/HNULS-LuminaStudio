@@ -6,7 +6,13 @@ export const useKnowledgeQaConfigStore = defineStore(
   'knowledge-qa-config',
   () => {
     const config = ref<KnowledgeQaModelConfig>({
-      planModel: {
+      initialPlanModel: {
+        providerId: null,
+        modelId: null,
+        systemPromptInstruction: undefined,
+        systemPromptConstraint: undefined
+      },
+      loopPlanModel: {
         providerId: null,
         modelId: null,
         systemPromptInstruction: undefined,
@@ -28,10 +34,22 @@ export const useKnowledgeQaConfigStore = defineStore(
       }
     })
 
-    function updatePlanNode(providerId: string | null, modelId: string | null) {
+    function updateInitialPlanNode(providerId: string | null, modelId: string | null) {
       config.value = {
         ...config.value,
-        planModel: {
+        initialPlanModel: {
+          ...config.value.initialPlanModel,
+          providerId,
+          modelId
+        }
+      }
+    }
+
+    function updateLoopPlanNode(providerId: string | null, modelId: string | null) {
+      config.value = {
+        ...config.value,
+        loopPlanModel: {
+          ...config.value.loopPlanModel,
           providerId,
           modelId
         }
@@ -72,21 +90,41 @@ export const useKnowledgeQaConfigStore = defineStore(
       }
     }
 
-    function updatePlanPromptInstruction(instruction: string | undefined) {
+    function updateInitialPlanPromptInstruction(instruction: string | undefined) {
       config.value = {
         ...config.value,
-        planModel: {
-          ...config.value.planModel,
+        initialPlanModel: {
+          ...config.value.initialPlanModel,
           systemPromptInstruction: instruction
         }
       }
     }
 
-    function updatePlanPromptConstraint(constraint: string | undefined) {
+    function updateInitialPlanPromptConstraint(constraint: string | undefined) {
       config.value = {
         ...config.value,
-        planModel: {
-          ...config.value.planModel,
+        initialPlanModel: {
+          ...config.value.initialPlanModel,
+          systemPromptConstraint: constraint
+        }
+      }
+    }
+
+    function updateLoopPlanPromptInstruction(instruction: string | undefined) {
+      config.value = {
+        ...config.value,
+        loopPlanModel: {
+          ...config.value.loopPlanModel,
+          systemPromptInstruction: instruction
+        }
+      }
+    }
+
+    function updateLoopPlanPromptConstraint(constraint: string | undefined) {
+      config.value = {
+        ...config.value,
+        loopPlanModel: {
+          ...config.value.loopPlanModel,
           systemPromptConstraint: constraint
         }
       }
@@ -114,12 +152,15 @@ export const useKnowledgeQaConfigStore = defineStore(
 
     return {
       config,
-      updatePlanNode,
+      updateInitialPlanNode,
+      updateLoopPlanNode,
       updateRetrievalNode,
       updateSummaryNode,
       updateGraph,
-      updatePlanPromptInstruction,
-      updatePlanPromptConstraint,
+      updateInitialPlanPromptInstruction,
+      updateInitialPlanPromptConstraint,
+      updateLoopPlanPromptInstruction,
+      updateLoopPlanPromptConstraint,
       updateSummaryPromptInstruction,
       updateSummaryPromptConstraint
     }

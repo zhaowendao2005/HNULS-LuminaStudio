@@ -29,30 +29,61 @@
           </defs>
 
           <!-- Links -->
-          <!-- Start -> Plan -->
+          <!-- Start -> Initial Plan (left) -->
           <path
-            d="M300 80 C 300 100, 300 120, 300 150"
+            d="M300 80 C 300 100, 180 130, 180 150"
+            fill="none"
+            stroke="#94a3b8"
+            stroke-width="2"
+            marker-end="url(#arrowhead)"
+          />
+          <text x="210" y="108" fill="#6366f1" font-size="10">iter=0</text>
+
+          <!-- Start -> Loop Plan (right) -->
+          <path
+            d="M300 80 C 300 100, 420 130, 420 150"
+            fill="none"
+            stroke="#94a3b8"
+            stroke-width="2"
+            marker-end="url(#arrowhead)"
+          />
+          <text x="370" y="108" fill="#8b5cf6" font-size="10">iter&gt;0</text>
+
+          <!-- Initial Plan -> Knowledge Retrieval -->
+          <path
+            d="M180 210 C 180 240, 180 260, 180 280"
             fill="none"
             stroke="#94a3b8"
             stroke-width="2"
             marker-end="url(#arrowhead)"
           />
 
-          <!-- Plan -> Knowledge Retrieval (left branch) -->
+          <!-- Loop Plan -> PubMed Search -->
           <path
-            d="M300 210 C 300 230, 180 250, 180 280"
+            d="M420 210 C 420 240, 420 260, 420 280"
             fill="none"
             stroke="#94a3b8"
             stroke-width="2"
             marker-end="url(#arrowhead)"
           />
 
-          <!-- Plan -> PubMed Search (right branch) -->
+          <!-- Initial Plan -> PubMed (cross) -->
           <path
-            d="M300 210 C 300 230, 420 250, 420 280"
+            d="M240 210 C 280 240, 380 260, 420 280"
             fill="none"
             stroke="#94a3b8"
-            stroke-width="2"
+            stroke-width="1.5"
+            stroke-dasharray="4,3"
+            marker-end="url(#arrowhead)"
+          />
+
+          <!-- Loop Plan -> Knowledge (cross) -->
+          <path
+            d="M360 210 C 320 240, 220 260, 180 280"
+            fill="none"
+            stroke="#94a3b8"
+            stroke-width="1.5"
+            stroke-dasharray="4,3"
             marker-end="url(#arrowhead)"
           />
 
@@ -84,16 +115,16 @@
           />
           <text x="310" y="510" fill="#22c55e" font-size="12" font-weight="bold">YES</text>
 
-          <!-- Summary -> Plan (No - Loopback) -->
+          <!-- Summary -> Loop Plan (No - Loopback) -->
           <path
-            d="M360 440 C 500 440, 500 180, 360 180"
+            d="M360 440 C 540 440, 540 180, 500 180"
             fill="none"
             stroke="#ef4444"
             stroke-width="2"
             stroke-dasharray="5,5"
             marker-end="url(#arrowhead)"
           />
-          <text x="450" y="310" fill="#ef4444" font-size="12" font-weight="bold">NO</text>
+          <text x="500" y="310" fill="#ef4444" font-size="12" font-weight="bold">NO</text>
 
           <!-- Nodes -->
           <!-- Start -->
@@ -118,12 +149,12 @@
             </text>
           </g>
 
-          <!-- Plan Node -->
+          <!-- Initial Plan Node (left) -->
           <g
-            transform="translate(220, 150)"
+            transform="translate(100, 150)"
             class="cursor-pointer hover:opacity-90 transition-opacity"
-            @contextmenu.prevent="openDrawer('plan')"
-            @click="openDrawer('plan')"
+            @contextmenu.prevent="openDrawer('initialPlan')"
+            @click="openDrawer('initialPlan')"
           >
             <rect
               width="160"
@@ -142,10 +173,41 @@
               font-weight="bold"
               font-size="14"
             >
-              Planning
+              Initial Plan
             </text>
             <text x="80" y="45" text-anchor="middle" fill="#64748b" font-size="10">
-              分解任务与规划
+              首轮规划（需审批）
+            </text>
+          </g>
+
+          <!-- Loop Plan Node (right) -->
+          <g
+            transform="translate(340, 150)"
+            class="cursor-pointer hover:opacity-90 transition-opacity"
+            @contextmenu.prevent="openDrawer('loopPlan')"
+            @click="openDrawer('loopPlan')"
+          >
+            <rect
+              width="160"
+              height="60"
+              rx="12"
+              fill="white"
+              stroke="#8b5cf6"
+              stroke-width="2"
+              filter="drop-shadow(0 4px 6px rgb(0 0 0 / 0.1))"
+            />
+            <text
+              x="80"
+              y="25"
+              text-anchor="middle"
+              fill="#1e293b"
+              font-weight="bold"
+              font-size="14"
+            >
+              Loop Plan
+            </text>
+            <text x="80" y="45" text-anchor="middle" fill="#64748b" font-size="10">
+              回环规划（无审批）
             </text>
           </g>
 
@@ -269,8 +331,8 @@
       <!-- Global Settings Button (Floating) -->
       <div class="absolute top-4 right-4">
         <button
-          @click="openDrawer('global')"
           class="px-4 py-2 bg-white border border-slate-200 shadow-sm rounded-lg text-sm font-medium text-slate-600 hover:text-emerald-600 hover:border-emerald-200 transition-colors flex items-center gap-2"
+          @click="openDrawer('global')"
         >
           <svg
             class="w-4 h-4"
@@ -298,7 +360,7 @@
         <!-- Drawer Header -->
         <div class="p-4 border-b border-slate-100 flex items-center justify-between">
           <h3 class="font-semibold text-slate-800">{{ drawerTitle }}</h3>
-          <button @click="drawerOpen = false" class="text-slate-400 hover:text-slate-600">
+          <button class="text-slate-400 hover:text-slate-600" @click="drawerOpen = false">
             <svg
               class="w-5 h-5"
               viewBox="0 0 24 24"
@@ -313,15 +375,15 @@
 
         <!-- Drawer Content -->
         <div class="flex-1 overflow-y-auto p-4 space-y-6">
-          <!-- Plan Node Settings -->
-          <template v-if="activeNode === 'plan'">
+          <!-- Initial Plan Node Settings -->
+          <template v-if="activeNode === 'initialPlan'">
             <div class="space-y-3">
               <label class="text-sm font-medium text-slate-700">模型选择</label>
-              <div class="text-xs text-slate-500 mb-2">负责任务分解与规划的模型</div>
+              <div class="text-xs text-slate-500 mb-2">首轮深度规划模型（需用户审批）</div>
 
               <button
-                @click="openModelSelector('plan')"
                 class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white hover:bg-slate-50 hover:border-indigo-300 transition-all flex items-center justify-between group"
+                @click="openModelSelector('initialPlan')"
               >
                 <div class="flex items-center gap-2">
                   <svg
@@ -338,8 +400,8 @@
                       d="M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2z"
                     />
                   </svg>
-                  <span v-if="store.config.planModel.modelId" class="text-slate-700">
-                    {{ getModelDisplayName('plan') }}
+                  <span v-if="store.config.initialPlanModel.modelId" class="text-slate-700">
+                    {{ getModelDisplayName('initialPlan') }}
                   </span>
                   <span v-else class="text-slate-400">选择模型</span>
                 </div>
@@ -362,8 +424,8 @@
                 <div class="flex items-center justify-between">
                   <label class="text-sm font-medium text-slate-700">系统提示词 - 提示区</label>
                   <button
-                    @click="resetPlanInstruction"
                     class="text-xs text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+                    @click="resetPlanInstruction"
                   >
                     <svg
                       class="w-3 h-3"
@@ -381,13 +443,13 @@
                 <div class="text-xs text-slate-500">业务逻辑提示，描述节点任务和目标</div>
                 <textarea
                   :value="getPlanInstruction()"
-                  @input="updatePlanInstruction"
                   :class="[
                     'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-indigo-500 resize-none',
-                    !store.config.planModel.systemPromptInstruction ? 'text-slate-400' : ''
+                    !store.config.initialPlanModel.systemPromptInstruction ? 'text-slate-400' : ''
                   ]"
                   rows="5"
                   placeholder="业务逻辑提示..."
+                  @input="updatePlanInstruction"
                 ></textarea>
               </div>
 
@@ -396,8 +458,8 @@
                 <div class="flex items-center justify-between">
                   <label class="text-sm font-medium text-slate-700">系统提示词 - 约束区</label>
                   <button
-                    @click="resetPlanConstraint"
                     class="text-xs text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+                    @click="resetPlanConstraint"
                   >
                     <svg
                       class="w-3 h-3"
@@ -415,15 +477,60 @@
                 <div class="text-xs text-slate-500">JSON 格式约束，一般不需要修改</div>
                 <textarea
                   :value="getPlanConstraint()"
-                  @input="updatePlanConstraint"
                   :class="[
                     'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-indigo-500 resize-none font-mono',
-                    !store.config.planModel.systemPromptConstraint ? 'text-slate-400' : ''
+                    !store.config.initialPlanModel.systemPromptConstraint ? 'text-slate-400' : ''
                   ]"
                   rows="8"
                   placeholder="JSON 格式约束..."
+                  @input="updatePlanConstraint"
                 ></textarea>
               </div>
+            </div>
+          </template>
+
+          <!-- Loop Plan Node Settings -->
+          <template v-if="activeNode === 'loopPlan'">
+            <div class="space-y-3">
+              <label class="text-sm font-medium text-slate-700">模型选择</label>
+              <div class="text-xs text-slate-500 mb-2">
+                回环规划模型（summary 打回后使用，无需用户审批）
+              </div>
+
+              <button
+                class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white hover:bg-slate-50 hover:border-purple-300 transition-all flex items-center justify-between group"
+                @click="openModelSelector('loopPlan')"
+              >
+                <div class="flex items-center gap-2">
+                  <svg
+                    class="w-4 h-4 text-slate-400 group-hover:text-purple-500"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path
+                      d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"
+                    />
+                    <path
+                      d="M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2z"
+                    />
+                  </svg>
+                  <span v-if="store.config.loopPlanModel.modelId" class="text-slate-700">
+                    {{ getModelDisplayName('loopPlan') }}
+                  </span>
+                  <span v-else class="text-slate-400">选择模型</span>
+                </div>
+                <svg
+                  class="w-4 h-4 text-slate-400"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M6 9l6 6 6-6" />
+                </svg>
+              </button>
             </div>
           </template>
 
@@ -450,8 +557,8 @@
               >
                 <label class="text-sm font-medium text-slate-700">重排模型</label>
                 <button
-                  @click="openRerankSelector()"
                   class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white hover:bg-slate-50 hover:border-amber-300 transition-all flex items-center justify-between group"
+                  @click="openRerankSelector()"
                 >
                   <div class="flex items-center gap-2">
                     <svg
@@ -490,11 +597,11 @@
                 <div class="flex items-center gap-3">
                   <input
                     :value="store.config.retrieval.topK"
-                    @input="updateTopK"
                     type="range"
                     min="1"
                     max="20"
                     class="flex-1 accent-indigo-500"
+                    @input="updateTopK"
                   />
                   <span class="text-sm font-mono w-8 text-center">
                     {{ store.config.retrieval.topK }}
@@ -511,8 +618,8 @@
               <div class="text-xs text-slate-500 mb-2">负责总结检索结果并判断质量的模型</div>
 
               <button
-                @click="openModelSelector('summary')"
                 class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white hover:bg-slate-50 hover:border-indigo-300 transition-all flex items-center justify-between group"
+                @click="openModelSelector('summary')"
               >
                 <div class="flex items-center gap-2">
                   <svg
@@ -553,8 +660,8 @@
                 <div class="flex items-center justify-between">
                   <label class="text-sm font-medium text-slate-700">系统提示词 - 提示区</label>
                   <button
-                    @click="resetSummaryInstruction"
                     class="text-xs text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+                    @click="resetSummaryInstruction"
                   >
                     <svg
                       class="w-3 h-3"
@@ -572,13 +679,13 @@
                 <div class="text-xs text-slate-500">业务逻辑提示，描述节点任务和目标</div>
                 <textarea
                   :value="getSummaryInstruction()"
-                  @input="updateSummaryInstruction"
                   :class="[
                     'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-indigo-500 resize-none',
                     !store.config.summaryModel.systemPromptInstruction ? 'text-slate-400' : ''
                   ]"
                   rows="5"
                   placeholder="业务逻辑提示..."
+                  @input="updateSummaryInstruction"
                 ></textarea>
               </div>
 
@@ -587,8 +694,8 @@
                 <div class="flex items-center justify-between">
                   <label class="text-sm font-medium text-slate-700">系统提示词 - 约束区</label>
                   <button
-                    @click="resetSummaryConstraint"
                     class="text-xs text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+                    @click="resetSummaryConstraint"
                   >
                     <svg
                       class="w-3 h-3"
@@ -606,13 +713,13 @@
                 <div class="text-xs text-slate-500">JSON 格式约束，一般不需要修改</div>
                 <textarea
                   :value="getSummaryConstraint()"
-                  @input="updateSummaryConstraint"
                   :class="[
                     'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-indigo-500 resize-none font-mono',
                     !store.config.summaryModel.systemPromptConstraint ? 'text-slate-400' : ''
                   ]"
                   rows="8"
                   placeholder="JSON 格式约束..."
+                  @input="updateSummaryConstraint"
                 ></textarea>
               </div>
             </div>
@@ -647,11 +754,11 @@
               <div class="flex items-center gap-3">
                 <input
                   :value="store.config.graph.maxIterations"
-                  @input="updateMaxIterations"
                   type="number"
                   min="1"
                   max="10"
                   class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-indigo-500"
+                  @input="updateMaxIterations"
                 />
               </div>
             </div>
@@ -702,12 +809,14 @@ const drawerOpen = ref(false)
 const activeNode = ref<string>('')
 const showModelSelector = ref(false)
 const showRerankSelector = ref(false)
-const currentSelectorTarget = ref<'plan' | 'summary'>('plan')
+const currentSelectorTarget = ref<'initialPlan' | 'loopPlan' | 'summary'>('initialPlan')
 
 const drawerTitle = computed(() => {
   switch (activeNode.value) {
-    case 'plan':
-      return '规划节点配置'
+    case 'initialPlan':
+      return '首轮规划节点配置'
+    case 'loopPlan':
+      return '回环规划节点配置'
     case 'retrieval':
       return '检索节点配置'
     case 'pubmed':
@@ -723,8 +832,10 @@ const drawerTitle = computed(() => {
 
 const currentProviderId = computed(() => {
   switch (currentSelectorTarget.value) {
-    case 'plan':
-      return store.config.planModel.providerId
+    case 'initialPlan':
+      return store.config.initialPlanModel.providerId
+    case 'loopPlan':
+      return store.config.loopPlanModel.providerId
     case 'summary':
       return store.config.summaryModel.providerId
     default:
@@ -734,8 +845,10 @@ const currentProviderId = computed(() => {
 
 const currentModelId = computed(() => {
   switch (currentSelectorTarget.value) {
-    case 'plan':
-      return store.config.planModel.modelId
+    case 'initialPlan':
+      return store.config.initialPlanModel.modelId
+    case 'loopPlan':
+      return store.config.loopPlanModel.modelId
     case 'summary':
       return store.config.summaryModel.modelId
     default:
@@ -748,7 +861,7 @@ const openDrawer = (node: string) => {
   drawerOpen.value = true
 }
 
-const openModelSelector = (target: 'plan' | 'summary') => {
+const openModelSelector = (target: 'initialPlan' | 'loopPlan' | 'summary') => {
   currentSelectorTarget.value = target
   showModelSelector.value = true
 }
@@ -768,8 +881,11 @@ const toggleEnableRerank = () => {
 
 const handleModelSelect = (provider: ModelProvider, model: Model) => {
   switch (currentSelectorTarget.value) {
-    case 'plan':
-      store.updatePlanNode(provider.id, model.id)
+    case 'initialPlan':
+      store.updateInitialPlanNode(provider.id, model.id)
+      break
+    case 'loopPlan':
+      store.updateLoopPlanNode(provider.id, model.id)
       break
     case 'summary':
       store.updateSummaryNode(provider.id, model.id)
@@ -785,14 +901,18 @@ const handleRerankModelSelect = (model: RerankModel) => {
   )
 }
 
-const getModelDisplayName = (target: 'plan' | 'summary'): string => {
+const getModelDisplayName = (target: 'initialPlan' | 'loopPlan' | 'summary'): string => {
   let providerId: string | null = null
   let modelId: string | null = null
 
   switch (target) {
-    case 'plan':
-      providerId = store.config.planModel.providerId
-      modelId = store.config.planModel.modelId
+    case 'initialPlan':
+      providerId = store.config.initialPlanModel.providerId
+      modelId = store.config.initialPlanModel.modelId
+      break
+    case 'loopPlan':
+      providerId = store.config.loopPlanModel.providerId
+      modelId = store.config.loopPlanModel.modelId
       break
     case 'summary':
       providerId = store.config.summaryModel.providerId
@@ -836,19 +956,20 @@ const updateMaxIterations = (event: Event) => {
 // ==================== Plan Node Prompt Methods ====================
 
 const getPlanInstruction = () => {
-  return store.config.planModel.systemPromptInstruction ?? PLANNING_NODE_INSTRUCTION
+  return store.config.initialPlanModel.systemPromptInstruction ?? PLANNING_NODE_INSTRUCTION
 }
 
 const getPlanConstraint = () => {
   const maxToolCalls = 10 // PLANNING_MAX_TOOL_CALLS
-  return store.config.planModel.systemPromptConstraint ?? getPlanningNodeConstraint(maxToolCalls)
+  return (
+    store.config.initialPlanModel.systemPromptConstraint ?? getPlanningNodeConstraint(maxToolCalls)
+  )
 }
 
 const updatePlanInstruction = (event: Event) => {
   const target = event.target as HTMLTextAreaElement
   const value = target.value.trim()
-  // 空值或与默认相同，则设为 undefined 以显示灰色
-  store.updatePlanPromptInstruction(
+  store.updateInitialPlanPromptInstruction(
     value === PLANNING_NODE_INSTRUCTION ? undefined : value || undefined
   )
 }
@@ -857,15 +978,17 @@ const updatePlanConstraint = (event: Event) => {
   const target = event.target as HTMLTextAreaElement
   const value = target.value.trim()
   const defaultConstraint = getPlanConstraint()
-  store.updatePlanPromptConstraint(value === defaultConstraint ? undefined : value || undefined)
+  store.updateInitialPlanPromptConstraint(
+    value === defaultConstraint ? undefined : value || undefined
+  )
 }
 
 const resetPlanInstruction = () => {
-  store.updatePlanPromptInstruction(undefined)
+  store.updateInitialPlanPromptInstruction(undefined)
 }
 
 const resetPlanConstraint = () => {
-  store.updatePlanPromptConstraint(undefined)
+  store.updateInitialPlanPromptConstraint(undefined)
 }
 
 // ==================== Summary Node Prompt Methods ====================

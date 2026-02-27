@@ -5,7 +5,9 @@ import type {
   LangchainClientNodeStartPayload,
   LangchainClientToolCallPayload,
   LangchainClientToolResultPayload,
-  KnowledgeQaModelConfig
+  KnowledgeQaModelConfig,
+  UserInteractionRequestPayload,
+  UserInteractionResponsePayload
 } from '@shared/langchain-client.types'
 
 /**
@@ -42,6 +44,12 @@ export interface NodeResultEvent extends BaseStreamEvent {
 export interface NodeErrorEvent extends BaseStreamEvent {
   type: 'node-error'
   payload: LangchainClientNodeErrorPayload
+}
+
+/** 用户交互请求事件（graph 暂停等待用户响应） */
+export interface UserInteractionRequestEvent extends BaseStreamEvent {
+  type: 'user-interaction-request'
+  payload: UserInteractionRequestPayload
 }
 
 export interface AiChatRetrievalConfig {
@@ -147,6 +155,14 @@ export interface AiChatDeleteConversationRequest {
  */
 export interface AiChatDeletePresetRequest {
   presetId: string
+}
+
+/**
+ * 用户交互响应请求（Renderer → Main → Utility）
+ */
+export interface AiChatUserInteractionResponseRequest {
+  requestId: string
+  payload: UserInteractionResponsePayload
 }
 
 /**
@@ -313,6 +329,7 @@ export type AiChatStreamEvent =
   | NodeStartEvent
   | NodeResultEvent
   | NodeErrorEvent
+  | UserInteractionRequestEvent
   | ErrorEvent
   | FinishEvent
 
@@ -363,9 +380,7 @@ export interface AiChatAPI {
   /**
    * 删除对话
    */
-  deleteConversation: (
-    request: AiChatDeleteConversationRequest
-  ) => Promise<ApiResponse<void>>
+  deleteConversation: (request: AiChatDeleteConversationRequest) => Promise<ApiResponse<void>>
 
   /**
    * 删除预设
@@ -377,4 +392,11 @@ export interface AiChatAPI {
    * 返回 unsubscribe 函数
    */
   onStream: (handler: (event: AiChatStreamEvent) => void) => () => void
+
+  /**
+   * 响应用户交互请求（resolve graph 中暂停的 user-interaction 节点）
+   */
+  respondToUserInteraction: (
+    request: AiChatUserInteractionResponseRequest
+  ) => Promise<ApiResponse<void>>
 }

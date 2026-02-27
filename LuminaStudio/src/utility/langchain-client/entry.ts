@@ -80,6 +80,11 @@ parentPort.on('message', async (event: { data: MainToLangchainClientMessage }) =
         break
       }
 
+      case 'user-interaction:response': {
+        agentManager.resolveUserInteraction(msg.payload.interactionId, msg.payload)
+        break
+      }
+
       default: {
         const unknownType = (msg as any)?.type
         log.warn('Unknown message type', { type: unknownType })
