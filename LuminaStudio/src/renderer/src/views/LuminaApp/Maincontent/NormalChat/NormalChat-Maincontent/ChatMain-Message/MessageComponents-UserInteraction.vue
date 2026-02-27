@@ -138,7 +138,7 @@
           class="px-4 py-1.5 rounded-lg bg-amber-500 text-white text-[11px] font-medium hover:bg-amber-600 transition-colors cursor-pointer"
           @click="submitResponse('modify')"
         >
-          ✎ 修改后执行
+          ✎ 修改计划
         </button>
         <button
           class="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-500 text-[11px] hover:bg-slate-100 transition-colors cursor-pointer"
@@ -274,7 +274,7 @@ const actionLabel = computed(() => {
     case 'approve':
       return '✓ 已批准'
     case 'modify':
-      return '✎ 已修改后批准'
+      return '✎ 已修改计划'
     case 'reject':
       return '✕ 已拒绝'
     default:

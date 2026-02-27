@@ -89,6 +89,7 @@ export class AgentManager {
       runtime,
       emit: this.send,
       modelConfig: config.modelConfig,
+      retrieval: config.retrieval,
       waitForResponse: (interactionId: string) => this.waitForResponse(interactionId)
     })
 

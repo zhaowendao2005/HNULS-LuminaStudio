@@ -123,6 +123,7 @@ export async function runSummary(params: {
   maxIterations?: number
   systemPromptInstruction?: string
   systemPromptConstraint?: string
+  contextInfo?: string
 }): Promise<SummaryOutput> {
   const evidence = buildEvidenceDigest(params.results)
 
@@ -143,7 +144,7 @@ ${params.planningInput}
 工具执行结果摘要：
 ${evidence}
 
-请输出判断结果（JSON 格式）：`
+${params.contextInfo ? `上下文信息：\n${params.contextInfo}\n\n` : ''}请输出判断结果（JSON 格式）：`
 
   const resp = await params.model.invoke([
     new SystemMessage(systemPrompt),

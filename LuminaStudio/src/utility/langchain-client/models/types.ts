@@ -9,6 +9,7 @@
 import type { CompiledStateGraph } from '@langchain/langgraph'
 import type {
   KnowledgeQaModelConfig,
+  LangchainClientRetrievalConfig,
   LangchainClientToMainMessage,
   UserInteractionResponsePayload
 } from '@shared/langchain-client.types'
@@ -31,6 +32,11 @@ export interface AgentModelGraphContext {
   modelConfig?: {
     knowledgeQa?: KnowledgeQaModelConfig
   }
+
+  /**
+   * 动态检索配置（前端选中的文档/嵌入版本）
+   */
+  retrieval?: LangchainClientRetrievalConfig
 
   /**
    * 等待用户交互响应的 Promise 工厂

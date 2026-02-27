@@ -9,35 +9,39 @@
  * 知识库问答流程。所有控制流由 Graph 拓扑决定，而非让 LLM 自行选择是否
  * 调用工具，因此流程确定、可观测、可迭代优化。
  *
- * Graph 拓扑（双分支规划）
+ * Graph 拓扑（双分支规划 + 审批循环）
  * ----------------------------------------------------------------------
  *
- *   START ──► router ──┬──► initial-planning ──► user-interaction ──► execute-tools ──► summary ──┬──► END
- *                      │                                                    ▲                     │
- *                      │    (iteration > 0)                                 │  (shouldLoop=true)  │
- *                      └──► loop-planning ──────────────────────────────────┘                     │
- *                                ▲                                                                │
- *                                └────────────────────────────────────────────────────────────────┘
+ *                  ┌───────────────── (modify) ─────────────────┐
+ *                  ▼                                             │
+ *   START ──► initial-planning ──► user-interaction ──┬──► execute-tools ──► summary
+ *                                                     │         ▲                │
+ *                                                     │         │   (shouldLoop) │
+ *                              loop-planning ─────────┘         │                │
+ *                                ▲                               │                │
+ *                                └───────────────────────────────┘────────────────┘
+ *                                                                   (fullText) ──► END
+ *                                                     │
+ *                                                     └──► END (reject)
  *
  * 五个语义节点（NodeKind）
  * ----------------------------------------------------------------------
- * 1) router (内部) —— 根据 iteration 决定走 initial-planning 还是 loop-planning
- *
- * 2) initial-planning (Structure Node) —— 首轮深度规划器（需用户审批）
+ * 1) initial-planning (Structure Node) —— 首轮深度规划器（需用户审批）
  *    - 使用 initialPlanModel 配置的 LLM
  *    - 规划后输出待审批的交互请求，通过 user-interaction 节点寻求用户批准
  *
- * 3) user-interaction (Structure Node) —— 通用用户交互节点
+ * 2) user-interaction (Structure Node) —— 通用用户交互节点
  *    - 暂停 graph 等待用户响应（approve / reject / modify）
- *    - 用户可选择方案、输入补充意见
+ *    - approve → execute-tools；modify → 回到 initial-planning 重新规划并再次审批（可无限循环）
+ *    - 用户可选择方案、输入补充意见，所有意见记入 memory 供后续迭代参考
  *
- * 4) loop-planning (Structure Node) —— 回环规划器（无需审批）
+ * 3) loop-planning (Structure Node) —— 回环规划器（无需审批）
  *    - 使用 loopPlanModel 配置的 LLM
  *    - summary 打回后直接规划，不经过用户审批
  *
- * 5) execute-tools (内部编排节点) —— 工具执行器
+ * 4) execute-tools (内部编排节点) —— 工具执行器
  *
- * 6) summary (Structure Node) —— 通用总结器
+ * 5) summary (Structure Node) —— 通用总结器
  *
  * 工具注册机制
  * ----------------------------------------------------------------------
@@ -77,6 +81,9 @@ import type { ToolExecutionResult, UtilNodeRegistration } from '../../nodes/type
 
 const MAX_ITERATIONS = 3
 const MAX_TOOL_CALLS_PER_ITERATION = 10
+
+// 调试开关：打印 memory 内容（临时调试用）
+const DEBUG_MEMORY = true
 
 // ======================================================================
 // LangGraph State 定义
@@ -131,6 +138,15 @@ const State = Annotation.Root({
   fullText: Annotation<string>({
     value: (_left, right) => right,
     default: () => ''
+  }),
+
+  /**
+   * 记忆机制：累积记录关键信息（summary 结果、用户审批意见、补充提问等）
+   * 用于在多轮迭代中保持上下文连贯性
+   */
+  memory: Annotation<string[]>({
+    value: (left, right) => [...(left || []), ...(right || [])],
+    default: () => []
   })
 })
 
@@ -183,7 +199,7 @@ export function buildKnowledgeQaGraph(params: AgentModelGraphContext) {
       nodeFactory: (systemParams: any) =>
         knowledgeRetrievalReg.nodeFactory({
           apiBaseUrl: params.runtime.knowledgeApiUrl,
-          retrieval: knowledgeQaConfig.retrieval,
+          retrieval: params.retrieval ?? { scopes: [] },
           abortSignal: systemParams.abortSignal
         })
     },
@@ -207,8 +223,20 @@ export function buildKnowledgeQaGraph(params: AgentModelGraphContext) {
     nodeKind: 'initial_planning' | 'planning',
     label: string
   ): Promise<PlanningOutput> {
+    // 构建记忆上下文（通过 contextInfo 传入 user prompt，确保 LLM 可见）
+    const memoryContext =
+      state.memory && state.memory.length > 0
+        ? `## 历史记忆\n以下是之前迭代的关键信息（包括用户审批意见、总结等），请务必参考：\n${state.memory.map((m, i) => `${i + 1}. ${m}`).join('\n')}`
+        : undefined
     const planningInput = state.planningInput?.trim() || state.input
-    const nodeId = `${nodeKind}:${state.requestId}:${state.iteration}`
+    const attemptIdx = state.memory?.length ?? 0
+    const nodeId = `${nodeKind}:${state.requestId}:${state.iteration}:${attemptIdx}`
+
+    // [DEBUG] 打印 memory 内容
+    if (DEBUG_MEMORY && state.memory && state.memory.length > 0) {
+      console.log(`\n[${label}] Memory 内容 (共 ${state.memory.length} 条):`, state.memory)
+      console.log(`[${label}] Memory 上下文传入 LLM:`, memoryContext)
+    }
 
     params.emit({
       type: 'invoke:node-start',
@@ -231,7 +259,8 @@ export function buildKnowledgeQaGraph(params: AgentModelGraphContext) {
         planningInput,
         availableTools: registeredTools.map((r) => r.descriptor),
         systemPromptInstruction: modelConfig.systemPromptInstruction,
-        systemPromptConstraint: modelConfig.systemPromptConstraint
+        systemPromptConstraint: modelConfig.systemPromptConstraint,
+        contextInfo: memoryContext
       })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
@@ -348,7 +377,7 @@ export function buildKnowledgeQaGraph(params: AgentModelGraphContext) {
     const response = await requestUserInteraction({
       emit: params.emit,
       requestId: state.requestId,
-      nodeId: `user-interaction:${state.requestId}:${state.iteration}`,
+      nodeId: `user-interaction:${state.requestId}:${state.iteration}:${state.memory?.length ?? 0}`,
       interactionRequest: state.pendingInteraction,
       waitForResponse: params.waitForResponse,
       abortSignal: state.abortSignal
@@ -370,19 +399,32 @@ export function buildKnowledgeQaGraph(params: AgentModelGraphContext) {
       }
     }
 
-    if (response.action === 'modify' && response.textInput) {
-      // 用户修改：将补充意见合入 planningInput，保持原计划但可能被后续处理调整
+    if (response.action === 'modify') {
+      // 用户修改：记录补充意见到 memory，回到 initial-planning 重新规划并再次审批
+      const userFeedback = response.textInput?.trim() || '用户要求修改计划'
+      const modifyMemo = `[用户审批-修改] ${userFeedback}`
       return {
         userResponse: response,
         pendingInteraction: null,
-        planningInput: `${state.planningInput}\n\n用户补充意见：${response.textInput}`
+        memory: [modifyMemo],
+        planningInput: `${state.input}\n\n用户修改意见：${userFeedback}`
       }
     }
 
-    // approve：直接通过
+    // approve：直接通过，记录审批意见（含补充意见）到 memory
+    const memoParts: string[] = ['[用户审批-通过]']
+    if (response.selectedOptions && response.selectedOptions.length > 0) {
+      memoParts.push(`选择方案：${response.selectedOptions.join(', ')}`)
+    }
+    if (response.textInput?.trim()) {
+      memoParts.push(`补充意见：${response.textInput.trim()}`)
+    }
+    if (memoParts.length === 1) memoParts.push('用户批准了当前计划')
+    const approveMemo = memoParts.join(' ')
     return {
       userResponse: response,
-      pendingInteraction: null
+      pendingInteraction: null,
+      memory: [approveMemo]
     }
   }
 
@@ -527,6 +569,17 @@ export function buildKnowledgeQaGraph(params: AgentModelGraphContext) {
 
     let decision: SummaryOutput
     try {
+      const memoryContext =
+        state.memory && state.memory.length > 0
+          ? `## 历史记忆\n以下是之前迭代的关键信息（包括用户审批意见、总结等），请务必参考：\n${state.memory.map((m, i) => `${i + 1}. ${m}`).join('\n')}`
+          : undefined
+
+      // [DEBUG] 打印 memory 内容
+      if (DEBUG_MEMORY && state.memory && state.memory.length > 0) {
+        console.log(`\n[总结与判断] Memory 内容 (共 ${state.memory.length} 条):`, state.memory)
+        console.log(`[总结与判断] Memory 上下文传入 LLM:`, memoryContext)
+      }
+
       decision = await runSummary({
         model: summaryModel as any,
         userInput: state.input,
@@ -535,7 +588,8 @@ export function buildKnowledgeQaGraph(params: AgentModelGraphContext) {
         results: state.toolResults ?? [],
         maxIterations,
         systemPromptInstruction: knowledgeQaConfig.summaryModel.systemPromptInstruction,
-        systemPromptConstraint: knowledgeQaConfig.summaryModel.systemPromptConstraint
+        systemPromptConstraint: knowledgeQaConfig.summaryModel.systemPromptConstraint,
+        contextInfo: memoryContext
       })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
@@ -568,41 +622,46 @@ export function buildKnowledgeQaGraph(params: AgentModelGraphContext) {
       }
     })
 
-    // A) 不需要回环 → 输出最终答案
-    if (!decision.shouldLoop) {
-      params.emit({
-        type: 'invoke:text-delta',
-        requestId: state.requestId,
-        delta: decision.message
-      })
-      return { decision, fullText: decision.message }
+    // A) 质量达标 → 输出最终答案，记录 summary 到 memory
+    if (decision.isGoodEnough) {
+      params.emit({ type: 'invoke:text-delta', requestId: state.requestId, delta: decision.text })
+      const summaryMemo = `[Summary-完成] 第 ${state.iteration + 1} 轮总结：质量达标，输出最终答案`
+      return { decision, fullText: decision.text, memory: [summaryMemo] }
     }
 
-    // B) 需要回环但已达上限 → 输出降级答案
+    // B) 需要回环但已达上限 → 输出降级答案，记录到 memory
     if (state.iteration >= maxIterations - 1) {
       const finalText = `已达到最大迭代次数（${maxIterations}），仍不足以回答该问题。\n\n建议下一步检索方向：${decision.message}`
       params.emit({ type: 'invoke:text-delta', requestId: state.requestId, delta: finalText })
-      return { decision, fullText: finalText }
+      const summaryMemo = `[Summary-超限] 第 ${state.iteration + 1} 轮总结：达到最大迭代次数，输出降级答案`
+      return { decision, fullText: finalText, memory: [summaryMemo] }
     }
 
-    // C) 需要回环且仍有次数 → 推进到下一迭代
+    // C) 需要回环且仍有次数 → 推进到下一迭代，记录 summary 到 memory
+    const summaryMemo = `[Summary-回环] 第 ${state.iteration + 1} 轮总结：信息不足，需要继续检索。建议方向：${decision.message}`
     return {
       decision,
       iteration: state.iteration + 1,
-      planningInput: decision.message
+      planningInput: decision.message,
+      memory: [summaryMemo]
     }
   }
 
   // ====================================================================
-  // Graph 拓扑组装（双分支规划）
+  // Graph 拓扑组装（双分支规划 + 审批循环）
   // ====================================================================
   //
-  //   START ──► router ──┬──► initial-planning ──► user-interaction ──┬──► execute-tools ──► summary
-  //                      │                                            │         ▲                │
-  //                      └──► loop-planning ──────────────────────────┘         │                │
-  //                                ▲                                            │                │
-  //                                └──────────────── (shouldLoop) ◄─────────────┘────────────────┘
-  //                                                                                (fullText) ──► END
+  //                    ┌─────────────────────── (modify) ──────────────────────┐
+  //                    ▼                                                       │
+  //   START ──► initial-planning ──► user-interaction ──┬──► execute-tools ──► summary
+  //                                                     │         ▲                │
+  //                                                     │         │                │
+  //                              loop-planning ─────────┘         │                │
+  //                                ▲                               │                │
+  //                                └──────────── (shouldLoop) ◄───┘────────────────┘
+  //                                                                   (fullText) ──► END
+  //                                                     │
+  //                                                     └──► END (reject)
   //
   const graph = new StateGraph(State)
     .addNode('initial-planning', initialPlanNode)
@@ -610,28 +669,27 @@ export function buildKnowledgeQaGraph(params: AgentModelGraphContext) {
     .addNode('loop-planning', loopPlanNode)
     .addNode('execute-tools', executeToolsNode)
     .addNode('summary', summaryNode)
-    // START → router: 根据 iteration 走不同分支
-    .addConditionalEdges(
-      START,
-      (state: typeof State.State) => {
-        return state.iteration === 0 ? 'initial' : 'loop'
-      },
-      {
-        initial: 'initial-planning',
-        loop: 'loop-planning'
-      }
-    )
-    // initial-planning → user-interaction → execute-tools（条件：非 reject）
+    // START → initial-planning（首次进入始终走审批流程）
+    .addEdge(START, 'initial-planning')
+    // initial-planning → user-interaction（审批）
     .addEdge('initial-planning', 'user-interaction')
+    // user-interaction 条件分支：
+    //   approve → execute-tools
+    //   modify  → initial-planning（重新规划，再次审批，可无限循环）
+    //   reject  → END
     .addConditionalEdges(
       'user-interaction',
       (state: typeof State.State) => {
-        // 如果用户拒绝或 fullText 已设置（reject 场景），直接结束
+        // reject：直接结束
         if (state.fullText && String(state.fullText).trim()) return 'end'
+        // modify：回到 initial-planning 重新规划并再次审批
+        if (state.userResponse?.action === 'modify') return 'replan'
+        // approve：执行工具
         return 'execute'
       },
       {
         execute: 'execute-tools',
+        replan: 'initial-planning',
         end: END
       }
     )

@@ -1105,13 +1105,23 @@ export class AiChatService {
       },
       modelId,
       systemPrompt: undefined,
-      retrieval: { scopes: [] },
+      retrieval: lcRetrieval ?? { scopes: [] },
       modelConfig: knowledgeQaResolved
         ? {
             knowledgeQa: knowledgeQaResolved
           }
         : undefined
     }
+
+    log.debug('Agent retrieval config', {
+      requestId,
+      scopeCount: agentCreateConfig.retrieval?.scopes?.length ?? 0,
+      scopes: agentCreateConfig.retrieval?.scopes?.map((s) => ({
+        kbId: s.knowledgeBaseId,
+        table: s.tableName,
+        fileCount: s.fileKeys?.length ?? 0
+      }))
+    })
 
     try {
       await this.langchainClientBridge.spawn()

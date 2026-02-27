@@ -40,13 +40,23 @@ export const useSourcesStore = defineStore('ai-chat-sources', () => {
     for (const kb of knowledgeBases.value) {
       const kbSelections = documentSelections.value[kb.id] || new Set()
       for (const doc of kb.documents) {
+        const isChecked = kbSelections.has(doc.fileKey)
+        const hasEmbedding = !!doc.selectedEmbedding
+        // [DEBUG]
+        if (isChecked) {
+          console.log(
+            `[SourcesStore] Doc checked: ${doc.fileKey}, hasEmbedding: ${hasEmbedding}, embeddings: ${doc.embeddings?.length ?? 0}`,
+            doc.selectedEmbedding
+          )
+        }
         // 只有文档被勾选且已选择 embedding 才算有效
-        if (kbSelections.has(doc.fileKey) && doc.selectedEmbedding) {
+        if (isChecked && hasEmbedding) {
           result.push({ kbId: kb.id, kbName: kb.name, doc, embedding: doc.selectedEmbedding })
         }
       }
     }
 
+    console.log(`[SourcesStore] selectedDocuments count: ${result.length}`)
     return result
   })
 
@@ -266,11 +276,16 @@ export const useSourcesStore = defineStore('ai-chat-sources', () => {
 
   function selectDefaultEmbedding(doc: SourceDocument): void {
     const preferred = doc.embeddings.find((e) => e.isDefault) || doc.embeddings[0]
+    console.log(
+      `[SourcesStore] selectDefaultEmbedding for ${doc.fileKey}, embeddings: ${doc.embeddings?.length ?? 0}, preferred:`,
+      preferred
+    )
     if (!preferred) {
       setSelectedEmbedding(doc, null)
       return
     }
     setSelectedEmbedding(doc, { configId: preferred.configId, dimensions: preferred.dimensions })
+    console.log(`[SourcesStore] Selected embedding:`, doc.selectedEmbedding)
   }
 
   /**
@@ -322,10 +337,14 @@ export const useSourcesStore = defineStore('ai-chat-sources', () => {
 
     if (kbSelections.has(doc.fileKey)) {
       // 取消勾选
+      console.log(`[SourcesStore] Uncheck doc: ${doc.fileKey}`)
       kbSelections.delete(doc.fileKey)
       setSelectedEmbedding(doc, null)
     } else {
       // 勾选并自动选择默认 embedding
+      console.log(
+        `[SourcesStore] Check doc: ${doc.fileKey}, embeddings count: ${doc.embeddings?.length ?? 0}`
+      )
       kbSelections.add(doc.fileKey)
       selectDefaultEmbedding(doc)
     }
