@@ -17,6 +17,7 @@
           >
             <DashboardView v-if="activeTab === 'dashboard'" />
             <NormalChat v-else-if="activeTab === 'normal-chat'" />
+            <OrchestraFlowView v-else-if="activeTab === 'orchestraflow'" />
             <UserSettingView v-else-if="activeTab === 'settings'" />
             <DashboardView v-else />
           </main>
@@ -39,6 +40,7 @@ import TopBar from './TopBar/index.vue'
 import CustomTitlebar from './components/CustomTitlebar/index.vue'
 import DashboardView from './Maincontent/DashboardView/index.vue'
 import NormalChat from './Maincontent/NormalChat/index.vue'
+import OrchestraFlowView from './Maincontent/OrchestraFlowView/index.vue'
 import UserSettingView from './Maincontent/UserSettingView/index.vue'
 
 const hasStarted = ref(false)

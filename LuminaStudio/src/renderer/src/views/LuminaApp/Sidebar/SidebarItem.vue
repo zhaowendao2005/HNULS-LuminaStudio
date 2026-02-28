@@ -43,6 +43,16 @@
         <circle cx="12" cy="12" r="3" />
         <path d="M12 1v6m0 6v6m5.2-13.2l-4.2 4.2m-2 2l-4.2 4.2m13.2-5.2l-4.2-4.2m-2-2l-4.2-4.2" />
       </template>
+      <template v-else-if="icon === 'workflow'">
+        <circle cx="6" cy="6" r="2" />
+        <circle cx="18" cy="6" r="2" />
+        <circle cx="6" cy="18" r="2" />
+        <circle cx="18" cy="18" r="2" />
+        <line x1="8" y1="6" x2="16" y2="6" />
+        <line x1="6" y1="8" x2="6" y2="16" />
+        <line x1="18" y1="8" x2="18" y2="16" />
+        <line x1="8" y1="18" x2="16" y2="18" />
+      </template>
     </svg>
     <div
       v-if="!active"

@@ -14,6 +14,11 @@
         :active="activeTab === 'normal-chat'"
         @click="$emit('change-tab', 'normal-chat')"
       />
+      <SidebarItem
+        icon="workflow"
+        :active="activeTab === 'orchestraflow'"
+        @click="$emit('change-tab', 'orchestraflow')"
+      />
     </div>
 
     <!-- Bottom -->
