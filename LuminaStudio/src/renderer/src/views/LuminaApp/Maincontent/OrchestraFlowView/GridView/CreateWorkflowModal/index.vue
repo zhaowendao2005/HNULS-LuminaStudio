@@ -10,14 +10,21 @@
         @click.stop
       >
         <!-- 头部 -->
-        <div class="flex-shrink-0 px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+        <div
+          class="flex-shrink-0 px-6 py-4 border-b border-slate-200 flex items-center justify-between"
+        >
           <h2 class="text-lg font-semibold text-slate-900">创建工作流</h2>
           <button
             @click="$emit('close')"
             class="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600"
           >
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
@@ -27,7 +34,8 @@
           <!-- 工作流名称 -->
           <div class="mb-6">
             <label class="block text-sm font-medium text-slate-700 mb-2">
-              工作流名称 <span class="text-red-500">*</span>
+              工作流名称
+              <span class="text-red-500">*</span>
             </label>
             <input
               v-model="formData.name"
@@ -40,9 +48,7 @@
 
           <!-- 描述 -->
           <div class="mb-6">
-            <label class="block text-sm font-medium text-slate-700 mb-2">
-              描述（可选）
-            </label>
+            <label class="block text-sm font-medium text-slate-700 mb-2">描述（可选）</label>
             <textarea
               v-model="formData.description"
               rows="3"
@@ -53,9 +59,7 @@
 
           <!-- 图标选择 -->
           <div class="mb-6">
-            <label class="block text-sm font-medium text-slate-700 mb-2">
-              图标
-            </label>
+            <label class="block text-sm font-medium text-slate-700 mb-2">图标</label>
             <div class="flex items-center gap-4">
               <!-- 图标预览 -->
               <div
@@ -76,7 +80,11 @@
                     :key="color"
                     @click="formData.iconBackground = color"
                     class="w-8 h-8 rounded border-2 transition-all"
-                    :class="formData.iconBackground === color ? 'border-emerald-500 scale-110' : 'border-slate-300'"
+                    :class="
+                      formData.iconBackground === color
+                        ? 'border-emerald-500 scale-110'
+                        : 'border-slate-300'
+                    "
                     :style="{ backgroundColor: color }"
                   />
                 </div>
@@ -86,11 +94,16 @@
 
           <!-- 图标选择器（简化版） -->
           <div v-if="showIconPicker" class="mb-6">
-            <div class="grid grid-cols-8 gap-2 p-4 border border-slate-200 rounded-lg bg-slate-50 max-h-48 overflow-y-auto">
+            <div
+              class="grid grid-cols-8 gap-2 p-4 border border-slate-200 rounded-lg bg-slate-50 max-h-48 overflow-y-auto"
+            >
               <button
                 v-for="icon in commonIcons"
                 :key="icon"
-                @click="formData.icon = icon; showIconPicker = false"
+                @click="
+                  formData.icon = icon
+                  showIconPicker = false
+                "
                 class="w-10 h-10 flex items-center justify-center text-xl rounded hover:bg-emerald-100 transition-colors"
               >
                 {{ icon }}
@@ -100,7 +113,9 @@
         </div>
 
         <!-- 底部按钮 -->
-        <div class="flex-shrink-0 px-6 py-4 border-t border-slate-200 flex items-center justify-end gap-3">
+        <div
+          class="flex-shrink-0 px-6 py-4 border-t border-slate-200 flex items-center justify-end gap-3"
+        >
           <button
             @click="$emit('close')"
             class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
@@ -129,12 +144,15 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'close'): void
-  (e: 'confirm', data: {
-    name: string
-    description?: string
-    icon?: string
-    iconBackground?: string
-  }): void
+  (
+    e: 'confirm',
+    data: {
+      name: string
+      description?: string
+      icon?: string
+      iconBackground?: string
+    }
+  ): void
 }>()
 
 const formData = reactive({
@@ -147,13 +165,33 @@ const formData = reactive({
 const showIconPicker = ref(false)
 
 const commonIcons = [
-  '📋', '🤖', '💬', '📄', '🔧', '⚙️', '🎯', '🚀',
-  '📊', '🔍', '💡', '⭐', '🎨', '🔐', '📝', '🌐'
+  '📋',
+  '🤖',
+  '💬',
+  '📄',
+  '🔧',
+  '⚙️',
+  '🎯',
+  '🚀',
+  '📊',
+  '🔍',
+  '💡',
+  '⭐',
+  '🎨',
+  '🔐',
+  '📝',
+  '🌐'
 ]
 
 const iconBackgrounds = [
-  '#FFEAD5', '#E0F2FE', '#F3E8FF', '#E5E7EB',
-  '#FEF3C7', '#D1FAE5', '#FCE7F3', '#E0E7FF'
+  '#FFEAD5',
+  '#E0F2FE',
+  '#F3E8FF',
+  '#E5E7EB',
+  '#FEF3C7',
+  '#D1FAE5',
+  '#FCE7F3',
+  '#E0E7FF'
 ]
 
 function handleConfirm() {

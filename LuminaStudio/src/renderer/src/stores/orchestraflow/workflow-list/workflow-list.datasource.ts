@@ -9,32 +9,27 @@ export class WorkflowListDatasource {
   /**
    * 获取工作流列表
    */
-  async getWorkflows(params: {
-    keyword?: string
-    page?: number
-    pageSize?: number
-  }): Promise<{
+  async getWorkflows(params: { keyword?: string; page?: number; pageSize?: number }): Promise<{
     workflows: OFWorkflowMeta[]
     total: number
   }> {
     // TODO: 生产环境对接 IPC
     // 当前使用 mock
     let filtered = [...mockWorkflows]
-    
+
     if (params.keyword) {
       const keyword = params.keyword.toLowerCase()
       filtered = filtered.filter(
-        w => 
-          w.name.toLowerCase().includes(keyword) ||
-          w.description?.toLowerCase().includes(keyword)
+        (w) =>
+          w.name.toLowerCase().includes(keyword) || w.description?.toLowerCase().includes(keyword)
       )
     }
-    
+
     const page = params.page || 1
     const pageSize = params.pageSize || 10
     const start = (page - 1) * pageSize
     const end = start + pageSize
-    
+
     return {
       workflows: filtered.slice(start, end),
       total: filtered.length

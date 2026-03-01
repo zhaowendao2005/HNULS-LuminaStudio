@@ -20,10 +20,13 @@ export class WorkflowEditorDatasource {
   /**
    * 保存工作流
    */
-  async saveWorkflow(workflowId: string, data: {
-    nodes: OFNode[]
-    edges: OFEdge[]
-  }): Promise<void> {
+  async saveWorkflow(
+    workflowId: string,
+    data: {
+      nodes: OFNode[]
+      edges: OFEdge[]
+    }
+  ): Promise<void> {
     // TODO: 生产环境对接 IPC
   }
 }

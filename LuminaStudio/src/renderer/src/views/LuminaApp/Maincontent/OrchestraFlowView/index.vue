@@ -2,7 +2,7 @@
   <div class="of-main-view h-full w-full flex flex-col">
     <!-- Grid 视图：工作流列表页 -->
     <GridView v-if="viewMode === 'grid'" @open-workflow="handleOpenWorkflow" />
-    
+
     <!-- Editor 视图：工作流编辑器 -->
     <EditorView
       v-else-if="viewMode === 'editor'"

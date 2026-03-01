@@ -16,5 +16,11 @@
   "vetur.format.defaultFormatter.js": "prettier",
   "editor.codeActionsOnSave": {
     "source.fixAll.eslint": "explicit"
-  }
+  },
+  "npm.exclude": [
+    "**/node_modules",
+    "**/dist",
+    "**/out",
+    "**/_Reference/**"
+  ]
 }

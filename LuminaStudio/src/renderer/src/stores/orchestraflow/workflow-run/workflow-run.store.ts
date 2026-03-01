@@ -18,11 +18,11 @@ export const useWorkflowRunStore = defineStore('orchestraflow-workflow-run', () 
   async function runWorkflow(workflowId: string, inputs?: Record<string, any>) {
     running.value = true
     status.value = OFWorkflowRunningStatus.Running
-    
+
     // TODO: 生产环境对接 IPC
     // 当前使用 mock
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    
+    await new Promise((resolve) => setTimeout(resolve, 2000))
+
     const mockResult = createMockRunResult()
     result.value = mockResult
     status.value = mockResult.status
@@ -45,7 +45,7 @@ export const useWorkflowRunStore = defineStore('orchestraflow-workflow-run', () 
     status,
     result,
     running,
-    
+
     // actions
     runWorkflow,
     stopWorkflow,

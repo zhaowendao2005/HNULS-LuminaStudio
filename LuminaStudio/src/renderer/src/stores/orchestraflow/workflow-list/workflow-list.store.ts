@@ -53,7 +53,7 @@ export const useWorkflowListStore = defineStore('orchestraflow-workflow-list', (
 
   async function deleteWorkflow(id: string) {
     await datasource.deleteWorkflow(id)
-    workflows.value = workflows.value.filter(w => w.id !== id)
+    workflows.value = workflows.value.filter((w) => w.id !== id)
     total.value--
   }
 
@@ -74,10 +74,10 @@ export const useWorkflowListStore = defineStore('orchestraflow-workflow-list', (
     currentPage,
     pageSize,
     total,
-    
+
     // getters
     hasMore,
-    
+
     // actions
     fetchWorkflows,
     createWorkflow,

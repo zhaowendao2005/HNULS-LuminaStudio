@@ -68,7 +68,7 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
     panelWidth,
     controlMode,
     viewport,
-    
+
     // actions
     loadWorkflow,
     saveWorkflow,

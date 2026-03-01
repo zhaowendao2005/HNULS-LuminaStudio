@@ -19,12 +19,7 @@
           @click.stop="showMenu = !showMenu"
           class="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-slate-100 transition-opacity"
         >
-          <svg
-            class="w-5 h-5 text-slate-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
+          <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               stroke-linecap="round"
               stroke-linejoin="round"
@@ -37,7 +32,7 @@
         <!-- 右键菜单 -->
         <div
           v-if="showMenu"
-          v-click-outside="() => showMenu = false"
+          v-click-outside="() => (showMenu = false)"
           class="absolute right-0 top-8 z-10 w-32 rounded-lg border border-slate-200 bg-white shadow-lg py-1"
         >
           <button
@@ -99,7 +94,7 @@ function formatTime(timestamp: number): string {
   const now = new Date()
   const diff = now.getTime() - date.getTime()
   const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-  
+
   if (days === 0) {
     return '今天'
   } else if (days === 1) {
