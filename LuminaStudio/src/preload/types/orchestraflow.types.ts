@@ -72,11 +72,13 @@ export interface OFWorkflowMeta {
 // ===== 变量定义 =====
 export interface OFVariable {
   variable: string
-  label?: string | {
-    nodeType: OFBlockEnum
-    nodeName: string
-    variable: string
-  }
+  label?:
+    | string
+    | {
+        nodeType: OFBlockEnum
+        nodeName: string
+        variable: string
+      }
   value_selector: string[] // [nodeId, key]
   value_type?: OFVarType
   value?: string

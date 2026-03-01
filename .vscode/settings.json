@@ -22,5 +22,11 @@
     "**/dist",
     "**/out",
     "**/_Reference/**"
+  ],
+  "favorites.resources": [
+    {
+      "filePath": "LuminaStudio\\src\\renderer\\src\\views\\LuminaApp\\Maincontent\\OrchestraFlowView",
+      "group": "Default"
+    }
   ]
 }
