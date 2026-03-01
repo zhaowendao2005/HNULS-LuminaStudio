@@ -147,7 +147,7 @@ export interface OFMemory {
 }
 
 // ===== 节点基础类型 =====
-export interface OFCommonNodeType<T = {}> {
+export type OFCommonNodeType = {
   _connectedSourceHandleIds?: string[]
   _connectedTargetHandleIds?: string[]
   _runningStatus?: OFNodeRunningStatus
@@ -158,7 +158,7 @@ export interface OFCommonNodeType<T = {}> {
   width?: number
   height?: number
   position?: XYPosition
-} & T
+}
 
 // ===== 连线基础类型 =====
 export interface OFCommonEdgeType {
@@ -172,13 +172,13 @@ export interface OFCommonEdgeType {
 }
 
 // ===== Start 节点数据 =====
-export interface OFStartNodeData extends OFCommonNodeType {
+export type OFStartNodeData = OFCommonNodeType & {
   type: OFBlockEnum.Start
   inputs: OFInputVar[]
 }
 
 // ===== LLM 节点数据 =====
-export interface OFLLMNodeData extends OFCommonNodeType {
+export type OFLLMNodeData = OFCommonNodeType & {
   type: OFBlockEnum.LLM
   model: OFModelConfig
   prompt_template?: OFPromptItem[]
@@ -193,7 +193,7 @@ export interface OFLLMNodeData extends OFCommonNodeType {
 }
 
 // ===== End 节点数据 =====
-export interface OFEndNodeData extends OFCommonNodeType {
+export type OFEndNodeData = OFCommonNodeType & {
   type: OFBlockEnum.End
   outputs: {
     variable: string

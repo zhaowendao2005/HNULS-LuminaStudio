@@ -12,7 +12,7 @@
           <main
             :class="[
               'flex-1 min-h-0 overflow-y-auto overflow-x-hidden relative',
-              activeTab === 'settings' ? '' : 'p-6'
+              activeTab === 'settings' ? '' : 'px-6 pb-6'
             ]"
           >
             <DashboardView v-if="activeTab === 'dashboard'" />

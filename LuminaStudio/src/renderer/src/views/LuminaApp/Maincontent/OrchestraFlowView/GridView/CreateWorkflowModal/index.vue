@@ -100,10 +100,7 @@
               <button
                 v-for="icon in commonIcons"
                 :key="icon"
-                @click="
-                  formData.icon = icon
-                  showIconPicker = false
-                "
+                @click="() => { formData.icon = icon; showIconPicker = false }"
                 class="w-10 h-10 flex items-center justify-center text-xl rounded hover:bg-emerald-100 transition-colors"
               >
                 {{ icon }}

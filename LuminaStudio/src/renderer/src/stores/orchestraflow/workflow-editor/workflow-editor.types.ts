@@ -12,7 +12,7 @@ import type {
   OFEndNodeData
 } from '@preload/types'
 
-export type OFNode = Node<OFCommonNodeType<OFStartNodeData | OFLLMNodeData | OFEndNodeData>>
+export type OFNode = Node<OFStartNodeData | OFLLMNodeData | OFEndNodeData>
 export type OFEdge = Edge<OFCommonEdgeType>
 
 export interface WorkflowEditorState {
