@@ -9,7 +9,19 @@
         zoom: store.viewport.zoom
       }"
       class="of-editor-canvas h-full w-full"
+      @node-click="handleNodeClick"
     >
+      <!-- 自定义节点 -->
+      <template #node-start="props">
+        <StartNode v-bind="props" />
+      </template>
+      <template #node-llm="props">
+        <LLMNode v-bind="props" />
+      </template>
+      <template #node-end="props">
+        <EndNode v-bind="props" />
+      </template>
+
       <!-- 点阵背景 -->
       <Background variant="dots" :gap="16" :size="1" pattern-color="#cbd5e1" />
 
@@ -29,6 +41,16 @@ import { VueFlow, useVueFlow, type Node } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { MiniMap } from '@vue-flow/minimap'
 import { useWorkflowEditorStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor.store'
+import {
+  useWorkflowEditorUIStore,
+  type PanelType
+} from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor-ui.store'
+import { OFBlockEnum } from '@preload/types'
+
+// 导入自定义节点组件
+import StartNode from './Nodes/StartNode/index.vue'
+import LLMNode from './Nodes/LLMNode/index.vue'
+import EndNode from './Nodes/EndNode/index.vue'
 
 // 导入 VueFlow 核心样式
 import '@vue-flow/core/dist/style.css'
@@ -40,6 +62,59 @@ const props = defineProps<{
 }>()
 
 const store = useWorkflowEditorStore()
+const uiStore = useWorkflowEditorUIStore()
+
+// 根据节点类型获取 PanelType
+function getPanelType(nodeType: string): PanelType | null {
+  switch (nodeType) {
+    case 'start':
+    case OFBlockEnum.Start:
+      return 'start-node'
+    case 'llm':
+    case OFBlockEnum.LLM:
+      return 'llm-node'
+    case 'end':
+    case OFBlockEnum.End:
+      return 'end-node'
+    default:
+      return null
+  }
+}
+
+// 处理节点点击事件
+function handleNodeClick(event: { node: Node }) {
+  const clickedNode = event.node
+  const nodeId = clickedNode.id
+  const nodeType = clickedNode.type || ''
+  const panelType = getPanelType(nodeType)
+
+  if (!panelType) {
+    return
+  }
+
+  // 如果当前已经打开了这个节点的配置面板，则关闭
+  if (uiStore.selectedNodeId === nodeId && uiStore.showNodeConfigPanel) {
+    uiStore.closeNodeConfigPanel()
+  } else {
+    // 否则打开该节点的配置面板
+    // 需要将 string 转换为 OFBlockEnum
+    let ofBlockEnum: OFBlockEnum
+    switch (nodeType) {
+      case 'start':
+        ofBlockEnum = OFBlockEnum.Start
+        break
+      case 'llm':
+        ofBlockEnum = OFBlockEnum.LLM
+        break
+      case 'end':
+        ofBlockEnum = OFBlockEnum.End
+        break
+      default:
+        return
+    }
+    uiStore.openNodeConfigPanel(nodeId, ofBlockEnum)
+  }
+}
 
 // 使用 VueFlow composable 来同步 viewport
 const { onViewportChange, setViewport } = useVueFlow()

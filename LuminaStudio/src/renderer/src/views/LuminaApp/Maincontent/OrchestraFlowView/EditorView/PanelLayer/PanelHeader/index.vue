@@ -79,6 +79,7 @@
         <button
           class="relative group w-8 h-8 bg-white hover:bg-gray-100 rounded-md transition-colors flex items-center justify-center"
           title="系统变量"
+          @click="emit('open-system-variables')"
         >
           <span class="text-xs font-medium text-gray-700">X</span>
         </button>
@@ -123,5 +124,9 @@
 <script setup lang="ts">
 const props = defineProps<{
   autoSaveTime: string
+}>()
+
+const emit = defineEmits<{
+  'open-system-variables': []
 }>()
 </script>
