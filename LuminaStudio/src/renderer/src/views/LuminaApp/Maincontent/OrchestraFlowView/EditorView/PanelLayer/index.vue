@@ -47,7 +47,7 @@ import PanelHeader from './PanelHeader/index.vue'
 import PanelLeftSidebar from './PanelLeftSidebar/index.vue'
 import FloatingPanel from './FloatingPanel/index.vue'
 import SystemVariablesPanel from './FloatingPanel/SystemVariablesPanel.vue'
-import StartNodePanel from './FloatingPanel/StartNodePanel.vue'
+import StartNodePanel from './FloatingPanel/StartNodePanel/index.vue'
 import LLMNodePanel from './FloatingPanel/LLMNodePanel.vue'
 import EndNodePanel from './FloatingPanel/EndNodePanel.vue'
 import {

@@ -1,5 +1,6 @@
 <template>
-  <div class="of-node-config-panel h-full flex flex-col">
+  <!-- Start 节点配置面板根容器，定位类 of-start-node-panel-xxx -->
+  <div class="of-start-node-panel-2c9 h-full flex flex-col">
     <!-- 头部 -->
     <div class="px-4 pt-4 pb-2 flex-shrink-0 border-b border-gray-100">
       <!-- 标题行：图标 + 输入框 + 操作按钮 -->
@@ -157,7 +158,7 @@
             <div class="flex">
               <div
                 class="cursor-pointer select-none rounded-md p-1 hover:bg-gray-100"
-                @click="addInputField"
+                @click="handleAddFieldClick"
               >
                 <svg
                   viewBox="0 0 24 24"
@@ -217,7 +218,9 @@
               </div>
               <!-- 操作按钮 -->
               <div class="ml-2 flex shrink-0 items-center">
-                <div class="text-xs font-normal text-gray-400 mr-2">必填</div>
+                <div class="text-xs font-normal text-gray-400 mr-2">
+                  {{ field.required ? '必填' : '可选' }}
+                </div>
                 <div class="cursor-pointer" @click="removeInputField(index)">
                   <svg
                     viewBox="0 0 24 24"
@@ -282,10 +285,14 @@
       </div>
     </div>
   </div>
+
+  <!-- 添加字段对话框 -->
+  <AddFieldDialog v-model="showAddFieldDialog" @confirm="handleFieldCreated" />
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import AddFieldDialog from './AddFieldDialog/index.vue'
 import {
   useWorkflowEditorUIStore,
   PanelTab
@@ -298,18 +305,29 @@ const localTitle = ref('')
 const localDesc = ref('')
 const localInputs = ref<Array<{ name: string; type: string; required: boolean }>>([])
 const activeTab = ref<'settings' | 'lastRun'>('settings')
+const showAddFieldDialog = ref(false)
 
 // Tab 切换
 function setActiveTab(tab: 'settings' | 'lastRun') {
   activeTab.value = tab
 }
 
-// 添加输入字段
-function addInputField() {
+// 点击“添加字段”按钮：打开对话框
+function handleAddFieldClick() {
+  showAddFieldDialog.value = true
+}
+
+// 对话框确认创建字段后回写到当前列表
+function handleFieldCreated(payload: {
+  name: string
+  label: string
+  type: string
+  required: boolean
+}) {
   localInputs.value.push({
-    name: '',
-    type: 'string',
-    required: true
+    name: payload.name,
+    type: payload.type,
+    required: payload.required
   })
 }
 
@@ -345,7 +363,7 @@ watch(
 </script>
 
 <style scoped>
-.of-node-config-panel {
+.of-start-node-panel-2c9 {
   font-family: inherit;
 }
 </style>
