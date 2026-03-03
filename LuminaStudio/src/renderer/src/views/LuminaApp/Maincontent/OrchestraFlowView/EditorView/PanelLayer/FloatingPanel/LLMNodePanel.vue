@@ -159,16 +159,39 @@
             </div>
           </div>
           <div class="mt-1">
+            <!-- 使用全局通用模型选择组件 -->
+            <ModelSelector
+              v-model:visible="modelSelectorVisible"
+              :current-provider-id="currentProviderId"
+              :current-model-id="currentModelId"
+              title="选择模型"
+              :show-manage-button="false"
+              @select="handleModelSelected"
+            />
+            <!-- 触发按钮：显示当前选择的模型，点击打开选择器 -->
             <div
               class="relative cursor-pointer rounded-lg border border-gray-200 bg-gray-50 px-2 py-2 hover:border-gray-300"
+              @click="modelSelectorVisible = true"
             >
               <div class="flex items-center">
                 <div class="flex h-5 w-5 items-center justify-center mr-2">
-                  <img alt="model-icon" src="" class="h-5 w-5 rounded" />
+                  <svg
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    fill="currentColor"
+                    class="h-5 w-5 text-gray-500"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M16 2C17.1046 2 18 2.89543 18 4V6H20C21.1046 6 22 6.89543 22 8V16C22 17.1046 21.1046 18 20 18H18V20C18 21.1046 17.1046 22 16 22H8C6.89543 22 6 21.1046 6 20V18H4C2.89543 18 2 17.1046 2 16V8C2 6.89543 2.89543 6 4 6H6V4C6 2.89543 6.89543 2 8 2H16ZM16 4H8V6H16V4ZM20 8H4V16H20V8ZM16 18H8V20H16V18Z"
+                    />
+                  </svg>
                 </div>
                 <div class="flex-1">
                   <div class="text-sm text-gray-900">
-                    {{ localModel.provider }} / {{ localModel.name }}
+                    {{ displayModelText }}
                   </div>
                 </div>
                 <svg
@@ -560,8 +583,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useWorkflowEditorUIStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor-ui.store'
+import ModelSelector from '@renderer/components/ModelSelector'
 
 const uiStore = useWorkflowEditorUIStore()
 
@@ -570,11 +594,30 @@ const localTitle = ref('')
 const localDesc = ref('')
 const activeTab = ref<'settings' | 'lastRun'>('settings')
 
-// 模型
-const localModel = ref({
-  provider: 'openai',
-  name: 'gpt-4'
+// 模型选择对话框显示状态
+const modelSelectorVisible = ref(false)
+
+// 当前模型标识（后续可与 store 联动）
+const currentProviderId = ref<string | null>('openai')
+const currentModelId = ref<string | null>('gpt-4')
+
+// 展示用文案
+const displayModelText = computed(() => {
+  if (!currentProviderId.value || !currentModelId.value) {
+    return '请选择模型'
+  }
+  return `${currentProviderId.value} / ${currentModelId.value}`
 })
+
+// 处理模型选择结果
+function handleModelSelected(payload: {
+  provider: { id: string; name: string }
+  model: { id: string; name: string }
+}): void {
+  currentProviderId.value = payload.provider.id
+  currentModelId.value = payload.model.id
+  // TODO: 与节点数据 / store 同步
+}
 
 // 提示词消息
 const localMessages = ref<Array<{ role: string; content: string; tokens?: number }>>([
@@ -591,12 +634,12 @@ const localReasoningEnabled = ref(false)
 const localRetryEnabled = ref(false)
 
 // Tab 切换
-function setActiveTab(tab: 'settings' | 'lastRun') {
+function setActiveTab(tab: 'settings' | 'lastRun'): void {
   activeTab.value = tab
 }
 
 // 添加消息
-function addMessage() {
+function addMessage(): void {
   localMessages.value.push({
     role: 'user',
     content: '',
@@ -605,12 +648,12 @@ function addMessage() {
 }
 
 // 移除消息
-function removeMessage(index: number) {
+function removeMessage(index: number): void {
   localMessages.value.splice(index, 1)
 }
 
 // 添加输出
-function addOutput() {
+function addOutput(): void {
   localOutputs.value.push({
     name: '',
     type: 'string'
@@ -618,17 +661,17 @@ function addOutput() {
 }
 
 // 移除输出
-function removeOutput(index: number) {
+function removeOutput(index: number): void {
   localOutputs.value.splice(index, 1)
 }
 
 // 添加下一步节点
-function addNextNode() {
+function addNextNode(): void {
   // TODO: 实现添加节点逻辑
 }
 
 // 关闭面板
-function handleClose() {
+function handleClose(): void {
   uiStore.closeNodeConfigPanel()
 }
 
@@ -640,10 +683,8 @@ watch(
       // TODO: 从 store 获取节点数据并填充表单
       localTitle.value = 'LLM'
       localDesc.value = '大语言模型节点'
-      localModel.value = {
-        provider: 'openai',
-        name: 'gpt-4'
-      }
+      currentProviderId.value = 'openai'
+      currentModelId.value = 'gpt-4'
       localMessages.value = [
         { role: 'system', content: '', tokens: 0 },
         { role: 'user', content: '', tokens: 0 }

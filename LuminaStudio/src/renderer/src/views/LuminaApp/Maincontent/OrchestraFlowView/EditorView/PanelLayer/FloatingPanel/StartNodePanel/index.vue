@@ -106,8 +106,8 @@
         </div>
       </div>
 
-      <!-- 描述文本框 -->
-      <div class="mt-2">
+      <!-- 描述文本框：第一个标题之外的正文文案定位类 of-start-node-desc-1 -->
+      <div class="mt-2 of-start-node-desc-1">
         <textarea
           v-model="localDesc"
           class="w-full resize-none appearance-none bg-transparent text-xs leading-[18px] text-gray-600 outline-none placeholder:text-gray-400"
