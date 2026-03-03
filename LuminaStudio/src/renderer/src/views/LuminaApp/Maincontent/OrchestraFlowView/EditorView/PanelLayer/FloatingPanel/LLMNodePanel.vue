@@ -347,10 +347,11 @@
               <!-- 消息内容 -->
               <div class="p-3 min-h-[60px]">
                 <textarea
-                  v-model="message.content"
+                  :value="message.text"
                   class="w-full resize-none appearance-none bg-transparent text-sm text-gray-700 outline-none placeholder:text-gray-400"
                   placeholder="输入提示词内容..."
                   :style="{ minHeight: '60px' }"
+                  @input="updateMessageContent(index, ($event.target as HTMLInputElement).value)"
                 />
               </div>
             </div>
@@ -375,39 +376,31 @@
           </div>
         </div>
 
-        <!-- 视觉 -->
-        <div>
+        <!-- 视觉（临时禁用，待后续扩展） -->
+        <div class="opacity-50 pointer-events-none">
           <div class="flex items-center justify-between">
             <div class="flex items-center">
               <div class="system-sm-semibold-uppercase text-gray-500">视觉</div>
+              <span class="ml-2 text-xs text-gray-400">(待扩展)</span>
             </div>
-            <div
-              class="h-4 w-7 rounded-full cursor-pointer transition-colors duration-200"
-              :class="localVisionEnabled ? 'bg-indigo-500' : 'bg-gray-200'"
-              @click="localVisionEnabled = !localVisionEnabled"
-            >
+            <div class="h-4 w-7 rounded-full bg-gray-200 transition-colors duration-200">
               <div
-                class="h-3 w-3 rounded-full bg-white shadow transform transition-transform duration-200 mt-0.5"
-                :class="localVisionEnabled ? 'translate-x-3.5' : 'translate-x-0.5'"
+                class="h-3 w-3 rounded-full bg-white shadow transform transition-transform duration-200 mt-0.5 translate-x-0.5"
               />
             </div>
           </div>
         </div>
 
-        <!-- 启用推理标签分离 -->
-        <div>
+        <!-- 启用推理标签分离（临时禁用，待后续扩展） -->
+        <div class="opacity-50 pointer-events-none">
           <div class="flex items-center justify-between">
             <div class="flex items-center">
               <div class="system-sm-semibold-uppercase text-gray-500">启用推理标签分离</div>
+              <span class="ml-2 text-xs text-gray-400">(待扩展)</span>
             </div>
-            <div
-              class="h-4 w-7 rounded-full cursor-pointer transition-colors duration-200"
-              :class="localReasoningEnabled ? 'bg-indigo-500' : 'bg-gray-200'"
-              @click="localReasoningEnabled = !localReasoningEnabled"
-            >
+            <div class="h-4 w-7 rounded-full bg-gray-200 transition-colors duration-200">
               <div
-                class="h-3 w-3 rounded-full bg-white shadow transform transition-transform duration-200 mt-0.5"
-                :class="localReasoningEnabled ? 'translate-x-3.5' : 'translate-x-0.5'"
+                class="h-3 w-3 rounded-full bg-white shadow transform transition-transform duration-200 mt-0.5 translate-x-0.5"
               />
             </div>
           </div>
@@ -430,18 +423,15 @@
             >
               <div class="flex-1 min-w-0">
                 <input
-                  v-model="output.name"
+                  :value="output.variable"
                   class="w-full text-sm text-gray-700 bg-transparent outline-none"
                   placeholder="变量名"
+                  @input="updateOutputVariable(index, ($event.target as HTMLInputElement).value)"
                 />
               </div>
               <div class="text-gray-400">:</div>
               <div class="flex-1 min-w-0">
-                <input
-                  v-model="output.type"
-                  class="w-full text-sm text-gray-500 bg-transparent outline-none"
-                  placeholder="类型"
-                />
+                <div class="w-full text-sm text-gray-500">string</div>
               </div>
               <div class="cursor-pointer shrink-0" @click="removeOutput(index)">
                 <svg
@@ -478,20 +468,16 @@
           </div>
         </div>
 
-        <!-- 失败时重试 -->
-        <div>
+        <!-- 失败时重试（临时禁用，待后续扩展） -->
+        <div class="opacity-50 pointer-events-none">
           <div class="flex items-center justify-between">
             <div class="flex items-center">
               <div class="system-sm-semibold-uppercase text-gray-500">失败时重试</div>
+              <span class="ml-2 text-xs text-gray-400">(待扩展)</span>
             </div>
-            <div
-              class="h-4 w-7 rounded-full cursor-pointer transition-colors duration-200"
-              :class="localRetryEnabled ? 'bg-indigo-500' : 'bg-gray-200'"
-              @click="localRetryEnabled = !localRetryEnabled"
-            >
+            <div class="h-4 w-7 rounded-full bg-gray-200 transition-colors duration-200">
               <div
-                class="h-3 w-3 rounded-full bg-white shadow transform transition-transform duration-200 mt-0.5"
-                :class="localRetryEnabled ? 'translate-x-3.5' : 'translate-x-0.5'"
+                class="h-3 w-3 rounded-full bg-white shadow transform transition-transform duration-200 mt-0.5 translate-x-0.5"
               />
             </div>
           </div>
@@ -585,9 +571,12 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useWorkflowEditorUIStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor-ui.store'
+import { useWorkflowEditorStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor.store'
 import ModelSelector from '@renderer/components/ModelSelector'
+import type { OFLLMNodeData, OFPromptItem } from '@Public/ShareTypes/Orchestraflow-types'
 
 const uiStore = useWorkflowEditorUIStore()
+const editorStore = useWorkflowEditorStore()
 
 // 本地表单状态（临时性质，不做全局状态）
 const localTitle = ref('')
@@ -597,9 +586,42 @@ const activeTab = ref<'settings' | 'lastRun'>('settings')
 // 模型选择对话框显示状态
 const modelSelectorVisible = ref(false)
 
-// 当前模型标识（后续可与 store 联动）
-const currentProviderId = ref<string | null>('openai')
-const currentModelId = ref<string | null>('gpt-4')
+// 获取当前选中的节点
+const currentNode = computed(() => {
+  if (!uiStore.selectedNodeId) return null
+  return editorStore.nodes.find((n) => n.id === uiStore.selectedNodeId)
+})
+
+// 当前模型标识（从 store 读写，全局持久化）
+const currentProviderId = computed({
+  get() {
+    if (!currentNode.value) return 'openai'
+    const nodeData = currentNode.value.data as OFLLMNodeData
+    return nodeData.model?.provider || 'openai'
+  },
+  set(newProvider: string) {
+    if (!uiStore.selectedNodeId || !currentNode.value) return
+    const nodeData = currentNode.value.data as OFLLMNodeData
+    editorStore.updateNode(uiStore.selectedNodeId, {
+      model: { ...nodeData.model, provider: newProvider }
+    })
+  }
+})
+
+const currentModelId = computed({
+  get() {
+    if (!currentNode.value) return 'gpt-4'
+    const nodeData = currentNode.value.data as OFLLMNodeData
+    return nodeData.model?.name || 'gpt-4'
+  },
+  set(newModel: string) {
+    if (!uiStore.selectedNodeId || !currentNode.value) return
+    const nodeData = currentNode.value.data as OFLLMNodeData
+    editorStore.updateNode(uiStore.selectedNodeId, {
+      model: { ...nodeData.model, name: newModel }
+    })
+  }
+})
 
 // 展示用文案
 const displayModelText = computed(() => {
@@ -616,19 +638,46 @@ function handleModelSelected(payload: {
 }): void {
   currentProviderId.value = payload.provider.id
   currentModelId.value = payload.model.id
-  // TODO: 与节点数据 / store 同步
 }
 
-// 提示词消息
-const localMessages = ref<Array<{ role: string; content: string; tokens?: number }>>([
+// 提示词消息（从 store 读写，全局持久化）
+const localMessages = computed({
+  get() {
+    if (!currentNode.value) return []
+    const nodeData = currentNode.value.data as OFLLMNodeData
+    return nodeData.prompt_template || []
+  },
+  set(newMessages: OFPromptItem[]) {
+    if (!uiStore.selectedNodeId) return
+    editorStore.updateNode(uiStore.selectedNodeId, {
+      prompt_template: newMessages
+    })
+  }
+})
+
+// 临时消息列表（用于编辑，避免直接修改 computed）
+const editableMessages = ref<Array<{ role: string; content: string; tokens?: number }>>([
   { role: 'system', content: '', tokens: 0 },
   { role: 'user', content: '', tokens: 0 }
 ])
 
-// 输出变量
-const localOutputs = ref<Array<{ name: string; type: string }>>([{ name: 'text', type: 'string' }])
+// 输出变量（从 store 读写，全局持久化）
+const localOutputs = computed({
+  get() {
+    if (!currentNode.value) return []
+    const nodeData = currentNode.value.data as OFLLMNodeData
+    // 注意：OFLLMNodeData 类型中没有 outputs 字段，这里需要扩展类型或使用 any
+    return (nodeData as any).outputs || []
+  },
+  set(newOutputs: Array<{ variable: string; value_selector: string[] }>) {
+    if (!uiStore.selectedNodeId) return
+    editorStore.updateNode(uiStore.selectedNodeId, {
+      outputs: newOutputs
+    } as any)
+  }
+})
 
-// 开关状态
+// 开关状态（临时禁用，保持本地状态，待后续扩展）
 const localVisionEnabled = ref(false)
 const localReasoningEnabled = ref(false)
 const localRetryEnabled = ref(false)
@@ -640,29 +689,55 @@ function setActiveTab(tab: 'settings' | 'lastRun'): void {
 
 // 添加消息
 function addMessage(): void {
-  localMessages.value.push({
-    role: 'user',
-    content: '',
-    tokens: 0
-  })
+  const newMessages = [
+    ...localMessages.value,
+    {
+      id: `msg_${Date.now()}`,
+      role: 'user' as const,
+      text: ''
+    }
+  ]
+  localMessages.value = newMessages
 }
 
 // 移除消息
 function removeMessage(index: number): void {
-  localMessages.value.splice(index, 1)
+  const newMessages = [...localMessages.value]
+  newMessages.splice(index, 1)
+  localMessages.value = newMessages
+}
+
+// 更新消息内容
+function updateMessageContent(index: number, newContent: string): void {
+  const newMessages = [...localMessages.value]
+  newMessages[index] = { ...newMessages[index], text: newContent }
+  localMessages.value = newMessages
 }
 
 // 添加输出
 function addOutput(): void {
-  localOutputs.value.push({
-    name: '',
-    type: 'string'
-  })
+  const newOutputs = [
+    ...localOutputs.value,
+    {
+      variable: '',
+      value_selector: []
+    }
+  ]
+  localOutputs.value = newOutputs
 }
 
 // 移除输出
 function removeOutput(index: number): void {
-  localOutputs.value.splice(index, 1)
+  const newOutputs = [...localOutputs.value]
+  newOutputs.splice(index, 1)
+  localOutputs.value = newOutputs
+}
+
+// 更新输出变量名
+function updateOutputVariable(index: number, newVariable: string): void {
+  const newOutputs = [...localOutputs.value]
+  newOutputs[index] = { ...newOutputs[index], variable: newVariable }
+  localOutputs.value = newOutputs
 }
 
 // 添加下一步节点
@@ -679,17 +754,11 @@ function handleClose(): void {
 watch(
   () => uiStore.selectedNodeId,
   (newId) => {
-    if (newId) {
-      // TODO: 从 store 获取节点数据并填充表单
-      localTitle.value = 'LLM'
-      localDesc.value = '大语言模型节点'
-      currentProviderId.value = 'openai'
-      currentModelId.value = 'gpt-4'
-      localMessages.value = [
-        { role: 'system', content: '', tokens: 0 },
-        { role: 'user', content: '', tokens: 0 }
-      ]
-      localOutputs.value = [{ name: 'text', type: 'string' }]
+    if (newId && currentNode.value) {
+      const nodeData = currentNode.value.data as OFLLMNodeData
+      localTitle.value = nodeData.title || 'LLM'
+      localDesc.value = nodeData.desc || ''
+      // 模型、消息、输出已通过 computed 自动同步
     }
   },
   { immediate: true }

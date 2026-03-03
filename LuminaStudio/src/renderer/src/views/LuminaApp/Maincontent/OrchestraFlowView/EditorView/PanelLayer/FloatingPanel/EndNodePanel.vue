@@ -191,18 +191,17 @@
               <!-- 变量名输入 -->
               <div class="flex-1 min-w-0">
                 <input
-                  v-model="output.name"
+                  :value="output.variable"
                   class="w-full text-sm text-gray-700 bg-transparent outline-none"
                   placeholder="变量名"
+                  @input="updateOutputVariable(index, ($event.target as HTMLInputElement).value)"
                 />
               </div>
 
               <!-- 类型选择 -->
               <div class="text-gray-400 shrink-0">:</div>
               <div class="flex items-center gap-1 shrink-0">
-                <div class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                  {{ output.type }}
-                </div>
+                <div class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">string</div>
               </div>
 
               <!-- 删除按钮 -->
@@ -237,18 +236,39 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { useWorkflowEditorUIStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor-ui.store'
+import { useWorkflowEditorStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor.store'
+import type { OFEndNodeData } from '@Public/ShareTypes/Orchestraflow-types'
 
 const uiStore = useWorkflowEditorUIStore()
+const editorStore = useWorkflowEditorStore()
 
 // 本地表单状态（临时性质，不做全局状态）
 const localTitle = ref('')
 const localDesc = ref('')
 const activeTab = ref<'settings' | 'lastRun'>('settings')
 
-// 输出变量
-const localOutputs = ref<Array<{ name: string; type: string }>>([])
+// 获取当前选中的节点
+const currentNode = computed(() => {
+  if (!uiStore.selectedNodeId) return null
+  return editorStore.nodes.find((n) => n.id === uiStore.selectedNodeId)
+})
+
+// 输出变量（从 store 读写，全局持久化）
+const localOutputs = computed({
+  get() {
+    if (!currentNode.value) return []
+    const nodeData = currentNode.value.data as OFEndNodeData
+    return nodeData.outputs || []
+  },
+  set(newOutputs: Array<{ variable: string; value_selector: string[] }>) {
+    if (!uiStore.selectedNodeId) return
+    editorStore.updateNode(uiStore.selectedNodeId, {
+      outputs: newOutputs
+    })
+  }
+})
 
 // Tab 切换
 function setActiveTab(tab: 'settings' | 'lastRun') {
@@ -257,15 +277,28 @@ function setActiveTab(tab: 'settings' | 'lastRun') {
 
 // 添加输出
 function addOutput() {
-  localOutputs.value.push({
-    name: '',
-    type: 'string'
-  })
+  const newOutputs = [
+    ...localOutputs.value,
+    {
+      variable: '',
+      value_selector: []
+    }
+  ]
+  localOutputs.value = newOutputs
 }
 
 // 移除输出
 function removeOutput(index: number) {
-  localOutputs.value.splice(index, 1)
+  const newOutputs = [...localOutputs.value]
+  newOutputs.splice(index, 1)
+  localOutputs.value = newOutputs
+}
+
+// 更新输出变量名
+function updateOutputVariable(index: number, newVariable: string) {
+  const newOutputs = [...localOutputs.value]
+  newOutputs[index] = { ...newOutputs[index], variable: newVariable }
+  localOutputs.value = newOutputs
 }
 
 // 关闭面板
@@ -277,11 +310,11 @@ function handleClose() {
 watch(
   () => uiStore.selectedNodeId,
   (newId) => {
-    if (newId) {
-      // TODO: 从 store 获取节点数据并填充表单
-      localTitle.value = '结束'
-      localDesc.value = '工作流结束节点'
-      localOutputs.value = [{ name: 'text', type: 'string' }]
+    if (newId && currentNode.value) {
+      const nodeData = currentNode.value.data as OFEndNodeData
+      localTitle.value = nodeData.title || '结束'
+      localDesc.value = nodeData.desc || ''
+      // 输出已通过 computed 自动同步
     }
   },
   { immediate: true }

@@ -8,11 +8,7 @@ export class WorkflowListDatasource {
   /**
    * 获取工作流列表
    */
-  async getWorkflows(params: {
-    keyword?: string
-    page?: number
-    pageSize?: number
-  }): Promise<{
+  async getWorkflows(params: { keyword?: string; page?: number; pageSize?: number }): Promise<{
     workflows: OFWorkflowMeta[]
     total: number
   }> {

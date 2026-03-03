@@ -48,9 +48,12 @@
             <div
               v-for="type in FIELD_TYPES"
               :key="type.id"
-              class="flex cursor-pointer items-center justify-between px-3 py-2 hover:bg-emerald-50"
-              :class="{ 'bg-emerald-50/60': selectedType.id === type.id }"
-              @click="selectType(type)"
+              class="flex items-center justify-between px-3 py-2"
+              :class="[
+                type.id === 'text' ? 'cursor-pointer hover:bg-emerald-50' : 'cursor-not-allowed opacity-40',
+                { 'bg-emerald-50/60': selectedType.id === type.id }
+              ]"
+              @click="type.id === 'text' ? selectType(type) : null"
             >
               <div class="flex items-center">
                 <component
@@ -65,6 +68,8 @@
                   "
                 >
                   {{ type.name }}
+                  <!-- 临时禁用标记：仅文本类型可用，其他类型待后续扩展 -->
+                  <span v-if="type.id !== 'text'" class="ml-1 text-xs text-gray-400">(待扩展)</span>
                 </span>
               </div>
               <div

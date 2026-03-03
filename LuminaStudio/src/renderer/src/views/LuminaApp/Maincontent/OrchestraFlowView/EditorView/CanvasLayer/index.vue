@@ -1,8 +1,8 @@
 <template>
   <div class="of-editor-canvas-layer absolute inset-0">
     <VueFlow
-      v-model:nodes="store.nodes"
-      v-model:edges="store.edges"
+      :nodes="store.nodes"
+      :edges="store.edges"
       :default-viewport="{
         x: store.viewport.x,
         y: store.viewport.y,
@@ -11,6 +11,9 @@
       class="of-editor-canvas h-full w-full"
       @node-click="handleNodeClick"
       @connect="handleConnect"
+      @node-drag-stop="handleNodeDragStop"
+      @nodes-change="handleNodesChange"
+      @edges-change="handleEdgesChange"
     >
       <!-- 自定义节点 -->
       <template #node-start="props">
@@ -39,6 +42,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, watch } from 'vue'
 import { VueFlow, useVueFlow, type Node } from '@vue-flow/core'
+import type { NodeChange, EdgeChange } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { MiniMap } from '@vue-flow/minimap'
 import { useWorkflowEditorStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor.store'
@@ -118,7 +122,12 @@ function handleNodeClick(event: { node: Node }) {
 }
 
 // 处理连接事件（节点之间的连线）
-function handleConnect(params: { source: string; target: string; sourceHandle?: string | null; targetHandle?: string | null }) {
+function handleConnect(params: {
+  source: string
+  target: string
+  sourceHandle?: string | null
+  targetHandle?: string | null
+}) {
   store.addEdge({
     id: `edge_${params.source}_${params.target}_${Date.now()}`,
     source: params.source,
@@ -126,6 +135,22 @@ function handleConnect(params: { source: string; target: string; sourceHandle?: 
     sourceHandle: params.sourceHandle,
     targetHandle: params.targetHandle
   })
+}
+
+// 处理节点拖拽结束（松手时同步位置）
+function handleNodeDragStop(event: { node: Node }) {
+  const node = event.node
+  store.updateNodePosition(node.id, node.position)
+}
+
+// 处理节点变化（增删等）
+function handleNodesChange(changes: NodeChange[]) {
+  store.applyNodeChanges(changes)
+}
+
+// 处理边变化（增删等）
+function handleEdgesChange(changes: EdgeChange[]) {
+  store.applyEdgeChanges(changes)
 }
 
 // 使用 VueFlow composable 来同步 viewport

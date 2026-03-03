@@ -205,16 +205,15 @@
                 </svg>
                 <!-- 变量名输入 -->
                 <input
-                  v-model="field.name"
+                  :value="field.variable"
                   class="max-w-[130px] shrink-0 truncate text-[13px] font-medium text-gray-600 bg-transparent outline-none"
                   placeholder="变量名"
+                  @input="updateFieldVariable(index, ($event.target as HTMLInputElement).value)"
                 />
                 <div class="shrink-0 text-xs font-medium text-gray-400">·</div>
-                <input
-                  v-model="field.type"
-                  class="max-w-[130px] truncate text-[13px] font-medium text-gray-400 bg-transparent outline-none"
-                  placeholder="类型"
-                />
+                <div class="max-w-[130px] truncate text-[13px] font-medium text-gray-400">
+                  {{ field.type }}
+                </div>
               </div>
               <!-- 操作按钮 -->
               <div class="ml-2 flex shrink-0 items-center">
@@ -291,21 +290,44 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import AddFieldDialog from './AddFieldDialog/index.vue'
 import {
   useWorkflowEditorUIStore,
   PanelTab
 } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor-ui.store'
+import { useWorkflowEditorStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor.store'
+import type { OFStartNodeData, OFInputVar } from '@Public/ShareTypes/Orchestraflow-types'
 
 const uiStore = useWorkflowEditorUIStore()
+const editorStore = useWorkflowEditorStore()
 
 // 本地表单状态（临时性质，不做全局状态）
 const localTitle = ref('')
 const localDesc = ref('')
-const localInputs = ref<Array<{ name: string; type: string; required: boolean }>>([])
 const activeTab = ref<'settings' | 'lastRun'>('settings')
 const showAddFieldDialog = ref(false)
+
+// 获取当前选中的节点
+const currentNode = computed(() => {
+  if (!uiStore.selectedNodeId) return null
+  return editorStore.nodes.find((n) => n.id === uiStore.selectedNodeId)
+})
+
+// 输入字段（从 store 读写，全局持久化）
+const localInputs = computed({
+  get() {
+    if (!currentNode.value) return []
+    const nodeData = currentNode.value.data as OFStartNodeData
+    return nodeData.inputs || []
+  },
+  set(newInputs: OFInputVar[]) {
+    if (!uiStore.selectedNodeId) return
+    editorStore.updateNode(uiStore.selectedNodeId, {
+      inputs: newInputs
+    })
+  }
+})
 
 // Tab 切换
 function setActiveTab(tab: 'settings' | 'lastRun') {
@@ -324,16 +346,28 @@ function handleFieldCreated(payload: {
   type: string
   required: boolean
 }) {
-  localInputs.value.push({
-    name: payload.name,
-    type: payload.type,
+  // 仅支持文本类型（text-input）
+  const newField: OFInputVar = {
+    variable: payload.name,
+    label: payload.label,
+    type: 'text-input' as any,
     required: payload.required
-  })
+  }
+  localInputs.value = [...localInputs.value, newField]
+}
+
+// 更新字段变量名
+function updateFieldVariable(index: number, newVariable: string) {
+  const newInputs = [...localInputs.value]
+  newInputs[index] = { ...newInputs[index], variable: newVariable }
+  localInputs.value = newInputs
 }
 
 // 移除输入字段
 function removeInputField(index: number) {
-  localInputs.value.splice(index, 1)
+  const newInputs = [...localInputs.value]
+  newInputs.splice(index, 1)
+  localInputs.value = newInputs
 }
 
 // 添加下一步节点
@@ -350,12 +384,10 @@ function handleClose() {
 watch(
   () => uiStore.selectedNodeId,
   (newId) => {
-    if (newId) {
-      // TODO: 从 store 获取节点数据并填充表单
-      // 临时设置默认值
-      localTitle.value = '开始'
-      localDesc.value = '工作流开始节点'
-      localInputs.value = [{ name: 'user_input', type: 'string', required: true }]
+    if (newId && currentNode.value) {
+      const nodeData = currentNode.value.data as OFStartNodeData
+      localTitle.value = nodeData.title || '开始'
+      localDesc.value = nodeData.desc || ''
     }
   },
   { immediate: true }
