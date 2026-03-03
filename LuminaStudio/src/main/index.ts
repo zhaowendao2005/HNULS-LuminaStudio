@@ -17,6 +17,8 @@ import { RerankModelIPCHandler } from './ipc/rerank-model-handler'
 import { langchainClientBridge } from './services/langchain-client-bridge'
 import { UserSettingsService } from './services/user-settings'
 import { UserSettingsIPCHandler } from './ipc/user-settings-handler'
+import { OrchestraflowWorkflowService } from './services/orchestraflow/orchestraflow-workflow-service'
+import { OrchestraflowIPCHandler } from './ipc/orchestraflow-handler'
 
 // 确保开发环境也使用 LuminaStudio 作为应用名称（生产环境自动使用 productName）
 if (!app.isPackaged) {
@@ -103,6 +105,10 @@ app.whenReady().then(() => {
   const userSettingsService = new UserSettingsService()
   userSettingsService.initialize()
   new UserSettingsIPCHandler(userSettingsService)
+
+  // 初始化 OrchestraFlow Workflow Service 和 IPC Handler
+  const orchestraflowWorkflowService = new OrchestraflowWorkflowService()
+  new OrchestraflowIPCHandler(orchestraflowWorkflowService)
 
   // 注册所有 IPC handlers
   registerAllHandlers()

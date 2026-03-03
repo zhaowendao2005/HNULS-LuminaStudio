@@ -12,7 +12,7 @@
  */
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { OFBlockEnum } from '@preload/types'
+import { OFBlockEnum } from '@Public/ShareTypes/Orchestraflow-types'
 
 /**
  * 面板类型枚举

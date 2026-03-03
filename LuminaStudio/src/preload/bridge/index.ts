@@ -11,6 +11,7 @@ import { aiChatAPI } from '../api/ai-chat-api'
 import { knowledgeDatabaseAPI } from '../api/knowledge-database-api'
 import { rerankModelAPI } from '../api/rerank-model-api'
 import { userSettingsAPI } from '../api/user-settings-api'
+import { orchestraflowAPI } from '../api/orchestraflow-api'
 
 const api = {
   utils: utilsAPI,
@@ -19,7 +20,8 @@ const api = {
   aiChat: aiChatAPI,
   knowledgeDatabase: knowledgeDatabaseAPI,
   rerankModel: rerankModelAPI,
-  userSettings: userSettingsAPI
+  userSettings: userSettingsAPI,
+  orchestraflow: orchestraflowAPI
 }
 
 contextBridge.exposeInMainWorld('api', api)

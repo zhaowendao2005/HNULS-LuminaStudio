@@ -1,39 +1,26 @@
 /**
- * OrchestraFlow 工作流列表数据源
- * 开发环境使用 mock，生产环境对接 IPC
+ * OrchestraFlow Workflow List DataSource
+ * 工作流列表数据源 - 直接调用 IPC
  */
 import type { OFWorkflowMeta } from '@preload/types'
-import { mockWorkflows } from './workflow-list.mock'
 
 export class WorkflowListDatasource {
   /**
    * 获取工作流列表
    */
-  async getWorkflows(params: { keyword?: string; page?: number; pageSize?: number }): Promise<{
+  async getWorkflows(params: {
+    keyword?: string
+    page?: number
+    pageSize?: number
+  }): Promise<{
     workflows: OFWorkflowMeta[]
     total: number
   }> {
-    // TODO: 生产环境对接 IPC
-    // 当前使用 mock
-    let filtered = [...mockWorkflows]
-
-    if (params.keyword) {
-      const keyword = params.keyword.toLowerCase()
-      filtered = filtered.filter(
-        (w) =>
-          w.name.toLowerCase().includes(keyword) || w.description?.toLowerCase().includes(keyword)
-      )
+    const res = await window.api.orchestraflow.list(params)
+    if (!res.success || !res.data) {
+      throw new Error(res.error || 'Failed to load workflows')
     }
-
-    const page = params.page || 1
-    const pageSize = params.pageSize || 10
-    const start = (page - 1) * pageSize
-    const end = start + pageSize
-
-    return {
-      workflows: filtered.slice(start, end),
-      total: filtered.length
-    }
+    return res.data
   }
 
   /**
@@ -45,35 +32,39 @@ export class WorkflowListDatasource {
     icon?: string
     iconBackground?: string
   }): Promise<OFWorkflowMeta> {
-    // TODO: 生产环境对接 IPC
-    const newWorkflow: OFWorkflowMeta = {
-      id: `of-wf-${Date.now()}`,
-      name: data.name,
-      description: data.description,
-      icon: data.icon || '📋',
+    const res = await window.api.orchestraflow.create(data)
+    if (!res.success || !res.data) {
+      throw new Error(res.error || 'Failed to create workflow')
+    }
+    return {
+      id: res.data.id,
+      name: res.data.name,
+      description: res.data.description,
+      icon: data.icon || 'ClipboardDocumentListIcon',
       iconBackground: data.iconBackground || '#E5E7EB',
-      author: '赵文道',
-      createdAt: Date.now() / 1000,
-      updatedAt: Date.now() / 1000,
-      status: 'draft',
-      nodeCount: 0,
+      author: res.data.author,
+      createdAt: res.data.createdAt,
+      updatedAt: res.data.updatedAt,
+      status: res.data.status,
+      nodeCount: res.data.graph?.nodes?.length || 0,
       tags: []
     }
-    return newWorkflow
   }
 
   /**
    * 删除工作流
    */
   async deleteWorkflow(id: string): Promise<void> {
-    // TODO: 生产环境对接 IPC
+    const res = await window.api.orchestraflow.delete(id)
+    if (!res.success) {
+      throw new Error(res.error || 'Failed to delete workflow')
+    }
   }
 
   /**
    * 更新工作流
    */
   async updateWorkflow(id: string, data: Partial<OFWorkflowMeta>): Promise<OFWorkflowMeta> {
-    // TODO: 生产环境对接 IPC
     throw new Error('Not implemented')
   }
 }

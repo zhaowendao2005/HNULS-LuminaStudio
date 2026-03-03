@@ -10,6 +10,7 @@
       }"
       class="of-editor-canvas h-full w-full"
       @node-click="handleNodeClick"
+      @connect="handleConnect"
     >
       <!-- 自定义节点 -->
       <template #node-start="props">
@@ -114,6 +115,17 @@ function handleNodeClick(event: { node: Node }) {
     }
     uiStore.openNodeConfigPanel(nodeId, ofBlockEnum)
   }
+}
+
+// 处理连接事件（节点之间的连线）
+function handleConnect(params: { source: string; target: string; sourceHandle?: string | null; targetHandle?: string | null }) {
+  store.addEdge({
+    id: `edge_${params.source}_${params.target}_${Date.now()}`,
+    source: params.source,
+    target: params.target,
+    sourceHandle: params.sourceHandle,
+    targetHandle: params.targetHandle
+  })
 }
 
 // 使用 VueFlow composable 来同步 viewport

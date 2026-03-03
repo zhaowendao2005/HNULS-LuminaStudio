@@ -11,6 +11,7 @@ export default defineConfig({
         '@preload/types': resolve('src/preload/types'),
         '@utility': resolve('src/utility'),
         '@shared': resolve('src/Public/ShareTypes'),
+        '@Public': resolve('src/Public'),
         '@prompt': resolve('src/Public/Prompt')
       }
     },
@@ -31,6 +32,7 @@ export default defineConfig({
         '@preload/types': resolve('src/preload/types'),
         '@utility': resolve('src/utility'),
         '@shared': resolve('src/Public/ShareTypes'),
+        '@Public': resolve('src/Public'),
         '@prompt': resolve('src/Public/Prompt')
       }
     }
@@ -41,6 +43,7 @@ export default defineConfig({
         '@renderer': resolve('src/renderer/src'),
         '@preload/types': resolve('src/preload/types'),
         '@shared': resolve('src/Public/ShareTypes'),
+        '@Public': resolve('src/Public'),
         '@prompt': resolve('src/Public/Prompt')
       }
     },
