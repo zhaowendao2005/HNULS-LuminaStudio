@@ -25,6 +25,7 @@ export class WorkflowListDatasource {
   async createWorkflow(data: {
     name: string
     description?: string
+    author: string
     icon?: string
     iconBackground?: string
   }): Promise<OFWorkflowMeta> {

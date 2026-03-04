@@ -345,14 +345,31 @@
                 </div>
               </div>
               <!-- 消息内容 -->
-              <div class="p-3 min-h-[60px]">
-                <textarea
-                  :value="message.text"
-                  class="w-full resize-none appearance-none bg-transparent text-sm text-gray-700 outline-none placeholder:text-gray-400"
-                  placeholder="输入提示词内容..."
-                  :style="{ minHeight: '60px' }"
-                  @input="updateMessageContent(index, ($event.target as HTMLInputElement).value)"
+              <div class="p-3 min-h-[60px] flex items-start gap-2">
+                <PromptTextarea
+                  ref="messageTextareas"
+                  :model-value="message.text"
+                  class="flex-1"
+                  placeholder="输入提示词内容...（输入 / 触发变量选择）"
+                  @update:model-value="handleMessageInput(index, $event)"
                 />
+                <!-- 变量引用按钮 -->
+                <button
+                  class="of-variable-trigger-btn mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded border border-gray-200 hover:bg-gray-50"
+                  title="引用变量"
+                  @click="variableSelectorStore.openSelector(uiStore.selectedNodeId!, 'prompt', messageTextareas[0]?.getCursorPosition() || 0)"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="14"
+                    height="14"
+                    fill="currentColor"
+                    class="text-gray-500"
+                  >
+                    <path d="M14.6 16.6L19.2 12L14.6 7.4L16 6L22 12L16 18L14.6 16.6ZM9.4 16.6L4.8 12L9.4 7.4L8 6L2 12L8 18L9.4 16.6Z" />
+                  </svg>
+                </button>
               </div>
             </div>
 
@@ -569,14 +586,17 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useWorkflowEditorUIStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor-ui.store'
 import { useWorkflowEditorStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor.store'
+import { useVariableSelectorStore } from '@renderer/stores/orchestraflow/workflow-editor/variable-selector/variable-selector.store'
 import ModelSelector from '@renderer/components/ModelSelector'
+import PromptTextarea from './PromptTextarea/index.vue'
 import type { OFLLMNodeData, OFPromptItem } from '@Public/ShareTypes/Orchestraflow-types'
 
 const uiStore = useWorkflowEditorUIStore()
 const editorStore = useWorkflowEditorStore()
+const variableSelectorStore = useVariableSelectorStore()
 
 // 本地表单状态（临时性质，不做全局状态）
 const localTitle = ref('')
@@ -749,6 +769,69 @@ function addNextNode(): void {
 function handleClose(): void {
   uiStore.closeNodeConfigPanel()
 }
+
+// 消息输入框 ref（用于检测 / 触发变量选择器）
+const messageTextareas = ref<InstanceType<typeof import('./PromptTextarea/index.vue').default>[]>([])
+
+// 处理消息文本框输入，检测 / 触发变量选择器
+function handleMessageInput(index: number, value: string) {
+  const cursorPos = messageTextareas.value[0]?.getCursorPosition() || 0
+
+  // 检测光标前是否是 /
+  const textBeforeCursor = value.slice(0, cursorPos)
+  const lastSlashIndex = textBeforeCursor.lastIndexOf('/')
+
+  // 如果 / 在光标位置前一个字符，触发变量选择器
+  if (lastSlashIndex !== -1 && (lastSlashIndex === cursorPos - 1 || textBeforeCursor.slice(lastSlashIndex).match(/^\/[a-zA-Z0-9_]*$/))) {
+    // 检查 / 后面是否有空格或其他分隔符
+    const textAfterSlash = textBeforeCursor.slice(lastSlashIndex + 1)
+    if (!textAfterSlash.includes(' ')) {
+      // 打开变量选择器
+      variableSelectorStore.openSelector(uiStore.selectedNodeId!, 'prompt', cursorPos)
+    }
+  }
+
+  // 继续更新消息内容
+  updateMessageContent(index, value)
+}
+
+// 监听变量选择事件
+function handleVariableSelect(event: CustomEvent) {
+  const { nodeId, targetType, variable, cursorPosition } = event.detail
+
+  // 确保是当前节点的 prompt 类型
+  if (nodeId !== uiStore.selectedNodeId || targetType !== 'prompt') return
+
+  // 获取当前消息内容
+  const currentMessages = [...localMessages.value]
+  if (!currentMessages[0]) return
+
+  const currentValue = currentMessages[0].text
+  const cursorPos = cursorPosition || 0
+
+  // 找到 / 的位置
+  const textBeforeCursor = currentValue.slice(0, cursorPos)
+  const lastSlashIndex = textBeforeCursor.lastIndexOf('/')
+
+  if (lastSlashIndex !== -1) {
+    // 替换 / 为变量标签
+    const beforeSlash = currentValue.slice(0, lastSlashIndex)
+    const afterCursor = currentValue.slice(cursorPos)
+    const newValue = beforeSlash + `{{${variable.variable}}}` + afterCursor
+
+    // 更新消息内容
+    currentMessages[0] = { ...currentMessages[0], text: newValue }
+    localMessages.value = currentMessages
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('of:variable-select', handleVariableSelect as EventListener)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('of:variable-select', handleVariableSelect as EventListener)
+})
 
 // 监听选中节点变化，加载数据
 watch(

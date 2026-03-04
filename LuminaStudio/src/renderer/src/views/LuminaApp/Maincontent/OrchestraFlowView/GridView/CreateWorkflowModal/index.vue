@@ -57,6 +57,21 @@
             />
           </div>
 
+          <!-- 作者 -->
+          <div class="mb-6">
+            <label class="block text-sm font-medium text-slate-700 mb-2">
+              作者
+              <span class="text-red-500">*</span>
+            </label>
+            <input
+              v-model="formData.author"
+              type="text"
+              placeholder="请输入作者名称"
+              class="w-full px-4 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              @keyup.enter="handleConfirm"
+            />
+          </div>
+
           <!-- 图标选择 -->
           <div class="mb-6">
             <label class="block text-sm font-medium text-slate-700 mb-2">图标</label>
@@ -64,7 +79,7 @@
               <!-- 图标预览 -->
               <div
                 class="flex h-16 w-16 items-center justify-center rounded-lg cursor-pointer border-2 transition-colors"
-                :class="selectedIcon ? 'border-emerald-500' : 'border-slate-300'"
+                :class="selectedIconData ? 'border-emerald-500' : 'border-slate-300'"
                 :style="{ backgroundColor: formData.iconBackground || '#E5E7EB' }"
                 @click="showIconPicker = true"
                 v-html="selectedIconData.svg"
@@ -125,7 +140,7 @@
           </button>
           <button
             @click="handleConfirm"
-            :disabled="!formData.name.trim()"
+            :disabled="!formData.name.trim() || !formData.author.trim()"
             class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             创建
@@ -150,6 +165,7 @@ const emit = defineEmits<{
     data: {
       name: string
       description?: string
+      author: string
       icon?: string
       iconBackground?: string
     }
@@ -159,6 +175,7 @@ const emit = defineEmits<{
 const formData = reactive({
   name: '',
   description: '',
+  author: '',
   icon: 'ClipboardDocumentListIcon',
   iconBackground: '#E5E7EB'
 })
@@ -166,7 +183,12 @@ const formData = reactive({
 const showIconPicker = ref(false)
 
 // SVG 图标组件映射
-const iconComponents: Record<string, any> = {
+interface IconComponent {
+  svg: string
+  color: string
+}
+
+const iconComponents: Record<string, IconComponent> = {
   ClipboardDocumentListIcon: {
     svg: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-8 h-8">
       <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
@@ -285,19 +307,21 @@ const selectedIconData = computed(() => {
   return iconComponents[formData.icon] || iconComponents.ClipboardDocumentListIcon
 })
 
-function handleConfirm() {
-  if (!formData.name.trim()) {
+function handleConfirm(): void {
+  if (!formData.name.trim() || !formData.author.trim()) {
     return
   }
   emit('confirm', {
     name: formData.name.trim(),
     description: formData.description.trim() || undefined,
+    author: formData.author.trim(),
     icon: formData.icon,
     iconBackground: formData.iconBackground
   })
   // 重置表单
   formData.name = ''
   formData.description = ''
+  formData.author = ''
   formData.icon = 'ClipboardDocumentListIcon'
   formData.iconBackground = '#E5E7EB'
   showIconPicker.value = false

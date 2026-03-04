@@ -16,7 +16,8 @@
       <!-- 更多操作按钮 -->
       <div class="relative">
         <button
-          @click.stop="showMenu = !showMenu"
+          ref="menuButtonRef"
+          @click.stop="toggleMenu"
           class="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-slate-100 transition-opacity"
         >
           <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -30,31 +31,37 @@
         </button>
 
         <!-- 右键菜单 -->
-        <div
-          v-if="showMenu"
-          v-click-outside="() => (showMenu = false)"
-          class="absolute right-0 top-8 z-10 w-32 rounded-lg border border-slate-200 bg-white shadow-lg py-1"
-        >
-          <button
-            @click.stop="handleEdit"
-            class="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-emerald-50 hover:text-emerald-700"
+        <Teleport to="body">
+          <div
+            v-if="showMenu"
+            v-click-outside="() => (showMenu = false)"
+            class="fixed z-50 w-32 rounded-lg border border-slate-200 bg-white shadow-lg py-1"
+            :style="{
+              top: `${menuPosition.top}px`,
+              left: `${menuPosition.left}px`
+            }"
           >
-            编辑
-          </button>
-          <button
-            @click.stop="handleCopy"
-            class="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-emerald-50 hover:text-emerald-700"
-          >
-            复制
-          </button>
-          <div class="h-px bg-slate-100 my-1" />
-          <button
-            @click.stop="handleDelete"
-            class="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50"
-          >
-            删除
-          </button>
-        </div>
+            <button
+              @click.stop="handleEdit"
+              class="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-emerald-50 hover:text-emerald-700"
+            >
+              编辑
+            </button>
+            <button
+              @click.stop="handleCopy"
+              class="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-emerald-50 hover:text-emerald-700"
+            >
+              复制
+            </button>
+            <div class="h-px bg-slate-100 my-1" />
+            <button
+              @click.stop="handleDelete"
+              class="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+            >
+              删除
+            </button>
+          </div>
+        </Teleport>
       </div>
     </div>
 
@@ -75,7 +82,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, Teleport } from 'vue'
 import type { OFWorkflowMeta } from '@preload/types'
 
 const props = defineProps<{
@@ -88,6 +95,30 @@ const emit = defineEmits<{
 }>()
 
 const showMenu = ref(false)
+const menuButtonRef = ref<HTMLElement | null>(null)
+const menuPosition = ref({ top: 0, left: 0 })
+
+function updateMenuPosition() {
+  const buttonEl = menuButtonRef.value
+  if (!buttonEl) return
+
+  const rect = buttonEl.getBoundingClientRect()
+  const menuWidth = 128
+
+  menuPosition.value = {
+    top: rect.bottom + window.scrollY + 4,
+    left: rect.right + window.scrollX - menuWidth
+  }
+}
+
+function toggleMenu() {
+  if (!showMenu.value) {
+    updateMenuPosition()
+    showMenu.value = true
+  } else {
+    showMenu.value = false
+  }
+}
 
 // SVG 图标组件映射
 const iconComponents: Record<string, any> = {

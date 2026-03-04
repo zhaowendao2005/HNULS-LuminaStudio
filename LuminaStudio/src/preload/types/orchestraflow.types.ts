@@ -26,6 +26,7 @@ export interface OFWorkflowAPI {
   create(data: {
     name: string
     description?: string
+    author: string
     icon?: string
     iconBackground?: string
   }): Promise<{

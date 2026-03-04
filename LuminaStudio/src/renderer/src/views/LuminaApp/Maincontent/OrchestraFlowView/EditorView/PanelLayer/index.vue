@@ -36,6 +36,9 @@
         <LLMNodePanel v-else-if="uiStore.currentPanelType === 'llm-node'" />
         <EndNodePanel v-else-if="uiStore.currentPanelType === 'end-node'" />
       </FloatingPanel>
+
+      <!-- 变量选择器 -->
+      <VariableSelector />
     </div>
   </div>
 </template>
@@ -50,6 +53,7 @@ import SystemVariablesPanel from './FloatingPanel/SystemVariablesPanel.vue'
 import StartNodePanel from './FloatingPanel/StartNodePanel/index.vue'
 import LLMNodePanel from './FloatingPanel/LLMNodePanel.vue'
 import EndNodePanel from './FloatingPanel/EndNodePanel.vue'
+import VariableSelector from './FloatingPanel/VariableSelector/index.vue'
 import {
   useWorkflowEditorUIStore,
   PanelType

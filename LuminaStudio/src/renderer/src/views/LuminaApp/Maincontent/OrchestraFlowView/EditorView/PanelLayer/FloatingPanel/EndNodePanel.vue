@@ -141,6 +141,24 @@
               </div>
             </div>
             <div class="flex">
+              <!-- 引用变量按钮 -->
+              <div
+                class="cursor-pointer select-none rounded-md p-1 hover:bg-gray-100"
+                title="引用变量"
+                @click="variableSelectorStore.openSelector(uiStore.selectedNodeId!, 'output')"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  fill="currentColor"
+                  class="h-4 w-4 text-gray-400"
+                >
+                  <path d="M14.6 16.6L19.2 12L14.6 7.4L16 6L22 12L16 18L14.6 16.6ZM9.4 16.6L4.8 12L9.4 7.4L8 6L2 12L8 18L9.4 16.6Z" />
+                </svg>
+              </div>
+              <!-- 添加按钮 -->
               <div
                 class="cursor-pointer select-none rounded-md p-1 hover:bg-gray-100"
                 @click="addOutput"
@@ -236,13 +254,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useWorkflowEditorUIStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor-ui.store'
 import { useWorkflowEditorStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor.store'
+import { useVariableSelectorStore } from '@renderer/stores/orchestraflow/workflow-editor/variable-selector/variable-selector.store'
 import type { OFEndNodeData } from '@Public/ShareTypes/Orchestraflow-types'
 
 const uiStore = useWorkflowEditorUIStore()
 const editorStore = useWorkflowEditorStore()
+const variableSelectorStore = useVariableSelectorStore()
 
 // 本地表单状态（临时性质，不做全局状态）
 const localTitle = ref('')
@@ -319,6 +339,32 @@ watch(
   },
   { immediate: true }
 )
+
+// 监听变量选择事件
+function handleVariableSelect(event: CustomEvent) {
+  const { nodeId, targetType, variable } = event.detail
+
+  // 确保是当前节点的 output 类型
+  if (nodeId !== uiStore.selectedNodeId || targetType !== 'output') return
+
+  // 添加选中的变量到输出列表
+  const newOutputs = [
+    ...localOutputs.value,
+    {
+      variable: variable.variable,
+      value_selector: variable.valueSelector
+    }
+  ]
+  localOutputs.value = newOutputs
+}
+
+onMounted(() => {
+  window.addEventListener('of:variable-select', handleVariableSelect as EventListener)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('of:variable-select', handleVariableSelect as EventListener)
+})
 </script>
 
 <style scoped>

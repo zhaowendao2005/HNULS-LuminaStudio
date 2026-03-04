@@ -121,7 +121,7 @@ export class OrchestraflowWorkflowService {
       id: workflowId,
       name: data.name,
       description: data.description,
-      author: '赵文道',
+      author: data.author,
       createdAt: now,
       updatedAt: now,
       status: 'draft',
