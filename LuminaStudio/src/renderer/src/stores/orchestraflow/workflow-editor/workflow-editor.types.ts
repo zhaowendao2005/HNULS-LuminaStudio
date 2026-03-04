@@ -10,7 +10,7 @@ import type {
   OFCommonEdgeType,
   OFNode,
   OFEdge
-} from '@Public/ShareTypes/Orchestraflow-types'
+} from '@shared/Orchestraflow-types'
 
 export type { OFNode, OFEdge }
 export type {

@@ -105,7 +105,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useDebounceFn } from '@vueuse/core'
 import { useWorkflowListStore } from '@renderer/stores/orchestraflow/workflow-list/workflow-list.store'
-import type { OFWorkflowMeta } from '@preload/types'
+import type { OFWorkflowMeta } from '@shared/Orchestraflow-types'
 import CreateWorkflowCard from './CreateWorkflowCard.vue'
 import WorkflowCard from './WorkflowCard.vue'
 import CreateWorkflowModal from './CreateWorkflowModal/index.vue'

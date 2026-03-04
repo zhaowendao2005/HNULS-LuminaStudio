@@ -2,13 +2,13 @@
  * OrchestraFlow (OF) 跨进程类型定义
  * 统一从 Public/ShareTypes/Orchestraflow-types 导出
  */
-export * from '@Public/ShareTypes/Orchestraflow-types'
+export * from '@shared/Orchestraflow-types'
 
 /**
  * OrchestraFlow API Types
  * 工作流系统 IPC 接口类型定义
  */
-import type { OFWorkflow, OFWorkflowMeta } from '@Public/ShareTypes/Orchestraflow-types'
+import type { OFWorkflow, OFWorkflowMeta } from '@shared/Orchestraflow-types'
 
 export interface OFWorkflowAPI {
   list(params?: { keyword?: string; page?: number; pageSize?: number }): Promise<{

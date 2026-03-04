@@ -3,6 +3,6 @@ import type {
   OFLLMNodeConfig,
   OFModelConfig,
   OFPromptItem
-} from '@Public/ShareTypes/Orchestraflow-types'
+} from '@shared/Orchestraflow-types'
 
 export type { OFLLMNodeConfig, OFModelConfig, OFPromptItem }

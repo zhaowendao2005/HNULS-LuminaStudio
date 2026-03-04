@@ -7,7 +7,7 @@ import type {
   OFWorkflowMeta,
   OFNode,
   OFEdge
-} from '@Public/ShareTypes/Orchestraflow-types'
+} from '@shared/Orchestraflow-types'
 
 export interface WorkflowListParams {
   keyword?: string

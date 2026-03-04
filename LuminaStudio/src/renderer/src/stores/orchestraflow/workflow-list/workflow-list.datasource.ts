@@ -2,7 +2,7 @@
  * OrchestraFlow Workflow List DataSource
  * 工作流列表数据源 - 直接调用 IPC
  */
-import type { OFWorkflowMeta } from '@preload/types'
+import type { OFWorkflowMeta } from '@shared/Orchestraflow-types'
 
 export class WorkflowListDatasource {
   /**

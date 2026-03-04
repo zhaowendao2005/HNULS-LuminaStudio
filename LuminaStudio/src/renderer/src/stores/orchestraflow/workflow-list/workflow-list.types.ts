@@ -1,7 +1,7 @@
 /**
  * OrchestraFlow 工作流列表类型定义
  */
-import type { OFWorkflowMeta } from '@preload/types'
+import type { OFWorkflowMeta } from '@shared/Orchestraflow-types'
 
 export interface WorkflowListState {
   workflows: OFWorkflowMeta[]

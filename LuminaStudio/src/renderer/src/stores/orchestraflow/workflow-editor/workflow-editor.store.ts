@@ -3,14 +3,14 @@
  */
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { OFControlMode, OFBlockEnum } from '@Public/ShareTypes/Orchestraflow-types'
+import { OFControlMode, OFBlockEnum } from '@shared/Orchestraflow-types'
 import type {
   OFNode,
   OFEdge,
   OFStartNodeData,
   OFLLMNodeData,
   OFEndNodeData
-} from '@Public/ShareTypes/Orchestraflow-types'
+} from '@shared/Orchestraflow-types'
 import type { NodeChange, EdgeChange } from '@vue-flow/core'
 import { WorkflowEditorDataSource } from './workflow-editor.datasource'
 

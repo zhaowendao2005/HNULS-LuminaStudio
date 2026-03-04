@@ -37,6 +37,12 @@
         <EndNodePanel v-else-if="uiStore.currentPanelType === 'end-node'" />
       </FloatingPanel>
 
+      <!-- 运行结果面板 -->
+      <WorkflowRunPanel
+        :visible="uiStore.showWorkflowRunPanel"
+        @close="uiStore.closeWorkflowRunPanel"
+      />
+
       <!-- 变量选择器 -->
       <VariableSelector />
     </div>
@@ -54,6 +60,7 @@ import StartNodePanel from './FloatingPanel/StartNodePanel/index.vue'
 import LLMNodePanel from './FloatingPanel/LLMNodePanel.vue'
 import EndNodePanel from './FloatingPanel/EndNodePanel.vue'
 import VariableSelector from './FloatingPanel/VariableSelector/index.vue'
+import WorkflowRunPanel from './FloatingPanel/WorkflowRunPanel/index.vue'
 import {
   useWorkflowEditorUIStore,
   PanelType

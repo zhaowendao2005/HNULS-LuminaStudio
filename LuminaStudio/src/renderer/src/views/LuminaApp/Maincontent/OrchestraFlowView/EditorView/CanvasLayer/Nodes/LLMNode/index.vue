@@ -65,7 +65,7 @@
 
 <script setup lang="ts">
 import { Handle } from '@vue-flow/core'
-import type { OFLLMNodeData } from '@preload/types'
+import type { OFLLMNodeData } from '@shared/Orchestraflow-types'
 
 defineProps<{
   data: OFLLMNodeData

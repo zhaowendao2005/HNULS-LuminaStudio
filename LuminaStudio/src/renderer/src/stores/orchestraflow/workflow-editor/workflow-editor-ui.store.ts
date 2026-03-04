@@ -12,7 +12,7 @@
  */
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { OFBlockEnum } from '@Public/ShareTypes/Orchestraflow-types'
+import { OFBlockEnum } from '@shared/Orchestraflow-types'
 
 /**
  * 面板类型枚举
@@ -74,6 +74,11 @@ export const useWorkflowEditorUIStore = defineStore('orchestraflow-workflow-edit
    * 面板是否正在调整宽度
    */
   const isResizing = ref(false)
+
+  /**
+   * 运行结果面板显示状态
+   */
+  const showWorkflowRunPanel = ref(false)
 
   // ===== Computed =====
 
@@ -183,6 +188,20 @@ export const useWorkflowEditorUIStore = defineStore('orchestraflow-workflow-edit
     isResizing.value = false
   }
 
+  /**
+   * 打开运行结果面板
+   */
+  function openWorkflowRunPanel() {
+    showWorkflowRunPanel.value = true
+  }
+
+  /**
+   * 关闭运行结果面板
+   */
+  function closeWorkflowRunPanel() {
+    showWorkflowRunPanel.value = false
+  }
+
   return {
     // State
     showSystemVariablesPanel,
@@ -193,6 +212,7 @@ export const useWorkflowEditorUIStore = defineStore('orchestraflow-workflow-edit
     activeTab,
     panelWidth,
     isResizing,
+    showWorkflowRunPanel,
 
     // Computed
     hasAnyPanelOpen,
@@ -207,6 +227,8 @@ export const useWorkflowEditorUIStore = defineStore('orchestraflow-workflow-edit
     setPanelWidth,
     startResize,
     endResize,
-    getPanelTypeByNodeType
+    getPanelTypeByNodeType,
+    openWorkflowRunPanel,
+    closeWorkflowRunPanel
   }
 })

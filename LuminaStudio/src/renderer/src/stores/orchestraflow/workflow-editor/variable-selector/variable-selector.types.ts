@@ -2,7 +2,7 @@
  * OrchestraFlow 变量选择器类型定义
  */
 
-import type { OFBlockEnum } from '@Public/ShareTypes/Orchestraflow-types'
+import type { OFBlockEnum } from '@shared/Orchestraflow-types'
 
 /**
  * 可引用的变量项

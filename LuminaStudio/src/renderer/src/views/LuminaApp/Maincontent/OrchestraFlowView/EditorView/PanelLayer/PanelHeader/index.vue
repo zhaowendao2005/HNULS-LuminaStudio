@@ -10,26 +10,86 @@
         <span class="text-gray-500">未发布</span>
       </div>
 
-      <!-- 右对齐：圆角 SVG 图标按钮 -->
+      <!-- 右对齐:圆角 SVG 图标按钮 -->
       <div class="flex items-center gap-2 flex-shrink-0">
-        <!-- 测试运行按钮（淡绿色） -->
-        <button
-          class="relative group flex items-center gap-2 px-3 py-1.5 bg-green-50 hover:bg-green-100 text-green-700 rounded-md transition-colors border border-green-200"
-          title="测试运行 Alt R"
-        >
-          <svg
-            class="w-4 h-4"
-            fill="currentColor"
-            viewBox="0 0 20 20"
-            xmlns="http://www.w3.org/2000/svg"
+        <!-- 测试运行组合按钮（左侧运行状态+右侧更多） -->
+        <div class="relative flex">
+          <!-- 左侧：测试运行按钮（显示运行状态） -->
+          <button
+            class="relative group flex items-center gap-2 px-3 py-1.5 bg-green-50 hover:bg-green-100 text-green-700 rounded-l-md transition-colors border border-green-200 border-r-0"
+            :title="isRunning ? '运行中...' : '测试运行 Alt R'"
+            @click="handleRunWorkflow"
           >
-            <path
-              d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"
-            />
-          </svg>
-          <span class="text-sm font-medium">测试运行</span>
-          <span class="text-xs opacity-75">Alt R</span>
-        </button>
+            <!-- 运行中：加载图标 -->
+            <svg
+              v-if="isRunning"
+              class="w-4 h-4 animate-spin"
+              fill="none"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <circle
+                class="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                stroke-width="4"
+              ></circle>
+              <path
+                class="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              ></path>
+            </svg>
+            <!-- 已完成：对勾图标 -->
+            <svg
+              v-else-if="isCompleted"
+              class="w-4 h-4"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                fill-rule="evenodd"
+                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                clip-rule="evenodd"
+              />
+            </svg>
+            <!-- 默认：播放图标 -->
+            <svg
+              v-else
+              class="w-4 h-4"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"
+              />
+            </svg>
+            <span class="text-sm font-medium">{{ runButtonText }}</span>
+            <span v-if="!isRunning && !isCompleted" class="text-xs opacity-75">Alt R</span>
+          </button>
+
+          <!-- 右侧：更多按钮（直接打开面板） -->
+          <button
+            class="relative group px-2 py-1.5 bg-green-50 hover:bg-green-100 text-green-700 rounded-r-md transition-colors border border-green-200 border-l border-green-300"
+            title="查看运行面板"
+            @click="openRunPanel"
+          >
+            <svg
+              class="w-4 h-4"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"
+              />
+            </svg>
+          </button>
+        </div>
 
         <!-- 分隔线 -->
         <div class="w-px h-6 bg-gray-300"></div>
@@ -122,6 +182,11 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useWorkflowEditorStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor.store'
+import { useWorkflowRunStore } from '@renderer/stores/orchestraflow/workflow-run/workflow-run.store'
+import { useWorkflowEditorUIStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor-ui.store'
+
 const props = defineProps<{
   autoSaveTime: string
 }>()
@@ -129,4 +194,35 @@ const props = defineProps<{
 const emit = defineEmits<{
   'open-system-variables': []
 }>()
+
+const editorStore = useWorkflowEditorStore()
+const runStore = useWorkflowRunStore()
+const uiStore = useWorkflowEditorUIStore()
+
+const isRunning = computed(() => runStore.isRunning)
+const isCompleted = computed(() => runStore.isSucceeded || runStore.isFailed)
+
+const runButtonText = computed(() => {
+  if (isRunning.value) return '运行中...'
+  if (isCompleted.value) return '已完成'
+  return '测试运行'
+})
+
+function handleRunWorkflow() {
+  if (!editorStore.currentWorkflowId) return
+
+  if (isRunning.value) {
+    return
+  }
+
+  if (isCompleted.value) {
+    runStore.reset()
+  }
+
+  runStore.runWorkflow(editorStore.currentWorkflowId)
+}
+
+function openRunPanel() {
+  uiStore.openWorkflowRunPanel()
+}
 </script>

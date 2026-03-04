@@ -2,7 +2,7 @@
  * OrchestraFlow 工作流编辑器 Mock 数据
  */
 import type { OFNode, OFEdge } from './workflow-editor.types'
-import { OFBlockEnum } from '@preload/types'
+import { OFBlockEnum } from '@shared/Orchestraflow-types'
 
 /**
  * 默认工作流：Start → LLM → End

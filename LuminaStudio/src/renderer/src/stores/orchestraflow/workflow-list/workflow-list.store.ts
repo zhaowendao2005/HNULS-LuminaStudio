@@ -5,7 +5,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { WorkflowListState } from './workflow-list.types'
 import { WorkflowListDatasource } from './workflow-list.datasource'
-import type { OFWorkflowMeta } from '@preload/types'
+import type { OFWorkflowMeta } from '@shared/Orchestraflow-types'
 
 const datasource = new WorkflowListDatasource()
 

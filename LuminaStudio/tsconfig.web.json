@@ -14,6 +14,7 @@
       "@renderer/*": ["src/renderer/src/*"],
       "@preload/types": ["src/preload/types"],
       "@shared/*": ["src/Public/ShareTypes/*"],
+      "@Public/*": ["src/Public/*"],
       "@prompt/*": ["src/Public/Prompt/*"]
     }
   }

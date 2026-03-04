@@ -118,7 +118,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { OFBlockEnum } from '@Public/ShareTypes/Orchestraflow-types'
+import { OFBlockEnum } from '@shared/Orchestraflow-types'
 import { useWorkflowEditorStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor.store'
 
 const emit = defineEmits<{

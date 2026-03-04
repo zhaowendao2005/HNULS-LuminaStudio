@@ -258,7 +258,7 @@ import { ref, watch, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useWorkflowEditorUIStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor-ui.store'
 import { useWorkflowEditorStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor.store'
 import { useVariableSelectorStore } from '@renderer/stores/orchestraflow/workflow-editor/variable-selector/variable-selector.store'
-import type { OFEndNodeData } from '@Public/ShareTypes/Orchestraflow-types'
+import type { OFEndNodeData } from '@shared/Orchestraflow-types'
 
 const uiStore = useWorkflowEditorUIStore()
 const editorStore = useWorkflowEditorStore()

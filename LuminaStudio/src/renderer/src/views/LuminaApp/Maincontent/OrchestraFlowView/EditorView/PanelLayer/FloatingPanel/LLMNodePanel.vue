@@ -592,7 +592,7 @@ import { useWorkflowEditorStore } from '@renderer/stores/orchestraflow/workflow-
 import { useVariableSelectorStore } from '@renderer/stores/orchestraflow/workflow-editor/variable-selector/variable-selector.store'
 import ModelSelector from '@renderer/components/ModelSelector'
 import PromptTextarea from './PromptTextarea/index.vue'
-import type { OFLLMNodeData, OFPromptItem } from '@Public/ShareTypes/Orchestraflow-types'
+import type { OFLLMNodeData, OFPromptItem } from '@shared/Orchestraflow-types'
 
 const uiStore = useWorkflowEditorUIStore()
 const editorStore = useWorkflowEditorStore()

@@ -42,7 +42,7 @@
 
 <script setup lang="ts">
 import { Handle } from '@vue-flow/core'
-import type { OFStartNodeData } from '@preload/types'
+import type { OFStartNodeData } from '@shared/Orchestraflow-types'
 
 defineProps<{
   data: OFStartNodeData

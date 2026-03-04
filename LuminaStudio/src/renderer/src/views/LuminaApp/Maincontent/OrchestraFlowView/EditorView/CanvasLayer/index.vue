@@ -51,7 +51,7 @@ import {
   useWorkflowEditorUIStore,
   type PanelType
 } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor-ui.store'
-import { OFBlockEnum } from '@preload/types'
+import { OFBlockEnum } from '@shared/Orchestraflow-types'
 
 // 导入自定义节点组件
 import StartNode from './Nodes/StartNode/index.vue'

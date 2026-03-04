@@ -297,7 +297,7 @@ import {
   PanelTab
 } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor-ui.store'
 import { useWorkflowEditorStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor.store'
-import type { OFStartNodeData, OFInputVar } from '@Public/ShareTypes/Orchestraflow-types'
+import type { OFStartNodeData, OFInputVar } from '@shared/Orchestraflow-types'
 
 const uiStore = useWorkflowEditorUIStore()
 const editorStore = useWorkflowEditorStore()

@@ -6,8 +6,8 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { useWorkflowEditorStore } from '../workflow-editor.store'
 import type { OFAvailableVariable, VariableSelectorState } from './variable-selector.types'
-import type { OFNode, OFEdge, OFStartNodeData, OFLLMNodeData, OFEndNodeData } from '@Public/ShareTypes/Orchestraflow-types'
-import { OFBlockEnum } from '@Public/ShareTypes/Orchestraflow-types'
+import type { OFNode, OFEdge, OFStartNodeData, OFLLMNodeData, OFEndNodeData } from '@shared/Orchestraflow-types'
+import { OFBlockEnum } from '@shared/Orchestraflow-types'
 
 export const useVariableSelectorStore = defineStore('orchestraflow-variable-selector', () => {
   // State

@@ -8,7 +8,7 @@ import type {
   OFLLMNodeConfig,
   OFModelConfig,
   OFPromptItem
-} from '@Public/ShareTypes/Orchestraflow-types'
+} from '@shared/Orchestraflow-types'
 
 export const useLLMNodeConfigStore = defineStore('of-llm-node-config', () => {
   const currentNodeId = ref<string | null>(null)

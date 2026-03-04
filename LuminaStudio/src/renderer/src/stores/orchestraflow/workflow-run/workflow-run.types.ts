@@ -5,7 +5,7 @@ import type {
   OFWorkflowRunningStatus,
   OFNodeRunningStatus,
   OFWorkflowRunResult
-} from '@preload/types'
+} from '@shared/Orchestraflow-types'
 
 export interface WorkflowRunState {
   status: OFWorkflowRunningStatus

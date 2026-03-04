@@ -36,7 +36,7 @@
 
 <script setup lang="ts">
 import { Handle } from '@vue-flow/core'
-import type { OFEndNodeData } from '@preload/types'
+import type { OFEndNodeData } from '@shared/Orchestraflow-types'
 
 defineProps<{
   data: OFEndNodeData

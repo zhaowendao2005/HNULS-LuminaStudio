@@ -85,7 +85,7 @@
 import { ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useVariableSelectorStore } from '@renderer/stores/orchestraflow/workflow-editor/variable-selector/variable-selector.store'
 import type { OFAvailableVariable } from '@renderer/stores/orchestraflow/workflow-editor/variable-selector/variable-selector.types'
-import { OFBlockEnum } from '@Public/ShareTypes/Orchestraflow-types'
+import { OFBlockEnum } from '@shared/Orchestraflow-types'
 
 const store = useVariableSelectorStore()
 const searchInput = ref<HTMLInputElement | null>(null)

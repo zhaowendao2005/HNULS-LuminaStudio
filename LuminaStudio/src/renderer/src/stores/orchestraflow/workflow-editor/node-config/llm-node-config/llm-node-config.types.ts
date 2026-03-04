@@ -1,4 +1,4 @@
 // End node config types
-import type { OFEndNodeConfig } from '@Public/ShareTypes/Orchestraflow-types'
+import type { OFEndNodeConfig } from '@shared/Orchestraflow-types'
 
 export type { OFEndNodeConfig }

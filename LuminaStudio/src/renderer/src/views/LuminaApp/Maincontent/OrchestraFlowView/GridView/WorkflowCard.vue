@@ -83,7 +83,7 @@
 
 <script setup lang="ts">
 import { ref, computed, Teleport } from 'vue'
-import type { OFWorkflowMeta } from '@preload/types'
+import type { OFWorkflowMeta } from '@shared/Orchestraflow-types'
 
 const props = defineProps<{
   workflow: OFWorkflowMeta

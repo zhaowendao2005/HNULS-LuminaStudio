@@ -4,7 +4,7 @@
  */
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { OFStartNodeConfig, OFInputVar } from '@Public/ShareTypes/Orchestraflow-types'
+import type { OFStartNodeConfig, OFInputVar } from '@shared/Orchestraflow-types'
 
 export const useStartNodeConfigStore = defineStore('of-start-node-config', () => {
   const currentNodeId = ref<string | null>(null)

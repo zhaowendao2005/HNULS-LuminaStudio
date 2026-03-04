@@ -11,6 +11,7 @@
       "@preload/types": ["src/preload/types"],
       "@utility/*": ["src/utility/*"],
       "@shared/*": ["src/Public/ShareTypes/*"],
+      "@Public/*": ["src/Public/*"],
       "@prompt/*": ["src/Public/Prompt/*"]
     }
   }
