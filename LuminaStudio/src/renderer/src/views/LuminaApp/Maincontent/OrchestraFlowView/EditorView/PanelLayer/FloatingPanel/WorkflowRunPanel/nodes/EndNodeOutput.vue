@@ -34,7 +34,9 @@
         <div class="flex items-center gap-1.5 mb-2">
           <span class="text-xs font-medium text-gray-500 uppercase">{{ key }}</span>
         </div>
-        <div class="text-sm text-gray-700 whitespace-pre-wrap break-words">{{ value || '(空)' }}</div>
+        <div class="text-sm text-gray-700 whitespace-pre-wrap break-words">
+          {{ value || '(空)' }}
+        </div>
       </div>
     </div>
     <div v-else class="text-sm text-gray-400 text-center py-2">无输出</div>

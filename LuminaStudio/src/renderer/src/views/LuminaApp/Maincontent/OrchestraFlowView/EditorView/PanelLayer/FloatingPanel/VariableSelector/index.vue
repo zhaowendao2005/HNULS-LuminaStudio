@@ -13,7 +13,9 @@
         >
           <!-- 搜索框 -->
           <div class="border-b border-gray-100 p-2">
-            <div class="flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5">
+            <div
+              class="flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5"
+            >
               <svg
                 class="h-4 w-4 shrink-0 text-gray-400"
                 viewBox="0 0 24 24"
@@ -36,7 +38,10 @@
 
           <!-- 变量列表 -->
           <div class="max-h-64 overflow-y-auto py-1">
-            <div v-if="store.availableVariables.length === 0" class="px-3 py-4 text-center text-sm text-gray-400">
+            <div
+              v-if="store.availableVariables.length === 0"
+              class="px-3 py-4 text-center text-sm text-gray-400"
+            >
               暂无可用变量
             </div>
             <div

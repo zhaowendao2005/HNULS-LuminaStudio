@@ -2,12 +2,7 @@
  * OrchestraFlow Workflow DataSource
  * 工作流编辑器数据源 - 直接调用 IPC
  */
-import type {
-  OFWorkflow,
-  OFWorkflowMeta,
-  OFNode,
-  OFEdge
-} from '@shared/Orchestraflow-types'
+import type { OFWorkflow, OFWorkflowMeta, OFNode, OFEdge } from '@shared/Orchestraflow-types'
 
 export interface WorkflowListParams {
   keyword?: string

@@ -357,7 +357,13 @@
                 <button
                   class="of-variable-trigger-btn mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded border border-gray-200 hover:bg-gray-50"
                   title="引用变量"
-                  @click="variableSelectorStore.openSelector(uiStore.selectedNodeId!, 'prompt', messageTextareas[0]?.getCursorPosition() || 0)"
+                  @click="
+                    variableSelectorStore.openSelector(
+                      uiStore.selectedNodeId!,
+                      'prompt',
+                      messageTextareas[0]?.getCursorPosition() || 0
+                    )
+                  "
                 >
                   <svg
                     viewBox="0 0 24 24"
@@ -367,7 +373,9 @@
                     fill="currentColor"
                     class="text-gray-500"
                   >
-                    <path d="M14.6 16.6L19.2 12L14.6 7.4L16 6L22 12L16 18L14.6 16.6ZM9.4 16.6L4.8 12L9.4 7.4L8 6L2 12L8 18L9.4 16.6Z" />
+                    <path
+                      d="M14.6 16.6L19.2 12L14.6 7.4L16 6L22 12L16 18L14.6 16.6ZM9.4 16.6L4.8 12L9.4 7.4L8 6L2 12L8 18L9.4 16.6Z"
+                    />
                   </svg>
                 </button>
               </div>
@@ -771,7 +779,9 @@ function handleClose(): void {
 }
 
 // 消息输入框 ref（用于检测 / 触发变量选择器）
-const messageTextareas = ref<InstanceType<typeof import('./PromptTextarea/index.vue').default>[]>([])
+const messageTextareas = ref<InstanceType<typeof import('./PromptTextarea/index.vue').default>[]>(
+  []
+)
 
 // 处理消息文本框输入，检测 / 触发变量选择器
 function handleMessageInput(index: number, value: string) {
@@ -782,7 +792,11 @@ function handleMessageInput(index: number, value: string) {
   const lastSlashIndex = textBeforeCursor.lastIndexOf('/')
 
   // 如果 / 在光标位置前一个字符，触发变量选择器
-  if (lastSlashIndex !== -1 && (lastSlashIndex === cursorPos - 1 || textBeforeCursor.slice(lastSlashIndex).match(/^\/[a-zA-Z0-9_]*$/))) {
+  if (
+    lastSlashIndex !== -1 &&
+    (lastSlashIndex === cursorPos - 1 ||
+      textBeforeCursor.slice(lastSlashIndex).match(/^\/[a-zA-Z0-9_]*$/))
+  ) {
     // 检查 / 后面是否有空格或其他分隔符
     const textAfterSlash = textBeforeCursor.slice(lastSlashIndex + 1)
     if (!textAfterSlash.includes(' ')) {

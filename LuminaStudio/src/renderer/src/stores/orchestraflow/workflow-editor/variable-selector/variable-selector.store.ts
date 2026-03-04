@@ -6,7 +6,13 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { useWorkflowEditorStore } from '../workflow-editor.store'
 import type { OFAvailableVariable, VariableSelectorState } from './variable-selector.types'
-import type { OFNode, OFEdge, OFStartNodeData, OFLLMNodeData, OFEndNodeData } from '@shared/Orchestraflow-types'
+import type {
+  OFNode,
+  OFEdge,
+  OFStartNodeData,
+  OFLLMNodeData,
+  OFEndNodeData
+} from '@shared/Orchestraflow-types'
 import { OFBlockEnum } from '@shared/Orchestraflow-types'
 
 export const useVariableSelectorStore = defineStore('orchestraflow-variable-selector', () => {
@@ -52,7 +58,10 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
         // LLM 节点：outputs 定义输出变量（如果有的话）
         const llmData = data as OFLLMNodeData
         if ((llmData as any).outputs) {
-          for (const output of (llmData as any).outputs as Array<{ variable: string; value_selector?: string[] }>) {
+          for (const output of (llmData as any).outputs as Array<{
+            variable: string
+            value_selector?: string[]
+          }>) {
             variables.push({
               id: `${nodeId}:${output.variable}`,
               variable: `outputs.${output.variable}`,
@@ -131,7 +140,10 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
     if (searchKeyword.value) {
       const keyword = searchKeyword.value.toLowerCase()
       variables = variables.filter(
-        (v) => v.variable.toLowerCase().includes(keyword) || v.label.toLowerCase().includes(keyword) || v.nodeTitle.toLowerCase().includes(keyword)
+        (v) =>
+          v.variable.toLowerCase().includes(keyword) ||
+          v.label.toLowerCase().includes(keyword) ||
+          v.nodeTitle.toLowerCase().includes(keyword)
       )
     }
 

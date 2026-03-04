@@ -50,7 +50,9 @@
               :key="type.id"
               class="flex items-center justify-between px-3 py-2"
               :class="[
-                type.id === 'text' ? 'cursor-pointer hover:bg-emerald-50' : 'cursor-not-allowed opacity-40',
+                type.id === 'text'
+                  ? 'cursor-pointer hover:bg-emerald-50'
+                  : 'cursor-not-allowed opacity-40',
                 { 'bg-emerald-50/60': selectedType.id === type.id }
               ]"
               @click="type.id === 'text' ? selectType(type) : null"

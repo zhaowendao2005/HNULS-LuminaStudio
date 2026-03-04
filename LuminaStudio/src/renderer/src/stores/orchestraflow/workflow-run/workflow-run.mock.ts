@@ -2,7 +2,11 @@
  * OrchestraFlow 工作流运行 Mock 数据
  */
 import type { OFWorkflowRunResult } from '@shared/Orchestraflow-types'
-import { OFWorkflowRunningStatus, OFNodeRunningStatus, OFBlockEnum } from '@shared/Orchestraflow-types'
+import {
+  OFWorkflowRunningStatus,
+  OFNodeRunningStatus,
+  OFBlockEnum
+} from '@shared/Orchestraflow-types'
 
 /**
  * 模拟运行结果 - 包含完整节点输入输出
@@ -55,12 +59,14 @@ export function createMockRunResult(): OFWorkflowRunResult {
         status: OFNodeRunningStatus.Succeeded,
         elapsed_time: 0.03,
         outputs: {
-          result: '这段文章主要讲述了人工智能在现代软件开发中的应用。作者从以下几个方面进行了阐述：\n\n1. **自动化测试**：AI可以自动生成测试用例，提高代码覆盖率。\n2. **代码审查**：机器学习模型能够识别潜在的bug和安全漏洞。\n3. **智能补全**：基于上下文的代码补全建议大幅提升开发效率。\n4. **文档生成**：自动生成API文档和技术文档。\n\n总结来说，AI正在改变软件开发的方式，让开发者能够专注于更具创造性的工作。'
+          result:
+            '这段文章主要讲述了人工智能在现代软件开发中的应用。作者从以下几个方面进行了阐述：\n\n1. **自动化测试**：AI可以自动生成测试用例，提高代码覆盖率。\n2. **代码审查**：机器学习模型能够识别潜在的bug和安全漏洞。\n3. **智能补全**：基于上下文的代码补全建议大幅提升开发效率。\n4. **文档生成**：自动生成API文档和技术文档。\n\n总结来说，AI正在改变软件开发的方式，让开发者能够专注于更具创造性的工作。'
         }
       }
     ],
     outputs: {
-      result: '这段文章主要讲述了人工智能在现代软件开发中的应用。作者从以下几个方面进行了阐述：\n\n1. **自动化测试**：AI可以自动生成测试用例，提高代码覆盖率。\n2. **代码审查**：机器学习模型能够识别潜在的bug和安全漏洞。\n3. **智能补全**：基于上下文的代码补全建议大幅提升开发效率。\n4. **文档生成**：自动生成API文档和技术文档。\n\n总结来说，AI正在改变软件开发的方式，让开发者能够专注于更具创造性的工作。'
+      result:
+        '这段文章主要讲述了人工智能在现代软件开发中的应用。作者从以下几个方面进行了阐述：\n\n1. **自动化测试**：AI可以自动生成测试用例，提高代码覆盖率。\n2. **代码审查**：机器学习模型能够识别潜在的bug和安全漏洞。\n3. **智能补全**：基于上下文的代码补全建议大幅提升开发效率。\n4. **文档生成**：自动生成API文档和技术文档。\n\n总结来说，AI正在改变软件开发的方式，让开发者能够专注于更具创造性的工作。'
     }
   }
 }

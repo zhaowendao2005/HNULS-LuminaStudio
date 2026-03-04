@@ -2,7 +2,9 @@
   <div class="of-node-output of-llm-node-output">
     <!-- 节点标题 -->
     <div class="flex items-center gap-2 mb-3">
-      <div class="flex items-center justify-center w-5 h-5 rounded bg-indigo-500 text-white shrink-0">
+      <div
+        class="flex items-center justify-center w-5 h-5 rounded bg-indigo-500 text-white shrink-0"
+      >
         <svg
           viewBox="0 0 14 14"
           fill="none"
@@ -51,7 +53,9 @@
             {{ prompt.role.toUpperCase() }}
           </span>
         </div>
-        <div class="text-sm text-gray-700 whitespace-pre-wrap break-words">{{ prompt.text || '(空)' }}</div>
+        <div class="text-sm text-gray-700 whitespace-pre-wrap break-words">
+          {{ prompt.text || '(空)' }}
+        </div>
       </div>
     </div>
 
@@ -59,7 +63,9 @@
     <div v-if="tracing.status === 'running'" class="mb-3">
       <div class="text-xs font-medium text-gray-500 uppercase mb-2">输出 (流式)</div>
       <div class="rounded-lg border border-blue-200 bg-blue-50 p-3">
-        <div class="text-sm text-gray-700 whitespace-pre-wrap break-words">{{ streamedOutput }}</div>
+        <div class="text-sm text-gray-700 whitespace-pre-wrap break-words">
+          {{ streamedOutput }}
+        </div>
         <div class="mt-2 flex items-center gap-2">
           <div class="animate-pulse h-2 w-2 rounded-full bg-blue-500"></div>
           <span class="text-xs text-blue-600">流式输出中...</span>
@@ -70,7 +76,9 @@
     <div v-else-if="tracing.outputs?.text" class="mb-3">
       <div class="text-xs font-medium text-gray-500 uppercase mb-2">输出</div>
       <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
-        <div class="text-sm text-gray-700 whitespace-pre-wrap break-words">{{ tracing.outputs.text }}</div>
+        <div class="text-sm text-gray-700 whitespace-pre-wrap break-words">
+          {{ tracing.outputs.text }}
+        </div>
       </div>
     </div>
 

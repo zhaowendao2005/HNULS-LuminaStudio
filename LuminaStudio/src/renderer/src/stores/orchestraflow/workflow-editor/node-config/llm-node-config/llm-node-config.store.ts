@@ -4,11 +4,7 @@
  */
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type {
-  OFLLMNodeConfig,
-  OFModelConfig,
-  OFPromptItem
-} from '@shared/Orchestraflow-types'
+import type { OFLLMNodeConfig, OFModelConfig, OFPromptItem } from '@shared/Orchestraflow-types'
 
 export const useLLMNodeConfigStore = defineStore('of-llm-node-config', () => {
   const currentNodeId = ref<string | null>(null)
