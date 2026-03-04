@@ -8,6 +8,7 @@
         y: store.viewport.y,
         zoom: store.viewport.zoom
       }"
+      :delete-key-code="['Delete', 'Backspace']"
       class="of-editor-canvas h-full w-full"
       @node-click="handleNodeClick"
       @connect="handleConnect"
@@ -206,3 +207,15 @@ onUnmounted(() => {
   // 这里目前没有需要清理的 VueFlow 资源
 })
 </script>
+
+<style scoped>
+.of-editor-canvas :deep(.vue-flow__edge-path) {
+  stroke-width: 2px;
+}
+
+.of-editor-canvas :deep(.vue-flow__edge.selected .vue-flow__edge-path) {
+  stroke: #6ee7b7;
+  stroke-width: 3px;
+  filter: drop-shadow(0 0 4px rgba(16, 185, 129, 0.6));
+}
+</style>
