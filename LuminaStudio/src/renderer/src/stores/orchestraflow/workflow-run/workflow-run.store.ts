@@ -14,6 +14,10 @@ export const useWorkflowRunStore = defineStore('orchestraflow-workflow-run', () 
   const result = ref<OFWorkflowRunResult | null>(null)
   const running = ref(false)
   const currentWorkflowId = ref<string | null>(null)
+  const currentRunId = ref<string | null>(null)
+
+  // 进度监听器
+  let progressUnsubscribe: (() => void) | null = null
 
   // ===== Computed =====
   const hasResult = computed(() => result.value !== null)
@@ -27,6 +31,14 @@ export const useWorkflowRunStore = defineStore('orchestraflow-workflow-run', () 
     running.value = true
     status.value = OFWorkflowRunningStatus.Running
     currentWorkflowId.value = workflowId
+    currentRunId.value = null
+    result.value = null
+
+    // 设置进度监听
+    progressUnsubscribe = WorkflowRunDataSource.onProgress((runId, progress) => {
+      currentRunId.value = runId
+      handleProgress(progress)
+    })
 
     try {
       const runResult = await WorkflowRunDataSource.run({ workflowId, inputs })
@@ -42,6 +54,30 @@ export const useWorkflowRunStore = defineStore('orchestraflow-workflow-run', () 
       }
     } finally {
       running.value = false
+      if (progressUnsubscribe) {
+        progressUnsubscribe()
+        progressUnsubscribe = null
+      }
+    }
+  }
+
+  function handleProgress(progress: OFNodeTracing) {
+    const tracing = result.value?.tracing || []
+    const index = tracing.findIndex((t) => t.nodeId === progress.nodeId)
+
+    if (index >= 0) {
+      tracing[index] = progress
+    } else {
+      tracing.push(progress)
+    }
+
+    if (!result.value) {
+      result.value = {
+        status: OFWorkflowRunningStatus.Running,
+        tracing
+      }
+    } else {
+      result.value.tracing = tracing
     }
   }
 
@@ -55,6 +91,10 @@ export const useWorkflowRunStore = defineStore('orchestraflow-workflow-run', () 
     } finally {
       running.value = false
       status.value = OFWorkflowRunningStatus.Stopped
+      if (progressUnsubscribe) {
+        progressUnsubscribe()
+        progressUnsubscribe = null
+      }
     }
   }
 
@@ -63,6 +103,11 @@ export const useWorkflowRunStore = defineStore('orchestraflow-workflow-run', () 
     result.value = null
     running.value = false
     currentWorkflowId.value = null
+    currentRunId.value = null
+    if (progressUnsubscribe) {
+      progressUnsubscribe()
+      progressUnsubscribe = null
+    }
   }
 
   // 获取指定节点的结果
@@ -76,6 +121,7 @@ export const useWorkflowRunStore = defineStore('orchestraflow-workflow-run', () 
     result,
     running,
     currentWorkflowId,
+    currentRunId,
 
     // computed
     hasResult,

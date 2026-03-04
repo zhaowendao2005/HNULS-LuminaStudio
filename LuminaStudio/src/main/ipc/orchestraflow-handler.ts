@@ -2,15 +2,18 @@
  * OrchestraFlow IPC Handler
  * 处理工作流相关的 IPC 请求
  */
-import { ipcMain } from 'electron'
+import { ipcMain, BrowserWindow } from 'electron'
 import { OrchestraflowWorkflowService } from '../services/orchestraflow/orchestraflow-workflow-service'
+import { orchestraflowBridge } from '../services/orchestraflow-bridge'
 import { logger } from '../services/logger'
+import type { OFNodeTracing } from '@shared/Orchestraflow-types'
 
 const log = logger.scope('OrchestraflowIPCHandler')
 
 export class OrchestraflowIPCHandler {
   constructor(private readonly service: OrchestraflowWorkflowService) {
     this.register()
+    this.registerProgressHandler()
   }
 
   private register(): void {
@@ -90,6 +93,51 @@ export class OrchestraflowIPCHandler {
       }
     })
 
+    // 运行工作流
+    ipcMain.handle('orchestraflow:workflow-run', async (_event, workflowId, inputs) => {
+      try {
+        if (typeof workflowId !== 'string') {
+          return { success: false, error: 'Invalid workflowId' }
+        }
+        // 获取工作流数据
+        const workflow = await this.service.get(workflowId)
+        if (!workflow) {
+          return { success: false, error: 'Workflow not found' }
+        }
+        // 调用 Bridge 运行工作流
+        const result = await orchestraflowBridge.runWorkflow(workflowId, workflow, inputs || {})
+        return { success: true, data: result }
+      } catch (e) {
+        log.error('Failed to run workflow', e)
+        return { success: false, error: String(e) }
+      }
+    })
+
+    // 停止工作流
+    ipcMain.handle('orchestraflow:workflow-stop', async (_event, runId) => {
+      try {
+        if (typeof runId !== 'string') {
+          return { success: false, error: 'Invalid runId' }
+        }
+        orchestraflowBridge.stopWorkflow(runId)
+        return { success: true }
+      } catch (e) {
+        log.error('Failed to stop workflow', e)
+        return { success: false, error: String(e) }
+      }
+    })
+
     log.info('Orchestraflow IPC handlers registered')
+  }
+
+  private registerProgressHandler(): void {
+    // 注册进度事件处理器，将进度推送到渲染进程
+    orchestraflowBridge.onProgress((runId: string, progress: OFNodeTracing) => {
+      // 获取所有 BrowserWindow 并推送进度
+      const windows = BrowserWindow.getAllWindows()
+      for (const win of windows) {
+        win.webContents.send('orchestraflow:workflow-progress', { runId, progress })
+      }
+    })
   }
 }

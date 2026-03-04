@@ -3,7 +3,7 @@
  * 通过 IPC 与主进程通信，实现工作流管理
  */
 import { ipcRenderer } from 'electron'
-import type { OFWorkflowAPI } from '../types/orchestraflow-api.types'
+import type { OFWorkflowAPI } from '../types/orchestraflow.types'
 
 export const orchestraflowAPI: OFWorkflowAPI = {
   list: (params) => {
@@ -24,5 +24,23 @@ export const orchestraflowAPI: OFWorkflowAPI = {
 
   delete: (workflowId) => {
     return ipcRenderer.invoke('orchestraflow:workflow-delete', workflowId)
+  },
+
+  run: (workflowId, inputs) => {
+    return ipcRenderer.invoke('orchestraflow:workflow-run', workflowId, inputs)
+  },
+
+  stop: (runId) => {
+    return ipcRenderer.invoke('orchestraflow:workflow-stop', runId)
+  },
+
+  onProgress: (callback) => {
+    const handler = (_event: any, data: { runId: string; progress: any }) => {
+      callback(data.runId, data.progress)
+    }
+    ipcRenderer.on('orchestraflow:workflow-progress', handler)
+    return () => {
+      ipcRenderer.removeListener('orchestraflow:workflow-progress', handler)
+    }
   }
 }

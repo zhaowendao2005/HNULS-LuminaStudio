@@ -1,44 +1,44 @@
 /**
  * OrchestraFlow Workflow Run DataSource
- * 工作流运行数据源 - 支持 IPC 调用和 Mock 切换
+ * 工作流运行数据源 - 支持 IPC 调用
  */
-import type { OFWorkflowRunResult } from '@shared/Orchestraflow-types'
-import { createMockRunResult } from './workflow-run.mock'
+import type { OFWorkflowRunResult, OFNodeTracing } from '@shared/Orchestraflow-types'
 
 export interface WorkflowRunParams {
   workflowId: string
   inputs?: Record<string, any>
 }
 
+export interface ProgressCallback {
+  (runId: string, progress: OFNodeTracing): void
+}
+
 export const WorkflowRunDataSource = {
   /**
    * 运行工作流
-   * TODO: 生产环境对接真实 IPC
    */
   async run(params: WorkflowRunParams): Promise<OFWorkflowRunResult> {
-    // 生产环境调用 IPC
-    // const res = await window.api.orchestraflow.run(params.workflowId, params.inputs)
-    // if (!res.success || !res.data) {
-    //   throw new Error(res.error || 'Failed to run workflow')
-    // }
-    // return res.data
-
-    // 当前使用 Mock
-    await new Promise((resolve) => setTimeout(resolve, 2000))
-    return createMockRunResult()
+    const res = await window.api.orchestraflow.run(params.workflowId, params.inputs)
+    if (!res.success || !res.data) {
+      throw new Error(res.error || 'Failed to run workflow')
+    }
+    return res.data
   },
 
   /**
    * 停止工作流运行
    */
   async stop(workflowId: string): Promise<void> {
-    // 生产环境调用 IPC
-    // const res = await window.api.orchestraflow.stop(workflowId)
-    // if (!res.success) {
-    //   throw new Error(res.error || 'Failed to stop workflow')
-    // }
+    const res = await window.api.orchestraflow.stop(workflowId)
+    if (!res.success) {
+      throw new Error(res.error || 'Failed to stop workflow')
+    }
+  },
 
-    // Mock 环境直接返回
-    console.log('[Mock] Workflow stopped:', workflowId)
+  /**
+   * 监听工作流进度
+   */
+  onProgress(callback: ProgressCallback): () => void {
+    return window.api.orchestraflow.onProgress(callback)
   }
 }

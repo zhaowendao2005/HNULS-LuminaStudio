@@ -19,6 +19,8 @@ import { UserSettingsService } from './services/user-settings'
 import { UserSettingsIPCHandler } from './ipc/user-settings-handler'
 import { OrchestraflowWorkflowService } from './services/orchestraflow/orchestraflow-workflow-service'
 import { OrchestraflowIPCHandler } from './ipc/orchestraflow-handler'
+import { orchestraflowBridge } from './services/orchestraflow-bridge'
+import { logger } from './services/logger'
 
 // 确保开发环境也使用 LuminaStudio 作为应用名称（生产环境自动使用 productName）
 if (!app.isPackaged) {
@@ -110,6 +112,16 @@ app.whenReady().then(() => {
   const orchestraflowWorkflowService = new OrchestraflowWorkflowService()
   new OrchestraflowIPCHandler(orchestraflowWorkflowService)
 
+  // 启动 OrchestraFlow Bridge（按需启动，延迟初始化）
+  setTimeout(async () => {
+    try {
+      await orchestraflowBridge.spawn()
+      orchestraflowBridge.init()
+    } catch (err) {
+      log.error('Failed to spawn orchestraflow bridge', err)
+    }
+  }, 1000)
+
   // 注册所有 IPC handlers
   registerAllHandlers()
 
@@ -136,6 +148,7 @@ app.on('window-all-closed', () => {
 // 应用退出前清理数据库连接
 app.on('before-quit', () => {
   langchainClientBridge.kill()
+  orchestraflowBridge.kill()
   sqliteTestService.close()
   databaseManager.close()
 })
