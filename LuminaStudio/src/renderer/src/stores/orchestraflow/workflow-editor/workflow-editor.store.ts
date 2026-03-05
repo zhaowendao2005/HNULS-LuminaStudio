@@ -128,9 +128,19 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
 
   // 更新节点数据
   function updateNode(nodeId: string, data: Partial<OFNode['data']>) {
-    const index = nodes.value.findIndex((n) => n.id === nodeId)
-    if (index !== -1) {
-      nodes.value[index] = { ...nodes.value[index], data: { ...nodes.value[index].data, ...data } }
+    const exists = nodes.value.some((n) => n.id === nodeId)
+    if (exists) {
+      nodes.value = nodes.value.map((node) =>
+        node.id === nodeId
+          ? {
+              ...node,
+              data: {
+                ...node.data,
+                ...data
+              }
+            }
+          : node
+      )
       scheduleSave()
     }
   }
@@ -162,9 +172,9 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
 
   // 更新节点位置（拖拽结束后调用）
   function updateNodePosition(nodeId: string, position: { x: number; y: number }) {
-    const index = nodes.value.findIndex((n) => n.id === nodeId)
-    if (index !== -1) {
-      nodes.value[index] = { ...nodes.value[index], position }
+    const exists = nodes.value.some((n) => n.id === nodeId)
+    if (exists) {
+      nodes.value = nodes.value.map((node) => (node.id === nodeId ? { ...node, position } : node))
       scheduleSave()
     }
   }
