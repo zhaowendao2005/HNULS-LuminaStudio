@@ -34,16 +34,40 @@
         <!-- 输入列 -->
         <div class="flex flex-col">
           <div class="text-xs font-medium text-gray-500 uppercase mb-2">输入 (Inputs)</div>
-          <div class="flex-1 bg-gray-50 rounded-lg p-3 overflow-auto">
-            <pre class="text-xs text-gray-700 whitespace-pre-wrap">{{ inputsJson }}</pre>
+          <div class="flex-1 bg-gray-50 rounded-lg p-3">
+            <div class="flex items-center justify-between">
+              <div class="text-xs text-gray-400 tracking-widest select-none">······</div>
+              <button
+                class="flex h-7 w-7 items-center justify-center rounded-full border border-indigo-200 bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
+                title="查看输入详情"
+                @click="openJsonDialog('输入详情', inputsJson)"
+              >
+                <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
 
         <!-- 输出列 -->
         <div class="flex flex-col">
           <div class="text-xs font-medium text-gray-500 uppercase mb-2">输出 (Outputs)</div>
-          <div class="flex-1 bg-gray-50 rounded-lg p-3 overflow-auto">
-            <pre class="text-xs text-gray-700 whitespace-pre-wrap">{{ outputsJson }}</pre>
+          <div class="flex-1 bg-gray-50 rounded-lg p-3">
+            <div class="flex items-center justify-between">
+              <div class="text-xs text-gray-400 tracking-widest select-none">······</div>
+              <button
+                class="flex h-7 w-7 items-center justify-center rounded-full border border-indigo-200 bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
+                title="查看输出详情"
+                @click="openJsonDialog('输出详情', outputsJson)"
+              >
+                <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -71,15 +95,35 @@
           <div class="grid grid-cols-2 gap-px bg-gray-200">
             <div class="bg-white p-2">
               <div class="text-xs text-gray-400 mb-1">输入</div>
-              <pre class="text-xs text-gray-600 whitespace-pre-wrap">{{
-                formatJson(tracing.inputs)
-              }}</pre>
+              <div class="flex items-center justify-between">
+                <div class="text-xs text-gray-400 tracking-widest select-none">······</div>
+                <button
+                  class="flex h-7 w-7 items-center justify-center rounded-full border border-indigo-200 bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
+                  title="查看节点输入详情"
+                  @click="openJsonDialog(`${getNodeTitle(tracing)} 输入`, formatJson(tracing.inputs))"
+                >
+                  <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                </button>
+              </div>
             </div>
             <div class="bg-white p-2">
               <div class="text-xs text-gray-400 mb-1">输出</div>
-              <pre class="text-xs text-gray-600 whitespace-pre-wrap">{{
-                formatJson(tracing.outputs)
-              }}</pre>
+              <div class="flex items-center justify-between">
+                <div class="text-xs text-gray-400 tracking-widest select-none">······</div>
+                <button
+                  class="flex h-7 w-7 items-center justify-center rounded-full border border-indigo-200 bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
+                  title="查看节点输出详情"
+                  @click="openJsonDialog(`${getNodeTitle(tracing)} 输出`, formatJson(tracing.outputs))"
+                >
+                  <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -98,15 +142,23 @@
         </div>
       </div>
     </div>
+
+    <CenteredDialog v-model="dialogVisible" :title="dialogTitle">
+      <pre class="text-xs text-gray-700 whitespace-pre-wrap break-all">{{ dialogContent }}</pre>
+    </CenteredDialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useWorkflowRunStore } from '@renderer/stores/orchestraflow/workflow-run/workflow-run.store'
 import { OFBlockEnum, OFNodeRunningStatus } from '@shared/Orchestraflow-types'
+import CenteredDialog from '@renderer/views/LuminaApp/Maincontent/OrchestraFlowView/EditorView/Common/CenteredDialog.vue'
 
 const runStore = useWorkflowRunStore()
+const dialogVisible = ref(false)
+const dialogTitle = ref('')
+const dialogContent = ref('')
 
 // 收集所有输入
 const inputsJson = computed(() => {
@@ -141,6 +193,12 @@ function formatJson(obj: any): string {
   } catch {
     return String(obj)
   }
+}
+
+function openJsonDialog(title: string, content: string): void {
+  dialogTitle.value = title
+  dialogContent.value = content
+  dialogVisible.value = true
 }
 
 function getNodeTitle(tracing: any): string {

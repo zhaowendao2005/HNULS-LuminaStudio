@@ -11,8 +11,11 @@ import {
   OFBlockEnum
 } from '@shared/Orchestraflow-types'
 import { WorkflowRunDataSource } from './workflow-run.datasource'
+import { useWorkflowEditorStore } from '../workflow-editor/workflow-editor.store'
 
 export const useWorkflowRunStore = defineStore('orchestraflow-workflow-run', () => {
+  const editorStore = useWorkflowEditorStore()
+
   // ===== State =====
   const status = ref<OFWorkflowRunningStatus>(OFWorkflowRunningStatus.NotStarted)
   const result = ref<OFWorkflowRunResult | null>(null)
@@ -38,11 +41,19 @@ export const useWorkflowRunStore = defineStore('orchestraflow-workflow-run', () 
     currentWorkflowId.value = workflowId
     currentRunId.value = null
     result.value = null
+    editorStore.resetAllNodeRunningStatus(OFNodeRunningStatus.NotStarted)
 
     // 设置进度监听
     progressUnsubscribe = WorkflowRunDataSource.onProgress((runId, progress) => {
+      if (!currentRunId.value) {
+        currentRunId.value = runId
+      }
+      if (runId !== currentRunId.value) {
+        return
+      }
       currentRunId.value = runId
       handleProgress(progress)
+      editorStore.updateNodeRunningStatus(progress.nodeId, progress.status)
     })
 
     try {

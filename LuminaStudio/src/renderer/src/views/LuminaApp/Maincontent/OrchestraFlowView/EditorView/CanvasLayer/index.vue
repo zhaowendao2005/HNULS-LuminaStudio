@@ -52,6 +52,7 @@ import {
   type PanelType
 } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor-ui.store'
 import { OFBlockEnum } from '@shared/Orchestraflow-types'
+import { useModelConfigStore } from '@renderer/stores/model-config/store'
 
 // 导入自定义节点组件
 import StartNode from './Nodes/StartNode/index.vue'
@@ -69,6 +70,7 @@ const props = defineProps<{
 
 const store = useWorkflowEditorStore()
 const uiStore = useWorkflowEditorUIStore()
+const modelConfigStore = useModelConfigStore()
 
 // 根据节点类型获取 PanelType
 function getPanelType(nodeType: string): PanelType | null {
@@ -191,6 +193,9 @@ watch(
 
 // 组件挂载时初始化
 onMounted(async () => {
+  if (modelConfigStore.providers.length === 0) {
+    await modelConfigStore.fetchProviders()
+  }
   // 如果有 workflowId 则加载
   if (props.workflowId) {
     await store.loadWorkflow(props.workflowId)

@@ -1,14 +1,12 @@
 <template>
   <Teleport to="body">
     <Transition name="of-centered-dialog">
-      <div
-        v-if="modelValue"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
-        @click.self="handleMaskClick"
-      >
+      <div v-if="modelValue" class="fixed inset-0 z-50 flex items-center justify-center">
+        <div class="absolute inset-0 bg-black/30 backdrop-blur-sm" @click="handleMaskClick"></div>
         <!-- 根容器：定位类 of-centered-dialog-59d -->
         <div
-          class="of-centered-dialog-59d relative flex max-h-[80vh] w-full max-w-[520px] flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xl"
+          class="of-centered-dialog-59d relative z-10 flex max-h-[80vh] w-full max-w-[520px] flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xl"
+          @click.stop
         >
           <!-- Header -->
           <div

@@ -598,6 +598,7 @@ import { computed, ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useWorkflowEditorUIStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor-ui.store'
 import { useWorkflowEditorStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor.store'
 import { useVariableSelectorStore } from '@renderer/stores/orchestraflow/workflow-editor/variable-selector/variable-selector.store'
+import { useModelConfigStore } from '@renderer/stores/model-config/store'
 import ModelSelector from '@renderer/components/ModelSelector'
 import PromptTextarea from './PromptTextarea/index.vue'
 import type { OFLLMNodeData, OFPromptItem, OFVarType } from '@shared/Orchestraflow-types'
@@ -605,6 +606,7 @@ import type { OFLLMNodeData, OFPromptItem, OFVarType } from '@shared/Orchestrafl
 const uiStore = useWorkflowEditorUIStore()
 const editorStore = useWorkflowEditorStore()
 const variableSelectorStore = useVariableSelectorStore()
+const modelConfigStore = useModelConfigStore()
 
 // 本地表单状态（临时性质，不做全局状态）
 const localTitle = ref('')
@@ -656,7 +658,10 @@ const displayModelText = computed(() => {
   if (!currentProviderId.value || !currentModelId.value) {
     return '请选择模型'
   }
-  return `${currentProviderId.value} / ${currentModelId.value}`
+  const providerName =
+    modelConfigStore.providers.find((item) => item.id === currentProviderId.value)?.name ||
+    currentProviderId.value
+  return `${providerName} / ${currentModelId.value}`
 })
 
 // 处理模型选择结果
@@ -865,6 +870,9 @@ function handleVariableSelect(event: CustomEvent) {
 }
 
 onMounted(() => {
+  if (modelConfigStore.providers.length === 0) {
+    modelConfigStore.fetchProviders()
+  }
   window.addEventListener('of:variable-select', handleVariableSelect as EventListener)
 })
 

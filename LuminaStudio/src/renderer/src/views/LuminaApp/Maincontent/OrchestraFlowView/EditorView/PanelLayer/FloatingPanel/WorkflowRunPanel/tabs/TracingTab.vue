@@ -29,32 +29,11 @@
         <span class="text-gray-400">{{ runStore.tracingList.length }} 个节点</span>
       </div>
 
-      <!-- 折叠面板列表 -->
+      <!-- 追踪列表 -->
       <div class="space-y-2">
-        <div
-          v-for="(tracing, index) in runStore.tracingList"
-          :key="tracing.nodeId"
-          class="border border-gray-200 rounded-lg overflow-hidden"
-        >
-          <!-- 折叠标题 -->
-          <button
-            class="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
-            @click="toggleExpand(tracing.nodeId)"
-          >
+        <div v-for="tracing in runStore.tracingList" :key="tracing.nodeId" class="border border-gray-200 rounded-lg overflow-hidden">
+          <div class="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 text-left">
             <div class="flex items-center gap-2">
-              <!-- 展开/收起图标 -->
-              <svg
-                class="w-4 h-4 text-gray-400 transition-transform"
-                :class="{ 'rotate-90': expandedNodes.has(tracing.nodeId) }"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  fill-rule="evenodd"
-                  d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
-                  clip-rule="evenodd"
-                />
-              </svg>
               <!-- 节点图标 -->
               <div
                 class="flex items-center justify-center w-5 h-5 rounded text-white text-xs"
@@ -75,45 +54,68 @@
                 {{ getStatusText(tracing.status) }}
               </span>
             </div>
-          </button>
+          </div>
 
-          <!-- 折叠内容 -->
-          <div v-show="expandedNodes.has(tracing.nodeId)" class="border-t border-gray-200">
-            <!-- 原始数据 -->
-            <div class="p-3 bg-white">
-              <div class="text-xs font-medium text-gray-500 mb-2">原始数据 (Raw Data)</div>
-              <div class="bg-gray-900 rounded-lg p-3 overflow-auto max-h-80">
-                <pre class="text-xs text-green-400 whitespace-pre-wrap">{{
-                  formatRawData(tracing)
-                }}</pre>
-              </div>
+          <div class="border-t border-gray-200 p-3 bg-white space-y-2">
+            <div class="flex items-center justify-between rounded-md bg-gray-50 px-2 py-2">
+              <div class="text-xs text-gray-400 tracking-widest select-none">Raw ······</div>
+              <button
+                class="flex h-7 w-7 items-center justify-center rounded-full border border-indigo-200 bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
+                title="查看 Raw 详情"
+                @click="openJsonDialog(`${getNodeTitle(tracing)} Raw`, formatRawData(tracing))"
+              >
+                <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              </button>
             </div>
 
-            <!-- 错误信息 -->
             <div v-if="tracing.error" class="p-3 bg-red-50 border-t border-gray-200">
               <div class="text-xs font-medium text-red-600 mb-1">错误信息</div>
               <div class="text-xs text-red-700">{{ tracing.error }}</div>
             </div>
 
-            <!-- 输入输出详情 -->
-            <div class="grid grid-cols-2 border-t border-gray-200">
-              <div class="p-3 border-r border-gray-200">
-                <div class="text-xs font-medium text-gray-500 mb-1">输入 (Inputs)</div>
-                <pre class="text-xs text-gray-600 whitespace-pre-wrap">{{
-                  formatJson(tracing.inputs)
-                }}</pre>
+            <div class="grid grid-cols-2 gap-2">
+              <div class="rounded-md bg-gray-50 px-2 py-2">
+                <div class="flex items-center justify-between">
+                  <div class="text-xs text-gray-400 tracking-widest select-none">Input ······</div>
+                  <button
+                    class="flex h-7 w-7 items-center justify-center rounded-full border border-indigo-200 bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
+                    title="查看输入详情"
+                    @click="openJsonDialog(`${getNodeTitle(tracing)} 输入`, formatJson(tracing.inputs))"
+                  >
+                    <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  </button>
+                </div>
               </div>
-              <div class="p-3">
-                <div class="text-xs font-medium text-gray-500 mb-1">输出 (Outputs)</div>
-                <pre class="text-xs text-gray-600 whitespace-pre-wrap">{{
-                  formatJson(tracing.outputs)
-                }}</pre>
+              <div class="rounded-md bg-gray-50 px-2 py-2">
+                <div class="flex items-center justify-between">
+                  <div class="text-xs text-gray-400 tracking-widest select-none">Output ······</div>
+                  <button
+                    class="flex h-7 w-7 items-center justify-center rounded-full border border-indigo-200 bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
+                    title="查看输出详情"
+                    @click="openJsonDialog(`${getNodeTitle(tracing)} 输出`, formatJson(tracing.outputs))"
+                  >
+                    <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
     </div>
+
+    <CenteredDialog v-model="dialogVisible" :title="dialogTitle">
+      <pre class="text-xs text-gray-700 whitespace-pre-wrap break-all">{{ dialogContent }}</pre>
+    </CenteredDialog>
   </div>
 </template>
 
@@ -121,20 +123,12 @@
 import { ref } from 'vue'
 import { useWorkflowRunStore } from '@renderer/stores/orchestraflow/workflow-run/workflow-run.store'
 import { OFBlockEnum, OFNodeRunningStatus } from '@shared/Orchestraflow-types'
+import CenteredDialog from '@renderer/views/LuminaApp/Maincontent/OrchestraFlowView/EditorView/Common/CenteredDialog.vue'
 
 const runStore = useWorkflowRunStore()
-
-// 展开状态集合
-const expandedNodes = ref<Set<string>>(new Set())
-
-// 切换展开/收起
-function toggleExpand(nodeId: string) {
-  if (expandedNodes.value.has(nodeId)) {
-    expandedNodes.value.delete(nodeId)
-  } else {
-    expandedNodes.value.add(nodeId)
-  }
-}
+const dialogVisible = ref(false)
+const dialogTitle = ref('')
+const dialogContent = ref('')
 
 // 格式化 JSON
 function formatJson(obj: any): string {
@@ -153,6 +147,12 @@ function formatRawData(tracing: any): string {
   } catch {
     return String(tracing)
   }
+}
+
+function openJsonDialog(title: string, content: string): void {
+  dialogTitle.value = title
+  dialogContent.value = content
+  dialogVisible.value = true
 }
 
 // 获取节点图标

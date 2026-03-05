@@ -9,7 +9,8 @@ import type {
   OFEdge,
   OFStartNodeData,
   OFLLMNodeData,
-  OFEndNodeData
+  OFEndNodeData,
+  OFNodeRunningStatus
 } from '@shared/Orchestraflow-types'
 import type { NodeChange, EdgeChange } from '@vue-flow/core'
 import { WorkflowEditorDataSource } from './workflow-editor.datasource'
@@ -145,6 +146,35 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
     }
   }
 
+  // 更新节点运行状态
+  function updateNodeRunningStatus(nodeId: string, status: OFNodeRunningStatus) {
+    const exists = nodes.value.some((n) => n.id === nodeId)
+    if (!exists) return
+
+    nodes.value = nodes.value.map((node) =>
+      node.id === nodeId
+        ? {
+            ...node,
+            data: {
+              ...node.data,
+              _runningStatus: status
+            }
+          }
+        : node
+    )
+  }
+
+  // 重置所有节点运行状态
+  function resetAllNodeRunningStatus(status: OFNodeRunningStatus) {
+    nodes.value = nodes.value.map((node) => ({
+      ...node,
+      data: {
+        ...node.data,
+        _runningStatus: status
+      }
+    }))
+  }
+
   // 删除节点
   function removeNode(nodeId: string) {
     nodes.value = nodes.value.filter((n) => n.id !== nodeId)
@@ -244,6 +274,8 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
     setViewport,
     addNode,
     updateNode,
+    updateNodeRunningStatus,
+    resetAllNodeRunningStatus,
     removeNode,
     addEdge,
     removeEdge,

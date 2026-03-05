@@ -6,8 +6,7 @@
 import type {
   OFWorkflow,
   OFNodeTracing,
-  OFWorkflowRunResult,
-  OFWorkflowRunningStatus
+  OFWorkflowRunResult
 } from '@shared/Orchestraflow-types'
 import { OFWorkflowRunningStatus, OFNodeRunningStatus } from '@shared/Orchestraflow-types'
 import { VariableStore } from '../services/variable-store'
@@ -72,10 +71,10 @@ export class WorkflowInstanceManager {
 
     try {
       // 拓扑排序获取执行顺序
-      const sortedNodes = this.topologicalSort(workflow.graph.nodes, workflow.graph.edges)
+      const nodeLevels = this.topologicalLevels(workflow.graph.nodes, workflow.graph.edges)
 
-      // 依次执行节点
-      for (const node of sortedNodes) {
+      // 按层执行：同层并行，层间串行
+      for (const levelNodes of nodeLevels) {
         // 检查是否被停止
         const currentInstance = this.instances.get(runId)
         if (!currentInstance || currentInstance.status === OFWorkflowRunningStatus.Stopped) {
@@ -84,65 +83,70 @@ export class WorkflowInstanceManager {
           return this.buildResult(instance)
         }
 
-        // 发送节点开始进度
-        const nodeTracing: OFNodeTracing = {
-          nodeId: node.id,
-          nodeType: node.data.type,
-          status: OFNodeRunningStatus.Running,
-          inputs: {}
+        // 先给本层所有节点发送 running 进度
+        for (const node of levelNodes) {
+          const nodeTracing: OFNodeTracing = {
+            nodeId: node.id,
+            nodeType: node.data.type,
+            status: OFNodeRunningStatus.Running,
+            inputs: {}
+          }
+          instance.tracing.push(nodeTracing)
+          this.sendProgress(runId, nodeTracing)
         }
-        instance.tracing.push(nodeTracing)
-        this.sendProgress(runId, nodeTracing)
 
-        // 执行节点
-        const nodeStartTime = Date.now()
-        try {
-          const { node: execNode, variableStore } = instance
-          const { executeNode } = await import('../services/executor')
-          const result = await executeNode(
-            node,
-            instance.variableStore,
-            inputs,
-            instance.tracing,
-            providerConfigs
-          )
+        const { executeNode } = await import('../services/executor')
+        const levelResults = await Promise.all(
+          levelNodes.map(async (node) => {
+            const nodeStartTime = Date.now()
+            try {
+              const result = await executeNode(
+                node,
+                instance.variableStore,
+                inputs,
+                instance.tracing,
+                providerConfigs
+              )
+              return {
+                nodeId: node.id,
+                status: result.error ? OFNodeRunningStatus.Failed : OFNodeRunningStatus.Succeeded,
+                outputs: result.outputs,
+                error: result.error,
+                elapsed: Date.now() - nodeStartTime
+              }
+            } catch (error) {
+              return {
+                nodeId: node.id,
+                status: OFNodeRunningStatus.Failed,
+                outputs: {},
+                error: error instanceof Error ? error.message : String(error),
+                elapsed: Date.now() - nodeStartTime
+              }
+            }
+          })
+        )
 
-          // 更新节点 tracing
-          const tracingIndex = instance.tracing.findIndex((t) => t.nodeId === node.id)
+        // 汇总本层结果，并推送进度
+        for (const resultItem of levelResults) {
+          const tracingIndex = instance.tracing.findIndex((t) => t.nodeId === resultItem.nodeId)
           if (tracingIndex >= 0) {
             instance.tracing[tracingIndex] = {
               ...instance.tracing[tracingIndex],
-              status: result.error ? OFNodeRunningStatus.Failed : OFNodeRunningStatus.Succeeded,
-              elapsed_time: Date.now() - nodeStartTime,
-              outputs: result.outputs,
-              error: result.error
+              status: resultItem.status,
+              elapsed_time: resultItem.elapsed,
+              outputs: resultItem.outputs,
+              error: resultItem.error
             }
+            this.sendProgress(runId, instance.tracing[tracingIndex])
           }
+        }
 
-          // 发送节点完成进度
-          this.sendProgress(runId, instance.tracing[tracingIndex])
-
-          // 如果节点失败，工作流失败
-          if (result.error) {
-            instance.status = OFWorkflowRunningStatus.Failed
-            instance.error = result.error
-            instance.endTime = Date.now()
-            return this.buildResult(instance)
-          }
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : String(error)
-          console.error('[OF.WorkflowInstanceManager] Node execution error:', error)
+        // 本层任一节点失败，则整体失败
+        const firstFailed = levelResults.find((item) => item.status === OFNodeRunningStatus.Failed)
+        if (firstFailed) {
           instance.status = OFWorkflowRunningStatus.Failed
-          instance.error = errorMessage
+          instance.error = firstFailed.error || 'Node execution failed'
           instance.endTime = Date.now()
-
-          // 更新节点 tracing 为失败
-          const tracingIndex = instance.tracing.findIndex((t) => t.nodeId === node.id)
-          if (tracingIndex >= 0) {
-            instance.tracing[tracingIndex].status = OFNodeRunningStatus.Failed
-            instance.tracing[tracingIndex].error = errorMessage
-          }
-
           return this.buildResult(instance)
         }
       }
@@ -217,9 +221,9 @@ export class WorkflowInstanceManager {
   }
 
   /**
-   * 拓扑排序 - 获取节点执行顺序
+   * 拓扑分层 - 每层可以并行执行，层与层之间串行
    */
-  private topologicalSort(nodes: any[], edges: any[]): any[] {
+  private topologicalLevels(nodes: any[], edges: any[]): any[][] {
     // 构建邻接表和入度表
     const adjacencyList = new Map<string, string[]>()
     const inDegree = new Map<string, number>()
@@ -247,34 +251,42 @@ export class WorkflowInstanceManager {
       }
     })
 
-    // 执行拓扑排序
-    const result: any[] = []
+    // 执行分层拓扑排序
+    const levels: any[][] = []
     const nodeMap = new Map(nodes.map((n) => [n.id, n]))
 
-    while (queue.length > 0) {
-      const nodeId = queue.shift()!
-      const node = nodeMap.get(nodeId)
-      if (node) {
-        result.push(node)
-      }
+    while (queue.length) {
+      const currentLevelIds = [...queue]
+      queue.length = 0
+      const currentLevelNodes: any[] = []
 
-      // 处理相邻节点
-      const targets = adjacencyList.get(nodeId) || []
-      for (const targetId of targets) {
-        const newDegree = (inDegree.get(targetId) || 1) - 1
-        inDegree.set(targetId, newDegree)
-        if (newDegree === 0) {
-          queue.push(targetId)
+      for (const nodeId of currentLevelIds) {
+        const node = nodeMap.get(nodeId)
+        if (node) {
+          currentLevelNodes.push(node)
+        }
+
+        const targets = adjacencyList.get(nodeId) || []
+        for (const targetId of targets) {
+          const newDegree = (inDegree.get(targetId) || 1) - 1
+          inDegree.set(targetId, newDegree)
+          if (newDegree === 0) {
+            queue.push(targetId)
+          }
         }
       }
+
+      if (currentLevelNodes.length) {
+        levels.push(currentLevelNodes)
+      }
     }
 
-    // 如果结果数量不等于节点数量，说明有环
-    if (result.length !== nodes.length) {
-      // 有环，返回原始顺序（前端应该保证无环）
-      return nodes
+    // 如果层级总数不足，说明有环，回退到串行执行
+    const count = levels.reduce((sum, level) => sum + level.length, 0)
+    if (count !== nodes.length) {
+      return nodes.map((node) => [node])
     }
 
-    return result
+    return levels
   }
 }

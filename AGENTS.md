@@ -11,4 +11,4 @@ A skill is a set of local instructions to follow that is stored in a `SKILL.md` 
 
 
 ## Rules
-.agent\rules\base-rules.md
+.agents\rules\base-rules.md

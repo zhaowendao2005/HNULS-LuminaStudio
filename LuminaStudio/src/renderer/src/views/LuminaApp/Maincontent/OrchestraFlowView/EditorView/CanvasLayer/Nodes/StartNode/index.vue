@@ -1,12 +1,15 @@
 <template>
-  <div class="of-node of-start-node group relative w-[240px] rounded-[15px] border border-transparent bg-[#f3f4f6] pb-1 shadow-sm transition-all hover:shadow-lg">
+  <div
+    class="of-node of-start-node group relative w-[240px] rounded-[15px] border bg-[#f3f4f6] pb-1 shadow-sm transition-all hover:shadow-lg"
+    :class="containerClass"
+  >
     <div class="px-4 pt-3 text-xs font-medium tracking-wide text-gray-500">开始</div>
 
     <Handle
       type="source"
       position="right"
       id="source"
-      class="of-start-source-handle !top-4 !-right-[9px] !h-4 !w-4 !translate-y-0 !rounded-none !border-none !bg-transparent !outline-none"
+      class="of-node-handle of-start-source-handle !top-4 !right-0 !z-30 !h-4 !w-4 !translate-y-0 !rounded-none !border-none !bg-transparent !outline-none"
     />
 
     <div
@@ -30,6 +33,16 @@
       </div>
       <div class="mr-1 flex grow items-center truncate text-base font-semibold text-gray-900">
         {{ data.title || '用户输入' }}
+      </div>
+      <div v-if="runningStatus === OFNodeRunningStatus.Succeeded" class="of-node-status-success">
+        ✓
+      </div>
+      <div
+        v-else-if="runningStatus === OFNodeRunningStatus.Running"
+        class="of-node-status-running"
+      ></div>
+      <div v-else-if="runningStatus === OFNodeRunningStatus.Failed" class="of-node-status-failed">
+        ✕
       </div>
     </div>
 
@@ -58,7 +71,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Handle } from '@vue-flow/core'
-import type { OFStartNodeData } from '@shared/Orchestraflow-types'
+import { OFNodeRunningStatus, type OFStartNodeData } from '@shared/Orchestraflow-types'
 
 const props = defineProps<{
   data: OFStartNodeData
@@ -68,6 +81,14 @@ const inputVariables = computed(() => {
   const variables = props.data?.input?.variables || (props.data as any)?.inputs || []
   return variables.slice(0, 3)
 })
+
+const runningStatus = computed(() => props.data?._runningStatus || OFNodeRunningStatus.NotStarted)
+const containerClass = computed(() => {
+  if (runningStatus.value === OFNodeRunningStatus.Running) return 'border-indigo-400 of-node-running'
+  if (runningStatus.value === OFNodeRunningStatus.Succeeded) return 'border-emerald-500'
+  if (runningStatus.value === OFNodeRunningStatus.Failed) return 'border-red-400'
+  return 'border-transparent'
+})
 </script>
 
 <style scoped>
@@ -75,10 +96,49 @@ const inputVariables = computed(() => {
   font-family: inherit;
 }
 
+.of-node-running {
+  animation: ofNodePulse 1.3s ease-in-out infinite;
+}
+
+.of-node-status-success,
+.of-node-status-running,
+.of-node-status-failed {
+  height: 20px;
+  width: 20px;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: #fff;
+}
+
+.of-node-status-success {
+  background: #059669;
+}
+
+.of-node-status-running {
+  background: #4f46e5;
+  position: relative;
+}
+
+.of-node-status-running::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 9999px;
+  border: 2px solid rgba(79, 70, 229, 0.35);
+  animation: ofStatusPulse 1.2s ease-out infinite;
+}
+
+.of-node-status-failed {
+  background: #dc2626;
+}
+
 .of-start-source-handle::after {
   content: '';
   position: absolute;
-  right: 6px;
+  right: 7px;
   top: 4px;
   width: 2px;
   height: 8px;
@@ -89,6 +149,31 @@ const inputVariables = computed(() => {
 
 .of-start-node:hover .of-start-source-handle::after {
   opacity: 1;
+}
+
+@keyframes ofNodePulse {
+  0%,
+  100% {
+    box-shadow:
+      0 2px 6px rgba(0, 0, 0, 0.05),
+      0 0 0 0 rgba(79, 70, 229, 0.18);
+  }
+  50% {
+    box-shadow:
+      0 8px 18px rgba(0, 0, 0, 0.08),
+      0 0 0 6px rgba(79, 70, 229, 0.08);
+  }
+}
+
+@keyframes ofStatusPulse {
+  0% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.18);
+  }
 }
 </style>
 
