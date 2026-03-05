@@ -4,7 +4,12 @@
  * 调用 LLM，使用 langchain（复用现有能力）
  */
 import { BaseNode } from './base-node'
-import { OFBlockEnum, OFVarType, type OFLLMNodeData } from '@shared/Orchestraflow-types'
+import {
+  OFBlockEnum,
+  OFVarType,
+  type OFLLMNodeData,
+  type OFModelCompletionParams
+} from '@shared/Orchestraflow-types'
 import type { ExecutionContext, NodeResult } from './types'
 import { VariableStore } from '../services/variable-store'
 import { ChatOpenAI } from '@langchain/openai'
@@ -53,15 +58,21 @@ export class LLMNode extends BaseNode {
         console.warn('[OF LLMNode] API key 未配置，将使用空密钥')
       }
 
+      const completionParams = this.normalizeCompletionParams(nodeData.model.completion_params)
+      const modelKwargs: Record<string, any> = {}
+      if (completionParams.top_k !== undefined) {
+        modelKwargs.top_k = completionParams.top_k
+      }
+
       // 构建模型配置
       const modelOptions: Record<string, any> = {
         model: nodeData.model.name,
-        temperature: nodeData.model.completion_params?.temperature,
-        top_p: nodeData.model.completion_params?.top_p,
-        top_k: nodeData.model.completion_params?.top_k,
-        max_tokens: nodeData.model.completion_params?.max_tokens,
-        presence_penalty: nodeData.model.completion_params?.presence_penalty,
-        frequency_penalty: nodeData.model.completion_params?.frequency_penalty
+        temperature: completionParams.temperature,
+        topP: completionParams.top_p,
+        maxTokens: completionParams.max_tokens,
+        presencePenalty: completionParams.presence_penalty,
+        frequencyPenalty: completionParams.frequency_penalty,
+        modelKwargs: Object.keys(modelKwargs).length > 0 ? modelKwargs : undefined
       }
 
       // 移除 undefined 值
@@ -168,5 +179,39 @@ export class LLMNode extends BaseNode {
       const value = this.variableStore.get(varName)
       return value !== undefined ? String(value) : match
     })
+  }
+
+  private normalizeNumber(value: unknown): number | undefined {
+    if (typeof value !== 'number') return undefined
+    if (!Number.isFinite(value)) return undefined
+    return value
+  }
+
+  private normalizeCompletionParams(params?: OFModelCompletionParams): OFModelCompletionParams {
+    if (!params) return {}
+
+    const temperatureRaw = this.normalizeNumber(params.temperature)
+    const topPRaw = this.normalizeNumber(params.top_p)
+    const maxTokensRaw = this.normalizeNumber(params.max_tokens)
+    const topKRaw = this.normalizeNumber(params.top_k)
+    const presencePenaltyRaw = this.normalizeNumber(params.presence_penalty)
+    const frequencyPenaltyRaw = this.normalizeNumber(params.frequency_penalty)
+
+    return {
+      temperature:
+        temperatureRaw !== undefined ? Math.min(Math.max(temperatureRaw, 0), 2) : undefined,
+      top_p: topPRaw !== undefined ? Math.min(Math.max(topPRaw, 0), 1) : undefined,
+      max_tokens:
+        maxTokensRaw !== undefined ? Math.max(1, Math.floor(maxTokensRaw)) : undefined,
+      top_k: topKRaw !== undefined ? Math.max(1, Math.floor(topKRaw)) : undefined,
+      presence_penalty:
+        presencePenaltyRaw !== undefined
+          ? Math.min(Math.max(presencePenaltyRaw, -2), 2)
+          : undefined,
+      frequency_penalty:
+        frequencyPenaltyRaw !== undefined
+          ? Math.min(Math.max(frequencyPenaltyRaw, -2), 2)
+          : undefined
+    }
   }
 }

@@ -131,18 +131,20 @@ export interface OFGlobalVariable {
 }
 
 // ===== 模型配置 =====
+export interface OFModelCompletionParams {
+  temperature?: number
+  top_p?: number
+  top_k?: number
+  max_tokens?: number
+  presence_penalty?: number
+  frequency_penalty?: number
+}
+
 export interface OFModelConfig {
   provider: string
   name: string
   mode?: string
-  completion_params?: {
-    temperature?: number
-    top_p?: number
-    top_k?: number
-    max_tokens?: number
-    presence_penalty?: number
-    frequency_penalty?: number
-  }
+  completion_params?: OFModelCompletionParams
 }
 
 // ===== Prompt 项 =====

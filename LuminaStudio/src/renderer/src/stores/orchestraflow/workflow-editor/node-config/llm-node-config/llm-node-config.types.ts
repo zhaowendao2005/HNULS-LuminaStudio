@@ -1,4 +1,9 @@
-// End node config types
-import type { OFEndNodeConfig } from '@shared/Orchestraflow-types'
+import type { OFLLMNodeConfig } from '@shared/Orchestraflow-types'
 
-export type { OFEndNodeConfig }
+export interface OFLLMModelParamsPanelState {
+  visible: boolean
+  anchorRect: DOMRect | null
+  activeNodeId: string | null
+}
+
+export type { OFLLMNodeConfig }

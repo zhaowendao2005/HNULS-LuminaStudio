@@ -8,17 +8,29 @@ import type {
   OFLLMNodeConfig,
   OFModelConfig,
   OFPromptItem,
-  OFNodeOutput,
   OFVariable
 } from '@shared/Orchestraflow-types'
+import type { OFLLMModelParamsPanelState } from './llm-node-config.types'
 
 export const useLLMNodeConfigStore = defineStore('of-llm-node-config', () => {
   const currentNodeId = ref<string | null>(null)
+  const modelParamsPanel = ref<OFLLMModelParamsPanelState>({
+    visible: false,
+    anchorRect: null,
+    activeNodeId: null
+  })
   const config = ref<OFLLMNodeConfig>({
     nodeId: '',
     title: 'LLM',
     desc: '',
-    model: { provider: '', name: '' },
+    model: {
+      provider: '',
+      name: '',
+      completion_params: {
+        temperature: 1,
+        top_p: 1
+      }
+    },
     prompt_template: [],
     output: { variables: [] }
   })
@@ -29,7 +41,14 @@ export const useLLMNodeConfigStore = defineStore('of-llm-node-config', () => {
       nodeId,
       title: data.title || 'LLM',
       desc: data.desc || '',
-      model: data.model || { provider: '', name: '' },
+      model: data.model || {
+        provider: '',
+        name: '',
+        completion_params: {
+          temperature: 1,
+          top_p: 1
+        }
+      },
       prompt_template: data.prompt_template || [],
       output: data.output || { variables: [] }
     }
@@ -54,6 +73,26 @@ export const useLLMNodeConfigStore = defineStore('of-llm-node-config', () => {
     config.value.output.variables.splice(index, 1)
   }
 
+  function openModelParamsPanel(nodeId: string, anchorRect?: DOMRect | null) {
+    modelParamsPanel.value = {
+      visible: true,
+      anchorRect: anchorRect || null,
+      activeNodeId: nodeId
+    }
+  }
+
+  function closeModelParamsPanel() {
+    modelParamsPanel.value = {
+      visible: false,
+      anchorRect: null,
+      activeNodeId: null
+    }
+  }
+
+  function setModelParamsPanelAnchor(anchorRect?: DOMRect | null) {
+    modelParamsPanel.value.anchorRect = anchorRect || null
+  }
+
   function exportConfig(): Partial<OFLLMNodeConfig> {
     return {
       title: config.value.title,
@@ -66,11 +105,19 @@ export const useLLMNodeConfigStore = defineStore('of-llm-node-config', () => {
 
   function clear() {
     currentNodeId.value = null
+    closeModelParamsPanel()
     config.value = {
       nodeId: '',
       title: 'LLM',
       desc: '',
-      model: { provider: '', name: '' },
+      model: {
+        provider: '',
+        name: '',
+        completion_params: {
+          temperature: 1,
+          top_p: 1
+        }
+      },
       prompt_template: [],
       output: { variables: [] }
     }
@@ -79,6 +126,7 @@ export const useLLMNodeConfigStore = defineStore('of-llm-node-config', () => {
   return {
     currentNodeId,
     config,
+    modelParamsPanel,
     loadConfig,
     setTitle,
     setDesc,
@@ -86,6 +134,9 @@ export const useLLMNodeConfigStore = defineStore('of-llm-node-config', () => {
     setPromptTemplate,
     addOutput,
     removeOutput,
+    openModelParamsPanel,
+    closeModelParamsPanel,
+    setModelParamsPanelAnchor,
     exportConfig,
     clear
   }

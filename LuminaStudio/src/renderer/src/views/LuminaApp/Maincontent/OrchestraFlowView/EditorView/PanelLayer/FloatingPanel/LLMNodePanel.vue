@@ -1,5 +1,5 @@
 <template>
-  <div class="of-node-config-panel of-llm-panel h-full flex flex-col">
+  <div ref="llmPanelRootRef" class="of-node-config-panel of-llm-panel h-full flex flex-col">
     <!-- 头部 -->
     <div class="px-4 pt-4 pb-2 flex-shrink-0 border-b border-gray-100">
       <!-- 标题行：图标 + 输入框 + 操作按钮 -->
@@ -170,11 +170,11 @@
             />
             <!-- 触发按钮：显示当前选择的模型，点击打开选择器 -->
             <div
-              class="relative cursor-pointer rounded-lg border border-gray-200 bg-gray-50 px-2 py-2 hover:border-gray-300"
+              class="group relative cursor-pointer rounded-xl border border-transparent bg-[#eef2f7] px-2 py-1.5 hover:bg-[#e8edf4]"
               @click="modelSelectorVisible = true"
             >
               <div class="flex items-center">
-                <div class="flex h-5 w-5 items-center justify-center mr-2">
+                <div class="mr-2 flex h-5 w-5 items-center justify-center">
                   <svg
                     viewBox="0 0 24 24"
                     xmlns="http://www.w3.org/2000/svg"
@@ -189,18 +189,46 @@
                     />
                   </svg>
                 </div>
-                <div class="flex-1">
-                  <div class="text-sm text-gray-900">
-                    {{ displayModelText }}
+                <div class="min-w-0 flex-1">
+                  <div class="flex w-full items-center gap-1.5 overflow-hidden">
+                    <div
+                      class="min-w-0 max-w-[calc(100%-56px)] truncate whitespace-nowrap text-sm text-[#1f2937]"
+                    >
+                      {{ displayModelText }}
+                    </div>
+                    <div
+                      class="flex h-[18px] shrink-0 items-center rounded-[5px] border border-[#d4dae3] px-1.5 text-[10px] uppercase text-[#7b8698]"
+                    >
+                      CHAT
+                    </div>
                   </div>
                 </div>
+                <button
+                  class="mr-1 inline-flex h-6 w-6 items-center justify-center rounded-md text-[#6f7b8f] hover:bg-[#dde4ed] hover:text-[#4f5c70]"
+                  title="模型参数"
+                  @pointerdown.stop.prevent
+                  @click.stop.prevent="openModelParamsPanel"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="14"
+                    height="14"
+                    fill="currentColor"
+                    class="h-4 w-4"
+                  >
+                    <path
+                      d="M3 7H8V3H10V7H14V3H16V7H21V9H16V12H21V14H16V17H21V19H16V23H14V19H10V23H8V19H3V17H8V14H3V12H8V9H3V7ZM10 9V12H14V9H10ZM10 14V17H14V14H10Z"
+                    />
+                  </svg>
+                </button>
                 <svg
                   viewBox="0 0 24 24"
                   xmlns="http://www.w3.org/2000/svg"
                   width="24"
                   height="24"
                   fill="currentColor"
-                  class="h-4 w-4 text-gray-400 shrink-0"
+                  class="h-4 w-4 shrink-0 text-[#7b8698]"
                 >
                   <path
                     d="M11.9999 13.1714L16.9497 8.22168L18.3639 9.63589L11.9999 15.9999L5.63599 9.63589L7.0502 8.22168L11.9999 13.1714Z"
@@ -585,6 +613,97 @@
       </div>
     </div>
   </div>
+
+  <Teleport to="body">
+    <div
+      v-if="isModelParamsPanelVisible"
+      class="of-llm-params-panel fixed z-[80] w-[360px] overflow-hidden rounded-xl border border-[#d7dce3] bg-[#f5f7fb] shadow-xl"
+      :style="modelParamsPanelStyle"
+      @pointerdown.stop
+      @click.stop
+    >
+      <div class="flex items-center justify-between border-b border-[#d7dce3] bg-[#eceff3] px-3 py-2.5">
+        <div class="text-base font-semibold text-[#252f3d] leading-none">模型参数</div>
+        <button
+          class="inline-flex h-7 w-7 items-center justify-center rounded-md text-[#8c97a8] hover:bg-[#dde3eb] hover:text-[#5b6575]"
+          title="关闭参数面板"
+          @click="closeModelParamsPanel"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            fill="currentColor"
+            class="h-4 w-4"
+          >
+            <path
+              d="M11.9997 10.5865L16.9495 5.63672L18.3637 7.05093L13.4139 12.0007L18.3637 16.9504L16.9495 18.3646L11.9997 13.4149L7.04996 18.3646L5.63574 16.9504L10.5855 12.0007L5.63574 7.05093L7.0502 5.63672L11.9997 10.5865Z"
+            />
+          </svg>
+        </button>
+      </div>
+
+      <div class="max-h-[360px] overflow-y-auto p-3 pt-2.5">
+        <div class="mb-3 h-px bg-[#dfe4eb]" />
+        <div class="mb-2 flex items-center justify-between">
+          <div class="text-sm font-semibold text-[#4f5a6b]">参数</div>
+        </div>
+
+        <div>
+          <div class="mb-2 flex items-center justify-between">
+            <label class="text-xs font-medium uppercase tracking-[0.08em] text-[#5f6c7e]">
+              temperature
+            </label>
+            <span class="text-xs text-[#8a95a6]">0 ~ 2</span>
+          </div>
+          <input
+            :value="temperatureInput"
+            type="number"
+            min="0"
+            max="2"
+            step="0.1"
+            class="h-8 w-full rounded-lg border border-[#d0d6de] bg-[#eef2f7] px-2.5 text-sm text-[#293446] outline-none focus:border-[#92c9a3]"
+            @input="handleTemperatureChange"
+          />
+        </div>
+
+        <div class="mt-2">
+          <div class="mb-2 flex items-center justify-between">
+            <label class="text-xs font-medium uppercase tracking-[0.08em] text-[#5f6c7e]">top_p</label>
+            <span class="text-xs text-[#8a95a6]">0 ~ 1</span>
+          </div>
+          <input
+            :value="topPInput"
+            type="number"
+            min="0"
+            max="1"
+            step="0.01"
+            class="h-8 w-full rounded-lg border border-[#d0d6de] bg-[#eef2f7] px-2.5 text-sm text-[#293446] outline-none focus:border-[#92c9a3]"
+            @input="handleTopPChange"
+          />
+        </div>
+
+        <div class="mt-2">
+          <div class="mb-2 flex items-center justify-between">
+            <label class="text-xs font-medium uppercase tracking-[0.08em] text-[#5f6c7e]">
+              max_tokens
+            </label>
+            <span class="text-xs text-[#8a95a6]">留空使用模型默认</span>
+          </div>
+          <input
+            :value="maxTokensInput"
+            type="number"
+            min="1"
+            step="1"
+            class="h-8 w-full rounded-lg border border-[#d0d6de] bg-[#eef2f7] px-2.5 text-sm text-[#293446] outline-none focus:border-[#92c9a3]"
+            placeholder="例如 1024"
+            @input="handleMaxTokensChange"
+          />
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
@@ -592,15 +711,23 @@ import { computed, ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useWorkflowEditorUIStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor-ui.store'
 import { useWorkflowEditorStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor.store'
 import { useVariableSelectorStore } from '@renderer/stores/orchestraflow/workflow-editor/variable-selector/variable-selector.store'
+import { useLLMNodeConfigStore } from '@renderer/stores/orchestraflow/workflow-editor/node-config/llm-node-config/llm-node-config.store'
 import { useModelConfigStore } from '@renderer/stores/model-config/store'
 import ModelSelector from '@renderer/components/ModelSelector'
 import PromptTextarea from './PromptTextarea/index.vue'
-import type { OFLLMNodeData, OFPromptItem, OFVarType } from '@shared/Orchestraflow-types'
+import type {
+  OFLLMNodeData,
+  OFModelCompletionParams,
+  OFPromptItem,
+  OFVarType
+} from '@shared/Orchestraflow-types'
 
 const uiStore = useWorkflowEditorUIStore()
 const editorStore = useWorkflowEditorStore()
 const variableSelectorStore = useVariableSelectorStore()
+const llmNodeConfigStore = useLLMNodeConfigStore()
 const modelConfigStore = useModelConfigStore()
+const llmPanelRootRef = ref<HTMLElement | null>(null)
 
 // 本地表单状态（临时性质，不做全局状态）
 const localTitle = ref('')
@@ -657,6 +784,134 @@ const displayModelText = computed(() => {
     currentProviderId.value
   return `${providerName} / ${currentModelId.value}`
 })
+
+const modelParamsPanelStyle = ref({
+  top: '12px',
+  left: '12px'
+})
+
+const completionParams = computed<OFModelCompletionParams>(() => {
+  if (!currentNode.value) return {}
+  const nodeData = currentNode.value.data as OFLLMNodeData
+  return nodeData.model?.completion_params || {}
+})
+
+const isModelParamsPanelVisible = computed(() => {
+  return (
+    llmNodeConfigStore.modelParamsPanel.visible &&
+    llmNodeConfigStore.modelParamsPanel.activeNodeId === uiStore.selectedNodeId
+  )
+})
+
+const temperatureInput = computed(() => {
+  const value = completionParams.value.temperature
+  return typeof value === 'number' ? String(value) : '1.0'
+})
+
+const topPInput = computed(() => {
+  const value = completionParams.value.top_p
+  return typeof value === 'number' ? String(value) : '1.0'
+})
+
+const maxTokensInput = computed(() => {
+  const value = completionParams.value.max_tokens
+  return typeof value === 'number' ? String(value) : ''
+})
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max)
+}
+
+function updateCompletionParams(partial: Partial<OFModelCompletionParams>): void {
+  if (!uiStore.selectedNodeId || !currentNode.value) return
+  const nodeData = currentNode.value.data as OFLLMNodeData
+  const merged: OFModelCompletionParams = {
+    ...(nodeData.model?.completion_params || {}),
+    ...partial
+  }
+  const cleaned = Object.fromEntries(
+    Object.entries(merged).filter(([, value]) => value !== undefined)
+  ) as OFModelCompletionParams
+  editorStore.updateNode(uiStore.selectedNodeId, {
+    model: {
+      ...nodeData.model,
+      completion_params: Object.keys(cleaned).length > 0 ? cleaned : undefined
+    }
+  })
+}
+
+function updateModelParamsPanelStyle() {
+  const panelWidth = 360
+  const panelHeight = 320
+  const padding = 12
+  const gap = 12
+
+  const floatingPanel = llmPanelRootRef.value?.closest('.of-floating-panel') as HTMLElement | null
+  const floatingRect = floatingPanel?.getBoundingClientRect()
+
+  let left = floatingRect ? floatingRect.left - panelWidth - gap : window.innerWidth - panelWidth - padding
+  let top = floatingRect ? floatingRect.top + 12 : 12
+
+  if (left < padding && floatingRect) {
+    left = floatingRect.right + gap
+  }
+  if (left + panelWidth > window.innerWidth - padding) {
+    left = window.innerWidth - panelWidth - padding
+  }
+  if (top + panelHeight > window.innerHeight - padding) {
+    top = Math.max(padding, window.innerHeight - panelHeight - padding)
+  }
+
+  left = Math.min(Math.max(left, padding), window.innerWidth - panelWidth - padding)
+  top = Math.min(Math.max(top, padding), window.innerHeight - panelHeight - padding)
+
+  modelParamsPanelStyle.value = {
+    top: `${top}px`,
+    left: `${left}px`
+  }
+}
+
+function openModelParamsPanel(event: MouseEvent): void {
+  if (!uiStore.selectedNodeId) return
+  const anchorRect = (event.currentTarget as HTMLElement | null)?.getBoundingClientRect() || null
+  llmNodeConfigStore.openModelParamsPanel(uiStore.selectedNodeId, anchorRect)
+  nextTick(updateModelParamsPanelStyle)
+}
+
+function closeModelParamsPanel(): void {
+  llmNodeConfigStore.closeModelParamsPanel()
+}
+
+function handleTemperatureChange(event: Event): void {
+  const parsed = Number((event.target as HTMLInputElement).value)
+  if (!Number.isFinite(parsed)) return
+  updateCompletionParams({
+    temperature: clamp(parsed, 0, 2)
+  })
+}
+
+function handleTopPChange(event: Event): void {
+  const parsed = Number((event.target as HTMLInputElement).value)
+  if (!Number.isFinite(parsed)) return
+  updateCompletionParams({
+    top_p: clamp(parsed, 0, 1)
+  })
+}
+
+function handleMaxTokensChange(event: Event): void {
+  const raw = (event.target as HTMLInputElement).value.trim()
+  if (!raw) {
+    updateCompletionParams({
+      max_tokens: undefined
+    })
+    return
+  }
+  const parsed = Number(raw)
+  if (!Number.isFinite(parsed)) return
+  updateCompletionParams({
+    max_tokens: Math.max(1, Math.floor(parsed))
+  })
+}
 
 // 处理模型选择结果
 function handleModelSelected(payload: {
@@ -780,6 +1035,7 @@ function addNextNode(): void {
 
 // 关闭面板
 function handleClose(): void {
+  llmNodeConfigStore.closeModelParamsPanel()
   uiStore.closeNodeConfigPanel()
 }
 
@@ -880,21 +1136,42 @@ function handleVariableSelect(event: CustomEvent) {
   }
 }
 
+function handleWindowResize() {
+  if (isModelParamsPanelVisible.value) {
+    updateModelParamsPanelStyle()
+  }
+}
+
 onMounted(() => {
   if (modelConfigStore.providers.length === 0) {
     modelConfigStore.fetchProviders()
   }
   window.addEventListener('of:variable-select', handleVariableSelect as EventListener)
+  window.addEventListener('resize', handleWindowResize)
 })
 
 onUnmounted(() => {
   window.removeEventListener('of:variable-select', handleVariableSelect as EventListener)
+  window.removeEventListener('resize', handleWindowResize)
+  llmNodeConfigStore.closeModelParamsPanel()
 })
+
+watch(
+  () => isModelParamsPanelVisible.value,
+  (visible) => {
+    if (visible) {
+      nextTick(updateModelParamsPanelStyle)
+    }
+  }
+)
 
 // 监听选中节点变化，加载数据
 watch(
   () => uiStore.selectedNodeId,
   (newId) => {
+    if (llmNodeConfigStore.modelParamsPanel.activeNodeId !== newId) {
+      llmNodeConfigStore.closeModelParamsPanel()
+    }
     if (newId && currentNode.value) {
       const nodeData = currentNode.value.data as OFLLMNodeData
       localTitle.value = nodeData.title || 'LLM'
@@ -908,6 +1185,10 @@ watch(
 
 <style scoped>
 .of-node-config-panel {
+  font-family: inherit;
+}
+
+.of-llm-params-panel {
   font-family: inherit;
 }
 </style>

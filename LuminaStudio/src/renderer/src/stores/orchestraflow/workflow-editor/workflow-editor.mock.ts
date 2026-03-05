@@ -33,7 +33,11 @@ export function createDefaultWorkflow(): {
         type: OFBlockEnum.LLM,
         model: {
           provider: 'openai',
-          name: 'gpt-4'
+          name: 'gpt-4',
+          completion_params: {
+            temperature: 1,
+            top_p: 1
+          }
         },
         prompt_template: [],
         context: {

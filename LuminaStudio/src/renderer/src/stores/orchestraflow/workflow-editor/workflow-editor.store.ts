@@ -89,7 +89,7 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
           title: '开始',
           desc: '',
           type: OFBlockEnum.Start,
-          inputs: []
+          input: { variables: [] }
         } as OFStartNodeData
         break
       case OFBlockEnum.LLM:
@@ -97,13 +97,25 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
           title: 'LLM',
           desc: '',
           type: OFBlockEnum.LLM,
-          model: { provider: '', name: '' },
+          model: {
+            provider: '',
+            name: '',
+            completion_params: {
+              temperature: 1,
+              top_p: 1
+            }
+          },
           prompt_template: [],
-          outputs: []
+          output: { variables: [] }
         } as OFLLMNodeData
         break
       case OFBlockEnum.End:
-        nodeData = { title: '结束', desc: '', type: OFBlockEnum.End, outputs: [] } as OFEndNodeData
+        nodeData = {
+          title: '结束',
+          desc: '',
+          type: OFBlockEnum.End,
+          output: { variables: [] }
+        } as OFEndNodeData
         break
     }
 
