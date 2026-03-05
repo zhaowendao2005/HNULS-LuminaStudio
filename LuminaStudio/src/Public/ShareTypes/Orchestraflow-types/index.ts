@@ -63,7 +63,7 @@ export interface OFVariable {
   /** 是否必填 */
   required?: boolean
   /** 默认值 */
-  default?: string | number | boolean | object | array
+  default?: string | number | boolean | object | any[]
   /** 选项列表（select 类型用） */
   options?: string[]
   /** 值选择器（用于从上游节点获取值） */
