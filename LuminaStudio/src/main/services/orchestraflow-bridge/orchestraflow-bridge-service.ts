@@ -18,8 +18,9 @@ import type {
   OFWorkflow,
   OFWorkflowRunResult,
   OFNodeTracing,
-  OFToMainMessage
-} from '../../utility/orchestraflow/messages.types'
+  OFNodeDebugResult
+} from '@shared/Orchestraflow-types'
+import type { OFToMainMessage } from '../../utility/orchestraflow/messages.types'
 import type { MainToOFMessage } from '../../utility/orchestraflow/messages.types'
 
 const log = logger.scope('OrchestraflowBridge')
@@ -36,6 +37,7 @@ export class OrchestraflowBridgeService {
   private readyResolve: (() => void) | null = null
 
   private pendingRuns: Map<string, PendingRequest<OFWorkflowRunResult>> = new Map()
+  private pendingNodeDebugs: Map<string, PendingRequest<OFNodeDebugResult>> = new Map()
   private progressCallbacks: Array<(runId: string, progress: OFNodeTracing) => void> = []
   private messageHandlers: Array<(msg: OFToMainMessage) => void> = []
 
@@ -89,6 +91,7 @@ export class OrchestraflowBridgeService {
     this.process.kill()
     this.process = null
     this.pendingRuns.clear()
+    this.pendingNodeDebugs.clear()
     this.progressCallbacks = []
     this.messageHandlers = []
   }
@@ -127,6 +130,39 @@ export class OrchestraflowBridgeService {
         type: 'workflow:run',
         runId,
         workflow,
+        inputs,
+        providerConfigs
+      })
+    })
+
+    return requestPromise
+  }
+
+  async runNodeDebug(
+    workflow: OFWorkflow,
+    nodeId: string,
+    inputs: Record<string, any>,
+    providerConfigs?: Record<
+      string,
+      { id: string; name: string; baseUrl: string; apiKey: string; enabled: boolean }
+    >,
+    timeoutMs = 120000
+  ): Promise<OFNodeDebugResult> {
+    const requestId = randomUUID()
+
+    const requestPromise = new Promise<OFNodeDebugResult>((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        this.pendingNodeDebugs.delete(requestId)
+        reject(new Error('node:debug-run timeout'))
+      }, timeoutMs)
+
+      this.pendingNodeDebugs.set(requestId, { resolve, reject, timeoutId })
+
+      this.send({
+        type: 'node:debug-run',
+        requestId,
+        workflow,
+        nodeId,
         inputs,
         providerConfigs
       })
@@ -235,6 +271,26 @@ export class OrchestraflowBridgeService {
           runId: msg.runId,
           error: msg.error
         })
+        break
+      }
+
+      case 'node:debug-result': {
+        const pending = this.pendingNodeDebugs.get(msg.requestId)
+        if (pending) {
+          clearTimeout(pending.timeoutId)
+          this.pendingNodeDebugs.delete(msg.requestId)
+          pending.resolve(msg.result)
+        }
+        break
+      }
+
+      case 'node:debug-error': {
+        const pending = this.pendingNodeDebugs.get(msg.requestId)
+        if (pending) {
+          clearTimeout(pending.timeoutId)
+          this.pendingNodeDebugs.delete(msg.requestId)
+          pending.reject(new Error(msg.error))
+        }
         break
       }
 

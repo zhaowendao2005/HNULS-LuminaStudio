@@ -7,7 +7,7 @@ import { OrchestraflowWorkflowService } from '../services/orchestraflow/orchestr
 import { orchestraflowBridge } from '../services/orchestraflow-bridge'
 import { logger } from '../services/logger'
 import { ModelConfigService } from '../services/model-config'
-import type { OFNodeTracing } from '@shared/Orchestraflow-types'
+import type { OFNodeTracing, OFNodeDebugRunParams } from '@shared/Orchestraflow-types'
 import type { PersistedModelProviderConfig } from '../services/model-config'
 
 const log = logger.scope('OrchestraflowIPCHandler')
@@ -141,6 +141,43 @@ export class OrchestraflowIPCHandler {
         return { success: true }
       } catch (e) {
         log.error('Failed to stop workflow', e)
+        return { success: false, error: String(e) }
+      }
+    })
+
+    // 节点单独调试
+    ipcMain.handle('orchestraflow:node-debug-run', async (_event, params: OFNodeDebugRunParams) => {
+      try {
+        if (!params || typeof params.workflowId !== 'string' || typeof params.nodeId !== 'string') {
+          return { success: false, error: 'Invalid params' }
+        }
+
+        const workflow = await this.service.get(params.workflowId)
+        if (!workflow) {
+          return { success: false, error: 'Workflow not found' }
+        }
+
+        const targetNode = workflow.graph.nodes.find((node) => node.id === params.nodeId)
+        if (!targetNode) {
+          return { success: false, error: 'Node not found' }
+        }
+
+        const modelConfig = await this.modelConfigService.getConfig()
+        const providerConfigs: Record<string, PersistedModelProviderConfig> = {}
+        for (const provider of modelConfig.providers) {
+          providerConfigs[provider.id] = provider
+        }
+
+        const result = await orchestraflowBridge.runNodeDebug(
+          workflow,
+          params.nodeId,
+          params.inputs || {},
+          providerConfigs
+        )
+
+        return { success: true, data: result }
+      } catch (e) {
+        log.error('Failed to run node debug', e)
         return { success: false, error: String(e) }
       }
     })

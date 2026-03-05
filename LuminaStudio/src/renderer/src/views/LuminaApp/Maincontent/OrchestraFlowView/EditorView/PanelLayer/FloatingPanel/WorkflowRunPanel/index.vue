@@ -65,7 +65,7 @@
 
             <!-- 节点输出组件 -->
             <StartNodeOutput v-if="tracing.nodeType === OFBlockEnum.Start" :tracing="tracing" />
-            <LLMNodeOutput v-else-if="tracing.nodeType === OFBlockEnum.Llm" :tracing="tracing" />
+            <LLMNodeOutput v-else-if="tracing.nodeType === OFBlockEnum.LLM" :tracing="tracing" />
             <EndNodeOutput v-else-if="tracing.nodeType === OFBlockEnum.End" :tracing="tracing" />
           </div>
         </div>

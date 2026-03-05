@@ -38,6 +38,7 @@
           <!-- 帮助按钮 -->
           <div
             class="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md hover:bg-gray-100"
+            @click="enterDebugMode"
           >
             <svg
               viewBox="0 0 24 24"
@@ -148,7 +149,7 @@
     <!-- 内容区 -->
     <div class="flex-1 overflow-y-auto">
       <!-- 设置 Tab -->
-      <div v-if="activeTab === 'settings'" class="mt-2 px-4 pb-4 space-y-4">
+      <div v-if="activeTab === 'settings' && !debugMode" class="mt-2 px-4 pb-4 space-y-4">
         <!-- 输入字段 -->
         <div>
           <div class="flex items-center justify-between">
@@ -240,9 +241,22 @@
         </div>
       </div>
 
+      <div v-else-if="activeTab === 'settings' && debugMode" class="mt-2 px-4 pb-4">
+        <NodeDebugForm
+          :fields="debugFields"
+          :model-value="debugFormValues"
+          :running="nodeDebugStore.runningNodeId === uiStore.selectedNodeId"
+          @update:model-value="handleDebugFormUpdate"
+          @execute="executeNodeDebug"
+        />
+      </div>
+
       <!-- 上次运行 Tab -->
       <div v-else-if="activeTab === 'lastRun'" class="p-4">
-        <div class="text-sm text-gray-400 text-center py-8">暂无运行记录</div>
+        <NodeDebugLastRun
+          :result="nodeDebugResult"
+          :loading="nodeDebugStore.runningNodeId === uiStore.selectedNodeId"
+        />
       </div>
     </div>
 
@@ -292,20 +306,26 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
 import AddFieldDialog from './AddFieldDialog/index.vue'
+import NodeDebugForm from '../NodeDebug/NodeDebugForm.vue'
+import NodeDebugLastRun from '../NodeDebug/NodeDebugLastRun.vue'
 import {
   useWorkflowEditorUIStore,
   PanelTab
 } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor-ui.store'
 import { useWorkflowEditorStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor.store'
+import { useNodeDebugStore } from '@renderer/stores/orchestraflow/node-debug/node-debug.store'
 import { OFVarType } from '@shared/Orchestraflow-types'
+import type { NodeDebugField } from '../NodeDebug/NodeDebugForm.vue'
 
 const uiStore = useWorkflowEditorUIStore()
 const editorStore = useWorkflowEditorStore()
+const nodeDebugStore = useNodeDebugStore()
 
 // 本地表单状态（临时性质，不做全局状态）
 const localTitle = ref('')
 const localDesc = ref('')
 const activeTab = ref<'settings' | 'lastRun'>('settings')
+const debugMode = ref(false)
 const showAddFieldDialog = ref(false)
 
 // 获取当前选中的节点
@@ -329,9 +349,38 @@ const localInputs = computed({
   }
 })
 
+const debugFields = computed<NodeDebugField[]>(() =>
+  localInputs.value.map((field) => ({
+    key: field.variable,
+    label: field.label || field.variable,
+    required: field.required,
+    placeholder: field.description || `请输入 ${field.label || field.variable}`
+  }))
+)
+
+const debugFormValues = computed(() => {
+  const nodeId = uiStore.selectedNodeId
+  if (!nodeId) return {}
+  return nodeDebugStore.getNodeFormValues(nodeId)
+})
+
+const nodeDebugResult = computed(() => {
+  const nodeId = uiStore.selectedNodeId
+  if (!nodeId) return undefined
+  return nodeDebugStore.getLastRun(nodeId)
+})
+
 // Tab 切换
 function setActiveTab(tab: 'settings' | 'lastRun') {
   activeTab.value = tab
+  if (tab !== 'settings') {
+    debugMode.value = false
+  }
+}
+
+function enterDebugMode() {
+  debugMode.value = true
+  activeTab.value = 'settings'
 }
 
 // 点击“添加字段”按钮：打开对话框
@@ -375,6 +424,28 @@ function addNextNode() {
   // TODO: 实现添加节点逻辑
 }
 
+function handleDebugFormUpdate(values: Record<string, string>) {
+  if (!uiStore.selectedNodeId) return
+  Object.entries(values).forEach(([key, value]) => {
+    nodeDebugStore.setNodeFormValue(uiStore.selectedNodeId!, key, value)
+  })
+}
+
+async function executeNodeDebug(values: Record<string, string>) {
+  if (!editorStore.currentWorkflowId || !uiStore.selectedNodeId) return
+  debugMode.value = false
+  activeTab.value = 'lastRun'
+  try {
+    await nodeDebugStore.runNodeDebug({
+      workflowId: editorStore.currentWorkflowId,
+      nodeId: uiStore.selectedNodeId,
+      inputs: { ...values }
+    })
+  } catch (error) {
+    console.error('Node debug run failed:', error)
+  }
+}
+
 // 关闭面板
 function handleClose() {
   uiStore.closeNodeConfigPanel()
@@ -384,6 +455,7 @@ function handleClose() {
 watch(
   () => uiStore.selectedNodeId,
   (newId) => {
+    debugMode.value = false
     if (newId && currentNode.value) {
       const nodeData = currentNode.value.data as OFStartNodeData
       localTitle.value = nodeData.title || '开始'

@@ -258,6 +258,23 @@ export interface OFWorkflowRunResult {
   error?: string
 }
 
+// ===== 节点调试 =====
+export interface OFNodeDebugRunParams {
+  workflowId: string
+  nodeId: string
+  inputs?: Record<string, any>
+}
+
+export interface OFNodeDebugResult {
+  nodeId: string
+  nodeType: OFBlockEnum
+  status: OFNodeRunningStatus
+  elapsed_time?: number
+  inputs?: Record<string, any>
+  outputs?: Record<string, any>
+  error?: string
+}
+
 // ===== 节点配置类型（用于 Store）=====
 export interface OFStartNodeConfig {
   nodeId: string

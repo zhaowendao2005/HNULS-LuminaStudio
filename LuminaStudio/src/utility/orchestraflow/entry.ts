@@ -138,6 +138,33 @@ parentPort.on('message', async (event: { data: MainToOFMessage }) => {
         break
       }
 
+      case 'node:debug-run': {
+        try {
+          if (msg.providerConfigs) {
+            providerConfigs = msg.providerConfigs
+          }
+          const result = await workflowManager.runNodeDebug(
+            msg.workflow,
+            msg.nodeId,
+            msg.inputs,
+            providerConfigs
+          )
+          sendMessage({
+            type: 'node:debug-result',
+            requestId: msg.requestId,
+            result
+          })
+        } catch (err) {
+          const errorMsg = err instanceof Error ? err.message : String(err)
+          sendMessage({
+            type: 'node:debug-error',
+            requestId: msg.requestId,
+            error: errorMsg
+          })
+        }
+        break
+      }
+
       default: {
         const unknownType = (msg as any)?.type
         log.warn('Unknown message type', { type: unknownType })

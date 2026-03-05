@@ -30,6 +30,10 @@ export const orchestraflowAPI: OFWorkflowAPI = {
     return ipcRenderer.invoke('orchestraflow:workflow-run', workflowId, inputs)
   },
 
+  runNodeDebug: (params) => {
+    return ipcRenderer.invoke('orchestraflow:node-debug-run', params)
+  },
+
   stop: (runId) => {
     return ipcRenderer.invoke('orchestraflow:workflow-stop', runId)
   },

@@ -8,7 +8,8 @@ import type {
   OFWorkflow,
   OFModelConfig,
   OFNodeTracing,
-  OFWorkflowRunResult
+  OFWorkflowRunResult,
+  OFNodeDebugResult
 } from '@shared/Orchestraflow-types'
 
 // ==================== Config Types ====================
@@ -35,6 +36,14 @@ export type OFProviderConfigsMap = Record<string, OFProviderConfig>
 export interface OFWorkflowRunRequest {
   runId: string
   workflow: OFWorkflow
+  inputs: Record<string, unknown>
+  providerConfigs?: OFProviderConfigsMap
+}
+
+export interface OFNodeDebugRunRequest {
+  requestId: string
+  workflow: OFWorkflow
+  nodeId: string
   inputs: Record<string, unknown>
   providerConfigs?: OFProviderConfigsMap
 }
@@ -72,6 +81,14 @@ export type MainToOFMessage =
       type: 'workflow:stop'
       runId: string
     }
+  | {
+      type: 'node:debug-run'
+      requestId: string
+      workflow: OFWorkflow
+      nodeId: string
+      inputs: Record<string, unknown>
+      providerConfigs?: OFProviderConfigsMap
+    }
 
 // ==================== Utility -> Main ====================
 
@@ -87,3 +104,5 @@ export type OFToMainMessage =
   | { type: 'workflow:progress'; runId: string; progress: OFNodeTracing }
   | { type: 'workflow:result'; runId: string; result: OFWorkflowRunResult }
   | { type: 'workflow:error'; runId: string; error: string }
+  | { type: 'node:debug-result'; requestId: string; result: OFNodeDebugResult }
+  | { type: 'node:debug-error'; requestId: string; error: string }

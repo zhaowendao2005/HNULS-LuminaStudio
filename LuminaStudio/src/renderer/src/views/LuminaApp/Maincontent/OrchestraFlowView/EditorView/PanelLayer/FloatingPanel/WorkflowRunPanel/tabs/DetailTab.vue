@@ -205,7 +205,7 @@ function getNodeTitle(tracing: any): string {
   switch (tracing.nodeType) {
     case OFBlockEnum.Start:
       return '开始'
-    case OFBlockEnum.Llm:
+    case OFBlockEnum.LLM:
       return 'LLM'
     case OFBlockEnum.End:
       return '结束'

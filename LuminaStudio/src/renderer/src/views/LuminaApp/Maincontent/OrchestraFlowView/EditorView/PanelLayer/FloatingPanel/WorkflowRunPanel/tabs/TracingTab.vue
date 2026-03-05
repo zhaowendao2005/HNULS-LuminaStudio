@@ -160,7 +160,7 @@ function getNodeIcon(nodeType: string): string {
   switch (nodeType) {
     case OFBlockEnum.Start:
       return 'S'
-    case OFBlockEnum.Llm:
+    case OFBlockEnum.LLM:
       return 'L'
     case OFBlockEnum.End:
       return 'E'
@@ -174,7 +174,7 @@ function getNodeIconClass(nodeType: string): string {
   switch (nodeType) {
     case OFBlockEnum.Start:
       return 'bg-blue-500'
-    case OFBlockEnum.Llm:
+    case OFBlockEnum.LLM:
       return 'bg-purple-500'
     case OFBlockEnum.End:
       return 'bg-green-500'
@@ -188,7 +188,7 @@ function getNodeTitle(tracing: any): string {
   switch (tracing.nodeType) {
     case OFBlockEnum.Start:
       return '开始节点'
-    case OFBlockEnum.Llm:
+    case OFBlockEnum.LLM:
       return 'LLM 节点'
     case OFBlockEnum.End:
       return '结束节点'

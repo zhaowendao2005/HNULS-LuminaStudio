@@ -12,7 +12,9 @@ import type {
   OFWorkflow,
   OFWorkflowMeta,
   OFWorkflowRunResult,
-  OFNodeTracing
+  OFNodeTracing,
+  OFNodeDebugRunParams,
+  OFNodeDebugResult
 } from '@shared/Orchestraflow-types'
 
 export interface OFWorkflowAPI {
@@ -60,6 +62,12 @@ export interface OFWorkflowAPI {
   ): Promise<{
     success: boolean
     data?: OFWorkflowRunResult
+    error?: string
+  }>
+
+  runNodeDebug(params: OFNodeDebugRunParams): Promise<{
+    success: boolean
+    data?: OFNodeDebugResult
     error?: string
   }>
 

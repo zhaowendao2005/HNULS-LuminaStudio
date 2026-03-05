@@ -6,10 +6,12 @@
 import type {
   OFWorkflow,
   OFNodeTracing,
-  OFWorkflowRunResult
+  OFWorkflowRunResult,
+  OFNodeDebugResult
 } from '@shared/Orchestraflow-types'
-import { OFWorkflowRunningStatus, OFNodeRunningStatus } from '@shared/Orchestraflow-types'
+import { OFWorkflowRunningStatus, OFNodeRunningStatus, OFBlockEnum } from '@shared/Orchestraflow-types'
 import { VariableStore } from '../services/variable-store'
+import { executeNode } from '../services/executor'
 
 export interface WorkflowInstance {
   runId: string
@@ -110,7 +112,7 @@ export class WorkflowInstanceManager {
               return {
                 nodeId: node.id,
                 status: result.error ? OFNodeRunningStatus.Failed : OFNodeRunningStatus.Succeeded,
-                outputs: result.outputs,
+                outputs: this.toSerializable(result.outputs),
                 error: result.error,
                 elapsed: Date.now() - nodeStartTime
               }
@@ -159,7 +161,7 @@ export class WorkflowInstanceManager {
       const endNode = workflow.graph.nodes.find((n) => n.data.type === 'end')
       if (endNode) {
         const endTracing = instance.tracing.find((t) => t.nodeId === endNode.id)
-        instance.outputs = endTracing?.outputs || {}
+        instance.outputs = this.toSerializable(endTracing?.outputs || {})
       }
 
       return this.buildResult(instance)
@@ -168,6 +170,55 @@ export class WorkflowInstanceManager {
       instance.error = error instanceof Error ? error.message : String(error)
       instance.endTime = Date.now()
       return this.buildResult(instance)
+    }
+  }
+
+  /**
+   * 执行单节点调试
+   */
+  async runNodeDebug(
+    workflow: OFWorkflow,
+    nodeId: string,
+    inputs: Record<string, any>,
+    providerConfigs: Record<
+      string,
+      {
+        id: string
+        name: string
+        baseUrl: string
+        apiKey: string
+        enabled: boolean
+      }
+    > = {}
+  ): Promise<OFNodeDebugResult> {
+    const node = workflow.graph.nodes.find((item) => item.id === nodeId)
+    if (!node) {
+      return {
+        nodeId,
+        nodeType: OFBlockEnum.Start,
+        status: OFNodeRunningStatus.Failed,
+        error: `Node not found: ${nodeId}`,
+        inputs: this.toSerializable(inputs || {})
+      }
+    }
+
+    const start = Date.now()
+    const variableStore = new VariableStore()
+    Object.entries(inputs || {}).forEach(([key, value]) => {
+      variableStore.set(key, value)
+    })
+
+    const result = await executeNode(node, variableStore, inputs || {}, [], providerConfigs)
+    const elapsed = Date.now() - start
+
+    return {
+      nodeId: node.id,
+      nodeType: node.data.type,
+      status: result.error ? OFNodeRunningStatus.Failed : OFNodeRunningStatus.Succeeded,
+      elapsed_time: elapsed,
+      inputs: this.toSerializable(inputs || {}),
+      outputs: this.toSerializable(result.outputs),
+      error: result.error
     }
   }
 
@@ -214,10 +265,41 @@ export class WorkflowInstanceManager {
     return {
       status: instance.status,
       elapsed_time: instance.endTime ? instance.endTime - instance.startTime : undefined,
-      tracing: instance.tracing,
-      outputs: instance.outputs,
+      tracing: this.toSerializable(instance.tracing),
+      outputs: this.toSerializable(instance.outputs),
       error: instance.error
     }
+  }
+
+  private toSerializable<T>(value: T): T {
+    if (value === undefined) {
+      return value
+    }
+    const seen = new WeakSet<object>()
+    return JSON.parse(
+      JSON.stringify(value, (_key, currentValue) => {
+        if (typeof currentValue === 'bigint') {
+          return currentValue.toString()
+        }
+        if (typeof currentValue === 'function' || typeof currentValue === 'symbol') {
+          return undefined
+        }
+        if (currentValue instanceof Error) {
+          return {
+            name: currentValue.name,
+            message: currentValue.message,
+            stack: currentValue.stack
+          }
+        }
+        if (currentValue && typeof currentValue === 'object') {
+          if (seen.has(currentValue)) {
+            return '[Circular]'
+          }
+          seen.add(currentValue)
+        }
+        return currentValue
+      })
+    ) as T
   }
 
   /**
