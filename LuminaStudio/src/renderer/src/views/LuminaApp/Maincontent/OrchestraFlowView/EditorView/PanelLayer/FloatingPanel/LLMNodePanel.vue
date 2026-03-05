@@ -696,7 +696,14 @@ const localOutputs = computed({
     const nodeData = currentNode.value.data as OFLLMNodeData
     return nodeData.output?.variables || []
   },
-  set(newOutputs: Array<{ variable: string; value_selector?: string[]; type?: OFVarType; label?: string }>) {
+  set(
+    newOutputs: Array<{
+      variable: string
+      value_selector?: string[]
+      type?: OFVarType
+      label?: string
+    }>
+  ) {
     if (!uiStore.selectedNodeId) return
     editorStore.updateNode(uiStore.selectedNodeId, {
       output: { variables: newOutputs }

@@ -111,11 +111,14 @@ export class LLMNode extends BaseNode {
       const response = await this.model.invoke(messages)
 
       // 提取文本内容
-      const content = typeof response.content === 'string' ? response.content : JSON.stringify(response.content)
+      const content =
+        typeof response.content === 'string' ? response.content : JSON.stringify(response.content)
 
       // 根据用户配置的 output.variables 存储变量
       const outputConfig = nodeData.output
-      const outputVars = outputConfig?.variables?.length ? outputConfig.variables : [{ variable: 'response', type: OFVarType.String }]
+      const outputVars = outputConfig?.variables?.length
+        ? outputConfig.variables
+        : [{ variable: 'response', type: OFVarType.String }]
 
       for (const output of outputVars) {
         const varName = output.variable

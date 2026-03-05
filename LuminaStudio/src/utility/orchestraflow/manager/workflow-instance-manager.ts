@@ -3,7 +3,12 @@
  *
  * 表示一个正在运行或已完成的工作流实例
  */
-import type { OFWorkflow, OFNodeTracing, OFWorkflowRunResult, OFWorkflowRunningStatus } from '@shared/Orchestraflow-types'
+import type {
+  OFWorkflow,
+  OFNodeTracing,
+  OFWorkflowRunResult,
+  OFWorkflowRunningStatus
+} from '@shared/Orchestraflow-types'
 import { OFWorkflowRunningStatus, OFNodeRunningStatus } from '@shared/Orchestraflow-types'
 import { VariableStore } from '../services/variable-store'
 
@@ -43,13 +48,16 @@ export class WorkflowInstanceManager {
     runId: string,
     workflow: OFWorkflow,
     inputs: Record<string, any>,
-    providerConfigs: Record<string, {
-      id: string
-      name: string
-      baseUrl: string
-      apiKey: string
-      enabled: boolean
-    }> = {}
+    providerConfigs: Record<
+      string,
+      {
+        id: string
+        name: string
+        baseUrl: string
+        apiKey: string
+        enabled: boolean
+      }
+    > = {}
   ): Promise<OFWorkflowRunResult> {
     // 创建实例
     const instance: WorkflowInstance = {
@@ -91,7 +99,13 @@ export class WorkflowInstanceManager {
         try {
           const { node: execNode, variableStore } = instance
           const { executeNode } = await import('../services/executor')
-          const result = await executeNode(node, instance.variableStore, inputs, instance.tracing, providerConfigs)
+          const result = await executeNode(
+            node,
+            instance.variableStore,
+            inputs,
+            instance.tracing,
+            providerConfigs
+          )
 
           // 更新节点 tracing
           const tracingIndex = instance.tracing.findIndex((t) => t.nodeId === node.id)

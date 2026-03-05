@@ -105,7 +105,10 @@ export class OrchestraflowBridgeService {
     workflowId: string,
     workflow: OFWorkflow,
     inputs: Record<string, any>,
-    providerConfigs?: Record<string, { id: string; name: string; baseUrl: string; apiKey: string; enabled: boolean }>,
+    providerConfigs?: Record<
+      string,
+      { id: string; name: string; baseUrl: string; apiKey: string; enabled: boolean }
+    >,
     timeoutMs = 300000
   ): Promise<OFWorkflowRunResult> {
     const runId = randomUUID()

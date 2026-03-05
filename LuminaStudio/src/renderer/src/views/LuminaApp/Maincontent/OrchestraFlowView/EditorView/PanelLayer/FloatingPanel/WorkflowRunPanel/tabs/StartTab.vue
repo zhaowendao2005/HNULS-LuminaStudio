@@ -55,11 +55,7 @@
       <!-- 错误提示 -->
       <div v-if="errors.length > 0" class="bg-red-50 border border-red-200 rounded-lg p-3">
         <div class="flex items-start gap-2">
-          <svg
-            class="w-4 h-4 text-red-500 mt-0.5 shrink-0"
-            fill="currentColor"
-            viewBox="0 0 20 20"
-          >
+          <svg class="w-4 h-4 text-red-500 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
             <path
               fill-rule="evenodd"
               d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
@@ -76,11 +72,7 @@
       </div>
 
       <!-- 字段列表 -->
-      <div
-        v-for="inputVar in inputVars"
-        :key="inputVar.variable"
-        class="space-y-1.5"
-      >
+      <div v-for="inputVar in inputVars" :key="inputVar.variable" class="space-y-1.5">
         <label class="flex items-center gap-1 text-sm font-medium text-gray-700">
           {{ inputVar.label || inputVar.variable }}
           <span v-if="inputVar.required" class="text-red-500">*</span>
@@ -92,9 +84,11 @@
           v-model="formData[inputVar.variable]"
           type="text"
           class="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-          :class="errors.some(e => e.includes(inputVar.label || inputVar.variable))
-            ? 'border-red-300 bg-red-50'
-            : 'border-gray-300'"
+          :class="
+            errors.some((e) => e.includes(inputVar.label || inputVar.variable))
+              ? 'border-red-300 bg-red-50'
+              : 'border-gray-300'
+          "
           :placeholder="inputVar.description || `请输入${inputVar.label || inputVar.variable}`"
         />
 
@@ -104,9 +98,11 @@
           v-model="formData[inputVar.variable]"
           rows="3"
           class="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-          :class="errors.some(e => e.includes(inputVar.label || inputVar.variable))
-            ? 'border-red-300 bg-red-50'
-            : 'border-gray-300'"
+          :class="
+            errors.some((e) => e.includes(inputVar.label || inputVar.variable))
+              ? 'border-red-300 bg-red-50'
+              : 'border-gray-300'
+          "
           :placeholder="inputVar.description || `请输入${inputVar.label || inputVar.variable}`"
         ></textarea>
 
@@ -115,16 +111,14 @@
           v-else-if="inputVar.type === 'select'"
           v-model="formData[inputVar.variable]"
           class="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-          :class="errors.some(e => e.includes(inputVar.label || inputVar.variable))
-            ? 'border-red-300 bg-red-50'
-            : 'border-gray-300'"
+          :class="
+            errors.some((e) => e.includes(inputVar.label || inputVar.variable))
+              ? 'border-red-300 bg-red-50'
+              : 'border-gray-300'
+          "
         >
           <option value="">请选择</option>
-          <option
-            v-for="option in inputVar.options"
-            :key="option"
-            :value="option"
-          >
+          <option v-for="option in inputVar.options" :key="option" :value="option">
             {{ option }}
           </option>
         </select>
@@ -135,9 +129,11 @@
           v-model="formData[inputVar.variable]"
           type="text"
           class="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-          :class="errors.some(e => e.includes(inputVar.label || inputVar.variable))
-            ? 'border-red-300 bg-red-50'
-            : 'border-gray-300'"
+          :class="
+            errors.some((e) => e.includes(inputVar.label || inputVar.variable))
+              ? 'border-red-300 bg-red-50'
+              : 'border-gray-300'
+          "
           :placeholder="inputVar.description || `请输入${inputVar.label || inputVar.variable}`"
         />
 
@@ -152,11 +148,7 @@
           class="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg transition-colors border border-green-200 font-medium"
           @click="handleRun"
         >
-          <svg
-            class="w-4 h-4"
-            fill="currentColor"
-            viewBox="0 0 20 20"
-          >
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
             <path
               d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"
             />

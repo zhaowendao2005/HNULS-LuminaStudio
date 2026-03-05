@@ -71,10 +71,7 @@
                 {{ tracing.elapsed_time }}ms
               </span>
               <!-- 状态 -->
-              <span
-                class="px-2 py-0.5 text-xs rounded"
-                :class="getStatusClass(tracing.status)"
-              >
+              <span class="px-2 py-0.5 text-xs rounded" :class="getStatusClass(tracing.status)">
                 {{ getStatusText(tracing.status) }}
               </span>
             </div>
@@ -86,7 +83,9 @@
             <div class="p-3 bg-white">
               <div class="text-xs font-medium text-gray-500 mb-2">原始数据 (Raw Data)</div>
               <div class="bg-gray-900 rounded-lg p-3 overflow-auto max-h-80">
-                <pre class="text-xs text-green-400 whitespace-pre-wrap">{{ formatRawData(tracing) }}</pre>
+                <pre class="text-xs text-green-400 whitespace-pre-wrap">{{
+                  formatRawData(tracing)
+                }}</pre>
               </div>
             </div>
 
@@ -100,11 +99,15 @@
             <div class="grid grid-cols-2 border-t border-gray-200">
               <div class="p-3 border-r border-gray-200">
                 <div class="text-xs font-medium text-gray-500 mb-1">输入 (Inputs)</div>
-                <pre class="text-xs text-gray-600 whitespace-pre-wrap">{{ formatJson(tracing.inputs) }}</pre>
+                <pre class="text-xs text-gray-600 whitespace-pre-wrap">{{
+                  formatJson(tracing.inputs)
+                }}</pre>
               </div>
               <div class="p-3">
                 <div class="text-xs font-medium text-gray-500 mb-1">输出 (Outputs)</div>
-                <pre class="text-xs text-gray-600 whitespace-pre-wrap">{{ formatJson(tracing.outputs) }}</pre>
+                <pre class="text-xs text-gray-600 whitespace-pre-wrap">{{
+                  formatJson(tracing.outputs)
+                }}</pre>
               </div>
             </div>
           </div>

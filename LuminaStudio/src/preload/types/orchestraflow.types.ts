@@ -8,7 +8,12 @@ export * from '@shared/Orchestraflow-types'
  * OrchestraFlow API Types
  * 工作流系统 IPC 接口类型定义
  */
-import type { OFWorkflow, OFWorkflowMeta, OFWorkflowRunResult, OFNodeTracing } from '@shared/Orchestraflow-types'
+import type {
+  OFWorkflow,
+  OFWorkflowMeta,
+  OFWorkflowRunResult,
+  OFNodeTracing
+} from '@shared/Orchestraflow-types'
 
 export interface OFWorkflowAPI {
   list(params?: { keyword?: string; page?: number; pageSize?: number }): Promise<{
@@ -49,7 +54,10 @@ export interface OFWorkflowAPI {
     error?: string
   }>
 
-  run(workflowId: string, inputs?: Record<string, any>): Promise<{
+  run(
+    workflowId: string,
+    inputs?: Record<string, any>
+  ): Promise<{
     success: boolean
     data?: OFWorkflowRunResult
     error?: string

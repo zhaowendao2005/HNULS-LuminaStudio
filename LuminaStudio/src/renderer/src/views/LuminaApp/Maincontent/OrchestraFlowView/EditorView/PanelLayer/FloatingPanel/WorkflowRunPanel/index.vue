@@ -11,9 +11,11 @@
         v-for="tab in tabs"
         :key="tab.key"
         class="px-4 py-2 text-sm font-medium border-b-2 transition-colors"
-        :class="activeTab === tab.key
-          ? 'border-indigo-500 text-indigo-600'
-          : 'border-transparent text-gray-500 hover:text-gray-700'"
+        :class="
+          activeTab === tab.key
+            ? 'border-indigo-500 text-indigo-600'
+            : 'border-transparent text-gray-500 hover:text-gray-700'
+        "
         @click="activeTab = tab.key"
       >
         {{ tab.label }}
@@ -34,7 +36,9 @@
           <div class="flex items-center justify-between rounded-lg px-3 py-2" :class="statusClass">
             <div class="flex items-center gap-2">
               <span class="system-md-semibold">{{ statusText }}</span>
-              <span class="text-sm opacity-80">{{ runStore.result?.elapsed_time?.toFixed(2) }}s</span>
+              <span class="text-sm opacity-80">
+                {{ runStore.result?.elapsed_time?.toFixed(2) }}s
+              </span>
             </div>
             <div v-if="runStore.result?.total_tokens" class="text-sm">
               {{ runStore.result.total_tokens }} tokens
@@ -163,23 +167,29 @@ const tabs = [
   { key: 'trace', label: '追踪' }
 ] as const
 
-type TabKey = typeof tabs[number]['key']
+type TabKey = (typeof tabs)[number]['key']
 
 const activeTab = ref<TabKey>('start')
 
 // 监听运行状态，自动切换到结果 Tab
-watch(() => runStore.isRunning, (isRunning) => {
-  if (isRunning) {
-    activeTab.value = 'result'
+watch(
+  () => runStore.isRunning,
+  (isRunning) => {
+    if (isRunning) {
+      activeTab.value = 'result'
+    }
   }
-})
+)
 
 // 监听结果返回，切换到结果 Tab
-watch(() => runStore.hasResult, (hasResult) => {
-  if (hasResult && !runStore.isRunning) {
-    activeTab.value = 'result'
+watch(
+  () => runStore.hasResult,
+  (hasResult) => {
+    if (hasResult && !runStore.isRunning) {
+      activeTab.value = 'result'
+    }
   }
-})
+)
 
 const statusClass = computed(() => {
   switch (runStore.status) {

@@ -68,13 +68,16 @@ const log = {
 }
 
 // 保存 provider 配置，供节点执行时使用
-let providerConfigs: Record<string, {
-  id: string
-  name: string
-  baseUrl: string
-  apiKey: string
-  enabled: boolean
-}> = {}
+let providerConfigs: Record<
+  string,
+  {
+    id: string
+    name: string
+    baseUrl: string
+    apiKey: string
+    enabled: boolean
+  }
+> = {}
 
 function sendMessage(msg: OFToMainMessage): void {
   parentPort?.postMessage(msg)
@@ -105,7 +108,12 @@ parentPort.on('message', async (event: { data: MainToOFMessage }) => {
             providerConfigs = msg.providerConfigs
           }
           log.info('Running workflow', { runId: msg.runId, workflowId: msg.workflow.id })
-          const result = await workflowManager.runWorkflow(msg.runId, msg.workflow, msg.inputs, providerConfigs)
+          const result = await workflowManager.runWorkflow(
+            msg.runId,
+            msg.workflow,
+            msg.inputs,
+            providerConfigs
+          )
           sendMessage({
             type: 'workflow:result',
             runId: msg.runId,

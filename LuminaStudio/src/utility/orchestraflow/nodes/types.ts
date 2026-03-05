@@ -16,13 +16,16 @@ export interface ExecutionContext {
   node: OFNode
   inputs: Record<string, any>
   variables: Record<string, any>
-  providerConfigs?: Record<string, {
-    id: string
-    name: string
-    baseUrl: string
-    apiKey: string
-    enabled: boolean
-  }>
+  providerConfigs?: Record<
+    string,
+    {
+      id: string
+      name: string
+      baseUrl: string
+      apiKey: string
+      enabled: boolean
+    }
+  >
 }
 
 export interface NodeResult {

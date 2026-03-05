@@ -26,9 +26,7 @@
       <!-- 运行状态 -->
       <div class="flex items-center justify-between">
         <div class="text-sm font-medium text-gray-700">运行详情</div>
-        <div class="text-xs text-gray-400">
-          {{ runStore.result?.tracing.length }} 个节点
-        </div>
+        <div class="text-xs text-gray-400">{{ runStore.result?.tracing.length }} 个节点</div>
       </div>
 
       <!-- 输入输出面板 -->
@@ -64,10 +62,7 @@
               <span class="text-sm font-medium text-gray-700">{{ getNodeTitle(tracing) }}</span>
               <span class="text-xs text-gray-400">{{ tracing.nodeId }}</span>
             </div>
-            <span
-              class="px-2 py-0.5 text-xs rounded"
-              :class="getStatusClass(tracing.status)"
-            >
+            <span class="px-2 py-0.5 text-xs rounded" :class="getStatusClass(tracing.status)">
               {{ getStatusText(tracing.status) }}
             </span>
           </div>
@@ -76,11 +71,15 @@
           <div class="grid grid-cols-2 gap-px bg-gray-200">
             <div class="bg-white p-2">
               <div class="text-xs text-gray-400 mb-1">输入</div>
-              <pre class="text-xs text-gray-600 whitespace-pre-wrap">{{ formatJson(tracing.inputs) }}</pre>
+              <pre class="text-xs text-gray-600 whitespace-pre-wrap">{{
+                formatJson(tracing.inputs)
+              }}</pre>
             </div>
             <div class="bg-white p-2">
               <div class="text-xs text-gray-400 mb-1">输出</div>
-              <pre class="text-xs text-gray-600 whitespace-pre-wrap">{{ formatJson(tracing.outputs) }}</pre>
+              <pre class="text-xs text-gray-600 whitespace-pre-wrap">{{
+                formatJson(tracing.outputs)
+              }}</pre>
             </div>
           </div>
 
@@ -90,7 +89,10 @@
           </div>
 
           <!-- 执行时间 -->
-          <div v-if="tracing.elapsed_time" class="px-3 py-1.5 bg-gray-50 border-t border-gray-200 text-xs text-gray-400">
+          <div
+            v-if="tracing.elapsed_time"
+            class="px-3 py-1.5 bg-gray-50 border-t border-gray-200 text-xs text-gray-400"
+          >
             耗时: {{ tracing.elapsed_time }}ms
           </div>
         </div>

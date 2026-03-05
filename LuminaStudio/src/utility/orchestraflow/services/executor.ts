@@ -13,13 +13,16 @@ export async function executeNode(
   variableStore: VariableStore,
   initialInputs: Record<string, any>,
   tracing: OFNodeTracing[],
-  providerConfigs: Record<string, {
-    id: string
-    name: string
-    baseUrl: string
-    apiKey: string
-    enabled: boolean
-  }> = {}
+  providerConfigs: Record<
+    string,
+    {
+      id: string
+      name: string
+      baseUrl: string
+      apiKey: string
+      enabled: boolean
+    }
+  > = {}
 ): Promise<NodeResult> {
   // 根据前置节点收集输入
   const inputs: Record<string, any> = {}
