@@ -94,7 +94,8 @@ function handleKeydown(event: KeyboardEvent) {
 
 defineExpose({
   focus: () => textareaRef.value?.focus(),
-  getCursorPosition: () => textareaRef.value?.selectionStart || 0
+  getCursorPosition: () => textareaRef.value?.selectionStart || 0,
+  getAnchorRect: () => textareaRef.value?.getBoundingClientRect() || null
 })
 </script>
 

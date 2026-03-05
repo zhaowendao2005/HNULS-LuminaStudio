@@ -97,17 +97,51 @@ const searchInput = ref<HTMLInputElement | null>(null)
 const localKeyword = ref('')
 const selectedId = ref<string | ''>('')
 
-// 面板位置（暂时固定在右侧）
 const panelStyle = ref({
-  top: '0px',
-  right: '420px'
+  top: '12px',
+  left: '12px'
 })
+
+function updatePanelStyle() {
+  const anchor = store.anchorRect
+  if (!anchor) {
+    panelStyle.value = {
+      top: '12px',
+      left: `${Math.max(12, window.innerWidth - 332)}px`
+    }
+    return
+  }
+
+  const panelWidth = 320
+  const maxHeight = 384
+  const padding = 12
+  const gap = 8
+
+  let left = anchor.left
+  let top = anchor.bottom + gap
+
+  if (left + panelWidth > window.innerWidth - padding) {
+    left = window.innerWidth - panelWidth - padding
+  }
+  if (top + maxHeight > window.innerHeight - padding) {
+    top = Math.max(padding, anchor.top - maxHeight - gap)
+  }
+
+  left = Math.min(Math.max(left, padding), window.innerWidth - panelWidth - padding)
+  top = Math.min(Math.max(top, padding), window.innerHeight - 120)
+
+  panelStyle.value = {
+    top: `${top}px`,
+    left: `${left}px`
+  }
+}
 
 // 监听显示状态，自动聚焦搜索框
 watch(
   () => store.visible,
   async (visible) => {
     if (visible) {
+      updatePanelStyle()
       localKeyword.value = ''
       selectedId.value = ''
       await nextTick()
@@ -207,10 +241,12 @@ function handleKeydown(e: KeyboardEvent) {
 
 onMounted(() => {
   document.addEventListener('keydown', handleKeydown)
+  window.addEventListener('resize', updatePanelStyle)
 })
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown)
+  window.removeEventListener('resize', updatePanelStyle)
 })
 </script>
 

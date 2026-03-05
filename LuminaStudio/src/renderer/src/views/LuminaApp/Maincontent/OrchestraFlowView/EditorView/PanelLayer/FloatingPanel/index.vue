@@ -1,9 +1,14 @@
 <template>
   <!-- 通用浮窗容器：从右向左滑入 -->
   <Transition name="panel-slide">
-    <div v-if="visible" class="absolute right-0 top-0 h-full z-30">
+    <div v-if="visible" class="absolute top-0 h-full" :style="panelPositionStyle" @pointerdown="handleFocus">
       <div
-        class="of-floating-panel w-[420px] h-full rounded-2xl border border-gray-200 bg-white shadow-xl flex flex-col overflow-hidden"
+        class="of-floating-panel w-[420px] h-full rounded-2xl border bg-white flex flex-col overflow-hidden transition-all"
+        :class="
+          active
+            ? 'border-emerald-200 shadow-2xl ring-1 ring-emerald-100'
+            : 'border-gray-200 shadow-lg opacity-95'
+        "
       >
         <!-- 头部 -->
         <div class="px-4 pt-4 pb-2 flex-shrink-0">
@@ -42,22 +47,40 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
+
 interface Props {
   visible: boolean
   title: string
   description?: string
+  zIndex?: number
+  offsetX?: number
+  active?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  description: ''
+  description: '',
+  zIndex: 30,
+  offsetX: 0,
+  active: false
 })
 
 const emit = defineEmits<{
   close: []
+  focus: []
 }>()
+
+const panelPositionStyle = computed(() => ({
+  zIndex: props.zIndex,
+  right: `${props.offsetX}px`
+}))
 
 function handleClose() {
   emit('close')
+}
+
+function handleFocus() {
+  emit('focus')
 }
 </script>
 

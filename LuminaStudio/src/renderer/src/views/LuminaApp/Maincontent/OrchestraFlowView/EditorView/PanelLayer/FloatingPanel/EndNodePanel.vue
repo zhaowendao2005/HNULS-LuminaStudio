@@ -145,7 +145,7 @@
               <div
                 class="cursor-pointer select-none rounded-md p-1 hover:bg-gray-100"
                 title="引用变量"
-                @click="variableSelectorStore.openSelector(uiStore.selectedNodeId!, 'output')"
+                @click="openOutputVariableSelector"
               >
                 <svg
                   viewBox="0 0 24 24"
@@ -328,6 +328,11 @@ function updateOutputVariable(index: number, newVariable: string) {
   const newOutputs = [...localOutputs.value]
   newOutputs[index] = { ...newOutputs[index], variable: newVariable }
   localOutputs.value = newOutputs
+}
+
+function openOutputVariableSelector(event: MouseEvent) {
+  const anchorRect = (event.currentTarget as HTMLElement | null)?.getBoundingClientRect() || undefined
+  variableSelectorStore.openSelector(uiStore.selectedNodeId!, 'output', anchorRect)
 }
 
 // 关闭面板

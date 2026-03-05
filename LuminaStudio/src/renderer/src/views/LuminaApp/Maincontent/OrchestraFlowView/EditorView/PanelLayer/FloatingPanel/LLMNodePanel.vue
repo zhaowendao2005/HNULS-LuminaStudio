@@ -357,13 +357,7 @@
                 <button
                   class="of-variable-trigger-btn mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded border border-gray-200 hover:bg-gray-50"
                   title="引用变量"
-                  @click="
-                    variableSelectorStore.openSelector(
-                      uiStore.selectedNodeId!,
-                      'prompt',
-                      messageTextareas[0]?.getCursorPosition() || 0
-                    )
-                  "
+                  @click="openPromptVariableSelector(index, $event)"
                 >
                   <svg
                     viewBox="0 0 24 24"
@@ -793,10 +787,24 @@ function handleClose(): void {
 const messageTextareas = ref<InstanceType<typeof import('./PromptTextarea/index.vue').default>[]>(
   []
 )
+const activeMessageIndex = ref(0)
+
+function openPromptVariableSelector(index: number, event: MouseEvent) {
+  activeMessageIndex.value = index
+  const textarea = messageTextareas.value[index]
+  const cursorPos = textarea?.getCursorPosition?.() || 0
+  const anchorRect =
+    (event.currentTarget as HTMLElement | null)?.getBoundingClientRect() ||
+    textarea?.getAnchorRect?.() ||
+    undefined
+
+  variableSelectorStore.openSelector(uiStore.selectedNodeId!, 'prompt', cursorPos, anchorRect)
+}
 
 // 处理消息文本框输入，检测 / 触发变量选择器
 function handleMessageInput(index: number, value: string) {
-  const cursorPos = messageTextareas.value[0]?.getCursorPosition() || 0
+  const textarea = messageTextareas.value[index]
+  const cursorPos = textarea?.getCursorPosition?.() || 0
 
   // 检测光标前是否是 /
   const textBeforeCursor = value.slice(0, cursorPos)
@@ -811,8 +819,10 @@ function handleMessageInput(index: number, value: string) {
     // 检查 / 后面是否有空格或其他分隔符
     const textAfterSlash = textBeforeCursor.slice(lastSlashIndex + 1)
     if (!textAfterSlash.includes(' ')) {
+      activeMessageIndex.value = index
+      const anchorRect = textarea?.getAnchorRect?.() || undefined
       // 打开变量选择器
-      variableSelectorStore.openSelector(uiStore.selectedNodeId!, 'prompt', cursorPos)
+      variableSelectorStore.openSelector(uiStore.selectedNodeId!, 'prompt', cursorPos, anchorRect)
     }
   }
 
@@ -831,9 +841,10 @@ function handleVariableSelect(event: CustomEvent) {
   if (targetType === 'prompt') {
     // 获取当前消息内容
     const currentMessages = [...localMessages.value]
-    if (!currentMessages[0]) return
+    const targetMessageIndex = Math.min(activeMessageIndex.value, currentMessages.length - 1)
+    if (targetMessageIndex < 0 || !currentMessages[targetMessageIndex]) return
 
-    const currentValue = currentMessages[0].text
+    const currentValue = currentMessages[targetMessageIndex].text
     const cursorPos = cursorPosition || 0
 
     // 找到 / 的位置
@@ -847,7 +858,7 @@ function handleVariableSelect(event: CustomEvent) {
       const newValue = beforeSlash + `{{${variable.variable}}}` + afterCursor
 
       // 更新消息内容
-      currentMessages[0] = { ...currentMessages[0], text: newValue }
+      currentMessages[targetMessageIndex] = { ...currentMessages[targetMessageIndex], text: newValue }
       localMessages.value = currentMessages
     }
   }

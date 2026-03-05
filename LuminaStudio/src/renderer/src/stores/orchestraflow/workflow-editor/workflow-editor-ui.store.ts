@@ -32,18 +32,60 @@ export enum PanelTab {
   LastRun = 'last-run'
 }
 
+export type PanelInstanceId = 'node-config' | 'system-variables' | 'workflow-run'
+
+export interface PanelInstanceState {
+  id: PanelInstanceId
+  open: boolean
+  order: number
+  zIndex: number
+  offsetX: number
+}
+
+const PANEL_IDS: PanelInstanceId[] = ['node-config', 'system-variables', 'workflow-run']
+const PANEL_BASE_Z_INDEX = 30
+const PANEL_STACK_OFFSET = 36
+
 export const useWorkflowEditorUIStore = defineStore('orchestraflow-workflow-editor-ui', () => {
   // ===== State =====
+
+  const panelInstances = ref<Record<PanelInstanceId, PanelInstanceState>>({
+    'node-config': {
+      id: 'node-config',
+      open: false,
+      order: 0,
+      zIndex: PANEL_BASE_Z_INDEX,
+      offsetX: 0
+    },
+    'system-variables': {
+      id: 'system-variables',
+      open: false,
+      order: 0,
+      zIndex: PANEL_BASE_Z_INDEX,
+      offsetX: 0
+    },
+    'workflow-run': {
+      id: 'workflow-run',
+      open: false,
+      order: 0,
+      zIndex: PANEL_BASE_Z_INDEX,
+      offsetX: 0
+    }
+  })
+  const activePanelId = ref<PanelInstanceId | null>(null)
+  let panelOrderSeed = 0
 
   /**
    * 系统变量面板显示状态
    */
-  const showSystemVariablesPanel = ref(false)
+  const showSystemVariablesPanel = computed(
+    () => panelInstances.value['system-variables'].open
+  )
 
   /**
    * 节点配置面板显示状态
    */
-  const showNodeConfigPanel = ref(false)
+  const showNodeConfigPanel = computed(() => panelInstances.value['node-config'].open)
 
   /**
    * 当前面板类型
@@ -78,7 +120,13 @@ export const useWorkflowEditorUIStore = defineStore('orchestraflow-workflow-edit
   /**
    * 运行结果面板显示状态
    */
-  const showWorkflowRunPanel = ref(false)
+  const showWorkflowRunPanel = computed(() => panelInstances.value['workflow-run'].open)
+
+  const openPanelInstances = computed(() => {
+    return PANEL_IDS.map((id) => panelInstances.value[id])
+      .filter((instance) => instance.open)
+      .sort((a, b) => a.zIndex - b.zIndex)
+  })
 
   // ===== Computed =====
 
@@ -86,7 +134,7 @@ export const useWorkflowEditorUIStore = defineStore('orchestraflow-workflow-edit
    * 当前是否显示了任何面板
    */
   const hasAnyPanelOpen = computed(() => {
-    return showSystemVariablesPanel.value || showNodeConfigPanel.value
+    return openPanelInstances.value.length > 0
   })
 
   /**
@@ -107,21 +155,83 @@ export const useWorkflowEditorUIStore = defineStore('orchestraflow-workflow-edit
 
   // ===== Actions =====
 
+  function syncStackLayout() {
+    const opened = PANEL_IDS.map((id) => panelInstances.value[id])
+      .filter((instance) => instance.open)
+      .sort((a, b) => a.order - b.order)
+
+    opened.forEach((instance, index) => {
+      const depthFromTop = opened.length - 1 - index
+      instance.zIndex = PANEL_BASE_Z_INDEX + index
+      instance.offsetX = depthFromTop * PANEL_STACK_OFFSET
+    })
+
+    const openedIds = new Set(opened.map((instance) => instance.id))
+    PANEL_IDS.forEach((id) => {
+      if (!openedIds.has(id)) {
+        panelInstances.value[id].zIndex = PANEL_BASE_Z_INDEX
+        panelInstances.value[id].offsetX = 0
+      }
+    })
+
+    activePanelId.value = opened.length > 0 ? opened[opened.length - 1].id : null
+  }
+
+  function openPanel(panelId: PanelInstanceId) {
+    const panel = panelInstances.value[panelId]
+    panel.open = true
+    panel.order = ++panelOrderSeed
+    syncStackLayout()
+  }
+
+  function focusPanel(panelId: PanelInstanceId) {
+    const panel = panelInstances.value[panelId]
+    if (!panel.open) {
+      openPanel(panelId)
+      return
+    }
+    panel.order = ++panelOrderSeed
+    syncStackLayout()
+  }
+
+  function closePanel(panelId: PanelInstanceId) {
+    const panel = panelInstances.value[panelId]
+    if (!panel.open) return
+    panel.open = false
+    panel.order = 0
+    panel.zIndex = PANEL_BASE_Z_INDEX
+    panel.offsetX = 0
+    syncStackLayout()
+  }
+
+  function isPanelActive(panelId: PanelInstanceId): boolean {
+    return activePanelId.value === panelId
+  }
+
+  function getPanelStyle(panelId: PanelInstanceId): { zIndex: number; offsetX: number } {
+    const panel = panelInstances.value[panelId]
+    return {
+      zIndex: panel.zIndex,
+      offsetX: panel.offsetX
+    }
+  }
+
   /**
    * 打开系统变量面板
    */
   function openSystemVariablesPanel() {
-    showSystemVariablesPanel.value = true
-    showNodeConfigPanel.value = false
     currentPanelType.value = PanelType.SystemVariables
+    openPanel('system-variables')
   }
 
   /**
    * 关闭系统变量面板
    */
   function closeSystemVariablesPanel() {
-    showSystemVariablesPanel.value = false
-    currentPanelType.value = null
+    closePanel('system-variables')
+    if (currentPanelType.value === PanelType.SystemVariables) {
+      currentPanelType.value = null
+    }
   }
 
   /**
@@ -133,9 +243,8 @@ export const useWorkflowEditorUIStore = defineStore('orchestraflow-workflow-edit
     const panelType = getPanelTypeByNodeType(nodeType)
 
     if (panelType) {
-      showNodeConfigPanel.value = true
-      showSystemVariablesPanel.value = false
       currentPanelType.value = panelType
+      openPanel('node-config')
     }
   }
 
@@ -143,18 +252,25 @@ export const useWorkflowEditorUIStore = defineStore('orchestraflow-workflow-edit
    * 关闭节点配置面板
    */
   function closeNodeConfigPanel() {
-    showNodeConfigPanel.value = false
+    closePanel('node-config')
     selectedNodeId.value = null
     selectedNodeType.value = null
-    currentPanelType.value = null
+    if (
+      currentPanelType.value === PanelType.StartNode ||
+      currentPanelType.value === PanelType.LLMNode ||
+      currentPanelType.value === PanelType.EndNode
+    ) {
+      currentPanelType.value = null
+    }
   }
 
   /**
    * 关闭所有面板
    */
   function closeAllPanels() {
-    showSystemVariablesPanel.value = false
-    showNodeConfigPanel.value = false
+    closePanel('system-variables')
+    closePanel('node-config')
+    closePanel('workflow-run')
     selectedNodeId.value = null
     selectedNodeType.value = null
     currentPanelType.value = null
@@ -192,14 +308,14 @@ export const useWorkflowEditorUIStore = defineStore('orchestraflow-workflow-edit
    * 打开运行结果面板
    */
   function openWorkflowRunPanel() {
-    showWorkflowRunPanel.value = true
+    openPanel('workflow-run')
   }
 
   /**
    * 关闭运行结果面板
    */
   function closeWorkflowRunPanel() {
-    showWorkflowRunPanel.value = false
+    closePanel('workflow-run')
   }
 
   return {
@@ -213,11 +329,20 @@ export const useWorkflowEditorUIStore = defineStore('orchestraflow-workflow-edit
     panelWidth,
     isResizing,
     showWorkflowRunPanel,
+    panelInstances,
+    activePanelId,
 
     // Computed
     hasAnyPanelOpen,
+    openPanelInstances,
 
     // Actions
+    openPanel,
+    focusPanel,
+    closePanel,
+    isPanelActive,
+    getPanelStyle,
+    syncStackLayout,
     openSystemVariablesPanel,
     closeSystemVariablesPanel,
     openNodeConfigPanel,

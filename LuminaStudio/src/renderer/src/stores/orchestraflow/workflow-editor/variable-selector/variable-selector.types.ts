@@ -40,4 +40,6 @@ export interface VariableSelectorState {
   searchKeyword: string
   /** 光标位置（用于 prompt 插入） */
   cursorPosition: number
+  /** 触发器锚点（用于弹层定位） */
+  anchorRect?: DOMRect | null
 }

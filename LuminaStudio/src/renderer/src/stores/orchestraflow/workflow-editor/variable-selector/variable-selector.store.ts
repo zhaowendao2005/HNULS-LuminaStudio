@@ -22,6 +22,7 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
   const targetType = ref<'prompt' | 'output'>('prompt')
   const searchKeyword = ref('')
   const cursorPosition = ref(0)
+  const anchorRect = ref<DOMRect | null>(null)
 
   // 获取 editor store
   const editorStore = useWorkflowEditorStore()
@@ -130,10 +131,21 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
   })
 
   // 打开变量选择器
-  function openSelector(nodeId: string, type: 'prompt' | 'output', position?: number) {
+  function openSelector(
+    nodeId: string,
+    type: 'prompt' | 'output',
+    positionOrAnchor?: number | DOMRect,
+    maybeAnchor?: DOMRect
+  ) {
     targetNodeId.value = nodeId
     targetType.value = type
-    cursorPosition.value = position || 0
+    if (typeof positionOrAnchor === 'number') {
+      cursorPosition.value = positionOrAnchor
+      anchorRect.value = maybeAnchor || null
+    } else {
+      cursorPosition.value = 0
+      anchorRect.value = positionOrAnchor || null
+    }
     searchKeyword.value = ''
     visible.value = true
   }
@@ -143,6 +155,7 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
     visible.value = false
     targetNodeId.value = null
     searchKeyword.value = ''
+    anchorRect.value = null
   }
 
   // 更新搜索关键词
@@ -162,6 +175,7 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
     targetType,
     searchKeyword,
     cursorPosition,
+    anchorRect,
     // Computed
     availableVariables,
     // Actions

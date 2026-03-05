@@ -1,9 +1,13 @@
 <template>
   <FloatingPanel
     :visible="visible"
+    :z-index="zIndex"
+    :offset-x="offsetX"
+    :active="active"
     title="运行测试"
     description="填写输入参数并测试工作流"
     @close="handleClose"
+    @focus="handleFocus"
   >
     <!-- Tab 切换头部 -->
     <div class="flex border-b border-gray-200 mb-4 -mt-2">
@@ -148,12 +152,20 @@ import { OFWorkflowRunningStatus, OFBlockEnum } from '@shared/Orchestraflow-type
 
 interface Props {
   visible: boolean
+  zIndex?: number
+  offsetX?: number
+  active?: boolean
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  zIndex: 30,
+  offsetX: 0,
+  active: false
+})
 
 const emit = defineEmits<{
   close: []
+  focus: []
 }>()
 
 const runStore = useWorkflowRunStore()
@@ -221,6 +233,10 @@ const statusText = computed(() => {
 
 function handleClose(): void {
   emit('close')
+}
+
+function handleFocus(): void {
+  emit('focus')
 }
 
 function handleRunAgain(): void {

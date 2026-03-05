@@ -72,7 +72,7 @@
       </div>
 
       <!-- 字段列表 -->
-      <div v-for="inputVar in inputVars" :key="inputVar.variable" class="space-y-1.5">
+      <div v-for="inputVar in inputVars" :key="inputVar.variable" class="space-y-1.5 px-2">
         <label class="flex items-center gap-1 text-sm font-medium text-gray-700">
           {{ inputVar.label || inputVar.variable }}
           <span v-if="inputVar.required" class="text-red-500">*</span>
@@ -83,7 +83,7 @@
           v-if="inputVar.type === 'text-input'"
           v-model="formData[inputVar.variable]"
           type="text"
-          class="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+          class="w-full px-6 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
           :class="
             errors.some((e) => e.includes(inputVar.label || inputVar.variable))
               ? 'border-red-300 bg-red-50'
@@ -97,7 +97,7 @@
           v-else-if="inputVar.type === 'text-area'"
           v-model="formData[inputVar.variable]"
           rows="3"
-          class="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+          class="w-full px-4 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
           :class="
             errors.some((e) => e.includes(inputVar.label || inputVar.variable))
               ? 'border-red-300 bg-red-50'
@@ -110,7 +110,7 @@
         <select
           v-else-if="inputVar.type === 'select'"
           v-model="formData[inputVar.variable]"
-          class="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+          class="w-full px-4 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
           :class="
             errors.some((e) => e.includes(inputVar.label || inputVar.variable))
               ? 'border-red-300 bg-red-50'
@@ -128,7 +128,7 @@
           v-else
           v-model="formData[inputVar.variable]"
           type="text"
-          class="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+          class="w-full px-4 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
           :class="
             errors.some((e) => e.includes(inputVar.label || inputVar.variable))
               ? 'border-red-300 bg-red-50'

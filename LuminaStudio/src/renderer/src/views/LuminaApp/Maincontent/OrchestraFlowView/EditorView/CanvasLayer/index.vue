@@ -100,28 +100,34 @@ function handleNodeClick(event: { node: Node }) {
     return
   }
 
-  // 如果当前已经打开了这个节点的配置面板，则关闭
-  if (uiStore.selectedNodeId === nodeId && uiStore.showNodeConfigPanel) {
-    uiStore.closeNodeConfigPanel()
-  } else {
-    // 否则打开该节点的配置面板
-    // 需要将 string 转换为 OFBlockEnum
-    let ofBlockEnum: OFBlockEnum
-    switch (nodeType) {
-      case 'start':
-        ofBlockEnum = OFBlockEnum.Start
-        break
-      case 'llm':
-        ofBlockEnum = OFBlockEnum.LLM
-        break
-      case 'end':
-        ofBlockEnum = OFBlockEnum.End
-        break
-      default:
-        return
-    }
-    uiStore.openNodeConfigPanel(nodeId, ofBlockEnum)
+  // 需要将 string 转换为 OFBlockEnum
+  let ofBlockEnum: OFBlockEnum
+  switch (nodeType) {
+    case 'start':
+      ofBlockEnum = OFBlockEnum.Start
+      break
+    case 'llm':
+      ofBlockEnum = OFBlockEnum.LLM
+      break
+    case 'end':
+      ofBlockEnum = OFBlockEnum.End
+      break
+    default:
+      return
   }
+
+  // 同节点点击：仅当该面板已是顶层时才关闭，否则提层
+  if (uiStore.selectedNodeId === nodeId && uiStore.showNodeConfigPanel) {
+    if (uiStore.isPanelActive('node-config')) {
+      uiStore.closeNodeConfigPanel()
+    } else {
+      uiStore.focusPanel('node-config')
+    }
+    return
+  }
+
+  // 不同节点或未打开：打开并置顶
+  uiStore.openNodeConfigPanel(nodeId, ofBlockEnum)
 }
 
 // 处理连接事件（节点之间的连线）

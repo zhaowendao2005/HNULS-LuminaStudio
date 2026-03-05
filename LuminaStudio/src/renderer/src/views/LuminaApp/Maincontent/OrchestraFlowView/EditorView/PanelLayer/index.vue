@@ -18,9 +18,13 @@
       <!-- 右侧浮窗面板 -->
       <FloatingPanel
         :visible="uiStore.showSystemVariablesPanel"
+        :z-index="systemPanelStyle.zIndex"
+        :offset-x="systemPanelStyle.offsetX"
+        :active="uiStore.isPanelActive('system-variables')"
         title="系统变量"
         description="系统变量是全局变量，在类型匹配时无需连线即可被任意节点引用，例如终端用户 ID 和工作流 ID。"
         @close="uiStore.closeSystemVariablesPanel"
+        @focus="focusSystemVariablesPanel"
       >
         <SystemVariablesPanel />
       </FloatingPanel>
@@ -28,9 +32,13 @@
       <!-- 节点配置面板 -->
       <FloatingPanel
         :visible="uiStore.showNodeConfigPanel"
+        :z-index="nodeConfigPanelStyle.zIndex"
+        :offset-x="nodeConfigPanelStyle.offsetX"
+        :active="uiStore.isPanelActive('node-config')"
         :title="panelTitle"
         :description="panelDescription"
         @close="uiStore.closeNodeConfigPanel"
+        @focus="focusNodeConfigPanel"
       >
         <StartNodePanel v-if="uiStore.currentPanelType === 'start-node'" />
         <LLMNodePanel v-else-if="uiStore.currentPanelType === 'llm-node'" />
@@ -40,7 +48,11 @@
       <!-- 运行结果面板 -->
       <WorkflowRunPanel
         :visible="uiStore.showWorkflowRunPanel"
+        :z-index="workflowRunPanelStyle.zIndex"
+        :offset-x="workflowRunPanelStyle.offsetX"
+        :active="uiStore.isPanelActive('workflow-run')"
         @close="uiStore.closeWorkflowRunPanel"
+        @focus="focusWorkflowRunPanel"
       />
 
       <!-- 变量选择器 -->
@@ -72,6 +84,10 @@ const props = defineProps<{
 
 // UI 状态 Store
 const uiStore = useWorkflowEditorUIStore()
+
+const systemPanelStyle = computed(() => uiStore.getPanelStyle('system-variables'))
+const nodeConfigPanelStyle = computed(() => uiStore.getPanelStyle('node-config'))
+const workflowRunPanelStyle = computed(() => uiStore.getPanelStyle('workflow-run'))
 
 // 根据面板类型计算标题
 const panelTitle = computed(() => {
@@ -111,6 +127,18 @@ function updateAutoSaveTime(): void {
   const minutes = String(now.getMinutes()).padStart(2, '0')
   const seconds = String(now.getSeconds()).padStart(2, '0')
   autoSaveTime.value = `${hours}:${minutes}:${seconds}`
+}
+
+function focusSystemVariablesPanel(): void {
+  uiStore.focusPanel('system-variables')
+}
+
+function focusNodeConfigPanel(): void {
+  uiStore.focusPanel('node-config')
+}
+
+function focusWorkflowRunPanel(): void {
+  uiStore.focusPanel('workflow-run')
 }
 
 // 组件挂载时初始化
