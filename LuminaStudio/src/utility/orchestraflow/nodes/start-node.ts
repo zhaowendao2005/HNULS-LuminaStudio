@@ -4,7 +4,7 @@
  * 读取配置的输入变量，收集用户传入的值
  */
 import { BaseNode } from './base-node'
-import type { OFBlockEnum, OFStartNodeData } from '@shared/Orchestraflow-types'
+import { OFBlockEnum, type OFStartNodeData } from '@shared/Orchestraflow-types'
 import type { ExecutionContext, NodeResult } from './types'
 import { VariableStore } from '../services/variable-store'
 
@@ -21,13 +21,14 @@ export class StartNode extends BaseNode {
     const nodeData = this.getNodeData() as OFStartNodeData
     const outputs: Record<string, any> = {}
 
-    // 收集输入变量
-    if (nodeData.inputs) {
-      for (const input of nodeData.inputs) {
-        const value = context.inputs[input.variable] ?? input.default
-        outputs[input.variable] = value
+    // 根据 input.variables 收集输入变量
+    const inputConfig = nodeData.input
+    if (inputConfig?.variables) {
+      for (const v of inputConfig.variables) {
+        const value = context.inputs[v.variable] ?? v.default
+        outputs[v.variable] = value
         // 存储到变量库
-        this.setOutput(input.variable, value)
+        this.setOutput(v.variable, value)
       }
     }
 

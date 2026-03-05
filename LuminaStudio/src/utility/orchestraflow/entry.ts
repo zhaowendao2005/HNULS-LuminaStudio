@@ -6,17 +6,75 @@
 import type { MainToOFMessage, OFToMainMessage } from './messages.types'
 import { WorkflowInstanceManager } from './manager/workflow-instance-manager'
 
+const parentPort = process.parentPort
+if (!parentPort) {
+  console.error('[OF.entry] Not running inside a UtilityProcess')
+  process.exit(1)
+}
+
+// 覆盖 console 方法，将日志转发到主进程
+const originalConsole = {
+  log: console.log,
+  error: console.error,
+  warn: console.warn,
+  info: console.info,
+  debug: console.debug
+}
+
+function sendLog(level: 'log' | 'error' | 'warn' | 'info' | 'debug', args: any[]) {
+  const msg = args
+    .map((arg) => {
+      if (arg instanceof Error) return arg.message
+      if (typeof arg === 'object') return JSON.stringify(arg)
+      return String(arg)
+    })
+    .join(' ')
+
+  parentPort?.postMessage({
+    type: 'process:log',
+    level,
+    message: msg,
+    timestamp: Date.now()
+  } as OFToMainMessage)
+}
+
+// 覆盖全局 console
+console.log = (...args: any[]) => {
+  originalConsole.log.call(console, '[OF]', ...args)
+  sendLog('log', args)
+}
+console.error = (...args: any[]) => {
+  originalConsole.error.call(console, '[OF]', ...args)
+  sendLog('error', args)
+}
+console.warn = (...args: any[]) => {
+  originalConsole.warn.call(console, '[OF]', ...args)
+  sendLog('warn', args)
+}
+console.info = (...args: any[]) => {
+  originalConsole.info.call(console, '[OF]', ...args)
+  sendLog('info', args)
+}
+console.debug = (...args: any[]) => {
+  originalConsole.debug.call(console, '[OF]', ...args)
+  sendLog('debug', args)
+}
+
+// 本地日志对象（用于进程初始化阶段的日志）
 const log = {
   info: (msg: string, ...args: any[]) => console.log(`[OF.entry] ${msg}`, ...args),
   error: (msg: string, ...args: any[]) => console.error(`[OF.entry] ${msg}`, ...args),
   warn: (msg: string, ...args: any[]) => console.warn(`[OF.entry] ${msg}`, ...args)
 }
 
-const parentPort = process.parentPort
-if (!parentPort) {
-  log.error('Not running inside a UtilityProcess')
-  process.exit(1)
-}
+// 保存 provider 配置，供节点执行时使用
+let providerConfigs: Record<string, {
+  id: string
+  name: string
+  baseUrl: string
+  apiKey: string
+  enabled: boolean
+}> = {}
 
 function sendMessage(msg: OFToMainMessage): void {
   parentPort?.postMessage(msg)
@@ -42,8 +100,12 @@ parentPort.on('message', async (event: { data: MainToOFMessage }) => {
 
       case 'workflow:run': {
         try {
+          // 保存 provider 配置
+          if (msg.providerConfigs) {
+            providerConfigs = msg.providerConfigs
+          }
           log.info('Running workflow', { runId: msg.runId, workflowId: msg.workflow.id })
-          const result = await workflowManager.runWorkflow(msg.runId, msg.workflow, msg.inputs)
+          const result = await workflowManager.runWorkflow(msg.runId, msg.workflow, msg.inputs, providerConfigs)
           sendMessage({
             type: 'workflow:result',
             runId: msg.runId,

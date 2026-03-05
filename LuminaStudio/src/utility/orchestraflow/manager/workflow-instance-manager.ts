@@ -42,7 +42,14 @@ export class WorkflowInstanceManager {
   async runWorkflow(
     runId: string,
     workflow: OFWorkflow,
-    inputs: Record<string, any>
+    inputs: Record<string, any>,
+    providerConfigs: Record<string, {
+      id: string
+      name: string
+      baseUrl: string
+      apiKey: string
+      enabled: boolean
+    }> = {}
   ): Promise<OFWorkflowRunResult> {
     // 创建实例
     const instance: WorkflowInstance = {
@@ -83,8 +90,8 @@ export class WorkflowInstanceManager {
         const nodeStartTime = Date.now()
         try {
           const { node: execNode, variableStore } = instance
-          const { executeNode } = await import('./executor')
-          const result = await executeNode(node, instance.variableStore, inputs, instance.tracing)
+          const { executeNode } = await import('../services/executor')
+          const result = await executeNode(node, instance.variableStore, inputs, instance.tracing, providerConfigs)
 
           // 更新节点 tracing
           const tracingIndex = instance.tracing.findIndex((t) => t.nodeId === node.id)
@@ -110,6 +117,7 @@ export class WorkflowInstanceManager {
           }
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : String(error)
+          console.error('[OF.WorkflowInstanceManager] Node execution error:', error)
           instance.status = OFWorkflowRunningStatus.Failed
           instance.error = errorMessage
           instance.endTime = Date.now()

@@ -105,6 +105,7 @@ export class OrchestraflowBridgeService {
     workflowId: string,
     workflow: OFWorkflow,
     inputs: Record<string, any>,
+    providerConfigs?: Record<string, { id: string; name: string; baseUrl: string; apiKey: string; enabled: boolean }>,
     timeoutMs = 300000
   ): Promise<OFWorkflowRunResult> {
     const runId = randomUUID()
@@ -123,7 +124,8 @@ export class OrchestraflowBridgeService {
         type: 'workflow:run',
         runId,
         workflow,
-        inputs
+        inputs,
+        providerConfigs
       })
     })
 
@@ -166,6 +168,28 @@ export class OrchestraflowBridgeService {
           details: msg.details
         })
         break
+
+      case 'process:log': {
+        // 转发 utility 进程的日志到主进程 logger
+        const logMsg = `[OF] ${msg.message}`
+        switch (msg.level) {
+          case 'error':
+            log.error(logMsg)
+            break
+          case 'warn':
+            log.warn(logMsg)
+            break
+          case 'info':
+            log.info(logMsg)
+            break
+          case 'debug':
+            log.debug(logMsg)
+            break
+          default:
+            log.info(logMsg)
+        }
+        break
+      }
 
       case 'workflow:progress': {
         log.info('Workflow progress', {

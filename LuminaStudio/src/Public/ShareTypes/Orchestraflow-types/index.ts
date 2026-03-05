@@ -37,6 +37,9 @@ export enum OFWorkflowRunningStatus {
 }
 
 // ===== 变量类型 =====
+/**
+ * 统一变量类型枚举
+ */
 export enum OFVarType {
   String = 'string',
   Number = 'number',
@@ -45,13 +48,40 @@ export enum OFVarType {
   Array = 'array'
 }
 
-// ===== 输入变量类型 =====
-export enum OFInputVarType {
-  TextInput = 'text-input',
-  Paragraph = 'paragraph',
-  Select = 'select',
-  Number = 'number',
-  Boolean = 'boolean'
+/**
+ * 统一变量定义（用于节点输入/输出配置）
+ */
+export interface OFVariable {
+  /** 变量名（唯一标识，用于数据传递） */
+  variable: string
+  /** 显示标签 */
+  label?: string
+  /** 变量类型（用于前端渲染/校验） */
+  type?: OFVarType
+  /** 描述信息 */
+  description?: string
+  /** 是否必填 */
+  required?: boolean
+  /** 默认值 */
+  default?: string | number | boolean | object | array
+  /** 选项列表（select 类型用） */
+  options?: string[]
+  /** 值选择器（用于从上游节点获取值） */
+  value_selector?: string[]
+}
+
+/**
+ * 统一节点输入配置
+ */
+export interface OFNodeInput {
+  variables: OFVariable[]
+}
+
+/**
+ * 统一节点输出配置
+ */
+export interface OFNodeOutput {
+  variables: OFVariable[]
 }
 
 // ===== 工作流元数据 =====
@@ -82,35 +112,6 @@ export interface OFWorkflow {
     nodes: OFNode[]
     edges: OFEdge[]
   }
-}
-
-// ===== 变量定义 =====
-export interface OFVariable {
-  variable: string
-  label?:
-    | string
-    | {
-        nodeType: OFBlockEnum
-        nodeName: string
-        variable: string
-      }
-  value_selector: string[]
-  value_type?: OFVarType
-  value?: string
-  options?: string[]
-  required?: boolean
-  isParagraph?: boolean
-}
-
-// ===== 输入变量 =====
-export interface OFInputVar {
-  variable: string
-  label: string
-  type: OFInputVarType
-  required: boolean
-  options?: string[]
-  default?: string | number | boolean
-  description?: string
 }
 
 // ===== 环境变量 =====
@@ -191,7 +192,7 @@ export interface OFCommonEdgeType {
 // ===== Start 节点数据 =====
 export type OFStartNodeData = OFCommonNodeType & {
   type: OFBlockEnum.Start
-  inputs: OFInputVar[]
+  input: OFNodeInput
 }
 
 // ===== LLM 节点数据 =====
@@ -207,15 +208,13 @@ export type OFLLMNodeData = OFCommonNodeType & {
   vision?: {
     enabled: boolean
   }
+  output: OFNodeOutput
 }
 
 // ===== End 节点数据 =====
 export type OFEndNodeData = OFCommonNodeType & {
   type: OFBlockEnum.End
-  outputs: {
-    variable: string
-    value_selector: string[]
-  }[]
+  output: OFNodeOutput
 }
 
 // ===== 节点类型 =====
@@ -262,7 +261,7 @@ export interface OFStartNodeConfig {
   nodeId: string
   title: string
   desc: string
-  inputs: OFInputVar[]
+  input: OFNodeInput
 }
 
 export interface OFLLMNodeConfig {
@@ -271,18 +270,12 @@ export interface OFLLMNodeConfig {
   desc: string
   model: OFModelConfig
   prompt_template: OFPromptItem[]
-  outputs: Array<{
-    variable: string
-    value_selector: string[]
-  }>
+  output: OFNodeOutput
 }
 
 export interface OFEndNodeConfig {
   nodeId: string
   title: string
   desc: string
-  outputs: Array<{
-    variable: string
-    value_selector: string[]
-  }>
+  output: OFNodeOutput
 }

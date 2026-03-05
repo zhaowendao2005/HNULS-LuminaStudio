@@ -23,7 +23,8 @@ export abstract class BaseNode {
       runId: '',
       node,
       inputs: {},
-      variables: {}
+      variables: {},
+      providerConfigs: {}
     }
     this.variableStore = variableStore
   }
@@ -63,5 +64,12 @@ export abstract class BaseNode {
    */
   protected getNodeData(): OFStartNodeData | OFLLMNodeData | OFEndNodeData {
     return this.context.node.data as any
+  }
+
+  /**
+   * 获取 provider 配置
+   */
+  protected getProviderConfig(providerId: string) {
+    return this.context.providerConfigs?.[providerId]
   }
 }

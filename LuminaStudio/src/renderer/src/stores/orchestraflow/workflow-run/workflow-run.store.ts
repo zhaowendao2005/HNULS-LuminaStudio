@@ -4,8 +4,8 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { WorkflowRunState } from './workflow-run.types'
-import type { OFWorkflowRunResult, OFNodeTracing } from '@shared/Orchestraflow-types'
-import { OFWorkflowRunningStatus, OFNodeRunningStatus } from '@shared/Orchestraflow-types'
+import type { OFWorkflowRunResult, OFNodeTracing, OFInputVar } from '@shared/Orchestraflow-types'
+import { OFWorkflowRunningStatus, OFNodeRunningStatus, OFBlockEnum } from '@shared/Orchestraflow-types'
 import { WorkflowRunDataSource } from './workflow-run.datasource'
 
 export const useWorkflowRunStore = defineStore('orchestraflow-workflow-run', () => {
@@ -15,6 +15,7 @@ export const useWorkflowRunStore = defineStore('orchestraflow-workflow-run', () 
   const running = ref(false)
   const currentWorkflowId = ref<string | null>(null)
   const currentRunId = ref<string | null>(null)
+  const startInputs = ref<Record<string, any>>({})
 
   // 进度监听器
   let progressUnsubscribe: (() => void) | null = null
@@ -104,6 +105,7 @@ export const useWorkflowRunStore = defineStore('orchestraflow-workflow-run', () 
     running.value = false
     currentWorkflowId.value = null
     currentRunId.value = null
+    startInputs.value = {}
     if (progressUnsubscribe) {
       progressUnsubscribe()
       progressUnsubscribe = null
@@ -115,6 +117,44 @@ export const useWorkflowRunStore = defineStore('orchestraflow-workflow-run', () 
     return result.value?.tracing.find((t) => t.nodeId === nodeId)
   }
 
+  // 设置开始节点输入
+  function setStartInputs(inputs: Record<string, any>) {
+    startInputs.value = inputs
+  }
+
+  // 更新单个输入字段
+  function updateStartInput(key: string, value: any) {
+    startInputs.value[key] = value
+  }
+
+  // 校验开始节点输入（需要传入 Start 节点的 inputs 定义）
+  function validateStartInputs(inputVars: OFInputVar[]): { valid: boolean; errors: string[] } {
+    const errors: string[] = []
+
+    for (const inputVar of inputVars) {
+      if (inputVar.required) {
+        const value = startInputs.value[inputVar.variable]
+        if (value === undefined || value === null || value === '') {
+          errors.push(`"${inputVar.label || inputVar.variable}" 为必填项`)
+        }
+      }
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors
+    }
+  }
+
+  // 获取 Start 节点的输入定义
+  function getStartNodeInputs(nodes: { id: string; data: any }[]): OFInputVar[] {
+    const startNode = nodes.find((n) => n.data.type === OFBlockEnum.Start)
+    if (startNode && (startNode.data as any).input?.variables) {
+      return (startNode.data as any).input.variables as OFInputVar[]
+    }
+    return []
+  }
+
   return {
     // state
     status,
@@ -122,6 +162,7 @@ export const useWorkflowRunStore = defineStore('orchestraflow-workflow-run', () 
     running,
     currentWorkflowId,
     currentRunId,
+    startInputs,
 
     // computed
     hasResult,
@@ -134,6 +175,10 @@ export const useWorkflowRunStore = defineStore('orchestraflow-workflow-run', () 
     runWorkflow,
     stopWorkflow,
     reset,
-    getNodeTracing
+    getNodeTracing,
+    setStartInputs,
+    updateStartInput,
+    validateStartInputs,
+    getStartNodeInputs
   }
 })

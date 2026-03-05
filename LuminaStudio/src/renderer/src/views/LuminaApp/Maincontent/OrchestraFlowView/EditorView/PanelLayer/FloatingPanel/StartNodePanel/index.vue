@@ -297,7 +297,7 @@ import {
   PanelTab
 } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor-ui.store'
 import { useWorkflowEditorStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor.store'
-import type { OFStartNodeData, OFInputVar } from '@shared/Orchestraflow-types'
+import { OFVarType } from '@shared/Orchestraflow-types'
 
 const uiStore = useWorkflowEditorUIStore()
 const editorStore = useWorkflowEditorStore()
@@ -319,13 +319,13 @@ const localInputs = computed({
   get() {
     if (!currentNode.value) return []
     const nodeData = currentNode.value.data as OFStartNodeData
-    return nodeData.inputs || []
+    return nodeData.input?.variables || []
   },
-  set(newInputs: OFInputVar[]) {
+  set(newInputs: OFVariable[]) {
     if (!uiStore.selectedNodeId) return
     editorStore.updateNode(uiStore.selectedNodeId, {
-      inputs: newInputs
-    })
+      input: { variables: newInputs }
+    } as any)
   }
 })
 
@@ -347,10 +347,10 @@ function handleFieldCreated(payload: {
   required: boolean
 }) {
   // 仅支持文本类型（text-input）
-  const newField: OFInputVar = {
+  const newField: OFVariable = {
     variable: payload.name,
     label: payload.label,
-    type: 'text-input' as any,
+    type: OFVarType.String,
     required: payload.required
   }
   localInputs.value = [...localInputs.value, newField]

@@ -12,7 +12,14 @@ export async function executeNode(
   node: OFNode,
   variableStore: VariableStore,
   initialInputs: Record<string, any>,
-  tracing: OFNodeTracing[]
+  tracing: OFNodeTracing[],
+  providerConfigs: Record<string, {
+    id: string
+    name: string
+    baseUrl: string
+    apiKey: string
+    enabled: boolean
+  }> = {}
 ): Promise<NodeResult> {
   // 根据前置节点收集输入
   const inputs: Record<string, any> = {}
@@ -27,17 +34,25 @@ export async function executeNode(
   // 创建节点实例
   const nodeInstance = NodeFactory.createNode(node, variableStore)
 
-  // 设置执行上下文
+  // 设置执行上下文，包含 provider 配置
   const context = {
     runId: '',
     node,
     inputs,
-    variables: allVars
+    variables: allVars,
+    providerConfigs
   }
   nodeInstance.setContext(context)
 
-  // 执行节点
-  const result = await nodeInstance.execute(context)
+  // 添加日志
+  console.log('[OF Executor] Creating node:', node.data.type, 'with inputs:', inputs)
 
-  return result
+  try {
+    // 执行节点
+    const result = await nodeInstance.execute(context)
+    return result
+  } catch (err) {
+    console.error('[OF Executor] Node execution error:', err)
+    throw err
+  }
 }

@@ -6,12 +6,17 @@ import { ipcMain, BrowserWindow } from 'electron'
 import { OrchestraflowWorkflowService } from '../services/orchestraflow/orchestraflow-workflow-service'
 import { orchestraflowBridge } from '../services/orchestraflow-bridge'
 import { logger } from '../services/logger'
+import { ModelConfigService } from '../services/model-config'
 import type { OFNodeTracing } from '@shared/Orchestraflow-types'
+import type { PersistedModelProviderConfig } from '../services/model-config'
 
 const log = logger.scope('OrchestraflowIPCHandler')
 
 export class OrchestraflowIPCHandler {
-  constructor(private readonly service: OrchestraflowWorkflowService) {
+  constructor(
+    private readonly service: OrchestraflowWorkflowService,
+    private readonly modelConfigService: ModelConfigService
+  ) {
     this.register()
     this.registerProgressHandler()
   }
@@ -104,8 +109,21 @@ export class OrchestraflowIPCHandler {
         if (!workflow) {
           return { success: false, error: 'Workflow not found' }
         }
-        // 调用 Bridge 运行工作流
-        const result = await orchestraflowBridge.runWorkflow(workflowId, workflow, inputs || {})
+
+        // 获取模型配置
+        const modelConfig = await this.modelConfigService.getConfig()
+        const providerConfigs: Record<string, PersistedModelProviderConfig> = {}
+        for (const provider of modelConfig.providers) {
+          providerConfigs[provider.id] = provider
+        }
+
+        // 调用 Bridge 运行工作流，传入模型配置
+        const result = await orchestraflowBridge.runWorkflow(
+          workflowId,
+          workflow,
+          inputs || {},
+          providerConfigs
+        )
         return { success: true, data: result }
       } catch (e) {
         log.error('Failed to run workflow', e)

@@ -4,7 +4,7 @@
  */
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { OFEndNodeConfig } from '@shared/Orchestraflow-types'
+import type { OFEndNodeConfig, OFNodeOutput, OFVariable } from '@shared/Orchestraflow-types'
 
 export const useEndNodeConfigStore = defineStore('of-end-node-config', () => {
   const currentNodeId = ref<string | null>(null)
@@ -12,7 +12,7 @@ export const useEndNodeConfigStore = defineStore('of-end-node-config', () => {
     nodeId: '',
     title: '结束',
     desc: '',
-    outputs: []
+    output: { variables: [] }
   })
 
   function loadConfig(nodeId: string, data: Partial<OFEndNodeConfig>) {
@@ -21,7 +21,7 @@ export const useEndNodeConfigStore = defineStore('of-end-node-config', () => {
       nodeId,
       title: data.title || '结束',
       desc: data.desc || '',
-      outputs: data.outputs || []
+      output: data.output || { variables: [] }
     }
   }
 
@@ -31,20 +31,20 @@ export const useEndNodeConfigStore = defineStore('of-end-node-config', () => {
   function setDesc(desc: string) {
     config.value.desc = desc
   }
-  function addOutput(output: { variable: string; value_selector: string[] }) {
-    config.value.outputs.push(output)
+  function addOutput(output: OFVariable) {
+    config.value.output.variables.push(output)
   }
   function removeOutput(index: number) {
-    config.value.outputs.splice(index, 1)
+    config.value.output.variables.splice(index, 1)
   }
 
   function exportConfig(): Partial<OFEndNodeConfig> {
-    return { title: config.value.title, desc: config.value.desc, outputs: config.value.outputs }
+    return { title: config.value.title, desc: config.value.desc, output: config.value.output }
   }
 
   function clear() {
     currentNodeId.value = null
-    config.value = { nodeId: '', title: '结束', desc: '', outputs: [] }
+    config.value = { nodeId: '', title: '结束', desc: '', output: { variables: [] } }
   }
 
   return {

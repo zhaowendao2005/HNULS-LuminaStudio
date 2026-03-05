@@ -600,7 +600,7 @@ import { useWorkflowEditorStore } from '@renderer/stores/orchestraflow/workflow-
 import { useVariableSelectorStore } from '@renderer/stores/orchestraflow/workflow-editor/variable-selector/variable-selector.store'
 import ModelSelector from '@renderer/components/ModelSelector'
 import PromptTextarea from './PromptTextarea/index.vue'
-import type { OFLLMNodeData, OFPromptItem } from '@shared/Orchestraflow-types'
+import type { OFLLMNodeData, OFPromptItem, OFVarType } from '@shared/Orchestraflow-types'
 
 const uiStore = useWorkflowEditorUIStore()
 const editorStore = useWorkflowEditorStore()
@@ -694,13 +694,12 @@ const localOutputs = computed({
   get() {
     if (!currentNode.value) return []
     const nodeData = currentNode.value.data as OFLLMNodeData
-    // 注意：OFLLMNodeData 类型中没有 outputs 字段，这里需要扩展类型或使用 any
-    return (nodeData as any).outputs || []
+    return nodeData.output?.variables || []
   },
-  set(newOutputs: Array<{ variable: string; value_selector: string[] }>) {
+  set(newOutputs: Array<{ variable: string; value_selector?: string[]; type?: OFVarType; label?: string }>) {
     if (!uiStore.selectedNodeId) return
     editorStore.updateNode(uiStore.selectedNodeId, {
-      outputs: newOutputs
+      output: { variables: newOutputs }
     } as any)
   }
 })
@@ -813,29 +812,48 @@ function handleMessageInput(index: number, value: string) {
 function handleVariableSelect(event: CustomEvent) {
   const { nodeId, targetType, variable, cursorPosition } = event.detail
 
-  // 确保是当前节点的 prompt 类型
-  if (nodeId !== uiStore.selectedNodeId || targetType !== 'prompt') return
+  // 确保是当前节点
+  if (nodeId !== uiStore.selectedNodeId) return
 
-  // 获取当前消息内容
-  const currentMessages = [...localMessages.value]
-  if (!currentMessages[0]) return
+  // 处理 prompt 类型的变量选择
+  if (targetType === 'prompt') {
+    // 获取当前消息内容
+    const currentMessages = [...localMessages.value]
+    if (!currentMessages[0]) return
 
-  const currentValue = currentMessages[0].text
-  const cursorPos = cursorPosition || 0
+    const currentValue = currentMessages[0].text
+    const cursorPos = cursorPosition || 0
 
-  // 找到 / 的位置
-  const textBeforeCursor = currentValue.slice(0, cursorPos)
-  const lastSlashIndex = textBeforeCursor.lastIndexOf('/')
+    // 找到 / 的位置
+    const textBeforeCursor = currentValue.slice(0, cursorPos)
+    const lastSlashIndex = textBeforeCursor.lastIndexOf('/')
 
-  if (lastSlashIndex !== -1) {
-    // 替换 / 为变量标签
-    const beforeSlash = currentValue.slice(0, lastSlashIndex)
-    const afterCursor = currentValue.slice(cursorPos)
-    const newValue = beforeSlash + `{{${variable.variable}}}` + afterCursor
+    if (lastSlashIndex !== -1) {
+      // 替换 / 为变量标签
+      const beforeSlash = currentValue.slice(0, lastSlashIndex)
+      const afterCursor = currentValue.slice(cursorPos)
+      const newValue = beforeSlash + `{{${variable.variable}}}` + afterCursor
 
-    // 更新消息内容
-    currentMessages[0] = { ...currentMessages[0], text: newValue }
-    localMessages.value = currentMessages
+      // 更新消息内容
+      currentMessages[0] = { ...currentMessages[0], text: newValue }
+      localMessages.value = currentMessages
+    }
+  }
+
+  // 处理 output 类型的变量选择
+  if (targetType === 'output') {
+    // 只取变量名本身
+    const varName = variable.variable.split('.').pop() || variable.variable
+
+    // 添加到输出列表
+    const newOutputs = [
+      ...localOutputs.value,
+      {
+        variable: varName,
+        value_selector: variable.valueSelector
+      }
+    ]
+    localOutputs.value = newOutputs
   }
 }
 

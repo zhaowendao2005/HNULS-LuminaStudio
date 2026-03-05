@@ -4,7 +4,7 @@
  */
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { OFLLMNodeConfig, OFModelConfig, OFPromptItem } from '@shared/Orchestraflow-types'
+import type { OFLLMNodeConfig, OFModelConfig, OFPromptItem, OFNodeOutput, OFVariable } from '@shared/Orchestraflow-types'
 
 export const useLLMNodeConfigStore = defineStore('of-llm-node-config', () => {
   const currentNodeId = ref<string | null>(null)
@@ -14,7 +14,7 @@ export const useLLMNodeConfigStore = defineStore('of-llm-node-config', () => {
     desc: '',
     model: { provider: '', name: '' },
     prompt_template: [],
-    outputs: []
+    output: { variables: [] }
   })
 
   function loadConfig(nodeId: string, data: Partial<OFLLMNodeConfig>) {
@@ -25,7 +25,7 @@ export const useLLMNodeConfigStore = defineStore('of-llm-node-config', () => {
       desc: data.desc || '',
       model: data.model || { provider: '', name: '' },
       prompt_template: data.prompt_template || [],
-      outputs: data.outputs || []
+      output: data.output || { variables: [] }
     }
   }
 
@@ -41,11 +41,11 @@ export const useLLMNodeConfigStore = defineStore('of-llm-node-config', () => {
   function setPromptTemplate(prompts: OFPromptItem[]) {
     config.value.prompt_template = prompts
   }
-  function addOutput(output: { variable: string; value_selector: string[] }) {
-    config.value.outputs.push(output)
+  function addOutput(output: OFVariable) {
+    config.value.output.variables.push(output)
   }
   function removeOutput(index: number) {
-    config.value.outputs.splice(index, 1)
+    config.value.output.variables.splice(index, 1)
   }
 
   function exportConfig(): Partial<OFLLMNodeConfig> {
@@ -54,7 +54,7 @@ export const useLLMNodeConfigStore = defineStore('of-llm-node-config', () => {
       desc: config.value.desc,
       model: config.value.model,
       prompt_template: config.value.prompt_template,
-      outputs: config.value.outputs
+      output: config.value.output
     }
   }
 
@@ -66,7 +66,7 @@ export const useLLMNodeConfigStore = defineStore('of-llm-node-config', () => {
       desc: '',
       model: { provider: '', name: '' },
       prompt_template: [],
-      outputs: []
+      output: { variables: [] }
     }
   }
 

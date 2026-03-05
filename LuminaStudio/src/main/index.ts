@@ -110,7 +110,7 @@ app.whenReady().then(() => {
 
   // 初始化 OrchestraFlow Workflow Service 和 IPC Handler
   const orchestraflowWorkflowService = new OrchestraflowWorkflowService()
-  new OrchestraflowIPCHandler(orchestraflowWorkflowService)
+  new OrchestraflowIPCHandler(orchestraflowWorkflowService, modelConfigService)
 
   // 启动 OrchestraFlow Bridge（按需启动，延迟初始化）
   setTimeout(async () => {

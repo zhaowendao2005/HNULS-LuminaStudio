@@ -20,7 +20,7 @@ export function createDefaultWorkflow(): {
         title: '开始',
         desc: '工作流开始节点',
         type: OFBlockEnum.Start,
-        inputs: []
+        input: { variables: [] }
       }
     },
     {
@@ -38,7 +38,8 @@ export function createDefaultWorkflow(): {
         prompt_template: [],
         context: {
           enabled: false
-        }
+        },
+        output: { variables: [] }
       }
     },
     {
@@ -49,7 +50,7 @@ export function createDefaultWorkflow(): {
         title: '结束',
         desc: '工作流结束节点',
         type: OFBlockEnum.End,
-        outputs: []
+        output: { variables: [] }
       }
     }
   ]

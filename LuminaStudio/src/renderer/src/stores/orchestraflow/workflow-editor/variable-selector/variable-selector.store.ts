@@ -26,7 +26,7 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
   // 获取 editor store
   const editorStore = useWorkflowEditorStore()
 
-  // 解析节点数据获取输出变量
+  // 解析节点数据获取可引用变量
   function extractNodeOutputs(node: OFNode): OFAvailableVariable[] {
     const data = node.data
     const nodeType = data.type as OFBlockEnum
@@ -35,63 +35,42 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
 
     const variables: OFAvailableVariable[] = []
 
-    switch (nodeType) {
-      case OFBlockEnum.Start:
-        // Start 节点：inputs 定义输入变量
-        const startData = data as OFStartNodeData
-        if (startData.inputs) {
-          for (const input of startData.inputs) {
-            variables.push({
-              id: `${nodeId}:${input.variable}`,
-              variable: `inputs.${input.variable}`,
-              label: input.label || input.variable,
-              nodeId,
-              nodeType,
-              nodeTitle,
-              valueSelector: ['inputs', input.variable]
-            })
-          }
+    // Start 节点：使用 input.variables 作为可引用变量（用户输入）
+    if (nodeType === OFBlockEnum.Start) {
+      const inputConfig = (data as OFStartNodeData).input
+      if (inputConfig?.variables) {
+        for (const v of inputConfig.variables) {
+          variables.push({
+            id: `${nodeId}:${v.variable}`,
+            variable: v.variable,
+            label: v.label || v.variable,
+            nodeId,
+            nodeType,
+            nodeTitle,
+            // Start 节点本身没有上游，直接用变量名作为 selector
+            valueSelector: [v.variable]
+          })
         }
-        break
+      }
 
-      case OFBlockEnum.LLM:
-        // LLM 节点：outputs 定义输出变量（如果有的话）
-        const llmData = data as OFLLMNodeData
-        if ((llmData as any).outputs) {
-          for (const output of (llmData as any).outputs as Array<{
-            variable: string
-            value_selector?: string[]
-          }>) {
-            variables.push({
-              id: `${nodeId}:${output.variable}`,
-              variable: `outputs.${output.variable}`,
-              label: output.variable,
-              nodeId,
-              nodeType,
-              nodeTitle,
-              valueSelector: output.value_selector || ['outputs', output.variable]
-            })
-          }
-        }
-        break
+      return variables
+    }
 
-      case OFBlockEnum.End:
-        // End 节点：outputs 定义输出变量
-        const endData = data as OFEndNodeData
-        if (endData.outputs) {
-          for (const output of endData.outputs) {
-            variables.push({
-              id: `${nodeId}:${output.variable}`,
-              variable: `outputs.${output.variable}`,
-              label: output.variable,
-              nodeId,
-              nodeType,
-              nodeTitle,
-              valueSelector: output.value_selector
-            })
-          }
-        }
-        break
+    // 其它节点（LLM / End）：统一从 output.variables 获取输出变量
+    const outputConfig = (data as OFLLMNodeData | OFEndNodeData).output
+    if (outputConfig?.variables) {
+      for (const v of outputConfig.variables) {
+        variables.push({
+          id: `${nodeId}:${v.variable}`,
+          variable: v.variable,
+          label: v.label || v.variable,
+          nodeId,
+          nodeType,
+          nodeTitle,
+          // 如果 value_selector 为空，用变量名作为 selector
+          valueSelector: v.value_selector?.length ? v.value_selector : [v.variable]
+        })
+      }
     }
 
     return variables

@@ -4,7 +4,7 @@
  */
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { OFStartNodeConfig, OFInputVar } from '@shared/Orchestraflow-types'
+import type { OFStartNodeConfig, OFNodeInput, OFVariable } from '@shared/Orchestraflow-types'
 
 export const useStartNodeConfigStore = defineStore('of-start-node-config', () => {
   const currentNodeId = ref<string | null>(null)
@@ -12,7 +12,7 @@ export const useStartNodeConfigStore = defineStore('of-start-node-config', () =>
     nodeId: '',
     title: '开始',
     desc: '',
-    inputs: []
+    input: { variables: [] }
   })
 
   function loadConfig(nodeId: string, data: Partial<OFStartNodeConfig>) {
@@ -21,7 +21,7 @@ export const useStartNodeConfigStore = defineStore('of-start-node-config', () =>
       nodeId,
       title: data.title || '开始',
       desc: data.desc || '',
-      inputs: data.inputs || []
+      input: data.input || { variables: [] }
     }
   }
 
@@ -31,23 +31,23 @@ export const useStartNodeConfigStore = defineStore('of-start-node-config', () =>
   function setDesc(desc: string) {
     config.value.desc = desc
   }
-  function addInput(input: OFInputVar) {
-    config.value.inputs.push(input)
+  function addInput(input: OFVariable) {
+    config.value.input.variables.push(input)
   }
   function removeInput(index: number) {
-    config.value.inputs.splice(index, 1)
+    config.value.input.variables.splice(index, 1)
   }
-  function updateInput(index: number, input: Partial<OFInputVar>) {
-    Object.assign(config.value.inputs[index], input)
+  function updateInput(index: number, input: Partial<OFVariable>) {
+    Object.assign(config.value.input.variables[index], input)
   }
 
   function exportConfig(): Partial<OFStartNodeConfig> {
-    return { title: config.value.title, desc: config.value.desc, inputs: config.value.inputs }
+    return { title: config.value.title, desc: config.value.desc, input: config.value.input }
   }
 
   function clear() {
     currentNodeId.value = null
-    config.value = { nodeId: '', title: '开始', desc: '', inputs: [] }
+    config.value = { nodeId: '', title: '开始', desc: '', input: { variables: [] } }
   }
 
   return {

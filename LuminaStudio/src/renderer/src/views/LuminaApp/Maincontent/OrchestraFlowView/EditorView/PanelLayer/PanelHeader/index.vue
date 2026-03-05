@@ -219,7 +219,31 @@ function handleRunWorkflow() {
     runStore.reset()
   }
 
-  runStore.runWorkflow(editorStore.currentWorkflowId)
+  // 获取 Start 节点的输入定义
+  const inputVars = runStore.getStartNodeInputs(editorStore.nodes)
+
+  // 如果有输入定义，先校验
+  if (inputVars.length > 0) {
+    // 校验必填项
+    const validation = runStore.validateStartInputs(inputVars)
+
+    if (!validation.valid) {
+      // 打开面板并切换到开始 Tab，显示错误
+      uiStore.openWorkflowRunPanel()
+      // 错误会显示在 StartTab 中
+      alert('请先填写开始节点的必填参数：\n' + validation.errors.join('\n'))
+      return
+    }
+
+    // 使用用户填写的输入运行
+    runStore.runWorkflow(editorStore.currentWorkflowId, runStore.startInputs)
+  } else {
+    // 无需输入，直接运行
+    runStore.runWorkflow(editorStore.currentWorkflowId)
+  }
+
+  // 打开结果面板
+  uiStore.openWorkflowRunPanel()
 }
 
 function openRunPanel() {

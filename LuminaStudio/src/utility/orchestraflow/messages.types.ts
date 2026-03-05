@@ -7,10 +7,8 @@
 import type {
   OFWorkflow,
   OFModelConfig,
-  OFPromptItem,
   OFNodeTracing,
-  OFWorkflowRunResult,
-  OFInputVar
+  OFWorkflowRunResult
 } from '@shared/Orchestraflow-types'
 
 // ==================== Config Types ====================
@@ -20,24 +18,37 @@ export interface OFProcessConfig {
   modelConfigs?: Record<string, OFModelConfig>
 }
 
+// ==================== Provider Config Types ====================
+
+export interface OFProviderConfig {
+  id: string
+  name: string
+  baseUrl: string
+  apiKey: string
+  enabled: boolean
+}
+
+export type OFProviderConfigsMap = Record<string, OFProviderConfig>
+
 // ==================== Workflow Run Types ====================
 
 export interface OFWorkflowRunRequest {
   runId: string
   workflow: OFWorkflow
-  inputs: Record<string, any>
+  inputs: Record<string, unknown>
+  providerConfigs?: OFProviderConfigsMap
 }
 
 // ==================== Node Execution Types ====================
 
 export interface OFNodeExecutionInput {
   nodeId: string
-  inputs: Record<string, any>
+  inputs: Record<string, unknown>
 }
 
 export interface OFNodeExecutionOutput {
   nodeId: string
-  outputs: Record<string, any>
+  outputs: Record<string, unknown>
 }
 
 // ==================== Main -> Utility ====================
@@ -54,7 +65,8 @@ export type MainToOFMessage =
       type: 'workflow:run'
       runId: string
       workflow: OFWorkflow
-      inputs: Record<string, any>
+      inputs: Record<string, unknown>
+      providerConfigs?: OFProviderConfigsMap
     }
   | {
       type: 'workflow:stop'
@@ -66,6 +78,12 @@ export type MainToOFMessage =
 export type OFToMainMessage =
   | { type: 'process:ready' }
   | { type: 'process:error'; message: string; details?: string }
+  | {
+      type: 'process:log'
+      level: 'log' | 'error' | 'warn' | 'info' | 'debug'
+      message: string
+      timestamp: number
+    }
   | { type: 'workflow:progress'; runId: string; progress: OFNodeTracing }
   | { type: 'workflow:result'; runId: string; result: OFWorkflowRunResult }
   | { type: 'workflow:error'; runId: string; error: string }

@@ -260,7 +260,7 @@ import { ref, watch, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useWorkflowEditorUIStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor-ui.store'
 import { useWorkflowEditorStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor.store'
 import { useVariableSelectorStore } from '@renderer/stores/orchestraflow/workflow-editor/variable-selector/variable-selector.store'
-import type { OFEndNodeData } from '@shared/Orchestraflow-types'
+import type { OFEndNodeData, OFVarType } from '@shared/Orchestraflow-types'
 
 const uiStore = useWorkflowEditorUIStore()
 const editorStore = useWorkflowEditorStore()
@@ -282,13 +282,13 @@ const localOutputs = computed({
   get() {
     if (!currentNode.value) return []
     const nodeData = currentNode.value.data as OFEndNodeData
-    return nodeData.outputs || []
+    return nodeData.output?.variables || []
   },
-  set(newOutputs: Array<{ variable: string; value_selector: string[] }>) {
+  set(newOutputs: Array<{ variable: string; value_selector?: string[]; type?: OFVarType; label?: string }>) {
     if (!uiStore.selectedNodeId) return
     editorStore.updateNode(uiStore.selectedNodeId, {
-      outputs: newOutputs
-    })
+      output: { variables: newOutputs }
+    } as any)
   }
 })
 
@@ -349,11 +349,15 @@ function handleVariableSelect(event: CustomEvent) {
   // 确保是当前节点的 output 类型
   if (nodeId !== uiStore.selectedNodeId || targetType !== 'output') return
 
+  // 只取变量名本身，不要前缀（如 "outputs.response" -> "response"）
+  // 用户输入什么就记录什么
+  const varName = variable.variable.split('.').pop() || variable.variable
+
   // 添加选中的变量到输出列表
   const newOutputs = [
     ...localOutputs.value,
     {
-      variable: variable.variable,
+      variable: varName,
       value_selector: variable.valueSelector
     }
   ]
