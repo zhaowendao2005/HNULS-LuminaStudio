@@ -15,6 +15,7 @@ description: 当 AI 需要了解本项目的整体架构、目录结构、技术
 | 信息渠道与目录结构 | `modules/info-channels.md` | 需要定位代码、了解技术栈、理清 IPC 通信路径时 |
 | 数据库快照 | `modules/database-snapshot.md` | 涉及 SQLite 表结构、Schema 版本、字段含义时 |
 | LangChain Agent 代码地图 | `modules/langchain-agent-map.md` | 涉及 Agent 模式、Graph/Node/Tool 扩展、Block 消息渲染时 |
+| OrchestraFlow 变量系统扩展 | `modules/orchestraflow-variable-system.md` | 涉及 OrchestraFlow 变量定义、运行时流转、变量选择器、变量类型扩展与避免改错层时 |
 
 ## 核心行为准则
 
@@ -33,5 +34,6 @@ description: 当 AI 需要了解本项目的整体架构、目录结构、技术
 - **数据库是 SQLite**（better-sqlite3），不是 SurrealDB，没有 MCP 工具可直接查询数据库，需要读 `schema/` 下的 `tables.ts` 获取最新表结构
 - **两套 AI 流式通信模式**：Normal 模式使用 Vercel AI SDK 直接流式；Agent 模式经由 LangchainClientBridge 到 Utility 子进程
 - **LangChain Agent 架构**（Factory → Models → Nodes → Tools）是核心复杂度，修改前必须先阅读 `modules/langchain-agent-map.md`
+- **扩展 OrchestraFlow 变量能力时**：优先阅读 `modules/orchestraflow-variable-system.md`，确认共享类型、运行时存储、节点执行逻辑和前端变量选择器是否同步
 - **Block 消息架构**：聊天消息由多种 Block 组成（TextBlock / ThinkingBlock / ToolBlock / NodeBlock / MetaBlock），前端渲染组件以 `MessageComponents-` 为前缀命名
 - **database-snapshot.md 可能过时**：若发现表结构与源码不一致，以 `main/services/database-sqlite/schema/` 下源码为准
