@@ -12,14 +12,6 @@
       class="of-node-handle of-handle-source of-start-source-handle"
     />
 
-    <div
-      class="of-start-handle-add pointer-events-none absolute right-[-10px] top-4 z-20 hidden h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-white group-hover:flex"
-    >
-      <svg viewBox="0 0 24 24" class="h-2.5 w-2.5" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M12 5v14M5 12h14" />
-      </svg>
-    </div>
-
     <div class="of-start-header flex items-center rounded-t-2xl px-3 pb-2 pt-3">
       <div class="mr-2 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-[#4c6ef5] text-white shadow-sm">
         <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
