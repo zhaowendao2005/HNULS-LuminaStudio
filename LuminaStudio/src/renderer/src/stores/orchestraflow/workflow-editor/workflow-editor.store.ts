@@ -677,8 +677,13 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
     const targetIteration = findNodeByIdFrom(iterationNodeId, nodes.value)
     if (!movingNode || !targetIteration || targetIteration.data.type !== OFBlockEnum.Iteration) return
     if (nodeId === iterationNodeId) return
-    if (movingNode.data.type === OFBlockEnum.Start || movingNode.data.type === OFBlockEnum.IterationStart)
+    if (
+      movingNode.data.type === OFBlockEnum.Start ||
+      movingNode.data.type === OFBlockEnum.IterationStart ||
+      movingNode.data.type === OFBlockEnum.End
+    ) {
       return
+    }
 
     const hasConnectedEdges = edges.value.some((edge) => edge.source === nodeId || edge.target === nodeId)
     if (hasConnectedEdges) return

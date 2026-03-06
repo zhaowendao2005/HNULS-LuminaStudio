@@ -57,7 +57,7 @@
 
       <div class="px-2 pb-2">
         <div
-          class="of-iteration-node__inner nodrag nowheel relative h-full min-h-[300px] rounded-[20px] border border-[#edf0f4] bg-[#f5f6f8]"
+          class="of-iteration-node__inner nodrag relative h-full min-h-[300px] rounded-[20px] border border-[#edf0f4] bg-[#f5f6f8]"
           :style="innerCanvasStyle"
         ></div>
       </div>
