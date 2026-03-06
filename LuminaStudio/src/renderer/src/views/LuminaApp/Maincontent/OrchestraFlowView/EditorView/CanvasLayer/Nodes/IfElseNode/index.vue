@@ -73,7 +73,7 @@
           :id="item.handleId"
           type="source"
           :position="Position.Right"
-          class="of-node-handle of-handle-source-far of-ifelse-source-handle"
+          class="of-node-handle of-handle-source-far of-ifelse-source-handle of-ifelse-source-handle-spaced"
         />
       </div>
 
@@ -91,7 +91,7 @@
           :id="data.elseCase.handleId"
           type="source"
           :position="Position.Right"
-          class="of-node-handle of-handle-source-far of-ifelse-source-handle"
+          class="of-node-handle of-handle-source-far of-ifelse-source-handle of-ifelse-source-handle-spaced"
         />
       </div>
     </div>
@@ -182,6 +182,10 @@ const containerClass = computed(() => {
 .of-ifelse-target-handle::after,
 .of-ifelse-source-handle::after {
   background: #06b6d4;
+}
+
+.of-ifelse-source-handle-spaced {
+  right: -5px;
 }
 
 @keyframes ofNodePulse {

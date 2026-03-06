@@ -249,12 +249,13 @@ onUnmounted(() => {
    ============================ */
 .of-editor-canvas {
   /* ---- 连接点水平偏移 ---- */
-  --of-handle-target-offset: -7px; /* target(左侧输入) 距节点左边缘的距离，负值=向外 */
-  --of-handle-source-offset: -7px; /* source(右侧输出) 距节点右边缘的距离，0=齐边 */
-  --of-handle-source-far-offset: -19px; /* source 远距变体（如 IfElse 多分支），负值=向外 */
+  --of-handle-target-offset: -1px; /* target(左侧输入) 贴住节点边缘，仅保留半线宽居中 */
+  --of-handle-source-offset: -1px; /* source(右侧输出) 贴住节点边缘，仅保留半线宽居中 */
+  --of-handle-source-far-offset: -1px; /* source 远距变体也贴边，逻辑锚点与指示线统一 */
 
   /* ---- 连接点大小 ---- */
-  --of-handle-size: 16px; /* 连接点可点击区域（宽高） */
+  --of-handle-width: 2px; /* 真实锚点宽度，与指示器一致 */
+  --of-handle-height: 16px; /* 保留纵向可点击高度 */
 
   /* ---- 连接点默认垂直位置 ---- */
   --of-handle-top: 16px; /* 对应 top-4 (1rem=16px) */
@@ -273,8 +274,8 @@ onUnmounted(() => {
 /* ---- 连接点基础样式 ---- */
 .of-editor-canvas :deep(.of-node-handle) {
   z-index: 30;
-  width: var(--of-handle-size);
-  height: var(--of-handle-size);
+  width: var(--of-handle-width);
+  height: var(--of-handle-height);
   border-radius: 0;
   border: none;
   background: transparent;
