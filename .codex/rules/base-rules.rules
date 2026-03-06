@@ -30,7 +30,9 @@ trigger: always_on
 链接与仓库https://github.com/vercel/ai  https://deepwiki.com/vercel/ai 官方文档：https://docs.vercel.com/docs/rest-api/reference/sdk
 2. sqlite 数据库1 https://deepwiki.com/sqlite/sqlite https://github.com/sqlite/sqlite
 3 langchainjs https://deepwiki.com/langchain-ai/langchainjs
- 
+
+## 0.6 orchestflow系统与langchain-client系统以及其前端基本上没有关系
+
 ## 1. 目录结构与文件放置（强制）
 
 ### 1.1 顶层目录禁止"散乱文件"
