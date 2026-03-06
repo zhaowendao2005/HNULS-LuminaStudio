@@ -1,6 +1,6 @@
 <template>
   <div
-    class="of-capsule-tooltip group relative inline-flex"
+    class="of-capsule-tooltip group relative flex min-w-0"
     @mouseenter="visible = true"
     @mouseleave="visible = false"
   >

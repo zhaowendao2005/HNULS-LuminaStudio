@@ -59,14 +59,18 @@
       <div class="mt-3 flex items-center gap-4">
         <button
           class="system-md-semibold border-b-2 pb-2 pt-2.5"
-          :class="activeTab === 'settings' ? theme.tabActiveClass : 'border-transparent text-gray-400'"
+          :class="
+            activeTab === 'settings' ? theme.tabActiveClass : 'border-transparent text-gray-400'
+          "
           @click="activeTab = 'settings'"
         >
           设置
         </button>
         <button
           class="system-md-semibold border-b-2 pb-2 pt-2.5"
-          :class="activeTab === 'lastRun' ? theme.tabActiveClass : 'border-transparent text-gray-400'"
+          :class="
+            activeTab === 'lastRun' ? theme.tabActiveClass : 'border-transparent text-gray-400'
+          "
           @click="activeTab = 'lastRun'"
         >
           上次运行
@@ -89,14 +93,26 @@
               {{ item.label }}
             </div>
             <div class="flex-1 border-b border-dashed border-gray-200"></div>
-            <div class="flex gap-1 transition" :class="item.kind === 'if' ? 'opacity-0 group-hover:opacity-100' : 'opacity-0 group-hover:opacity-100'">
+            <div
+              class="flex gap-1 transition"
+              :class="
+                item.kind === 'if'
+                  ? 'opacity-0 group-hover:opacity-100'
+                  : 'opacity-0 group-hover:opacity-100'
+              "
+            >
               <button
                 type="button"
                 class="rounded border border-gray-100 bg-white p-1 text-gray-400 shadow-sm transition hover:text-cyan-600"
                 @click="addCondition(item.id)"
               >
                 <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M12 4v16m8-8H4"
+                  />
                 </svg>
               </button>
               <button
@@ -117,84 +133,136 @@
             </div>
           </div>
 
-          <div class="space-y-1">
+          <div class="space-y-2">
             <div
               v-for="(condition, conditionIndex) in item.conditions"
               :key="condition.id"
-              class="group/row grid grid-cols-[56px_180px_108px_minmax(0,1fr)_24px] items-center gap-1.5 py-1 text-sm"
+              class="group/row text-sm"
             >
-              <WhiteSelect
-                v-if="conditionIndex > 0"
-                :model-value="condition.logical_operator || 'and'"
-                :options="logicalOperatorOptions"
-                root-class="w-14 shrink-0"
-                trigger-class="!h-6 !rounded !border-0 !bg-gray-100 !px-1 !py-0.5 !text-[10px] !font-bold !uppercase !text-gray-400"
-                panel-class="min-w-[96px]"
-                teleport-to="body"
-                @update:model-value="updateCondition(item.id, condition.id, { logical_operator: String($event) as 'and' | 'or' })"
-              />
-              <div v-else class="w-14 shrink-0"></div>
-
-              <VariablePillButton
-                :text="condition.variable_path || ''"
-                placeholder="选择变量"
-                :button-class="theme.controlFocusClass"
-                @click="handleConditionVariableClick(item.id, condition.id, $event)"
+              <div
+                class="grid items-center gap-x-2 gap-y-1.5"
+                style="grid-template-columns: 56px minmax(0, 1fr) 96px 24px"
               >
-                <template #icon>
-                  <svg class="mr-1.5 h-3.5 w-3.5 shrink-0 text-cyan-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <button
+                  v-if="conditionIndex > 0"
+                  type="button"
+                  class="h-6 w-14 rounded border px-1 py-0.5 text-[10px] font-bold uppercase transition"
+                  :class="
+                    (condition.logical_operator || 'and') === 'and'
+                      ? 'border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100'
+                      : 'border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100'
+                  "
+                  @click="
+                    updateCondition(item.id, condition.id, {
+                      logical_operator:
+                        (condition.logical_operator || 'and') === 'and' ? 'or' : 'and'
+                    })
+                  "
+                >
+                  {{ (condition.logical_operator || 'and') === 'and' ? 'AND' : 'OR' }}
+                </button>
+                <div v-else class="w-14 shrink-0"></div>
+
+                <div class="min-w-0">
+                  <VariablePillButton
+                    :text="condition.variable_path || ''"
+                    placeholder="选择变量"
+                    :button-class="theme.controlFocusClass"
+                    tooltip-max-width="520px"
+                    @click="handleConditionVariableClick(item.id, condition.id, $event)"
+                  >
+                    <template #icon>
+                      <svg
+                        class="mr-1.5 h-3.5 w-3.5 shrink-0 text-cyan-500"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"
+                        />
+                      </svg>
+                    </template>
+                  </VariablePillButton>
+                </div>
+
+                <WhiteSelect
+                  :model-value="condition.operator"
+                  :options="getOperators(condition.variable_type)"
+                  root-class="w-full min-w-0"
+                  trigger-class="!h-8 !w-full !rounded-md !border-transparent !bg-transparent !px-1 !py-1 !text-sm !text-gray-400 hover:!bg-white hover:!text-gray-700"
+                  panel-class="min-w-[132px]"
+                  teleport-to="body"
+                  @update:model-value="
+                    updateCondition(item.id, condition.id, { operator: String($event) as any })
+                  "
+                />
+
+                <button
+                  type="button"
+                  class="justify-self-end rounded p-1 text-gray-300 opacity-0 transition-all hover:text-red-500 group-hover/row:opacity-100"
+                  @click="removeCondition(item.id, condition.id)"
+                >
+                  <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
                       stroke-linecap="round"
                       stroke-linejoin="round"
                       stroke-width="2"
-                      d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"
+                      d="M6 18L18 6M6 6l12 12"
                     />
                   </svg>
-                </template>
-              </VariablePillButton>
+                </button>
 
-              <WhiteSelect
-                :model-value="condition.operator"
-                :options="getOperators(condition.variable_type)"
-                root-class="w-[108px] shrink-0"
-                trigger-class="!h-8 !rounded-md !border-transparent !bg-transparent !px-1 !py-1 !text-sm !text-gray-400 hover:!bg-white hover:!text-gray-700"
-                panel-class="min-w-[132px]"
-                teleport-to="body"
-                @update:model-value="updateCondition(item.id, condition.id, { operator: String($event) as any })"
-              />
+                <div
+                  v-if="needsValue(condition.operator)"
+                  class="col-start-2 col-end-4 min-w-0"
+                >
+                <!-- Boolean value toggle -->
+                <button
+                  v-if="condition.variable_type === OFVarType.Boolean"
+                  type="button"
+                  class="inline-flex h-8 max-w-full items-center overflow-hidden rounded-md border border-gray-200 bg-white p-0.5 shadow-sm"
+                  :class="theme.controlFocusClass"
+                >
+                  <span
+                    class="min-w-[54px] rounded-[5px] px-2 text-center text-xs font-semibold leading-7 transition"
+                    :class="
+                      condition.value === true
+                        ? 'bg-green-50 text-green-700 shadow-sm'
+                        : 'text-gray-400'
+                    "
+                    @click="updateCondition(item.id, condition.id, { value: true })"
+                  >
+                    TRUE
+                  </span>
+                  <span
+                    class="min-w-[54px] rounded-[5px] px-2 text-center text-xs font-semibold leading-7 transition"
+                    :class="
+                      condition.value === false
+                        ? 'bg-rose-50 text-rose-700 shadow-sm'
+                        : 'text-gray-400'
+                    "
+                    @click="updateCondition(item.id, condition.id, { value: false })"
+                  >
+                    FALSE
+                  </span>
+                </button>
 
-              <WhiteSelect
-                v-if="needsValue(condition.operator) && condition.variable_type === OFVarType.Boolean"
-                :model-value="String(condition.value ?? true)"
-                :options="booleanValueOptions"
-                root-class="w-[92px] shrink-0"
-                trigger-class="!h-8 !rounded-md !border border-transparent !bg-white !px-2 !py-1 !text-sm !text-gray-900 hover:!border-gray-200"
-                panel-class="min-w-[92px]"
-                teleport-to="body"
-                @update:model-value="updateCondition(item.id, condition.id, { value: String($event) === 'true' })"
-              />
-
-              <input
-                v-else-if="needsValue(condition.operator)"
-                :type="condition.variable_type === OFVarType.Number ? 'number' : 'text'"
-                :value="condition.value ?? ''"
-                class="min-w-0 w-full rounded-md border border-transparent bg-white px-2 py-1 text-sm text-gray-900 outline-none transition placeholder:text-gray-300"
-                :class="theme.controlFocusClass"
-                placeholder="输入值"
-                @input="handleValueInput(item.id, condition.id, condition.variable_type, $event)"
-              />
-
-              <div v-else class="rounded-md px-2 py-1 text-xs text-gray-300">无需值</div>
-
-              <button
-                type="button"
-                class="ml-auto rounded p-1 text-gray-300 opacity-0 transition-all hover:text-red-500 group-hover/row:opacity-100"
-                @click="removeCondition(item.id, condition.id)"
-              >
-                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+                <!-- Number/String value input -->
+                <input
+                  v-else
+                  :type="condition.variable_type === OFVarType.Number ? 'number' : 'text'"
+                  :value="condition.value ?? ''"
+                  class="w-full rounded-md border border-transparent bg-white px-2 py-1 text-sm text-gray-900 outline-none transition placeholder:text-gray-300"
+                  :class="theme.controlFocusClass"
+                  placeholder="输入值"
+                  @input="handleValueInput(item.id, condition.id, condition.variable_type, $event)"
+                />
+              </div>
+              </div>
             </div>
           </div>
         </div>
@@ -206,7 +274,12 @@
             @click="addElif"
           >
             <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 4v16m8-8H4"
+              />
             </svg>
           </button>
         </div>
@@ -397,7 +470,8 @@ function removeCase(caseId: string) {
 function openConditionSelector(caseId: string, conditionId: string, event: MouseEvent) {
   if (!currentNode.value) return
   activeConditionTarget.value = { caseId, conditionId }
-  const anchorRect = (event.currentTarget as HTMLElement | null)?.getBoundingClientRect() || undefined
+  const anchorRect =
+    (event.currentTarget as HTMLElement | null)?.getBoundingClientRect() || undefined
   variableSelectorStore.openSelector(currentNode.value.id, 'condition', anchorRect)
 }
 

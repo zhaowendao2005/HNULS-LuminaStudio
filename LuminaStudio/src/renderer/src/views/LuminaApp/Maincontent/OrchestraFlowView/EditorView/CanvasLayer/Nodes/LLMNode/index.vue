@@ -9,13 +9,13 @@
       type="target"
       :position="Position.Left"
       id="target"
-      class="of-node-handle of-llm-target-handle !top-4 !left-0 !z-30 !h-4 !w-4 !translate-y-0 !rounded-none !border-none !bg-transparent !outline-none"
+      class="of-node-handle of-handle-target of-llm-target-handle"
     />
     <Handle
       type="source"
       :position="Position.Right"
       id="source"
-      class="of-node-handle of-llm-source-handle !top-4 !right-0 !z-30 !h-4 !w-4 !translate-y-0 !rounded-none !border-none !bg-transparent !outline-none"
+      class="of-node-handle of-handle-source of-llm-source-handle"
     />
 
     <div class="of-node-actions absolute -top-7 right-0 hidden h-7 pb-1 group-hover:flex">
@@ -151,29 +151,10 @@ const containerClass = computed(() => {
   background: #dc2626;
 }
 
+/* 指示器颜色（定位/尺寸/hover 由 CanvasLayer 统一管理） */
 .of-llm-target-handle::after,
 .of-llm-source-handle::after {
-  content: '';
-  position: absolute;
-  top: 4px;
-  width: 2px;
-  height: 8px;
   background: #6c63ff;
-  opacity: 0;
-  transition: opacity 0.15s ease;
-}
-
-.of-llm-target-handle::after {
-  left: 7px;
-}
-
-.of-llm-source-handle::after {
-  right: 7px;
-}
-
-.of-llm-node:hover .of-llm-target-handle::after,
-.of-llm-node:hover .of-llm-source-handle::after {
-  opacity: 1;
 }
 
 @keyframes ofNodePulse {

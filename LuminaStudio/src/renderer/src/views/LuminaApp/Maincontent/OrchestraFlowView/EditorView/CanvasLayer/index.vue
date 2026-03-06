@@ -230,6 +230,9 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* ============================
+   连接线样式
+   ============================ */
 .of-editor-canvas :deep(.vue-flow__edge-path) {
   stroke-width: 2px;
 }
@@ -238,5 +241,97 @@ onUnmounted(() => {
   stroke: #6ee7b7;
   stroke-width: 3px;
   filter: drop-shadow(0 0 4px rgba(16, 185, 129, 0.6));
+}
+
+/* ============================
+   统一连接点（Handle）管理
+   修改以下变量即可全局调整所有节点的连接点位置、大小、指示器
+   ============================ */
+.of-editor-canvas {
+  /* ---- 连接点水平偏移 ---- */
+  --of-handle-target-offset: -7px; /* target(左侧输入) 距节点左边缘的距离，负值=向外 */
+  --of-handle-source-offset: -7px; /* source(右侧输出) 距节点右边缘的距离，0=齐边 */
+  --of-handle-source-far-offset: -19px; /* source 远距变体（如 IfElse 多分支），负值=向外 */
+
+  /* ---- 连接点大小 ---- */
+  --of-handle-size: 16px; /* 连接点可点击区域（宽高） */
+
+  /* ---- 连接点默认垂直位置 ---- */
+  --of-handle-top: 16px; /* 对应 top-4 (1rem=16px) */
+
+  /* ---- 指示器（青色小条）尺寸 ---- */
+  --of-indicator-width: 2px; /* 指示器线条粗细 */
+  --of-indicator-height: 8px; /* 指示器线条长度 */
+  --of-indicator-top: 4px; /* 指示器相对于 handle 的垂直偏移 */
+  --of-indicator-h-offset: 0px; /* 指示器相对于 handle 边缘的水平偏移 */
+
+  /* ---- 连接线与节点的距离 ---- */
+  /* 说明：连接线会自动从 Handle 中心点出发，距离节点边缘的距离 = handle offset 的绝对值 */
+  /* 如需调整连接线距离，修改上方的 --of-handle-target-offset / --of-handle-source-offset */
+}
+
+/* ---- 连接点基础样式 ---- */
+.of-editor-canvas :deep(.of-node-handle) {
+  z-index: 30;
+  width: var(--of-handle-size);
+  height: var(--of-handle-size);
+  border-radius: 0;
+  border: none;
+  background: transparent;
+  outline: none;
+}
+
+/* ---- Target handle（左侧输入）定位 ---- */
+.of-editor-canvas :deep(.of-handle-target) {
+  left: var(--of-handle-target-offset);
+  top: var(--of-handle-top);
+  transform: translateY(0);
+}
+
+/* ---- Source handle（右侧输出）定位 —— 默认齐边 ---- */
+.of-editor-canvas :deep(.of-handle-source) {
+  right: var(--of-handle-source-offset);
+  top: var(--of-handle-top);
+  transform: translateY(0);
+}
+
+/* ---- Source handle 远距变体 —— 如 IfElse 多分支，垂直居中于行 ---- */
+.of-editor-canvas :deep(.of-handle-source-far) {
+  right: var(--of-handle-source-far-offset);
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* ---- 指示器伪元素（所有 handle 统一） ---- */
+.of-editor-canvas :deep(.of-node-handle::after) {
+  content: '';
+  position: absolute;
+  top: var(--of-indicator-top);
+  width: var(--of-indicator-width);
+  height: var(--of-indicator-height);
+  opacity: 0;
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
+}
+
+/* target 指示器在左侧 */
+.of-editor-canvas :deep(.of-handle-target::after) {
+  left: var(--of-indicator-h-offset);
+}
+
+/* source 指示器在右侧 */
+.of-editor-canvas :deep(.of-handle-source::after),
+.of-editor-canvas :deep(.of-handle-source-far::after) {
+  right: var(--of-indicator-h-offset);
+}
+
+/* ---- Hover 显示指示器 ---- */
+.of-editor-canvas :deep(.of-node:hover .of-node-handle::after) {
+  opacity: 1;
+}
+
+.of-editor-canvas :deep(.of-node-handle:hover::after) {
+  transform: scaleY(1.15);
 }
 </style>

@@ -1,21 +1,26 @@
 <template>
   <div
-    class="group relative w-[240px] rounded-[15px] border bg-[#f3f4f6] pb-1 shadow-sm transition-all hover:shadow-lg"
+    class="of-node group relative w-[240px] rounded-[15px] border bg-[#f3f4f6] pb-1 shadow-sm transition-all hover:shadow-lg"
     :class="containerClass"
   >
+    <!-- 输入连接点（定位由 CanvasLayer 统一管理） -->
     <Handle
+      id="target"
       type="target"
       :position="Position.Left"
-      id="target"
-      class="of-ifelse-target-handle !-left-[9px] !top-4 !z-30 !h-4 !w-4 !translate-y-0 !rounded-none !border-none !bg-transparent !outline-none"
+      class="of-node-handle of-handle-target of-ifelse-target-handle"
     />
 
     <div class="px-4 pt-3 text-xs font-medium tracking-wide text-gray-500">条件分支</div>
 
     <div class="flex items-center rounded-t-2xl px-3 pb-2 pt-3">
-      <div class="mr-2 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-cyan-500 text-white shadow-sm">
+      <div
+        class="mr-2 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-cyan-500 text-white shadow-sm"
+      >
         <svg viewBox="0 0 24 24" class="h-4 w-4" fill="currentColor">
-          <path d="M14 5h5v5h-2V8.414l-4.293 4.293L17 17v-1.5h2V20h-5v-2h1.586l-4-4H3v-2h8.586l4.293-4.293H14V5Z" />
+          <path
+            d="M14 5h5v5h-2V8.414l-4.293 4.293L17 17v-1.5h2V20h-5v-2h1.586l-4-4H3v-2h8.586l4.293-4.293H14V5Z"
+          />
         </svg>
       </div>
       <div
@@ -24,10 +29,19 @@
       >
         {{ data.title || '条件分支' }}
       </div>
-      <div v-if="runningStatus === OFNodeRunningStatus.Succeeded" class="of-node-status-success">✓</div>
-      <div v-else-if="runningStatus === OFNodeRunningStatus.Running" class="of-node-status-running"></div>
-      <div v-else-if="runningStatus === OFNodeRunningStatus.Failed" class="of-node-status-failed">✕</div>
-      <div v-else-if="runningStatus === OFNodeRunningStatus.Skipped" class="of-node-status-skipped">-</div>
+      <div v-if="runningStatus === OFNodeRunningStatus.Succeeded" class="of-node-status-success">
+        ✓
+      </div>
+      <div
+        v-else-if="runningStatus === OFNodeRunningStatus.Running"
+        class="of-node-status-running"
+      ></div>
+      <div v-else-if="runningStatus === OFNodeRunningStatus.Failed" class="of-node-status-failed">
+        ✕
+      </div>
+      <div v-else-if="runningStatus === OFNodeRunningStatus.Skipped" class="of-node-status-skipped">
+        -
+      </div>
     </div>
 
     <div class="space-y-1 px-3 pb-2">
@@ -43,12 +57,6 @@
             </div>
             <div class="text-[12px] font-semibold uppercase text-gray-700">{{ item.label }}</div>
           </div>
-          <span
-            v-if="index === 0"
-            class="absolute -bottom-2 right-1 z-10 text-[10px] font-medium uppercase leading-4 text-cyan-600"
-          >
-            命中即停
-          </span>
         </div>
         <div class="space-y-0.5">
           <div
@@ -60,24 +68,30 @@
             {{ condition }}
           </div>
         </div>
+        <!-- 输出连接点 —— 远距变体，垂直居中于行（定位由 CanvasLayer 统一管理） -->
         <Handle
+          :id="item.handleId"
           type="source"
           :position="Position.Right"
-          :id="item.handleId"
-          class="of-ifelse-source-handle !-right-[21px] !top-1/2 !z-30 !h-4 !w-4 !-translate-y-1/2 !rounded-none !border-none !bg-transparent !outline-none"
+          class="of-node-handle of-handle-source-far of-ifelse-source-handle"
         />
       </div>
 
       <div class="relative rounded-xl bg-[#e9eaee] px-2 py-1.5">
         <div class="relative flex h-6 items-center px-1">
-          <div class="w-full text-right text-[12px] font-semibold uppercase text-gray-700">ELSE</div>
+          <div class="w-full text-right text-[12px] font-semibold uppercase text-gray-700">
+            ELSE
+          </div>
         </div>
-        <div class="rounded-md bg-white/70 px-2 py-1 text-xs text-gray-500" title="其余情况">其余情况</div>
+        <div class="rounded-md bg-white/70 px-2 py-1 text-xs text-gray-500" title="其余情况">
+          其余情况
+        </div>
+        <!-- ELSE 分支输出连接点 -->
         <Handle
+          :id="data.elseCase.handleId"
           type="source"
           :position="Position.Right"
-          :id="data.elseCase.handleId"
-          class="of-ifelse-source-handle !-right-[21px] !top-1/2 !z-30 !h-4 !w-4 !-translate-y-1/2 !rounded-none !border-none !bg-transparent !outline-none"
+          class="of-node-handle of-handle-source-far of-ifelse-source-handle"
         />
       </div>
     </div>
@@ -120,7 +134,8 @@ const caseRows = computed(() =>
 
 const runningStatus = computed(() => props.data?._runningStatus || OFNodeRunningStatus.NotStarted)
 const containerClass = computed(() => {
-  if (runningStatus.value === OFNodeRunningStatus.Running) return 'border-indigo-400 of-node-running'
+  if (runningStatus.value === OFNodeRunningStatus.Running)
+    return 'border-indigo-400 of-node-running'
   if (runningStatus.value === OFNodeRunningStatus.Succeeded) return 'border-emerald-500'
   if (runningStatus.value === OFNodeRunningStatus.Failed) return 'border-red-400'
   if (runningStatus.value === OFNodeRunningStatus.Skipped) return 'border-gray-300'
@@ -163,36 +178,10 @@ const containerClass = computed(() => {
   background: #94a3b8;
 }
 
+/* 指示器颜色（定位/尺寸/hover 由 CanvasLayer 统一管理） */
 .of-ifelse-target-handle::after,
 .of-ifelse-source-handle::after {
-  content: '';
-  position: absolute;
-  top: 4px;
-  width: 2px;
-  height: 8px;
   background: #06b6d4;
-  opacity: 0;
-  transition:
-    opacity 0.15s ease,
-    transform 0.15s ease;
-}
-
-.of-ifelse-target-handle::after {
-  left: 7px;
-}
-
-.of-ifelse-source-handle::after {
-  right: 7px;
-}
-
-.group:hover .of-ifelse-target-handle::after,
-.group:hover .of-ifelse-source-handle::after {
-  opacity: 1;
-}
-
-.of-ifelse-target-handle:hover::after,
-.of-ifelse-source-handle:hover::after {
-  transform: scaleY(1.15);
 }
 
 @keyframes ofNodePulse {

@@ -9,7 +9,7 @@
       type="target"
       :position="Position.Left"
       id="target"
-      class="of-node-handle of-end-target-handle !top-4 !left-0 !z-30 !h-4 !w-4 !translate-y-0 !rounded-none !border-none !bg-transparent !outline-none"
+      class="of-node-handle of-handle-target of-end-target-handle"
     />
 
     <div class="flex items-center rounded-t-2xl px-3 pb-2 pt-3">
@@ -121,20 +121,9 @@ const containerClass = computed(() => {
   background: #dc2626;
 }
 
+/* 指示器颜色（定位/尺寸/hover 由 CanvasLayer 统一管理） */
 .of-end-target-handle::after {
-  content: '';
-  position: absolute;
-  left: 7px;
-  top: 4px;
-  width: 2px;
-  height: 8px;
   background: #f59f00;
-  opacity: 0;
-  transition: opacity 0.15s ease;
-}
-
-.of-end-node:hover .of-end-target-handle::after {
-  opacity: 1;
 }
 
 @keyframes ofNodePulse {
