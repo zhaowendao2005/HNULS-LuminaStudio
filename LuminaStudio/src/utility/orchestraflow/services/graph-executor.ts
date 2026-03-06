@@ -6,7 +6,12 @@ import type {
 } from '@shared/Orchestraflow-types'
 import { OFBlockEnum, OFNodeRunningStatus } from '@shared/Orchestraflow-types'
 import { executeNode } from './executor'
-import type { ExecuteGraphParams, GraphExecutionResult, IterationExecutionContext } from '../nodes/types'
+import type {
+  ExecuteGraphParams,
+  GraphExecutionResult,
+  IterationExecutionContext,
+  LoopExecutionContext
+} from '../nodes/types'
 
 interface GraphExecutorOptions {
   runId: string
@@ -53,7 +58,12 @@ export class GraphExecutor {
       const skippedNodes = levelNodes.filter((node) => !activeNodeIds.has(node.id))
 
       for (const node of skippedNodes) {
-        this.markNodeSkipped(node, params.scopePath || [], params.iterationContext)
+        this.markNodeSkipped(
+          node,
+          params.scopePath || [],
+          params.iterationContext,
+          params.loopContext
+        )
       }
 
       if (runnableNodes.length === 0) {
@@ -62,14 +72,24 @@ export class GraphExecutor {
       }
 
       for (const node of runnableNodes) {
-        const trace = this.createTrace(node, OFNodeRunningStatus.Running, params.scopePath || [], params.iterationContext)
+        const trace = this.createTrace(
+          node,
+          OFNodeRunningStatus.Running,
+          params.scopePath || [],
+          params.iterationContext,
+          params.loopContext
+        )
         this.upsertTrace(trace)
       }
 
       const levelResults = await Promise.all(
         runnableNodes.map(async (node) => {
           const nodeStartTime = Date.now()
-          const metadata = this.buildExecutionMetadata(params.scopePath || [], params.iterationContext)
+          const metadata = this.buildExecutionMetadata(
+            params.scopePath || [],
+            params.iterationContext,
+            params.loopContext
+          )
           const traceKey = this.buildTraceKey(node.id, params.scopePath || [], metadata)
 
           try {
@@ -84,6 +104,7 @@ export class GraphExecutor {
               traceKey,
               executionMetadata: metadata,
               iterationContext: params.iterationContext,
+              loopContext: params.loopContext,
               executeGraph: (nextParams) => this.executeGraph(nextParams),
               isStopped: this.options.isStopped
             })
@@ -122,7 +143,8 @@ export class GraphExecutor {
           scope_path: params.scopePath || [],
           execution_metadata: this.buildExecutionMetadata(
             params.scopePath || [],
-            params.iterationContext
+            params.iterationContext,
+            params.loopContext
           ),
           elapsed_time: item.elapsed,
           inputs: this.toSerializable(item.result.inputs || {}),
@@ -156,10 +178,19 @@ export class GraphExecutor {
     }
 
     for (const node of params.graph.nodes) {
-      const metadata = this.buildExecutionMetadata(params.scopePath || [], params.iterationContext)
+      const metadata = this.buildExecutionMetadata(
+        params.scopePath || [],
+        params.iterationContext,
+        params.loopContext
+      )
       const traceKey = this.buildTraceKey(node.id, params.scopePath || [], metadata)
       if (!this.traceIndexes.has(traceKey)) {
-        this.markNodeSkipped(node, params.scopePath || [], params.iterationContext)
+        this.markNodeSkipped(
+          node,
+          params.scopePath || [],
+          params.iterationContext,
+          params.loopContext
+        )
       }
     }
 
@@ -202,9 +233,16 @@ export class GraphExecutor {
   private markNodeSkipped(
     node: OFNode,
     scopePath: string[],
-    iterationContext?: IterationExecutionContext
+    iterationContext?: IterationExecutionContext,
+    loopContext?: LoopExecutionContext
   ): void {
-    const trace = this.createTrace(node, OFNodeRunningStatus.Skipped, scopePath, iterationContext)
+    const trace = this.createTrace(
+      node,
+      OFNodeRunningStatus.Skipped,
+      scopePath,
+      iterationContext,
+      loopContext
+    )
     if (!this.traceIndexes.has(trace.trace_key || '')) {
       this.upsertTrace(trace)
     }
@@ -214,9 +252,10 @@ export class GraphExecutor {
     node: OFNode,
     status: OFNodeRunningStatus,
     scopePath: string[],
-    iterationContext?: IterationExecutionContext
+    iterationContext?: IterationExecutionContext,
+    loopContext?: LoopExecutionContext
   ): OFNodeTracing {
-    const executionMetadata = this.buildExecutionMetadata(scopePath, iterationContext)
+    const executionMetadata = this.buildExecutionMetadata(scopePath, iterationContext, loopContext)
     return {
       nodeId: node.id,
       nodeType: node.data.type,
@@ -231,9 +270,10 @@ export class GraphExecutor {
 
   private buildExecutionMetadata(
     scopePath: string[],
-    iterationContext?: IterationExecutionContext
+    iterationContext?: IterationExecutionContext,
+    loopContext?: LoopExecutionContext
   ): OFNodeExecutionMetadata | undefined {
-    if (!iterationContext && scopePath.length === 0) {
+    if (!iterationContext && !loopContext && scopePath.length === 0) {
       return undefined
     }
 
@@ -241,6 +281,9 @@ export class GraphExecutor {
       in_iteration_id: iterationContext?.inIterationId,
       iteration_index: iterationContext?.index,
       iteration_length: iterationContext?.iterationLength,
+      in_loop_id: loopContext?.inLoopId,
+      loop_index: loopContext?.index,
+      loop_count: loopContext?.loopCount,
       parallel_run_id: iterationContext?.parallelRunId,
       scope_path: scopePath
     }
@@ -257,7 +300,9 @@ export class GraphExecutor {
       scopePath.join('/') || 'root',
       nodeId,
       metadata?.in_iteration_id || 'root',
-      metadata?.iteration_index ?? 'na'
+      metadata?.iteration_index ?? 'na',
+      metadata?.in_loop_id || 'root',
+      metadata?.loop_index ?? 'na'
     ].join('::')
   }
 

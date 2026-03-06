@@ -12,6 +12,8 @@ export enum OFBlockEnum {
   IfElse = 'ifelse',
   Iteration = 'iteration',
   IterationStart = 'iteration-start',
+  Loop = 'loop',
+  LoopStart = 'loop-start',
   End = 'end'
 }
 
@@ -325,6 +327,7 @@ export type OFIterationErrorHandleMode =
   | 'remove-abnormal-output'
 
 export type OFIterationParallelMode = 'sequential' | 'parallel'
+export type OFLoopVariableValueType = 'constant' | 'variable'
 
 export type OFIterationNodeData = OFCommonNodeType & {
   type: OFBlockEnum.Iteration
@@ -345,6 +348,34 @@ export type OFIterationStartNodeData = OFCommonNodeType & {
   type: OFBlockEnum.IterationStart
 }
 
+export interface OFLoopVariableData {
+  variable: string
+  label?: string
+  type?: OFVarType
+  item_type?: OFVarType
+  description?: string
+  required?: boolean
+  value_type: OFLoopVariableValueType
+  value?: string | number | boolean | Record<string, any> | any[] | null
+  value_selector?: string[]
+  schema?: OFJsonSchemaObject | null
+  item_schema?: OFJsonSchemaObject | null
+}
+
+export type OFLoopNodeData = OFCommonNodeType & {
+  type: OFBlockEnum.Loop
+  loop_count: number
+  loop_variables: OFLoopVariableData[]
+  break_conditions?: OFIfElseCondition[]
+  logical_operator?: OFIfElseLogicalOperator
+  start_node_id: string
+  subgraph: OFWorkflowGraph
+}
+
+export type OFLoopStartNodeData = OFCommonNodeType & {
+  type: OFBlockEnum.LoopStart
+}
+
 // ===== End 节点数据 =====
 export type OFEndNodeData = OFCommonNodeType & {
   type: OFBlockEnum.End
@@ -362,6 +393,8 @@ export type OFNode = {
     | OFIfElseNodeData
     | OFIterationNodeData
     | OFIterationStartNodeData
+    | OFLoopNodeData
+    | OFLoopStartNodeData
     | OFEndNodeData
 }
 
@@ -379,6 +412,9 @@ export interface OFNodeExecutionMetadata {
   in_iteration_id?: string
   iteration_index?: number
   iteration_length?: number
+  in_loop_id?: string
+  loop_index?: number
+  loop_count?: number
   parallel_run_id?: string
   scope_path?: string[]
 }
@@ -468,6 +504,24 @@ export interface OFIterationNodeConfig {
 }
 
 export interface OFIterationStartNodeConfig {
+  nodeId: string
+  title: string
+  desc: string
+}
+
+export interface OFLoopNodeConfig {
+  nodeId: string
+  title: string
+  desc: string
+  loop_count: number
+  loop_variables: OFLoopVariableData[]
+  break_conditions?: OFIfElseCondition[]
+  logical_operator?: OFIfElseLogicalOperator
+  start_node_id: string
+  subgraph: OFWorkflowGraph
+}
+
+export interface OFLoopStartNodeConfig {
   nodeId: string
   title: string
   desc: string

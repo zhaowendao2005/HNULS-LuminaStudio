@@ -7,6 +7,8 @@ import type {
   OFIfElseNodeData,
   OFIterationNodeData,
   OFIterationStartNodeData,
+  OFLoopNodeData,
+  OFLoopStartNodeData,
   OFNodeExecutionMetadata,
   OFEndNodeData,
   OFNode,
@@ -20,6 +22,8 @@ export type OFNodeData =
   | OFIfElseNodeData
   | OFIterationNodeData
   | OFIterationStartNodeData
+  | OFLoopNodeData
+  | OFLoopStartNodeData
   | OFEndNodeData
 
 export interface IterationExecutionContext {
@@ -33,6 +37,15 @@ export interface IterationExecutionContext {
   scopePath?: string[]
 }
 
+export interface LoopExecutionContext {
+  loopNodeId: string
+  loopTitle: string
+  loopCount: number
+  index: number
+  inLoopId: string
+  scopePath?: string[]
+}
+
 export interface ExecuteGraphParams {
   graph: OFWorkflowGraph
   variableStore: VariableStore
@@ -40,6 +53,7 @@ export interface ExecuteGraphParams {
   startNodeId?: string
   scopePath?: string[]
   iterationContext?: IterationExecutionContext
+  loopContext?: LoopExecutionContext
 }
 
 export interface GraphExecutionResult {
@@ -58,6 +72,7 @@ export interface ExecutionContext {
   traceKey: string
   executionMetadata?: OFNodeExecutionMetadata
   iterationContext?: IterationExecutionContext
+  loopContext?: LoopExecutionContext
   providerConfigs?: Record<
     string,
     {

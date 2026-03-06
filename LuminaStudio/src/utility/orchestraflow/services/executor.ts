@@ -7,6 +7,7 @@ import { VariableStore } from './variable-store'
 import type {
   ExecuteGraphParams,
   IterationExecutionContext,
+  LoopExecutionContext,
   NodeResult
 } from '../nodes/types'
 
@@ -30,6 +31,7 @@ export interface ExecuteNodeParams {
   traceKey: string
   executionMetadata?: OFNodeExecutionMetadata
   iterationContext?: IterationExecutionContext
+  loopContext?: LoopExecutionContext
   executeGraph: (params: ExecuteGraphParams) => Promise<{ status: 'succeeded' | 'failed' | 'stopped'; outputs?: Record<string, any>; error?: string }>
   isStopped: () => boolean
 }
@@ -51,6 +53,7 @@ export async function executeNode(params: ExecuteNodeParams): Promise<NodeResult
     traceKey: params.traceKey,
     executionMetadata: params.executionMetadata,
     iterationContext: params.iterationContext,
+    loopContext: params.loopContext,
     providerConfigs: params.providerConfigs,
     executeGraph: params.executeGraph,
     isStopped: params.isStopped

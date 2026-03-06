@@ -137,6 +137,126 @@ function createWorkflow(): OFWorkflow {
   }
 }
 
+function createLoopWorkflow(): OFWorkflow {
+  const loopStart: OFNode = {
+    id: 'loop-child-start',
+    type: 'default',
+    position: { x: 0, y: 0 },
+    data: {
+      type: OFBlockEnum.LoopStart,
+      title: 'Loop Start',
+      desc: ''
+    }
+  } as OFNode
+
+  const loopEnd: OFNode = {
+    id: 'loop-child-end',
+    type: 'default',
+    position: { x: 120, y: 0 },
+    data: {
+      type: OFBlockEnum.End,
+      title: 'Loop Child End',
+      desc: '',
+      output: {
+        variables: [
+          {
+            variable: 'counter',
+            value_selector: ['counter']
+          }
+        ]
+      }
+    }
+  } as OFNode
+
+  const startNode: OFNode = {
+    id: 'start',
+    type: 'default',
+    position: { x: 0, y: 0 },
+    data: {
+      type: OFBlockEnum.Start,
+      title: 'Start',
+      desc: '',
+      input: {
+        variables: [
+          {
+            variable: 'seed',
+            type: 'number',
+            default: 1
+          }
+        ]
+      }
+    }
+  } as OFNode
+
+  const loopNode: OFNode = {
+    id: 'loop1',
+    type: 'default',
+    position: { x: 120, y: 0 },
+    data: {
+      type: OFBlockEnum.Loop,
+      title: 'Loop',
+      desc: '',
+      loop_count: 2,
+      loop_variables: [
+        {
+          variable: 'counter',
+          type: 'number',
+          value_type: 'variable',
+          value_selector: ['seed']
+        }
+      ],
+      break_conditions: [],
+      logical_operator: 'and',
+      start_node_id: 'loop-child-start',
+      subgraph: {
+        nodes: [loopStart, loopEnd],
+        edges: [
+          {
+            id: 'loop-edge-1',
+            source: 'loop-child-start',
+            target: 'loop-child-end'
+          }
+        ]
+      }
+    }
+  } as OFNode
+
+  const endNode: OFNode = {
+    id: 'end',
+    type: 'default',
+    position: { x: 240, y: 0 },
+    data: {
+      type: OFBlockEnum.End,
+      title: 'End',
+      desc: '',
+      output: {
+        variables: [
+          {
+            variable: 'result',
+            value_selector: ['loop1.result']
+          }
+        ]
+      }
+    }
+  } as OFNode
+
+  return {
+    id: 'wf-loop',
+    name: 'loop-workflow',
+    author: 'tester',
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    status: 'draft',
+    graph: {
+      nodes: [startNode, loopNode, endNode],
+      edges: [
+        { id: 'edge-1', source: 'start', target: 'loop1' },
+        { id: 'edge-2', source: 'loop1', target: 'end' }
+      ]
+    }
+  }
+}
+
 describe('GraphExecutor integration', () => {
   it('根图和 Iteration 子图共用执行内核，并产出带 execution_metadata 的 child traces', async () => {
     const workflow = createWorkflow()
@@ -185,5 +305,43 @@ describe('GraphExecutor integration', () => {
 
     expect(result.status).toBe(OFNodeRunningStatus.Failed)
     expect(result.error).toContain('not supported')
+  })
+
+  it('根图和 Loop 子图共用执行内核，并产出带 loop metadata 的 child traces', async () => {
+    const workflow = createLoopWorkflow()
+    const variableStore = new VariableStore()
+    const executor = new GraphExecutor({
+      runId: 'run-loop',
+      workflowId: workflow.id,
+      providerConfigs: {},
+      emitProgress: () => undefined,
+      isStopped: () => false
+    })
+
+    const result = await executor.executeGraph({
+      graph: workflow.graph,
+      variableStore,
+      initialInputs: {},
+      scopePath: []
+    })
+
+    expect(result.status).toBe('succeeded')
+    expect(result.outputs).toEqual({ result: { counter: 1 } })
+
+    const tracing = executor.getTracing()
+    const childStartTraces = tracing.filter((item) => item.nodeId === 'loop-child-start')
+    const childEndTraces = tracing.filter((item) => item.nodeId === 'loop-child-end')
+
+    expect(childStartTraces).toHaveLength(2)
+    expect(childEndTraces).toHaveLength(2)
+    expect(new Set(childStartTraces.map((item) => item.trace_key)).size).toBe(2)
+    expect(
+      childEndTraces.every(
+        (item) =>
+          item.scope_path?.[0] === 'loop1' &&
+          item.execution_metadata?.in_loop_id &&
+          item.execution_metadata?.loop_count === 2
+      )
+    ).toBe(true)
   })
 })

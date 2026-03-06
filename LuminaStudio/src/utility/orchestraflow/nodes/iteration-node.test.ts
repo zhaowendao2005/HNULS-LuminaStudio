@@ -217,15 +217,23 @@ describe('IterationNode', () => {
         nodes: [
           ...createIterationGraph().nodes,
           {
-            id: 'nested-iter',
+            id: 'nested-loop',
             type: 'default',
             position: { x: 10, y: 10 },
             data: {
-              type: OFBlockEnum.Iteration,
-              title: 'Nested',
+              type: OFBlockEnum.Loop,
+              title: 'Nested Loop',
               desc: '',
-              iterator_selector: ['items'],
-              output_selector: ['nested.result'],
+              loop_count: 2,
+              loop_variables: [
+                {
+                  variable: 'counter',
+                  value_type: 'constant',
+                  value: 0
+                }
+              ],
+              break_conditions: [],
+              logical_operator: 'and',
               start_node_id: 'child-start',
               subgraph: createIterationGraph()
             }

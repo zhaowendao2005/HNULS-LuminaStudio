@@ -232,7 +232,7 @@ export class IterationNode extends BaseNode {
     }
 
     const invalidContainerNode = nodeData.subgraph.nodes.find((node) =>
-      [OFBlockEnum.Iteration].includes(node.data.type)
+      [OFBlockEnum.Iteration, OFBlockEnum.Loop].includes(node.data.type)
     )
     if (invalidContainerNode) {
       throw new Error(`子图内暂不支持容器节点: ${invalidContainerNode.data.type}`)
