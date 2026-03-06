@@ -7,7 +7,8 @@
       <div class="flex items-center gap-3">
         <!-- 节点图标 -->
         <div
-          class="flex items-center justify-center w-6 h-6 rounded-lg bg-emerald-500 text-white shrink-0"
+          class="flex items-center justify-center w-6 h-6 rounded-lg text-white shrink-0"
+          :class="theme.iconBgClass"
         >
           <svg
             width="14"
@@ -36,61 +37,68 @@
         <!-- 操作按钮 -->
         <div class="flex items-center gap-1 shrink-0">
           <!-- 帮助按钮 -->
-          <div
-            class="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md hover:bg-gray-100"
-            @click="enterDebugMode"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              fill="currentColor"
-              class="h-4 w-4 text-gray-400"
+          <CapsuleTooltip text="调试运行" placement="bottom">
+            <div
+              class="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md hover:bg-gray-100"
+              @click="enterDebugMode"
             >
-              <path
-                d="M8 18.3915V5.60846L18.2264 12L8 18.3915ZM6 3.80421V20.1957C6 20.9812 6.86395 21.46 7.53 21.0437L20.6432 12.848C21.2699 12.4563 21.2699 11.5436 20.6432 11.152L7.53 2.95621C6.86395 2.53993 6 3.01878 6 3.80421Z"
-              />
-            </svg>
-          </div>
+              <svg
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                fill="currentColor"
+                class="h-4 w-4 text-gray-400"
+              >
+                <path
+                  d="M8 18.3915V5.60846L18.2264 12L8 18.3915ZM6 3.80421V20.1957C6 20.9812 6.86395 21.46 7.53 21.0437L20.6432 12.848C21.2699 12.4563 21.2699 11.5436 20.6432 11.152L7.53 2.95621C6.86395 2.53993 6 3.01878 6 3.80421Z"
+                />
+              </svg>
+            </div>
+          </CapsuleTooltip>
           <!-- 文档链接 -->
-          <a
-            href="https://docs.dify.ai/zh/use-dify/nodes/user-input"
-            target="_blank"
-            class="flex h-6 w-6 items-center justify-center rounded-md hover:bg-gray-100"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              fill="currentColor"
-              class="h-4 w-4 text-gray-400"
+          <CapsuleTooltip text="查看文档" placement="bottom">
+            <a
+              href="https://docs.dify.ai/zh/use-dify/nodes/user-input"
+              target="_blank"
+              class="flex h-6 w-6 items-center justify-center rounded-md hover:bg-gray-100"
             >
-              <path
-                d="M13 21V23H11V21H3C2.44772 21 2 20.5523 2 20V4C2 3.44772 2.44772 3 3 3H9C10.1947 3 11.2671 3.52375 12 4.35418C12.7329 3.52375 13.8053 3 15 3H21C21.5523 3 22 3.44772 22 4V20C22 20.5523 21.5523 21 21 21H13ZM20 19V5H15C13.8954 5 13 5.89543 13 7V19H20ZM11 19V7C11 5.89543 10.1046 5 9 5H4V19H11Z"
-              />
-            </svg>
-          </a>
+              <svg
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                fill="currentColor"
+                class="h-4 w-4 text-gray-400"
+              >
+                <path
+                  d="M13 21V23H11V21H3C2.44772 21 2 20.5523 2 20V4C2 3.44772 2.44772 3 3 3H9C10.1947 3 11.2671 3.52375 12 4.35418C12.7329 3.52375 13.8053 3 15 3H21C21.5523 3 22 3.44772 22 4V20C22 20.5523 21.5523 21 21 21H13ZM20 19V5H15C13.8954 5 13 5.89543 13 7V19H20ZM11 19V7C11 5.89543 10.1046 5 9 5H4V19H11Z"
+                />
+              </svg>
+            </a>
+          </CapsuleTooltip>
           <!-- 三点菜单 -->
-          <div
-            class="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md hover:bg-gray-100"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              fill="currentColor"
-              class="h-4 w-4 text-gray-400"
+          <CapsuleTooltip text="更多操作" placement="bottom">
+            <div
+              class="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md hover:bg-gray-100"
             >
-              <path
-                d="M5 10C3.9 10 3 10.9 3 12C3 13.1 3.9 14 5 14C6.1 14 7 13.1 7 12C7 10.9 6.1 10 5 10ZM19 10C17.9 10 17 10.9 17 12C17 13.1 17.9 14 19 14C20.1 14 21 13.1 21 12C21 10.9 20.1 10 19 10ZM12 10C10.9 10 10 10.9 10 12C10 13.1 10.9 14 12 14C13.1 14 14 13.1 14 12C14 10.9 13.1 10 12 10Z"
-              />
-            </svg>
-          </div>
+              <svg
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                fill="currentColor"
+                class="h-4 w-4 text-gray-400"
+              >
+                <path
+                  d="M5 10C3.9 10 3 10.9 3 12C3 13.1 3.9 14 5 14C6.1 14 7 13.1 7 12C7 10.9 6.1 10 5 10ZM19 10C17.9 10 17 10.9 17 12C17 13.1 17.9 14 19 14C20.1 14 21 13.1 21 12C21 10.9 20.1 10 19 10ZM12 10C10.9 10 10 10.9 10 12C10 13.1 10.9 14 12 14C13.1 14 14 13.1 14 12C14 10.9 13.1 10 12 10Z"
+                />
+              </svg>
+            </div>
+          </CapsuleTooltip>
           <!-- 关闭按钮 -->
-          <div class="flex h-6 w-6 cursor-pointer items-center justify-center" @click="handleClose">
+          <CapsuleTooltip text="关闭面板" placement="bottom">
+            <div class="flex h-6 w-6 cursor-pointer items-center justify-center" @click="handleClose">
             <svg
               viewBox="0 0 24 24"
               xmlns="http://www.w3.org/2000/svg"
@@ -103,7 +111,8 @@
                 d="M11.9997 10.5865L16.9495 5.63672L18.3637 7.05093L13.4139 12.0007L18.3637 16.9504L16.9495 18.3646L11.9997 13.4149L7.04996 18.3646L5.63574 16.9504L10.5855 12.0007L5.63574 7.05093L7.0502 5.63672L11.9997 10.5865Z"
               />
             </svg>
-          </div>
+            </div>
+          </CapsuleTooltip>
         </div>
       </div>
 
@@ -124,7 +133,7 @@
             class="system-md-semibold relative flex cursor-pointer items-center border-b-2 pb-2 pt-2.5"
             :class="
               activeTab === 'settings'
-                ? 'border-emerald-500 text-gray-900'
+                ? theme.tabActiveClass
                 : 'border-transparent text-gray-400'
             "
             @click="setActiveTab('settings')"
@@ -135,7 +144,7 @@
             class="system-md-semibold relative flex cursor-pointer items-center border-b-2 pb-2 pt-2.5"
             :class="
               activeTab === 'lastRun'
-                ? 'border-emerald-500 text-gray-900'
+                ? theme.tabActiveClass
                 : 'border-transparent text-gray-400'
             "
             @click="setActiveTab('lastRun')"
@@ -308,14 +317,16 @@ import { ref, watch, computed } from 'vue'
 import AddFieldDialog from './AddFieldDialog/index.vue'
 import NodeDebugForm from '../NodeDebug/NodeDebugForm.vue'
 import NodeDebugLastRun from '../NodeDebug/NodeDebugLastRun.vue'
+import CapsuleTooltip from '../components/CapsuleTooltip.vue'
 import {
   useWorkflowEditorUIStore,
   PanelTab
 } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor-ui.store'
 import { useWorkflowEditorStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor.store'
 import { useNodeDebugStore } from '@renderer/stores/orchestraflow/node-debug/node-debug.store'
-import { OFVarType } from '@shared/Orchestraflow-types'
+import { OFVarType, type OFStartNodeData, type OFVariable } from '@shared/Orchestraflow-types'
 import type { NodeDebugField } from '../NodeDebug/NodeDebugForm.vue'
+import { OF_PANEL_THEME } from '../panel-theme'
 
 const uiStore = useWorkflowEditorUIStore()
 const editorStore = useWorkflowEditorStore()
@@ -327,6 +338,7 @@ const localDesc = ref('')
 const activeTab = ref<'settings' | 'lastRun'>('settings')
 const debugMode = ref(false)
 const showAddFieldDialog = ref(false)
+const theme = OF_PANEL_THEME.start
 
 // 获取当前选中的节点
 const currentNode = computed(() => {

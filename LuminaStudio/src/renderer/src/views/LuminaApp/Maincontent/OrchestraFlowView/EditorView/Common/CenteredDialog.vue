@@ -6,7 +6,8 @@
         <!-- 根容器：定位类 of-centered-dialog-59d -->
         <div
           ref="dialogRef"
-          class="of-centered-dialog-59d relative z-10 flex max-h-[80vh] w-full max-w-[520px] flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xl"
+          class="of-centered-dialog-59d relative z-10 flex max-h-[80vh] w-full flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xl"
+          :style="{ maxWidth: props.maxWidth ?? '520px' }"
           @click.stop
         >
           <!-- Header -->
@@ -75,6 +76,7 @@ const props = defineProps<{
    * 点击遮罩层是否关闭
    */
   closeOnMask?: boolean
+  maxWidth?: string
 }>()
 
 const emit = defineEmits<{

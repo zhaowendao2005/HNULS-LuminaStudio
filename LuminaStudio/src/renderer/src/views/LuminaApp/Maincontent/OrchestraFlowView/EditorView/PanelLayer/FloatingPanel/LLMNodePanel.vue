@@ -2,7 +2,10 @@
   <div class="of-llm-node-panel h-full flex flex-col">
     <div class="border-b border-gray-100 px-4 pb-2 pt-4">
       <div class="flex items-center gap-3">
-        <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-[#635bff] text-white">
+        <div
+          class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-white"
+          :class="theme.iconBgClass"
+        >
           <svg viewBox="0 0 24 24" class="h-4 w-4" fill="currentColor">
             <path
               d="M12 2a7 7 0 0 0-7 7v2.5a2.5 2.5 0 0 0-1 2v1a2.5 2.5 0 0 0 2.5 2.5H8v2a3 3 0 0 0 3 3h2v-2h-2a1 1 0 0 1-1-1v-2.086A2.497 2.497 0 0 0 11.5 14.5v-1A2.5 2.5 0 0 0 10 11.086V9a5 5 0 1 1 10 0v2.086A2.5 2.5 0 0 0 18.5 13.5v1a2.5 2.5 0 0 0 2.5 2.5H22v-8a10 10 0 0 0-10-10Z"
@@ -17,34 +20,40 @@
         />
 
         <div class="flex shrink-0 items-center gap-1">
-          <button
-            class="flex h-6 w-6 items-center justify-center rounded-md hover:bg-gray-100"
-            @click="enterDebugMode"
-          >
-            <svg viewBox="0 0 24 24" class="h-4 w-4 text-gray-400" fill="currentColor">
-              <path
-                d="M8 18.3915V5.60846L18.2264 12L8 18.3915ZM6 3.80421V20.1957C6 20.9812 6.86395 21.46 7.53 21.0437L20.6432 12.848C21.2699 12.4563 21.2699 11.5436 20.6432 11.152L7.53 2.95621C6.86395 2.53993 6 3.01878 6 3.80421Z"
-              />
-            </svg>
-          </button>
-          <a
-            href="https://docs.dify.ai/zh/use-dify/nodes/llm"
-            target="_blank"
-            class="flex h-6 w-6 items-center justify-center rounded-md hover:bg-gray-100"
-          >
-            <svg viewBox="0 0 24 24" class="h-4 w-4 text-gray-400" fill="currentColor">
-              <path
-                d="M13 21V23H11V21H3C2.44772 21 2 20.5523 2 20V4C2 3.44772 2.44772 3 3 3H9C10.1947 3 11.2671 3.52375 12 4.35418C12.7329 3.52375 13.8053 3 15 3H21C21.5523 3 22 3.44772 22 4V20C22 20.5523 21.5523 21 21 21H13ZM20 19V5H15C13.8954 5 13 5.89543 13 7V19H20ZM11 19V7C11 5.89543 10.1046 5 9 5H4V19H11Z"
-              />
-            </svg>
-          </a>
-          <button class="flex h-6 w-6 items-center justify-center" @click="handleClose">
-            <svg viewBox="0 0 24 24" class="h-4 w-4 text-gray-400" fill="currentColor">
-              <path
-                d="M11.9997 10.5865L16.9495 5.63672L18.3637 7.05093L13.4139 12.0007L18.3637 16.9504L16.9495 18.3646L11.9997 13.4149L7.04996 18.3646L5.63574 16.9504L10.5855 12.0007L5.63574 7.05093L7.04996 5.63672L11.9997 10.5865Z"
-              />
-            </svg>
-          </button>
+          <CapsuleTooltip text="调试运行" placement="bottom">
+            <button
+              class="flex h-6 w-6 items-center justify-center rounded-md hover:bg-gray-100"
+              @click="enterDebugMode"
+            >
+              <svg viewBox="0 0 24 24" class="h-4 w-4 text-gray-400" fill="currentColor">
+                <path
+                  d="M8 18.3915V5.60846L18.2264 12L8 18.3915ZM6 3.80421V20.1957C6 20.9812 6.86395 21.46 7.53 21.0437L20.6432 12.848C21.2699 12.4563 21.2699 11.5436 20.6432 11.152L7.53 2.95621C6.86395 2.53993 6 3.01878 6 3.80421Z"
+                />
+              </svg>
+            </button>
+          </CapsuleTooltip>
+          <CapsuleTooltip text="查看文档" placement="bottom">
+            <a
+              href="https://docs.dify.ai/zh/use-dify/nodes/llm"
+              target="_blank"
+              class="flex h-6 w-6 items-center justify-center rounded-md hover:bg-gray-100"
+            >
+              <svg viewBox="0 0 24 24" class="h-4 w-4 text-gray-400" fill="currentColor">
+                <path
+                  d="M13 21V23H11V21H3C2.44772 21 2 20.5523 2 20V4C2 3.44772 2.44772 3 3 3H9C10.1947 3 11.2671 3.52375 12 4.35418C12.7329 3.52375 13.8053 3 15 3H21C21.5523 3 22 3.44772 22 4V20C22 20.5523 21.5523 21 21 21H13ZM20 19V5H15C13.8954 5 13 5.89543 13 7V19H20ZM11 19V7C11 5.89543 10.1046 5 9 5H4V19H11Z"
+                />
+              </svg>
+            </a>
+          </CapsuleTooltip>
+          <CapsuleTooltip text="关闭面板" placement="bottom">
+            <button class="flex h-6 w-6 items-center justify-center" @click="handleClose">
+              <svg viewBox="0 0 24 24" class="h-4 w-4 text-gray-400" fill="currentColor">
+                <path
+                  d="M11.9997 10.5865L16.9495 5.63672L18.3637 7.05093L13.4139 12.0007L18.3637 16.9504L16.9495 18.3646L11.9997 13.4149L7.04996 18.3646L5.63574 16.9504L10.5855 12.0007L5.63574 7.05093L7.04996 5.63672L11.9997 10.5865Z"
+                />
+              </svg>
+            </button>
+          </CapsuleTooltip>
         </div>
       </div>
 
@@ -61,9 +70,7 @@
         <button
           class="system-md-semibold border-b-2 pb-2 pt-2.5"
           :class="
-            activeTab === 'settings'
-              ? 'border-[#635bff] text-gray-900'
-              : 'border-transparent text-gray-400'
+            activeTab === 'settings' ? theme.tabActiveClass : 'border-transparent text-gray-400'
           "
           @click="setActiveTab('settings')"
         >
@@ -72,9 +79,7 @@
         <button
           class="system-md-semibold border-b-2 pb-2 pt-2.5"
           :class="
-            activeTab === 'lastRun'
-              ? 'border-[#635bff] text-gray-900'
-              : 'border-transparent text-gray-400'
+            activeTab === 'lastRun' ? theme.tabActiveClass : 'border-transparent text-gray-400'
           "
           @click="setActiveTab('lastRun')"
         >
@@ -89,36 +94,33 @@
           <div class="flex items-center justify-between">
             <div>
               <div class="system-sm-semibold-uppercase text-gray-500">模型</div>
-              <div class="mt-1 text-xs text-gray-400">选择 Provider 和模型名称</div>
+              <div class="mt-1 text-xs text-gray-400">使用统一模型选择器选择 Provider 和模型</div>
             </div>
           </div>
 
-          <div class="grid grid-cols-2 gap-3">
-            <label class="space-y-1.5">
-              <div class="text-xs font-medium text-gray-500">Provider</div>
-              <select
-                v-model="providerIdModel"
-                class="h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none focus:border-[#8ea0ff]"
-              >
-                <option value="">请选择 Provider</option>
-                <option v-for="provider in providers" :key="provider.id" :value="provider.id">
-                  {{ provider.name }}
-                </option>
-              </select>
-            </label>
+          <div class="space-y-2">
+            <button
+              class="flex h-11 w-full items-center justify-between rounded-xl border border-gray-200 bg-white px-3 text-left text-sm text-gray-700 transition hover:bg-[#f8faff]"
+              :class="theme.controlFocusClass"
+              @click="modelSelectorVisible = true"
+            >
+              <div class="min-w-0 flex-1">
+                <div class="text-xs font-medium text-gray-500">当前模型</div>
+                <CapsuleTooltip :text="selectedModelDisplay" placement="top" max-width="420px">
+                  <div class="mt-0.5 truncate font-medium text-gray-800">
+                    {{ selectedModelDisplay }}
+                  </div>
+                </CapsuleTooltip>
+              </div>
+              <svg viewBox="0 0 24 24" class="ml-3 h-4 w-4 shrink-0 text-gray-400" fill="currentColor">
+                <path d="M12 16L6 10H18L12 16Z" />
+              </svg>
+            </button>
 
-            <label class="space-y-1.5">
-              <div class="text-xs font-medium text-gray-500">Model</div>
-              <select
-                v-model="modelNameModel"
-                class="h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none focus:border-[#8ea0ff]"
-              >
-                <option value="">请选择模型</option>
-                <option v-for="model in availableModels" :key="model.id" :value="model.id">
-                  {{ model.name || model.id }}
-                </option>
-              </select>
-            </label>
+            <div class="rounded-xl border border-dashed border-gray-200 bg-white/70 px-3 py-2 text-xs text-gray-500">
+              Provider:
+              <span class="font-medium text-gray-700">{{ selectedProviderName }}</span>
+            </div>
           </div>
         </section>
 
@@ -148,15 +150,16 @@
             class="rounded-2xl border border-gray-200 bg-white p-3 shadow-xs"
           >
             <div class="flex items-center gap-2">
-              <select
-                :value="item.role"
-                class="h-8 rounded-lg border border-gray-200 bg-[#f8fafc] px-3 text-xs font-medium uppercase tracking-wide text-gray-600 outline-none focus:border-[#8ea0ff]"
-                @change="updatePrompt(item.id, { role: ($event.target as HTMLSelectElement).value as OFPromptItem['role'] })"
-              >
-                <option value="system">system</option>
-                <option value="user">user</option>
-                <option value="assistant">assistant</option>
-              </select>
+              <WhiteSelect
+                :model-value="item.role"
+                :options="promptRoleOptions"
+                placeholder="选择角色"
+                root-class="w-[148px] shrink-0"
+                trigger-class="!h-8 !rounded-lg !border-gray-200 !bg-[#f8fafc] !px-3 !py-1.5 !text-xs !font-medium !uppercase !tracking-wide !text-gray-600 hover:!bg-white"
+                panel-class="min-w-[148px]"
+                teleport-to="body"
+                @update:model-value="updatePromptRole(item.id, $event)"
+              />
 
               <div class="ml-auto flex items-center gap-1">
                 <button
@@ -192,74 +195,107 @@
         </section>
 
         <section class="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
-          <div class="flex items-start justify-between gap-3">
-            <div>
-              <div class="system-sm-semibold-uppercase text-gray-500">结构化输出</div>
-              <div class="mt-1 text-xs text-gray-400">
-                开启后附加 `structured_output` object 输出变量
-              </div>
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-1">
+              <div class="system-sm-semibold-uppercase text-gray-700">输出变量</div>
+              <svg viewBox="0 0 24 24" class="h-4 w-4 text-gray-300" fill="currentColor">
+                <path d="M12 16L6 10H18L12 16Z" />
+              </svg>
             </div>
-
-            <button
-              class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
-              :class="structuredEnabled ? 'bg-[#635bff]' : 'bg-[#cbd5e1]'"
-              @click="toggleStructuredOutput"
-            >
-              <span
-                class="inline-block h-5 w-5 transform rounded-full bg-white transition-transform"
-                :class="structuredEnabled ? 'translate-x-5' : 'translate-x-1'"
-              />
-            </button>
-          </div>
-
-          <div
-            v-if="structuredEnabled"
-            class="rounded-2xl border border-[#d9e0ff] bg-[#f7f8ff] p-3"
-          >
-            <div class="flex items-center justify-between gap-3">
-              <div>
-                <div class="text-sm font-medium text-gray-800">
-                  {{
-                    structuredSchema
-                      ? `已配置 ${Object.keys(structuredSchema.properties || {}).length} 个字段`
-                      : '尚未配置对象字段'
-                  }}
-                </div>
-                <div class="mt-1 text-xs text-gray-500">
-                  {{ structuredSchema ? schemaSummary : '点击右侧按钮开始配置 JSON Schema' }}
-                </div>
-              </div>
-              <button
-                class="shrink-0 rounded-lg border border-[#cfd7ff] bg-white px-3 py-1.5 text-sm text-[#4f46e5] hover:bg-[#eef2ff]"
-                @click="openSchemaEditor"
+            <div class="flex items-center gap-2">
+              <CapsuleTooltip
+                v-if="structuredEnabled"
+                text="结构化输出已开启"
+                placement="top"
               >
-                配置对象
+                <div class="flex h-4 w-4 items-center justify-center text-[#f59f00]">
+                  <svg viewBox="0 0 24 24" class="h-4 w-4" fill="currentColor">
+                    <path d="M12.8659 3.00017L22.3922 19.5002C22.6684 19.9785 22.5045 20.5901 22.0262 20.8662C21.8742 20.954 21.7017 21.0002 21.5262 21.0002H2.47363C1.92135 21.0002 1.47363 20.5525 1.47363 20.0002C1.47363 19.8246 1.51984 19.6522 1.60761 19.5002L11.1339 3.00017C11.41 2.52187 12.0216 2.358 12.4999 2.63414C12.6519 2.72191 12.7782 2.84815 12.8659 3.00017Z" />
+                  </svg>
+                </div>
+              </CapsuleTooltip>
+              <div class="system-xs-medium-uppercase text-gray-500">结构化输出</div>
+              <button
+                class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
+                :class="structuredEnabled ? 'bg-[#635bff]' : 'bg-[#cbd5e1]'"
+                @click="toggleStructuredOutput"
+              >
+                <span
+                  class="inline-block h-5 w-5 transform rounded-full bg-white transition-transform"
+                  :class="structuredEnabled ? 'translate-x-5' : 'translate-x-1'"
+                />
               </button>
             </div>
           </div>
-        </section>
 
-        <section class="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
-          <div>
-            <div class="system-sm-semibold-uppercase text-gray-500">输出变量</div>
-            <div class="mt-1 text-xs text-gray-400">系统自动生成，无需手动编辑</div>
-          </div>
-
-          <div class="space-y-2">
+          <div class="space-y-4">
             <div
-              v-for="item in autoOutputs"
+              v-for="item in baseOutputs"
               :key="item.variable"
-              class="flex items-center justify-between rounded-xl border border-gray-200 bg-[#fafafa] px-3 py-2"
+              class="space-y-1"
             >
-              <div class="flex items-center gap-2">
-                <span class="text-sm font-semibold text-[#635bff]">{x}</span>
-                <div>
-                  <div class="text-sm font-medium text-gray-700">{{ item.variable }}</div>
-                  <div class="text-xs text-gray-400">{{ (item.value_selector || []).join('.') }}</div>
-                </div>
+              <div class="flex min-w-0 items-center gap-2 leading-[18px]">
+                <CapsuleTooltip :text="item.variable" placement="top">
+                  <div class="truncate text-[13px] font-semibold text-gray-800">{{ item.variable }}</div>
+                </CapsuleTooltip>
+                <div class="shrink-0 text-[12px] text-gray-500">{{ item.type || 'string' }}</div>
               </div>
-              <div class="rounded bg-gray-100 px-2 py-1 text-xs uppercase text-gray-500">
-                {{ item.type || 'string' }}
+              <CapsuleTooltip :text="formatOutputNamespace(item)" placement="top" max-width="420px">
+                <div class="max-w-[280px] truncate text-xs text-gray-400">
+                  {{ formatOutputNamespace(item) }}
+                </div>
+              </CapsuleTooltip>
+            </div>
+
+            <div v-if="structuredOutputVariable" class="border-t border-gray-100 pt-4">
+              <div class="flex items-center justify-between gap-3">
+                <div class="min-w-0">
+                  <div class="flex min-w-0 items-center gap-2 leading-[18px]">
+                    <CapsuleTooltip :text="structuredOutputVariable.variable" placement="top">
+                      <div class="truncate text-[13px] font-semibold text-gray-800">
+                        {{ structuredOutputVariable.variable }}
+                      </div>
+                    </CapsuleTooltip>
+                    <div class="shrink-0 text-[12px] text-gray-500">
+                      {{ structuredOutputVariable.type || 'object' }}
+                    </div>
+                  </div>
+                  <CapsuleTooltip
+                    :text="formatOutputNamespace(structuredOutputVariable)"
+                    placement="top"
+                    max-width="420px"
+                  >
+                    <div class="mt-1 max-w-[220px] truncate text-xs text-gray-400">
+                      {{ formatOutputNamespace(structuredOutputVariable) }}
+                    </div>
+                  </CapsuleTooltip>
+                </div>
+                <button
+                  type="button"
+                  class="shrink-0 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
+                  @click="openSchemaEditor"
+                >
+                  配置
+                </button>
+              </div>
+
+              <div v-if="structuredSchemaFields.length" class="mt-3 space-y-2 pl-3">
+                <div
+                  v-for="field in structuredSchemaFields"
+                  :key="field.name"
+                  class="flex min-w-0 items-center gap-3 border-l border-gray-200 pl-3"
+                >
+                  <CapsuleTooltip :text="field.name" placement="top">
+                    <div class="min-w-0 flex-1 truncate text-sm text-gray-700">{{ field.name }}</div>
+                  </CapsuleTooltip>
+                  <div class="shrink-0 text-xs text-gray-500">{{ field.type }}</div>
+                  <div
+                    v-if="field.required"
+                    class="shrink-0 text-[11px] font-medium uppercase text-[#f59f00]"
+                  >
+                    必填
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -285,6 +321,15 @@
     </div>
 
     <ObjectSchemaEditor @save="handleSchemaSave" />
+    <ModelSelector
+      v-model:visible="modelSelectorVisible"
+      :current-provider-id="providerIdModel || null"
+      :current-model-id="modelNameModel || null"
+      title="选择 LLM 模型"
+      search-placeholder="搜索 Provider 或模型..."
+      :show-manage-button="false"
+      @select="handleModelSelect"
+    />
   </div>
 </template>
 
@@ -293,6 +338,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import type {
   OFJsonSchemaObject,
   OFLLMNodeData,
+  OFVariable,
   OFPromptItem,
   OFStructuredOutputConfig
 } from '@shared/Orchestraflow-types'
@@ -308,6 +354,13 @@ import PromptTextarea from './PromptTextarea/index.vue'
 import NodeDebugForm from './NodeDebug/NodeDebugForm.vue'
 import NodeDebugLastRun from './NodeDebug/NodeDebugLastRun.vue'
 import ObjectSchemaEditor from './ObjectSchemaEditor/index.vue'
+import CapsuleTooltip from './components/CapsuleTooltip.vue'
+import ModelSelector from '@renderer/components/ModelSelector/index.vue'
+import type { Model, ModelProvider } from '@renderer/stores/model-config/types'
+import WhiteSelect, {
+  type WhiteSelectOption
+} from '@renderer/views/LuminaApp/Maincontent/NormalChat/components/WhiteSelect.vue'
+import { OF_PANEL_THEME } from './panel-theme'
 
 const uiStore = useWorkflowEditorUIStore()
 const editorStore = useWorkflowEditorStore()
@@ -318,6 +371,13 @@ const modelConfigStore = useModelConfigStore()
 
 const activeTab = ref<'settings' | 'lastRun'>('settings')
 const debugMode = ref(false)
+const modelSelectorVisible = ref(false)
+const theme = OF_PANEL_THEME.llm
+const promptRoleOptions: WhiteSelectOption[] = [
+  { label: 'SYSTEM', value: 'system' },
+  { label: 'USER', value: 'user' },
+  { label: 'ASSISTANT', value: 'assistant' }
+]
 const promptEditorRefs = new Map<string, { getCursorPosition: () => number }>()
 const activePromptTarget = ref<{ promptId: string; cursorPosition: number } | null>(null)
 
@@ -383,15 +443,31 @@ const promptItems = computed(() => nodeData.value?.prompt_template || [])
 const structuredSchema = computed(() => nodeData.value?.structured_output?.schema || null)
 const structuredEnabled = computed(() => Boolean(nodeData.value?.structured_output?.enabled))
 const autoOutputs = computed(() => {
-  if (!currentNode.value || !nodeData.value) return []
-  return buildLLMOutputVariables(currentNode.value.id, nodeData.value.structured_output)
+  if (!nodeData.value) return []
+  return buildLLMOutputVariables(nodeData.value.title || 'llm', nodeData.value.structured_output)
 })
-
-const schemaSummary = computed(() => {
+const baseOutputs = computed(() => autoOutputs.value.filter((item) => item.variable !== 'structured_output'))
+const structuredOutputVariable = computed(
+  () => autoOutputs.value.find((item) => item.variable === 'structured_output') || null
+)
+const structuredSchemaFields = computed(() => {
   const schema = structuredSchema.value
-  if (!schema) return ''
-  const fields = Object.entries(schema.properties || {}).map(([name, item]) => `${name}:${item.type}`)
-  return fields.join(' / ')
+  if (!schema) return []
+  const requiredSet = new Set(schema.required || [])
+  return Object.entries(schema.properties || {}).map(([name, item]) => ({
+    name,
+    type: item.type,
+    required: requiredSet.has(name)
+  }))
+})
+const selectedProviderName = computed(() => {
+  const provider = providers.value.find((item) => item.id === providerIdModel.value)
+  return provider?.name || '未选择 Provider'
+})
+const selectedModelDisplay = computed(() => {
+  const model = availableModels.value.find((item) => item.id === modelNameModel.value)
+  const modelName = model?.name || modelNameModel.value || '未选择模型'
+  return `${selectedProviderName.value} / ${modelName}`
 })
 
 const debugFields = computed<NodeDebugField[]>(() => {
@@ -458,6 +534,11 @@ function updatePrompt(promptId: string, patch: Partial<Omit<OFPromptItem, 'id'>>
   patchNode({ prompt_template: next } as Partial<OFLLMNodeData>)
 }
 
+function updatePromptRole(promptId: string, value: string | number | null) {
+  if (!value) return
+  updatePrompt(promptId, { role: String(value) as OFPromptItem['role'] })
+}
+
 function addPrompt() {
   const nextItem: OFPromptItem = {
     id: `prompt_${Date.now()}`,
@@ -473,13 +554,32 @@ function removePrompt(promptId: string) {
 }
 
 function syncStructuredOutput(nextStructuredOutput: OFStructuredOutputConfig) {
-  if (!currentNode.value) return
+  if (!nodeData.value) return
   patchNode({
     structured_output: nextStructuredOutput,
     output: {
-      variables: buildLLMOutputVariables(currentNode.value.id, nextStructuredOutput)
+      variables: buildLLMOutputVariables(nodeData.value.title || 'llm', nextStructuredOutput)
     }
   } as Partial<OFLLMNodeData>)
+}
+
+function handleModelSelect(payload: { provider: ModelProvider; model: Model }) {
+  if (!nodeData.value || !currentNode.value) return
+  editorStore.updateNode(currentNode.value.id, {
+    model: {
+      ...nodeData.value.model,
+      provider: payload.provider.id,
+      name: payload.model.id
+    }
+  } as Partial<OFLLMNodeData>)
+}
+
+function formatOutputNamespace(item: OFVariable) {
+  const selector = item.value_selector || []
+  if (selector.length <= 1) {
+    return nodeData.value?.title || 'llm'
+  }
+  return selector.join('.')
 }
 
 function toggleStructuredOutput() {
@@ -563,6 +663,7 @@ async function executeNodeDebug(values: Record<string, string>) {
 }
 
 onMounted(() => {
+  modelConfigStore.fetchProviders()
   window.addEventListener('of:variable-select', handleVariableSelect as EventListener)
 })
 

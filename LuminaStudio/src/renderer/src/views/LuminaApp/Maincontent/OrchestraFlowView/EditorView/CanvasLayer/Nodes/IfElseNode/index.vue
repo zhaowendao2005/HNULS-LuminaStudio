@@ -18,7 +18,10 @@
           <path d="M14 5h5v5h-2V8.414l-4.293 4.293L17 17v-1.5h2V20h-5v-2h1.586l-4-4H3v-2h8.586l4.293-4.293H14V5Z" />
         </svg>
       </div>
-      <div class="mr-1 min-w-0 flex grow items-center truncate text-base font-semibold text-gray-900">
+      <div
+        class="mr-1 min-w-0 flex grow items-center truncate text-base font-semibold text-gray-900"
+        :title="data.title || '条件分支'"
+      >
         {{ data.title || '条件分支' }}
       </div>
       <div v-if="runningStatus === OFNodeRunningStatus.Succeeded" class="of-node-status-success">✓</div>
@@ -33,15 +36,26 @@
         :key="item.id"
         class="relative rounded-xl bg-[#e9eaee] px-2 py-1.5"
       >
-        <div class="mb-1 flex items-center justify-between text-[11px] font-semibold uppercase text-gray-600">
-          <span>{{ item.label }}</span>
-          <span v-if="index === 0" class="text-gray-400">命中即停止</span>
+        <div class="relative flex h-6 items-center px-1">
+          <div class="flex w-full items-center justify-between">
+            <div class="text-[10px] font-semibold text-gray-400">
+              {{ index === 0 ? '' : item.logicOperator }}
+            </div>
+            <div class="text-[12px] font-semibold uppercase text-gray-700">{{ item.label }}</div>
+          </div>
+          <span
+            v-if="index === 0"
+            class="absolute -bottom-2 right-1 z-10 text-[10px] font-medium uppercase leading-4 text-cyan-600"
+          >
+            命中即停
+          </span>
         </div>
-        <div class="space-y-1">
+        <div class="space-y-0.5">
           <div
             v-for="condition in item.preview"
             :key="condition"
             class="truncate rounded-md bg-white/70 px-2 py-1 text-xs text-gray-600"
+            :title="condition"
           >
             {{ condition }}
           </div>
@@ -55,8 +69,10 @@
       </div>
 
       <div class="relative rounded-xl bg-[#e9eaee] px-2 py-1.5">
-        <div class="text-right text-[11px] font-semibold uppercase text-gray-600">ELSE</div>
-        <div class="mt-1 rounded-md bg-white/70 px-2 py-1 text-xs text-gray-500">其余情况</div>
+        <div class="relative flex h-6 items-center px-1">
+          <div class="w-full text-right text-[12px] font-semibold uppercase text-gray-700">ELSE</div>
+        </div>
+        <div class="rounded-md bg-white/70 px-2 py-1 text-xs text-gray-500" title="其余情况">其余情况</div>
         <Handle
           type="source"
           :position="Position.Right"
@@ -94,6 +110,7 @@ const caseRows = computed(() =>
     id: item.id,
     label: item.label,
     handleId: item.handleId,
+    logicOperator: item.conditions?.[0]?.logical_operator || '',
     preview:
       item.conditions.length > 0
         ? item.conditions.slice(0, 2).map(summarizeCondition)
