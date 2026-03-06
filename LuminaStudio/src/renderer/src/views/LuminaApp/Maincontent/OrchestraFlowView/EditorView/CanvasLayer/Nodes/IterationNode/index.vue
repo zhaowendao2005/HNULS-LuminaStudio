@@ -10,6 +10,8 @@
       :color="'#32acd0'"
       :handle-style="resizerHandleStyle"
       :line-style="resizerLineStyle"
+      @resize-start="handleResizeStart"
+      @resize="handleResize"
       @resize-end="handleResizeEnd"
     />
 
@@ -27,6 +29,15 @@
     />
 
     <div class="relative h-full w-full overflow-hidden rounded-[22px]">
+      <div
+        v-if="resizePreview"
+        class="pointer-events-none absolute inset-0 z-20 rounded-[22px] border-2 border-[#32acd0]/70 bg-[#32acd0]/[0.05] shadow-[0_0_0_1px_rgba(50,172,208,0.08)]"
+      >
+        <div class="absolute bottom-4 right-4 rounded-lg bg-white/95 px-2.5 py-1 text-[11px] font-medium text-[#0f172a] shadow-sm">
+          {{ Math.round(resolvedWidth) }} × {{ Math.round(resolvedHeight) }}
+        </div>
+      </div>
+
       <div class="flex items-center gap-3 px-4 pb-3 pt-4">
         <div
           class="flex h-8 w-8 items-center justify-center rounded-xl bg-[#35abd0] text-white shadow-sm"
@@ -47,6 +58,7 @@
       <div class="px-2 pb-2">
         <div
           class="of-iteration-node__inner nodrag nowheel relative h-full min-h-[300px] rounded-[20px] border border-[#edf0f4] bg-[#f5f6f8]"
+          :style="innerCanvasStyle"
         ></div>
       </div>
     </div>
@@ -54,7 +66,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { Handle, Position } from '@vue-flow/core'
 import { NodeResizer } from '@vue-flow/node-resizer'
 import {
@@ -71,10 +83,14 @@ const props = defineProps<{
 }>()
 
 const editorStore = useWorkflowEditorStore()
+const resizePreview = ref<{ width: number; height: number } | null>(null)
+
+const resolvedWidth = computed(() => resizePreview.value?.width || props.data.width || 650)
+const resolvedHeight = computed(() => resizePreview.value?.height || props.data.height || 417)
 
 const containerStyle = computed(() => ({
-  width: `${props.data.width || 650}px`,
-  height: `${props.data.height || 417}px`
+  width: `${resolvedWidth.value}px`,
+  height: `${resolvedHeight.value}px`
 }))
 
 const runningStatus = computed(() => props.data?._runningStatus || OFNodeRunningStatus.NotStarted)
@@ -96,12 +112,35 @@ const resizerHandleStyle = {
 }
 
 const resizerLineStyle = {
-  borderColor: 'rgba(50, 172, 208, 0.28)'
+  borderColor: 'transparent'
+}
+
+const innerCanvasStyle = computed(() => ({
+  height: `${Math.max(300, resolvedHeight.value - 78)}px`
+}))
+
+function handleResizeStart() {
+  resizePreview.value = {
+    width: props.data.width || 650,
+    height: props.data.height || 417
+  }
+}
+
+function handleResize(event: { params?: { width?: number; height?: number } }) {
+  if (!event?.params?.width || !event?.params?.height) return
+  resizePreview.value = {
+    width: Math.round(event.params.width),
+    height: Math.round(event.params.height)
+  }
 }
 
 function handleResizeEnd(event: { params?: { width?: number; height?: number } }) {
-  if (!event?.params?.width || !event?.params?.height) return
+  if (!event?.params?.width || !event?.params?.height) {
+    resizePreview.value = null
+    return
+  }
   editorStore.resizeIterationNode(props.id, event.params.width, event.params.height)
+  resizePreview.value = null
 }
 </script>
 
@@ -111,7 +150,6 @@ function handleResizeEnd(event: { params?: { width?: number; height?: number } }
 }
 
 .of-iteration-node__inner {
-  height: calc(100% - 12px);
   background-image: radial-gradient(#d8dde6 1px, transparent 1px);
   background-size: 18px 18px;
   box-shadow:
@@ -126,6 +164,20 @@ function handleResizeEnd(event: { params?: { width?: number; height?: number } }
 .of-iteration-target-handle::after,
 .of-iteration-source-handle::after {
   background: #35abd0;
+}
+
+.of-iteration-node :deep(.vue-flow__resize-control.line) {
+  border-color: transparent !important;
+}
+
+.of-iteration-node :deep(.vue-flow__resize-control.handle) {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.of-iteration-node :deep(.vue-flow__resize-control.handle.bottom.right) {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 @keyframes ofIterationPulse {
