@@ -13,6 +13,7 @@ import type {
 import type {
   OFEdge,
   OFEndNodeData,
+  OFIterationNodeData,
   OFLLMNodeData,
   OFNode,
   OFStartNodeData,
@@ -36,7 +37,10 @@ function selectorToPath(selector: string[]): string {
   return selector.join('.')
 }
 
-function buildObjectChildren(base: OFAvailableVariable, variable: OFVariable): OFAvailableVariable[] {
+function buildObjectChildren(
+  base: OFAvailableVariable,
+  variable: OFVariable
+): OFAvailableVariable[] {
   if (variable.type !== OFVarType.Object || !variable.schema) {
     return []
   }
@@ -67,12 +71,19 @@ function buildObjectChildren(base: OFAvailableVariable, variable: OFVariable): O
 
 function matchesKeyword(variable: OFAvailableVariable, keyword: string): boolean {
   const lowered = keyword.toLowerCase()
-  return [variable.label, variable.variable, variable.path, variable.nodeTitle, String(variable.type || '')].some(
-    (item) => item.toLowerCase().includes(lowered)
-  )
+  return [
+    variable.label,
+    variable.variable,
+    variable.path,
+    variable.nodeTitle,
+    String(variable.type || '')
+  ].some((item) => item.toLowerCase().includes(lowered))
 }
 
-function filterVariable(variable: OFAvailableVariable, keyword: string): OFAvailableVariable | null {
+function filterVariable(
+  variable: OFAvailableVariable,
+  keyword: string
+): OFAvailableVariable | null {
   const filteredChildren = (variable.children || [])
     .map((child) => filterVariable(child, keyword))
     .filter(Boolean) as OFAvailableVariable[]
@@ -111,13 +122,18 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
         ...item,
         value_selector: item.value_selector?.length ? item.value_selector : [item.variable]
       }))
-    } else if (nodeType === OFBlockEnum.LLM || nodeType === OFBlockEnum.End) {
-      variables = (((data as OFLLMNodeData | OFEndNodeData).output?.variables || []) as OFVariable[]).map(
-        (item) => ({
-          ...item,
-          value_selector: item.value_selector?.length ? item.value_selector : [item.variable]
-        })
-      )
+    } else if (
+      nodeType === OFBlockEnum.LLM ||
+      nodeType === OFBlockEnum.Iteration ||
+      nodeType === OFBlockEnum.End
+    ) {
+      variables = (
+        ((data as OFLLMNodeData | OFIterationNodeData | OFEndNodeData).output?.variables ||
+          []) as OFVariable[]
+      ).map((item) => ({
+        ...item,
+        value_selector: item.value_selector?.length ? item.value_selector : [item.variable]
+      }))
     }
 
     if (!variables.length) {
@@ -125,7 +141,9 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
     }
 
     const items = variables.map((variable) => {
-      const selector = variable.value_selector?.length ? variable.value_selector : [variable.variable]
+      const selector = variable.value_selector?.length
+        ? variable.value_selector
+        : [variable.variable]
       const base: OFAvailableVariable = {
         id: `${nodeId}:${selectorToPath(selector)}`,
         variable: variable.variable,
@@ -205,7 +223,11 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
   const availableGroups = computed<OFAvailableVariableGroup[]>(() => {
     if (!targetNodeId.value) return []
 
-    const upstreamNodes = findUpstreamNodes(targetNodeId.value, editorStore.nodes, editorStore.edges)
+    const upstreamNodes = findUpstreamNodes(
+      targetNodeId.value,
+      editorStore.nodes,
+      editorStore.edges
+    )
     const upstreamGroups = upstreamNodes
       .flatMap((node) => extractNodeOutputs(node))
       .filter((group) => group.items.length > 0)

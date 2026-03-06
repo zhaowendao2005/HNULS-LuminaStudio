@@ -1,11 +1,7 @@
 <template>
   <Teleport to="body">
     <Transition name="fade">
-      <div
-        v-if="store.visible"
-        class="fixed inset-0 z-50"
-        @click="handleOverlayClick"
-      >
+      <div v-if="store.visible" class="fixed inset-0 z-50" @click="handleOverlayClick">
         <div
           class="absolute w-[296px] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-[0_18px_60px_rgba(15,23,42,0.18)]"
           :style="panelStyle"
@@ -50,7 +46,9 @@
                   v-else
                   class="flex h-7 cursor-pointer items-center gap-2 rounded-md pl-3 pr-2 text-sm"
                   :class="
-                    selectedId === row.item.id ? 'bg-[#eef2ff] text-gray-900' : 'text-gray-700 hover:bg-gray-50'
+                    selectedId === row.item.id
+                      ? 'bg-[#eef2ff] text-gray-900'
+                      : 'text-gray-700 hover:bg-gray-50'
                   "
                   :style="{ paddingLeft: `${12 + row.depth * 16}px` }"
                   @mouseenter="selectedId = row.item.id"
@@ -80,7 +78,11 @@
 
                   <div
                     class="flex h-4 w-4 shrink-0 items-center justify-center rounded text-[10px] font-semibold"
-                    :class="row.item.isSystem ? 'bg-[#fff3ea] text-[#f97316]' : 'bg-[#eef2ff] text-[#4f46e5]'"
+                    :class="
+                      row.item.isSystem
+                        ? 'bg-[#fff3ea] text-[#f97316]'
+                        : 'bg-[#eef2ff] text-[#4f46e5]'
+                    "
                   >
                     {{ row.item.isSystem ? '□' : '{x}' }}
                   </div>
@@ -111,9 +113,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useVariableSelectorStore } from '@renderer/stores/orchestraflow/workflow-editor/variable-selector/variable-selector.store'
-import type {
-  OFAvailableVariable
-} from '@renderer/stores/orchestraflow/workflow-editor/variable-selector/variable-selector.types'
+import type { OFAvailableVariable } from '@renderer/stores/orchestraflow/workflow-editor/variable-selector/variable-selector.types'
 
 type SelectorRow =
   | {
@@ -156,11 +156,7 @@ function toggleExpand(id: string) {
   }
 }
 
-function appendRows(
-  items: OFAvailableVariable[],
-  depth: number,
-  target: SelectorRow[]
-) {
+function appendRows(items: OFAvailableVariable[], depth: number, target: SelectorRow[]) {
   for (const item of items) {
     target.push({
       kind: 'item',

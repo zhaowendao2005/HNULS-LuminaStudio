@@ -61,7 +61,7 @@ export class WorkflowListDatasource {
   /**
    * 更新工作流
    */
-  async updateWorkflow(id: string, data: Partial<OFWorkflowMeta>): Promise<OFWorkflowMeta> {
+  async updateWorkflow(_id: string, _data: Partial<OFWorkflowMeta>): Promise<OFWorkflowMeta> {
     throw new Error('Not implemented')
   }
 }

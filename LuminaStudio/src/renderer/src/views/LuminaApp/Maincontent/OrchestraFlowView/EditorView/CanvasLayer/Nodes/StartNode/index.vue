@@ -13,7 +13,9 @@
     />
 
     <div class="of-start-header flex items-center rounded-t-2xl px-3 pb-2 pt-3">
-      <div class="mr-2 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-[#4c6ef5] text-white shadow-sm">
+      <div
+        class="mr-2 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-[#4c6ef5] text-white shadow-sm"
+      >
         <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             stroke-linecap="round"
@@ -23,7 +25,9 @@
           />
         </svg>
       </div>
-      <div class="mr-1 min-w-0 flex grow items-center truncate text-base font-semibold text-gray-900">
+      <div
+        class="mr-1 min-w-0 flex grow items-center truncate text-base font-semibold text-gray-900"
+      >
         {{ data.title || '用户输入' }}
       </div>
       <div v-if="runningStatus === OFNodeRunningStatus.Succeeded" class="of-node-status-success">
@@ -47,11 +51,17 @@
         >
           <div class="flex w-0 grow items-center space-x-1">
             <span class="text-sm font-semibold text-[#4c6ef5]">{x}</span>
-            <span class="w-0 grow truncate text-xs text-gray-700">{{ item.label || item.variable }}</span>
+            <span class="w-0 grow truncate text-xs text-gray-700">
+              {{ item.label || item.variable }}
+            </span>
           </div>
           <div class="ml-1 flex items-center space-x-1">
-            <span v-if="item.required" class="text-[10px] uppercase tracking-wide text-gray-500">必填</span>
-            <span class="text-[10px] uppercase tracking-wide text-gray-500">{{ item.type || 'string' }}</span>
+            <span v-if="item.required" class="text-[10px] uppercase tracking-wide text-gray-500">
+              必填
+            </span>
+            <span class="text-[10px] uppercase tracking-wide text-gray-500">
+              {{ item.type || 'string' }}
+            </span>
           </div>
         </div>
       </div>
@@ -76,7 +86,8 @@ const inputVariables = computed(() => {
 
 const runningStatus = computed(() => props.data?._runningStatus || OFNodeRunningStatus.NotStarted)
 const containerClass = computed(() => {
-  if (runningStatus.value === OFNodeRunningStatus.Running) return 'border-indigo-400 of-node-running'
+  if (runningStatus.value === OFNodeRunningStatus.Running)
+    return 'border-indigo-400 of-node-running'
   if (runningStatus.value === OFNodeRunningStatus.Succeeded) return 'border-emerald-500'
   if (runningStatus.value === OFNodeRunningStatus.Failed) return 'border-red-400'
   return 'border-transparent'
@@ -157,4 +168,3 @@ const containerClass = computed(() => {
   }
 }
 </style>
-

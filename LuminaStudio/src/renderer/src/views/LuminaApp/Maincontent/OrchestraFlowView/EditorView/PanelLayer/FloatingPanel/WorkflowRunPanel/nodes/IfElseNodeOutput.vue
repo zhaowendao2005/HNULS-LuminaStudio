@@ -3,12 +3,17 @@
     <div class="mb-3 flex items-center gap-2">
       <div class="flex h-5 w-5 items-center justify-center rounded bg-cyan-500 text-white">
         <svg viewBox="0 0 24 24" class="h-3 w-3" fill="currentColor">
-          <path d="M14 5h5v5h-2V8.414l-4.293 4.293L17 17v-1.5h2V20h-5v-2h1.586l-4-4H3v-2h8.586l4.293-4.293H14V5Z" />
+          <path
+            d="M14 5h5v5h-2V8.414l-4.293 4.293L17 17v-1.5h2V20h-5v-2h1.586l-4-4H3v-2h8.586l4.293-4.293H14V5Z"
+          />
         </svg>
       </div>
       <div class="system-md-semibold text-gray-900">条件分支</div>
       <div v-if="tracing.status" class="ml-auto">
-        <span class="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium" :class="statusClass">
+        <span
+          class="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium"
+          :class="statusClass"
+        >
           {{ statusText }}
         </span>
       </div>

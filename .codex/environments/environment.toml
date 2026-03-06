@@ -10,3 +10,8 @@ name = "dev调试"
 icon = "run"
 command = "cd LuminaStudio;pnpm dev"
 platform = "win32"
+
+[[actions]]
+name = "format"
+icon = "tool"
+command = "cd LuminaStudio;pnpm format"

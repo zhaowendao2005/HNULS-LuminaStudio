@@ -9,6 +9,7 @@ import type { XYPosition } from '@vue-flow/core'
 export enum OFBlockEnum {
   Start = 'start',
   LLM = 'llm',
+  Iteration = 'iteration',
   IfElse = 'ifelse',
   End = 'end'
 }
@@ -89,6 +90,34 @@ export interface OFNodeOutput {
   variables: OFVariable[]
 }
 
+export type OFIterationMode = 'fixed-count' | 'mock-source'
+
+export interface OFIterationPreviewNode {
+  id: string
+  type: 'start' | 'llm'
+  title: string
+  subtitle?: string
+}
+
+export interface OFIterationResultItem {
+  index: number
+  title: string
+  input: string
+  outputSummary: string
+  status: OFNodeRunningStatus
+}
+
+export interface OFIterationMockRun {
+  iterations: OFIterationResultItem[]
+  summary: string
+  finalOutput: string
+}
+
+export interface OFIterationPreviewSnapshot {
+  label: string
+  nodes: OFIterationPreviewNode[]
+}
+
 export const OF_LLM_TEXT_OUTPUT_NAME = 'llmoutput'
 export const OF_LLM_STRUCTURED_OUTPUT_NAME = 'structured_output'
 
@@ -132,6 +161,37 @@ export function buildLLMOutputVariables(
   }
 
   return variables
+}
+
+export function buildIterationOutputVariables(
+  namespace: string,
+  fallback = 'iteration'
+): OFVariable[] {
+  const normalizedNamespace = normalizeOFVariableNamespace(namespace, fallback)
+
+  return [
+    {
+      variable: 'summary',
+      label: 'summary',
+      type: OFVarType.String,
+      required: true,
+      value_selector: [`${normalizedNamespace}.summary`]
+    },
+    {
+      variable: 'final_output',
+      label: 'final_output',
+      type: OFVarType.String,
+      required: true,
+      value_selector: [`${normalizedNamespace}.final_output`]
+    },
+    {
+      variable: 'iterations',
+      label: 'iterations',
+      type: OFVarType.Array,
+      required: true,
+      value_selector: [`${normalizedNamespace}.iterations`]
+    }
+  ]
 }
 
 // ===== 条件分支 =====
@@ -306,6 +366,18 @@ export type OFLLMNodeData = OFCommonNodeType & {
   output: OFNodeOutput
 }
 
+// ===== Iteration 节点数据 =====
+export type OFIterationNodeData = OFCommonNodeType & {
+  type: OFBlockEnum.Iteration
+  iterationMode: OFIterationMode
+  iterationCount: number
+  iterationSource?: string
+  mockTemplateId: string
+  preview: OFIterationPreviewSnapshot
+  mockRun: OFIterationMockRun
+  output: OFNodeOutput
+}
+
 // ===== IfElse 节点数据 =====
 export type OFIfElseNodeData = OFCommonNodeType & {
   type: OFBlockEnum.IfElse
@@ -324,7 +396,7 @@ export type OFNode = {
   id: string
   type: string
   position: XYPosition
-  data: OFStartNodeData | OFLLMNodeData | OFIfElseNodeData | OFEndNodeData
+  data: OFStartNodeData | OFLLMNodeData | OFIterationNodeData | OFIfElseNodeData | OFEndNodeData
 }
 
 // ===== 边类型 =====
@@ -390,6 +462,19 @@ export interface OFLLMNodeConfig {
   model: OFModelConfig
   prompt_template: OFPromptItem[]
   structured_output: OFStructuredOutputConfig
+  output: OFNodeOutput
+}
+
+export interface OFIterationNodeConfig {
+  nodeId: string
+  title: string
+  desc: string
+  iterationMode: OFIterationMode
+  iterationCount: number
+  iterationSource?: string
+  mockTemplateId: string
+  preview: OFIterationPreviewSnapshot
+  mockRun: OFIterationMockRun
   output: OFNodeOutput
 }
 

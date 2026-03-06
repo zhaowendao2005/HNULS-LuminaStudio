@@ -2,7 +2,10 @@
   <div class="space-y-3">
     <div class="text-xs text-gray-500">字段配置</div>
 
-    <div v-if="fields.length === 0" class="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-3 py-4 text-sm text-gray-400">
+    <div
+      v-if="fields.length === 0"
+      class="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-3 py-4 text-sm text-gray-400"
+    >
       当前节点无需额外入参。
     </div>
 
@@ -20,7 +23,10 @@
       />
     </div>
 
-    <div v-if="errors.length > 0" class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
+    <div
+      v-if="errors.length > 0"
+      class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600"
+    >
       <div v-for="item in errors" :key="item">{{ item }}</div>
     </div>
 

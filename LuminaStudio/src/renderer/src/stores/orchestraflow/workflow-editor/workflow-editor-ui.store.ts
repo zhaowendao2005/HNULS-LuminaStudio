@@ -21,6 +21,7 @@ export enum PanelType {
   SystemVariables = 'system-variables',
   StartNode = 'start-node',
   LLMNode = 'llm-node',
+  IterationNode = 'iteration-node',
   IfElseNode = 'ifelse-node',
   EndNode = 'end-node'
 }
@@ -79,9 +80,7 @@ export const useWorkflowEditorUIStore = defineStore('orchestraflow-workflow-edit
   /**
    * 系统变量面板显示状态
    */
-  const showSystemVariablesPanel = computed(
-    () => panelInstances.value['system-variables'].open
-  )
+  const showSystemVariablesPanel = computed(() => panelInstances.value['system-variables'].open)
 
   /**
    * 节点配置面板显示状态
@@ -147,6 +146,8 @@ export const useWorkflowEditorUIStore = defineStore('orchestraflow-workflow-edit
         return PanelType.StartNode
       case OFBlockEnum.LLM:
         return PanelType.LLMNode
+      case OFBlockEnum.Iteration:
+        return PanelType.IterationNode
       case OFBlockEnum.IfElse:
         return PanelType.IfElseNode
       case OFBlockEnum.End:
@@ -261,6 +262,7 @@ export const useWorkflowEditorUIStore = defineStore('orchestraflow-workflow-edit
     if (
       currentPanelType.value === PanelType.StartNode ||
       currentPanelType.value === PanelType.LLMNode ||
+      currentPanelType.value === PanelType.IterationNode ||
       currentPanelType.value === PanelType.IfElseNode ||
       currentPanelType.value === PanelType.EndNode
     ) {

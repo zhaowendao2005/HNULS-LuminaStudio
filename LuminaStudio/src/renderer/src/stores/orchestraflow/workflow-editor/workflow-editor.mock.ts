@@ -43,6 +43,10 @@ export function createDefaultWorkflow(): {
         context: {
           enabled: false
         },
+        structured_output: {
+          enabled: false,
+          schema: null
+        },
         output: { variables: [] }
       }
     },
@@ -66,7 +70,6 @@ export function createDefaultWorkflow(): {
       target: 'llm-1',
       sourceHandle: 'source',
       targetHandle: 'target',
-      type: 'default',
       data: {
         sourceType: OFBlockEnum.Start,
         targetType: OFBlockEnum.LLM
@@ -78,7 +81,6 @@ export function createDefaultWorkflow(): {
       target: 'end-1',
       sourceHandle: 'source',
       targetHandle: 'target',
-      type: 'default',
       data: {
         sourceType: OFBlockEnum.LLM,
         targetType: OFBlockEnum.End

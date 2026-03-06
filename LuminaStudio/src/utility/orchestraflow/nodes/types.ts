@@ -4,12 +4,18 @@
 import type {
   OFStartNodeData,
   OFLLMNodeData,
+  OFIterationNodeData,
   OFIfElseNodeData,
   OFEndNodeData,
   OFNode
 } from '@shared/Orchestraflow-types'
 
-export type OFNodeData = OFStartNodeData | OFLLMNodeData | OFIfElseNodeData | OFEndNodeData
+export type OFNodeData =
+  | OFStartNodeData
+  | OFLLMNodeData
+  | OFIterationNodeData
+  | OFIfElseNodeData
+  | OFEndNodeData
 
 export interface ExecutionContext {
   runId: string

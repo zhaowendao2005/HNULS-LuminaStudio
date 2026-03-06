@@ -66,7 +66,14 @@
             <!-- 节点输出组件 -->
             <StartNodeOutput v-if="tracing.nodeType === OFBlockEnum.Start" :tracing="tracing" />
             <LLMNodeOutput v-else-if="tracing.nodeType === OFBlockEnum.LLM" :tracing="tracing" />
-            <IfElseNodeOutput v-else-if="tracing.nodeType === OFBlockEnum.IfElse" :tracing="tracing" />
+            <IterationNodeOutput
+              v-else-if="tracing.nodeType === OFBlockEnum.Iteration"
+              :tracing="tracing"
+            />
+            <IfElseNodeOutput
+              v-else-if="tracing.nodeType === OFBlockEnum.IfElse"
+              :tracing="tracing"
+            />
             <EndNodeOutput v-else-if="tracing.nodeType === OFBlockEnum.End" :tracing="tracing" />
           </div>
         </div>
@@ -143,6 +150,7 @@ import { ref, watch, computed } from 'vue'
 import FloatingPanel from '../index.vue'
 import StartNodeOutput from './nodes/StartNodeOutput.vue'
 import LLMNodeOutput from './nodes/LLMNodeOutput.vue'
+import IterationNodeOutput from './nodes/IterationNodeOutput.vue'
 import IfElseNodeOutput from './nodes/IfElseNodeOutput.vue'
 import EndNodeOutput from './nodes/EndNodeOutput.vue'
 import StartTab from './tabs/StartTab.vue'

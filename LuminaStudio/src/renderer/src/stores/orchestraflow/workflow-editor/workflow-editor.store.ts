@@ -6,7 +6,9 @@ import { ref } from 'vue'
 import {
   OFControlMode,
   OFBlockEnum,
+  OFNodeRunningStatus,
   buildLLMOutputVariables,
+  buildIterationOutputVariables,
   normalizeOFVariableNamespace
 } from '@shared/Orchestraflow-types'
 import type {
@@ -14,9 +16,9 @@ import type {
   OFEdge,
   OFStartNodeData,
   OFLLMNodeData,
+  OFIterationNodeData,
   OFIfElseNodeData,
-  OFEndNodeData,
-  OFNodeRunningStatus
+  OFEndNodeData
 } from '@shared/Orchestraflow-types'
 import type { NodeChange, EdgeChange } from '@vue-flow/core'
 import { WorkflowEditorDataSource } from './workflow-editor.datasource'
@@ -31,6 +33,8 @@ function getDefaultNodeTitle(type: OFBlockEnum): string {
   switch (type) {
     case OFBlockEnum.LLM:
       return 'llm'
+    case OFBlockEnum.Iteration:
+      return '迭代'
     case OFBlockEnum.IfElse:
       return '条件分支'
     case OFBlockEnum.Start:
@@ -84,6 +88,58 @@ function normalizeNode(node: OFNode): OFNode {
     }
   }
 
+  if (node.data.type === OFBlockEnum.Iteration) {
+    const data = node.data as Partial<OFIterationNodeData>
+    const title = normalizeNodeTitle(OFBlockEnum.Iteration, data.title)
+    return {
+      ...node,
+      data: {
+        title,
+        desc: data.desc || '',
+        type: OFBlockEnum.Iteration,
+        iterationMode: data.iterationMode || 'fixed-count',
+        iterationCount: Math.max(1, Number(data.iterationCount || 3)),
+        iterationSource: data.iterationSource || '',
+        mockTemplateId: data.mockTemplateId || 'llm-summary',
+        preview: data.preview || {
+          label: '迭代开始',
+          nodes: [
+            { id: 'preview-start', type: 'start', title: '开始' },
+            {
+              id: 'preview-llm',
+              type: 'llm',
+              title: 'LLM 2',
+              subtitle: 'Pro/moonshotai/Ki...'
+            }
+          ]
+        },
+        mockRun: data.mockRun || {
+          iterations: [
+            {
+              index: 1,
+              title: '第 1 轮',
+              input: '提取候选信息',
+              outputSummary: '生成第一轮摘要并筛选重点',
+              status: OFNodeRunningStatus.Succeeded
+            },
+            {
+              index: 2,
+              title: '第 2 轮',
+              input: '补充缺失上下文',
+              outputSummary: '收敛到最终摘要',
+              status: OFNodeRunningStatus.Succeeded
+            }
+          ],
+          summary: '已完成 2 轮模拟迭代，输出合并摘要。',
+          finalOutput: '这是迭代节点的最终模拟输出。'
+        },
+        output: {
+          variables: buildIterationOutputVariables(title, `iteration_${node.id}`)
+        }
+      } as OFIterationNodeData
+    }
+  }
+
   if (node.data.type === OFBlockEnum.IfElse) {
     const data = node.data as Partial<OFIfElseNodeData>
     return {
@@ -117,12 +173,20 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
   // 防抖定时器
   let saveTimer: ReturnType<typeof setTimeout> | null = null
 
-  function getUniqueNodeTitle(type: OFBlockEnum, desiredTitle?: string, excludeNodeId?: string): string {
+  function getUniqueNodeTitle(
+    type: OFBlockEnum,
+    desiredTitle?: string,
+    excludeNodeId?: string
+  ): string {
     const baseTitle = normalizeNodeTitle(type, desiredTitle)
     const existingTitles = new Set(
       nodes.value
         .filter((node) => node.id !== excludeNodeId)
-        .map((node) => String(node.data.title || '').trim().toLowerCase())
+        .map((node) =>
+          String(node.data.title || '')
+            .trim()
+            .toLowerCase()
+        )
         .filter(Boolean)
     )
 
@@ -139,7 +203,11 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
     return candidate
   }
 
-  function replaceNamespace(selector: string[] | undefined, oldNamespace: string, newNamespace: string): string[] {
+  function replaceNamespace(
+    selector: string[] | undefined,
+    oldNamespace: string,
+    newNamespace: string
+  ): string[] {
     if (!selector?.length) return selector || []
     return selector.map((segment, index) => {
       if (index !== 0) return segment
@@ -151,12 +219,20 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
     })
   }
 
-  function replacePromptNamespace(text: string, oldNamespace: string, newNamespace: string): string {
+  function replacePromptNamespace(
+    text: string,
+    oldNamespace: string,
+    newNamespace: string
+  ): string {
     const pattern = new RegExp(`(\\{\\{\\s*)${escapeRegExp(oldNamespace)}(?=\\.)`, 'g')
     return text.replace(pattern, `$1${newNamespace}`)
   }
 
-  function syncLLMNamespaceReferences(oldNamespace: string, newNamespace: string, renamedNodeId: string) {
+  function syncNodeNamespaceReferences(
+    oldNamespace: string,
+    newNamespace: string,
+    renamedNodeId: string
+  ) {
     if (!oldNamespace || oldNamespace === newNamespace) return
 
     nodes.value = nodes.value.map((node) => {
@@ -174,6 +250,41 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
               ...item,
               text: replacePromptNamespace(item.text || '', oldNamespace, newNamespace)
             }))
+          }
+        }
+      }
+
+      if (node.data.type === OFBlockEnum.Iteration) {
+        const data = node.data as OFIterationNodeData
+        return {
+          ...node,
+          data: {
+            ...data,
+            mockRun: {
+              ...data.mockRun,
+              summary: replacePromptNamespace(
+                data.mockRun?.summary || '',
+                oldNamespace,
+                newNamespace
+              ),
+              finalOutput: replacePromptNamespace(
+                data.mockRun?.finalOutput || '',
+                oldNamespace,
+                newNamespace
+              ),
+              iterations: (data.mockRun?.iterations || []).map((item) => ({
+                ...item,
+                input: replacePromptNamespace(item.input || '', oldNamespace, newNamespace),
+                outputSummary: replacePromptNamespace(
+                  item.outputSummary || '',
+                  oldNamespace,
+                  newNamespace
+                )
+              }))
+            },
+            output: {
+              variables: buildIterationOutputVariables(newNamespace, `iteration_${node.id}`)
+            }
           }
         }
       }
@@ -261,7 +372,12 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
     const position = { x: 200 + Math.random() * 100, y: 200 + Math.random() * 100 }
     const title = getUniqueNodeTitle(type, getDefaultNodeTitle(type))
 
-    let nodeData: OFStartNodeData | OFLLMNodeData | OFIfElseNodeData | OFEndNodeData
+    let nodeData:
+      | OFStartNodeData
+      | OFLLMNodeData
+      | OFIterationNodeData
+      | OFIfElseNodeData
+      | OFEndNodeData
 
     switch (type) {
       case OFBlockEnum.Start:
@@ -292,6 +408,50 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
           },
           output: { variables: buildLLMOutputVariables(title) }
         } as OFLLMNodeData
+        break
+      case OFBlockEnum.Iteration:
+        nodeData = {
+          title,
+          desc: '',
+          type: OFBlockEnum.Iteration,
+          iterationMode: 'fixed-count',
+          iterationCount: 3,
+          iterationSource: '',
+          mockTemplateId: 'llm-summary',
+          preview: {
+            label: '迭代开始',
+            nodes: [
+              { id: 'preview-start', type: 'start', title: '开始' },
+              {
+                id: 'preview-llm',
+                type: 'llm',
+                title: 'LLM 2',
+                subtitle: 'Pro/moonshotai/Ki...'
+              }
+            ]
+          },
+          mockRun: {
+            iterations: [
+              {
+                index: 1,
+                title: '第 1 轮',
+                input: '读取输入上下文并拆解任务',
+                outputSummary: '完成第一轮候选答案整理',
+                status: OFNodeRunningStatus.Succeeded
+              },
+              {
+                index: 2,
+                title: '第 2 轮',
+                input: '继续补齐缺失信息',
+                outputSummary: '收敛为最终摘要',
+                status: OFNodeRunningStatus.Succeeded
+              }
+            ],
+            summary: '模拟执行 2 轮内部循环。',
+            finalOutput: '这是迭代节点的默认模拟输出。'
+          },
+          output: { variables: buildIterationOutputVariables(title, `iteration_${id}`) }
+        } as OFIterationNodeData
         break
       case OFBlockEnum.IfElse:
         nodeData = {
@@ -341,6 +501,9 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
       case OFBlockEnum.IfElse:
         vueFlowType = 'ifelse'
         break
+      case OFBlockEnum.Iteration:
+        vueFlowType = 'iteration'
+        break
       case OFBlockEnum.End:
         vueFlowType = 'end'
         break
@@ -380,13 +543,31 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
       }
     }
 
-    if (currentNode.data.type === OFBlockEnum.LLM && data.structured_output) {
+    if (currentNode.data.type === OFBlockEnum.Iteration) {
+      const iterationPatch = data as Partial<OFIterationNodeData>
+      const iterationData = {
+        ...(currentNode.data as OFIterationNodeData),
+        ...nextData
+      } as OFIterationNodeData
+      if (typeof nextData.title === 'string' || iterationPatch.mockRun) {
+        nextData = {
+          ...nextData,
+          output: {
+            variables: buildIterationOutputVariables(iterationData.title, `iteration_${nodeId}`)
+          }
+        }
+      }
+    }
+
+    const llmPatch = data as Partial<OFLLMNodeData>
+
+    if (currentNode.data.type === OFBlockEnum.LLM && llmPatch.structured_output) {
       const llmData = currentNode.data as OFLLMNodeData
       const nextTitle = String((nextData.title as string | undefined) || llmData.title || 'llm')
       nextData = {
         ...nextData,
         output: {
-          variables: buildLLMOutputVariables(nextTitle, data.structured_output)
+          variables: buildLLMOutputVariables(nextTitle, llmPatch.structured_output)
         }
       }
     }
@@ -394,7 +575,9 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
     const previousNamespace =
       currentNode.data.type === OFBlockEnum.LLM
         ? normalizeOFVariableNamespace(currentNode.data.title, 'llm')
-        : ''
+        : currentNode.data.type === OFBlockEnum.Iteration
+          ? normalizeOFVariableNamespace(currentNode.data.title, 'iteration')
+          : ''
 
     nodes.value = nodes.value.map((node) =>
       node.id === nodeId
@@ -410,7 +593,12 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
 
     if (currentNode.data.type === OFBlockEnum.LLM && typeof nextData.title === 'string') {
       const nextNamespace = normalizeOFVariableNamespace(nextData.title, 'llm')
-      syncLLMNamespaceReferences(previousNamespace, nextNamespace, nodeId)
+      syncNodeNamespaceReferences(previousNamespace, nextNamespace, nodeId)
+    }
+
+    if (currentNode.data.type === OFBlockEnum.Iteration && typeof nextData.title === 'string') {
+      const nextNamespace = normalizeOFVariableNamespace(nextData.title, 'iteration')
+      syncNodeNamespaceReferences(previousNamespace, nextNamespace, nodeId)
     }
 
     scheduleSave()

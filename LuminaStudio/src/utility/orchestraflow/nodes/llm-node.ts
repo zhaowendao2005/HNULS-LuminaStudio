@@ -104,23 +104,28 @@ export class LLMNode extends BaseNode {
           : buildLLMOutputVariables(this.context.node.id, nodeData.structured_output)
 
       if (nodeData.structured_output?.enabled && nodeData.structured_output.schema) {
-        const structuredRunner = this.model.withStructuredOutput(this.buildZodSchema(nodeData.structured_output.schema), {
-          name: OF_LLM_STRUCTURED_OUTPUT_NAME,
-          includeRaw: true
-        })
+        const structuredRunner = this.model.withStructuredOutput(
+          this.buildZodSchema(nodeData.structured_output.schema),
+          {
+            name: OF_LLM_STRUCTURED_OUTPUT_NAME,
+            includeRaw: true
+          }
+        )
 
         const result = (await structuredRunner.invoke(messages)) as StructuredResult
         const rawContent = this.stringifyMessageContent(result.raw?.content)
 
         for (const output of outputVars) {
           const storeKey = output.value_selector?.[0] || output.variable
-          const value = output.variable === OF_LLM_STRUCTURED_OUTPUT_NAME ? result.parsed : rawContent
+          const value =
+            output.variable === OF_LLM_STRUCTURED_OUTPUT_NAME ? result.parsed : rawContent
           this.setOutput(storeKey, value)
           outputs[output.variable] = value
         }
         for (const output of legacyOutputVars) {
           const storeKey = output.value_selector?.[0] || output.variable
-          const value = output.variable === OF_LLM_STRUCTURED_OUTPUT_NAME ? result.parsed : rawContent
+          const value =
+            output.variable === OF_LLM_STRUCTURED_OUTPUT_NAME ? result.parsed : rawContent
           this.setOutput(storeKey, value)
         }
 
@@ -266,8 +271,7 @@ export class LLMNode extends BaseNode {
       temperature:
         temperatureRaw !== undefined ? Math.min(Math.max(temperatureRaw, 0), 2) : undefined,
       top_p: topPRaw !== undefined ? Math.min(Math.max(topPRaw, 0), 1) : undefined,
-      max_tokens:
-        maxTokensRaw !== undefined ? Math.max(1, Math.floor(maxTokensRaw)) : undefined,
+      max_tokens: maxTokensRaw !== undefined ? Math.max(1, Math.floor(maxTokensRaw)) : undefined,
       top_k: topKRaw !== undefined ? Math.max(1, Math.floor(topKRaw)) : undefined,
       presence_penalty:
         presencePenaltyRaw !== undefined

@@ -31,7 +31,11 @@
 
       <!-- 追踪列表 -->
       <div class="space-y-2">
-        <div v-for="tracing in runStore.tracingList" :key="tracing.nodeId" class="border border-gray-200 rounded-lg overflow-hidden">
+        <div
+          v-for="tracing in runStore.tracingList"
+          :key="tracing.nodeId"
+          class="border border-gray-200 rounded-lg overflow-hidden"
+        >
           <div class="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 text-left">
             <div class="flex items-center gap-2">
               <!-- 节点图标 -->
@@ -64,7 +68,13 @@
                 title="查看 Raw 详情"
                 @click="openJsonDialog(`${getNodeTitle(tracing)} Raw`, formatRawData(tracing))"
               >
-                <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2">
+                <svg
+                  viewBox="0 0 24 24"
+                  class="h-3.5 w-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
                   <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" />
                   <circle cx="12" cy="12" r="3" />
                 </svg>
@@ -83,9 +93,17 @@
                   <button
                     class="flex h-7 w-7 items-center justify-center rounded-full border border-indigo-200 bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
                     title="查看输入详情"
-                    @click="openJsonDialog(`${getNodeTitle(tracing)} 输入`, formatJson(tracing.inputs))"
+                    @click="
+                      openJsonDialog(`${getNodeTitle(tracing)} 输入`, formatJson(tracing.inputs))
+                    "
                   >
-                    <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2">
+                    <svg
+                      viewBox="0 0 24 24"
+                      class="h-3.5 w-3.5"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
                       <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" />
                       <circle cx="12" cy="12" r="3" />
                     </svg>
@@ -98,9 +116,17 @@
                   <button
                     class="flex h-7 w-7 items-center justify-center rounded-full border border-indigo-200 bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
                     title="查看输出详情"
-                    @click="openJsonDialog(`${getNodeTitle(tracing)} 输出`, formatJson(tracing.outputs))"
+                    @click="
+                      openJsonDialog(`${getNodeTitle(tracing)} 输出`, formatJson(tracing.outputs))
+                    "
                   >
-                    <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2">
+                    <svg
+                      viewBox="0 0 24 24"
+                      class="h-3.5 w-3.5"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
                       <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" />
                       <circle cx="12" cy="12" r="3" />
                     </svg>
@@ -162,6 +188,8 @@ function getNodeIcon(nodeType: string): string {
       return 'S'
     case OFBlockEnum.LLM:
       return 'L'
+    case OFBlockEnum.Iteration:
+      return 'R'
     case OFBlockEnum.IfElse:
       return 'I'
     case OFBlockEnum.End:
@@ -178,6 +206,8 @@ function getNodeIconClass(nodeType: string): string {
       return 'bg-blue-500'
     case OFBlockEnum.LLM:
       return 'bg-purple-500'
+    case OFBlockEnum.Iteration:
+      return 'bg-cyan-500'
     case OFBlockEnum.IfElse:
       return 'bg-cyan-500'
     case OFBlockEnum.End:
@@ -194,6 +224,8 @@ function getNodeTitle(tracing: any): string {
       return '开始节点'
     case OFBlockEnum.LLM:
       return 'LLM 节点'
+    case OFBlockEnum.Iteration:
+      return '迭代节点'
     case OFBlockEnum.IfElse:
       return '条件分支节点'
     case OFBlockEnum.End:

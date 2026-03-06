@@ -23,6 +23,9 @@
       <template #node-llm="props">
         <LLMNode v-bind="props" />
       </template>
+      <template #node-iteration="props">
+        <IterationNode v-bind="props" />
+      </template>
       <template #node-ifelse="props">
         <IfElseNode v-bind="props" />
       </template>
@@ -60,6 +63,7 @@ import { useModelConfigStore } from '@renderer/stores/model-config/store'
 // 导入自定义节点组件
 import StartNode from './Nodes/StartNode/index.vue'
 import LLMNode from './Nodes/LLMNode/index.vue'
+import IterationNode from './Nodes/IterationNode/index.vue'
 import IfElseNode from './Nodes/IfElseNode/index.vue'
 import EndNode from './Nodes/EndNode/index.vue'
 
@@ -85,6 +89,9 @@ function getPanelType(nodeType: string): PanelType | null {
     case 'llm':
     case OFBlockEnum.LLM:
       return PanelType.LLMNode
+    case 'iteration':
+    case OFBlockEnum.Iteration:
+      return PanelType.IterationNode
     case 'ifelse':
     case OFBlockEnum.IfElse:
       return PanelType.IfElseNode
@@ -115,6 +122,9 @@ function handleNodeClick(event: { node: Node }) {
       break
     case 'llm':
       ofBlockEnum = OFBlockEnum.LLM
+      break
+    case 'iteration':
+      ofBlockEnum = OFBlockEnum.Iteration
       break
     case 'ifelse':
       ofBlockEnum = OFBlockEnum.IfElse

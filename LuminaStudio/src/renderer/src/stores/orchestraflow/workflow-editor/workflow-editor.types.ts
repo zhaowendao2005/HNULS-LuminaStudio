@@ -6,6 +6,7 @@ import type {
   OFControlMode,
   OFStartNodeData,
   OFLLMNodeData,
+  OFIterationNodeData,
   OFEndNodeData,
   OFCommonEdgeType,
   OFNode,
@@ -18,6 +19,7 @@ export type {
   OFControlMode,
   OFStartNodeData,
   OFLLMNodeData,
+  OFIterationNodeData,
   OFEndNodeData,
   OFCommonEdgeType
 }

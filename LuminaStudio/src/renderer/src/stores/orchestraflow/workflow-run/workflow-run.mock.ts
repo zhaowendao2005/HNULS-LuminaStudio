@@ -1,17 +1,18 @@
 /**
  * OrchestraFlow 工作流运行 Mock 数据
  */
-import type { OFWorkflowRunResult } from '@shared/Orchestraflow-types'
+import type { OFNode, OFNodeTracing, OFWorkflowRunResult } from '@shared/Orchestraflow-types'
 import {
   OFWorkflowRunningStatus,
   OFNodeRunningStatus,
   OFBlockEnum
 } from '@shared/Orchestraflow-types'
 
-/**
- * 模拟运行结果 - 包含完整节点输入输出
- */
-export function createMockRunResult(): OFWorkflowRunResult {
+function firstNodeByType(nodes: OFNode[], type: OFBlockEnum): OFNode | undefined {
+  return nodes.find((node) => node.data.type === type)
+}
+
+function createDefaultTrace(): OFWorkflowRunResult {
   return {
     status: OFWorkflowRunningStatus.Succeeded,
     elapsed_time: 2.34,
@@ -49,9 +50,8 @@ export function createMockRunResult(): OFWorkflowRunResult {
           ]
         },
         outputs: {
-          text: '这段文章主要讲述了人工智能在现代软件开发中的应用。作者从以下几个方面进行了阐述：\n\n1. **自动化测试**：AI可以自动生成测试用例，提高代码覆盖率。\n2. **代码审查**：机器学习模型能够识别潜在的bug和安全漏洞。\n3. **智能补全**：基于上下文的代码补全建议大幅提升开发效率。\n4. **文档生成**：自动生成API文档和技术文档。\n\n总结来说，AI正在改变软件开发的方式，让开发者能够专注于更具创造性的工作。'
-        },
-        tokens: 156
+          text: '这段文章主要讲述了人工智能在现代软件开发中的应用。'
+        }
       },
       {
         nodeId: 'end-1',
@@ -59,21 +59,123 @@ export function createMockRunResult(): OFWorkflowRunResult {
         status: OFNodeRunningStatus.Succeeded,
         elapsed_time: 0.03,
         outputs: {
-          result:
-            '这段文章主要讲述了人工智能在现代软件开发中的应用。作者从以下几个方面进行了阐述：\n\n1. **自动化测试**：AI可以自动生成测试用例，提高代码覆盖率。\n2. **代码审查**：机器学习模型能够识别潜在的bug和安全漏洞。\n3. **智能补全**：基于上下文的代码补全建议大幅提升开发效率。\n4. **文档生成**：自动生成API文档和技术文档。\n\n总结来说，AI正在改变软件开发的方式，让开发者能够专注于更具创造性的工作。'
+          result: '这段文章主要讲述了人工智能在现代软件开发中的应用。'
         }
       }
     ],
     outputs: {
-      result:
-        '这段文章主要讲述了人工智能在现代软件开发中的应用。作者从以下几个方面进行了阐述：\n\n1. **自动化测试**：AI可以自动生成测试用例，提高代码覆盖率。\n2. **代码审查**：机器学习模型能够识别潜在的bug和安全漏洞。\n3. **智能补全**：基于上下文的代码补全建议大幅提升开发效率。\n4. **文档生成**：自动生成API文档和技术文档。\n\n总结来说，AI正在改变软件开发的方式，让开发者能够专注于更具创造性的工作。'
+      result: '这段文章主要讲述了人工智能在现代软件开发中的应用。'
     }
   }
 }
 
-/**
- * 创建流式输出片段（用于模拟流式返回）
- */
+function createIterationTrace(nodes: OFNode[], inputs?: Record<string, any>): OFWorkflowRunResult {
+  const startNode = firstNodeByType(nodes, OFBlockEnum.Start)
+  const iterationNode = firstNodeByType(nodes, OFBlockEnum.Iteration)
+  const endNode = firstNodeByType(nodes, OFBlockEnum.End)
+  const iterationData =
+    iterationNode?.data.type === OFBlockEnum.Iteration ? iterationNode.data : null
+  const iterations = iterationData?.mockRun?.iterations?.length
+    ? iterationData.mockRun.iterations
+    : [
+        {
+          index: 1,
+          title: '第 1 轮',
+          input: '提炼候选信息',
+          outputSummary: '输出第一轮中间摘要',
+          status: OFNodeRunningStatus.Succeeded
+        },
+        {
+          index: 2,
+          title: '第 2 轮',
+          input: '继续补齐缺失信息',
+          outputSummary: '输出第二轮中间摘要',
+          status: OFNodeRunningStatus.Succeeded
+        }
+      ]
+
+  const tracing: OFNodeTracing[] = []
+
+  if (startNode) {
+    tracing.push({
+      nodeId: startNode.id,
+      nodeType: OFBlockEnum.Start,
+      status: OFNodeRunningStatus.Succeeded,
+      elapsed_time: 0.01,
+      inputs: inputs || {},
+      outputs: inputs || {}
+    })
+  }
+
+  if (iterationNode && iterationData) {
+    tracing.push({
+      nodeId: iterationNode.id,
+      nodeType: OFBlockEnum.Iteration,
+      status: OFNodeRunningStatus.Succeeded,
+      elapsed_time: 1.28,
+      inputs: {
+        iterationCount: iterationData.iterationCount,
+        iterationMode: iterationData.iterationMode,
+        mockTemplateId: iterationData.mockTemplateId
+      },
+      outputs: {
+        iterations,
+        summary: iterationData.mockRun.summary,
+        finalOutput: iterationData.mockRun.finalOutput
+      }
+    })
+  }
+
+  if (endNode) {
+    tracing.push({
+      nodeId: endNode.id,
+      nodeType: OFBlockEnum.End,
+      status: OFNodeRunningStatus.Succeeded,
+      elapsed_time: 0.03,
+      outputs: {
+        result: iterationData?.mockRun.finalOutput || '这是迭代节点的最终模拟输出。'
+      }
+    })
+  }
+
+  return {
+    status: OFWorkflowRunningStatus.Succeeded,
+    elapsed_time: 1.32,
+    total_tokens: 428,
+    tracing,
+    outputs: {
+      summary: iterationData?.mockRun.summary || '已完成模拟循环。',
+      finalOutput: iterationData?.mockRun.finalOutput || '这是迭代节点的最终模拟输出。'
+    }
+  }
+}
+
+export function createMockRunResult(
+  nodes: OFNode[] = [],
+  inputs?: Record<string, any>
+): OFWorkflowRunResult {
+  if (nodes.some((node) => node.data.type === OFBlockEnum.Iteration)) {
+    return createIterationTrace(nodes, inputs)
+  }
+  return createDefaultTrace()
+}
+
+export function createMockProgressSequence(
+  nodes: OFNode[] = [],
+  inputs?: Record<string, any>
+): OFNodeTracing[] {
+  const result = createMockRunResult(nodes, inputs)
+  return result.tracing.map((item, index) => {
+    if (index === result.tracing.length - 1) {
+      return item
+    }
+    return {
+      ...item,
+      status: OFNodeRunningStatus.Running
+    }
+  })
+}
+
 export function createStreamingChunks(): string[] {
   return [
     '这段文章',
@@ -99,9 +201,6 @@ export function createStreamingChunks(): string[] {
   ]
 }
 
-/**
- * 创建失败的运行结果
- */
 export function createFailedRunResult(errorMessage: string = 'Unknown error'): OFWorkflowRunResult {
   return {
     status: OFWorkflowRunningStatus.Failed,
