@@ -162,6 +162,8 @@ function getNodeIcon(nodeType: string): string {
       return 'S'
     case OFBlockEnum.LLM:
       return 'L'
+    case OFBlockEnum.IfElse:
+      return 'I'
     case OFBlockEnum.End:
       return 'E'
     default:
@@ -176,6 +178,8 @@ function getNodeIconClass(nodeType: string): string {
       return 'bg-blue-500'
     case OFBlockEnum.LLM:
       return 'bg-purple-500'
+    case OFBlockEnum.IfElse:
+      return 'bg-cyan-500'
     case OFBlockEnum.End:
       return 'bg-green-500'
     default:
@@ -190,6 +194,8 @@ function getNodeTitle(tracing: any): string {
       return '开始节点'
     case OFBlockEnum.LLM:
       return 'LLM 节点'
+    case OFBlockEnum.IfElse:
+      return '条件分支节点'
     case OFBlockEnum.End:
       return '结束节点'
     default:

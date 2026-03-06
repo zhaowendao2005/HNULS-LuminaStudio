@@ -12,7 +12,7 @@ export async function executeNode(
   node: OFNode,
   variableStore: VariableStore,
   initialInputs: Record<string, any>,
-  tracing: OFNodeTracing[],
+  _tracing: OFNodeTracing[],
   providerConfigs: Record<
     string,
     {
@@ -53,7 +53,10 @@ export async function executeNode(
   try {
     // 执行节点
     const result = await nodeInstance.execute(context)
-    return result
+    return {
+      ...result,
+      inputs
+    }
   } catch (err) {
     console.error('[OF Executor] Node execution error:', err)
     throw err

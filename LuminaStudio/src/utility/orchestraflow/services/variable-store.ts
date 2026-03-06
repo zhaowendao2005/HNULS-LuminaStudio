@@ -32,7 +32,10 @@ export class VariableStore {
 
   /**
    * 根据 value_selector 获取嵌套值
-   * value_selector: ['nodeId', 'outputKey'] 或 ['outputKey']
+   * value_selector:
+   * - ['input']
+   * - ['node_xxx.llmoutput']
+   * - ['node_xxx.structured_output', 'reason']
    */
   getBySelector(selector: string[]): any {
     if (!selector || selector.length === 0) return undefined
@@ -53,5 +56,40 @@ export class VariableStore {
       result = result[selector[i]]
     }
     return result
+  }
+
+  /**
+   * 根据点路径获取值。
+   * 兼容：
+   * - input
+   * - sys.workflow_id
+   * - node_xxx.llmoutput
+   * - node_xxx.structured_output.reason
+   */
+  getByPath(path: string): any {
+    if (!path) return undefined
+
+    if (this.has(path)) {
+      return this.get(path)
+    }
+
+    const segments = path.split('.').filter(Boolean)
+    if (segments.length === 0) {
+      return undefined
+    }
+
+    for (let i = segments.length - 1; i > 0; i -= 1) {
+      const key = segments.slice(0, i).join('.')
+      if (!this.has(key)) continue
+
+      let result = this.get(key)
+      for (let j = i; j < segments.length; j += 1) {
+        if (result === null || result === undefined) return undefined
+        result = result[segments[j]]
+      }
+      return result
+    }
+
+    return undefined
   }
 }

@@ -21,6 +21,7 @@ export enum PanelType {
   SystemVariables = 'system-variables',
   StartNode = 'start-node',
   LLMNode = 'llm-node',
+  IfElseNode = 'ifelse-node',
   EndNode = 'end-node'
 }
 
@@ -146,6 +147,8 @@ export const useWorkflowEditorUIStore = defineStore('orchestraflow-workflow-edit
         return PanelType.StartNode
       case OFBlockEnum.LLM:
         return PanelType.LLMNode
+      case OFBlockEnum.IfElse:
+        return PanelType.IfElseNode
       case OFBlockEnum.End:
         return PanelType.EndNode
       default:
@@ -258,10 +261,15 @@ export const useWorkflowEditorUIStore = defineStore('orchestraflow-workflow-edit
     if (
       currentPanelType.value === PanelType.StartNode ||
       currentPanelType.value === PanelType.LLMNode ||
+      currentPanelType.value === PanelType.IfElseNode ||
       currentPanelType.value === PanelType.EndNode
     ) {
       currentPanelType.value = null
     }
+  }
+
+  function setSelectedNodeId(nodeId: string | null) {
+    selectedNodeId.value = nodeId
   }
 
   /**
@@ -347,6 +355,7 @@ export const useWorkflowEditorUIStore = defineStore('orchestraflow-workflow-edit
     closeSystemVariablesPanel,
     openNodeConfigPanel,
     closeNodeConfigPanel,
+    setSelectedNodeId,
     closeAllPanels,
     setActiveTab,
     setPanelWidth,

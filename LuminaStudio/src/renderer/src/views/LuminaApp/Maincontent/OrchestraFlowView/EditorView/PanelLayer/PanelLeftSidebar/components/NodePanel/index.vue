@@ -91,6 +91,23 @@
         </div>
       </div>
 
+      <div class="mb-3">
+        <div class="px-2 py-1 text-xs font-medium text-gray-500 uppercase tracking-wide">逻辑</div>
+        <div class="mt-1 flex flex-col gap-1">
+          <div
+            class="flex cursor-pointer items-center gap-2 rounded px-2 py-2 text-sm text-gray-700 hover:bg-gray-50"
+            @click="handleAddNode(OFBlockEnum.IfElse)"
+          >
+            <div class="flex h-5 w-5 items-center justify-center rounded bg-cyan-100">
+              <svg class="h-3 w-3 text-cyan-600" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M14 5h5v5h-2V8.414l-4.293 4.293L17 17v-1.5h2V20h-5v-2h1.586l-4-4H3v-2h8.586l4.293-4.293H14V5Z" />
+              </svg>
+            </div>
+            条件分支
+          </div>
+        </div>
+      </div>
+
       <!-- 结束节点 -->
       <div class="mb-3">
         <div class="px-2 py-1 text-xs font-medium text-gray-500 uppercase tracking-wide">结束</div>

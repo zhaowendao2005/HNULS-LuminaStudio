@@ -3,90 +3,193 @@
  * 计算当前节点可引用的上游变量
  */
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useWorkflowEditorStore } from '../workflow-editor.store'
-import type { OFAvailableVariable, VariableSelectorState } from './variable-selector.types'
 import type {
-  OFNode,
+  OFAvailableVariable,
+  OFAvailableVariableGroup,
+  VariableSelectorTargetType
+} from './variable-selector.types'
+import type {
   OFEdge,
-  OFStartNodeData,
+  OFEndNodeData,
   OFLLMNodeData,
-  OFEndNodeData
+  OFNode,
+  OFStartNodeData,
+  OFVariable
 } from '@shared/Orchestraflow-types'
-import { OFBlockEnum } from '@shared/Orchestraflow-types'
+import { OFBlockEnum, OFVarType } from '@shared/Orchestraflow-types'
+
+const SYSTEM_VARIABLES: Array<{
+  variable: string
+  label: string
+  type: OFVarType
+}> = [
+  { variable: 'sys.user_id', label: 'sys.user_id', type: OFVarType.String },
+  { variable: 'sys.app_id', label: 'sys.app_id', type: OFVarType.String },
+  { variable: 'sys.workflow_id', label: 'sys.workflow_id', type: OFVarType.String },
+  { variable: 'sys.workflow_run_id', label: 'sys.workflow_run_id', type: OFVarType.String },
+  { variable: 'sys.timestamp', label: 'sys.timestamp', type: OFVarType.Number }
+]
+
+function selectorToPath(selector: string[]): string {
+  return selector.join('.')
+}
+
+function buildObjectChildren(base: OFAvailableVariable, variable: OFVariable): OFAvailableVariable[] {
+  if (variable.type !== OFVarType.Object || !variable.schema) {
+    return []
+  }
+
+  return Object.entries(variable.schema.properties || {}).map(([fieldName, fieldSchema]) => {
+    const selector = [...(variable.value_selector || [variable.variable]), fieldName]
+    return {
+      id: `${base.id}:${fieldName}`,
+      variable: fieldName,
+      path: selectorToPath(selector),
+      label: fieldName,
+      nodeId: base.nodeId,
+      nodeType: base.nodeType,
+      nodeTitle: base.nodeTitle,
+      valueSelector: selector,
+      type:
+        fieldSchema.type === 'boolean'
+          ? OFVarType.Boolean
+          : fieldSchema.type === 'number'
+            ? OFVarType.Number
+            : OFVarType.String,
+      selectable: true,
+      expandable: false,
+      children: []
+    }
+  })
+}
+
+function matchesKeyword(variable: OFAvailableVariable, keyword: string): boolean {
+  const lowered = keyword.toLowerCase()
+  return [variable.label, variable.variable, variable.path, variable.nodeTitle, String(variable.type || '')].some(
+    (item) => item.toLowerCase().includes(lowered)
+  )
+}
+
+function filterVariable(variable: OFAvailableVariable, keyword: string): OFAvailableVariable | null {
+  const filteredChildren = (variable.children || [])
+    .map((child) => filterVariable(child, keyword))
+    .filter(Boolean) as OFAvailableVariable[]
+
+  if (!keyword || matchesKeyword(variable, keyword) || filteredChildren.length > 0) {
+    return {
+      ...variable,
+      children: filteredChildren,
+      expandable: filteredChildren.length > 0 || variable.expandable
+    }
+  }
+
+  return null
+}
 
 export const useVariableSelectorStore = defineStore('orchestraflow-variable-selector', () => {
-  // State
   const visible = ref(false)
   const targetNodeId = ref<string | null>(null)
-  const targetType = ref<'prompt' | 'output'>('prompt')
+  const targetType = ref<VariableSelectorTargetType>('prompt')
   const searchKeyword = ref('')
   const cursorPosition = ref(0)
   const anchorRect = ref<DOMRect | null>(null)
 
-  // 获取 editor store
   const editorStore = useWorkflowEditorStore()
 
-  // 解析节点数据获取可引用变量
-  function extractNodeOutputs(node: OFNode): OFAvailableVariable[] {
+  function extractNodeOutputs(node: OFNode): OFAvailableVariableGroup[] {
     const data = node.data
     const nodeType = data.type as OFBlockEnum
     const nodeTitle = data.title || '未命名节点'
     const nodeId = node.id
 
-    const variables: OFAvailableVariable[] = []
+    let variables: OFVariable[] = []
 
-    // Start 节点：使用 input.variables 作为可引用变量（用户输入）
     if (nodeType === OFBlockEnum.Start) {
-      const inputConfig = (data as OFStartNodeData).input
-      if (inputConfig?.variables) {
-        for (const v of inputConfig.variables) {
-          variables.push({
-            id: `${nodeId}:${v.variable}`,
-            variable: v.variable,
-            label: v.label || v.variable,
-            nodeId,
-            nodeType,
-            nodeTitle,
-            // Start 节点本身没有上游，直接用变量名作为 selector
-            valueSelector: [v.variable]
-          })
-        }
-      }
-
-      return variables
-    }
-
-    // 其它节点（LLM / End）：统一从 output.variables 获取输出变量
-    const outputConfig = (data as OFLLMNodeData | OFEndNodeData).output
-    if (outputConfig?.variables) {
-      for (const v of outputConfig.variables) {
-        variables.push({
-          id: `${nodeId}:${v.variable}`,
-          variable: v.variable,
-          label: v.label || v.variable,
-          nodeId,
-          nodeType,
-          nodeTitle,
-          // 如果 value_selector 为空，用变量名作为 selector
-          valueSelector: v.value_selector?.length ? v.value_selector : [v.variable]
+      variables = ((data as OFStartNodeData).input?.variables || []).map((item) => ({
+        ...item,
+        value_selector: item.value_selector?.length ? item.value_selector : [item.variable]
+      }))
+    } else if (nodeType === OFBlockEnum.LLM || nodeType === OFBlockEnum.End) {
+      variables = (((data as OFLLMNodeData | OFEndNodeData).output?.variables || []) as OFVariable[]).map(
+        (item) => ({
+          ...item,
+          value_selector: item.value_selector?.length ? item.value_selector : [item.variable]
         })
-      }
+      )
     }
 
-    return variables
+    if (!variables.length) {
+      return []
+    }
+
+    const items = variables.map((variable) => {
+      const selector = variable.value_selector?.length ? variable.value_selector : [variable.variable]
+      const base: OFAvailableVariable = {
+        id: `${nodeId}:${selectorToPath(selector)}`,
+        variable: variable.variable,
+        path: selectorToPath(selector),
+        label: variable.label || variable.variable,
+        nodeId,
+        nodeType,
+        nodeTitle,
+        valueSelector: selector,
+        type: variable.type,
+        schema: variable.schema,
+        selectable: true,
+        expandable: Boolean(variable.type === OFVarType.Object && variable.schema),
+        children: []
+      }
+      const children = buildObjectChildren(base, variable)
+      return {
+        ...base,
+        children,
+        expandable: children.length > 0
+      }
+    })
+
+    return [
+      {
+        id: `group:${nodeId}`,
+        title: nodeTitle,
+        nodeId,
+        nodeType,
+        items
+      }
+    ]
   }
 
-  // 找到从指定节点出发的所有上游节点（通过边反向追溯）
+  function buildSystemVariableGroup(): OFAvailableVariableGroup {
+    return {
+      id: 'group:system',
+      title: 'SYSTEM',
+      nodeId: 'system',
+      isSystem: true,
+      items: SYSTEM_VARIABLES.map((item) => ({
+        id: `system:${item.variable}`,
+        variable: item.variable,
+        path: item.variable,
+        label: item.label,
+        nodeId: 'system',
+        nodeTitle: 'SYSTEM',
+        valueSelector: [item.variable],
+        type: item.type,
+        selectable: true,
+        expandable: false,
+        children: [],
+        isSystem: true
+      }))
+    }
+  }
+
   function findUpstreamNodes(nodeId: string, nodes: OFNode[], edges: OFEdge[]): OFNode[] {
     const upstreamIds = new Set<string>()
     const queue = [nodeId]
 
     while (queue.length > 0) {
       const currentId = queue.shift()!
-
-      // 找到所有指向当前节点的边
-      const incomingEdges = edges.filter((e) => e.target === currentId)
+      const incomingEdges = edges.filter((edge) => edge.target === currentId)
 
       for (const edge of incomingEdges) {
         if (!upstreamIds.has(edge.source)) {
@@ -96,44 +199,66 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
       }
     }
 
-    // 返回所有上游节点
-    return nodes.filter((n) => upstreamIds.has(n.id))
+    return nodes.filter((node) => upstreamIds.has(node.id))
   }
 
-  // 计算当前目标节点可引用的变量列表
-  const availableVariables = computed<OFAvailableVariable[]>(() => {
+  const availableGroups = computed<OFAvailableVariableGroup[]>(() => {
     if (!targetNodeId.value) return []
 
-    const nodes = editorStore.nodes
-    const edges = editorStore.edges
+    const upstreamNodes = findUpstreamNodes(targetNodeId.value, editorStore.nodes, editorStore.edges)
+    const upstreamGroups = upstreamNodes
+      .flatMap((node) => extractNodeOutputs(node))
+      .filter((group) => group.items.length > 0)
 
-    // 找到所有上游节点
-    const upstreamNodes = findUpstreamNodes(targetNodeId.value, nodes, edges)
+    const groups = [...upstreamGroups, buildSystemVariableGroup()]
 
-    // 提取所有上游节点的输出变量
-    let variables: OFAvailableVariable[] = []
-    for (const node of upstreamNodes) {
-      variables = variables.concat(extractNodeOutputs(node))
+    if (!searchKeyword.value.trim()) {
+      return groups
     }
 
-    // 根据搜索关键词过滤
-    if (searchKeyword.value) {
-      const keyword = searchKeyword.value.toLowerCase()
-      variables = variables.filter(
-        (v) =>
-          v.variable.toLowerCase().includes(keyword) ||
-          v.label.toLowerCase().includes(keyword) ||
-          v.nodeTitle.toLowerCase().includes(keyword)
-      )
-    }
+    const keyword = searchKeyword.value.trim().toLowerCase()
+    return groups
+      .map((group) => {
+        const filteredItems = group.items
+          .map((item) => filterVariable(item, keyword))
+          .filter(Boolean) as OFAvailableVariable[]
 
-    return variables
+        if (!filteredItems.length && !group.title.toLowerCase().includes(keyword)) {
+          return null
+        }
+
+        return {
+          ...group,
+          items: filteredItems
+        }
+      })
+      .filter(Boolean) as OFAvailableVariableGroup[]
   })
 
-  // 打开变量选择器
+  const availableVariables = computed<OFAvailableVariable[]>(() => {
+    const result: OFAvailableVariable[] = []
+
+    const walk = (items: OFAvailableVariable[]) => {
+      for (const item of items) {
+        if (item.selectable) {
+          result.push(item)
+        }
+        if (item.children?.length) {
+          walk(item.children)
+        }
+      }
+    }
+
+    for (const group of availableGroups.value) {
+      walk(group.items)
+    }
+
+    return result
+  })
+
   function openSelector(
     nodeId: string,
-    type: 'prompt' | 'output',
+    type: VariableSelectorTargetType,
     positionOrAnchor?: number | DOMRect,
     maybeAnchor?: DOMRect
   ) {
@@ -150,7 +275,6 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
     visible.value = true
   }
 
-  // 关闭变量选择器
   function closeSelector() {
     visible.value = false
     targetNodeId.value = null
@@ -158,32 +282,27 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
     anchorRect.value = null
   }
 
-  // 更新搜索关键词
   function setSearchKeyword(keyword: string) {
     searchKeyword.value = keyword
   }
 
-  // 更新光标位置
   function setCursorPosition(position: number) {
     cursorPosition.value = position
   }
 
   return {
-    // State
     visible,
     targetNodeId,
     targetType,
     searchKeyword,
     cursorPosition,
     anchorRect,
-    // Computed
+    availableGroups,
     availableVariables,
-    // Actions
     openSelector,
     closeSelector,
     setSearchKeyword,
     setCursorPosition,
-    // 供外部调用的计算方法
     findUpstreamNodes,
     extractNodeOutputs
   }

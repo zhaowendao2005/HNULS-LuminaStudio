@@ -6,6 +6,7 @@
 import { BaseNode } from './base-node'
 import { StartNode } from './start-node'
 import { LLMNode } from './llm-node'
+import { IfElseNode } from './if-else-node'
 import { EndNode } from './end-node'
 import type { OFNode } from '@shared/Orchestraflow-types'
 import { OFBlockEnum } from '@shared/Orchestraflow-types'
@@ -20,6 +21,8 @@ export class NodeFactory {
         return new StartNode(node, variableStore)
       case OFBlockEnum.LLM:
         return new LLMNode(node, variableStore)
+      case OFBlockEnum.IfElse:
+        return new IfElseNode(node, variableStore)
       case OFBlockEnum.End:
         return new EndNode(node, variableStore)
       default:

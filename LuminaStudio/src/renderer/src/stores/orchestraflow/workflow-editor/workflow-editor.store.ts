@@ -3,12 +3,18 @@
  */
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { OFControlMode, OFBlockEnum } from '@shared/Orchestraflow-types'
+import {
+  OFControlMode,
+  OFBlockEnum,
+  buildLLMOutputVariables,
+  normalizeOFVariableNamespace
+} from '@shared/Orchestraflow-types'
 import type {
   OFNode,
   OFEdge,
   OFStartNodeData,
   OFLLMNodeData,
+  OFIfElseNodeData,
   OFEndNodeData,
   OFNodeRunningStatus
 } from '@shared/Orchestraflow-types'
@@ -16,6 +22,87 @@ import type { NodeChange, EdgeChange } from '@vue-flow/core'
 import { WorkflowEditorDataSource } from './workflow-editor.datasource'
 
 const datasource = WorkflowEditorDataSource
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function getDefaultNodeTitle(type: OFBlockEnum): string {
+  switch (type) {
+    case OFBlockEnum.LLM:
+      return 'llm'
+    case OFBlockEnum.IfElse:
+      return '条件分支'
+    case OFBlockEnum.Start:
+      return '开始'
+    case OFBlockEnum.End:
+      return '结束'
+    default:
+      return 'node'
+  }
+}
+
+function normalizeNodeTitle(type: OFBlockEnum, raw: string | undefined): string {
+  const trimmed = String(raw || '').trim()
+  if (type === OFBlockEnum.LLM) {
+    return normalizeOFVariableNamespace(trimmed, 'llm')
+  }
+  return trimmed || getDefaultNodeTitle(type)
+}
+
+function normalizeNode(node: OFNode): OFNode {
+  if (node.data.type === OFBlockEnum.LLM) {
+    const data = node.data as Partial<OFLLMNodeData>
+    const title = normalizeNodeTitle(OFBlockEnum.LLM, data.title)
+    const structuredOutput = data.structured_output || {
+      enabled: false,
+      schema: null
+    }
+    return {
+      ...node,
+      data: {
+        title,
+        desc: data.desc || '',
+        type: OFBlockEnum.LLM,
+        model: data.model || {
+          provider: '',
+          name: '',
+          completion_params: {
+            temperature: 1,
+            top_p: 1
+          }
+        },
+        prompt_template: data.prompt_template || [],
+        context: data.context,
+        memory: data.memory,
+        vision: data.vision,
+        structured_output: structuredOutput,
+        output: {
+          variables: buildLLMOutputVariables(title, structuredOutput)
+        }
+      } as OFLLMNodeData
+    }
+  }
+
+  if (node.data.type === OFBlockEnum.IfElse) {
+    const data = node.data as Partial<OFIfElseNodeData>
+    return {
+      ...node,
+      data: {
+        title: normalizeNodeTitle(OFBlockEnum.IfElse, data.title),
+        desc: data.desc || '',
+        type: OFBlockEnum.IfElse,
+        cases: data.cases || [],
+        elseCase: data.elseCase || {
+          handleId: 'else',
+          label: 'ELSE'
+        }
+      } as OFIfElseNodeData
+    }
+  }
+
+  return node
+}
 
 export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor', () => {
   // State
@@ -30,11 +117,103 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
   // 防抖定时器
   let saveTimer: ReturnType<typeof setTimeout> | null = null
 
+  function getUniqueNodeTitle(type: OFBlockEnum, desiredTitle?: string, excludeNodeId?: string): string {
+    const baseTitle = normalizeNodeTitle(type, desiredTitle)
+    const existingTitles = new Set(
+      nodes.value
+        .filter((node) => node.id !== excludeNodeId)
+        .map((node) => String(node.data.title || '').trim().toLowerCase())
+        .filter(Boolean)
+    )
+
+    if (!existingTitles.has(baseTitle.toLowerCase())) {
+      return baseTitle
+    }
+
+    let index = 2
+    let candidate = `${baseTitle}${index}`
+    while (existingTitles.has(candidate.toLowerCase())) {
+      index += 1
+      candidate = `${baseTitle}${index}`
+    }
+    return candidate
+  }
+
+  function replaceNamespace(selector: string[] | undefined, oldNamespace: string, newNamespace: string): string[] {
+    if (!selector?.length) return selector || []
+    return selector.map((segment, index) => {
+      if (index !== 0) return segment
+      if (segment === oldNamespace) return newNamespace
+      if (segment.startsWith(`${oldNamespace}.`)) {
+        return `${newNamespace}${segment.slice(oldNamespace.length)}`
+      }
+      return segment
+    })
+  }
+
+  function replacePromptNamespace(text: string, oldNamespace: string, newNamespace: string): string {
+    const pattern = new RegExp(`(\\{\\{\\s*)${escapeRegExp(oldNamespace)}(?=\\.)`, 'g')
+    return text.replace(pattern, `$1${newNamespace}`)
+  }
+
+  function syncLLMNamespaceReferences(oldNamespace: string, newNamespace: string, renamedNodeId: string) {
+    if (!oldNamespace || oldNamespace === newNamespace) return
+
+    nodes.value = nodes.value.map((node) => {
+      if (node.id === renamedNodeId) {
+        return node
+      }
+
+      if (node.data.type === OFBlockEnum.LLM) {
+        const data = node.data as OFLLMNodeData
+        return {
+          ...node,
+          data: {
+            ...data,
+            prompt_template: (data.prompt_template || []).map((item) => ({
+              ...item,
+              text: replacePromptNamespace(item.text || '', oldNamespace, newNamespace)
+            }))
+          }
+        }
+      }
+
+      if (node.data.type === OFBlockEnum.IfElse) {
+        const data = node.data as OFIfElseNodeData
+        return {
+          ...node,
+          data: {
+            ...data,
+            cases: (data.cases || []).map((item) => ({
+              ...item,
+              conditions: (item.conditions || []).map((condition) => ({
+                ...condition,
+                variable_selector: replaceNamespace(
+                  condition.variable_selector,
+                  oldNamespace,
+                  newNamespace
+                ),
+                variable_path:
+                  condition.variable_path === oldNamespace
+                    ? newNamespace
+                    : condition.variable_path?.startsWith(`${oldNamespace}.`)
+                      ? `${newNamespace}${condition.variable_path.slice(oldNamespace.length)}`
+                      : condition.variable_path
+              }))
+            }))
+          }
+        }
+      }
+
+      return node
+    })
+  }
+
   // Actions
   async function loadWorkflow(workflowId: string) {
     currentWorkflowId.value = workflowId
     const data = await datasource.get(workflowId)
-    nodes.value = data.nodes
+    nodes.value = data.nodes.map(normalizeNode)
     edges.value = data.edges
   }
 
@@ -58,7 +237,7 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
   }
 
   function setNodes(newNodes: OFNode[]) {
-    nodes.value = newNodes
+    nodes.value = newNodes.map(normalizeNode)
   }
   function setEdges(newEdges: OFEdge[]) {
     edges.value = newEdges
@@ -80,13 +259,14 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
   function addNode(type: OFBlockEnum): string {
     const id = `node_${type}_${Date.now()}`
     const position = { x: 200 + Math.random() * 100, y: 200 + Math.random() * 100 }
+    const title = getUniqueNodeTitle(type, getDefaultNodeTitle(type))
 
-    let nodeData: OFStartNodeData | OFLLMNodeData | OFEndNodeData
+    let nodeData: OFStartNodeData | OFLLMNodeData | OFIfElseNodeData | OFEndNodeData
 
     switch (type) {
       case OFBlockEnum.Start:
         nodeData = {
-          title: '开始',
+          title,
           desc: '',
           type: OFBlockEnum.Start,
           input: { variables: [] }
@@ -94,7 +274,7 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
         break
       case OFBlockEnum.LLM:
         nodeData = {
-          title: 'LLM',
+          title,
           desc: '',
           type: OFBlockEnum.LLM,
           model: {
@@ -106,12 +286,42 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
             }
           },
           prompt_template: [],
-          output: { variables: [] }
+          structured_output: {
+            enabled: false,
+            schema: null
+          },
+          output: { variables: buildLLMOutputVariables(title) }
         } as OFLLMNodeData
+        break
+      case OFBlockEnum.IfElse:
+        nodeData = {
+          title,
+          desc: '',
+          type: OFBlockEnum.IfElse,
+          cases: [
+            {
+              id: `case_if_${Date.now()}`,
+              kind: 'if',
+              label: 'IF',
+              handleId: 'if',
+              conditions: [
+                {
+                  id: `condition_${Date.now()}`,
+                  variable_selector: [],
+                  operator: 'is'
+                }
+              ]
+            }
+          ],
+          elseCase: {
+            handleId: 'else',
+            label: 'ELSE'
+          }
+        } as OFIfElseNodeData
         break
       case OFBlockEnum.End:
         nodeData = {
-          title: '结束',
+          title,
           desc: '',
           type: OFBlockEnum.End,
           output: { variables: [] }
@@ -128,6 +338,9 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
       case OFBlockEnum.LLM:
         vueFlowType = 'llm'
         break
+      case OFBlockEnum.IfElse:
+        vueFlowType = 'ifelse'
+        break
       case OFBlockEnum.End:
         vueFlowType = 'end'
         break
@@ -141,21 +354,66 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
 
   // 更新节点数据
   function updateNode(nodeId: string, data: Partial<OFNode['data']>) {
-    const exists = nodes.value.some((n) => n.id === nodeId)
-    if (exists) {
-      nodes.value = nodes.value.map((node) =>
-        node.id === nodeId
-          ? {
-              ...node,
-              data: {
-                ...node.data,
-                ...data
-              }
-            }
-          : node
-      )
-      scheduleSave()
+    const currentNode = nodes.value.find((node) => node.id === nodeId)
+    if (!currentNode) return
+
+    let nextData: Partial<OFNode['data']> = { ...data }
+
+    if (typeof data.title === 'string') {
+      const uniqueTitle = getUniqueNodeTitle(currentNode.data.type, data.title, nodeId)
+      nextData = {
+        ...nextData,
+        title: uniqueTitle
+      }
+
+      if (currentNode.data.type === OFBlockEnum.LLM) {
+        const llmData = {
+          ...(currentNode.data as OFLLMNodeData),
+          ...nextData
+        } as OFLLMNodeData
+        nextData = {
+          ...nextData,
+          output: {
+            variables: buildLLMOutputVariables(uniqueTitle, llmData.structured_output)
+          }
+        }
+      }
     }
+
+    if (currentNode.data.type === OFBlockEnum.LLM && data.structured_output) {
+      const llmData = currentNode.data as OFLLMNodeData
+      const nextTitle = String((nextData.title as string | undefined) || llmData.title || 'llm')
+      nextData = {
+        ...nextData,
+        output: {
+          variables: buildLLMOutputVariables(nextTitle, data.structured_output)
+        }
+      }
+    }
+
+    const previousNamespace =
+      currentNode.data.type === OFBlockEnum.LLM
+        ? normalizeOFVariableNamespace(currentNode.data.title, 'llm')
+        : ''
+
+    nodes.value = nodes.value.map((node) =>
+      node.id === nodeId
+        ? normalizeNode({
+            ...node,
+            data: {
+              ...node.data,
+              ...nextData
+            }
+          } as OFNode)
+        : node
+    )
+
+    if (currentNode.data.type === OFBlockEnum.LLM && typeof nextData.title === 'string') {
+      const nextNamespace = normalizeOFVariableNamespace(nextData.title, 'llm')
+      syncLLMNamespaceReferences(previousNamespace, nextNamespace, nodeId)
+    }
+
+    scheduleSave()
   }
 
   // 更新节点运行状态

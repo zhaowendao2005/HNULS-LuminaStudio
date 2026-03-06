@@ -9,6 +9,7 @@ import type { XYPosition } from '@vue-flow/core'
 export enum OFBlockEnum {
   Start = 'start',
   LLM = 'llm',
+  IfElse = 'ifelse',
   End = 'end'
 }
 
@@ -37,9 +38,6 @@ export enum OFWorkflowRunningStatus {
 }
 
 // ===== 变量类型 =====
-/**
- * 统一变量类型枚举
- */
 export enum OFVarType {
   String = 'string',
   Number = 'number',
@@ -48,40 +46,134 @@ export enum OFVarType {
   Array = 'array'
 }
 
-/**
- * 统一变量定义（用于节点输入/输出配置）
- */
-export interface OFVariable {
-  /** 变量名（唯一标识，用于数据传递） */
-  variable: string
-  /** 显示标签 */
-  label?: string
-  /** 变量类型（用于前端渲染/校验） */
-  type?: OFVarType
-  /** 描述信息 */
+// ===== 结构化输出 / Schema =====
+export type OFStructuredFieldType = 'string' | 'number' | 'boolean'
+
+export interface OFJsonSchemaField {
+  type: OFStructuredFieldType
   description?: string
-  /** 是否必填 */
-  required?: boolean
-  /** 默认值 */
-  default?: string | number | boolean | object | any[]
-  /** 选项列表（select 类型用） */
-  options?: string[]
-  /** 值选择器（用于从上游节点获取值） */
-  value_selector?: string[]
 }
 
-/**
- * 统一节点输入配置
- */
+export interface OFJsonSchemaObject {
+  type: 'object'
+  properties: Record<string, OFJsonSchemaField>
+  required: string[]
+  additionalProperties: false
+}
+
+export interface OFStructuredOutputConfig {
+  enabled: boolean
+  schema: OFJsonSchemaObject | null
+}
+
+export interface OFVariable {
+  variable: string
+  label?: string
+  type?: OFVarType
+  description?: string
+  required?: boolean
+  default?: string | number | boolean | Record<string, any> | any[] | null
+  options?: string[]
+  value_selector?: string[]
+  schema?: OFJsonSchemaObject | null
+}
+
+export type OFInputVar = OFVariable
+export type OFOutputVar = OFVariable
+
 export interface OFNodeInput {
   variables: OFVariable[]
 }
 
-/**
- * 统一节点输出配置
- */
 export interface OFNodeOutput {
   variables: OFVariable[]
+}
+
+export const OF_LLM_TEXT_OUTPUT_NAME = 'llmoutput'
+export const OF_LLM_STRUCTURED_OUTPUT_NAME = 'structured_output'
+
+export function normalizeOFVariableNamespace(
+  raw: string | null | undefined,
+  fallback = 'node'
+): string {
+  const normalized = String(raw || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+
+  return normalized || fallback
+}
+
+export function buildLLMOutputVariables(
+  namespace: string,
+  structuredOutput?: OFStructuredOutputConfig | null
+): OFVariable[] {
+  const normalizedNamespace = normalizeOFVariableNamespace(namespace, 'llm')
+  const variables: OFVariable[] = [
+    {
+      variable: OF_LLM_TEXT_OUTPUT_NAME,
+      label: OF_LLM_TEXT_OUTPUT_NAME,
+      type: OFVarType.String,
+      required: true,
+      value_selector: [`${normalizedNamespace}.${OF_LLM_TEXT_OUTPUT_NAME}`]
+    }
+  ]
+
+  if (structuredOutput?.enabled && structuredOutput.schema) {
+    variables.push({
+      variable: OF_LLM_STRUCTURED_OUTPUT_NAME,
+      label: OF_LLM_STRUCTURED_OUTPUT_NAME,
+      type: OFVarType.Object,
+      required: true,
+      value_selector: [`${normalizedNamespace}.${OF_LLM_STRUCTURED_OUTPUT_NAME}`],
+      schema: structuredOutput.schema
+    })
+  }
+
+  return variables
+}
+
+// ===== 条件分支 =====
+export type OFIfElseConditionOperator =
+  | 'contains'
+  | 'not_contains'
+  | 'starts_with'
+  | 'ends_with'
+  | 'is'
+  | 'is_not'
+  | 'is_empty'
+  | 'is_not_empty'
+  | 'gt'
+  | 'gte'
+  | 'lt'
+  | 'lte'
+
+export type OFIfElseLogicalOperator = 'and' | 'or'
+
+export interface OFIfElseCondition {
+  id: string
+  variable_selector: string[]
+  variable_path?: string
+  variable_label?: string
+  variable_type?: OFVarType
+  operator: OFIfElseConditionOperator
+  value?: string | number | boolean | null
+  value_type?: OFVarType.String | OFVarType.Number | OFVarType.Boolean
+  logical_operator?: OFIfElseLogicalOperator
+}
+
+export interface OFIfElseCase {
+  id: string
+  kind: 'if' | 'elif'
+  label: string
+  handleId: string
+  conditions: OFIfElseCondition[]
+}
+
+export interface OFIfElseElseCase {
+  handleId: string
+  label: string
 }
 
 // ===== 工作流元数据 =====
@@ -210,7 +302,15 @@ export type OFLLMNodeData = OFCommonNodeType & {
   vision?: {
     enabled: boolean
   }
+  structured_output: OFStructuredOutputConfig
   output: OFNodeOutput
+}
+
+// ===== IfElse 节点数据 =====
+export type OFIfElseNodeData = OFCommonNodeType & {
+  type: OFBlockEnum.IfElse
+  cases: OFIfElseCase[]
+  elseCase: OFIfElseElseCase
 }
 
 // ===== End 节点数据 =====
@@ -224,7 +324,7 @@ export type OFNode = {
   id: string
   type: string
   position: XYPosition
-  data: OFStartNodeData | OFLLMNodeData | OFEndNodeData
+  data: OFStartNodeData | OFLLMNodeData | OFIfElseNodeData | OFEndNodeData
 }
 
 // ===== 边类型 =====
@@ -289,7 +389,16 @@ export interface OFLLMNodeConfig {
   desc: string
   model: OFModelConfig
   prompt_template: OFPromptItem[]
+  structured_output: OFStructuredOutputConfig
   output: OFNodeOutput
+}
+
+export interface OFIfElseNodeConfig {
+  nodeId: string
+  title: string
+  desc: string
+  cases: OFIfElseCase[]
+  elseCase: OFIfElseElseCase
 }
 
 export interface OFEndNodeConfig {

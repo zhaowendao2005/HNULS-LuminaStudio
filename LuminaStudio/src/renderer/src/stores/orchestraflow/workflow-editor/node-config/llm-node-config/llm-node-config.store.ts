@@ -32,6 +32,10 @@ export const useLLMNodeConfigStore = defineStore('of-llm-node-config', () => {
       }
     },
     prompt_template: [],
+    structured_output: {
+      enabled: false,
+      schema: null
+    },
     output: { variables: [] }
   })
 
@@ -50,6 +54,10 @@ export const useLLMNodeConfigStore = defineStore('of-llm-node-config', () => {
         }
       },
       prompt_template: data.prompt_template || [],
+      structured_output: data.structured_output || {
+        enabled: false,
+        schema: null
+      },
       output: data.output || { variables: [] }
     }
   }
@@ -65,6 +73,9 @@ export const useLLMNodeConfigStore = defineStore('of-llm-node-config', () => {
   }
   function setPromptTemplate(prompts: OFPromptItem[]) {
     config.value.prompt_template = prompts
+  }
+  function setStructuredOutput(structuredOutput: OFLLMNodeConfig['structured_output']) {
+    config.value.structured_output = structuredOutput
   }
   function addOutput(output: OFVariable) {
     config.value.output.variables.push(output)
@@ -99,6 +110,7 @@ export const useLLMNodeConfigStore = defineStore('of-llm-node-config', () => {
       desc: config.value.desc,
       model: config.value.model,
       prompt_template: config.value.prompt_template,
+      structured_output: config.value.structured_output,
       output: config.value.output
     }
   }
@@ -119,6 +131,10 @@ export const useLLMNodeConfigStore = defineStore('of-llm-node-config', () => {
         }
       },
       prompt_template: [],
+      structured_output: {
+        enabled: false,
+        schema: null
+      },
       output: { variables: [] }
     }
   }
@@ -132,6 +148,7 @@ export const useLLMNodeConfigStore = defineStore('of-llm-node-config', () => {
     setDesc,
     setModel,
     setPromptTemplate,
+    setStructuredOutput,
     addOutput,
     removeOutput,
     openModelParamsPanel,

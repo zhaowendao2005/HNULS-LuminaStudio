@@ -2,14 +2,14 @@
  * OrchestraFlow 节点类型定义
  */
 import type {
-  OFBlockEnum,
   OFStartNodeData,
   OFLLMNodeData,
+  OFIfElseNodeData,
   OFEndNodeData,
   OFNode
 } from '@shared/Orchestraflow-types'
 
-export type OFNodeData = OFStartNodeData | OFLLMNodeData | OFEndNodeData
+export type OFNodeData = OFStartNodeData | OFLLMNodeData | OFIfElseNodeData | OFEndNodeData
 
 export interface ExecutionContext {
   runId: string
@@ -29,6 +29,10 @@ export interface ExecutionContext {
 }
 
 export interface NodeResult {
+  inputs?: Record<string, any>
   outputs: Record<string, any>
   error?: string
+  control?: {
+    selectedSourceHandleIds?: string[]
+  }
 }

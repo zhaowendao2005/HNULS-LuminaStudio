@@ -23,6 +23,9 @@
       <template #node-llm="props">
         <LLMNode v-bind="props" />
       </template>
+      <template #node-ifelse="props">
+        <IfElseNode v-bind="props" />
+      </template>
       <template #node-end="props">
         <EndNode v-bind="props" />
       </template>
@@ -49,7 +52,7 @@ import { MiniMap } from '@vue-flow/minimap'
 import { useWorkflowEditorStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor.store'
 import {
   useWorkflowEditorUIStore,
-  type PanelType
+  PanelType
 } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor-ui.store'
 import { OFBlockEnum } from '@shared/Orchestraflow-types'
 import { useModelConfigStore } from '@renderer/stores/model-config/store'
@@ -57,6 +60,7 @@ import { useModelConfigStore } from '@renderer/stores/model-config/store'
 // 导入自定义节点组件
 import StartNode from './Nodes/StartNode/index.vue'
 import LLMNode from './Nodes/LLMNode/index.vue'
+import IfElseNode from './Nodes/IfElseNode/index.vue'
 import EndNode from './Nodes/EndNode/index.vue'
 
 // 导入 VueFlow 核心样式
@@ -77,13 +81,16 @@ function getPanelType(nodeType: string): PanelType | null {
   switch (nodeType) {
     case 'start':
     case OFBlockEnum.Start:
-      return 'start-node'
+      return PanelType.StartNode
     case 'llm':
     case OFBlockEnum.LLM:
-      return 'llm-node'
+      return PanelType.LLMNode
+    case 'ifelse':
+    case OFBlockEnum.IfElse:
+      return PanelType.IfElseNode
     case 'end':
     case OFBlockEnum.End:
-      return 'end-node'
+      return PanelType.EndNode
     default:
       return null
   }
@@ -108,6 +115,9 @@ function handleNodeClick(event: { node: Node }) {
       break
     case 'llm':
       ofBlockEnum = OFBlockEnum.LLM
+      break
+    case 'ifelse':
+      ofBlockEnum = OFBlockEnum.IfElse
       break
     case 'end':
       ofBlockEnum = OFBlockEnum.End

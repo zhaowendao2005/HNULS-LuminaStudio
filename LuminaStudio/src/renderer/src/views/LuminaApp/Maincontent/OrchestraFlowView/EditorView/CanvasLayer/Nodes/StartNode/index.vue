@@ -7,7 +7,7 @@
 
     <Handle
       type="source"
-      position="right"
+      :position="Position.Right"
       id="source"
       class="of-node-handle of-start-source-handle !top-4 !right-0 !z-30 !h-4 !w-4 !translate-y-0 !rounded-none !border-none !bg-transparent !outline-none"
     />
@@ -31,7 +31,7 @@
           />
         </svg>
       </div>
-      <div class="mr-1 flex grow items-center truncate text-base font-semibold text-gray-900">
+      <div class="mr-1 min-w-0 flex grow items-center truncate text-base font-semibold text-gray-900">
         {{ data.title || '用户输入' }}
       </div>
       <div v-if="runningStatus === OFNodeRunningStatus.Succeeded" class="of-node-status-success">
@@ -70,7 +70,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Handle } from '@vue-flow/core'
+import { Handle, Position } from '@vue-flow/core'
 import { OFNodeRunningStatus, type OFStartNodeData } from '@shared/Orchestraflow-types'
 
 const props = defineProps<{

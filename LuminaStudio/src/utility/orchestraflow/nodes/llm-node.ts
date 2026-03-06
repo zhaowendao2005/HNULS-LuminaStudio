@@ -3,17 +3,26 @@
  *
  * 调用 LLM，使用 langchain（复用现有能力）
  */
+import { z } from 'zod'
 import { BaseNode } from './base-node'
 import {
   OFBlockEnum,
-  OFVarType,
+  buildLLMOutputVariables,
+  OF_LLM_STRUCTURED_OUTPUT_NAME,
+  normalizeOFVariableNamespace,
+  type OFJsonSchemaObject,
   type OFLLMNodeData,
   type OFModelCompletionParams
 } from '@shared/Orchestraflow-types'
 import type { ExecutionContext, NodeResult } from './types'
 import { VariableStore } from '../services/variable-store'
 import { ChatOpenAI } from '@langchain/openai'
-import { HumanMessage, SystemMessage } from '@langchain/core/messages'
+import { AIMessage, HumanMessage, SystemMessage } from '@langchain/core/messages'
+
+type StructuredResult = {
+  raw: AIMessage
+  parsed: Record<string, any>
+}
 
 export class LLMNode extends BaseNode {
   readonly nodeType: OFBlockEnum.LLM
@@ -37,7 +46,6 @@ export class LLMNode extends BaseNode {
     const outputs: Record<string, any> = {}
 
     try {
-      // 验证模型配置
       if (!nodeData.model) {
         throw new Error('未配置 LLM 模型，请先在节点设置中选择模型')
       }
@@ -48,12 +56,10 @@ export class LLMNode extends BaseNode {
         throw new Error('未配置模型名称，请先在节点设置中选择模型')
       }
 
-      // 从 providerConfigs 获取实际配置
       const providerConfig = this.getProviderConfig(nodeData.model.provider)
       const baseUrl = providerConfig?.baseUrl || 'https://api.openai.com/v1'
       const apiKey = providerConfig?.apiKey || ''
 
-      // 如果没有 API key，发出警告
       if (!apiKey) {
         console.warn('[OF LLMNode] API key 未配置，将使用空密钥')
       }
@@ -64,7 +70,6 @@ export class LLMNode extends BaseNode {
         modelKwargs.top_k = completionParams.top_k
       }
 
-      // 构建模型配置
       const modelOptions: Record<string, any> = {
         model: nodeData.model.name,
         temperature: completionParams.temperature,
@@ -75,14 +80,12 @@ export class LLMNode extends BaseNode {
         modelKwargs: Object.keys(modelKwargs).length > 0 ? modelKwargs : undefined
       }
 
-      // 移除 undefined 值
       Object.keys(modelOptions).forEach((key) => {
         if (modelOptions[key] === undefined) {
           delete modelOptions[key]
         }
       })
 
-      // 创建 ChatOpenAI 实例
       const normalizedBaseUrl = baseUrl.replace(/\/$/, '')
       this.model = new ChatOpenAI({
         ...modelOptions,
@@ -92,74 +95,57 @@ export class LLMNode extends BaseNode {
         }
       })
 
-      // 构建 messages
-      const messages: any[] = []
+      const messages = this.buildMessages(nodeData, context)
+      const namespace = normalizeOFVariableNamespace(nodeData.title, 'llm')
+      const outputVars = buildLLMOutputVariables(namespace, nodeData.structured_output)
+      const legacyOutputVars =
+        namespace === this.context.node.id
+          ? []
+          : buildLLMOutputVariables(this.context.node.id, nodeData.structured_output)
 
-      // 添加 system prompt
-      if (nodeData.prompt_template) {
-        for (const item of nodeData.prompt_template) {
-          if (item.role === 'system') {
-            messages.push(new SystemMessage(item.text))
-          } else if (item.role === 'user') {
-            // 替换变量占位符
-            const text = this.replaceVariables(item.text)
-            messages.push(new HumanMessage(text))
-          }
+      if (nodeData.structured_output?.enabled && nodeData.structured_output.schema) {
+        const structuredRunner = this.model.withStructuredOutput(this.buildZodSchema(nodeData.structured_output.schema), {
+          name: OF_LLM_STRUCTURED_OUTPUT_NAME,
+          includeRaw: true
+        })
+
+        const result = (await structuredRunner.invoke(messages)) as StructuredResult
+        const rawContent = this.stringifyMessageContent(result.raw?.content)
+
+        for (const output of outputVars) {
+          const storeKey = output.value_selector?.[0] || output.variable
+          const value = output.variable === OF_LLM_STRUCTURED_OUTPUT_NAME ? result.parsed : rawContent
+          this.setOutput(storeKey, value)
+          outputs[output.variable] = value
         }
+        for (const output of legacyOutputVars) {
+          const storeKey = output.value_selector?.[0] || output.variable
+          const value = output.variable === OF_LLM_STRUCTURED_OUTPUT_NAME ? result.parsed : rawContent
+          this.setOutput(storeKey, value)
+        }
+
+        outputs.raw = result.raw
+        outputs.response_metadata = (result.raw as any)?.response_metadata
+        outputs.usage_metadata = (result.raw as any)?.usage_metadata
+        return { outputs }
       }
 
-      // 如果没有配置 prompt_template，直接用输入作为 user message
-      if (messages.length === 0 || messages.every((m) => m._type === 'system')) {
-        // 获取第一个输入值作为 user message
-        const inputKeys = Object.keys(context.inputs)
-        if (inputKeys.length > 0) {
-          const firstInput = context.inputs[inputKeys[0]]
-          messages.push(new HumanMessage(String(firstInput || '')))
-        }
-      }
-
-      // 调用 LLM
       const response = await this.model.invoke(messages)
-
-      // 提取文本内容
-      const content =
-        typeof response.content === 'string' ? response.content : JSON.stringify(response.content)
-
-      // 根据用户配置的 output.variables 存储变量
-      const outputConfig = nodeData.output
-      const outputVars = outputConfig?.variables?.length
-        ? outputConfig.variables
-        : [{ variable: 'response', type: OFVarType.String }]
+      const content = this.stringifyMessageContent(response.content)
 
       for (const output of outputVars) {
-        const varName = output.variable
-        if (!varName) continue
-
-        // 根据类型处理输出
-        let value: any
-        switch (output.type) {
-          case OFVarType.Object:
-            // TODO: 对象类型需要根据用户配置提取响应中的特定字段
-            value = content
-            break
-          case OFVarType.Array:
-            // TODO: 数组类型需要解析响应
-            value = content
-            break
-          case OFVarType.String:
-          default:
-            // 字符串类型：直接输出文本内容
-            value = content
-            break
-        }
-
-        this.setOutput(varName, value)
-        outputs[varName] = value
+        const storeKey = output.value_selector?.[0] || output.variable
+        this.setOutput(storeKey, content)
+        outputs[output.variable] = content
+      }
+      for (const output of legacyOutputVars) {
+        const storeKey = output.value_selector?.[0] || output.variable
+        this.setOutput(storeKey, content)
       }
 
-      // 保留 raw 用于调试监控（不参与数据传输）
       outputs.raw = response
-
+      outputs.response_metadata = (response as any)?.response_metadata
+      outputs.usage_metadata = (response as any)?.usage_metadata
       return { outputs }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
@@ -170,15 +156,94 @@ export class LLMNode extends BaseNode {
     }
   }
 
+  private buildMessages(nodeData: OFLLMNodeData, context: ExecutionContext) {
+    const messages: Array<SystemMessage | HumanMessage | AIMessage> = []
+
+    if (nodeData.prompt_template) {
+      for (const item of nodeData.prompt_template) {
+        if (item.role === 'system') {
+          messages.push(new SystemMessage(item.text))
+        } else if (item.role === 'assistant') {
+          messages.push(new AIMessage(item.text))
+        } else {
+          messages.push(new HumanMessage(this.replaceVariables(item.text)))
+        }
+      }
+    }
+
+    if (messages.length === 0 || messages.every((message) => message._getType() === 'system')) {
+      const inputKeys = Object.keys(context.inputs)
+      if (inputKeys.length > 0) {
+        const firstInput = context.inputs[inputKeys[0]]
+        messages.push(new HumanMessage(String(firstInput || '')))
+      }
+    }
+
+    return messages
+  }
+
   /**
    * 替换文本中的变量占位符
-   * 格式: {{variable_name}}
+   * 格式:
+   * - {{input}}
+   * - {{sys.workflow_id}}
+   * - {{node_xxx.structured_output.reason}}
    */
   private replaceVariables(text: string): string {
-    return text.replace(/\{\{(\w+)\}\}/g, (match, varName) => {
-      const value = this.variableStore.get(varName)
-      return value !== undefined ? String(value) : match
+    return text.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (match, variablePath) => {
+      const value = this.variableStore.getByPath(variablePath)
+      if (value === undefined) {
+        return match
+      }
+      if (typeof value === 'string') {
+        return value
+      }
+      try {
+        return JSON.stringify(value)
+      } catch {
+        return String(value)
+      }
     })
+  }
+
+  private stringifyMessageContent(content: unknown): string {
+    if (typeof content === 'string') {
+      return content
+    }
+    try {
+      return JSON.stringify(content)
+    } catch {
+      return String(content ?? '')
+    }
+  }
+
+  private buildZodSchema(schema: OFJsonSchemaObject) {
+    const shape: Record<string, z.ZodTypeAny> = {}
+    const requiredSet = new Set(schema.required || [])
+
+    Object.entries(schema.properties || {}).forEach(([key, value]) => {
+      let base: z.ZodTypeAny
+      switch (value.type) {
+        case 'boolean':
+          base = z.boolean()
+          break
+        case 'number':
+          base = z.number()
+          break
+        case 'string':
+        default:
+          base = z.string()
+          break
+      }
+
+      if (value.description) {
+        base = base.describe(value.description)
+      }
+
+      shape[key] = requiredSet.has(key) ? base : base.optional()
+    })
+
+    return z.object(shape).strict()
   }
 
   private normalizeNumber(value: unknown): number | undefined {

@@ -7,7 +7,9 @@ import type {
   OFWorkflow,
   OFNodeTracing,
   OFWorkflowRunResult,
-  OFNodeDebugResult
+  OFNodeDebugResult,
+  OFEdge,
+  OFNode
 } from '@shared/Orchestraflow-types'
 import { OFWorkflowRunningStatus, OFNodeRunningStatus, OFBlockEnum } from '@shared/Orchestraflow-types'
 import { VariableStore } from '../services/variable-store'
@@ -70,14 +72,14 @@ export class WorkflowInstanceManager {
       variableStore: new VariableStore()
     }
     this.instances.set(runId, instance)
+    this.seedVariableStore(instance.variableStore, workflow, runId, inputs)
 
     try {
-      // 拓扑排序获取执行顺序
       const nodeLevels = this.topologicalLevels(workflow.graph.nodes, workflow.graph.edges)
+      const edgesBySource = this.buildEdgesBySource(workflow.graph.edges)
+      let activeNodeIds = new Set((nodeLevels[0] || workflow.graph.nodes).map((node) => node.id))
 
-      // 按层执行：同层并行，层间串行
       for (const levelNodes of nodeLevels) {
-        // 检查是否被停止
         const currentInstance = this.instances.get(runId)
         if (!currentInstance || currentInstance.status === OFWorkflowRunningStatus.Stopped) {
           instance.status = OFWorkflowRunningStatus.Stopped
@@ -85,8 +87,19 @@ export class WorkflowInstanceManager {
           return this.buildResult(instance)
         }
 
-        // 先给本层所有节点发送 running 进度
-        for (const node of levelNodes) {
+        const runnableNodes = levelNodes.filter((node) => activeNodeIds.has(node.id))
+        const skippedNodes = levelNodes.filter((node) => !activeNodeIds.has(node.id))
+
+        for (const node of skippedNodes) {
+          this.markNodeSkipped(runId, instance, node)
+        }
+
+        if (runnableNodes.length === 0) {
+          activeNodeIds = new Set()
+          continue
+        }
+
+        for (const node of runnableNodes) {
           const nodeTracing: OFNodeTracing = {
             nodeId: node.id,
             nodeType: node.data.type,
@@ -97,9 +110,8 @@ export class WorkflowInstanceManager {
           this.sendProgress(runId, nodeTracing)
         }
 
-        const { executeNode } = await import('../services/executor')
         const levelResults = await Promise.all(
-          levelNodes.map(async (node) => {
+          runnableNodes.map(async (node) => {
             const nodeStartTime = Date.now()
             try {
               const result = await executeNode(
@@ -112,7 +124,9 @@ export class WorkflowInstanceManager {
               return {
                 nodeId: node.id,
                 status: result.error ? OFNodeRunningStatus.Failed : OFNodeRunningStatus.Succeeded,
+                inputs: this.toSerializable(result.inputs || {}),
                 outputs: this.toSerializable(result.outputs),
+                control: result.control,
                 error: result.error,
                 elapsed: Date.now() - nodeStartTime
               }
@@ -120,6 +134,7 @@ export class WorkflowInstanceManager {
               return {
                 nodeId: node.id,
                 status: OFNodeRunningStatus.Failed,
+                inputs: {},
                 outputs: {},
                 error: error instanceof Error ? error.message : String(error),
                 elapsed: Date.now() - nodeStartTime
@@ -136,6 +151,7 @@ export class WorkflowInstanceManager {
               ...instance.tracing[tracingIndex],
               status: resultItem.status,
               elapsed_time: resultItem.elapsed,
+              inputs: resultItem.inputs,
               outputs: resultItem.outputs,
               error: resultItem.error
             }
@@ -150,6 +166,23 @@ export class WorkflowInstanceManager {
           instance.error = firstFailed.error || 'Node execution failed'
           instance.endTime = Date.now()
           return this.buildResult(instance)
+        }
+
+        const nextActiveNodeIds = new Set<string>()
+        for (const resultItem of levelResults) {
+          const outgoingEdges = edgesBySource.get(resultItem.nodeId) || []
+          for (const edge of outgoingEdges) {
+            if (this.shouldFollowEdge(edge, resultItem.control?.selectedSourceHandleIds)) {
+              nextActiveNodeIds.add(edge.target)
+            }
+          }
+        }
+        activeNodeIds = nextActiveNodeIds
+      }
+
+      for (const node of workflow.graph.nodes) {
+        if (!instance.tracing.some((item) => item.nodeId === node.id)) {
+          this.markNodeSkipped(runId, instance, node)
         }
       }
 
@@ -204,9 +237,8 @@ export class WorkflowInstanceManager {
 
     const start = Date.now()
     const variableStore = new VariableStore()
-    Object.entries(inputs || {}).forEach(([key, value]) => {
-      variableStore.set(key, value)
-    })
+    const debugRunId = `debug_${Date.now()}`
+    this.seedVariableStore(variableStore, workflow, debugRunId, inputs || {})
 
     const result = await executeNode(node, variableStore, inputs || {}, [], providerConfigs)
     const elapsed = Date.now() - start
@@ -216,7 +248,7 @@ export class WorkflowInstanceManager {
       nodeType: node.data.type,
       status: result.error ? OFNodeRunningStatus.Failed : OFNodeRunningStatus.Succeeded,
       elapsed_time: elapsed,
-      inputs: this.toSerializable(inputs || {}),
+      inputs: this.toSerializable(result.inputs || inputs || {}),
       outputs: this.toSerializable(result.outputs),
       error: result.error
     }
@@ -269,6 +301,55 @@ export class WorkflowInstanceManager {
       outputs: this.toSerializable(instance.outputs),
       error: instance.error
     }
+  }
+
+  private seedVariableStore(
+    variableStore: VariableStore,
+    workflow: OFWorkflow,
+    runId: string,
+    inputs: Record<string, any>
+  ): void {
+    Object.entries(inputs || {}).forEach(([key, value]) => {
+      variableStore.set(key, value)
+    })
+    variableStore.set('sys.user_id', inputs?.user_id ?? '')
+    variableStore.set('sys.app_id', 'LuminaStudio')
+    variableStore.set('sys.workflow_id', workflow.id)
+    variableStore.set('sys.workflow_run_id', runId)
+    variableStore.set('sys.timestamp', Date.now())
+  }
+
+  private buildEdgesBySource(edges: OFEdge[]): Map<string, OFEdge[]> {
+    const map = new Map<string, OFEdge[]>()
+    for (const edge of edges) {
+      const current = map.get(edge.source) || []
+      current.push(edge)
+      map.set(edge.source, current)
+    }
+    return map
+  }
+
+  private shouldFollowEdge(edge: OFEdge, selectedSourceHandleIds?: string[]): boolean {
+    if (!selectedSourceHandleIds || selectedSourceHandleIds.length === 0) {
+      return true
+    }
+    const handleId = edge.sourceHandle || 'source'
+    return selectedSourceHandleIds.includes(handleId)
+  }
+
+  private markNodeSkipped(runId: string, instance: WorkflowInstance, node: OFNode): void {
+    if (instance.tracing.some((item) => item.nodeId === node.id)) {
+      return
+    }
+    const tracing: OFNodeTracing = {
+      nodeId: node.id,
+      nodeType: node.data.type,
+      status: OFNodeRunningStatus.Skipped,
+      inputs: {},
+      outputs: {}
+    }
+    instance.tracing.push(tracing)
+    this.sendProgress(runId, tracing)
   }
 
   private toSerializable<T>(value: T): T {

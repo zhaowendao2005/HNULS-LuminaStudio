@@ -3,82 +3,104 @@
     <Transition name="fade">
       <div
         v-if="store.visible"
-        class="of-variable-selector-overlay fixed inset-0 z-50"
+        class="fixed inset-0 z-50"
         @click="handleOverlayClick"
       >
         <div
-          class="of-variable-selector-panel absolute z-10 w-80 max-h-96 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl"
+          class="absolute w-[296px] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-[0_18px_60px_rgba(15,23,42,0.18)]"
           :style="panelStyle"
           @click.stop
         >
-          <!-- 搜索框 -->
-          <div class="border-b border-gray-100 p-2">
-            <div
-              class="flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5"
-            >
+          <div class="border-b border-gray-100 px-2 py-2">
+            <div class="relative">
               <svg
-                class="h-4 w-4 shrink-0 text-gray-400"
                 viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
+                class="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+                fill="currentColor"
               >
-                <circle cx="11" cy="11" r="8" />
-                <path d="m21 21-4.35-4.35" />
+                <path
+                  d="M18.031 16.6168L22.3137 20.8995L20.8995 22.3137L16.6168 18.031C15.0769 19.263 13.124 20 11 20C6.032 20 2 15.968 2 11C2 6.032 6.032 2 11 2C15.968 2 20 6.032 20 11C20 13.124 19.263 15.0769 18.031 16.6168ZM16.0247 15.8748C17.2475 14.6146 18 12.8956 18 11C18 7.1325 14.8675 4 11 4C7.1325 4 4 7.1325 4 11C4 14.8675 7.1325 18 11 18C12.8956 18 14.6146 17.2475 15.8748 16.0247L16.0247 15.8748Z"
+                />
               </svg>
               <input
                 ref="searchInput"
                 v-model="localKeyword"
-                class="flex-1 bg-transparent text-sm outline-none placeholder:text-gray-400"
-                placeholder="搜索变量..."
+                class="h-9 w-full rounded-xl border border-transparent bg-[#f5f7fb] pl-8 pr-3 text-sm text-gray-700 outline-none placeholder:text-gray-400 hover:border-gray-200 focus:border-[#93a3ff] focus:bg-white"
+                placeholder="搜索变量"
                 @input="handleSearch"
               />
             </div>
           </div>
 
-          <!-- 变量列表 -->
-          <div class="max-h-64 overflow-y-auto py-1">
-            <div
-              v-if="store.availableVariables.length === 0"
-              class="px-3 py-4 text-center text-sm text-gray-400"
-            >
+          <div class="max-h-[72vh] overflow-y-auto py-2">
+            <div v-if="rows.length === 0" class="px-4 py-8 text-center text-sm text-gray-400">
               暂无可用变量
             </div>
-            <div
-              v-for="variable in store.availableVariables"
-              :key="variable.id"
-              class="mx-1 cursor-pointer rounded-md px-3 py-2 hover:bg-indigo-50"
-              :class="{ 'bg-indigo-50': selectedId === variable.id }"
-              @click="handleSelect(variable)"
-              @mouseenter="selectedId = variable.id"
-            >
-              <div class="flex items-center gap-2">
-                <!-- 节点类型图标 -->
+
+            <template v-else>
+              <template v-for="row in rows" :key="row.id">
                 <div
-                  class="flex h-5 w-5 items-center justify-center rounded text-xs font-medium"
-                  :class="getNodeTypeClass(variable.nodeType)"
+                  v-if="row.kind === 'group'"
+                  class="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-400"
                 >
-                  {{ getNodeTypeIcon(variable.nodeType) }}
+                  {{ row.title }}
                 </div>
-                <!-- 变量信息 -->
-                <div class="flex-1 min-w-0">
-                  <div class="truncate text-sm font-medium text-gray-900">{{ variable.label }}</div>
-                  <div class="truncate text-xs text-gray-400">{{ variable.nodeTitle }}</div>
+
+                <div
+                  v-else
+                  class="flex h-7 cursor-pointer items-center gap-2 rounded-md pl-3 pr-2 text-sm"
+                  :class="
+                    selectedId === row.item.id ? 'bg-[#eef2ff] text-gray-900' : 'text-gray-700 hover:bg-gray-50'
+                  "
+                  :style="{ paddingLeft: `${12 + row.depth * 16}px` }"
+                  @mouseenter="selectedId = row.item.id"
+                  @click="handleSelect(row.item)"
+                >
+                  <button
+                    v-if="row.item.expandable"
+                    class="flex h-4 w-4 shrink-0 items-center justify-center rounded text-gray-400 hover:bg-gray-100"
+                    @click.stop="toggleExpand(row.item.id)"
+                  >
+                    <svg
+                      viewBox="0 0 14 14"
+                      class="h-3 w-3 transition-transform"
+                      :class="isExpanded(row.item.id) ? 'rotate-90' : ''"
+                      fill="none"
+                    >
+                      <path
+                        d="M5.25 10.5L8.75 7L5.25 3.5"
+                        stroke="currentColor"
+                        stroke-width="1.25"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                  </button>
+                  <span v-else class="h-4 w-4 shrink-0" />
+
+                  <div
+                    class="flex h-4 w-4 shrink-0 items-center justify-center rounded text-[10px] font-semibold"
+                    :class="row.item.isSystem ? 'bg-[#fff3ea] text-[#f97316]' : 'bg-[#eef2ff] text-[#4f46e5]'"
+                  >
+                    {{ row.item.isSystem ? '□' : '{x}' }}
+                  </div>
+
+                  <div class="min-w-0 flex-1">
+                    <div class="truncate text-[13px] font-medium">
+                      {{ row.item.label }}
+                    </div>
+                  </div>
+
+                  <div class="shrink-0 text-xs capitalize text-gray-400">
+                    {{ formatType(row.item.type) }}
+                  </div>
                 </div>
-                <!-- 变量名 -->
-                <div class="shrink-0 text-xs text-gray-400 font-mono">
-                  {{ variable.variable }}
-                </div>
-              </div>
-            </div>
+              </template>
+            </template>
           </div>
 
-          <!-- 底部提示 -->
-          <div class="border-t border-gray-100 px-3 py-2 text-xs text-gray-400">
-            <span class="mr-2">确认</span>
-            <kbd class="rounded bg-gray-100 px-1 py-0.5 font-mono text-gray-600">Enter</kbd>
-            <span class="mx-2">取消</span>
-            <kbd class="rounded bg-gray-100 px-1 py-0.5 font-mono text-gray-600">Esc</kbd>
+          <div class="border-t border-gray-100 px-3 py-2 text-[11px] text-gray-400">
+            Enter 选择，Esc 关闭，方向键切换
           </div>
         </div>
       </div>
@@ -87,35 +109,106 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useVariableSelectorStore } from '@renderer/stores/orchestraflow/workflow-editor/variable-selector/variable-selector.store'
-import type { OFAvailableVariable } from '@renderer/stores/orchestraflow/workflow-editor/variable-selector/variable-selector.types'
-import { OFBlockEnum } from '@shared/Orchestraflow-types'
+import type {
+  OFAvailableVariable
+} from '@renderer/stores/orchestraflow/workflow-editor/variable-selector/variable-selector.types'
+
+type SelectorRow =
+  | {
+      kind: 'group'
+      id: string
+      title: string
+    }
+  | {
+      kind: 'item'
+      id: string
+      item: OFAvailableVariable
+      depth: number
+    }
 
 const store = useVariableSelectorStore()
+
 const searchInput = ref<HTMLInputElement | null>(null)
 const localKeyword = ref('')
-const selectedId = ref<string | ''>('')
-
+const selectedId = ref('')
 const panelStyle = ref({
   top: '12px',
   left: '12px'
 })
+const expandedIds = ref<Record<string, boolean>>({})
+
+const isSearching = computed(() => localKeyword.value.trim().length > 0)
+
+function isExpanded(id: string): boolean {
+  return isSearching.value || Boolean(expandedIds.value[id])
+}
+
+function formatType(type: unknown): string {
+  return String(type || 'string')
+}
+
+function toggleExpand(id: string) {
+  expandedIds.value = {
+    ...expandedIds.value,
+    [id]: !expandedIds.value[id]
+  }
+}
+
+function appendRows(
+  items: OFAvailableVariable[],
+  depth: number,
+  target: SelectorRow[]
+) {
+  for (const item of items) {
+    target.push({
+      kind: 'item',
+      id: item.id,
+      item,
+      depth
+    })
+
+    if (item.children?.length && isExpanded(item.id)) {
+      appendRows(item.children, depth + 1, target)
+    }
+  }
+}
+
+const rows = computed<SelectorRow[]>(() => {
+  const result: SelectorRow[] = []
+  for (const group of store.availableGroups) {
+    result.push({
+      kind: 'group',
+      id: group.id,
+      title: group.title
+    })
+    appendRows(group.items, 0, result)
+  }
+  return result
+})
+
+const selectableItems = computed(() =>
+  rows.value
+    .filter((row): row is Extract<SelectorRow, { kind: 'item' }> => row.kind === 'item')
+    .map((row) => row.item)
+    .filter((item) => item.selectable)
+)
 
 function updatePanelStyle() {
   const anchor = store.anchorRect
+  const panelWidth = 296
+  const maxHeight = Math.min(window.innerHeight - 24, 620)
+  const padding = 12
+  const gap = 8
+
   if (!anchor) {
     panelStyle.value = {
       top: '12px',
-      left: `${Math.max(12, window.innerWidth - 332)}px`
+      left: `${Math.max(12, window.innerWidth - panelWidth - 12)}px`
     }
     return
   }
-
-  const panelWidth = 320
-  const maxHeight = 384
-  const padding = 12
-  const gap = 8
 
   let left = anchor.left
   let top = anchor.bottom + gap
@@ -127,42 +220,18 @@ function updatePanelStyle() {
     top = Math.max(padding, anchor.top - maxHeight - gap)
   }
 
-  left = Math.min(Math.max(left, padding), window.innerWidth - panelWidth - padding)
-  top = Math.min(Math.max(top, padding), window.innerHeight - 120)
-
   panelStyle.value = {
-    top: `${top}px`,
-    left: `${left}px`
+    top: `${Math.min(Math.max(top, padding), window.innerHeight - 120)}px`,
+    left: `${Math.min(Math.max(left, padding), window.innerWidth - panelWidth - padding)}px`
   }
 }
 
-// 监听显示状态，自动聚焦搜索框
-watch(
-  () => store.visible,
-  async (visible) => {
-    if (visible) {
-      updatePanelStyle()
-      localKeyword.value = ''
-      selectedId.value = ''
-      await nextTick()
-      searchInput.value?.focus()
-    }
-  }
-)
-
-// 监听关键词变化
-watch(localKeyword, (val) => {
-  store.setSearchKeyword(val)
-})
-
-// 处理搜索
 function handleSearch() {
   store.setSearchKeyword(localKeyword.value)
 }
 
-// 处理选择
 function handleSelect(variable: OFAvailableVariable) {
-  // 触发选择事件
+  if (!variable.selectable) return
   window.dispatchEvent(
     new CustomEvent('of:variable-select', {
       detail: {
@@ -176,68 +245,82 @@ function handleSelect(variable: OFAvailableVariable) {
   store.closeSelector()
 }
 
-// 处理遮罩点击
 function handleOverlayClick() {
   store.closeSelector()
 }
 
-// 获取节点类型样式
-function getNodeTypeClass(type: OFBlockEnum): string {
-  switch (type) {
-    case OFBlockEnum.Start:
-      return 'bg-green-100 text-green-600'
-    case OFBlockEnum.LLM:
-      return 'bg-indigo-100 text-indigo-600'
-    case OFBlockEnum.End:
-      return 'bg-red-100 text-red-600'
-    default:
-      return 'bg-gray-100 text-gray-600'
+function moveSelection(direction: 1 | -1) {
+  if (selectableItems.value.length === 0) return
+  const currentIndex = selectableItems.value.findIndex((item) => item.id === selectedId.value)
+  if (currentIndex === -1) {
+    selectedId.value = selectableItems.value[0].id
+    return
   }
+
+  const nextIndex =
+    direction === 1
+      ? (currentIndex + 1) % selectableItems.value.length
+      : (currentIndex - 1 + selectableItems.value.length) % selectableItems.value.length
+
+  selectedId.value = selectableItems.value[nextIndex].id
 }
 
-// 获取节点类型图标
-function getNodeTypeIcon(type: OFBlockEnum): string {
-  switch (type) {
-    case OFBlockEnum.Start:
-      return 'S'
-    case OFBlockEnum.LLM:
-      return 'L'
-    case OFBlockEnum.End:
-      return 'E'
-    default:
-      return '?'
-  }
-}
-
-// 键盘事件处理
-function handleKeydown(e: KeyboardEvent) {
+function handleKeydown(event: KeyboardEvent) {
   if (!store.visible) return
 
-  if (e.key === 'Escape') {
+  if (event.key === 'Escape') {
     store.closeSelector()
-  } else if (e.key === 'Enter') {
-    const selected = store.availableVariables.find((v) => v.id === selectedId.value)
-    if (selected) {
-      handleSelect(selected)
-    }
-  } else if (e.key === 'ArrowDown') {
-    e.preventDefault()
-    const currentIndex = store.availableVariables.findIndex((v) => v.id === selectedId.value)
-    if (currentIndex < store.availableVariables.length - 1) {
-      selectedId.value = store.availableVariables[currentIndex + 1].id
-    } else if (store.availableVariables.length > 0) {
-      selectedId.value = store.availableVariables[0].id
-    }
-  } else if (e.key === 'ArrowUp') {
-    e.preventDefault()
-    const currentIndex = store.availableVariables.findIndex((v) => v.id === selectedId.value)
-    if (currentIndex > 0) {
-      selectedId.value = store.availableVariables[currentIndex - 1].id
-    } else if (store.availableVariables.length > 0) {
-      selectedId.value = store.availableVariables[store.availableVariables.length - 1].id
+    return
+  }
+
+  if (event.key === 'ArrowDown') {
+    event.preventDefault()
+    moveSelection(1)
+    return
+  }
+
+  if (event.key === 'ArrowUp') {
+    event.preventDefault()
+    moveSelection(-1)
+    return
+  }
+
+  if (event.key === 'Enter') {
+    const target = selectableItems.value.find((item) => item.id === selectedId.value)
+    if (target) {
+      handleSelect(target)
     }
   }
 }
+
+watch(
+  () => store.visible,
+  async (visible) => {
+    if (!visible) return
+    localKeyword.value = ''
+    expandedIds.value = {}
+    store.setSearchKeyword('')
+    updatePanelStyle()
+    await nextTick()
+    selectedId.value = selectableItems.value[0]?.id || ''
+    searchInput.value?.focus()
+  }
+)
+
+watch(
+  () => store.availableGroups,
+  () => {
+    if (!selectedId.value && selectableItems.value.length > 0) {
+      selectedId.value = selectableItems.value[0].id
+      return
+    }
+
+    if (selectedId.value && !selectableItems.value.some((item) => item.id === selectedId.value)) {
+      selectedId.value = selectableItems.value[0]?.id || ''
+    }
+  },
+  { deep: true }
+)
 
 onMounted(() => {
   document.addEventListener('keydown', handleKeydown)
@@ -259,9 +342,5 @@ onUnmounted(() => {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
-}
-
-.of-variable-selector-overlay {
-  background: transparent;
 }
 </style>

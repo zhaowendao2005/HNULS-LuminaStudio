@@ -1,9 +1,14 @@
 <template>
   <!-- 通用浮窗容器：从右向左滑入 -->
   <Transition name="panel-slide">
-    <div v-if="visible" class="absolute top-0 h-full" :style="panelPositionStyle" @pointerdown="handleFocus">
+    <div
+      v-if="visible"
+      class="absolute inset-y-0 py-1"
+      :style="panelPositionStyle"
+      @pointerdown="handleFocus"
+    >
       <div
-        class="of-floating-panel w-[420px] h-full rounded-2xl border bg-white flex flex-col overflow-hidden transition-all"
+        class="of-floating-panel flex h-full w-[420px] flex-col overflow-hidden rounded-2xl border bg-white transition-all"
         :class="
           active
             ? 'border-emerald-200 shadow-2xl ring-1 ring-emerald-100'

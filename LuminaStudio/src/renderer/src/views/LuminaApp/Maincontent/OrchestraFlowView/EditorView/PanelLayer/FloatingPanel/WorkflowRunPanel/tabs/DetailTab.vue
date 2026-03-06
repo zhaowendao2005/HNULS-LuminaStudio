@@ -207,6 +207,8 @@ function getNodeTitle(tracing: any): string {
       return '开始'
     case OFBlockEnum.LLM:
       return 'LLM'
+    case OFBlockEnum.IfElse:
+      return '条件分支'
     case OFBlockEnum.End:
       return '结束'
     default:

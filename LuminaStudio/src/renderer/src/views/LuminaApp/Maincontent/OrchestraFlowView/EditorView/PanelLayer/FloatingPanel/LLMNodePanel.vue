@@ -1,576 +1,272 @@
 <template>
-  <div ref="llmPanelRootRef" class="of-node-config-panel of-llm-panel h-full flex flex-col">
-    <!-- 头部 -->
-    <div class="px-4 pt-4 pb-2 flex-shrink-0 border-b border-gray-100">
-      <!-- 标题行：图标 + 输入框 + 操作按钮 -->
+  <div class="of-llm-node-panel h-full flex flex-col">
+    <div class="border-b border-gray-100 px-4 pb-2 pt-4">
       <div class="flex items-center gap-3">
-        <!-- 节点图标 -->
-        <div
-          class="flex items-center justify-center w-6 h-6 rounded-lg bg-indigo-500 text-white shrink-0"
-        >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 14 14"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            class="w-3.5 h-3.5"
-          >
+        <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-[#635bff] text-white">
+          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="currentColor">
             <path
-              fill-rule="evenodd"
-              clip-rule="evenodd"
-              d="M5.83333 2.40625C5.04971 2.40625 4.39011 2.94431 4.20689 3.67206C4.13982 3.93846 3.91391 4.1349 3.64078 4.16432C2.94692 4.23906 2.40625 4.82766 2.40625 5.54167C2.40625 5.92943 2.56471 6.27904 2.82212 6.53129C2.94807 6.65472 3.01905 6.82365 3.01905 7C3.01905 7.17635 2.94807 7.34528 2.82212 7.46871C2.56471 7.72096 2.40625 8.07057 2.40625 8.45833C2.40625 9.03652 2.76061 9.53347 3.26651 9.74092C3.45247 9.81717 3.59324 9.97444 3.64849 10.1677C3.8841 10.9917 4.64342 11.5938 5.54167 11.5938C5.82802 11.5938 6.09916 11.533 6.34375 11.4237V9.91667C6.34375 9.31258 5.85409 8.82292 5.25 8.82292C4.88756 8.82292 4.59375 8.5291 4.59375 8.16667C4.59375 7.80423 4.88756 7.51042 5.25 7.51042C5.64385 7.51042 6.0156 7.60503 6.34375 7.77278V2.48514C6.18319 2.43393 6.01183 2.40625 5.83333 2.40625ZM7.65625 2.48514V4.08333C7.65625 4.6874 8.14592 5.17708 8.75 5.17708C9.11244 5.17708 9.40625 5.4709 9.40625 5.83333C9.40625 6.19577 9.11244 6.48958 8.75 6.48958C8.35615 6.48958 7.9844 6.39496 7.65625 6.22722V11.4237C7.90087 11.533 8.17199 11.5938 8.45833 11.5938C9.35657 11.5938 10.1159 10.9917 10.3515 10.1677C10.4068 9.97444 10.5475 9.81717 10.7335 9.74092C11.2394 9.53347 11.5938 9.03652 11.5938 8.45833C11.5938 8.07056 11.4353 7.72096 11.1779 7.46871C11.0519 7.34528 10.981 7.17635 10.981 7C10.981 6.82365 11.0519 6.65472 11.1779 6.53129C11.4353 6.27904 11.5938 5.92944 11.5938 5.54167C11.5938 4.82766 11.0531 4.23906 10.3592 4.16432C10.0861 4.1349 9.86022 3.93847 9.79315 3.67208C9.6099 2.94432 8.95027 2.40625 8.16667 2.40625C7.98817 2.40625 7.81681 2.43393 7.65625 2.48514ZM7.00001 12.565C6.56031 12.7835 6.06472 12.9062 5.54167 12.9062C4.14996 12.9062 2.96198 12.0403 2.48457 10.8188C1.65595 10.3591 1.09375 9.47501 1.09375 8.45833C1.09375 7.9213 1.2511 7.42042 1.52161 7C1.2511 6.57958 1.09375 6.0787 1.09375 5.54167C1.09375 4.30153 1.93005 3.25742 3.06973 2.94157C3.51828 1.85715 4.586 1.09375 5.83333 1.09375C6.24643 1.09375 6.64104 1.17788 7 1.33013C7.35896 1.17788 7.75357 1.09375 8.16667 1.09375C9.41399 1.09375 10.4817 1.85716 10.9303 2.94157C12.0699 3.25742 12.9062 4.30153 12.9062 5.54167C12.9062 6.07869 12.7489 6.57958 12.4784 7C12.7489 7.42043 12.9062 7.92131 12.9062 8.45833C12.9062 9.47502 12.344 10.3591 11.5154 10.8188C11.038 12.0403 9.85003 12.9062 8.45833 12.9062C7.93526 12.9062 7.4397 12.7834 7.00001 12.565Z"
-              fill="currentColor"
+              d="M12 2a7 7 0 0 0-7 7v2.5a2.5 2.5 0 0 0-1 2v1a2.5 2.5 0 0 0 2.5 2.5H8v2a3 3 0 0 0 3 3h2v-2h-2a1 1 0 0 1-1-1v-2.086A2.497 2.497 0 0 0 11.5 14.5v-1A2.5 2.5 0 0 0 10 11.086V9a5 5 0 1 1 10 0v2.086A2.5 2.5 0 0 0 18.5 13.5v1a2.5 2.5 0 0 0 2.5 2.5H22v-8a10 10 0 0 0-10-10Z"
             />
           </svg>
         </div>
 
-        <!-- 标题输入框 -->
         <input
-          v-model="localTitle"
-          class="system-xl-semibold flex-1 h-7 min-w-0 appearance-none rounded-md border border-transparent bg-transparent px-1 text-gray-900 outline-none focus:shadow-xs"
+          v-model="titleModel"
+          class="system-xl-semibold h-7 min-w-0 flex-1 appearance-none rounded-md border border-transparent bg-transparent px-1 text-gray-900 outline-none focus:shadow-xs"
           placeholder="添加标题..."
         />
 
-        <!-- 操作按钮 -->
-        <div class="flex items-center gap-1 shrink-0">
-          <!-- 帮助按钮 -->
-          <div
-            class="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md hover:bg-gray-100"
+        <div class="flex shrink-0 items-center gap-1">
+          <button
+            class="flex h-6 w-6 items-center justify-center rounded-md hover:bg-gray-100"
             @click="enterDebugMode"
           >
-            <svg
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              fill="currentColor"
-              class="h-4 w-4 text-gray-400"
-            >
+            <svg viewBox="0 0 24 24" class="h-4 w-4 text-gray-400" fill="currentColor">
               <path
                 d="M8 18.3915V5.60846L18.2264 12L8 18.3915ZM6 3.80421V20.1957C6 20.9812 6.86395 21.46 7.53 21.0437L20.6432 12.848C21.2699 12.4563 21.2699 11.5436 20.6432 11.152L7.53 2.95621C6.86395 2.53993 6 3.01878 6 3.80421Z"
               />
             </svg>
-          </div>
-          <!-- 文档链接 -->
+          </button>
           <a
             href="https://docs.dify.ai/zh/use-dify/nodes/llm"
             target="_blank"
             class="flex h-6 w-6 items-center justify-center rounded-md hover:bg-gray-100"
           >
-            <svg
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              fill="currentColor"
-              class="h-4 w-4 text-gray-400"
-            >
+            <svg viewBox="0 0 24 24" class="h-4 w-4 text-gray-400" fill="currentColor">
               <path
                 d="M13 21V23H11V21H3C2.44772 21 2 20.5523 2 20V4C2 3.44772 2.44772 3 3 3H9C10.1947 3 11.2671 3.52375 12 4.35418C12.7329 3.52375 13.8053 3 15 3H21C21.5523 3 22 3.44772 22 4V20C22 20.5523 21.5523 21 21 21H13ZM20 19V5H15C13.8954 5 13 5.89543 13 7V19H20ZM11 19V7C11 5.89543 10.1046 5 9 5H4V19H11Z"
               />
             </svg>
           </a>
-          <!-- 三点菜单 -->
-          <div
-            class="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md hover:bg-gray-100"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              fill="currentColor"
-              class="h-4 w-4 text-gray-400"
-            >
+          <button class="flex h-6 w-6 items-center justify-center" @click="handleClose">
+            <svg viewBox="0 0 24 24" class="h-4 w-4 text-gray-400" fill="currentColor">
               <path
-                d="M5 10C3.9 10 3 10.9 3 12C3 13.1 3.9 14 5 14C6.1 14 7 13.1 7 12C7 10.9 6.1 10 5 10ZM19 10C17.9 10 17 10.9 17 12C17 13.1 17.9 14 19 14C20.1 14 21 13.1 21 12C21 10.9 20.1 10 19 10ZM12 10C10.9 10 10 10.9 10 12C10 13.1 10.9 14 12 14C13.1 14 14 13.1 14 12C14 10.9 13.1 10 12 10Z"
+                d="M11.9997 10.5865L16.9495 5.63672L18.3637 7.05093L13.4139 12.0007L18.3637 16.9504L16.9495 18.3646L11.9997 13.4149L7.04996 18.3646L5.63574 16.9504L10.5855 12.0007L5.63574 7.05093L7.04996 5.63672L11.9997 10.5865Z"
               />
             </svg>
-          </div>
-          <!-- 关闭按钮 -->
-          <div class="flex h-6 w-6 cursor-pointer items-center justify-center" @click="handleClose">
-            <svg
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              fill="currentColor"
-              class="h-4 w-4 text-gray-400"
-            >
-              <path
-                d="M11.9997 10.5865L16.9495 5.63672L18.3637 7.05093L13.4139 12.0007L18.3637 16.9504L16.9495 18.3646L11.9997 13.4149L7.04996 18.3646L5.63574 16.9504L10.5855 12.0007L5.63574 7.05093L7.0502 5.63672L11.9997 10.5865Z"
-              />
-            </svg>
-          </div>
+          </button>
         </div>
       </div>
 
-      <!-- 描述文本框 -->
       <div class="mt-2">
         <textarea
-          v-model="localDesc"
+          v-model="descModel"
           class="w-full resize-none appearance-none bg-transparent text-xs leading-[18px] text-gray-600 outline-none placeholder:text-gray-400"
           placeholder="添加描述..."
           :style="{ height: '18px' }"
         />
       </div>
 
-      <!-- Tab 切换 -->
-      <div class="flex items-center justify-between mt-3">
-        <div class="flex gap-4">
-          <div
-            class="system-md-semibold relative flex cursor-pointer items-center border-b-2 pb-2 pt-2.5"
-            :class="
-              activeTab === 'settings'
-                ? 'border-indigo-500 text-gray-900'
-                : 'border-transparent text-gray-400'
-            "
-            @click="setActiveTab('settings')"
-          >
-            设置
-          </div>
-          <div
-            class="system-md-semibold relative flex cursor-pointer items-center border-b-2 pb-2 pt-2.5"
-            :class="
-              activeTab === 'lastRun'
-                ? 'border-indigo-500 text-gray-900'
-                : 'border-transparent text-gray-400'
-            "
-            @click="setActiveTab('lastRun')"
-          >
-            上次运行
-          </div>
-        </div>
+      <div class="mt-3 flex items-center gap-4">
+        <button
+          class="system-md-semibold border-b-2 pb-2 pt-2.5"
+          :class="
+            activeTab === 'settings'
+              ? 'border-[#635bff] text-gray-900'
+              : 'border-transparent text-gray-400'
+          "
+          @click="setActiveTab('settings')"
+        >
+          设置
+        </button>
+        <button
+          class="system-md-semibold border-b-2 pb-2 pt-2.5"
+          :class="
+            activeTab === 'lastRun'
+              ? 'border-[#635bff] text-gray-900'
+              : 'border-transparent text-gray-400'
+          "
+          @click="setActiveTab('lastRun')"
+        >
+          上次运行
+        </button>
       </div>
     </div>
 
-    <!-- 内容区 -->
     <div class="flex-1 overflow-y-auto">
-      <!-- 设置 Tab -->
-      <div v-if="activeTab === 'settings' && !debugMode" class="mt-2 px-4 pb-4 space-y-4">
-        <!-- 模型选择 -->
-        <div>
+      <div v-if="activeTab === 'settings' && !debugMode" class="space-y-5 px-4 py-4">
+        <section class="space-y-3 rounded-2xl border border-gray-200 bg-[#fafbff] p-4">
           <div class="flex items-center justify-between">
-            <div class="flex items-center">
-              <div class="system-sm-semibold-uppercase text-gray-500">
-                模型
-                <span class="text-red-500">*</span>
-              </div>
-            </div>
-          </div>
-          <div class="mt-1">
-            <!-- 使用全局通用模型选择组件 -->
-            <ModelSelector
-              v-model:visible="modelSelectorVisible"
-              :current-provider-id="currentProviderId"
-              :current-model-id="currentModelId"
-              title="选择模型"
-              :show-manage-button="false"
-              @select="handleModelSelected"
-            />
-            <!-- 触发按钮：显示当前选择的模型，点击打开选择器 -->
-            <div
-              class="group relative cursor-pointer rounded-xl border border-transparent bg-[#eef2f7] px-2 py-1.5 hover:bg-[#e8edf4]"
-              @click="modelSelectorVisible = true"
-            >
-              <div class="flex items-center">
-                <div class="mr-2 flex h-5 w-5 items-center justify-center">
-                  <svg
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    fill="currentColor"
-                    class="h-5 w-5 text-gray-500"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M16 2C17.1046 2 18 2.89543 18 4V6H20C21.1046 6 22 6.89543 22 8V16C22 17.1046 21.1046 18 20 18H18V20C18 21.1046 17.1046 22 16 22H8C6.89543 22 6 21.1046 6 20V18H4C2.89543 18 2 17.1046 2 16V8C2 6.89543 2.89543 6 4 6H6V4C6 2.89543 6.89543 2 8 2H16ZM16 4H8V6H16V4ZM20 8H4V16H20V8ZM16 18H8V20H16V18Z"
-                    />
-                  </svg>
-                </div>
-                <div class="min-w-0 flex-1">
-                  <div class="flex w-full items-center gap-1.5 overflow-hidden">
-                    <div
-                      class="min-w-0 max-w-[calc(100%-56px)] truncate whitespace-nowrap text-sm text-[#1f2937]"
-                    >
-                      {{ displayModelText }}
-                    </div>
-                    <div
-                      class="flex h-[18px] shrink-0 items-center rounded-[5px] border border-[#d4dae3] px-1.5 text-[10px] uppercase text-[#7b8698]"
-                    >
-                      CHAT
-                    </div>
-                  </div>
-                </div>
-                <button
-                  class="mr-1 inline-flex h-6 w-6 items-center justify-center rounded-md text-[#6f7b8f] hover:bg-[#dde4ed] hover:text-[#4f5c70]"
-                  title="模型参数"
-                  @pointerdown.stop.prevent
-                  @click.stop.prevent="openModelParamsPanel"
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="14"
-                    height="14"
-                    fill="currentColor"
-                    class="h-4 w-4"
-                  >
-                    <path
-                      d="M3 7H8V3H10V7H14V3H16V7H21V9H16V12H21V14H16V17H21V19H16V23H14V19H10V23H8V19H3V17H8V14H3V12H8V9H3V7ZM10 9V12H14V9H10ZM10 14V17H14V14H10Z"
-                    />
-                  </svg>
-                </button>
-                <svg
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24"
-                  height="24"
-                  fill="currentColor"
-                  class="h-4 w-4 shrink-0 text-[#7b8698]"
-                >
-                  <path
-                    d="M11.9999 13.1714L16.9497 8.22168L18.3639 9.63589L11.9999 15.9999L5.63599 9.63589L7.0502 8.22168L11.9999 13.1714Z"
-                  />
-                </svg>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 上下文 -->
-        <div>
-          <div class="flex items-center justify-between">
-            <div class="flex items-center">
-              <div class="system-sm-semibold-uppercase text-gray-500">上下文</div>
-              <div class="ml-1 w-4 h-4" title="启用后可以在提示词中使用上下文变量">
-                <svg
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24"
-                  height="24"
-                  fill="currentColor"
-                  class="h-4 w-4 text-gray-400"
-                >
-                  <path
-                    d="M12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22ZM12 20C16.4183 20 20 16.4183 20 12C20 7.58172 16.4183 4 12 4C7.58172 4 4 7.58172 4 12C4 16.4183 7.58172 20 12 20ZM11 15H13V17H11V15ZM13 13.3551V14H11V12.5C11 11.9477 11.4477 11.5 12 11.5C12.8284 11.5 13.5 10.8284 13.5 10C13.5 9.17157 12.8284 8.5 12 8.5C11.2723 8.5 10.6656 9.01823 10.5288 9.70577L8.56731 9.31346C8.88637 7.70919 10.302 6.5 12 6.5C13.933 6.5 15.5 8.067 15.5 10C15.5 11.5855 14.4457 12.9248 13 13.3551Z"
-                  />
-                </svg>
-              </div>
-            </div>
-          </div>
-          <div class="mt-1">
-            <div class="rounded-lg border border-gray-200 bg-gray-50 px-2 py-2">
-              <div class="flex items-center justify-between">
-                <div class="flex items-center">
-                  <div class="text-xs text-gray-500">当前无上下文变量</div>
-                </div>
-                <div class="text-xs text-orange-500">
-                  要启用上下文功能，请在提示中填写上下文变量。
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 提示词模板 -->
-        <div>
-          <div class="flex items-center justify-between mb-2">
-            <div class="flex items-center">
-              <div class="system-sm-semibold-uppercase text-gray-500">提示词编排</div>
+            <div>
+              <div class="system-sm-semibold-uppercase text-gray-500">模型</div>
+              <div class="mt-1 text-xs text-gray-400">选择 Provider 和模型名称</div>
             </div>
           </div>
 
-          <!-- 消息列表 -->
-          <div class="space-y-2">
-            <div
-              v-for="(message, index) in localMessages"
-              :key="index"
-              class="rounded-lg border border-gray-200 bg-gray-50 overflow-hidden"
-            >
-              <!-- 消息头部 -->
-              <div
-                class="flex items-center justify-between px-3 py-2 bg-gray-100 border-b border-gray-200"
+          <div class="grid grid-cols-2 gap-3">
+            <label class="space-y-1.5">
+              <div class="text-xs font-medium text-gray-500">Provider</div>
+              <select
+                v-model="providerIdModel"
+                class="h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none focus:border-[#8ea0ff]"
               >
-                <div class="flex items-center gap-2">
-                  <div class="text-xs font-semibold uppercase text-gray-600">
-                    {{
-                      message.role === 'system'
-                        ? 'SYSTEM'
-                        : message.role === 'user'
-                          ? 'USER'
-                          : 'ASSISTANT'
-                    }}
-                  </div>
-                  <div class="text-xs text-gray-400">{{ message.tokens || 0 }} tokens</div>
-                </div>
-                <div class="flex items-center gap-1">
-                  <!-- 变量按钮 -->
-                  <div class="p-1 hover:bg-gray-200 rounded cursor-pointer" title="插入变量">
-                    <svg
-                      viewBox="0 0 24 24"
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="16"
-                      height="16"
-                      fill="currentColor"
-                      class="h-3.5 w-3.5 text-gray-500"
-                    >
-                      <path
-                        d="M12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22ZM11 15H13V17H11V15ZM13 13.3551V14H11V12.5C11 11.9477 11.4477 11.5 12 11.5C12.8284 11.5 13.5 10.8284 13.5 10C13.5 9.17157 12.8284 8.5 12 8.5C11.2723 8.5 10.6656 9.01823 10.5288 9.70577L8.56731 9.31346C8.88637 7.70919 10.302 6.5 12 6.5C13.933 6.5 15.5 8.067 15.5 10C15.5 11.5855 14.4457 12.9248 13 13.3551Z"
-                      />
-                    </svg>
-                  </div>
-                  <!-- 复制按钮 -->
-                  <div class="p-1 hover:bg-gray-200 rounded cursor-pointer" title="复制">
-                    <svg
-                      viewBox="0 0 24 24"
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="16"
-                      height="16"
-                      fill="currentColor"
-                      class="h-3.5 w-3.5 text-gray-500"
-                    >
-                      <path
-                        d="M16 1H4C2.9 1 2 1.9 2 3V17H4V3H16V1ZM19 5H8C6.9 5 6 5.9 6 7V21C6 22.1 6.9 23 8 23H19C20.1 23 21 22.1 21 21V7C21 5.9 20.1 5 19 5ZM19 21H8V7H19V21Z"
-                      />
-                    </svg>
-                  </div>
-                  <!-- 编辑按钮 -->
-                  <div class="p-1 hover:bg-gray-200 rounded cursor-pointer" title="编辑">
-                    <svg
-                      viewBox="0 0 24 24"
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="16"
-                      height="16"
-                      fill="currentColor"
-                      class="h-3.5 w-3.5 text-gray-500"
-                    >
-                      <path
-                        d="M3 17.25V21H6.75L17.81 9.94L14.06 6.19L3 17.25ZM20.71 7.04C21.1 6.65 21.1 6.02 20.71 5.63L18.37 3.29C17.98 2.9 17.35 2.9 16.96 3.29L15.13 5.12L18.88 8.87L20.71 7.04Z"
-                      />
-                    </svg>
-                  </div>
-                  <!-- 删除按钮 -->
-                  <div
-                    class="p-1 hover:bg-gray-200 rounded cursor-pointer"
-                    title="删除"
-                    @click="removeMessage(index)"
-                  >
-                    <svg
-                      viewBox="0 0 24 24"
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="16"
-                      height="16"
-                      fill="currentColor"
-                      class="h-3.5 w-3.5 text-gray-500 hover:text-red-500"
-                    >
-                      <path
-                        d="M6 19C6 20.1 6.9 21 8 21H16C17.1 21 18 20.1 18 19V7H6V19ZM19 4H15.5L14.5 3H9.5L8.5 4H5V6H19V4Z"
-                      />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-              <!-- 消息内容 -->
-              <div class="p-3 min-h-[60px] flex items-start gap-2">
-                <PromptTextarea
-                  ref="messageTextareas"
-                  :model-value="message.text"
-                  class="flex-1"
-                  placeholder="输入提示词内容...（输入 / 触发变量选择）"
-                  @update:model-value="handleMessageInput(index, $event)"
-                />
-                <!-- 变量引用按钮 -->
-                <button
-                  class="of-variable-trigger-btn mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded border border-gray-200 hover:bg-gray-50"
-                  title="引用变量"
-                  @click="openPromptVariableSelector(index, $event)"
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="14"
-                    height="14"
-                    fill="currentColor"
-                    class="text-gray-500"
-                  >
-                    <path
-                      d="M14.6 16.6L19.2 12L14.6 7.4L16 6L22 12L16 18L14.6 16.6ZM9.4 16.6L4.8 12L9.4 7.4L8 6L2 12L8 18L9.4 16.6Z"
-                    />
-                  </svg>
-                </button>
+                <option value="">请选择 Provider</option>
+                <option v-for="provider in providers" :key="provider.id" :value="provider.id">
+                  {{ provider.name }}
+                </option>
+              </select>
+            </label>
+
+            <label class="space-y-1.5">
+              <div class="text-xs font-medium text-gray-500">Model</div>
+              <select
+                v-model="modelNameModel"
+                class="h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none focus:border-[#8ea0ff]"
+              >
+                <option value="">请选择模型</option>
+                <option v-for="model in availableModels" :key="model.id" :value="model.id">
+                  {{ model.name || model.id }}
+                </option>
+              </select>
+            </label>
+          </div>
+        </section>
+
+        <section class="space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="system-sm-semibold-uppercase text-gray-500">提示词</div>
+              <div class="mt-1 text-xs text-gray-400">
+                支持插入变量，格式为 <code v-pre>{{variable.path}}</code>
               </div>
             </div>
-
-            <!-- 添加消息按钮 -->
             <button
-              class="w-full py-2 border border-dashed border-gray-200 rounded-lg text-sm text-gray-400 hover:bg-gray-50 hover:text-gray-500 flex items-center justify-center gap-1"
-              @click="addMessage"
+              class="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
+              @click="addPrompt"
             >
-              <svg
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                fill="currentColor"
-                class="h-4 w-4"
-              >
-                <path d="M11 11V5H13V11H19V13H13V19H11V13H5V11H11Z" />
-              </svg>
               添加消息
             </button>
           </div>
-        </div>
 
-        <!-- 视觉（临时禁用，待后续扩展） -->
-        <div class="opacity-50 pointer-events-none">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center">
-              <div class="system-sm-semibold-uppercase text-gray-500">视觉</div>
-              <span class="ml-2 text-xs text-gray-400">(待扩展)</span>
-            </div>
-            <div class="h-4 w-7 rounded-full bg-gray-200 transition-colors duration-200">
-              <div
-                class="h-3 w-3 rounded-full bg-white shadow transform transition-transform duration-200 mt-0.5 translate-x-0.5"
-              />
-            </div>
-          </div>
-        </div>
-
-        <!-- 启用推理标签分离（临时禁用，待后续扩展） -->
-        <div class="opacity-50 pointer-events-none">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center">
-              <div class="system-sm-semibold-uppercase text-gray-500">启用推理标签分离</div>
-              <span class="ml-2 text-xs text-gray-400">(待扩展)</span>
-            </div>
-            <div class="h-4 w-7 rounded-full bg-gray-200 transition-colors duration-200">
-              <div
-                class="h-3 w-3 rounded-full bg-white shadow transform transition-transform duration-200 mt-0.5 translate-x-0.5"
-              />
-            </div>
-          </div>
-        </div>
-
-        <!-- 输出变量 -->
-        <div>
-          <div class="flex items-center justify-between mb-2">
-            <div class="flex items-center">
-              <div class="system-sm-semibold-uppercase text-gray-500">输出变量</div>
-            </div>
-            <div class="text-xs text-gray-400">结构化输出</div>
+          <div v-if="promptItems.length === 0" class="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-center text-sm text-gray-400">
+            暂无 Prompt，点击“添加消息”开始配置
           </div>
 
-          <div class="space-y-2">
-            <div
-              v-for="(output, index) in localOutputs"
-              :key="index"
-              class="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-2 py-2"
-            >
-              <div class="flex-1 min-w-0">
-                <input
-                  :value="output.variable"
-                  class="w-full text-sm text-gray-700 bg-transparent outline-none"
-                  placeholder="变量名"
-                  @input="updateOutputVariable(index, ($event.target as HTMLInputElement).value)"
-                />
-              </div>
-              <div class="text-gray-400">:</div>
-              <div class="flex-1 min-w-0">
-                <div class="w-full text-sm text-gray-500">string</div>
-              </div>
-              <div class="cursor-pointer shrink-0" @click="removeOutput(index)">
-                <svg
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  fill="currentColor"
-                  class="h-4 w-4 text-gray-400 hover:text-red-500"
+          <div
+            v-for="item in promptItems"
+            :key="item.id"
+            class="rounded-2xl border border-gray-200 bg-white p-3 shadow-xs"
+          >
+            <div class="flex items-center gap-2">
+              <select
+                :value="item.role"
+                class="h-8 rounded-lg border border-gray-200 bg-[#f8fafc] px-3 text-xs font-medium uppercase tracking-wide text-gray-600 outline-none focus:border-[#8ea0ff]"
+                @change="updatePrompt(item.id, { role: ($event.target as HTMLSelectElement).value as OFPromptItem['role'] })"
+              >
+                <option value="system">system</option>
+                <option value="user">user</option>
+                <option value="assistant">assistant</option>
+              </select>
+
+              <div class="ml-auto flex items-center gap-1">
+                <button
+                  class="flex h-8 items-center gap-1 rounded-lg border border-gray-200 bg-white px-2 text-xs text-gray-500 hover:bg-gray-50"
+                  @click="openPromptVariableSelector(item.id, $event)"
                 >
-                  <path
-                    d="M6 19C6 20.1 6.9 21 8 21H16C17.1 21 18 20.1 18 19V7H6V19ZM19 4H15.5L14.5 3H9.5L8.5 4H5V6H19V4Z"
-                  />
-                </svg>
+                  <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="currentColor">
+                    <path d="M14.6 16.6L19.2 12L14.6 7.4L16 6L22 12L16 18L14.6 16.6ZM9.4 16.6L4.8 12L9.4 7.4L8 6L2 12L8 18L9.4 16.6Z" />
+                  </svg>
+                  插入变量
+                </button>
+                <button
+                  class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500"
+                  @click="removePrompt(item.id)"
+                >
+                  <svg viewBox="0 0 24 24" class="h-4 w-4" fill="currentColor">
+                    <path d="M17 6H22V8H20V21C20 21.5523 19.5523 22 19 22H5C4.44772 22 4 21.5523 4 21V8H2V6H7V3C7 2.44772 7.44772 2 8 2H16C16.5523 2 17 2.44772 17 3V6ZM18 8H6V20H18V8ZM9 11H11V17H9V11ZM13 11H15V17H13V11ZM9 4V6H15V4H9Z" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="mt-3 rounded-2xl border border-gray-200 bg-[#fbfcff] px-3 py-2">
+              <PromptTextarea
+                :ref="(el) => setPromptEditorRef(item.id, el)"
+                :model-value="item.text"
+                :height="96"
+                placeholder="输入消息内容..."
+                @update:model-value="updatePrompt(item.id, { text: $event })"
+              />
+            </div>
+          </div>
+        </section>
+
+        <section class="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <div class="system-sm-semibold-uppercase text-gray-500">结构化输出</div>
+              <div class="mt-1 text-xs text-gray-400">
+                开启后附加 `structured_output` object 输出变量
               </div>
             </div>
 
             <button
-              class="w-full py-2 border border-dashed border-gray-200 rounded-lg text-sm text-gray-400 hover:bg-gray-50 hover:text-gray-500 flex items-center justify-center gap-1"
-              @click="addOutput"
+              class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
+              :class="structuredEnabled ? 'bg-[#635bff]' : 'bg-[#cbd5e1]'"
+              @click="toggleStructuredOutput"
             >
-              <svg
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                fill="currentColor"
-                class="h-4 w-4"
-              >
-                <path d="M11 11V5H13V11H19V13H13V19H11V13H5V11H11Z" />
-              </svg>
-              添加输出
+              <span
+                class="inline-block h-5 w-5 transform rounded-full bg-white transition-transform"
+                :class="structuredEnabled ? 'translate-x-5' : 'translate-x-1'"
+              />
             </button>
           </div>
-        </div>
 
-        <!-- 失败时重试（临时禁用，待后续扩展） -->
-        <div class="opacity-50 pointer-events-none">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center">
-              <div class="system-sm-semibold-uppercase text-gray-500">失败时重试</div>
-              <span class="ml-2 text-xs text-gray-400">(待扩展)</span>
-            </div>
-            <div class="h-4 w-7 rounded-full bg-gray-200 transition-colors duration-200">
-              <div
-                class="h-3 w-3 rounded-full bg-white shadow transform transition-transform duration-200 mt-0.5 translate-x-0.5"
-              />
+          <div
+            v-if="structuredEnabled"
+            class="rounded-2xl border border-[#d9e0ff] bg-[#f7f8ff] p-3"
+          >
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <div class="text-sm font-medium text-gray-800">
+                  {{
+                    structuredSchema
+                      ? `已配置 ${Object.keys(structuredSchema.properties || {}).length} 个字段`
+                      : '尚未配置对象字段'
+                  }}
+                </div>
+                <div class="mt-1 text-xs text-gray-500">
+                  {{ structuredSchema ? schemaSummary : '点击右侧按钮开始配置 JSON Schema' }}
+                </div>
+              </div>
+              <button
+                class="shrink-0 rounded-lg border border-[#cfd7ff] bg-white px-3 py-1.5 text-sm text-[#4f46e5] hover:bg-[#eef2ff]"
+                @click="openSchemaEditor"
+              >
+                配置对象
+              </button>
             </div>
           </div>
-        </div>
+        </section>
 
-        <!-- 异常处理 -->
-        <div>
-          <div class="flex items-center justify-between">
-            <div class="flex items-center">
-              <div class="system-sm-semibold-uppercase text-gray-500">异常处理</div>
-              <div class="ml-1 w-3.5 h-3.5" title="配置节点执行异常时的处理策略">
-                <svg
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24"
-                  height="24"
-                  fill="currentColor"
-                  class="h-3.5 w-3.5 text-gray-400"
-                >
-                  <path
-                    d="M12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22ZM12 20C16.4183 20 20 16.4183 20 12C20 7.58172 16.4183 4 12 4C7.58172 4 4 7.58172 4 12C4 16.4183 7.58172 20 12 20ZM11 15H13V17H11V15ZM13 13.3551V14H11V12.5C11 11.9477 11.4477 11.5 12 11.5C12.8284 11.5 13.5 10.8284 13.5 10C13.5 9.17157 12.8284 8.5 12 8.5C11.2723 8.5 10.6656 9.01823 10.5288 9.70577L8.56731 9.31346C8.88637 7.70919 10.302 6.5 12 6.5C13.933 6.5 15.5 8.067 15.5 10C15.5 11.5855 14.4457 12.9248 13 13.3551Z"
-                  />
-                </svg>
+        <section class="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
+          <div>
+            <div class="system-sm-semibold-uppercase text-gray-500">输出变量</div>
+            <div class="mt-1 text-xs text-gray-400">系统自动生成，无需手动编辑</div>
+          </div>
+
+          <div class="space-y-2">
+            <div
+              v-for="item in autoOutputs"
+              :key="item.variable"
+              class="flex items-center justify-between rounded-xl border border-gray-200 bg-[#fafafa] px-3 py-2"
+            >
+              <div class="flex items-center gap-2">
+                <span class="text-sm font-semibold text-[#635bff]">{x}</span>
+                <div>
+                  <div class="text-sm font-medium text-gray-700">{{ item.variable }}</div>
+                  <div class="text-xs text-gray-400">{{ (item.value_selector || []).join('.') }}</div>
+                </div>
+              </div>
+              <div class="rounded bg-gray-100 px-2 py-1 text-xs uppercase text-gray-500">
+                {{ item.type || 'string' }}
               </div>
             </div>
-            <button class="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1">
-              无
-              <svg
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                fill="currentColor"
-                class="h-3 w-3"
-              >
-                <path
-                  d="M11.9999 13.1714L16.9497 8.22168L18.3639 9.63589L11.9999 15.9999L5.63599 9.63589L7.0502 8.22168L11.9999 13.1714Z"
-                />
-              </svg>
-            </button>
           </div>
-        </div>
+        </section>
       </div>
 
-      <div v-else-if="activeTab === 'settings' && debugMode" class="mt-2 px-4 pb-4">
+      <div v-else-if="activeTab === 'settings' && debugMode" class="px-4 py-4">
         <NodeDebugForm
           :fields="debugFields"
           :model-value="debugFormValues"
@@ -580,8 +276,7 @@
         />
       </div>
 
-      <!-- 上次运行 Tab -->
-      <div v-else-if="activeTab === 'lastRun'" class="p-4">
+      <div v-else-if="activeTab === 'lastRun'" class="px-4 py-4">
         <NodeDebugLastRun
           :result="nodeDebugResult"
           :loading="nodeDebugStore.runningNodeId === uiStore.selectedNodeId"
@@ -589,513 +284,264 @@
       </div>
     </div>
 
-    <!-- 底部：下一步 -->
-    <div class="flex-shrink-0 border-t border-gray-100 p-4">
-      <div class="system-sm-semibold-uppercase mb-1 flex items-center text-gray-500">下一步</div>
-      <div class="system-xs-regular mb-2 text-gray-400">添加此工作流程中的下一个节点</div>
-
-      <!-- 下一步节点连接器 -->
-      <div class="flex py-1">
-        <div
-          class="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white shadow-xs"
-        >
-          <!-- 这里后续会显示已连接的节点 -->
-        </div>
-        <svg class="w-6 shrink-0" style="height: 36px">
-          <g>
-            <path d="M0,18 L24,18" stroke-width="1" fill="none" class="stroke-gray-200" />
-          </g>
-        </svg>
-        <div
-          class="grow flex h-9 cursor-pointer items-center rounded-lg border border-dashed border-gray-200 px-2 text-xs text-gray-400 hover:bg-gray-50"
-          @click="addNextNode"
-        >
-          <div class="mr-1.5 flex h-5 w-5 items-center justify-center rounded bg-gray-100">
-            <svg
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              fill="currentColor"
-              class="h-3 w-3"
-            >
-              <path d="M11 11V5H13V11H19V13H13V19H11V13H5V11H11Z" />
-            </svg>
-          </div>
-          <div class="flex items-center uppercase">添加节点</div>
-        </div>
-      </div>
-    </div>
+    <ObjectSchemaEditor @save="handleSchemaSave" />
   </div>
-
-  <Teleport to="body">
-    <div
-      v-if="isModelParamsPanelVisible"
-      class="of-llm-params-panel fixed z-[80] w-[360px] overflow-hidden rounded-xl border border-[#d7dce3] bg-[#f5f7fb] shadow-xl"
-      :style="modelParamsPanelStyle"
-      @pointerdown.stop
-      @click.stop
-    >
-      <div class="flex items-center justify-between border-b border-[#d7dce3] bg-[#eceff3] px-3 py-2.5">
-        <div class="text-base font-semibold text-[#252f3d] leading-none">模型参数</div>
-        <button
-          class="inline-flex h-7 w-7 items-center justify-center rounded-md text-[#8c97a8] hover:bg-[#dde3eb] hover:text-[#5b6575]"
-          title="关闭参数面板"
-          @click="closeModelParamsPanel"
-        >
-          <svg
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            fill="currentColor"
-            class="h-4 w-4"
-          >
-            <path
-              d="M11.9997 10.5865L16.9495 5.63672L18.3637 7.05093L13.4139 12.0007L18.3637 16.9504L16.9495 18.3646L11.9997 13.4149L7.04996 18.3646L5.63574 16.9504L10.5855 12.0007L5.63574 7.05093L7.0502 5.63672L11.9997 10.5865Z"
-            />
-          </svg>
-        </button>
-      </div>
-
-      <div class="max-h-[360px] overflow-y-auto p-3 pt-2.5">
-        <div class="mb-3 h-px bg-[#dfe4eb]" />
-        <div class="mb-2 flex items-center justify-between">
-          <div class="text-sm font-semibold text-[#4f5a6b]">参数</div>
-        </div>
-
-        <div>
-          <div class="mb-2 flex items-center justify-between">
-            <label class="text-xs font-medium uppercase tracking-[0.08em] text-[#5f6c7e]">
-              temperature
-            </label>
-            <span class="text-xs text-[#8a95a6]">0 ~ 2</span>
-          </div>
-          <input
-            :value="temperatureInput"
-            type="number"
-            min="0"
-            max="2"
-            step="0.1"
-            class="h-8 w-full rounded-lg border border-[#d0d6de] bg-[#eef2f7] px-2.5 text-sm text-[#293446] outline-none focus:border-[#92c9a3]"
-            @input="handleTemperatureChange"
-          />
-        </div>
-
-        <div class="mt-2">
-          <div class="mb-2 flex items-center justify-between">
-            <label class="text-xs font-medium uppercase tracking-[0.08em] text-[#5f6c7e]">top_p</label>
-            <span class="text-xs text-[#8a95a6]">0 ~ 1</span>
-          </div>
-          <input
-            :value="topPInput"
-            type="number"
-            min="0"
-            max="1"
-            step="0.01"
-            class="h-8 w-full rounded-lg border border-[#d0d6de] bg-[#eef2f7] px-2.5 text-sm text-[#293446] outline-none focus:border-[#92c9a3]"
-            @input="handleTopPChange"
-          />
-        </div>
-
-        <div class="mt-2">
-          <div class="mb-2 flex items-center justify-between">
-            <label class="text-xs font-medium uppercase tracking-[0.08em] text-[#5f6c7e]">
-              max_tokens
-            </label>
-            <span class="text-xs text-[#8a95a6]">留空使用模型默认</span>
-          </div>
-          <input
-            :value="maxTokensInput"
-            type="number"
-            min="1"
-            step="1"
-            class="h-8 w-full rounded-lg border border-[#d0d6de] bg-[#eef2f7] px-2.5 text-sm text-[#293446] outline-none focus:border-[#92c9a3]"
-            placeholder="例如 1024"
-            @input="handleMaxTokensChange"
-          />
-        </div>
-      </div>
-    </div>
-  </Teleport>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
-import { useWorkflowEditorUIStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor-ui.store'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import type {
+  OFJsonSchemaObject,
+  OFLLMNodeData,
+  OFPromptItem,
+  OFStructuredOutputConfig
+} from '@shared/Orchestraflow-types'
+import { buildLLMOutputVariables } from '@shared/Orchestraflow-types'
 import { useWorkflowEditorStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor.store'
+import { useWorkflowEditorUIStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor-ui.store'
 import { useVariableSelectorStore } from '@renderer/stores/orchestraflow/workflow-editor/variable-selector/variable-selector.store'
-import { useLLMNodeConfigStore } from '@renderer/stores/orchestraflow/workflow-editor/node-config/llm-node-config/llm-node-config.store'
-import { useModelConfigStore } from '@renderer/stores/model-config/store'
 import { useNodeDebugStore } from '@renderer/stores/orchestraflow/node-debug/node-debug.store'
-import ModelSelector from '@renderer/components/ModelSelector'
+import { useObjectSchemaEditorStore } from '@renderer/stores/orchestraflow/workflow-editor/object-schema-editor/object-schema-editor.store'
+import { useModelConfigStore } from '@renderer/stores/model-config/store'
+import type { NodeDebugField } from './NodeDebug/NodeDebugForm.vue'
 import PromptTextarea from './PromptTextarea/index.vue'
 import NodeDebugForm from './NodeDebug/NodeDebugForm.vue'
 import NodeDebugLastRun from './NodeDebug/NodeDebugLastRun.vue'
-import type {
-  OFLLMNodeData,
-  OFModelCompletionParams,
-  OFPromptItem,
-  OFVarType
-} from '@shared/Orchestraflow-types'
-import type { NodeDebugField } from './NodeDebug/NodeDebugForm.vue'
+import ObjectSchemaEditor from './ObjectSchemaEditor/index.vue'
 
 const uiStore = useWorkflowEditorUIStore()
 const editorStore = useWorkflowEditorStore()
 const variableSelectorStore = useVariableSelectorStore()
-const llmNodeConfigStore = useLLMNodeConfigStore()
-const modelConfigStore = useModelConfigStore()
 const nodeDebugStore = useNodeDebugStore()
-const llmPanelRootRef = ref<HTMLElement | null>(null)
+const objectSchemaEditorStore = useObjectSchemaEditorStore()
+const modelConfigStore = useModelConfigStore()
 
-// 本地表单状态（临时性质，不做全局状态）
-const localTitle = ref('')
-const localDesc = ref('')
 const activeTab = ref<'settings' | 'lastRun'>('settings')
 const debugMode = ref(false)
+const promptEditorRefs = new Map<string, { getCursorPosition: () => number }>()
+const activePromptTarget = ref<{ promptId: string; cursorPosition: number } | null>(null)
 
-// 模型选择对话框显示状态
-const modelSelectorVisible = ref(false)
-
-// 获取当前选中的节点
 const currentNode = computed(() => {
   if (!uiStore.selectedNodeId) return null
-  return editorStore.nodes.find((n) => n.id === uiStore.selectedNodeId)
+  return editorStore.nodes.find((node) => node.id === uiStore.selectedNodeId) || null
 })
 
-// 当前模型标识（从 store 读写，全局持久化）
-const currentProviderId = computed({
-  get() {
-    if (!currentNode.value) return 'openai'
-    const nodeData = currentNode.value.data as OFLLMNodeData
-    return nodeData.model?.provider || 'openai'
-  },
-  set(newProvider: string) {
-    if (!uiStore.selectedNodeId || !currentNode.value) return
-    const nodeData = currentNode.value.data as OFLLMNodeData
-    editorStore.updateNode(uiStore.selectedNodeId, {
-      model: { ...nodeData.model, provider: newProvider }
-    })
+const nodeData = computed(() => currentNode.value?.data as OFLLMNodeData | undefined)
+const providers = computed(() => modelConfigStore.providers)
+
+const titleModel = computed({
+  get: () => nodeData.value?.title || 'LLM',
+  set: (value: string) => {
+    if (!currentNode.value) return
+    editorStore.updateNode(currentNode.value.id, { title: value } as Partial<OFLLMNodeData>)
   }
 })
 
-const currentModelId = computed({
-  get() {
-    if (!currentNode.value) return 'gpt-4'
-    const nodeData = currentNode.value.data as OFLLMNodeData
-    return nodeData.model?.name || 'gpt-4'
-  },
-  set(newModel: string) {
-    if (!uiStore.selectedNodeId || !currentNode.value) return
-    const nodeData = currentNode.value.data as OFLLMNodeData
-    editorStore.updateNode(uiStore.selectedNodeId, {
-      model: { ...nodeData.model, name: newModel }
-    })
+const descModel = computed({
+  get: () => nodeData.value?.desc || '',
+  set: (value: string) => {
+    if (!currentNode.value) return
+    editorStore.updateNode(currentNode.value.id, { desc: value } as Partial<OFLLMNodeData>)
   }
 })
 
-// 展示用文案
-const displayModelText = computed(() => {
-  if (!currentProviderId.value || !currentModelId.value) {
-    return '请选择模型'
-  }
-  const providerName =
-    modelConfigStore.providers.find((item) => item.id === currentProviderId.value)?.name ||
-    currentProviderId.value
-  return `${providerName} / ${currentModelId.value}`
-})
-
-const modelParamsPanelStyle = ref({
-  top: '12px',
-  left: '12px'
-})
-
-const completionParams = computed<OFModelCompletionParams>(() => {
-  if (!currentNode.value) return {}
-  const nodeData = currentNode.value.data as OFLLMNodeData
-  return nodeData.model?.completion_params || {}
-})
-
-const isModelParamsPanelVisible = computed(() => {
-  return (
-    llmNodeConfigStore.modelParamsPanel.visible &&
-    llmNodeConfigStore.modelParamsPanel.activeNodeId === uiStore.selectedNodeId
-  )
-})
-
-const temperatureInput = computed(() => {
-  const value = completionParams.value.temperature
-  return typeof value === 'number' ? String(value) : '1.0'
-})
-
-const topPInput = computed(() => {
-  const value = completionParams.value.top_p
-  return typeof value === 'number' ? String(value) : '1.0'
-})
-
-const maxTokensInput = computed(() => {
-  const value = completionParams.value.max_tokens
-  return typeof value === 'number' ? String(value) : ''
-})
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), max)
-}
-
-function updateCompletionParams(partial: Partial<OFModelCompletionParams>): void {
-  if (!uiStore.selectedNodeId || !currentNode.value) return
-  const nodeData = currentNode.value.data as OFLLMNodeData
-  const merged: OFModelCompletionParams = {
-    ...(nodeData.model?.completion_params || {}),
-    ...partial
-  }
-  const cleaned = Object.fromEntries(
-    Object.entries(merged).filter(([, value]) => value !== undefined)
-  ) as OFModelCompletionParams
-  editorStore.updateNode(uiStore.selectedNodeId, {
-    model: {
-      ...nodeData.model,
-      completion_params: Object.keys(cleaned).length > 0 ? cleaned : undefined
-    }
-  })
-}
-
-function updateModelParamsPanelStyle() {
-  const panelWidth = 360
-  const panelHeight = 320
-  const padding = 12
-  const gap = 12
-
-  const floatingPanel = llmPanelRootRef.value?.closest('.of-floating-panel') as HTMLElement | null
-  const floatingRect = floatingPanel?.getBoundingClientRect()
-
-  let left = floatingRect ? floatingRect.left - panelWidth - gap : window.innerWidth - panelWidth - padding
-  let top = floatingRect ? floatingRect.top + 12 : 12
-
-  if (left < padding && floatingRect) {
-    left = floatingRect.right + gap
-  }
-  if (left + panelWidth > window.innerWidth - padding) {
-    left = window.innerWidth - panelWidth - padding
-  }
-  if (top + panelHeight > window.innerHeight - padding) {
-    top = Math.max(padding, window.innerHeight - panelHeight - padding)
-  }
-
-  left = Math.min(Math.max(left, padding), window.innerWidth - panelWidth - padding)
-  top = Math.min(Math.max(top, padding), window.innerHeight - panelHeight - padding)
-
-  modelParamsPanelStyle.value = {
-    top: `${top}px`,
-    left: `${left}px`
-  }
-}
-
-function openModelParamsPanel(event: MouseEvent): void {
-  if (!uiStore.selectedNodeId) return
-  const anchorRect = (event.currentTarget as HTMLElement | null)?.getBoundingClientRect() || null
-  llmNodeConfigStore.openModelParamsPanel(uiStore.selectedNodeId, anchorRect)
-  nextTick(updateModelParamsPanelStyle)
-}
-
-function closeModelParamsPanel(): void {
-  llmNodeConfigStore.closeModelParamsPanel()
-}
-
-function handleTemperatureChange(event: Event): void {
-  const parsed = Number((event.target as HTMLInputElement).value)
-  if (!Number.isFinite(parsed)) return
-  updateCompletionParams({
-    temperature: clamp(parsed, 0, 2)
-  })
-}
-
-function handleTopPChange(event: Event): void {
-  const parsed = Number((event.target as HTMLInputElement).value)
-  if (!Number.isFinite(parsed)) return
-  updateCompletionParams({
-    top_p: clamp(parsed, 0, 1)
-  })
-}
-
-function handleMaxTokensChange(event: Event): void {
-  const raw = (event.target as HTMLInputElement).value.trim()
-  if (!raw) {
-    updateCompletionParams({
-      max_tokens: undefined
-    })
-    return
-  }
-  const parsed = Number(raw)
-  if (!Number.isFinite(parsed)) return
-  updateCompletionParams({
-    max_tokens: Math.max(1, Math.floor(parsed))
-  })
-}
-
-// 处理模型选择结果
-function handleModelSelected(payload: {
-  provider: { id: string; name: string }
-  model: { id: string; name: string }
-}): void {
-  currentProviderId.value = payload.provider.id
-  currentModelId.value = payload.model.id
-}
-
-// 提示词消息（从 store 读写，全局持久化）
-const localMessages = computed({
-  get() {
-    if (!currentNode.value) return []
-    const nodeData = currentNode.value.data as OFLLMNodeData
-    return nodeData.prompt_template || []
-  },
-  set(newMessages: OFPromptItem[]) {
-    if (!uiStore.selectedNodeId) return
-    editorStore.updateNode(uiStore.selectedNodeId, {
-      prompt_template: newMessages
-    })
+const providerIdModel = computed({
+  get: () => nodeData.value?.model?.provider || '',
+  set: (value: string) => {
+    if (!nodeData.value || !currentNode.value) return
+    const nextProvider = providers.value.find((item) => item.id === value)
+    const exists = (nextProvider?.models || []).some((item) => item.id === nodeData.value?.model?.name)
+    editorStore.updateNode(currentNode.value.id, {
+      model: {
+        ...nodeData.value.model,
+        provider: value,
+        name: exists ? nodeData.value.model.name : ''
+      }
+    } as Partial<OFLLMNodeData>)
   }
 })
 
-// 临时消息列表（用于编辑，避免直接修改 computed）
-const editableMessages = ref<Array<{ role: string; content: string; tokens?: number }>>([
-  { role: 'system', content: '', tokens: 0 },
-  { role: 'user', content: '', tokens: 0 }
-])
+const availableModels = computed(() => {
+  const provider = providers.value.find((item) => item.id === providerIdModel.value)
+  return provider?.models || []
+})
 
-// 输出变量（从 store 读写，全局持久化）
-const localOutputs = computed({
-  get() {
-    if (!currentNode.value) return []
-    const nodeData = currentNode.value.data as OFLLMNodeData
-    return nodeData.output?.variables || []
-  },
-  set(
-    newOutputs: Array<{
-      variable: string
-      value_selector?: string[]
-      type?: OFVarType
-      label?: string
-    }>
-  ) {
-    if (!uiStore.selectedNodeId) return
-    editorStore.updateNode(uiStore.selectedNodeId, {
-      output: { variables: newOutputs }
-    } as any)
+const modelNameModel = computed({
+  get: () => nodeData.value?.model?.name || '',
+  set: (value: string) => {
+    if (!nodeData.value || !currentNode.value) return
+    editorStore.updateNode(currentNode.value.id, {
+      model: {
+        ...nodeData.value.model,
+        name: value
+      }
+    } as Partial<OFLLMNodeData>)
   }
+})
+
+const promptItems = computed(() => nodeData.value?.prompt_template || [])
+const structuredSchema = computed(() => nodeData.value?.structured_output?.schema || null)
+const structuredEnabled = computed(() => Boolean(nodeData.value?.structured_output?.enabled))
+const autoOutputs = computed(() => {
+  if (!currentNode.value || !nodeData.value) return []
+  return buildLLMOutputVariables(currentNode.value.id, nodeData.value.structured_output)
+})
+
+const schemaSummary = computed(() => {
+  const schema = structuredSchema.value
+  if (!schema) return ''
+  const fields = Object.entries(schema.properties || {}).map(([name, item]) => `${name}:${item.type}`)
+  return fields.join(' / ')
 })
 
 const debugFields = computed<NodeDebugField[]>(() => {
-  const vars = new Set<string>()
-  for (const prompt of localMessages.value) {
-    const text = prompt.text || ''
-    const matches = text.matchAll(/\{\{\s*([\w.]+)\s*\}\}/g)
-    for (const item of matches) {
-      const key = item[1]
-      if (key) vars.add(key)
+  const matched = new Set<string>()
+  const fields: NodeDebugField[] = []
+  for (const item of promptItems.value) {
+    const regex = /\{\{\s*([\w.]+)\s*\}\}/g
+    for (const match of item.text.matchAll(regex)) {
+      const key = match[1]
+      if (!key || matched.has(key)) continue
+      matched.add(key)
+      fields.push({
+        key,
+        label: key,
+        required: false,
+        placeholder: `请输入 ${key}`
+      })
     }
   }
-
-  return [...vars].map((key) => ({
-    key,
-    label: key,
-    required: false,
-    placeholder: `请输入 ${key}`
-  }))
+  return fields
 })
 
 const debugFormValues = computed(() => {
   const nodeId = uiStore.selectedNodeId
-  if (!nodeId) return {}
-  return nodeDebugStore.getNodeFormValues(nodeId)
+  return nodeId ? nodeDebugStore.getNodeFormValues(nodeId) : {}
 })
 
 const nodeDebugResult = computed(() => {
   const nodeId = uiStore.selectedNodeId
-  if (!nodeId) return undefined
-  return nodeDebugStore.getLastRun(nodeId)
+  return nodeId ? nodeDebugStore.getLastRun(nodeId) : undefined
 })
 
-// 开关状态（临时禁用，保持本地状态，待后续扩展）
-const localVisionEnabled = ref(false)
-const localReasoningEnabled = ref(false)
-const localRetryEnabled = ref(false)
-
-// Tab 切换
-function setActiveTab(tab: 'settings' | 'lastRun'): void {
+function setActiveTab(tab: 'settings' | 'lastRun') {
   activeTab.value = tab
   if (tab !== 'settings') {
     debugMode.value = false
   }
 }
 
-function enterDebugMode(): void {
+function handleClose() {
+  uiStore.closeNodeConfigPanel()
+}
+
+function enterDebugMode() {
   debugMode.value = true
   activeTab.value = 'settings'
 }
 
-// 添加消息
-function addMessage(): void {
-  const newMessages = [
-    ...localMessages.value,
-    {
-      id: `msg_${Date.now()}`,
-      role: 'user' as const,
-      text: ''
+function setPromptEditorRef(id: string, instance: unknown) {
+  if (instance && typeof instance === 'object') {
+    promptEditorRefs.set(id, instance as { getCursorPosition: () => number })
+  } else {
+    promptEditorRefs.delete(id)
+  }
+}
+
+function patchNode(patch: Partial<OFLLMNodeData>) {
+  if (!currentNode.value) return
+  editorStore.updateNode(currentNode.value.id, patch)
+}
+
+function updatePrompt(promptId: string, patch: Partial<Omit<OFPromptItem, 'id'>>) {
+  const next = promptItems.value.map((item) => (item.id === promptId ? { ...item, ...patch } : item))
+  patchNode({ prompt_template: next } as Partial<OFLLMNodeData>)
+}
+
+function addPrompt() {
+  const nextItem: OFPromptItem = {
+    id: `prompt_${Date.now()}`,
+    role: promptItems.value.length === 0 ? 'user' : 'system',
+    text: ''
+  }
+  patchNode({ prompt_template: [...promptItems.value, nextItem] } as Partial<OFLLMNodeData>)
+}
+
+function removePrompt(promptId: string) {
+  const next = promptItems.value.filter((item) => item.id !== promptId)
+  patchNode({ prompt_template: next } as Partial<OFLLMNodeData>)
+}
+
+function syncStructuredOutput(nextStructuredOutput: OFStructuredOutputConfig) {
+  if (!currentNode.value) return
+  patchNode({
+    structured_output: nextStructuredOutput,
+    output: {
+      variables: buildLLMOutputVariables(currentNode.value.id, nextStructuredOutput)
     }
-  ]
-  localMessages.value = newMessages
+  } as Partial<OFLLMNodeData>)
 }
 
-// 移除消息
-function removeMessage(index: number): void {
-  const newMessages = [...localMessages.value]
-  newMessages.splice(index, 1)
-  localMessages.value = newMessages
+function toggleStructuredOutput() {
+  if (!nodeData.value) return
+  const nextEnabled = !structuredEnabled.value
+  syncStructuredOutput({
+    enabled: nextEnabled,
+    schema: nodeData.value.structured_output?.schema || null
+  })
+  if (nextEnabled && !nodeData.value.structured_output?.schema) {
+    openSchemaEditor()
+  }
 }
 
-// 更新消息内容
-function updateMessageContent(index: number, newContent: string): void {
-  const newMessages = [...localMessages.value]
-  newMessages[index] = { ...newMessages[index], text: newContent }
-  localMessages.value = newMessages
+function openSchemaEditor() {
+  if (!currentNode.value) return
+  objectSchemaEditorStore.open(currentNode.value.id, structuredSchema.value)
 }
 
-// 添加输出
-function addOutput(): void {
-  const newOutputs = [
-    ...localOutputs.value,
-    {
-      variable: '',
-      value_selector: []
-    }
-  ]
-  localOutputs.value = newOutputs
+function handleSchemaSave(schema: OFJsonSchemaObject) {
+  syncStructuredOutput({
+    enabled: true,
+    schema
+  })
 }
 
-// 移除输出
-function removeOutput(index: number): void {
-  const newOutputs = [...localOutputs.value]
-  newOutputs.splice(index, 1)
-  localOutputs.value = newOutputs
+function openPromptVariableSelector(promptId: string, event: MouseEvent) {
+  if (!currentNode.value) return
+  const anchorRect = (event.currentTarget as HTMLElement | null)?.getBoundingClientRect() || undefined
+  const editorRef = promptEditorRefs.get(promptId)
+  activePromptTarget.value = {
+    promptId,
+    cursorPosition: editorRef?.getCursorPosition?.() || 0
+  }
+  variableSelectorStore.openSelector(currentNode.value.id, 'prompt', activePromptTarget.value.cursorPosition, anchorRect)
 }
 
-// 更新输出变量名
-function updateOutputVariable(index: number, newVariable: string): void {
-  const newOutputs = [...localOutputs.value]
-  newOutputs[index] = { ...newOutputs[index], variable: newVariable }
-  localOutputs.value = newOutputs
+function insertVariableIntoPrompt(promptId: string, variablePath: string, cursorPosition: number) {
+  const item = promptItems.value.find((entry) => entry.id === promptId)
+  if (!item) return
+  const insertion = `{{${variablePath}}}`
+  const start = Math.max(0, Math.min(cursorPosition, item.text.length))
+  updatePrompt(promptId, {
+    text: `${item.text.slice(0, start)}${insertion}${item.text.slice(start)}`
+  })
 }
 
-// 添加下一步节点
-function addNextNode(): void {
-  // TODO: 实现添加节点逻辑
-}
-
-// 关闭面板
-function handleClose(): void {
-  llmNodeConfigStore.closeModelParamsPanel()
-  uiStore.closeNodeConfigPanel()
+function handleVariableSelect(event: Event) {
+  const detail = (event as CustomEvent).detail
+  if (
+    detail?.nodeId !== uiStore.selectedNodeId ||
+    detail?.targetType !== 'prompt' ||
+    !activePromptTarget.value
+  ) {
+    return
+  }
+  insertVariableIntoPrompt(
+    activePromptTarget.value.promptId,
+    detail.variable.path,
+    activePromptTarget.value.cursorPosition
+  )
+  activePromptTarget.value = null
 }
 
 function handleDebugFormUpdate(values: Record<string, string>) {
@@ -1109,168 +555,42 @@ async function executeNodeDebug(values: Record<string, string>) {
   if (!editorStore.currentWorkflowId || !uiStore.selectedNodeId) return
   debugMode.value = false
   activeTab.value = 'lastRun'
-  try {
-    await nodeDebugStore.runNodeDebug({
-      workflowId: editorStore.currentWorkflowId,
-      nodeId: uiStore.selectedNodeId,
-      inputs: { ...values }
-    })
-  } catch (error) {
-    console.error('Node debug run failed:', error)
-  }
-}
-
-// 消息输入框 ref（用于检测 / 触发变量选择器）
-const messageTextareas = ref<InstanceType<typeof import('./PromptTextarea/index.vue').default>[]>(
-  []
-)
-const activeMessageIndex = ref(0)
-
-function openPromptVariableSelector(index: number, event: MouseEvent) {
-  activeMessageIndex.value = index
-  const textarea = messageTextareas.value[index]
-  const cursorPos = textarea?.getCursorPosition?.() || 0
-  const anchorRect =
-    (event.currentTarget as HTMLElement | null)?.getBoundingClientRect() ||
-    textarea?.getAnchorRect?.() ||
-    undefined
-
-  variableSelectorStore.openSelector(uiStore.selectedNodeId!, 'prompt', cursorPos, anchorRect)
-}
-
-// 处理消息文本框输入，检测 / 触发变量选择器
-function handleMessageInput(index: number, value: string) {
-  const textarea = messageTextareas.value[index]
-  const cursorPos = textarea?.getCursorPosition?.() || 0
-
-  // 检测光标前是否是 /
-  const textBeforeCursor = value.slice(0, cursorPos)
-  const lastSlashIndex = textBeforeCursor.lastIndexOf('/')
-
-  // 如果 / 在光标位置前一个字符，触发变量选择器
-  if (
-    lastSlashIndex !== -1 &&
-    (lastSlashIndex === cursorPos - 1 ||
-      textBeforeCursor.slice(lastSlashIndex).match(/^\/[a-zA-Z0-9_]*$/))
-  ) {
-    // 检查 / 后面是否有空格或其他分隔符
-    const textAfterSlash = textBeforeCursor.slice(lastSlashIndex + 1)
-    if (!textAfterSlash.includes(' ')) {
-      activeMessageIndex.value = index
-      const anchorRect = textarea?.getAnchorRect?.() || undefined
-      // 打开变量选择器
-      variableSelectorStore.openSelector(uiStore.selectedNodeId!, 'prompt', cursorPos, anchorRect)
-    }
-  }
-
-  // 继续更新消息内容
-  updateMessageContent(index, value)
-}
-
-// 监听变量选择事件
-function handleVariableSelect(event: CustomEvent) {
-  const { nodeId, targetType, variable, cursorPosition } = event.detail
-
-  // 确保是当前节点
-  if (nodeId !== uiStore.selectedNodeId) return
-
-  // 处理 prompt 类型的变量选择
-  if (targetType === 'prompt') {
-    // 获取当前消息内容
-    const currentMessages = [...localMessages.value]
-    const targetMessageIndex = Math.min(activeMessageIndex.value, currentMessages.length - 1)
-    if (targetMessageIndex < 0 || !currentMessages[targetMessageIndex]) return
-
-    const currentValue = currentMessages[targetMessageIndex].text
-    const cursorPos = cursorPosition || 0
-
-    // 找到 / 的位置
-    const textBeforeCursor = currentValue.slice(0, cursorPos)
-    const lastSlashIndex = textBeforeCursor.lastIndexOf('/')
-
-    if (lastSlashIndex !== -1) {
-      // 替换 / 为变量标签
-      const beforeSlash = currentValue.slice(0, lastSlashIndex)
-      const afterCursor = currentValue.slice(cursorPos)
-      const newValue = beforeSlash + `{{${variable.variable}}}` + afterCursor
-
-      // 更新消息内容
-      currentMessages[targetMessageIndex] = { ...currentMessages[targetMessageIndex], text: newValue }
-      localMessages.value = currentMessages
-    }
-  }
-
-  // 处理 output 类型的变量选择
-  if (targetType === 'output') {
-    // 只取变量名本身
-    const varName = variable.variable.split('.').pop() || variable.variable
-
-    // 添加到输出列表
-    const newOutputs = [
-      ...localOutputs.value,
-      {
-        variable: varName,
-        value_selector: variable.valueSelector
-      }
-    ]
-    localOutputs.value = newOutputs
-  }
-}
-
-function handleWindowResize() {
-  if (isModelParamsPanelVisible.value) {
-    updateModelParamsPanelStyle()
-  }
+  await nodeDebugStore.runNodeDebug({
+    workflowId: editorStore.currentWorkflowId,
+    nodeId: uiStore.selectedNodeId,
+    inputs: { ...values }
+  })
 }
 
 onMounted(() => {
-  if (modelConfigStore.providers.length === 0) {
-    modelConfigStore.fetchProviders()
-  }
   window.addEventListener('of:variable-select', handleVariableSelect as EventListener)
-  window.addEventListener('resize', handleWindowResize)
 })
 
 onUnmounted(() => {
   window.removeEventListener('of:variable-select', handleVariableSelect as EventListener)
-  window.removeEventListener('resize', handleWindowResize)
-  llmNodeConfigStore.closeModelParamsPanel()
 })
-
-watch(
-  () => isModelParamsPanelVisible.value,
-  (visible) => {
-    if (visible) {
-      nextTick(updateModelParamsPanelStyle)
-    }
-  }
-)
-
-// 监听选中节点变化，加载数据
-watch(
-  () => uiStore.selectedNodeId,
-  (newId) => {
-    debugMode.value = false
-    if (llmNodeConfigStore.modelParamsPanel.activeNodeId !== newId) {
-      llmNodeConfigStore.closeModelParamsPanel()
-    }
-    if (newId && currentNode.value) {
-      const nodeData = currentNode.value.data as OFLLMNodeData
-      localTitle.value = nodeData.title || 'LLM'
-      localDesc.value = nodeData.desc || ''
-      // 模型、消息、输出已通过 computed 自动同步
-    }
-  },
-  { immediate: true }
-)
 </script>
 
 <style scoped>
-.of-node-config-panel {
+.of-llm-node-panel {
   font-family: inherit;
 }
 
-.of-llm-params-panel {
-  font-family: inherit;
+.of-llm-node-panel input,
+.of-llm-node-panel select,
+.of-llm-node-panel textarea,
+.of-llm-node-panel button {
+  color: #111827;
+}
+
+.of-llm-node-panel textarea::placeholder,
+.of-llm-node-panel input::placeholder {
+  color: #9ca3af;
+}
+
+.of-llm-node-panel :deep(textarea),
+.of-llm-node-panel :deep(input),
+.of-llm-node-panel :deep(select) {
+  color: #111827;
 }
 </style>

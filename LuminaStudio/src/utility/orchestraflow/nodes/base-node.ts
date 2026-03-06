@@ -8,6 +8,7 @@ import type {
   OFNode,
   OFStartNodeData,
   OFLLMNodeData,
+  OFIfElseNodeData,
   OFEndNodeData
 } from '@shared/Orchestraflow-types'
 import type { ExecutionContext, NodeResult } from './types'
@@ -62,7 +63,7 @@ export abstract class BaseNode {
   /**
    * 获取节点配置数据
    */
-  protected getNodeData(): OFStartNodeData | OFLLMNodeData | OFEndNodeData {
+  protected getNodeData(): OFStartNodeData | OFLLMNodeData | OFIfElseNodeData | OFEndNodeData {
     return this.context.node.data as any
   }
 
