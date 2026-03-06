@@ -11,11 +11,15 @@ function createDefaultConfig(): OFIterationNodeConfig {
     iterationCount: 3,
     iterationSource: '',
     mockTemplateId: 'llm-summary',
+    graph: {
+      nodes: [],
+      edges: [],
+      viewport: { x: 0, y: 0, zoom: 1 }
+    },
     preview: {
       label: '迭代开始',
       nodes: [
-        { id: 'preview-start', type: 'start', title: '开始' },
-        { id: 'preview-llm', type: 'llm', title: 'LLM 2', subtitle: 'Pro/moonshotai/Ki...' }
+        { id: 'preview-start', type: 'iteration-start', title: '迭代开始' }
       ]
     },
     mockRun: {

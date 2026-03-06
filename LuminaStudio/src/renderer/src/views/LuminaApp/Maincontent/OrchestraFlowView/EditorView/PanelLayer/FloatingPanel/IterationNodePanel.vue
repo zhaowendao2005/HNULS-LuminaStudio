@@ -101,12 +101,12 @@
         <div class="rounded-2xl border border-gray-200 bg-[#f4f5f7] p-3">
           <div class="space-y-2">
             <div
-              v-for="node in configStore.config.preview.nodes"
+              v-for="node in configStore.config.graph.nodes"
               :key="node.id"
               class="rounded-xl border border-gray-100 bg-white px-3 py-2 shadow-sm"
             >
-              <div class="text-sm font-medium text-gray-800">{{ node.title }}</div>
-              <div v-if="node.subtitle" class="mt-1 text-xs text-gray-500">{{ node.subtitle }}</div>
+              <div class="text-sm font-medium text-gray-800">{{ node.data.title }}</div>
+              <div class="mt-1 text-xs text-gray-500">{{ node.data.type }}</div>
             </div>
           </div>
         </div>
@@ -162,7 +162,7 @@ const mockTemplateOptions = [
 
 const currentNode = computed(() => {
   if (!uiStore.selectedNodeId) return null
-  return editorStore.nodes.find((node) => node.id === uiStore.selectedNodeId) || null
+  return editorStore.findNodeById(uiStore.selectedNodeId) || null
 })
 
 const localTitle = ref('')

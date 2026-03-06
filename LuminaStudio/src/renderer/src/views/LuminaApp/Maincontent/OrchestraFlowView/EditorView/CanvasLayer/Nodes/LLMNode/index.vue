@@ -1,5 +1,62 @@
 <template>
   <div
+    v-if="isNested"
+    class="of-node of-llm-node of-llm-node-nested group relative rounded-[20px] border border-[#edf0f4] bg-[#fbfbfc] shadow-[0_2px_10px_rgba(15,23,42,0.04)]"
+    :class="nestedContainerClass"
+    style="--of-handle-top: 28px"
+  >
+    <Handle
+      type="target"
+      :position="Position.Left"
+      id="target"
+      class="of-node-handle of-handle-target of-llm-target-handle"
+    />
+    <Handle
+      type="source"
+      :position="Position.Right"
+      id="source"
+      class="of-node-handle of-handle-source of-llm-source-handle"
+    />
+
+    <div class="flex items-center gap-3 px-4 pb-3 pt-4">
+      <div class="flex h-8 w-8 items-center justify-center rounded-xl bg-[#6c72f7] text-white">
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+          />
+        </svg>
+      </div>
+      <div class="truncate text-[18px] font-semibold text-[#111827]">
+        {{ data.title || 'LLM 2' }}
+      </div>
+    </div>
+
+    <div class="px-4 pb-4">
+      <div
+        class="flex h-11 items-center justify-between rounded-xl border border-[#edf0f4] bg-[#f4f5f7] px-3 text-sm text-[#111827]"
+      >
+        <div class="flex min-w-0 items-center gap-2">
+          <span class="text-[#6c63ff]">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+            </svg>
+          </span>
+          <span class="truncate text-[15px]">{{ nestedModelSummary }}</span>
+        </div>
+        <span
+          class="ml-2 rounded-[10px] border border-[#d6d9df] bg-[#eef0f4] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[#6b7280]"
+        >
+          CHAT
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <div
+    v-else
     class="of-node of-llm-node group relative w-[240px] rounded-[15px] border bg-[#f3f4f6] pb-1 shadow-sm transition-all hover:shadow-lg"
     :class="containerClass"
   >
@@ -102,8 +159,11 @@ import { useModelConfigStore } from '@renderer/stores/model-config/store'
 
 const props = defineProps<{
   data: OFLLMNodeData
+  parentNode?: string
 }>()
 const modelConfigStore = useModelConfigStore()
+
+const isNested = computed(() => Boolean(props.parentNode))
 
 const modelSummary = computed(() => {
   const providerId = props.data?.model?.provider || ''
@@ -114,6 +174,12 @@ const modelSummary = computed(() => {
   return `${provider}/${model}`
 })
 
+const nestedModelSummary = computed(() => {
+  const summary = modelSummary.value
+  if (summary.length <= 18) return summary
+  return `${summary.slice(0, 18)}...`
+})
+
 const runningStatus = computed(() => props.data?._runningStatus || OFNodeRunningStatus.NotStarted)
 const containerClass = computed(() => {
   if (runningStatus.value === OFNodeRunningStatus.Running)
@@ -122,11 +188,23 @@ const containerClass = computed(() => {
   if (runningStatus.value === OFNodeRunningStatus.Failed) return 'border-red-400'
   return 'border-transparent'
 })
+
+const nestedContainerClass = computed(() => {
+  if (runningStatus.value === OFNodeRunningStatus.Running)
+    return 'border-indigo-300 shadow-[0_0_0_4px_rgba(108,99,255,0.08)]'
+  if (runningStatus.value === OFNodeRunningStatus.Succeeded) return 'border-emerald-400'
+  if (runningStatus.value === OFNodeRunningStatus.Failed) return 'border-red-300'
+  return ''
+})
 </script>
 
 <style scoped>
 .of-llm-node {
   font-family: inherit;
+}
+
+.of-llm-node-nested {
+  width: 312px;
 }
 
 .of-node-running {
@@ -168,7 +246,6 @@ const containerClass = computed(() => {
   background: #dc2626;
 }
 
-/* 指示器颜色（定位/尺寸/hover 由 CanvasLayer 统一管理） */
 .of-llm-target-handle::after,
 .of-llm-source-handle::after {
   background: #6c63ff;

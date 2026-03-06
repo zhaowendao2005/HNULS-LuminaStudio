@@ -341,7 +341,7 @@ const booleanValueOptions: WhiteSelectOption[] = [
 
 const currentNode = computed(() => {
   if (!uiStore.selectedNodeId) return null
-  return editorStore.nodes.find((node) => node.id === uiStore.selectedNodeId) || null
+  return editorStore.findNodeById(uiStore.selectedNodeId) || null
 })
 
 const nodeData = computed(() => currentNode.value?.data as OFIfElseNodeData | undefined)

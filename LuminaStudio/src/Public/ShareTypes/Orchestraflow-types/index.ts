@@ -10,6 +10,7 @@ export enum OFBlockEnum {
   Start = 'start',
   LLM = 'llm',
   Iteration = 'iteration',
+  IterationStart = 'iteration-start',
   IfElse = 'ifelse',
   End = 'end'
 }
@@ -94,7 +95,7 @@ export type OFIterationMode = 'fixed-count' | 'mock-source'
 
 export interface OFIterationPreviewNode {
   id: string
-  type: 'start' | 'llm'
+  type: 'iteration-start' | 'llm'
   title: string
   subtitle?: string
 }
@@ -116,6 +117,16 @@ export interface OFIterationMockRun {
 export interface OFIterationPreviewSnapshot {
   label: string
   nodes: OFIterationPreviewNode[]
+}
+
+export interface OFSubWorkflowGraph {
+  nodes: OFNode[]
+  edges: OFEdge[]
+  viewport: {
+    x: number
+    y: number
+    zoom: number
+  }
 }
 
 export const OF_LLM_TEXT_OUTPUT_NAME = 'llmoutput'
@@ -339,6 +350,8 @@ export interface OFCommonEdgeType {
   _connectedNodeIsSelected?: boolean
   _sourceRunningStatus?: OFNodeRunningStatus
   _targetRunningStatus?: OFNodeRunningStatus
+  isInIteration?: boolean
+  iterationId?: string
   sourceType: OFBlockEnum
   targetType: OFBlockEnum
 }
@@ -346,6 +359,11 @@ export interface OFCommonEdgeType {
 // ===== Start 节点数据 =====
 export type OFStartNodeData = OFCommonNodeType & {
   type: OFBlockEnum.Start
+  input: OFNodeInput
+}
+
+export type OFIterationStartNodeData = OFCommonNodeType & {
+  type: OFBlockEnum.IterationStart
   input: OFNodeInput
 }
 
@@ -373,6 +391,7 @@ export type OFIterationNodeData = OFCommonNodeType & {
   iterationCount: number
   iterationSource?: string
   mockTemplateId: string
+  graph: OFSubWorkflowGraph
   preview: OFIterationPreviewSnapshot
   mockRun: OFIterationMockRun
   output: OFNodeOutput
@@ -396,7 +415,15 @@ export type OFNode = {
   id: string
   type: string
   position: XYPosition
-  data: OFStartNodeData | OFLLMNodeData | OFIterationNodeData | OFIfElseNodeData | OFEndNodeData
+  parentNode?: string
+  extent?: 'parent'
+  data:
+    | OFStartNodeData
+    | OFIterationStartNodeData
+    | OFLLMNodeData
+    | OFIterationNodeData
+    | OFIfElseNodeData
+    | OFEndNodeData
 }
 
 // ===== 边类型 =====
@@ -406,6 +433,8 @@ export type OFEdge = {
   target: string
   sourceHandle?: string | null
   targetHandle?: string | null
+  class?: string
+  zIndex?: number
   data?: OFCommonEdgeType
 }
 
@@ -473,6 +502,7 @@ export interface OFIterationNodeConfig {
   iterationCount: number
   iterationSource?: string
   mockTemplateId: string
+  graph: OFSubWorkflowGraph
   preview: OFIterationPreviewSnapshot
   mockRun: OFIterationMockRun
   output: OFNodeOutput

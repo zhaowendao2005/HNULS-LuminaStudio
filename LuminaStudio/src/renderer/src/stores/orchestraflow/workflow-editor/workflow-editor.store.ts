@@ -15,6 +15,7 @@ import type {
   OFNode,
   OFEdge,
   OFStartNodeData,
+  OFIterationStartNodeData,
   OFLLMNodeData,
   OFIterationNodeData,
   OFIfElseNodeData,
@@ -24,6 +25,18 @@ import type { NodeChange, EdgeChange } from '@vue-flow/core'
 import { WorkflowEditorDataSource } from './workflow-editor.datasource'
 
 const datasource = WorkflowEditorDataSource
+const ITERATION_MIN_WIDTH = 560
+const ITERATION_MIN_HEIGHT = 360
+const ITERATION_RESIZE_PADDING_X = 36
+const ITERATION_RESIZE_PADDING_Y = 36
+
+const NESTED_NODE_DEFAULT_SIZES: Record<string, { width: number; height: number }> = {
+  'iteration-start': { width: 60, height: 60 },
+  start: { width: 60, height: 60 },
+  llm: { width: 312, height: 108 },
+  ifelse: { width: 240, height: 120 },
+  end: { width: 180, height: 84 }
+}
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -35,6 +48,8 @@ function getDefaultNodeTitle(type: OFBlockEnum): string {
       return 'llm'
     case OFBlockEnum.Iteration:
       return '迭代'
+    case OFBlockEnum.IterationStart:
+      return '迭代开始'
     case OFBlockEnum.IfElse:
       return '条件分支'
     case OFBlockEnum.Start:
@@ -54,7 +69,92 @@ function normalizeNodeTitle(type: OFBlockEnum, raw: string | undefined): string 
   return trimmed || getDefaultNodeTitle(type)
 }
 
+function createDefaultIterationGraph(seed: string): OFIterationNodeData['graph'] {
+  return {
+    nodes: [
+      {
+        id: `${seed}-iteration-start`,
+        type: 'iteration-start',
+        parentNode: seed,
+        extent: 'parent',
+        position: { x: 24, y: 82 },
+        data: {
+          title: '迭代开始',
+          desc: '迭代开始',
+          type: OFBlockEnum.IterationStart,
+          input: { variables: [] }
+        } as OFIterationStartNodeData
+      }
+    ],
+    edges: [],
+    viewport: {
+      x: 0,
+      y: 0,
+      zoom: 1
+    }
+  }
+}
+
+function dedupeNodes(sourceNodes: OFNode[]): OFNode[] {
+  const nodeMap = new Map<string, OFNode>()
+  sourceNodes.forEach((node) => {
+    nodeMap.set(node.id, node)
+  })
+  return Array.from(nodeMap.values())
+}
+
+function dedupeEdges(sourceEdges: OFEdge[]): OFEdge[] {
+  const edgeMap = new Map<string, OFEdge>()
+  sourceEdges.forEach((edge) => {
+    edgeMap.set(edge.id, edge)
+  })
+  return Array.from(edgeMap.values())
+}
+
+function cloneNode<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T
+}
+
+function getNestedNodeFootprint(node: OFNode): { width: number; height: number } {
+  const fromData = {
+    width: Number(node.data.width || 0),
+    height: Number(node.data.height || 0)
+  }
+
+  if (fromData.width > 0 && fromData.height > 0) {
+    return fromData
+  }
+
+  return NESTED_NODE_DEFAULT_SIZES[node.type] || { width: 240, height: 96 }
+}
+
+function buildCommonNodeShape<T extends { title?: string; desc?: string; width?: number; height?: number }>(
+  raw: T,
+  title: string,
+  fallbackDesc = ''
+) {
+  return {
+    title,
+    desc: raw.desc || fallbackDesc,
+    width: raw.width,
+    height: raw.height
+  }
+}
+
 function normalizeNode(node: OFNode): OFNode {
+  if (node.data.type === OFBlockEnum.IterationStart) {
+    const data = node.data as Partial<OFIterationStartNodeData>
+    return {
+      ...node,
+      type: 'iteration-start',
+      data: {
+        ...buildCommonNodeShape(data, '迭代开始', '迭代开始'),
+        type: OFBlockEnum.IterationStart,
+        input: { variables: [] }
+      } as OFIterationStartNodeData
+    }
+  }
+
   if (node.data.type === OFBlockEnum.LLM) {
     const data = node.data as Partial<OFLLMNodeData>
     const title = normalizeNodeTitle(OFBlockEnum.LLM, data.title)
@@ -65,8 +165,7 @@ function normalizeNode(node: OFNode): OFNode {
     return {
       ...node,
       data: {
-        title,
-        desc: data.desc || '',
+        ...buildCommonNodeShape(data, title),
         type: OFBlockEnum.LLM,
         model: data.model || {
           provider: '',
@@ -94,24 +193,16 @@ function normalizeNode(node: OFNode): OFNode {
     return {
       ...node,
       data: {
-        title,
-        desc: data.desc || '',
+        ...buildCommonNodeShape(data, title),
         type: OFBlockEnum.Iteration,
         iterationMode: data.iterationMode || 'fixed-count',
         iterationCount: Math.max(1, Number(data.iterationCount || 3)),
         iterationSource: data.iterationSource || '',
         mockTemplateId: data.mockTemplateId || 'llm-summary',
+        graph: data.graph || createDefaultIterationGraph(node.id),
         preview: data.preview || {
           label: '迭代开始',
-          nodes: [
-            { id: 'preview-start', type: 'start', title: '开始' },
-            {
-              id: 'preview-llm',
-              type: 'llm',
-              title: 'LLM 2',
-              subtitle: 'Pro/moonshotai/Ki...'
-            }
-          ]
+          nodes: [{ id: 'preview-start', type: 'iteration-start', title: '迭代开始' }]
         },
         mockRun: data.mockRun || {
           iterations: [
@@ -145,8 +236,7 @@ function normalizeNode(node: OFNode): OFNode {
     return {
       ...node,
       data: {
-        title: normalizeNodeTitle(OFBlockEnum.IfElse, data.title),
-        desc: data.desc || '',
+        ...buildCommonNodeShape(data, normalizeNodeTitle(OFBlockEnum.IfElse, data.title)),
         type: OFBlockEnum.IfElse,
         cases: data.cases || [],
         elseCase: data.elseCase || {
@@ -324,15 +414,75 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
   async function loadWorkflow(workflowId: string) {
     currentWorkflowId.value = workflowId
     const data = await datasource.get(workflowId)
-    nodes.value = data.nodes.map(normalizeNode)
-    edges.value = data.edges
+    const normalizedNodes = data.nodes.map(normalizeNode)
+    const inflatedNodes = [...normalizedNodes]
+    const inflatedEdges = [...data.edges]
+
+    normalizedNodes.forEach((node) => {
+      if (node.data.type !== OFBlockEnum.Iteration) return
+      const graph = (node.data as OFIterationNodeData).graph
+      ;(graph.nodes || []).forEach((childNode) => {
+        const normalizedChildNode =
+          childNode.data.type === OFBlockEnum.Start
+            ? {
+                ...cloneNode(childNode),
+                type: 'iteration-start',
+                data: {
+                  ...(childNode.data as OFStartNodeData),
+                  title: '迭代开始',
+                  type: OFBlockEnum.IterationStart,
+                  input: { variables: [] }
+                }
+              }
+            : cloneNode(childNode)
+        inflatedNodes.push(
+          normalizeNode({
+            ...normalizedChildNode,
+            parentNode: normalizedChildNode.parentNode || node.id,
+            extent: normalizedChildNode.extent || 'parent'
+          } as OFNode)
+        )
+      })
+      ;(graph.edges || []).forEach((childEdge) => {
+        inflatedEdges.push(cloneEdge(childEdge))
+      })
+    })
+
+    nodes.value = dedupeNodes(inflatedNodes)
+    edges.value = dedupeEdges(inflatedEdges)
+    nodes.value
+      .filter((node) => node.data.type === OFBlockEnum.Iteration)
+      .forEach((node) => syncIterationContainerSize(node.id))
   }
 
   async function saveWorkflow() {
     if (!currentWorkflowId.value) return
-    // 深拷贝去除 Vue 响应式属性和 VueFlow 内部属性
-    const nodesData = JSON.parse(JSON.stringify(nodes.value))
-    const edgesData = JSON.parse(JSON.stringify(edges.value))
+    const nodesData = cloneNode(
+      nodes.value.map((node) => {
+        if (node.data.type !== OFBlockEnum.Iteration) return node
+
+        const childNodes = nodes.value
+          .filter((candidate) => candidate.parentNode === node.id)
+          .map((candidate) => cloneNode(candidate))
+        const childNodeIds = new Set(childNodes.map((candidate) => candidate.id))
+        const childEdges = edges.value
+          .filter((edge) => childNodeIds.has(edge.source) && childNodeIds.has(edge.target))
+          .map((edge) => cloneEdge(edge))
+
+        return {
+          ...node,
+          data: {
+            ...(node.data as OFIterationNodeData),
+            graph: {
+              ...(node.data as OFIterationNodeData).graph,
+              nodes: childNodes,
+              edges: childEdges
+            }
+          }
+        }
+      })
+    )
+    const edgesData = cloneNode(edges.value)
     await datasource.update(currentWorkflowId.value, { nodes: nodesData, edges: edgesData })
   }
 
@@ -345,6 +495,209 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
       saveWorkflow()
       saveTimer = null
     }, 1000) // 1 秒防抖
+  }
+
+  function cloneEdge(edge: OFEdge): OFEdge {
+    return cloneNode(edge)
+  }
+
+  function findNodeByIdFrom(nodeId: string, sourceNodes: OFNode[]): OFNode | null {
+    return sourceNodes.find((node) => node.id === nodeId) || null
+  }
+
+  function findParentIterationNodeId(nodeId: string): string | null {
+    const targetNode = findNodeByIdFrom(nodeId, nodes.value)
+    return targetNode?.parentNode || null
+  }
+
+  function isIterationLocalStart(nodeId: string): boolean {
+    const targetNode = findNodeByIdFrom(nodeId, nodes.value)
+    return targetNode?.data.type === OFBlockEnum.IterationStart
+  }
+
+  function getIterationChildNodes(iterationNodeId: string): OFNode[] {
+    return nodes.value.filter((node) => node.parentNode === iterationNodeId)
+  }
+
+  function getNodeLayerKey(nodeId: string): string {
+    return findParentIterationNodeId(nodeId) || 'root'
+  }
+
+  function isDuplicateEdgeCandidate(edge: OFEdge): boolean {
+    const layerKey = getNodeLayerKey(edge.source)
+    return edges.value.some((candidate) => {
+      return (
+        candidate.source === edge.source &&
+        candidate.target === edge.target &&
+        (candidate.sourceHandle || null) === (edge.sourceHandle || null) &&
+        (candidate.targetHandle || null) === (edge.targetHandle || null) &&
+        getNodeLayerKey(candidate.source) === layerKey &&
+        getNodeLayerKey(candidate.target) === layerKey
+      )
+    })
+  }
+
+  function buildIterationEdgeData(edge: OFEdge): OFEdge {
+    const sourceNode = findNodeByIdFrom(edge.source, nodes.value)
+    const targetNode = findNodeByIdFrom(edge.target, nodes.value)
+    const iterationId = sourceNode?.parentNode || targetNode?.parentNode || undefined
+
+    if (!sourceNode || !targetNode) {
+      return edge
+    }
+
+    return {
+      ...edge,
+      class: iterationId ? 'of-edge-iteration' : edge.class,
+      zIndex: iterationId ? 7 : edge.zIndex,
+      data: {
+        ...edge.data,
+        isInIteration: Boolean(iterationId),
+        iterationId,
+        sourceType: sourceNode.data.type,
+        targetType: targetNode.data.type
+      }
+    }
+  }
+
+  function syncIterationContainerSize(iterationNodeId: string) {
+    const iterationNode = findNodeByIdFrom(iterationNodeId, nodes.value)
+    if (!iterationNode || iterationNode.data.type !== OFBlockEnum.Iteration) return
+
+    const childNodes = getIterationChildNodes(iterationNodeId)
+    let nextWidth = Math.max(Number(iterationNode.data.width || 0), ITERATION_MIN_WIDTH)
+    let nextHeight = Math.max(Number(iterationNode.data.height || 0), ITERATION_MIN_HEIGHT)
+
+    childNodes.forEach((childNode) => {
+      const size = getNestedNodeFootprint(childNode)
+      nextWidth = Math.max(nextWidth, Math.round(childNode.position.x + size.width + ITERATION_RESIZE_PADDING_X))
+      nextHeight = Math.max(
+        nextHeight,
+        Math.round(childNode.position.y + size.height + ITERATION_RESIZE_PADDING_Y)
+      )
+    })
+
+    nodes.value = updateNodeCollection(nodes.value, iterationNodeId, {
+      width: nextWidth,
+      height: nextHeight
+    })
+  }
+
+  function updateNodeCollection(
+    sourceNodes: OFNode[],
+    targetNodeId: string,
+    patch: Partial<OFNode['data']>
+  ): OFNode[] {
+    return sourceNodes.map((node) => {
+      if (node.id === targetNodeId) {
+        return normalizeNode({
+          ...node,
+          data: {
+            ...node.data,
+            ...patch
+          }
+        } as OFNode)
+      }
+      return node
+    })
+  }
+
+  function updateNodePositionCollection(
+    sourceNodes: OFNode[],
+    targetNodeId: string,
+    position: { x: number; y: number }
+  ): OFNode[] {
+    return sourceNodes.map((node) => {
+      if (node.id === targetNodeId) {
+        return {
+          ...node,
+          position
+        }
+      }
+      return node
+    })
+  }
+
+  function resizeIterationNode(nodeId: string, width: number, height: number) {
+    const childNodes = getIterationChildNodes(nodeId)
+    let minWidth = ITERATION_MIN_WIDTH
+    let minHeight = ITERATION_MIN_HEIGHT
+
+    childNodes.forEach((childNode) => {
+      const size = getNestedNodeFootprint(childNode)
+      minWidth = Math.max(minWidth, Math.round(childNode.position.x + size.width + ITERATION_RESIZE_PADDING_X))
+      minHeight = Math.max(
+        minHeight,
+        Math.round(childNode.position.y + size.height + ITERATION_RESIZE_PADDING_Y)
+      )
+    })
+
+    nodes.value = updateNodeCollection(nodes.value, nodeId, {
+      width: Math.max(minWidth, Math.round(width)),
+      height: Math.max(minHeight, Math.round(height))
+    })
+    scheduleSave()
+  }
+
+  function updateIterationViewport(nodeId: string, viewportValue: { x: number; y: number; zoom: number }) {
+    const target = findNodeByIdFrom(nodeId, nodes.value)
+    if (!target || target.data.type !== OFBlockEnum.Iteration) return
+
+    nodes.value = updateNodeCollection(nodes.value, nodeId, {
+      graph: {
+        ...(target.data as OFIterationNodeData).graph,
+        viewport: viewportValue
+      }
+    } as Partial<OFIterationNodeData>)
+  }
+
+  function updateIterationChildPosition(
+    iterationNodeId: string,
+    childNodeId: string,
+    position: { x: number; y: number }
+  ) {
+    nodes.value = updateNodePositionCollection(nodes.value, childNodeId, position)
+    syncIterationContainerSize(iterationNodeId)
+    scheduleSave()
+  }
+
+  function addIterationEdge(iterationNodeId: string, edge: OFEdge) {
+    if (isDuplicateEdgeCandidate(edge)) return
+    edges.value = [...edges.value, buildIterationEdgeData(edge)]
+    syncIterationContainerSize(iterationNodeId)
+    scheduleSave()
+  }
+
+  function moveNodeIntoIterationNode(
+    nodeId: string,
+    iterationNodeId: string,
+    dropPosition: { x: number; y: number }
+  ) {
+    const movingNode = findNodeByIdFrom(nodeId, nodes.value)
+    const targetIteration = findNodeByIdFrom(iterationNodeId, nodes.value)
+    if (!movingNode || !targetIteration || targetIteration.data.type !== OFBlockEnum.Iteration) return
+    if (nodeId === iterationNodeId) return
+    if (movingNode.data.type === OFBlockEnum.Start || movingNode.data.type === OFBlockEnum.IterationStart)
+      return
+
+    const hasConnectedEdges = edges.value.some((edge) => edge.source === nodeId || edge.target === nodeId)
+    if (hasConnectedEdges) return
+
+    const parentIterationId = findParentIterationNodeId(nodeId)
+    if (parentIterationId) return
+
+    const detachedNode = normalizeNode({
+      ...movingNode,
+      parentNode: iterationNodeId,
+      extent: 'parent',
+      position: {
+        x: Math.max(16, Math.round(dropPosition.x)),
+        y: Math.max(16, Math.round(dropPosition.y))
+      }
+    })
+    nodes.value = nodes.value.map((node) => (node.id === nodeId ? detachedNode : node))
+    syncIterationContainerSize(iterationNodeId)
+    scheduleSave()
   }
 
   function setNodes(newNodes: OFNode[]) {
@@ -378,6 +731,7 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
       | OFIterationNodeData
       | OFIfElseNodeData
       | OFEndNodeData
+      | undefined
 
     switch (type) {
       case OFBlockEnum.Start:
@@ -414,21 +768,16 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
           title,
           desc: '',
           type: OFBlockEnum.Iteration,
+          width: 650,
+          height: 417,
           iterationMode: 'fixed-count',
           iterationCount: 3,
           iterationSource: '',
           mockTemplateId: 'llm-summary',
+          graph: createDefaultIterationGraph(id),
           preview: {
             label: '迭代开始',
-            nodes: [
-              { id: 'preview-start', type: 'start', title: '开始' },
-              {
-                id: 'preview-llm',
-                type: 'llm',
-                title: 'LLM 2',
-                subtitle: 'Pro/moonshotai/Ki...'
-              }
-            ]
+            nodes: [{ id: 'preview-start', type: 'iteration-start', title: '迭代开始' }]
           },
           mockRun: {
             iterations: [
@@ -487,6 +836,8 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
           output: { variables: [] }
         } as OFEndNodeData
         break
+      default:
+        throw new Error(`Unsupported node type: ${type}`)
     }
 
     // 根据节点类型设置正确的 VueFlow 节点类型
@@ -509,15 +860,38 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
         break
     }
 
-    const newNode: OFNode = { id, type: vueFlowType, position, data: nodeData }
-    nodes.value = [...nodes.value, newNode]
+    const newNode: OFNode = { id, type: vueFlowType, position, data: nodeData as OFNode['data'] }
+    const nextNodes = [...nodes.value, newNode]
+    const nextEdges = [...edges.value]
+
+    if (type === OFBlockEnum.Iteration) {
+      const iterationGraph = (nodeData as OFIterationNodeData).graph
+      iterationGraph.nodes.forEach((childNode) => {
+        nextNodes.push(
+          normalizeNode({
+            ...cloneNode(childNode),
+            parentNode: childNode.parentNode || id,
+            extent: childNode.extent || 'parent'
+          })
+        )
+      })
+      iterationGraph.edges.forEach((childEdge) => {
+        nextEdges.push(cloneEdge(childEdge))
+      })
+    }
+
+    nodes.value = dedupeNodes(nextNodes)
+    edges.value = dedupeEdges(nextEdges)
+    if (type === OFBlockEnum.Iteration) {
+      syncIterationContainerSize(id)
+    }
     scheduleSave()
     return id
   }
 
   // 更新节点数据
   function updateNode(nodeId: string, data: Partial<OFNode['data']>) {
-    const currentNode = nodes.value.find((node) => node.id === nodeId)
+    const currentNode = findNodeByIdFrom(nodeId, nodes.value)
     if (!currentNode) return
 
     let nextData: Partial<OFNode['data']> = { ...data }
@@ -579,17 +953,7 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
           ? normalizeOFVariableNamespace(currentNode.data.title, 'iteration')
           : ''
 
-    nodes.value = nodes.value.map((node) =>
-      node.id === nodeId
-        ? normalizeNode({
-            ...node,
-            data: {
-              ...node.data,
-              ...nextData
-            }
-          } as OFNode)
-        : node
-    )
+    nodes.value = updateNodeCollection(nodes.value, nodeId, nextData)
 
     if (currentNode.data.type === OFBlockEnum.LLM && typeof nextData.title === 'string') {
       const nextNamespace = normalizeOFVariableNamespace(nextData.title, 'llm')
@@ -606,20 +970,12 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
 
   // 更新节点运行状态
   function updateNodeRunningStatus(nodeId: string, status: OFNodeRunningStatus) {
-    const exists = nodes.value.some((n) => n.id === nodeId)
+    const exists = findNodeByIdFrom(nodeId, nodes.value)
     if (!exists) return
 
-    nodes.value = nodes.value.map((node) =>
-      node.id === nodeId
-        ? {
-            ...node,
-            data: {
-              ...node.data,
-              _runningStatus: status
-            }
-          }
-        : node
-    )
+    nodes.value = updateNodeCollection(nodes.value, nodeId, {
+      _runningStatus: status
+    })
   }
 
   // 重置所有节点运行状态
@@ -635,14 +991,32 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
 
   // 删除节点
   function removeNode(nodeId: string) {
-    nodes.value = nodes.value.filter((n) => n.id !== nodeId)
-    edges.value = edges.value.filter((e) => e.source !== nodeId && e.target !== nodeId)
+    if (isIterationLocalStart(nodeId)) return
+
+    const removedNodeIds = new Set<string>([nodeId])
+    let changed = true
+
+    while (changed) {
+      changed = false
+      nodes.value.forEach((node) => {
+        if (node.parentNode && removedNodeIds.has(node.parentNode) && !removedNodeIds.has(node.id)) {
+          removedNodeIds.add(node.id)
+          changed = true
+        }
+      })
+    }
+
+    nodes.value = nodes.value.filter((node) => !removedNodeIds.has(node.id))
+    edges.value = edges.value.filter(
+      (edge) => !removedNodeIds.has(edge.source) && !removedNodeIds.has(edge.target)
+    )
     scheduleSave()
   }
 
   // 添加边
   function addEdge(edge: OFEdge) {
-    edges.value = [...edges.value, edge]
+    if (isDuplicateEdgeCandidate(edge)) return
+    edges.value = [...edges.value, buildIterationEdgeData(edge)]
     scheduleSave()
   }
   // 删除边
@@ -660,9 +1034,9 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
 
   // 更新节点位置（拖拽结束后调用）
   function updateNodePosition(nodeId: string, position: { x: number; y: number }) {
-    const exists = nodes.value.some((n) => n.id === nodeId)
+    const exists = findNodeByIdFrom(nodeId, nodes.value)
     if (exists) {
-      nodes.value = nodes.value.map((node) => (node.id === nodeId ? { ...node, position } : node))
+      nodes.value = updateNodePositionCollection(nodes.value, nodeId, position)
       scheduleSave()
     }
   }
@@ -677,8 +1051,7 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
           }
           break
         case 'remove':
-          nodes.value = nodes.value.filter((n) => n.id !== change.id)
-          edges.value = edges.value.filter((e) => e.source !== change.id && e.target !== change.id)
+          removeNode(change.id)
           break
         case 'select':
           // 选中状态变化不需要保存
@@ -737,6 +1110,13 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
     removeNode,
     addEdge,
     removeEdge,
+    findNodeById: (nodeId: string) => findNodeByIdFrom(nodeId, nodes.value),
+    findParentIterationNodeId,
+    resizeIterationNode,
+    updateIterationViewport,
+    updateIterationChildPosition,
+    addIterationEdge,
+    moveNodeIntoIterationNode,
     unloadWorkflow,
     updateNodePosition,
     applyNodeChanges,

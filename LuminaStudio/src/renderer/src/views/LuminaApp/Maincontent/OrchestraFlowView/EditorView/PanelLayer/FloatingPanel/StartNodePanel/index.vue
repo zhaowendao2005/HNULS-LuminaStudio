@@ -342,7 +342,7 @@ const theme = OF_PANEL_THEME.start
 // 获取当前选中的节点
 const currentNode = computed(() => {
   if (!uiStore.selectedNodeId) return null
-  return editorStore.nodes.find((n) => n.id === uiStore.selectedNodeId)
+  return editorStore.findNodeById(uiStore.selectedNodeId)
 })
 
 // 输入字段（从 store 读写，全局持久化）
