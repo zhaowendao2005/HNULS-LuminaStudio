@@ -20,8 +20,8 @@ import type {
   OFNodeTracing,
   OFNodeDebugResult
 } from '@shared/Orchestraflow-types'
-import type { OFToMainMessage } from '../../utility/orchestraflow/messages.types'
-import type { MainToOFMessage } from '../../utility/orchestraflow/messages.types'
+import type { OFToMainMessage } from '@utility/orchestraflow/messages.types'
+import type { MainToOFMessage } from '@utility/orchestraflow/messages.types'
 
 const log = logger.scope('OrchestraflowBridge')
 
@@ -112,7 +112,7 @@ export class OrchestraflowBridgeService {
       string,
       { id: string; name: string; baseUrl: string; apiKey: string; enabled: boolean }
     >,
-    timeoutMs = 300000
+    timeoutMs = 1800000
   ): Promise<OFWorkflowRunResult> {
     const runId = randomUUID()
 
@@ -142,11 +142,12 @@ export class OrchestraflowBridgeService {
     workflow: OFWorkflow,
     nodeId: string,
     inputs: Record<string, any>,
+    scopePath?: string[],
     providerConfigs?: Record<
       string,
       { id: string; name: string; baseUrl: string; apiKey: string; enabled: boolean }
     >,
-    timeoutMs = 120000
+    timeoutMs = 600000
   ): Promise<OFNodeDebugResult> {
     const requestId = randomUUID()
 
@@ -164,6 +165,7 @@ export class OrchestraflowBridgeService {
         workflow,
         nodeId,
         inputs,
+        scopePath,
         providerConfigs
       })
     })

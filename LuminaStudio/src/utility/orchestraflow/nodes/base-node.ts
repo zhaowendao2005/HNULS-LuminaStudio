@@ -9,6 +9,8 @@ import type {
   OFStartNodeData,
   OFLLMNodeData,
   OFIfElseNodeData,
+  OFIterationNodeData,
+  OFIterationStartNodeData,
   OFEndNodeData
 } from '@shared/Orchestraflow-types'
 import type { ExecutionContext, NodeResult } from './types'
@@ -23,9 +25,14 @@ export abstract class BaseNode {
     this.context = {
       runId: '',
       node,
+      graph: { nodes: [], edges: [] },
       inputs: {},
       variables: {},
-      providerConfigs: {}
+      scopePath: [],
+      traceKey: '',
+      providerConfigs: {},
+      executeGraph: async () => ({ status: 'failed', error: 'executeGraph not configured' }),
+      isStopped: () => false
     }
     this.variableStore = variableStore
   }
@@ -63,7 +70,13 @@ export abstract class BaseNode {
   /**
    * 获取节点配置数据
    */
-  protected getNodeData(): OFStartNodeData | OFLLMNodeData | OFIfElseNodeData | OFEndNodeData {
+  protected getNodeData():
+    | OFStartNodeData
+    | OFLLMNodeData
+    | OFIfElseNodeData
+    | OFIterationNodeData
+    | OFIterationStartNodeData
+    | OFEndNodeData {
     return this.context.node.data as any
   }
 

@@ -172,6 +172,7 @@ export class OrchestraflowIPCHandler {
           workflow,
           params.nodeId,
           params.inputs || {},
+          params.scopePath,
           providerConfigs
         )
 

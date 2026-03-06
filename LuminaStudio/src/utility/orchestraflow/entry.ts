@@ -147,7 +147,8 @@ parentPort.on('message', async (event: { data: MainToOFMessage }) => {
             msg.workflow,
             msg.nodeId,
             msg.inputs,
-            providerConfigs
+            providerConfigs,
+            msg.scopePath
           )
           sendMessage({
             type: 'node:debug-result',

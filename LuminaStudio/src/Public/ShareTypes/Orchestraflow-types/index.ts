@@ -10,6 +10,8 @@ export enum OFBlockEnum {
   Start = 'start',
   LLM = 'llm',
   IfElse = 'ifelse',
+  Iteration = 'iteration',
+  IterationStart = 'iteration-start',
   End = 'end'
 }
 
@@ -70,12 +72,14 @@ export interface OFVariable {
   variable: string
   label?: string
   type?: OFVarType
+  item_type?: OFVarType
   description?: string
   required?: boolean
   default?: string | number | boolean | Record<string, any> | any[] | null
   options?: string[]
   value_selector?: string[]
   schema?: OFJsonSchemaObject | null
+  item_schema?: OFJsonSchemaObject | null
 }
 
 export type OFInputVar = OFVariable
@@ -200,10 +204,12 @@ export interface OFWorkflow {
   createdAt: number
   updatedAt: number
   status: 'draft' | 'published' | 'archived'
-  graph: {
-    nodes: OFNode[]
-    edges: OFEdge[]
-  }
+  graph: OFWorkflowGraph
+}
+
+export interface OFWorkflowGraph {
+  nodes: OFNode[]
+  edges: OFEdge[]
 }
 
 // ===== 环境变量 =====
@@ -313,6 +319,32 @@ export type OFIfElseNodeData = OFCommonNodeType & {
   elseCase: OFIfElseElseCase
 }
 
+export type OFIterationErrorHandleMode =
+  | 'terminated'
+  | 'continue-on-error'
+  | 'remove-abnormal-output'
+
+export type OFIterationParallelMode = 'sequential' | 'parallel'
+
+export type OFIterationNodeData = OFCommonNodeType & {
+  type: OFBlockEnum.Iteration
+  iterator_selector: string[]
+  output_selector: string[]
+  start_node_id: string
+  subgraph: OFWorkflowGraph
+  parallel_mode?: OFIterationParallelMode
+  is_parallel?: boolean
+  parallel_nums?: number
+  error_handle_mode?: OFIterationErrorHandleMode
+  flatten_output?: boolean
+  output_type?: OFVarType
+  output_schema?: OFJsonSchemaObject | null
+}
+
+export type OFIterationStartNodeData = OFCommonNodeType & {
+  type: OFBlockEnum.IterationStart
+}
+
 // ===== End 节点数据 =====
 export type OFEndNodeData = OFCommonNodeType & {
   type: OFBlockEnum.End
@@ -324,7 +356,13 @@ export type OFNode = {
   id: string
   type: string
   position: XYPosition
-  data: OFStartNodeData | OFLLMNodeData | OFIfElseNodeData | OFEndNodeData
+  data:
+    | OFStartNodeData
+    | OFLLMNodeData
+    | OFIfElseNodeData
+    | OFIterationNodeData
+    | OFIterationStartNodeData
+    | OFEndNodeData
 }
 
 // ===== 边类型 =====
@@ -337,11 +375,22 @@ export type OFEdge = {
   data?: OFCommonEdgeType
 }
 
+export interface OFNodeExecutionMetadata {
+  in_iteration_id?: string
+  iteration_index?: number
+  iteration_length?: number
+  parallel_run_id?: string
+  scope_path?: string[]
+}
+
 // ===== 节点运行追踪 =====
 export interface OFNodeTracing {
   nodeId: string
   nodeType: OFBlockEnum
   status: OFNodeRunningStatus
+  trace_key?: string
+  scope_path?: string[]
+  execution_metadata?: OFNodeExecutionMetadata
   elapsed_time?: number
   inputs?: Record<string, any>
   outputs?: Record<string, any>
@@ -363,6 +412,7 @@ export interface OFNodeDebugRunParams {
   workflowId: string
   nodeId: string
   inputs?: Record<string, any>
+  scopePath?: string[]
 }
 
 export interface OFNodeDebugResult {
@@ -399,6 +449,28 @@ export interface OFIfElseNodeConfig {
   desc: string
   cases: OFIfElseCase[]
   elseCase: OFIfElseElseCase
+}
+
+export interface OFIterationNodeConfig {
+  nodeId: string
+  title: string
+  desc: string
+  iterator_selector: string[]
+  output_selector: string[]
+  start_node_id: string
+  subgraph: OFWorkflowGraph
+  parallel_mode?: OFIterationParallelMode
+  parallel_nums?: number
+  error_handle_mode?: OFIterationErrorHandleMode
+  flatten_output?: boolean
+  output_type?: OFVarType
+  output_schema?: OFJsonSchemaObject | null
+}
+
+export interface OFIterationStartNodeConfig {
+  nodeId: string
+  title: string
+  desc: string
 }
 
 export interface OFEndNodeConfig {

@@ -6,6 +6,7 @@
 
 import type {
   OFWorkflow,
+  OFWorkflowGraph,
   OFModelConfig,
   OFNodeTracing,
   OFWorkflowRunResult,
@@ -45,6 +46,7 @@ export interface OFNodeDebugRunRequest {
   workflow: OFWorkflow
   nodeId: string
   inputs: Record<string, unknown>
+  scopePath?: string[]
   providerConfigs?: OFProviderConfigsMap
 }
 
@@ -52,6 +54,7 @@ export interface OFNodeDebugRunRequest {
 
 export interface OFNodeExecutionInput {
   nodeId: string
+  graph?: OFWorkflowGraph
   inputs: Record<string, unknown>
 }
 
@@ -87,6 +90,7 @@ export type MainToOFMessage =
       workflow: OFWorkflow
       nodeId: string
       inputs: Record<string, unknown>
+      scopePath?: string[]
       providerConfigs?: OFProviderConfigsMap
     }
 

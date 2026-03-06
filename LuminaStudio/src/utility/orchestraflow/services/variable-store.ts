@@ -21,9 +21,17 @@ export class VariableStore {
   getAll(): Record<string, any> {
     const result: Record<string, any> = {}
     this.variables.forEach((value, key) => {
-      result[key] = value
+      result[key] = this.deepClone(value)
     })
     return result
+  }
+
+  fork(): VariableStore {
+    const nextStore = new VariableStore()
+    this.variables.forEach((value, key) => {
+      nextStore.set(key, this.deepClone(value))
+    })
+    return nextStore
   }
 
   clear(): void {
@@ -91,5 +99,17 @@ export class VariableStore {
     }
 
     return undefined
+  }
+
+  private deepClone<T>(value: T): T {
+    if (value === undefined || value === null) {
+      return value
+    }
+
+    try {
+      return structuredClone(value)
+    } catch {
+      return JSON.parse(JSON.stringify(value)) as T
+    }
   }
 }
