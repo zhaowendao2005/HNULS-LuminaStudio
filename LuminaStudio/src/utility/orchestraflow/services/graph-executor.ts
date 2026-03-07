@@ -4,7 +4,11 @@ import type {
   OFNodeExecutionMetadata,
   OFNodeTracing,
 } from '@shared/Orchestraflow-types'
-import { OFBlockEnum, OFNodeRunningStatus } from '@shared/Orchestraflow-types'
+import {
+  buildOFNodeTraceKey,
+  OFBlockEnum,
+  OFNodeRunningStatus
+} from '@shared/Orchestraflow-types'
 import { executeNode } from './executor'
 import type {
   ExecuteGraphParams,
@@ -294,16 +298,13 @@ export class GraphExecutor {
     scopePath: string[],
     metadata?: OFNodeExecutionMetadata
   ): string {
-    return [
-      this.options.runId,
-      this.options.workflowId,
-      scopePath.join('/') || 'root',
+    return buildOFNodeTraceKey({
+      runId: this.options.runId,
+      workflowId: this.options.workflowId,
       nodeId,
-      metadata?.in_iteration_id || 'root',
-      metadata?.iteration_index ?? 'na',
-      metadata?.in_loop_id || 'root',
-      metadata?.loop_index ?? 'na'
-    ].join('::')
+      scopePath,
+      executionMetadata: metadata
+    })
   }
 
   private getTrace(traceKey: string): OFNodeTracing {

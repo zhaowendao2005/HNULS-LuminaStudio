@@ -25,8 +25,6 @@ export class NodeFactory {
         return new StartNode(node, variableStore)
       case OFBlockEnum.LLM:
         return new LLMNode(node, variableStore)
-      case OFBlockEnum.Iteration:
-        throw new Error('Iteration node is mock-only in the current build')
       case OFBlockEnum.IfElse:
         return new IfElseNode(node, variableStore)
       case OFBlockEnum.Iteration:

@@ -95,47 +95,12 @@ export interface OFNodeOutput {
   variables: OFVariable[]
 }
 
-export type OFIterationMode = 'fixed-count' | 'mock-source'
-export type OFIterationErrorResponseMode = 'terminate' | 'continue'
-
-export interface OFIterationPreviewNode {
-  id: string
-  type: 'iteration-start' | 'llm'
-  title: string
-  subtitle?: string
-}
-
-export interface OFIterationResultItem {
-  index: number
-  title: string
-  input: string
-  outputSummary: string
-  status: OFNodeRunningStatus
-}
-
-export interface OFIterationMockRun {
-  iterations: OFIterationResultItem[]
-  summary: string
-  finalOutput: string
-}
-
-export interface OFIterationPreviewSnapshot {
-  label: string
-  nodes: OFIterationPreviewNode[]
-}
-
-export interface OFSubWorkflowGraph {
-  nodes: OFNode[]
-  edges: OFEdge[]
-  viewport: {
-    x: number
-    y: number
-    zoom: number
-  }
-}
-
 export const OF_LLM_TEXT_OUTPUT_NAME = 'llmoutput'
 export const OF_LLM_STRUCTURED_OUTPUT_NAME = 'structured_output'
+export const OF_ITERATION_ITEM_VARIABLE_NAME = 'item'
+export const OF_ITERATION_INDEX_VARIABLE_NAME = 'index'
+export const OF_ITERATION_LENGTH_VARIABLE_NAME = 'length'
+export const OF_ITERATION_RESULT_VARIABLE_NAME = 'result'
 
 export function normalizeOFVariableNamespace(
   raw: string | null | undefined,
@@ -177,6 +142,58 @@ export function buildLLMOutputVariables(
   }
 
   return variables
+}
+
+function resolveIterationNamespace(namespace: string, fallbackNodeId?: string): string {
+  return normalizeOFVariableNamespace(namespace, fallbackNodeId || 'iteration')
+}
+
+export function buildIterationInnerStartVariables(
+  namespace: string,
+  fallbackNodeId?: string
+): OFVariable[] {
+  const resolvedNamespace = resolveIterationNamespace(namespace, fallbackNodeId)
+
+  return [
+    {
+      variable: OF_ITERATION_ITEM_VARIABLE_NAME,
+      label: OF_ITERATION_ITEM_VARIABLE_NAME,
+      type: OFVarType.Array,
+      required: true,
+      value_selector: [`${resolvedNamespace}.${OF_ITERATION_ITEM_VARIABLE_NAME}`]
+    },
+    {
+      variable: OF_ITERATION_INDEX_VARIABLE_NAME,
+      label: OF_ITERATION_INDEX_VARIABLE_NAME,
+      type: OFVarType.Number,
+      required: true,
+      value_selector: [`${resolvedNamespace}.${OF_ITERATION_INDEX_VARIABLE_NAME}`]
+    },
+    {
+      variable: OF_ITERATION_LENGTH_VARIABLE_NAME,
+      label: OF_ITERATION_LENGTH_VARIABLE_NAME,
+      type: OFVarType.Number,
+      required: true,
+      value_selector: [`${resolvedNamespace}.${OF_ITERATION_LENGTH_VARIABLE_NAME}`]
+    }
+  ]
+}
+
+export function buildIterationOutputVariables(
+  namespace: string,
+  fallbackNodeId?: string
+): OFVariable[] {
+  const resolvedNamespace = resolveIterationNamespace(namespace, fallbackNodeId)
+
+  return [
+    {
+      variable: OF_ITERATION_RESULT_VARIABLE_NAME,
+      label: OF_ITERATION_RESULT_VARIABLE_NAME,
+      type: OFVarType.Array,
+      required: true,
+      value_selector: [`${resolvedNamespace}.${OF_ITERATION_RESULT_VARIABLE_NAME}`]
+    }
+  ]
 }
 
 // ===== 条件分支 =====
@@ -253,6 +270,14 @@ export interface OFWorkflowGraph {
   edges: OFEdge[]
 }
 
+export interface OFSubWorkflowGraph extends OFWorkflowGraph {
+  viewport?: {
+    x: number
+    y: number
+    zoom: number
+  }
+}
+
 // ===== 环境变量 =====
 export interface OFEnvironmentVariable {
   id: string
@@ -326,6 +351,8 @@ export interface OFCommonEdgeType {
   _connectedNodeIsSelected?: boolean
   _sourceRunningStatus?: OFNodeRunningStatus
   _targetRunningStatus?: OFNodeRunningStatus
+  isInIteration?: boolean
+  iterationId?: string
   sourceType: OFBlockEnum
   targetType: OFBlockEnum
 }
@@ -370,29 +397,15 @@ export type OFLoopVariableValueType = 'constant' | 'variable'
 
 export type OFIterationNodeData = OFCommonNodeType & {
   type: OFBlockEnum.Iteration
-  input?: OFNodeInput
-  iterationMode?: OFIterationMode
-  iterationCount?: number
-  iterationSource?: string
-  outputVariable?: OFVariable | null
-  parallelMode?: boolean
-  errorResponseMode?: OFIterationErrorResponseMode
-  mockTemplateId?: string
-  graph?: OFSubWorkflowGraph
-  preview?: OFIterationPreviewSnapshot
-  mockRun?: OFIterationMockRun
-  output?: OFNodeOutput
   iterator_selector: string[]
   output_selector: string[]
   start_node_id: string
-  subgraph: OFWorkflowGraph
+  subgraph: OFSubWorkflowGraph
   parallel_mode?: OFIterationParallelMode
-  is_parallel?: boolean
   parallel_nums?: number
   error_handle_mode?: OFIterationErrorHandleMode
   flatten_output?: boolean
-  output_type?: OFVarType
-  output_schema?: OFJsonSchemaObject | null
+  output: OFNodeOutput
 }
 
 export type OFIterationStartNodeData = OFCommonNodeType & {
@@ -459,6 +472,8 @@ export type OFEdge = {
   target: string
   sourceHandle?: string | null
   targetHandle?: string | null
+  class?: string
+  zIndex?: number
   data?: OFCommonEdgeType
 }
 
@@ -485,6 +500,49 @@ export interface OFNodeTracing {
   inputs?: Record<string, any>
   outputs?: Record<string, any>
   error?: string
+}
+
+export function buildOFNodeTraceKey(params: {
+  runId: string
+  workflowId: string
+  nodeId: string
+  scopePath?: string[]
+  executionMetadata?: OFNodeExecutionMetadata
+}): string {
+  const scopePath = params.scopePath || []
+  const metadata = params.executionMetadata
+
+  return [
+    params.runId,
+    params.workflowId,
+    scopePath.join('/') || 'root',
+    params.nodeId,
+    metadata?.in_iteration_id || 'root',
+    metadata?.iteration_index ?? 'na',
+    metadata?.in_loop_id || 'root',
+    metadata?.loop_index ?? 'na'
+  ].join('::')
+}
+
+export function getOFTraceIdentity(
+  trace: Pick<OFNodeTracing, 'trace_key' | 'nodeId' | 'scope_path' | 'execution_metadata'>
+): string {
+  if (trace.trace_key) {
+    return trace.trace_key
+  }
+
+  const scopePath = trace.scope_path || trace.execution_metadata?.scope_path || []
+  const metadata = trace.execution_metadata
+
+  return [
+    trace.nodeId,
+    scopePath.join('/') || 'root',
+    metadata?.in_iteration_id || 'root',
+    metadata?.iteration_index ?? 'na',
+    metadata?.in_loop_id || 'root',
+    metadata?.loop_index ?? 'na',
+    metadata?.parallel_run_id || 'serial'
+  ].join('::')
 }
 
 // ===== 工作流运行结果 =====
@@ -545,28 +603,15 @@ export interface OFIterationNodeConfig {
   nodeId: string
   title: string
   desc: string
-  input?: OFNodeInput
-  iterationMode?: OFIterationMode
-  iterationCount?: number
-  iterationSource?: string
-  outputVariable?: OFVariable | null
-  parallelMode?: boolean
-  errorResponseMode?: OFIterationErrorResponseMode
-  mockTemplateId?: string
-  graph?: OFSubWorkflowGraph
-  preview?: OFIterationPreviewSnapshot
-  mockRun?: OFIterationMockRun
-  output?: OFNodeOutput
   iterator_selector: string[]
   output_selector: string[]
   start_node_id: string
-  subgraph: OFWorkflowGraph
+  subgraph: OFSubWorkflowGraph
   parallel_mode?: OFIterationParallelMode
   parallel_nums?: number
   error_handle_mode?: OFIterationErrorHandleMode
   flatten_output?: boolean
-  output_type?: OFVarType
-  output_schema?: OFJsonSchemaObject | null
+  output: OFNodeOutput
 }
 
 export interface OFIterationStartNodeConfig {

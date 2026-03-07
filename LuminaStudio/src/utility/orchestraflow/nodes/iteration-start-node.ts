@@ -1,5 +1,10 @@
 import { BaseNode } from './base-node'
-import { OFBlockEnum } from '@shared/Orchestraflow-types'
+import {
+  OFBlockEnum,
+  OF_ITERATION_INDEX_VARIABLE_NAME,
+  OF_ITERATION_ITEM_VARIABLE_NAME,
+  OF_ITERATION_LENGTH_VARIABLE_NAME
+} from '@shared/Orchestraflow-types'
 import type { ExecutionContext, NodeResult } from './types'
 import { VariableStore } from '../services/variable-store'
 
@@ -23,8 +28,9 @@ export class IterationStartNode extends BaseNode {
 
     return {
       outputs: {
-        item: context.iterationContext.item,
-        index: context.iterationContext.index
+        [OF_ITERATION_ITEM_VARIABLE_NAME]: context.iterationContext.item,
+        [OF_ITERATION_INDEX_VARIABLE_NAME]: context.iterationContext.index,
+        [OF_ITERATION_LENGTH_VARIABLE_NAME]: context.iterationContext.iterationLength
       }
     }
   }

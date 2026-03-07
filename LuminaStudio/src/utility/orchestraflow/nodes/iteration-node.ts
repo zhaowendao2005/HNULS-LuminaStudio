@@ -1,6 +1,10 @@
 import { randomUUID } from 'crypto'
 import { BaseNode } from './base-node'
 import {
+  OF_ITERATION_INDEX_VARIABLE_NAME,
+  OF_ITERATION_ITEM_VARIABLE_NAME,
+  OF_ITERATION_LENGTH_VARIABLE_NAME,
+  OF_ITERATION_RESULT_VARIABLE_NAME,
   normalizeOFVariableNamespace,
   OFBlockEnum,
   type OFIterationNodeData
@@ -85,8 +89,7 @@ export class IterationNode extends BaseNode {
       }
     }
 
-    const parallelMode =
-      nodeData.parallel_mode === 'parallel' || (nodeData.parallel_mode === undefined && nodeData.is_parallel)
+    const parallelMode = nodeData.parallel_mode === 'parallel'
     const errorMode = nodeData.error_handle_mode || 'terminated'
 
     let terminatedError: string | undefined
@@ -157,12 +160,12 @@ export class IterationNode extends BaseNode {
     }
 
     const finalResult = this.finalizeResults(results, nodeData)
-    this.setOutput(`${normalizedTitle}.result`, finalResult)
-    this.setOutput(`${context.node.id}.result`, finalResult)
+    this.setOutput(`${normalizedTitle}.${OF_ITERATION_RESULT_VARIABLE_NAME}`, finalResult)
+    this.setOutput(`${context.node.id}.${OF_ITERATION_RESULT_VARIABLE_NAME}`, finalResult)
 
     return {
       outputs: {
-        result: finalResult
+        [OF_ITERATION_RESULT_VARIABLE_NAME]: finalResult
       }
     }
   }
@@ -175,12 +178,12 @@ export class IterationNode extends BaseNode {
     length: number
   ): VariableStore {
     const childStore = this.variableStore.fork()
-    childStore.set(`${normalizedTitle}.item`, item)
-    childStore.set(`${normalizedTitle}.index`, index)
-    childStore.set(`${normalizedTitle}.length`, length)
-    childStore.set(`${iterationNodeId}.item`, item)
-    childStore.set(`${iterationNodeId}.index`, index)
-    childStore.set(`${iterationNodeId}.length`, length)
+    childStore.set(`${normalizedTitle}.${OF_ITERATION_ITEM_VARIABLE_NAME}`, item)
+    childStore.set(`${normalizedTitle}.${OF_ITERATION_INDEX_VARIABLE_NAME}`, index)
+    childStore.set(`${normalizedTitle}.${OF_ITERATION_LENGTH_VARIABLE_NAME}`, length)
+    childStore.set(`${iterationNodeId}.${OF_ITERATION_ITEM_VARIABLE_NAME}`, item)
+    childStore.set(`${iterationNodeId}.${OF_ITERATION_INDEX_VARIABLE_NAME}`, index)
+    childStore.set(`${iterationNodeId}.${OF_ITERATION_LENGTH_VARIABLE_NAME}`, length)
     return childStore
   }
 

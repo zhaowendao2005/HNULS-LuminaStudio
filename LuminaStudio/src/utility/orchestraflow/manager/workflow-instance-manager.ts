@@ -1,10 +1,18 @@
 import type {
   OFNodeDebugResult,
+  OFNode,
   OFNodeTracing,
+  OFSubWorkflowGraph,
   OFWorkflow,
+  OFWorkflowGraph,
   OFWorkflowRunResult
 } from '@shared/Orchestraflow-types'
-import { OFBlockEnum, OFNodeRunningStatus, OFWorkflowRunningStatus } from '@shared/Orchestraflow-types'
+import {
+  buildOFNodeTraceKey,
+  OFBlockEnum,
+  OFNodeRunningStatus,
+  OFWorkflowRunningStatus
+} from '@shared/Orchestraflow-types'
 import { executeNode } from '../services/executor'
 import { GraphExecutor } from '../services/graph-executor'
 import { VariableStore } from '../services/variable-store'
@@ -109,21 +117,22 @@ export class WorkflowInstanceManager {
     > = {},
     scopePath?: string[]
   ): Promise<OFNodeDebugResult> {
-    if (scopePath?.length) {
+    const resolvedGraph = this.resolveDebugGraph(workflow, scopePath)
+    if ('error' in resolvedGraph) {
       return {
         nodeId,
-        nodeType: workflow.graph.nodes.find((item) => item.id === nodeId)?.data.type || 'start',
+        nodeType: workflow.graph.nodes.find((item) => item.id === nodeId)?.data.type || OFBlockEnum.Start,
         status: OFNodeRunningStatus.Failed,
-        error: 'subgraph scopePath debug is not supported in v1',
+        error: resolvedGraph.error,
         inputs: this.toSerializable(inputs || {})
-      } as OFNodeDebugResult
+      }
     }
 
-    const node = workflow.graph.nodes.find((item) => item.id === nodeId)
+    const node = resolvedGraph.graph.nodes.find((item) => item.id === nodeId)
     if (!node) {
       return {
         nodeId,
-        nodeType: 'start' as OFBlockEnum,
+        nodeType: OFBlockEnum.Start,
         status: OFNodeRunningStatus.Failed,
         error: `Node not found: ${nodeId}`,
         inputs: this.toSerializable(inputs || {})
@@ -145,13 +154,18 @@ export class WorkflowInstanceManager {
 
     const result = await executeNode({
       node,
-      graph: workflow.graph,
+      graph: resolvedGraph.graph,
       variableStore,
       initialInputs: inputs || {},
       providerConfigs,
       runId: debugRunId,
-      scopePath: [],
-      traceKey: `${debugRunId}::${node.id}`,
+      scopePath: resolvedGraph.scopePath,
+      traceKey: buildOFNodeTraceKey({
+        runId: debugRunId,
+        workflowId: workflow.id,
+        nodeId: node.id,
+        scopePath: resolvedGraph.scopePath
+      }),
       executeGraph: (params) => executor.executeGraph(params),
       isStopped: () => false
     })
@@ -164,6 +178,39 @@ export class WorkflowInstanceManager {
       inputs: this.toSerializable(result.inputs || inputs || {}),
       outputs: this.toSerializable(result.outputs || {}),
       error: result.error
+    }
+  }
+
+  private resolveDebugGraph(
+    workflow: OFWorkflow,
+    scopePath?: string[]
+  ):
+    | { graph: OFWorkflowGraph | OFSubWorkflowGraph; scopePath: string[] }
+    | { error: string } {
+    let graph: OFWorkflowGraph | OFSubWorkflowGraph = workflow.graph
+    const resolvedScopePath: string[] = []
+
+    for (const scopeNodeId of scopePath || []) {
+      const scopeNode = graph.nodes.find((item) => item.id === scopeNodeId)
+      if (!scopeNode) {
+        return {
+          error: `Scope node not found: ${scopeNodeId}`
+        }
+      }
+
+      if (scopeNode.data.type !== OFBlockEnum.Iteration && scopeNode.data.type !== OFBlockEnum.Loop) {
+        return {
+          error: `Scope node ${scopeNodeId} is not a container node`
+        }
+      }
+
+      graph = scopeNode.data.subgraph
+      resolvedScopePath.push(scopeNodeId)
+    }
+
+    return {
+      graph,
+      scopePath: resolvedScopePath
     }
   }
 

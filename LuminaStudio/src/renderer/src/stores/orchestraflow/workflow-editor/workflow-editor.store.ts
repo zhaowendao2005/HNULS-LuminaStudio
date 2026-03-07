@@ -7,7 +7,6 @@ import {
   OFControlMode,
   OFBlockEnum,
   OFNodeRunningStatus,
-  OFVarType,
   buildIterationInnerStartVariables,
   buildLLMOutputVariables,
   buildIterationOutputVariables,
@@ -29,8 +28,11 @@ import { WorkflowEditorDataSource } from './workflow-editor.datasource'
 const datasource = WorkflowEditorDataSource
 const ITERATION_MIN_WIDTH = 560
 const ITERATION_MIN_HEIGHT = 360
+const ITERATION_DEFAULT_WIDTH = 650
+const ITERATION_DEFAULT_HEIGHT = 417
 const ITERATION_RESIZE_PADDING_X = 36
 const ITERATION_RESIZE_PADDING_Y = 36
+const DEFAULT_SUBGRAPH_VIEWPORT = { x: 0, y: 0, zoom: 1 }
 
 const NESTED_NODE_DEFAULT_SIZES: Record<string, { width: number; height: number }> = {
   'iteration-start': { width: 60, height: 60 },
@@ -71,31 +73,35 @@ function normalizeNodeTitle(type: OFBlockEnum, raw: string | undefined): string 
   return trimmed || getDefaultNodeTitle(type)
 }
 
-function createDefaultIterationGraph(seed: string): OFIterationNodeData['graph'] {
+function createIterationStartNode(
+  iterationNodeId: string,
+  iterationTitle: string
+): OFNode {
   return {
-    nodes: [
-      {
-        id: `${seed}-iteration-start`,
-        type: 'iteration-start',
-        parentNode: seed,
-        extent: 'parent',
-        position: { x: 24, y: 82 },
-        data: {
-          title: '迭代开始',
-          desc: '迭代开始',
-          type: OFBlockEnum.IterationStart,
-          input: {
-            variables: buildIterationInnerStartVariables()
-          }
-        } as OFIterationStartNodeData
+    id: `${iterationNodeId}-iteration-start`,
+    type: 'iteration-start',
+    parentNode: iterationNodeId,
+    extent: 'parent',
+    position: { x: 24, y: 82 },
+    data: {
+      title: '迭代开始',
+      desc: '迭代开始',
+      type: OFBlockEnum.IterationStart,
+      input: {
+        variables: buildIterationInnerStartVariables(iterationTitle, iterationNodeId)
       }
-    ],
+    } as OFIterationStartNodeData
+  }
+}
+
+function createDefaultIterationSubgraph(
+  iterationNodeId: string,
+  iterationTitle: string
+): OFIterationNodeData['subgraph'] {
+  return {
+    nodes: [createIterationStartNode(iterationNodeId, iterationTitle)],
     edges: [],
-    viewport: {
-      x: 0,
-      y: 0,
-      zoom: 1
-    }
+    viewport: { ...DEFAULT_SUBGRAPH_VIEWPORT }
   }
 }
 
@@ -145,20 +151,81 @@ function buildCommonNodeShape<T extends { title?: string; desc?: string; width?:
   }
 }
 
+function normalizeIterationStartNode(
+  node: OFNode,
+  iterationNodeId: string,
+  iterationTitle: string
+): OFNode {
+  const data = node.data as Partial<OFIterationStartNodeData>
+
+  return {
+    ...node,
+    type: 'iteration-start',
+    parentNode: iterationNodeId,
+    extent: 'parent',
+    data: {
+      ...buildCommonNodeShape(data, '迭代开始', '迭代开始'),
+      type: OFBlockEnum.IterationStart,
+      input: {
+        variables: buildIterationInnerStartVariables(iterationTitle, iterationNodeId)
+      }
+    } as OFIterationStartNodeData
+  }
+}
+
+function normalizeIterationSubgraph(
+  iterationNodeId: string,
+  iterationTitle: string,
+  subgraph?: Partial<OFIterationNodeData['subgraph']> | null
+): OFIterationNodeData['subgraph'] {
+  const baseSubgraph =
+    subgraph?.nodes?.length || subgraph?.edges?.length
+      ? subgraph
+      : createDefaultIterationSubgraph(iterationNodeId, iterationTitle)
+
+  const normalizedNodes = (baseSubgraph.nodes || []).map((childNode) => {
+    const normalizedChildNode = {
+      ...cloneNode(childNode),
+      parentNode: childNode.parentNode || iterationNodeId,
+      extent: childNode.extent || 'parent'
+    } as OFNode
+
+    if (
+      normalizedChildNode.data.type === OFBlockEnum.IterationStart ||
+      normalizedChildNode.data.type === OFBlockEnum.Start
+    ) {
+      return normalizeIterationStartNode(normalizedChildNode, iterationNodeId, iterationTitle)
+    }
+
+    return normalizeNode(normalizedChildNode)
+  })
+
+  const startNode =
+    normalizedNodes.find((childNode) => childNode.data.type === OFBlockEnum.IterationStart) ||
+    createIterationStartNode(iterationNodeId, iterationTitle)
+
+  const nextNodes = normalizedNodes.some((childNode) => childNode.id === startNode.id)
+    ? normalizedNodes.map((childNode) =>
+        childNode.id === startNode.id
+          ? normalizeIterationStartNode(childNode, iterationNodeId, iterationTitle)
+          : childNode
+      )
+    : [startNode, ...normalizedNodes]
+
+  return {
+    nodes: nextNodes,
+    edges: (baseSubgraph.edges || []).map((edge) => cloneNode(edge)),
+    viewport: baseSubgraph.viewport || { ...DEFAULT_SUBGRAPH_VIEWPORT }
+  }
+}
+
 function normalizeNode(node: OFNode): OFNode {
   if (node.data.type === OFBlockEnum.IterationStart) {
-    const data = node.data as Partial<OFIterationStartNodeData>
-    return {
-      ...node,
-      type: 'iteration-start',
-      data: {
-        ...buildCommonNodeShape(data, '迭代开始', '迭代开始'),
-        type: OFBlockEnum.IterationStart,
-        input: {
-          variables: buildIterationInnerStartVariables()
-        }
-      } as OFIterationStartNodeData
-    }
+    return normalizeIterationStartNode(
+      node,
+      node.parentNode || node.id,
+      node.parentNode || getDefaultNodeTitle(OFBlockEnum.Iteration)
+    )
   }
 
   if (node.data.type === OFBlockEnum.LLM) {
@@ -196,53 +263,28 @@ function normalizeNode(node: OFNode): OFNode {
   if (node.data.type === OFBlockEnum.Iteration) {
     const data = node.data as Partial<OFIterationNodeData>
     const title = normalizeNodeTitle(OFBlockEnum.Iteration, data.title)
+    const subgraph = normalizeIterationSubgraph(node.id, title, data.subgraph)
+    const startNode =
+      subgraph.nodes.find((childNode) => childNode.data.type === OFBlockEnum.IterationStart) ||
+      createIterationStartNode(node.id, title)
+
     return {
       ...node,
       data: {
         ...buildCommonNodeShape(data, title),
         type: OFBlockEnum.Iteration,
-        input: data.input || { variables: [] },
-        iterationMode: data.iterationMode || 'fixed-count',
-        iterationCount: Math.max(1, Number(data.iterationCount || 3)),
-        iterationSource: data.iterationSource || '',
-        outputVariable: data.outputVariable || {
-          variable: 'item',
-          label: 'item',
-          type: OFVarType.Array,
-          required: true,
-          value_selector: []
-        },
-        parallelMode: Boolean(data.parallelMode),
-        errorResponseMode: data.errorResponseMode || 'terminate',
-        flattenOutput: data.flattenOutput ?? true,
-        mockTemplateId: data.mockTemplateId || 'llm-summary',
-        graph: data.graph || createDefaultIterationGraph(node.id),
-        preview: data.preview || {
-          label: '迭代开始',
-          nodes: [{ id: 'preview-start', type: 'iteration-start', title: '迭代开始' }]
-        },
-        mockRun: data.mockRun || {
-          iterations: [
-            {
-              index: 1,
-              title: '第 1 轮',
-              input: '提取候选信息',
-              outputSummary: '生成第一轮摘要并筛选重点',
-              status: OFNodeRunningStatus.Succeeded
-            },
-            {
-              index: 2,
-              title: '第 2 轮',
-              input: '补充缺失上下文',
-              outputSummary: '收敛到最终摘要',
-              status: OFNodeRunningStatus.Succeeded
-            }
-          ],
-          summary: '已完成 2 轮模拟迭代，输出合并摘要。',
-          finalOutput: '这是迭代节点的最终模拟输出。'
-        },
+        width: data.width || ITERATION_DEFAULT_WIDTH,
+        height: data.height || ITERATION_DEFAULT_HEIGHT,
+        iterator_selector: data.iterator_selector || [],
+        output_selector: data.output_selector || [],
+        start_node_id: startNode.id,
+        subgraph,
+        parallel_mode: data.parallel_mode || 'sequential',
+        parallel_nums: Math.max(1, Number(data.parallel_nums || 1)),
+        error_handle_mode: data.error_handle_mode || 'terminated',
+        flatten_output: data.flatten_output ?? true,
         output: {
-          variables: buildIterationOutputVariables(title, `iteration_${node.id}`)
+          variables: buildIterationOutputVariables(title, node.id)
         }
       } as OFIterationNodeData
     }
@@ -367,31 +409,8 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
           ...node,
           data: {
             ...data,
-            mockRun: {
-              ...data.mockRun,
-              summary: replacePromptNamespace(
-                data.mockRun?.summary || '',
-                oldNamespace,
-                newNamespace
-              ),
-              finalOutput: replacePromptNamespace(
-                data.mockRun?.finalOutput || '',
-                oldNamespace,
-                newNamespace
-              ),
-              iterations: (data.mockRun?.iterations || []).map((item) => ({
-                ...item,
-                input: replacePromptNamespace(item.input || '', oldNamespace, newNamespace),
-                outputSummary: replacePromptNamespace(
-                  item.outputSummary || '',
-                  oldNamespace,
-                  newNamespace
-                )
-              }))
-            },
-            output: {
-              variables: buildIterationOutputVariables(newNamespace, `iteration_${node.id}`)
-            }
+            iterator_selector: replaceNamespace(data.iterator_selector, oldNamespace, newNamespace),
+            output_selector: replaceNamespace(data.output_selector, oldNamespace, newNamespace)
           }
         }
       }
@@ -437,32 +456,11 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
 
     normalizedNodes.forEach((node) => {
       if (node.data.type !== OFBlockEnum.Iteration) return
-      const graph = (node.data as OFIterationNodeData).graph
-      ;(graph.nodes || []).forEach((childNode) => {
-        const normalizedChildNode =
-          childNode.data.type === OFBlockEnum.Start
-            ? {
-                ...cloneNode(childNode),
-                type: 'iteration-start',
-                data: {
-                  ...(childNode.data as OFStartNodeData),
-                  title: '迭代开始',
-                  type: OFBlockEnum.IterationStart,
-                  input: {
-                    variables: buildIterationInnerStartVariables()
-                  }
-                }
-              }
-            : cloneNode(childNode)
-        inflatedNodes.push(
-          normalizeNode({
-            ...normalizedChildNode,
-            parentNode: normalizedChildNode.parentNode || node.id,
-            extent: normalizedChildNode.extent || 'parent'
-          } as OFNode)
-        )
+      const subgraph = (node.data as OFIterationNodeData).subgraph
+      subgraph.nodes.forEach((childNode) => {
+        inflatedNodes.push(cloneNode(childNode))
       })
-      ;(graph.edges || []).forEach((childEdge) => {
+      subgraph.edges.forEach((childEdge) => {
         inflatedEdges.push(cloneEdge(childEdge))
       })
     })
@@ -476,9 +474,14 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
 
   async function saveWorkflow() {
     if (!currentWorkflowId.value) return
+    const rootNodes = nodes.value.filter((node) => !node.parentNode)
+    const rootNodeIds = new Set(rootNodes.map((node) => node.id))
+
     const nodesData = cloneNode(
-      nodes.value.map((node) => {
-        if (node.data.type !== OFBlockEnum.Iteration) return node
+      rootNodes.map((node) => {
+        if (node.data.type !== OFBlockEnum.Iteration) {
+          return node
+        }
 
         const childNodes = nodes.value
           .filter((candidate) => candidate.parentNode === node.id)
@@ -492,8 +495,8 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
           ...node,
           data: {
             ...(node.data as OFIterationNodeData),
-            graph: {
-              ...(node.data as OFIterationNodeData).graph,
+            subgraph: {
+              ...(node.data as OFIterationNodeData).subgraph,
               nodes: childNodes,
               edges: childEdges
             }
@@ -501,7 +504,9 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
         }
       })
     )
-    const edgesData = cloneNode(edges.value)
+    const edgesData = cloneNode(
+      edges.value.filter((edge) => rootNodeIds.has(edge.source) && rootNodeIds.has(edge.target))
+    )
     await datasource.update(currentWorkflowId.value, { nodes: nodesData, edges: edgesData })
   }
 
@@ -524,9 +529,29 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
     return sourceNodes.find((node) => node.id === nodeId) || null
   }
 
+  function getNodeAncestorPath(nodeId: string): string[] {
+    const path: string[] = []
+    let currentNode = findNodeByIdFrom(nodeId, nodes.value)
+
+    while (currentNode?.parentNode) {
+      path.unshift(currentNode.parentNode)
+      currentNode = findNodeByIdFrom(currentNode.parentNode, nodes.value)
+    }
+
+    return path
+  }
+
   function findParentIterationNodeId(nodeId: string): string | null {
-    const targetNode = findNodeByIdFrom(nodeId, nodes.value)
-    return targetNode?.parentNode || null
+    const ancestorPath = getNodeAncestorPath(nodeId)
+
+    for (let index = ancestorPath.length - 1; index >= 0; index -= 1) {
+      const ancestorNode = findNodeByIdFrom(ancestorPath[index], nodes.value)
+      if (ancestorNode?.data.type === OFBlockEnum.Iteration) {
+        return ancestorNode.id
+      }
+    }
+
+    return null
   }
 
   function isIterationLocalStart(nodeId: string): boolean {
@@ -539,7 +564,8 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
   }
 
   function getNodeLayerKey(nodeId: string): string {
-    return findParentIterationNodeId(nodeId) || 'root'
+    const ancestorPath = getNodeAncestorPath(nodeId)
+    return ancestorPath.join('/') || 'root'
   }
 
   function isDuplicateEdgeCandidate(edge: OFEdge): boolean {
@@ -559,7 +585,12 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
   function buildIterationEdgeData(edge: OFEdge): OFEdge {
     const sourceNode = findNodeByIdFrom(edge.source, nodes.value)
     const targetNode = findNodeByIdFrom(edge.target, nodes.value)
-    const iterationId = sourceNode?.parentNode || targetNode?.parentNode || undefined
+    const sourceAncestorPath = sourceNode ? getNodeAncestorPath(sourceNode.id) : []
+    const targetAncestorPath = targetNode ? getNodeAncestorPath(targetNode.id) : []
+    const iterationId =
+      sourceAncestorPath[sourceAncestorPath.length - 1] ||
+      targetAncestorPath[targetAncestorPath.length - 1] ||
+      undefined
 
     if (!sourceNode || !targetNode) {
       return edge
@@ -663,8 +694,8 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
     if (!target || target.data.type !== OFBlockEnum.Iteration) return
 
     nodes.value = updateNodeCollection(nodes.value, nodeId, {
-      graph: {
-        ...(target.data as OFIterationNodeData).graph,
+      subgraph: {
+        ...(target.data as OFIterationNodeData).subgraph,
         viewport: viewportValue
       }
     } as Partial<OFIterationNodeData>)
