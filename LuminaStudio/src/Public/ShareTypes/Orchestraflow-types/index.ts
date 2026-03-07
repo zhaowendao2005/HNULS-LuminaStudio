@@ -132,6 +132,8 @@ export interface OFSubWorkflowGraph {
 
 export const OF_LLM_TEXT_OUTPUT_NAME = 'llmoutput'
 export const OF_LLM_STRUCTURED_OUTPUT_NAME = 'structured_output'
+export const OF_ITERATION_ITEM_VARIABLE_NAME = 'item'
+export const OF_ITERATION_INDEX_VARIABLE_NAME = 'index'
 
 export function normalizeOFVariableNamespace(
   raw: string | null | undefined,
@@ -202,6 +204,25 @@ export function buildIterationOutputVariables(
       type: OFVarType.Array,
       required: true,
       value_selector: [`${normalizedNamespace}.iterations`]
+    }
+  ]
+}
+
+export function buildIterationInnerStartVariables(): OFVariable[] {
+  return [
+    {
+      variable: OF_ITERATION_INDEX_VARIABLE_NAME,
+      label: OF_ITERATION_INDEX_VARIABLE_NAME,
+      type: OFVarType.Number,
+      required: true,
+      value_selector: [OF_ITERATION_INDEX_VARIABLE_NAME]
+    },
+    {
+      variable: OF_ITERATION_ITEM_VARIABLE_NAME,
+      label: OF_ITERATION_ITEM_VARIABLE_NAME,
+      type: OFVarType.Object,
+      required: true,
+      value_selector: [OF_ITERATION_ITEM_VARIABLE_NAME]
     }
   ]
 }

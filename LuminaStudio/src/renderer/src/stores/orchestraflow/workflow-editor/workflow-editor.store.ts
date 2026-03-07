@@ -8,6 +8,7 @@ import {
   OFBlockEnum,
   OFNodeRunningStatus,
   OFVarType,
+  buildIterationInnerStartVariables,
   buildLLMOutputVariables,
   buildIterationOutputVariables,
   normalizeOFVariableNamespace
@@ -83,7 +84,9 @@ function createDefaultIterationGraph(seed: string): OFIterationNodeData['graph']
           title: '迭代开始',
           desc: '迭代开始',
           type: OFBlockEnum.IterationStart,
-          input: { variables: [] }
+          input: {
+            variables: buildIterationInnerStartVariables()
+          }
         } as OFIterationStartNodeData
       }
     ],
@@ -151,7 +154,9 @@ function normalizeNode(node: OFNode): OFNode {
       data: {
         ...buildCommonNodeShape(data, '迭代开始', '迭代开始'),
         type: OFBlockEnum.IterationStart,
-        input: { variables: [] }
+        input: {
+          variables: buildIterationInnerStartVariables()
+        }
       } as OFIterationStartNodeData
     }
   }
@@ -443,7 +448,9 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
                   ...(childNode.data as OFStartNodeData),
                   title: '迭代开始',
                   type: OFBlockEnum.IterationStart,
-                  input: { variables: [] }
+                  input: {
+                    variables: buildIterationInnerStartVariables()
+                  }
                 }
               }
             : cloneNode(childNode)

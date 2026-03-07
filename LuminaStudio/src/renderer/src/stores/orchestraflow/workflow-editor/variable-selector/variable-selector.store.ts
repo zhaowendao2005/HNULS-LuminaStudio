@@ -14,6 +14,7 @@ import type {
   OFEdge,
   OFEndNodeData,
   OFIterationNodeData,
+  OFIterationStartNodeData,
   OFLLMNodeData,
   OFNode,
   OFStartNodeData,
@@ -117,8 +118,12 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
 
     let variables: OFVariable[] = []
 
-    if (nodeType === OFBlockEnum.Start) {
-      variables = ((data as OFStartNodeData).input?.variables || []).map((item) => ({
+    if (nodeType === OFBlockEnum.Start || nodeType === OFBlockEnum.IterationStart) {
+      variables = (
+        (
+          data as OFStartNodeData | OFIterationStartNodeData
+        ).input?.variables || []
+      ).map((item) => ({
         ...item,
         value_selector: item.value_selector?.length ? item.value_selector : [item.variable]
       }))
@@ -226,10 +231,14 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
     const parentIterationId = editorStore.findParentIterationNodeId(targetNodeId.value)
     const localUpstreamNodes = parentIterationId
       ? (() => {
-          const parentIterationNode = editorStore.findNodeById(parentIterationId)
-          if (!parentIterationNode || parentIterationNode.data.type !== OFBlockEnum.Iteration) return []
-          const graph = parentIterationNode.data.graph
-          return findUpstreamNodes(targetNodeId.value, graph.nodes, graph.edges)
+          const localNodes = editorStore.nodes.filter(
+            (node) => node.id === parentIterationId || node.parentNode === parentIterationId
+          )
+          const localNodeIds = new Set(localNodes.map((node) => node.id))
+          const localEdges = editorStore.edges.filter(
+            (edge) => localNodeIds.has(edge.source) && localNodeIds.has(edge.target)
+          )
+          return findUpstreamNodes(targetNodeId.value, localNodes, localEdges)
         })()
       : findUpstreamNodes(targetNodeId.value, editorStore.nodes, editorStore.edges)
     const outerUpstreamNodes = parentIterationId

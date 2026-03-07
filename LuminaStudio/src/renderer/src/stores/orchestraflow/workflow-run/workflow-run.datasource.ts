@@ -34,6 +34,9 @@ function shouldUseIterationMock(nodes?: OFNode[]): boolean {
 }
 
 function runIterationMock(params: WorkflowRunParams): Promise<OFWorkflowRunResult> {
+  // TODO:
+  // 当前迭代节点运行仍走前端演示 mock。
+  // 接后端后需要移除这条分支，改为透传真实的 iteration scope / item / index 注入结果。
   clearMockTimers()
   currentMockRunId = `mock-run-${Date.now()}`
   const runId = currentMockRunId

@@ -1,8 +1,19 @@
 /**
  * OrchestraFlow 工作流运行 Mock 数据
+ *
+ * 说明：
+ * 这里是前端演示专用的 mock 注入链路，不代表最终后端运行时协议。
+ * 当前会为迭代节点额外注入两层变量语义：
+ * 1. 上下维度：迭代节点接收 array，产出 array。
+ * 2. 内外维度：迭代节点会向内图起点注入当前迭代组变量 `index` 和 `item`。
+ *
+ * TODO:
+ * 接后端真实运行时后，删除这里的前端注入逻辑，改为消费后端返回的 iteration scope。
  */
 import type { OFNode, OFNodeTracing, OFWorkflowRunResult } from '@shared/Orchestraflow-types'
 import {
+  OF_ITERATION_INDEX_VARIABLE_NAME,
+  OF_ITERATION_ITEM_VARIABLE_NAME,
   OFWorkflowRunningStatus,
   OFNodeRunningStatus,
   OFBlockEnum
@@ -10,6 +21,50 @@ import {
 
 function firstNodeByType(nodes: OFNode[], type: OFBlockEnum): OFNode | undefined {
   return nodes.find((node) => node.data.type === type)
+}
+
+function normalizeIterationInputArray(raw: unknown): any[] {
+  if (Array.isArray(raw)) return raw
+  if (raw == null || raw === '') return []
+  return [raw]
+}
+
+function resolveIterationDemoInput(nodes: OFNode[], inputs?: Record<string, any>) {
+  const iterationNode = firstNodeByType(nodes, OFBlockEnum.Iteration)
+  const iterationData =
+    iterationNode?.data.type === OFBlockEnum.Iteration ? iterationNode.data : null
+  const selector = iterationData?.input?.variables?.[0]?.value_selector || []
+  const selectorPath = selector.join('.')
+
+  if (selectorPath && inputs && selectorPath in inputs) {
+    return {
+      sourcePath: selectorPath,
+      items: normalizeIterationInputArray(inputs[selectorPath])
+    }
+  }
+
+  const firstArrayEntry = Object.entries(inputs || {}).find(([, value]) => Array.isArray(value))
+  if (firstArrayEntry) {
+    return {
+      sourcePath: firstArrayEntry[0],
+      items: normalizeIterationInputArray(firstArrayEntry[1])
+    }
+  }
+
+  return {
+    sourcePath: selectorPath || 'demo.iteration_input',
+    items: [
+      { title: '候选段落 A', content: '第一段待整理内容' },
+      { title: '候选段落 B', content: '第二段待整理内容' }
+    ]
+  }
+}
+
+function buildIterationScopedInputs(items: any[]) {
+  return items.map((item, index) => ({
+    [OF_ITERATION_INDEX_VARIABLE_NAME]: index,
+    [OF_ITERATION_ITEM_VARIABLE_NAME]: item
+  }))
 }
 
 function createDefaultTrace(): OFWorkflowRunResult {
@@ -75,24 +130,24 @@ function createIterationTrace(nodes: OFNode[], inputs?: Record<string, any>): OF
   const endNode = firstNodeByType(nodes, OFBlockEnum.End)
   const iterationData =
     iterationNode?.data.type === OFBlockEnum.Iteration ? iterationNode.data : null
-  const iterations = iterationData?.mockRun?.iterations?.length
-    ? iterationData.mockRun.iterations
-    : [
-        {
-          index: 1,
-          title: '第 1 轮',
-          input: '提炼候选信息',
-          outputSummary: '输出第一轮中间摘要',
-          status: OFNodeRunningStatus.Succeeded
-        },
-        {
-          index: 2,
-          title: '第 2 轮',
-          input: '继续补齐缺失信息',
-          outputSummary: '输出第二轮中间摘要',
-          status: OFNodeRunningStatus.Succeeded
-        }
-      ]
+  const demoInput = resolveIterationDemoInput(nodes, inputs)
+  const scopedInputs = buildIterationScopedInputs(demoInput.items)
+  const fallbackIterations = scopedInputs.map((scope, index) => ({
+    index: index + 1,
+    title: `第 ${index + 1} 轮`,
+    input: JSON.stringify(scope[OF_ITERATION_ITEM_VARIABLE_NAME], null, 2),
+    outputSummary: `使用 ${OF_ITERATION_ITEM_VARIABLE_NAME} 和 ${OF_ITERATION_INDEX_VARIABLE_NAME} 完成第 ${index + 1} 轮演示整理`,
+    status: OFNodeRunningStatus.Succeeded
+  }))
+  const iterations =
+    iterationData?.mockRun?.iterations?.length
+      ? iterationData.mockRun.iterations.map((item, index) => ({
+          ...item,
+          input:
+            item.input ||
+            JSON.stringify(scopedInputs[index]?.[OF_ITERATION_ITEM_VARIABLE_NAME] || '', null, 2)
+        }))
+      : fallbackIterations
 
   const tracing: OFNodeTracing[] = []
 
@@ -114,14 +169,23 @@ function createIterationTrace(nodes: OFNode[], inputs?: Record<string, any>): OF
       status: OFNodeRunningStatus.Succeeded,
       elapsed_time: 1.28,
       inputs: {
+        sourcePath: demoInput.sourcePath,
+        inputArray: demoInput.items,
+        iterationScopePreview: scopedInputs,
         iterationCount: iterationData.iterationCount,
         iterationMode: iterationData.iterationMode,
-        mockTemplateId: iterationData.mockTemplateId
+        mockTemplateId: iterationData.mockTemplateId,
+        // 演示态显式暴露内图变量注入结果，便于联调 UI。
+        injectedInnerVariables: {
+          [OF_ITERATION_INDEX_VARIABLE_NAME]: '当前轮次索引',
+          [OF_ITERATION_ITEM_VARIABLE_NAME]: '当前轮次项目'
+        }
       },
       outputs: {
         iterations,
         summary: iterationData.mockRun.summary,
-        finalOutput: iterationData.mockRun.finalOutput
+        finalOutput: iterationData.mockRun.finalOutput,
+        items: demoInput.items
       }
     })
   }
