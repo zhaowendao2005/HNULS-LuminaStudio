@@ -13,6 +13,8 @@ import type {
 import type {
   OFEdge,
   OFEndNodeData,
+  OFIterationNodeData,
+  OFIterationStartNodeData,
   OFLLMNodeData,
   OFNode,
   OFStartNodeData,
@@ -36,7 +38,10 @@ function selectorToPath(selector: string[]): string {
   return selector.join('.')
 }
 
-function buildObjectChildren(base: OFAvailableVariable, variable: OFVariable): OFAvailableVariable[] {
+function buildObjectChildren(
+  base: OFAvailableVariable,
+  variable: OFVariable
+): OFAvailableVariable[] {
   if (variable.type !== OFVarType.Object || !variable.schema) {
     return []
   }
@@ -67,12 +72,19 @@ function buildObjectChildren(base: OFAvailableVariable, variable: OFVariable): O
 
 function matchesKeyword(variable: OFAvailableVariable, keyword: string): boolean {
   const lowered = keyword.toLowerCase()
-  return [variable.label, variable.variable, variable.path, variable.nodeTitle, String(variable.type || '')].some(
-    (item) => item.toLowerCase().includes(lowered)
-  )
+  return [
+    variable.label,
+    variable.variable,
+    variable.path,
+    variable.nodeTitle,
+    String(variable.type || '')
+  ].some((item) => item.toLowerCase().includes(lowered))
 }
 
-function filterVariable(variable: OFAvailableVariable, keyword: string): OFAvailableVariable | null {
+function filterVariable(
+  variable: OFAvailableVariable,
+  keyword: string
+): OFAvailableVariable | null {
   const filteredChildren = (variable.children || [])
     .map((child) => filterVariable(child, keyword))
     .filter(Boolean) as OFAvailableVariable[]
@@ -95,6 +107,7 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
   const searchKeyword = ref('')
   const cursorPosition = ref(0)
   const anchorRect = ref<DOMRect | null>(null)
+  const anchorPoint = ref<{ x: number; y: number } | null>(null)
 
   const editorStore = useWorkflowEditorStore()
 
@@ -106,18 +119,27 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
 
     let variables: OFVariable[] = []
 
-    if (nodeType === OFBlockEnum.Start) {
-      variables = ((data as OFStartNodeData).input?.variables || []).map((item) => ({
+    if (nodeType === OFBlockEnum.Start || nodeType === OFBlockEnum.IterationStart) {
+      variables = (
+        (
+          data as OFStartNodeData | OFIterationStartNodeData
+        ).input?.variables || []
+      ).map((item) => ({
         ...item,
         value_selector: item.value_selector?.length ? item.value_selector : [item.variable]
       }))
-    } else if (nodeType === OFBlockEnum.LLM || nodeType === OFBlockEnum.End) {
-      variables = (((data as OFLLMNodeData | OFEndNodeData).output?.variables || []) as OFVariable[]).map(
-        (item) => ({
-          ...item,
-          value_selector: item.value_selector?.length ? item.value_selector : [item.variable]
-        })
-      )
+    } else if (
+      nodeType === OFBlockEnum.LLM ||
+      nodeType === OFBlockEnum.Iteration ||
+      nodeType === OFBlockEnum.End
+    ) {
+      variables = (
+        ((data as OFLLMNodeData | OFIterationNodeData | OFEndNodeData).output?.variables ||
+          []) as OFVariable[]
+      ).map((item) => ({
+        ...item,
+        value_selector: item.value_selector?.length ? item.value_selector : [item.variable]
+      }))
     }
 
     if (!variables.length) {
@@ -125,7 +147,9 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
     }
 
     const items = variables.map((variable) => {
-      const selector = variable.value_selector?.length ? variable.value_selector : [variable.variable]
+      const selector = variable.value_selector?.length
+        ? variable.value_selector
+        : [variable.variable]
       const base: OFAvailableVariable = {
         id: `${nodeId}:${selectorToPath(selector)}`,
         variable: variable.variable,
@@ -205,8 +229,24 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
   const availableGroups = computed<OFAvailableVariableGroup[]>(() => {
     if (!targetNodeId.value) return []
 
-    const upstreamNodes = findUpstreamNodes(targetNodeId.value, editorStore.nodes, editorStore.edges)
-    const upstreamGroups = upstreamNodes
+    const parentIterationId = editorStore.findParentIterationNodeId(targetNodeId.value)
+    const localUpstreamNodes = parentIterationId
+      ? (() => {
+          const localNodes = editorStore.nodes.filter(
+            (node) => node.id === parentIterationId || node.parentNode === parentIterationId
+          )
+          const localNodeIds = new Set(localNodes.map((node) => node.id))
+          const localEdges = editorStore.edges.filter(
+            (edge) => localNodeIds.has(edge.source) && localNodeIds.has(edge.target)
+          )
+          return findUpstreamNodes(targetNodeId.value, localNodes, localEdges)
+        })()
+      : findUpstreamNodes(targetNodeId.value, editorStore.nodes, editorStore.edges)
+    const outerUpstreamNodes = parentIterationId
+      ? findUpstreamNodes(parentIterationId, editorStore.nodes, editorStore.edges)
+      : []
+
+    const upstreamGroups = [...localUpstreamNodes, ...outerUpstreamNodes]
       .flatMap((node) => extractNodeOutputs(node))
       .filter((group) => group.items.length > 0)
 
@@ -260,16 +300,19 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
     nodeId: string,
     type: VariableSelectorTargetType,
     positionOrAnchor?: number | DOMRect,
-    maybeAnchor?: DOMRect
+    maybeAnchor?: DOMRect,
+    point?: { x: number; y: number }
   ) {
     targetNodeId.value = nodeId
     targetType.value = type
     if (typeof positionOrAnchor === 'number') {
       cursorPosition.value = positionOrAnchor
       anchorRect.value = maybeAnchor || null
+      anchorPoint.value = point || null
     } else {
       cursorPosition.value = 0
       anchorRect.value = positionOrAnchor || null
+      anchorPoint.value = point || null
     }
     searchKeyword.value = ''
     visible.value = true
@@ -280,6 +323,7 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
     targetNodeId.value = null
     searchKeyword.value = ''
     anchorRect.value = null
+    anchorPoint.value = null
   }
 
   function setSearchKeyword(keyword: string) {
@@ -297,6 +341,7 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
     searchKeyword,
     cursorPosition,
     anchorRect,
+    anchorPoint,
     availableGroups,
     availableVariables,
     openSelector,

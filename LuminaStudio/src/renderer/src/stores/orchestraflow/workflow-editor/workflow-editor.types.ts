@@ -5,7 +5,9 @@ import type {
   OFBlockEnum,
   OFControlMode,
   OFStartNodeData,
+  OFIterationStartNodeData,
   OFLLMNodeData,
+  OFIterationNodeData,
   OFEndNodeData,
   OFCommonEdgeType,
   OFNode,
@@ -17,7 +19,9 @@ export type {
   OFBlockEnum,
   OFControlMode,
   OFStartNodeData,
+  OFIterationStartNodeData,
   OFLLMNodeData,
+  OFIterationNodeData,
   OFEndNodeData,
   OFCommonEdgeType
 }

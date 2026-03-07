@@ -42,7 +42,13 @@
                 title="查看输入详情"
                 @click="openJsonDialog('输入详情', inputsJson)"
               >
-                <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2">
+                <svg
+                  viewBox="0 0 24 24"
+                  class="h-3.5 w-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
                   <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" />
                   <circle cx="12" cy="12" r="3" />
                 </svg>
@@ -62,7 +68,13 @@
                 title="查看输出详情"
                 @click="openJsonDialog('输出详情', outputsJson)"
               >
-                <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2">
+                <svg
+                  viewBox="0 0 24 24"
+                  class="h-3.5 w-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
                   <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" />
                   <circle cx="12" cy="12" r="3" />
                 </svg>
@@ -100,9 +112,17 @@
                 <button
                   class="flex h-7 w-7 items-center justify-center rounded-full border border-indigo-200 bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
                   title="查看节点输入详情"
-                  @click="openJsonDialog(`${getNodeTitle(tracing)} 输入`, formatJson(tracing.inputs))"
+                  @click="
+                    openJsonDialog(`${getNodeTitle(tracing)} 输入`, formatJson(tracing.inputs))
+                  "
                 >
-                  <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2">
+                  <svg
+                    viewBox="0 0 24 24"
+                    class="h-3.5 w-3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
                     <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" />
                     <circle cx="12" cy="12" r="3" />
                   </svg>
@@ -116,9 +136,17 @@
                 <button
                   class="flex h-7 w-7 items-center justify-center rounded-full border border-indigo-200 bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
                   title="查看节点输出详情"
-                  @click="openJsonDialog(`${getNodeTitle(tracing)} 输出`, formatJson(tracing.outputs))"
+                  @click="
+                    openJsonDialog(`${getNodeTitle(tracing)} 输出`, formatJson(tracing.outputs))
+                  "
                 >
-                  <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2">
+                  <svg
+                    viewBox="0 0 24 24"
+                    class="h-3.5 w-3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
                     <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" />
                     <circle cx="12" cy="12" r="3" />
                   </svg>
@@ -207,6 +235,8 @@ function getNodeTitle(tracing: any): string {
       return '开始'
     case OFBlockEnum.LLM:
       return 'LLM'
+    case OFBlockEnum.Iteration:
+      return '迭代'
     case OFBlockEnum.IfElse:
       return '条件分支'
     case OFBlockEnum.End:

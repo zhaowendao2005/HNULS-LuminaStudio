@@ -42,6 +42,7 @@
       >
         <StartNodePanel v-if="uiStore.currentPanelType === 'start-node'" />
         <LLMNodePanel v-else-if="uiStore.currentPanelType === 'llm-node'" />
+        <IterationNodePanel v-else-if="uiStore.currentPanelType === 'iteration-node'" />
         <IfElseNodePanel v-else-if="uiStore.currentPanelType === 'ifelse-node'" />
         <EndNodePanel v-else-if="uiStore.currentPanelType === 'end-node'" />
       </FloatingPanel>
@@ -71,6 +72,7 @@ import FloatingPanel from './FloatingPanel/index.vue'
 import SystemVariablesPanel from './FloatingPanel/SystemVariablesPanel.vue'
 import StartNodePanel from './FloatingPanel/StartNodePanel/index.vue'
 import LLMNodePanel from './FloatingPanel/LLMNodePanel.vue'
+import IterationNodePanel from './FloatingPanel/IterationNodePanel.vue'
 import IfElseNodePanel from './FloatingPanel/IfElseNodePanel.vue'
 import EndNodePanel from './FloatingPanel/EndNodePanel.vue'
 import VariableSelector from './FloatingPanel/VariableSelector/index.vue'
@@ -98,6 +100,8 @@ const panelTitle = computed(() => {
       return '开始'
     case PanelType.LLMNode:
       return 'LLM'
+    case PanelType.IterationNode:
+      return '迭代'
     case PanelType.IfElseNode:
       return '条件分支'
     case PanelType.EndNode:
@@ -114,6 +118,8 @@ const panelDescription = computed(() => {
       return '工作流开始节点，用于接收用户输入'
     case PanelType.LLMNode:
       return '大语言模型节点，用于生成文本内容'
+    case PanelType.IterationNode:
+      return '迭代容器节点，用于模拟多轮内部循环'
     case PanelType.IfElseNode:
       return '按 IF / ELIF / ELSE 规则判断条件并放行命中的分支'
     case PanelType.EndNode:

@@ -4,7 +4,7 @@
  */
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { OFEndNodeConfig, OFNodeOutput, OFVariable } from '@shared/Orchestraflow-types'
+import type { OFEndNodeConfig, OFVariable } from '@shared/Orchestraflow-types'
 
 export const useEndNodeConfigStore = defineStore('of-end-node-config', () => {
   const currentNodeId = ref<string | null>(null)

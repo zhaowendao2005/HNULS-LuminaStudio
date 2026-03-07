@@ -20,9 +20,7 @@
             @click="activeTab = 'visual'"
           >
             <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="currentColor">
-              <path
-                d="M3 3H10V10H3V3ZM3 14H10V21H3V14ZM14 3H21V10H14V3ZM14 14H21V21H14V14Z"
-              />
+              <path d="M3 3H10V10H3V3ZM3 14H10V21H3V14ZM14 3H21V10H14V3ZM14 14H21V21H14V14Z" />
             </svg>
             <span>Visual Editor</span>
           </button>
@@ -91,14 +89,18 @@
               :key="field.id"
               class="group relative flex items-center gap-2 rounded-md border border-transparent bg-white p-1.5 transition-all hover:border-indigo-100 hover:shadow-sm"
             >
-              <div class="absolute -left-[21px] top-1/2 w-4 -translate-y-1/2 border-b-2 border-gray-200/70"></div>
+              <div
+                class="absolute -left-[21px] top-1/2 w-4 -translate-y-1/2 border-b-2 border-gray-200/70"
+              ></div>
 
               <input
                 :value="field.name"
                 class="h-8 w-36 rounded-md border border-transparent bg-transparent px-2 py-1 font-mono text-xs text-gray-700 outline-none transition-colors placeholder:text-gray-300 focus:bg-white"
                 :class="theme.controlFocusClass"
                 placeholder="字段名"
-                @input="store.updateField(field.id, { name: ($event.target as HTMLInputElement).value })"
+                @input="
+                  store.updateField(field.id, { name: ($event.target as HTMLInputElement).value })
+                "
               />
 
               <WhiteSelect
@@ -108,7 +110,9 @@
                 trigger-class="!h-8 !rounded-md !border-transparent !bg-transparent !px-2 !py-1 !text-xs !text-gray-500 hover:!bg-gray-100"
                 panel-class="min-w-[128px]"
                 teleport-to="body"
-                @update:model-value="store.updateField(field.id, { type: String($event) as OFStructuredFieldType })"
+                @update:model-value="
+                  store.updateField(field.id, { type: String($event) as OFStructuredFieldType })
+                "
               />
 
               <button
@@ -152,7 +156,9 @@
             </div>
 
             <div class="relative mt-1.5">
-              <div class="absolute -left-[21px] top-1/2 w-4 -translate-y-1/2 border-b-2 border-gray-200/70"></div>
+              <div
+                class="absolute -left-[21px] top-1/2 w-4 -translate-y-1/2 border-b-2 border-gray-200/70"
+              ></div>
               <button
                 type="button"
                 class="flex items-center gap-1 rounded-md border border-dashed border-indigo-200 bg-white px-2.5 py-1 text-xs text-indigo-600 transition-colors hover:border-indigo-300 hover:bg-indigo-50/40"

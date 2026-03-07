@@ -157,11 +157,7 @@ defineExpose({
 
 <style scoped>
 .of-prompt-editor {
-  font-family:
-    'SFMono-Regular',
-    'Cascadia Code',
-    'JetBrains Mono',
-    monospace;
+  font-family: 'SFMono-Regular', 'Cascadia Code', 'JetBrains Mono', monospace;
   caret-color: #374151;
 }
 

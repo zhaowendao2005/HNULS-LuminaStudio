@@ -4,6 +4,7 @@
       type="button"
       class="flex h-8 min-w-0 w-full items-center gap-1.5 overflow-hidden rounded-md border border-gray-200 bg-white px-2 py-1 text-gray-700 shadow-sm transition"
       :class="buttonClass"
+      @click="handleClick"
     >
       <span v-if="$slots.icon" class="flex shrink-0 items-center">
         <slot name="icon" />
@@ -15,6 +16,10 @@
 
 <script setup lang="ts">
 import CapsuleTooltip from './CapsuleTooltip.vue'
+
+const emit = defineEmits<{
+  click: [event: MouseEvent]
+}>()
 
 withDefaults(
   defineProps<{
@@ -30,4 +35,8 @@ withDefaults(
     tooltipMaxWidth: '420px'
   }
 )
+
+function handleClick(event: MouseEvent) {
+  emit('click', event)
+}
 </script>

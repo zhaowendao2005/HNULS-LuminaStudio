@@ -41,8 +41,11 @@ export const WorkflowEditorDataSource = {
   /**
    * 创建工作流
    */
-  async create(data: { name: string; description?: string }): Promise<OFWorkflow> {
-    const res = await window.api.orchestraflow.create(data)
+  async create(data: { name: string; description?: string; author?: string }): Promise<OFWorkflow> {
+    const res = await window.api.orchestraflow.create({
+      author: data.author || 'LuminaStudio',
+      ...data
+    })
     if (!res.success || !res.data) {
       throw new Error(res.error || 'Failed to create workflow')
     }

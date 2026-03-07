@@ -4,7 +4,12 @@
 
 import type { OFBlockEnum, OFJsonSchemaObject, OFVarType } from '@shared/Orchestraflow-types'
 
-export type VariableSelectorTargetType = 'prompt' | 'output' | 'condition'
+export type VariableSelectorTargetType =
+  | 'prompt'
+  | 'output'
+  | 'condition'
+  | 'iteration-input'
+  | 'iteration-output'
 
 export interface OFAvailableVariable {
   id: string
@@ -40,4 +45,8 @@ export interface VariableSelectorState {
   searchKeyword: string
   cursorPosition: number
   anchorRect?: DOMRect | null
+  anchorPoint?: {
+    x: number
+    y: number
+  } | null
 }

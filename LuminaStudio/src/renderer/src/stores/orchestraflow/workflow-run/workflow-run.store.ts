@@ -3,7 +3,6 @@
  */
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { WorkflowRunState } from './workflow-run.types'
 import type { OFWorkflowRunResult, OFNodeTracing, OFInputVar } from '@shared/Orchestraflow-types'
 import {
   OFWorkflowRunningStatus,
@@ -57,7 +56,11 @@ export const useWorkflowRunStore = defineStore('orchestraflow-workflow-run', () 
     })
 
     try {
-      const runResult = await WorkflowRunDataSource.run({ workflowId, inputs })
+      const runResult = await WorkflowRunDataSource.run({
+        workflowId,
+        inputs,
+        nodes: editorStore.nodes
+      })
       result.value = runResult
       status.value = runResult.status
     } catch (error) {

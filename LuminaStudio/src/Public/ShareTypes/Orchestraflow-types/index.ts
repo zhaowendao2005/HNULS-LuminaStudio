@@ -95,6 +95,45 @@ export interface OFNodeOutput {
   variables: OFVariable[]
 }
 
+export type OFIterationMode = 'fixed-count' | 'mock-source'
+export type OFIterationErrorResponseMode = 'terminate' | 'continue'
+
+export interface OFIterationPreviewNode {
+  id: string
+  type: 'iteration-start' | 'llm'
+  title: string
+  subtitle?: string
+}
+
+export interface OFIterationResultItem {
+  index: number
+  title: string
+  input: string
+  outputSummary: string
+  status: OFNodeRunningStatus
+}
+
+export interface OFIterationMockRun {
+  iterations: OFIterationResultItem[]
+  summary: string
+  finalOutput: string
+}
+
+export interface OFIterationPreviewSnapshot {
+  label: string
+  nodes: OFIterationPreviewNode[]
+}
+
+export interface OFSubWorkflowGraph {
+  nodes: OFNode[]
+  edges: OFEdge[]
+  viewport: {
+    x: number
+    y: number
+    zoom: number
+  }
+}
+
 export const OF_LLM_TEXT_OUTPUT_NAME = 'llmoutput'
 export const OF_LLM_STRUCTURED_OUTPUT_NAME = 'structured_output'
 
@@ -331,6 +370,18 @@ export type OFLoopVariableValueType = 'constant' | 'variable'
 
 export type OFIterationNodeData = OFCommonNodeType & {
   type: OFBlockEnum.Iteration
+  input?: OFNodeInput
+  iterationMode?: OFIterationMode
+  iterationCount?: number
+  iterationSource?: string
+  outputVariable?: OFVariable | null
+  parallelMode?: boolean
+  errorResponseMode?: OFIterationErrorResponseMode
+  mockTemplateId?: string
+  graph?: OFSubWorkflowGraph
+  preview?: OFIterationPreviewSnapshot
+  mockRun?: OFIterationMockRun
+  output?: OFNodeOutput
   iterator_selector: string[]
   output_selector: string[]
   start_node_id: string
@@ -346,6 +397,7 @@ export type OFIterationNodeData = OFCommonNodeType & {
 
 export type OFIterationStartNodeData = OFCommonNodeType & {
   type: OFBlockEnum.IterationStart
+  input?: OFNodeInput
 }
 
 export interface OFLoopVariableData {
@@ -387,6 +439,8 @@ export type OFNode = {
   id: string
   type: string
   position: XYPosition
+  parentNode?: string
+  extent?: 'parent'
   data:
     | OFStartNodeData
     | OFLLMNodeData
@@ -491,6 +545,18 @@ export interface OFIterationNodeConfig {
   nodeId: string
   title: string
   desc: string
+  input?: OFNodeInput
+  iterationMode?: OFIterationMode
+  iterationCount?: number
+  iterationSource?: string
+  outputVariable?: OFVariable | null
+  parallelMode?: boolean
+  errorResponseMode?: OFIterationErrorResponseMode
+  mockTemplateId?: string
+  graph?: OFSubWorkflowGraph
+  preview?: OFIterationPreviewSnapshot
+  mockRun?: OFIterationMockRun
+  output?: OFNodeOutput
   iterator_selector: string[]
   output_selector: string[]
   start_node_id: string
@@ -507,6 +573,7 @@ export interface OFIterationStartNodeConfig {
   nodeId: string
   title: string
   desc: string
+  input?: OFNodeInput
 }
 
 export interface OFLoopNodeConfig {

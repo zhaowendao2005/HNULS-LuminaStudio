@@ -1,5 +1,31 @@
 <template>
   <div
+    v-if="isNested"
+    class="of-node of-start-node of-start-node-nested group relative rounded-[20px] border border-[#edf0f4] bg-white p-3 shadow-[0_2px_10px_rgba(15,23,42,0.04)]"
+    :class="nestedContainerClass"
+    style="--of-handle-top: 23px"
+  >
+    <Handle
+      type="source"
+      :position="Position.Right"
+      id="source"
+      class="of-node-handle of-handle-source of-start-source-handle"
+    />
+
+    <div class="flex h-9 w-9 items-center justify-center rounded-full bg-[#4a6cf3] text-white">
+      <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2.2"
+          d="M3 11l9-8 9 8v10a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1V11z"
+        />
+      </svg>
+    </div>
+  </div>
+
+  <div
+    v-else
     class="of-node of-start-node group relative w-[240px] rounded-[15px] border bg-[#f3f4f6] pb-1 shadow-sm transition-all hover:shadow-lg"
     :class="containerClass"
   >
@@ -12,16 +38,10 @@
       class="of-node-handle of-handle-source of-start-source-handle"
     />
 
-    <div
-      class="of-start-handle-add pointer-events-none absolute right-[-10px] top-4 z-20 hidden h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-white group-hover:flex"
-    >
-      <svg viewBox="0 0 24 24" class="h-2.5 w-2.5" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M12 5v14M5 12h14" />
-      </svg>
-    </div>
-
     <div class="of-start-header flex items-center rounded-t-2xl px-3 pb-2 pt-3">
-      <div class="mr-2 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-[#4c6ef5] text-white shadow-sm">
+      <div
+        class="mr-2 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-[#4c6ef5] text-white shadow-sm"
+      >
         <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             stroke-linecap="round"
@@ -31,7 +51,9 @@
           />
         </svg>
       </div>
-      <div class="mr-1 min-w-0 flex grow items-center truncate text-base font-semibold text-gray-900">
+      <div
+        class="mr-1 min-w-0 flex grow items-center truncate text-base font-semibold text-gray-900"
+      >
         {{ data.title || '用户输入' }}
       </div>
       <div v-if="runningStatus === OFNodeRunningStatus.Succeeded" class="of-node-status-success">
@@ -55,11 +77,17 @@
         >
           <div class="flex w-0 grow items-center space-x-1">
             <span class="text-sm font-semibold text-[#4c6ef5]">{x}</span>
-            <span class="w-0 grow truncate text-xs text-gray-700">{{ item.label || item.variable }}</span>
+            <span class="w-0 grow truncate text-xs text-gray-700">
+              {{ item.label || item.variable }}
+            </span>
           </div>
           <div class="ml-1 flex items-center space-x-1">
-            <span v-if="item.required" class="text-[10px] uppercase tracking-wide text-gray-500">必填</span>
-            <span class="text-[10px] uppercase tracking-wide text-gray-500">{{ item.type || 'string' }}</span>
+            <span v-if="item.required" class="text-[10px] uppercase tracking-wide text-gray-500">
+              必填
+            </span>
+            <span class="text-[10px] uppercase tracking-wide text-gray-500">
+              {{ item.type || 'string' }}
+            </span>
           </div>
         </div>
       </div>
@@ -75,8 +103,10 @@ import { OFNodeRunningStatus, type OFStartNodeData } from '@shared/Orchestraflow
 
 const props = defineProps<{
   data: OFStartNodeData
+  parentNode?: string
 }>()
 
+const isNested = computed(() => Boolean(props.parentNode))
 const inputVariables = computed(() => {
   const variables = props.data?.input?.variables || (props.data as any)?.inputs || []
   return variables.slice(0, 3)
@@ -84,16 +114,30 @@ const inputVariables = computed(() => {
 
 const runningStatus = computed(() => props.data?._runningStatus || OFNodeRunningStatus.NotStarted)
 const containerClass = computed(() => {
-  if (runningStatus.value === OFNodeRunningStatus.Running) return 'border-indigo-400 of-node-running'
+  if (runningStatus.value === OFNodeRunningStatus.Running)
+    return 'border-indigo-400 of-node-running'
   if (runningStatus.value === OFNodeRunningStatus.Succeeded) return 'border-emerald-500'
   if (runningStatus.value === OFNodeRunningStatus.Failed) return 'border-red-400'
   return 'border-transparent'
+})
+
+const nestedContainerClass = computed(() => {
+  if (runningStatus.value === OFNodeRunningStatus.Running)
+    return 'border-indigo-300 shadow-[0_0_0_4px_rgba(76,110,245,0.08)]'
+  if (runningStatus.value === OFNodeRunningStatus.Succeeded) return 'border-emerald-400'
+  if (runningStatus.value === OFNodeRunningStatus.Failed) return 'border-red-300'
+  return ''
 })
 </script>
 
 <style scoped>
 .of-start-node {
   font-family: inherit;
+}
+
+.of-start-node-nested {
+  width: 60px;
+  height: 60px;
 }
 
 .of-node-running {
@@ -135,7 +179,6 @@ const containerClass = computed(() => {
   background: #dc2626;
 }
 
-/* 指示器颜色（定位/尺寸/hover 由 CanvasLayer 统一管理） */
 .of-start-source-handle::after {
   background: #4c6ef5;
 }
@@ -165,4 +208,3 @@ const containerClass = computed(() => {
   }
 }
 </style>
-

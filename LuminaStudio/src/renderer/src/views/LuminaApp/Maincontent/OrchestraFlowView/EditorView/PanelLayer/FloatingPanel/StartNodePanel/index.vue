@@ -98,19 +98,22 @@
           </CapsuleTooltip>
           <!-- 关闭按钮 -->
           <CapsuleTooltip text="关闭面板" placement="bottom">
-            <div class="flex h-6 w-6 cursor-pointer items-center justify-center" @click="handleClose">
-            <svg
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              fill="currentColor"
-              class="h-4 w-4 text-gray-400"
+            <div
+              class="flex h-6 w-6 cursor-pointer items-center justify-center"
+              @click="handleClose"
             >
-              <path
-                d="M11.9997 10.5865L16.9495 5.63672L18.3637 7.05093L13.4139 12.0007L18.3637 16.9504L16.9495 18.3646L11.9997 13.4149L7.04996 18.3646L5.63574 16.9504L10.5855 12.0007L5.63574 7.05093L7.0502 5.63672L11.9997 10.5865Z"
-              />
-            </svg>
+              <svg
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                fill="currentColor"
+                class="h-4 w-4 text-gray-400"
+              >
+                <path
+                  d="M11.9997 10.5865L16.9495 5.63672L18.3637 7.05093L13.4139 12.0007L18.3637 16.9504L16.9495 18.3646L11.9997 13.4149L7.04996 18.3646L5.63574 16.9504L10.5855 12.0007L5.63574 7.05093L7.0502 5.63672L11.9997 10.5865Z"
+                />
+              </svg>
             </div>
           </CapsuleTooltip>
         </div>
@@ -132,9 +135,7 @@
           <div
             class="system-md-semibold relative flex cursor-pointer items-center border-b-2 pb-2 pt-2.5"
             :class="
-              activeTab === 'settings'
-                ? theme.tabActiveClass
-                : 'border-transparent text-gray-400'
+              activeTab === 'settings' ? theme.tabActiveClass : 'border-transparent text-gray-400'
             "
             @click="setActiveTab('settings')"
           >
@@ -143,9 +144,7 @@
           <div
             class="system-md-semibold relative flex cursor-pointer items-center border-b-2 pb-2 pt-2.5"
             :class="
-              activeTab === 'lastRun'
-                ? theme.tabActiveClass
-                : 'border-transparent text-gray-400'
+              activeTab === 'lastRun' ? theme.tabActiveClass : 'border-transparent text-gray-400'
             "
             @click="setActiveTab('lastRun')"
           >
@@ -343,7 +342,7 @@ const theme = OF_PANEL_THEME.start
 // 获取当前选中的节点
 const currentNode = computed(() => {
   if (!uiStore.selectedNodeId) return null
-  return editorStore.nodes.find((n) => n.id === uiStore.selectedNodeId)
+  return editorStore.findNodeById(uiStore.selectedNodeId)
 })
 
 // 输入字段（从 store 读写，全局持久化）

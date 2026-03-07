@@ -41,18 +41,18 @@
               class="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md hover:bg-gray-100"
               @click="enterDebugMode"
             >
-            <svg
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              fill="currentColor"
-              class="h-4 w-4 text-gray-400"
-            >
-              <path
-                d="M8 18.3915V5.60846L18.2264 12L8 18.3915ZM6 3.80421V20.1957C6 20.9812 6.86395 21.46 7.53 21.0437L20.6432 12.848C21.2699 12.4563 21.2699 11.5436 20.6432 11.152L7.53 2.95621C6.86395 2.53993 6 3.01878 6 3.80421Z"
-              />
-            </svg>
+              <svg
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                fill="currentColor"
+                class="h-4 w-4 text-gray-400"
+              >
+                <path
+                  d="M8 18.3915V5.60846L18.2264 12L8 18.3915ZM6 3.80421V20.1957C6 20.9812 6.86395 21.46 7.53 21.0437L20.6432 12.848C21.2699 12.4563 21.2699 11.5436 20.6432 11.152L7.53 2.95621C6.86395 2.53993 6 3.01878 6 3.80421Z"
+                />
+              </svg>
             </div>
           </CapsuleTooltip>
           <!-- 文档链接 -->
@@ -62,18 +62,18 @@
               target="_blank"
               class="flex h-6 w-6 items-center justify-center rounded-md hover:bg-gray-100"
             >
-            <svg
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              fill="currentColor"
-              class="h-4 w-4 text-gray-400"
-            >
-              <path
-                d="M13 21V23H11V21H3C2.44772 21 2 20.5523 2 20V4C2 3.44772 2.44772 3 3 3H9C10.1947 3 11.2671 3.52375 12 4.35418C12.7329 3.52375 13.8053 3 15 3H21C21.5523 3 22 3.44772 22 4V20C22 20.5523 21.5523 21 21 21H13ZM20 19V5H15C13.8954 5 13 5.89543 13 7V19H20ZM11 19V7C11 5.89543 10.1046 5 9 5H4V19H11Z"
-              />
-            </svg>
+              <svg
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                fill="currentColor"
+                class="h-4 w-4 text-gray-400"
+              >
+                <path
+                  d="M13 21V23H11V21H3C2.44772 21 2 20.5523 2 20V4C2 3.44772 2.44772 3 3 3H9C10.1947 3 11.2671 3.52375 12 4.35418C12.7329 3.52375 13.8053 3 15 3H21C21.5523 3 22 3.44772 22 4V20C22 20.5523 21.5523 21 21 21H13ZM20 19V5H15C13.8954 5 13 5.89543 13 7V19H20ZM11 19V7C11 5.89543 10.1046 5 9 5H4V19H11Z"
+                />
+              </svg>
             </a>
           </CapsuleTooltip>
           <!-- 三点菜单 -->
@@ -81,35 +81,38 @@
             <div
               class="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md hover:bg-gray-100"
             >
-            <svg
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              fill="currentColor"
-              class="h-4 w-4 text-gray-400"
-            >
-              <path
-                d="M5 10C3.9 10 3 10.9 3 12C3 13.1 3.9 14 5 14C6.1 14 7 13.1 7 12C7 10.9 6.1 10 5 10ZM19 10C17.9 10 17 10.9 17 12C17 13.1 17.9 14 19 14C20.1 14 21 13.1 21 12C21 10.9 20.1 10 19 10ZM12 10C10.9 10 10 10.9 10 12C10 13.1 10.9 14 12 14C13.1 14 14 13.1 14 12C14 10.9 13.1 10 12 10Z"
-              />
-            </svg>
+              <svg
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                fill="currentColor"
+                class="h-4 w-4 text-gray-400"
+              >
+                <path
+                  d="M5 10C3.9 10 3 10.9 3 12C3 13.1 3.9 14 5 14C6.1 14 7 13.1 7 12C7 10.9 6.1 10 5 10ZM19 10C17.9 10 17 10.9 17 12C17 13.1 17.9 14 19 14C20.1 14 21 13.1 21 12C21 10.9 20.1 10 19 10ZM12 10C10.9 10 10 10.9 10 12C10 13.1 10.9 14 12 14C13.1 14 14 13.1 14 12C14 10.9 13.1 10 12 10Z"
+                />
+              </svg>
             </div>
           </CapsuleTooltip>
           <!-- 关闭按钮 -->
           <CapsuleTooltip text="关闭面板" placement="bottom">
-            <div class="flex h-6 w-6 cursor-pointer items-center justify-center" @click="handleClose">
-            <svg
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              fill="currentColor"
-              class="h-4 w-4 text-gray-400"
+            <div
+              class="flex h-6 w-6 cursor-pointer items-center justify-center"
+              @click="handleClose"
             >
-              <path
-                d="M11.9997 10.5865L16.9495 5.63672L18.3637 7.05093L13.4139 12.0007L18.3637 16.9504L16.9495 18.3646L11.9997 13.4149L7.04996 18.3646L5.63574 16.9504L10.5855 12.0007L5.63574 7.05093L7.0502 5.63672L11.9997 10.5865Z"
-              />
-            </svg>
+              <svg
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                fill="currentColor"
+                class="h-4 w-4 text-gray-400"
+              >
+                <path
+                  d="M11.9997 10.5865L16.9495 5.63672L18.3637 7.05093L13.4139 12.0007L18.3637 16.9504L16.9495 18.3646L11.9997 13.4149L7.04996 18.3646L5.63574 16.9504L10.5855 12.0007L5.63574 7.05093L7.0502 5.63672L11.9997 10.5865Z"
+                />
+              </svg>
             </div>
           </CapsuleTooltip>
         </div>
@@ -131,9 +134,7 @@
           <div
             class="system-md-semibold relative flex cursor-pointer items-center border-b-2 pb-2 pt-2.5"
             :class="
-              activeTab === 'settings'
-                ? theme.tabActiveClass
-                : 'border-transparent text-gray-400'
+              activeTab === 'settings' ? theme.tabActiveClass : 'border-transparent text-gray-400'
             "
             @click="setActiveTab('settings')"
           >
@@ -142,9 +143,7 @@
           <div
             class="system-md-semibold relative flex cursor-pointer items-center border-b-2 pb-2 pt-2.5"
             :class="
-              activeTab === 'lastRun'
-                ? theme.tabActiveClass
-                : 'border-transparent text-gray-400'
+              activeTab === 'lastRun' ? theme.tabActiveClass : 'border-transparent text-gray-400'
             "
             @click="setActiveTab('lastRun')"
           >
@@ -174,18 +173,18 @@
                   class="cursor-pointer select-none rounded-md p-1 hover:bg-gray-100"
                   @click="openOutputVariableSelector"
                 >
-                <svg
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24"
-                  height="24"
-                  fill="currentColor"
-                  class="h-4 w-4 text-gray-400"
-                >
-                  <path
-                    d="M14.6 16.6L19.2 12L14.6 7.4L16 6L22 12L16 18L14.6 16.6ZM9.4 16.6L4.8 12L9.4 7.4L8 6L2 12L8 18L9.4 16.6Z"
-                  />
-                </svg>
+                  <svg
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    fill="currentColor"
+                    class="h-4 w-4 text-gray-400"
+                  >
+                    <path
+                      d="M14.6 16.6L19.2 12L14.6 7.4L16 6L22 12L16 18L14.6 16.6ZM9.4 16.6L4.8 12L9.4 7.4L8 6L2 12L8 18L9.4 16.6Z"
+                    />
+                  </svg>
                 </div>
               </CapsuleTooltip>
               <!-- 添加按钮 -->
@@ -324,7 +323,7 @@ const theme = OF_PANEL_THEME.end
 // 获取当前选中的节点
 const currentNode = computed(() => {
   if (!uiStore.selectedNodeId) return null
-  return editorStore.nodes.find((n) => n.id === uiStore.selectedNodeId)
+  return editorStore.findNodeById(uiStore.selectedNodeId)
 })
 
 // 输出变量（从 store 读写，全局持久化）
@@ -418,8 +417,18 @@ function updateOutputVariable(index: number, newVariable: string) {
 }
 
 function openOutputVariableSelector(event: MouseEvent) {
-  const anchorRect = (event.currentTarget as HTMLElement | null)?.getBoundingClientRect() || undefined
-  variableSelectorStore.openSelector(uiStore.selectedNodeId!, 'output', anchorRect)
+  const anchorRect =
+    (event.currentTarget as HTMLElement | null)?.getBoundingClientRect() || undefined
+  variableSelectorStore.openSelector(
+    uiStore.selectedNodeId!,
+    'output',
+    anchorRect,
+    undefined,
+    {
+      x: event.clientX,
+      y: event.clientY
+    }
+  )
 }
 
 // 关闭面板

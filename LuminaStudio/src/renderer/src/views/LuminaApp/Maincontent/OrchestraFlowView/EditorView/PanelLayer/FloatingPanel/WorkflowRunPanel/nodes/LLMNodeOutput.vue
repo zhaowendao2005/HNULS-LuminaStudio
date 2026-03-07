@@ -13,32 +13,50 @@
       </div>
       <div class="system-md-semibold text-gray-900">LLM</div>
       <div v-if="tracing.status" class="ml-auto">
-        <span class="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium" :class="statusClass">
+        <span
+          class="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium"
+          :class="statusClass"
+        >
           {{ statusText }}
         </span>
       </div>
     </div>
 
-    <div v-if="tracing.status === OFNodeRunningStatus.Running" class="mb-3 rounded-lg border border-blue-200 bg-blue-50 p-3">
+    <div
+      v-if="tracing.status === OFNodeRunningStatus.Running"
+      class="mb-3 rounded-lg border border-blue-200 bg-blue-50 p-3"
+    >
       <div class="text-xs font-medium uppercase text-blue-600">输出 (流式)</div>
-      <div class="mt-2 whitespace-pre-wrap break-words text-sm text-gray-700">{{ streamedOutput }}</div>
+      <div class="mt-2 whitespace-pre-wrap break-words text-sm text-gray-700">
+        {{ streamedOutput }}
+      </div>
     </div>
 
-    <div v-else-if="tracing.outputs?.llmoutput" class="mb-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+    <div
+      v-else-if="tracing.outputs?.llmoutput"
+      class="mb-3 rounded-lg border border-gray-200 bg-gray-50 p-3"
+    >
       <div class="text-xs font-medium uppercase text-gray-500">文本输出</div>
       <div class="mt-2 whitespace-pre-wrap break-words text-sm text-gray-700">
         {{ tracing.outputs.llmoutput }}
       </div>
     </div>
 
-    <div v-if="tracing.outputs?.structured_output" class="mb-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+    <div
+      v-if="tracing.outputs?.structured_output"
+      class="mb-3 rounded-lg border border-gray-200 bg-gray-50 p-3"
+    >
       <div class="text-xs font-medium uppercase text-gray-500">结构化输出</div>
-      <pre class="mt-2 whitespace-pre-wrap break-all text-sm text-gray-700">{{ prettyStructured }}</pre>
+      <pre class="mt-2 whitespace-pre-wrap break-all text-sm text-gray-700">{{
+        prettyStructured
+      }}</pre>
     </div>
 
     <div v-if="tracing.error" class="mb-3 rounded-lg border border-red-200 bg-red-50 p-3">
       <div class="text-xs font-medium uppercase text-red-600">错误</div>
-      <div class="mt-1 whitespace-pre-wrap break-words text-sm text-red-700">{{ tracing.error }}</div>
+      <div class="mt-1 whitespace-pre-wrap break-words text-sm text-red-700">
+        {{ tracing.error }}
+      </div>
     </div>
 
     <div class="mt-2 text-xs text-gray-400">

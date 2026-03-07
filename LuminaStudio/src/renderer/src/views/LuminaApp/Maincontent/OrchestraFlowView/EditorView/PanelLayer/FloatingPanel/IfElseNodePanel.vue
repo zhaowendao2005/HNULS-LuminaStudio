@@ -216,52 +216,51 @@
                   </svg>
                 </button>
 
-                <div
-                  v-if="needsValue(condition.operator)"
-                  class="col-start-2 col-end-4 min-w-0"
-                >
-                <!-- Boolean value toggle -->
-                <button
-                  v-if="condition.variable_type === OFVarType.Boolean"
-                  type="button"
-                  class="inline-flex h-8 max-w-full items-center overflow-hidden rounded-md border border-gray-200 bg-white p-0.5 shadow-sm"
-                  :class="theme.controlFocusClass"
-                >
-                  <span
-                    class="min-w-[54px] rounded-[5px] px-2 text-center text-xs font-semibold leading-7 transition"
-                    :class="
-                      condition.value === true
-                        ? 'bg-green-50 text-green-700 shadow-sm'
-                        : 'text-gray-400'
-                    "
-                    @click="updateCondition(item.id, condition.id, { value: true })"
+                <div v-if="needsValue(condition.operator)" class="col-start-2 col-end-4 min-w-0">
+                  <!-- Boolean value toggle -->
+                  <button
+                    v-if="condition.variable_type === OFVarType.Boolean"
+                    type="button"
+                    class="inline-flex h-8 max-w-full items-center overflow-hidden rounded-md border border-gray-200 bg-white p-0.5 shadow-sm"
+                    :class="theme.controlFocusClass"
                   >
-                    TRUE
-                  </span>
-                  <span
-                    class="min-w-[54px] rounded-[5px] px-2 text-center text-xs font-semibold leading-7 transition"
-                    :class="
-                      condition.value === false
-                        ? 'bg-rose-50 text-rose-700 shadow-sm'
-                        : 'text-gray-400'
-                    "
-                    @click="updateCondition(item.id, condition.id, { value: false })"
-                  >
-                    FALSE
-                  </span>
-                </button>
+                    <span
+                      class="min-w-[54px] rounded-[5px] px-2 text-center text-xs font-semibold leading-7 transition"
+                      :class="
+                        condition.value === true
+                          ? 'bg-green-50 text-green-700 shadow-sm'
+                          : 'text-gray-400'
+                      "
+                      @click="updateCondition(item.id, condition.id, { value: true })"
+                    >
+                      TRUE
+                    </span>
+                    <span
+                      class="min-w-[54px] rounded-[5px] px-2 text-center text-xs font-semibold leading-7 transition"
+                      :class="
+                        condition.value === false
+                          ? 'bg-rose-50 text-rose-700 shadow-sm'
+                          : 'text-gray-400'
+                      "
+                      @click="updateCondition(item.id, condition.id, { value: false })"
+                    >
+                      FALSE
+                    </span>
+                  </button>
 
-                <!-- Number/String value input -->
-                <input
-                  v-else
-                  :type="condition.variable_type === OFVarType.Number ? 'number' : 'text'"
-                  :value="condition.value ?? ''"
-                  class="w-full rounded-md border border-transparent bg-white px-2 py-1 text-sm text-gray-900 outline-none transition placeholder:text-gray-300"
-                  :class="theme.controlFocusClass"
-                  placeholder="输入值"
-                  @input="handleValueInput(item.id, condition.id, condition.variable_type, $event)"
-                />
-              </div>
+                  <!-- Number/String value input -->
+                  <input
+                    v-else
+                    :type="condition.variable_type === OFVarType.Number ? 'number' : 'text'"
+                    :value="condition.value ?? ''"
+                    class="w-full rounded-md border border-transparent bg-white px-2 py-1 text-sm text-gray-900 outline-none transition placeholder:text-gray-300"
+                    :class="theme.controlFocusClass"
+                    placeholder="输入值"
+                    @input="
+                      handleValueInput(item.id, condition.id, condition.variable_type, $event)
+                    "
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -342,7 +341,7 @@ const booleanValueOptions: WhiteSelectOption[] = [
 
 const currentNode = computed(() => {
   if (!uiStore.selectedNodeId) return null
-  return editorStore.nodes.find((node) => node.id === uiStore.selectedNodeId) || null
+  return editorStore.findNodeById(uiStore.selectedNodeId) || null
 })
 
 const nodeData = computed(() => currentNode.value?.data as OFIfElseNodeData | undefined)
@@ -472,7 +471,10 @@ function openConditionSelector(caseId: string, conditionId: string, event: Mouse
   activeConditionTarget.value = { caseId, conditionId }
   const anchorRect =
     (event.currentTarget as HTMLElement | null)?.getBoundingClientRect() || undefined
-  variableSelectorStore.openSelector(currentNode.value.id, 'condition', anchorRect)
+  variableSelectorStore.openSelector(currentNode.value.id, 'condition', anchorRect, undefined, {
+    x: event.clientX,
+    y: event.clientY
+  })
 }
 
 function handleConditionVariableClick(caseId: string, conditionId: string, event: Event) {

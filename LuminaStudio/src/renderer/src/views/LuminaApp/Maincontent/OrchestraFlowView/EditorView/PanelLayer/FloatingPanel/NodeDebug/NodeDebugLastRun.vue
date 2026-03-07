@@ -1,7 +1,9 @@
 <template>
   <div class="space-y-3">
     <div v-if="loading" class="py-10 text-center">
-      <div class="mx-auto h-6 w-6 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
+      <div
+        class="mx-auto h-6 w-6 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent"
+      />
       <div class="mt-3 text-sm text-gray-400">运行中...</div>
     </div>
 
@@ -15,15 +17,22 @@
 
       <div class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
         <div class="mb-1 text-xs uppercase text-gray-500">输入</div>
-        <pre class="text-xs text-gray-700 whitespace-pre-wrap break-all">{{ pretty(result.inputs) }}</pre>
+        <pre class="text-xs text-gray-700 whitespace-pre-wrap break-all">{{
+          pretty(result.inputs)
+        }}</pre>
       </div>
 
       <div class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
         <div class="mb-1 text-xs uppercase text-gray-500">输出</div>
-        <pre class="text-xs text-gray-700 whitespace-pre-wrap break-all">{{ pretty(result.outputs) }}</pre>
+        <pre class="text-xs text-gray-700 whitespace-pre-wrap break-all">{{
+          pretty(result.outputs)
+        }}</pre>
       </div>
 
-      <div v-if="result.error" class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
+      <div
+        v-if="result.error"
+        class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600"
+      >
         {{ result.error }}
       </div>
     </template>

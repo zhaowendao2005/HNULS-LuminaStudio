@@ -1,7 +1,4 @@
-import type {
-  OFJsonSchemaObject,
-  OFStructuredFieldType
-} from '@shared/Orchestraflow-types'
+import type { OFJsonSchemaObject, OFStructuredFieldType } from '@shared/Orchestraflow-types'
 
 export interface OFSchemaFieldDraft {
   id: string
@@ -17,7 +14,9 @@ export interface OFObjectSchemaEditorState {
   fields: OFSchemaFieldDraft[]
 }
 
-export function schemaToFieldDrafts(schema: OFJsonSchemaObject | null | undefined): OFSchemaFieldDraft[] {
+export function schemaToFieldDrafts(
+  schema: OFJsonSchemaObject | null | undefined
+): OFSchemaFieldDraft[] {
   if (!schema) return []
   const required = new Set(schema.required || [])
   return Object.entries(schema.properties || {}).map(([name, value], index) => ({

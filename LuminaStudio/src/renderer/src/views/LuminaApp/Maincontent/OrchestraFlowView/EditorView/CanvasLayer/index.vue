@@ -20,8 +20,14 @@
       <template #node-start="props">
         <StartNode v-bind="props" />
       </template>
+      <template #node-iteration-start="props">
+        <IterationStartNode v-bind="props" />
+      </template>
       <template #node-llm="props">
         <LLMNode v-bind="props" />
+      </template>
+      <template #node-iteration="props">
+        <IterationNode v-bind="props" />
       </template>
       <template #node-ifelse="props">
         <IfElseNode v-bind="props" />
@@ -59,7 +65,9 @@ import { useModelConfigStore } from '@renderer/stores/model-config/store'
 
 // 导入自定义节点组件
 import StartNode from './Nodes/StartNode/index.vue'
+import IterationStartNode from './Nodes/IterationStartNode/index.vue'
 import LLMNode from './Nodes/LLMNode/index.vue'
+import IterationNode from './Nodes/IterationNode/index.vue'
 import IfElseNode from './Nodes/IfElseNode/index.vue'
 import EndNode from './Nodes/EndNode/index.vue'
 
@@ -85,6 +93,12 @@ function getPanelType(nodeType: string): PanelType | null {
     case 'llm':
     case OFBlockEnum.LLM:
       return PanelType.LLMNode
+    case 'iteration-start':
+    case OFBlockEnum.IterationStart:
+      return null
+    case 'iteration':
+    case OFBlockEnum.Iteration:
+      return PanelType.IterationNode
     case 'ifelse':
     case OFBlockEnum.IfElse:
       return PanelType.IfElseNode
@@ -115,6 +129,11 @@ function handleNodeClick(event: { node: Node }) {
       break
     case 'llm':
       ofBlockEnum = OFBlockEnum.LLM
+      break
+    case 'iteration-start':
+      return
+    case 'iteration':
+      ofBlockEnum = OFBlockEnum.Iteration
       break
     case 'ifelse':
       ofBlockEnum = OFBlockEnum.IfElse
@@ -147,6 +166,13 @@ function handleConnect(params: {
   sourceHandle?: string | null
   targetHandle?: string | null
 }) {
+  const sourceParentId = store.findParentIterationNodeId(params.source)
+  const targetParentId = store.findParentIterationNodeId(params.target)
+
+  if (sourceParentId !== targetParentId) {
+    return
+  }
+
   store.addEdge({
     id: `edge_${params.source}_${params.target}_${Date.now()}`,
     source: params.source,
@@ -159,6 +185,48 @@ function handleConnect(params: {
 // 处理节点拖拽结束（松手时同步位置）
 function handleNodeDragStop(event: { node: Node }) {
   const node = event.node
+  const parentNodeId = (node as Node & { parentNode?: string }).parentNode
+  if (parentNodeId) {
+    store.updateIterationChildPosition(parentNodeId, node.id, node.position)
+    return
+  }
+
+  const hasEdges = store.edges.some((edge) => edge.source === node.id || edge.target === node.id)
+  if (!hasEdges && node.type !== 'iteration') {
+    const dropTarget = store.nodes.find((candidate) => {
+      if (
+        candidate.id === node.id ||
+        candidate.parentNode ||
+        candidate.data.type !== OFBlockEnum.Iteration
+      ) {
+        return false
+      }
+      const width = candidate.data.width || 650
+      const height = candidate.data.height || 417
+      const nodeWidth = Number((node as Node & { dimensions?: { width?: number } }).dimensions?.width || 120)
+      const nodeHeight = Number(
+        (node as Node & { dimensions?: { height?: number } }).dimensions?.height || 60
+      )
+      const centerX = node.position.x + nodeWidth / 2
+      const centerY = node.position.y + nodeHeight / 2
+
+      return (
+        centerX >= candidate.position.x &&
+        centerX <= candidate.position.x + width &&
+        centerY >= candidate.position.y &&
+        centerY <= candidate.position.y + height
+      )
+    })
+
+    if (dropTarget) {
+      store.moveNodeIntoIterationNode(node.id, dropTarget.id, {
+        x: node.position.x - dropTarget.position.x - 16,
+        y: node.position.y - dropTarget.position.y - 56
+      })
+      return
+    }
+  }
+
   store.updateNodePosition(node.id, node.position)
 }
 
@@ -235,6 +303,15 @@ onUnmounted(() => {
    ============================ */
 .of-editor-canvas :deep(.vue-flow__edge-path) {
   stroke-width: 2px;
+}
+
+.of-editor-canvas :deep(.vue-flow__edge.of-edge-iteration) {
+  z-index: 7;
+}
+
+.of-editor-canvas :deep(.vue-flow__edge.of-edge-iteration .vue-flow__edge-path) {
+  stroke: #b9c0cc;
+  stroke-width: 2.5px;
 }
 
 .of-editor-canvas :deep(.vue-flow__edge.selected .vue-flow__edge-path) {

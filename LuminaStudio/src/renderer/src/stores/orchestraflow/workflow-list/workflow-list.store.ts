@@ -3,7 +3,6 @@
  */
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { WorkflowListState } from './workflow-list.types'
 import { WorkflowListDatasource } from './workflow-list.datasource'
 import type { OFWorkflowMeta } from '@shared/Orchestraflow-types'
 
@@ -45,7 +44,10 @@ export const useWorkflowListStore = defineStore('orchestraflow-workflow-list', (
     icon?: string
     iconBackground?: string
   }) {
-    const newWorkflow = await datasource.createWorkflow(data)
+    const newWorkflow = await datasource.createWorkflow({
+      author: 'LuminaStudio',
+      ...data
+    })
     workflows.value.unshift(newWorkflow)
     total.value++
     return newWorkflow

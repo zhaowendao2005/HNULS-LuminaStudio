@@ -112,12 +112,18 @@
                   </div>
                 </CapsuleTooltip>
               </div>
-              <svg viewBox="0 0 24 24" class="ml-3 h-4 w-4 shrink-0 text-gray-400" fill="currentColor">
+              <svg
+                viewBox="0 0 24 24"
+                class="ml-3 h-4 w-4 shrink-0 text-gray-400"
+                fill="currentColor"
+              >
                 <path d="M12 16L6 10H18L12 16Z" />
               </svg>
             </button>
 
-            <div class="rounded-xl border border-dashed border-gray-200 bg-white/70 px-3 py-2 text-xs text-gray-500">
+            <div
+              class="rounded-xl border border-dashed border-gray-200 bg-white/70 px-3 py-2 text-xs text-gray-500"
+            >
               Provider:
               <span class="font-medium text-gray-700">{{ selectedProviderName }}</span>
             </div>
@@ -129,7 +135,8 @@
             <div>
               <div class="system-sm-semibold-uppercase text-gray-500">提示词</div>
               <div class="mt-1 text-xs text-gray-400">
-                支持插入变量，格式为 <code v-pre>{{variable.path}}</code>
+                支持插入变量，格式为
+                <code v-pre>{{ variable.path }}</code>
               </div>
             </div>
             <button
@@ -140,7 +147,10 @@
             </button>
           </div>
 
-          <div v-if="promptItems.length === 0" class="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-center text-sm text-gray-400">
+          <div
+            v-if="promptItems.length === 0"
+            class="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-center text-sm text-gray-400"
+          >
             暂无 Prompt，点击“添加消息”开始配置
           </div>
 
@@ -167,7 +177,9 @@
                   @click="openPromptVariableSelector(item.id, $event)"
                 >
                   <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="currentColor">
-                    <path d="M14.6 16.6L19.2 12L14.6 7.4L16 6L22 12L16 18L14.6 16.6ZM9.4 16.6L4.8 12L9.4 7.4L8 6L2 12L8 18L9.4 16.6Z" />
+                    <path
+                      d="M14.6 16.6L19.2 12L14.6 7.4L16 6L22 12L16 18L14.6 16.6ZM9.4 16.6L4.8 12L9.4 7.4L8 6L2 12L8 18L9.4 16.6Z"
+                    />
                   </svg>
                   插入变量
                 </button>
@@ -176,7 +188,9 @@
                   @click="removePrompt(item.id)"
                 >
                   <svg viewBox="0 0 24 24" class="h-4 w-4" fill="currentColor">
-                    <path d="M17 6H22V8H20V21C20 21.5523 19.5523 22 19 22H5C4.44772 22 4 21.5523 4 21V8H2V6H7V3C7 2.44772 7.44772 2 8 2H16C16.5523 2 17 2.44772 17 3V6ZM18 8H6V20H18V8ZM9 11H11V17H9V11ZM13 11H15V17H13V11ZM9 4V6H15V4H9Z" />
+                    <path
+                      d="M17 6H22V8H20V21C20 21.5523 19.5523 22 19 22H5C4.44772 22 4 21.5523 4 21V8H2V6H7V3C7 2.44772 7.44772 2 8 2H16C16.5523 2 17 2.44772 17 3V6ZM18 8H6V20H18V8ZM9 11H11V17H9V11ZM13 11H15V17H13V11ZM9 4V6H15V4H9Z"
+                    />
                   </svg>
                 </button>
               </div>
@@ -203,40 +217,27 @@
               </svg>
             </div>
             <div class="flex items-center gap-2">
-              <CapsuleTooltip
-                v-if="structuredEnabled"
-                text="结构化输出已开启"
-                placement="top"
-              >
+              <CapsuleTooltip v-if="structuredEnabled" text="结构化输出已开启" placement="top">
                 <div class="flex h-4 w-4 items-center justify-center text-[#f59f00]">
                   <svg viewBox="0 0 24 24" class="h-4 w-4" fill="currentColor">
-                    <path d="M12.8659 3.00017L22.3922 19.5002C22.6684 19.9785 22.5045 20.5901 22.0262 20.8662C21.8742 20.954 21.7017 21.0002 21.5262 21.0002H2.47363C1.92135 21.0002 1.47363 20.5525 1.47363 20.0002C1.47363 19.8246 1.51984 19.6522 1.60761 19.5002L11.1339 3.00017C11.41 2.52187 12.0216 2.358 12.4999 2.63414C12.6519 2.72191 12.7782 2.84815 12.8659 3.00017Z" />
+                    <path
+                      d="M12.8659 3.00017L22.3922 19.5002C22.6684 19.9785 22.5045 20.5901 22.0262 20.8662C21.8742 20.954 21.7017 21.0002 21.5262 21.0002H2.47363C1.92135 21.0002 1.47363 20.5525 1.47363 20.0002C1.47363 19.8246 1.51984 19.6522 1.60761 19.5002L11.1339 3.00017C11.41 2.52187 12.0216 2.358 12.4999 2.63414C12.6519 2.72191 12.7782 2.84815 12.8659 3.00017Z"
+                    />
                   </svg>
                 </div>
               </CapsuleTooltip>
               <div class="system-xs-medium-uppercase text-gray-500">结构化输出</div>
-              <button
-                class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
-                :class="structuredEnabled ? 'bg-[#635bff]' : 'bg-[#cbd5e1]'"
-                @click="toggleStructuredOutput"
-              >
-                <span
-                  class="inline-block h-5 w-5 transform rounded-full bg-white transition-transform"
-                  :class="structuredEnabled ? 'translate-x-5' : 'translate-x-1'"
-                />
-              </button>
+              <ToggleSwitch v-model="structuredEnabled" />
             </div>
           </div>
 
           <div class="space-y-4">
-            <div
-              v-for="item in baseOutputs"
-              :key="item.variable"
-              class="space-y-1"
-            >
+            <div v-for="item in baseOutputs" :key="item.variable" class="space-y-1">
               <div class="flex min-w-0 items-center gap-2 leading-[18px]">
                 <CapsuleTooltip :text="item.variable" placement="top">
-                  <div class="truncate text-[13px] font-semibold text-gray-800">{{ item.variable }}</div>
+                  <div class="truncate text-[13px] font-semibold text-gray-800">
+                    {{ item.variable }}
+                  </div>
                 </CapsuleTooltip>
                 <div class="shrink-0 text-[12px] text-gray-500">{{ item.type || 'string' }}</div>
               </div>
@@ -286,7 +287,9 @@
                   class="flex min-w-0 items-center gap-3 border-l border-gray-200 pl-3"
                 >
                   <CapsuleTooltip :text="field.name" placement="top">
-                    <div class="min-w-0 flex-1 truncate text-sm text-gray-700">{{ field.name }}</div>
+                    <div class="min-w-0 flex-1 truncate text-sm text-gray-700">
+                      {{ field.name }}
+                    </div>
                   </CapsuleTooltip>
                   <div class="shrink-0 text-xs text-gray-500">{{ field.type }}</div>
                   <div
@@ -334,7 +337,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type {
   OFJsonSchemaObject,
   OFLLMNodeData,
@@ -361,6 +364,7 @@ import WhiteSelect, {
   type WhiteSelectOption
 } from '@renderer/views/LuminaApp/Maincontent/NormalChat/components/WhiteSelect.vue'
 import { OF_PANEL_THEME } from './panel-theme'
+import ToggleSwitch from '../Components/ToggleSwitch/index.vue'
 
 const uiStore = useWorkflowEditorUIStore()
 const editorStore = useWorkflowEditorStore()
@@ -383,7 +387,7 @@ const activePromptTarget = ref<{ promptId: string; cursorPosition: number } | nu
 
 const currentNode = computed(() => {
   if (!uiStore.selectedNodeId) return null
-  return editorStore.nodes.find((node) => node.id === uiStore.selectedNodeId) || null
+  return editorStore.findNodeById(uiStore.selectedNodeId) || null
 })
 
 const nodeData = computed(() => currentNode.value?.data as OFLLMNodeData | undefined)
@@ -410,7 +414,9 @@ const providerIdModel = computed({
   set: (value: string) => {
     if (!nodeData.value || !currentNode.value) return
     const nextProvider = providers.value.find((item) => item.id === value)
-    const exists = (nextProvider?.models || []).some((item) => item.id === nodeData.value?.model?.name)
+    const exists = (nextProvider?.models || []).some(
+      (item) => item.id === nodeData.value?.model?.name
+    )
     editorStore.updateNode(currentNode.value.id, {
       model: {
         ...nodeData.value.model,
@@ -441,12 +447,33 @@ const modelNameModel = computed({
 
 const promptItems = computed(() => nodeData.value?.prompt_template || [])
 const structuredSchema = computed(() => nodeData.value?.structured_output?.schema || null)
-const structuredEnabled = computed(() => Boolean(nodeData.value?.structured_output?.enabled))
+const structuredEnabled = ref(Boolean(nodeData.value?.structured_output?.enabled))
+
+watch(
+  () => nodeData.value?.structured_output?.enabled,
+  (newEnabled) => {
+    structuredEnabled.value = Boolean(newEnabled)
+  }
+)
+
+watch(structuredEnabled, (newValue) => {
+  if (!nodeData.value) return
+  syncStructuredOutput({
+    enabled: newValue,
+    schema: nodeData.value.structured_output?.schema || null
+  })
+  if (newValue && !nodeData.value.structured_output?.schema) {
+    openSchemaEditor()
+  }
+})
+
 const autoOutputs = computed(() => {
   if (!nodeData.value) return []
   return buildLLMOutputVariables(nodeData.value.title || 'llm', nodeData.value.structured_output)
 })
-const baseOutputs = computed(() => autoOutputs.value.filter((item) => item.variable !== 'structured_output'))
+const baseOutputs = computed(() =>
+  autoOutputs.value.filter((item) => item.variable !== 'structured_output')
+)
 const structuredOutputVariable = computed(
   () => autoOutputs.value.find((item) => item.variable === 'structured_output') || null
 )
@@ -530,7 +557,9 @@ function patchNode(patch: Partial<OFLLMNodeData>) {
 }
 
 function updatePrompt(promptId: string, patch: Partial<Omit<OFPromptItem, 'id'>>) {
-  const next = promptItems.value.map((item) => (item.id === promptId ? { ...item, ...patch } : item))
+  const next = promptItems.value.map((item) =>
+    item.id === promptId ? { ...item, ...patch } : item
+  )
   patchNode({ prompt_template: next } as Partial<OFLLMNodeData>)
 }
 
@@ -582,16 +611,12 @@ function formatOutputNamespace(item: OFVariable) {
   return selector.join('.')
 }
 
-function toggleStructuredOutput() {
-  if (!nodeData.value) return
-  const nextEnabled = !structuredEnabled.value
+function handleSchemaSave(schema: OFJsonSchemaObject) {
   syncStructuredOutput({
-    enabled: nextEnabled,
-    schema: nodeData.value.structured_output?.schema || null
+    enabled: true,
+    schema
   })
-  if (nextEnabled && !nodeData.value.structured_output?.schema) {
-    openSchemaEditor()
-  }
+  structuredEnabled.value = true
 }
 
 function openSchemaEditor() {
@@ -599,22 +624,26 @@ function openSchemaEditor() {
   objectSchemaEditorStore.open(currentNode.value.id, structuredSchema.value)
 }
 
-function handleSchemaSave(schema: OFJsonSchemaObject) {
-  syncStructuredOutput({
-    enabled: true,
-    schema
-  })
-}
-
 function openPromptVariableSelector(promptId: string, event: MouseEvent) {
   if (!currentNode.value) return
-  const anchorRect = (event.currentTarget as HTMLElement | null)?.getBoundingClientRect() || undefined
+  const anchorRect =
+    (event.currentTarget as HTMLElement | null)?.getBoundingClientRect() || undefined
+  const anchorPoint = {
+    x: event.clientX,
+    y: event.clientY
+  }
   const editorRef = promptEditorRefs.get(promptId)
   activePromptTarget.value = {
     promptId,
     cursorPosition: editorRef?.getCursorPosition?.() || 0
   }
-  variableSelectorStore.openSelector(currentNode.value.id, 'prompt', activePromptTarget.value.cursorPosition, anchorRect)
+  variableSelectorStore.openSelector(
+    currentNode.value.id,
+    'prompt',
+    activePromptTarget.value.cursorPosition,
+    anchorRect,
+    anchorPoint
+  )
 }
 
 function insertVariableIntoPrompt(promptId: string, variablePath: string, cursorPosition: number) {
