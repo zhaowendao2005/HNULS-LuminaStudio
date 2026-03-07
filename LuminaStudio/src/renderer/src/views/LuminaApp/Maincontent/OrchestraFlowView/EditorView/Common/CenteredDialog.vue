@@ -100,6 +100,7 @@ function handleGlobalPointerDown(event: PointerEvent): void {
   const target = event.target as Node | null
   if (!target) return
   if (dialogRef.value?.contains(target)) return
+  if (target instanceof Element && target.closest('[data-floating-portal="true"]')) return
   close()
 }
 

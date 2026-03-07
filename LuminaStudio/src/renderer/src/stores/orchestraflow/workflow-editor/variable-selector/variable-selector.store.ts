@@ -15,6 +15,7 @@ import type {
   OFEndNodeData,
   OFIterationNodeData,
   OFIterationStartNodeData,
+  OFJsonSchemaProperty,
   OFLLMNodeData,
   OFNode,
   OFStartNodeData,
@@ -60,39 +61,75 @@ function getReachableNodeIds(startNodeId: string, edges: OFEdge[]): Set<string> 
   return reachable
 }
 
-function buildObjectChildren(
+function getSchemaNodeType(schema: OFJsonSchemaProperty): OFVarType {
+  switch (schema.type) {
+    case 'boolean':
+      return OFVarType.Boolean
+    case 'number':
+      return OFVarType.Number
+    case 'array':
+      return OFVarType.Array
+    case 'object':
+      return OFVarType.Object
+    case 'string':
+    default:
+      return OFVarType.String
+  }
+}
+
+function buildSchemaChildren(
   base: OFAvailableVariable,
-  variable: OFVariable
+  schema: OFJsonSchemaProperty | null | undefined,
+  selector: string[]
 ): OFAvailableVariable[] {
-  if (variable.type !== OFVarType.Object || !variable.schema || variable.schema.type !== 'object') {
-    return []
+  if (!schema) return []
+
+  if (schema.type === 'object') {
+    return Object.entries(schema.properties || {}).map(([fieldName, fieldSchema]) => {
+      const fieldSelector = [...selector, fieldName]
+      const children = buildSchemaChildren(base, fieldSchema, fieldSelector)
+      return {
+        id: `${base.id}:${fieldSelector.join('.')}`,
+        variable: fieldName,
+        path: selectorToPath(fieldSelector),
+        label: fieldName,
+        nodeId: base.nodeId,
+        nodeType: base.nodeType,
+        nodeTitle: base.nodeTitle,
+        valueSelector: fieldSelector,
+        type: getSchemaNodeType(fieldSchema),
+        schema: fieldSchema.type === 'string' || fieldSchema.type === 'number' || fieldSchema.type === 'boolean' ? null : fieldSchema,
+        selectable: true,
+        expandable: children.length > 0,
+        children
+      }
+    })
   }
 
-  return Object.entries(variable.schema.properties || {}).map(([fieldName, fieldSchema]) => {
-    const selector = [...(variable.value_selector || [variable.variable]), fieldName]
-    const fieldType =
-      fieldSchema.type === 'boolean'
-        ? OFVarType.Boolean
-        : fieldSchema.type === 'number'
-          ? OFVarType.Number
-          : OFVarType.String
+  if (schema.type === 'array') {
+    const itemSelector = [...selector, '0']
+    const itemSchema = schema.items
+    const children = buildSchemaChildren(base, itemSchema, itemSelector)
+    return [
+      {
+        id: `${base.id}:${itemSelector.join('.')}`,
+        variable: '0',
+        path: selectorToPath(itemSelector),
+        label: '[0]',
+        nodeId: base.nodeId,
+        nodeType: base.nodeType,
+        nodeTitle: base.nodeTitle,
+        valueSelector: itemSelector,
+        type: getSchemaNodeType(itemSchema),
+        schema: itemSchema.type === 'string' || itemSchema.type === 'number' || itemSchema.type === 'boolean' ? null : itemSchema,
+        selectable: true,
+        expandable: children.length > 0,
+        children
+      }
+    ]
+  }
 
-    return {
-      id: `${base.id}:${fieldName}`,
-      variable: fieldName,
-      path: selectorToPath(selector),
-      label: fieldName,
-      nodeId: base.nodeId,
-      nodeType: base.nodeType,
-      nodeTitle: base.nodeTitle,
-      valueSelector: selector,
-      type: fieldType,
-      schema: null,
-      selectable: true,
-      expandable: false,
-      children: []
-    }
-  })
+  return []
 }
 
 function matchesKeyword(variable: OFAvailableVariable, keyword: string): boolean {
@@ -195,7 +232,8 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
         expandable: Boolean(variable.type === OFVarType.Object && variable.schema),
         children: []
       }
-      const children = buildObjectChildren(base, variable)
+      const schema = variable.schema || null
+      const children = buildSchemaChildren(base, schema, selector)
       return {
         ...base,
         children,

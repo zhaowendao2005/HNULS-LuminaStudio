@@ -13,10 +13,13 @@
           <button
             class="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all"
             :class="
-              activeTab === 'visual'
+              !visualTabDisabled && activeTab === 'visual'
                 ? 'bg-white text-gray-800 shadow-sm'
-                : 'text-gray-500 hover:bg-gray-200/50 hover:text-gray-700'
+                : visualTabDisabled
+                  ? 'cursor-not-allowed text-gray-300'
+                  : 'text-gray-500 hover:bg-gray-200/50 hover:text-gray-700'
             "
+            :disabled="visualTabDisabled"
             @click="activeTab = 'visual'"
           >
             <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="currentColor">
@@ -102,6 +105,20 @@
         class="mx-5 mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600"
       >
         <div v-for="error in errors" :key="error">{{ error }}</div>
+      </div>
+
+      <div
+        v-if="activeTab === 'json' && jsonError"
+        class="mx-5 mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700"
+      >
+        {{ jsonError }}
+      </div>
+
+      <div
+        v-if="visualTabDisabled"
+        class="mx-5 mt-4 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-700"
+      >
+        当前 Schema 含嵌套 object/array。可视化编辑器只适合简单一层字段；复杂结构请直接编辑 JSON Schema。
       </div>
 
       <div class="flex-1 overflow-auto bg-slate-50/50 p-5">
@@ -212,10 +229,9 @@
           </div>
 
           <textarea
-            :value="prettySchema"
+            v-model="jsonDraft"
             class="h-full w-full flex-1 resize-none bg-transparent p-3 leading-relaxed text-gray-800 outline-none"
             spellcheck="false"
-            readonly
           />
 
           <CapsuleTooltip text="复制代码" placement="left">
@@ -265,13 +281,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { OFStructuredFieldType, OFStructuredJsonSchema } from '@shared/Orchestraflow-types'
 import CenteredDialog from '@renderer/views/LuminaApp/Maincontent/OrchestraFlowView/EditorView/Common/CenteredDialog.vue'
 import WhiteSelect, {
   type WhiteSelectOption
 } from '@renderer/views/LuminaApp/Maincontent/NormalChat/components/WhiteSelect.vue'
 import { useObjectSchemaEditorStore } from '@renderer/stores/orchestraflow/workflow-editor/object-schema-editor/object-schema-editor.store'
+import { isVisualSchemaSupported } from '@renderer/stores/orchestraflow/workflow-editor/object-schema-editor/object-schema-editor.types'
 import CapsuleTooltip from '../components/CapsuleTooltip.vue'
 import { OF_PANEL_THEME } from '../panel-theme'
 
@@ -282,6 +299,7 @@ const emit = defineEmits<{
 const store = useObjectSchemaEditorStore()
 const activeTab = ref<'visual' | 'json'>('visual')
 const theme = OF_PANEL_THEME.llm
+const jsonDraft = ref('')
 
 const typeOptions: WhiteSelectOption[] = [
   { label: 'string', value: 'string' },
@@ -304,7 +322,68 @@ const errors = computed(() => {
 })
 
 const prettySchema = computed(() => JSON.stringify(store.schema, null, 2))
-const lineNumbers = computed(() => prettySchema.value.split('\n').map((_, index) => index + 1))
+const lineNumbers = computed(() =>
+  (activeTab.value === 'json' ? jsonDraft.value : prettySchema.value)
+    .split('\n')
+    .map((_, index) => index + 1)
+)
+const visualTabDisabled = computed(() => !isVisualSchemaSupported(store.schema))
+const parsedJsonSchema = computed(() => {
+  try {
+    const parsed = JSON.parse(jsonDraft.value || '{}') as OFStructuredJsonSchema
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return null
+    }
+    if (parsed.type !== 'object' && parsed.type !== 'array') {
+      return null
+    }
+    return parsed
+  } catch {
+    return null
+  }
+})
+const jsonError = computed(() => {
+  if (activeTab.value !== 'json') return ''
+  if (!jsonDraft.value.trim()) return 'JSON Schema 不能为空'
+
+  try {
+    const parsed = JSON.parse(jsonDraft.value)
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return 'JSON Schema 根节点必须是 object 或 array'
+    }
+    if (parsed.type !== 'object' && parsed.type !== 'array') {
+      return 'JSON Schema 根节点必须声明 type 为 object 或 array'
+    }
+    return ''
+  } catch (error) {
+    return error instanceof Error ? error.message : 'JSON Schema 格式无效'
+  }
+})
+
+watch(
+  () => store.visible,
+  (visible) => {
+    if (!visible) return
+    jsonDraft.value = prettySchema.value
+    activeTab.value = visualTabDisabled.value ? 'json' : 'visual'
+  },
+  { immediate: true }
+)
+
+watch(prettySchema, (value) => {
+  if (activeTab.value === 'visual') {
+    jsonDraft.value = value
+  }
+})
+
+watch(activeTab, (nextTab, prevTab) => {
+  if (prevTab === 'json' && nextTab === 'visual' && parsedJsonSchema.value && store.nodeId) {
+    store.open(store.nodeId, parsedJsonSchema.value)
+  }
+  if (nextTab === 'json') {
+    jsonDraft.value = prettySchema.value
+  }
+})
 
 function handleVisibleChange(visible: boolean) {
   if (!visible) {
@@ -317,6 +396,15 @@ function clearFields() {
 }
 
 function handleSave() {
+  if (activeTab.value === 'json') {
+    if (jsonError.value || !parsedJsonSchema.value) {
+      return
+    }
+    emit('save', parsedJsonSchema.value)
+    store.close()
+    return
+  }
+
   if (errors.value.length > 0) {
     return
   }
@@ -325,6 +413,6 @@ function handleSave() {
 }
 
 async function copySchema() {
-  await navigator.clipboard.writeText(prettySchema.value)
+  await navigator.clipboard.writeText(activeTab.value === 'json' ? jsonDraft.value : prettySchema.value)
 }
 </script>

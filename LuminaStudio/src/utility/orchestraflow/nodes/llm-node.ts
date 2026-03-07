@@ -10,6 +10,7 @@ import {
   buildLLMOutputVariables,
   OF_LLM_STRUCTURED_OUTPUT_NAME,
   normalizeOFVariableNamespace,
+  type OFJsonSchemaProperty,
   type OFLLMNodeData,
   type OFModelCompletionParams,
   type OFStructuredJsonSchema
@@ -223,34 +224,41 @@ export class LLMNode extends BaseNode {
   }
 
   private buildZodSchema(schema: OFStructuredJsonSchema) {
-    const objectSchema = schema.type === 'array' ? schema.items : schema
-    const shape: Record<string, z.ZodTypeAny> = {}
-    const requiredSet = new Set(objectSchema.required || [])
+    return this.buildSchemaNode(schema)
+  }
 
-    Object.entries(objectSchema.properties || {}).forEach(([key, value]) => {
-      let base: z.ZodTypeAny
-      switch (value.type) {
-        case 'boolean':
-          base = z.boolean()
-          break
-        case 'number':
-          base = z.number()
-          break
-        case 'string':
-        default:
-          base = z.string()
-          break
+  private buildSchemaNode(schema: OFJsonSchemaProperty): z.ZodTypeAny {
+    switch (schema.type) {
+      case 'boolean': {
+        const result = z.boolean()
+        return schema.description ? result.describe(schema.description) : result
       }
-
-      if (value.description) {
-        base = base.describe(value.description)
+      case 'number': {
+        const result = z.number()
+        return schema.description ? result.describe(schema.description) : result
       }
+      case 'array': {
+        const result = z.array(this.buildSchemaNode(schema.items))
+        return schema.description ? result.describe(schema.description) : result
+      }
+      case 'object': {
+        const shape: Record<string, z.ZodTypeAny> = {}
+        const requiredSet = new Set(schema.required || [])
 
-      shape[key] = requiredSet.has(key) ? base : base.optional()
-    })
+        Object.entries(schema.properties || {}).forEach(([key, value]) => {
+          const base = this.buildSchemaNode(value)
+          shape[key] = requiredSet.has(key) ? base : base.optional()
+        })
 
-    const objectResult = z.object(shape).strict()
-    return schema.type === 'array' ? z.array(objectResult) : objectResult
+        const result = z.object(shape).strict()
+        return schema.description ? result.describe(schema.description) : result
+      }
+      case 'string':
+      default: {
+        const result = z.string()
+        return schema.description ? result.describe(schema.description) : result
+      }
+    }
   }
 
   private normalizeNumber(value: unknown): number | undefined {

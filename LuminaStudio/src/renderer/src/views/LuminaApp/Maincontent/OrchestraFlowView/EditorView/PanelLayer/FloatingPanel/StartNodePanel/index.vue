@@ -368,7 +368,8 @@ const debugFields = computed<NodeDebugField[]>(() =>
     label: field.label || field.variable,
     type: field.type,
     required: field.required,
-    placeholder: field.description || `请输入 ${field.label || field.variable}`
+    placeholder: field.description || `请输入 ${field.label || field.variable}`,
+    schema: field.schema || null
   }))
 )
 
@@ -417,23 +418,20 @@ function handleEditFieldClick(index: number) {
 function handleFieldCreated(payload: {
   name: string
   label: string
-  type: OFVarType.String | OFVarType.Array
+  type: OFVarType
   required: boolean
-  defaultValue?: string | string[]
+  description?: string
+  defaultValue?: string | number | boolean | Record<string, any> | any[] | null
+  schema?: any
 }) {
   const nextField: OFVariable = {
     variable: payload.name,
     label: payload.label,
     type: payload.type,
     required: payload.required,
-    default:
-      payload.type === OFVarType.Array
-        ? Array.isArray(payload.defaultValue)
-          ? [...payload.defaultValue]
-          : []
-        : typeof payload.defaultValue === 'string'
-          ? payload.defaultValue
-          : ''
+    description: payload.description,
+    default: payload.defaultValue,
+    schema: payload.schema || null
   }
   if (editingFieldIndex.value == null) {
     localInputs.value = [...localInputs.value, nextField]

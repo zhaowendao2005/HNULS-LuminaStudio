@@ -14,6 +14,7 @@
         {{ field.label }}
         <span v-if="field.required" class="text-red-500">*</span>
       </label>
+
       <textarea
         v-if="isJsonField(field)"
         :value="getDisplayValue(field)"
@@ -22,6 +23,7 @@
         :placeholder="field.placeholder || getJsonPlaceholder(field)"
         @input="onInput(field.key, ($event.target as HTMLTextAreaElement).value)"
       />
+
       <button
         v-else-if="isBooleanField(field)"
         type="button"
@@ -42,6 +44,7 @@
           FALSE
         </span>
       </button>
+
       <input
         v-else
         :value="getDisplayValue(field)"
@@ -50,6 +53,14 @@
         :placeholder="field.placeholder || '请输入'"
         @input="onInput(field.key, ($event.target as HTMLInputElement).value)"
       />
+
+      <details
+        v-if="isJsonField(field) && field.schema"
+        class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-500"
+      >
+        <summary class="cursor-pointer select-none text-gray-600">JSON Schema 提示</summary>
+        <pre class="mt-2 overflow-auto whitespace-pre-wrap break-all font-mono text-[11px] leading-5 text-gray-500">{{ formatSchema(field.schema) }}</pre>
+      </details>
     </div>
 
     <div
@@ -71,7 +82,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { OFVarType } from '@shared/Orchestraflow-types'
+import { OFVarType, type OFStructuredJsonSchema } from '@shared/Orchestraflow-types'
 
 export interface NodeDebugField {
   key: string
@@ -79,6 +90,7 @@ export interface NodeDebugField {
   type?: OFVarType | string
   required?: boolean
   placeholder?: string
+  schema?: OFStructuredJsonSchema | null
 }
 
 const props = defineProps<{
@@ -148,6 +160,10 @@ function getDisplayValue(field: NodeDebugField): string {
     }
   }
   return String(value)
+}
+
+function formatSchema(schema: OFStructuredJsonSchema): string {
+  return JSON.stringify(schema, null, 2)
 }
 
 function handleExecute() {

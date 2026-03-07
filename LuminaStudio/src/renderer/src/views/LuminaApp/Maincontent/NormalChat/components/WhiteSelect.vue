@@ -29,8 +29,10 @@
     <Teleport :to="teleportTo" :disabled="!teleportTo">
       <Transition name="white-select-pop">
         <div
+          ref="panelRef"
           v-if="open"
-          class="WhiteSelect_panel z-50 rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden"
+          class="WhiteSelect_panel z-[1100] rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden"
+          data-floating-portal="true"
           :class="[panelClass, teleportTo ? 'fixed' : 'absolute mt-2 w-full']"
           :style="teleportTo && panelStyle"
         >
@@ -98,6 +100,7 @@ const emit = defineEmits<{
 
 const open = ref(false)
 const rootRef = ref<HTMLElement | null>(null)
+const panelRef = ref<HTMLElement | null>(null)
 const panelStyle = ref<Record<string, string>>({})
 
 const placeholder = computed(() => props.placeholder ?? '请选择')
@@ -150,10 +153,10 @@ const optionClass = (value: string | number) => {
 }
 
 const onDocPointerDown = (e: PointerEvent) => {
-  const el = rootRef.value
-  if (!el) return
   if (!open.value) return
-  if (el.contains(e.target as Node)) return
+  const target = e.target as Node
+  if (rootRef.value?.contains(target)) return
+  if (panelRef.value?.contains(target)) return
   close()
 }
 

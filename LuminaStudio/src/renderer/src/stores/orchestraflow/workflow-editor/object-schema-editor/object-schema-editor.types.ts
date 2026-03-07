@@ -1,4 +1,5 @@
 import type {
+  OFJsonSchemaProperty,
   OFJsonSchemaObject,
   OFStructuredFieldType,
   OFStructuredJsonSchema
@@ -21,16 +22,32 @@ export interface OFObjectSchemaEditorState {
   fields: OFSchemaFieldDraft[]
 }
 
+function isPrimitiveSchemaNode(schema: OFJsonSchemaProperty): schema is { type: OFStructuredFieldType; description?: string } {
+  return schema.type === 'string' || schema.type === 'number' || schema.type === 'boolean'
+}
+
+export function isVisualSchemaSupported(
+  schema: OFStructuredJsonSchema | null | undefined
+): boolean {
+  if (!schema) return true
+
+  const objectSchema = schema.type === 'array' ? schema.items : schema
+  if (objectSchema.type !== 'object') return false
+
+  return Object.values(objectSchema.properties || {}).every((item) => isPrimitiveSchemaNode(item))
+}
+
 export function schemaToFieldDrafts(
   schema: OFStructuredJsonSchema | null | undefined
 ): OFSchemaFieldDraft[] {
   if (!schema) return []
   const objectSchema = schema.type === 'array' ? schema.items : schema
+  if (objectSchema.type !== 'object') return []
   const required = new Set(objectSchema.required || [])
   return Object.entries(objectSchema.properties || {}).map(([name, value], index) => ({
     id: `schema_field_${index}_${name}`,
     name,
-    type: value.type,
+    type: isPrimitiveSchemaNode(value) ? value.type : 'string',
     required: required.has(name),
     description: value.description
   }))

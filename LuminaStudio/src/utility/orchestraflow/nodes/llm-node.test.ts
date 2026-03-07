@@ -55,6 +55,44 @@ describe('LLMNode structured output schema', () => {
     expect(() => schema.parse([{ score: 1 }])).toThrow()
   })
 
+  it('supports nested object and array schemas', () => {
+    const node = createLLMNode()
+    const schema = (node as any).buildZodSchema({
+      type: 'object',
+      properties: {
+        profile: {
+          type: 'object',
+          properties: {
+            name: { type: 'string' },
+            tags: {
+              type: 'array',
+              items: { type: 'string' }
+            }
+          },
+          required: ['name'],
+          additionalProperties: false
+        }
+      },
+      required: ['profile'],
+      additionalProperties: false
+    })
+
+    expect(
+      schema.parse({
+        profile: {
+          name: 'Lumina',
+          tags: ['alpha', 'beta']
+        }
+      })
+    ).toEqual({
+      profile: {
+        name: 'Lumina',
+        tags: ['alpha', 'beta']
+      }
+    })
+    expect(() => schema.parse({ profile: { tags: ['alpha'] } })).toThrow()
+  })
+
   it('marks structured_output as array when schema root is array<object>', () => {
     const variables = buildLLMOutputVariables('llm', {
       enabled: true,

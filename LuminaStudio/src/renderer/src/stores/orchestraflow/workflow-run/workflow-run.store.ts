@@ -15,21 +15,34 @@ import { WorkflowRunDataSource } from './workflow-run.datasource'
 import { useWorkflowEditorStore } from '../workflow-editor/workflow-editor.store'
 
 export function parseWorkflowInputValue(inputVar: OFInputVar, rawValue: unknown) {
-  if (inputVar.type === OFVarType.Array) {
+  if (inputVar.type === OFVarType.Array || inputVar.type === OFVarType.Object) {
     if (rawValue === undefined || rawValue === null || String(rawValue).trim() === '') {
       return {
         ok: false as const,
         reason: 'empty'
       }
     }
+
     try {
       const parsed = typeof rawValue === 'string' ? JSON.parse(rawValue) : rawValue
-      if (!Array.isArray(parsed)) {
+
+      if (inputVar.type === OFVarType.Array && !Array.isArray(parsed)) {
         return {
           ok: false as const,
           reason: 'not-array'
         }
       }
+
+      if (
+        inputVar.type === OFVarType.Object &&
+        (Array.isArray(parsed) || parsed === null || typeof parsed !== 'object')
+      ) {
+        return {
+          ok: false as const,
+          reason: 'not-object'
+        }
+      }
+
       return {
         ok: true as const,
         value: parsed
@@ -65,9 +78,11 @@ export function normalizeWorkflowInputs(
         if (parsed.reason === 'empty') {
           errors.push(`"${label}" 为必填项`)
         } else if (parsed.reason === 'invalid-json') {
-          errors.push(`"${label}" 必须是合法 JSON 数组`)
+          errors.push(`"${label}" 必须是合法 JSON`)
         } else if (parsed.reason === 'not-array') {
           errors.push(`"${label}" 必须是 JSON 数组`)
+        } else if (parsed.reason === 'not-object') {
+          errors.push(`"${label}" 必须是 JSON 对象`)
         }
       }
       continue
@@ -82,7 +97,6 @@ export function normalizeWorkflowInputs(
 export const useWorkflowRunStore = defineStore('orchestraflow-workflow-run', () => {
   const editorStore = useWorkflowEditorStore()
 
-  // ===== State =====
   const status = ref<OFWorkflowRunningStatus>(OFWorkflowRunningStatus.NotStarted)
   const result = ref<OFWorkflowRunResult | null>(null)
   const running = ref(false)
@@ -90,17 +104,14 @@ export const useWorkflowRunStore = defineStore('orchestraflow-workflow-run', () 
   const currentRunId = ref<string | null>(null)
   const startInputs = ref<Record<string, any>>({})
 
-  // 进度监听器
   let progressUnsubscribe: (() => void) | null = null
 
-  // ===== Computed =====
   const hasResult = computed(() => result.value !== null)
   const isRunning = computed(() => running.value)
   const isSucceeded = computed(() => status.value === OFWorkflowRunningStatus.Succeeded)
   const isFailed = computed(() => status.value === OFWorkflowRunningStatus.Failed)
   const tracingList = computed(() => result.value?.tracing || [])
 
-  // ===== Actions =====
   async function runWorkflow(workflowId: string, inputs?: Record<string, any>) {
     running.value = true
     status.value = OFWorkflowRunningStatus.Running
@@ -109,7 +120,6 @@ export const useWorkflowRunStore = defineStore('orchestraflow-workflow-run', () 
     result.value = null
     editorStore.resetAllNodeRunningStatus(OFNodeRunningStatus.NotStarted)
 
-    // 设置进度监听
     progressUnsubscribe = WorkflowRunDataSource.onProgress((runId, progress) => {
       if (!currentRunId.value) {
         currentRunId.value = runId
@@ -149,7 +159,7 @@ export const useWorkflowRunStore = defineStore('orchestraflow-workflow-run', () 
   function handleProgress(progress: OFNodeTracing) {
     const tracing = result.value?.tracing || []
     const identity = getOFTraceIdentity(progress)
-    const index = tracing.findIndex((t) => getOFTraceIdentity(t) === identity)
+    const index = tracing.findIndex((item) => getOFTraceIdentity(item) === identity)
 
     if (index >= 0) {
       tracing[index] = progress
@@ -197,22 +207,18 @@ export const useWorkflowRunStore = defineStore('orchestraflow-workflow-run', () 
     }
   }
 
-  // 获取指定节点的结果
   function getNodeTracing(nodeId: string): OFNodeTracing | undefined {
-    return result.value?.tracing.find((t) => t.nodeId === nodeId)
+    return result.value?.tracing.find((item) => item.nodeId === nodeId)
   }
 
-  // 设置开始节点输入
   function setStartInputs(inputs: Record<string, any>) {
     startInputs.value = inputs
   }
 
-  // 更新单个输入字段
   function updateStartInput(key: string, value: any) {
     startInputs.value[key] = value
   }
 
-  // 校验开始节点输入（需要传入 Start 节点的 inputs 定义）
   function validateStartInputs(inputVars: OFInputVar[]): { valid: boolean; errors: string[] } {
     const { errors } = normalizeWorkflowInputs(inputVars, startInputs.value)
 
@@ -222,9 +228,8 @@ export const useWorkflowRunStore = defineStore('orchestraflow-workflow-run', () 
     }
   }
 
-  // 获取 Start 节点的输入定义
   function getStartNodeInputs(nodes: { id: string; data: any }[]): OFInputVar[] {
-    const startNode = nodes.find((n) => n.data.type === OFBlockEnum.Start)
+    const startNode = nodes.find((node) => node.data.type === OFBlockEnum.Start)
     if (startNode && (startNode.data as any).input?.variables) {
       return (startNode.data as any).input.variables as OFInputVar[]
     }
@@ -232,22 +237,17 @@ export const useWorkflowRunStore = defineStore('orchestraflow-workflow-run', () 
   }
 
   return {
-    // state
     status,
     result,
     running,
     currentWorkflowId,
     currentRunId,
     startInputs,
-
-    // computed
     hasResult,
     isRunning,
     isSucceeded,
     isFailed,
     tracingList,
-
-    // actions
     runWorkflow,
     stopWorkflow,
     reset,

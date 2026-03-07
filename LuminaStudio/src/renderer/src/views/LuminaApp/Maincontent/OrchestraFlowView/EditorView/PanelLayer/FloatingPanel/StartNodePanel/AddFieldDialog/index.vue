@@ -1,187 +1,110 @@
 <template>
-  <CenteredDialog
-    v-model="visible"
-    :title="dialogTitle"
-    subtitle="为开始节点配置输入字段"
-  >
+  <CenteredDialog v-model="visible" :title="dialogTitle" subtitle="为开始节点配置输入字段">
     <div class="space-y-5">
-      <div>
-        <div class="mb-1 font-semibold leading-8 text-gray-600">字段类型</div>
-        <div ref="typeDropdownRef" class="relative">
-          <div
-            class="group flex h-10 cursor-pointer items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-3 transition-colors hover:border-emerald-200 hover:bg-emerald-50/30"
-            @click="toggleTypeDropdown"
-          >
-            <div class="flex items-center">
-              <svg
-                v-if="selectedType.id === 'array'"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                class="size-4 shrink-0 text-gray-500"
-              >
-                <path d="M8 6h13M8 12h13M8 18h13" />
-                <path d="M3 6h.01M3 12h.01M3 18h.01" />
-              </svg>
-              <svg
-                v-else
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                class="size-4 shrink-0 text-gray-500"
-              >
-                <path d="M4 7h16M4 12h10M4 17h8" />
-              </svg>
-              <span class="ml-2 font-medium text-gray-800">
-                {{ selectedType.name }}
-              </span>
-            </div>
-            <div class="flex items-center space-x-2">
-              <div
-                class="inline-flex h-5 items-center rounded border border-emerald-200/50 bg-emerald-100/50 px-1.5 text-xs font-medium text-emerald-700"
-              >
-                {{ selectedType.type }}
-              </div>
-              <svg
-                class="h-4 w-4 text-gray-400 transition-transform"
-                :class="{ 'rotate-180': isTypeDropdownOpen }"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <path d="M6 9l6 6 6-6" />
-              </svg>
-            </div>
-          </div>
-
-          <div
-            v-if="isTypeDropdownOpen"
-            class="absolute z-10 mt-1 w-full rounded-lg border border-gray-200 bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5"
-          >
-            <div
-              v-for="type in FIELD_TYPES"
-              :key="type.id"
-              class="flex cursor-pointer items-center justify-between px-3 py-2"
-              :class="{ 'bg-emerald-50/60': selectedType.id === type.id }"
-              @click="selectType(type)"
-            >
-              <div class="flex items-center">
-                <svg
-                  v-if="type.id === 'array'"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  class="size-4 shrink-0"
-                  :class="selectedType.id === type.id ? 'text-emerald-600' : 'text-gray-500'"
-                >
-                  <path d="M8 6h13M8 12h13M8 18h13" />
-                  <path d="M3 6h.01M3 12h.01M3 18h.01" />
-                </svg>
-                <svg
-                  v-else
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  class="size-4 shrink-0"
-                  :class="selectedType.id === type.id ? 'text-emerald-600' : 'text-gray-500'"
-                >
-                  <path d="M4 7h16M4 12h10M4 17h8" />
-                </svg>
-                <span
-                  class="ml-2"
-                  :class="selectedType.id === type.id ? 'font-medium text-emerald-700' : 'text-gray-700'"
-                >
-                  {{ type.name }}
-                </span>
-              </div>
-              <div class="inline-flex h-5 items-center rounded border border-gray-100 px-1.5 text-xs text-gray-400">
-                {{ type.type }}
-              </div>
-            </div>
-          </div>
-        </div>
+      <div class="space-y-1">
+        <div class="font-semibold leading-8 text-gray-600">字段类型</div>
+        <WhiteSelect
+          :model-value="selectedType"
+          :options="fieldTypeOptions"
+          root-class="w-full"
+          trigger-class="!h-10 !rounded-lg !border-gray-200 !bg-gray-50 !px-3 !text-sm !text-gray-800"
+          panel-class="min-w-[180px]"
+          teleport-to="body"
+          @update:model-value="handleTypeChange"
+        />
       </div>
 
-      <div>
-        <div class="mb-1 font-semibold leading-8 text-gray-600">变量名称</div>
+      <div class="space-y-1">
+        <div class="font-semibold leading-8 text-gray-600">变量名称</div>
         <input
           v-model="form.name"
           class="w-full appearance-none rounded-lg border border-transparent bg-gray-50 px-3 py-2 text-gray-800 outline-none transition-all placeholder:text-gray-400 hover:border-emerald-200 hover:bg-emerald-50/20 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10"
-          placeholder="请输入"
+          placeholder="请输入变量名称"
         />
       </div>
 
-      <div>
-        <div class="mb-1 font-semibold leading-8 text-gray-600">显示名称</div>
+      <div class="space-y-1">
+        <div class="font-semibold leading-8 text-gray-600">显示名称</div>
         <input
           v-model="form.label"
           class="w-full appearance-none rounded-lg border border-transparent bg-gray-50 px-3 py-2 text-gray-800 outline-none transition-all placeholder:text-gray-400 hover:border-emerald-200 hover:bg-emerald-50/20 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10"
-          placeholder="请输入"
+          placeholder="请输入显示名称"
         />
       </div>
 
-      <div v-if="selectedType.id === 'text'">
-        <div class="mb-1 font-semibold leading-8 text-gray-600">默认值</div>
+      <div class="space-y-1">
+        <div class="font-semibold leading-8 text-gray-600">字段描述</div>
+        <textarea
+          v-model="form.description"
+          rows="2"
+          class="w-full appearance-none rounded-lg border border-transparent bg-gray-50 px-3 py-2 text-gray-800 outline-none transition-all placeholder:text-gray-400 hover:border-emerald-200 hover:bg-emerald-50/20 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10"
+          placeholder="用于运行输入面板提示"
+        />
+      </div>
+
+      <div v-if="selectedType === OFVarType.Boolean" class="space-y-1">
+        <div class="font-semibold leading-8 text-gray-600">默认值</div>
+        <div class="inline-flex h-10 items-center overflow-hidden rounded-lg border border-gray-200 bg-white p-0.5 shadow-sm">
+          <button
+            type="button"
+            class="min-w-[72px] rounded-[6px] px-3 text-sm font-medium leading-9 transition"
+            :class="booleanDefaultValue === true ? 'bg-green-50 text-green-700 shadow-sm' : 'text-gray-400'"
+            @click="booleanDefaultValue = true"
+          >
+            TRUE
+          </button>
+          <button
+            type="button"
+            class="min-w-[72px] rounded-[6px] px-3 text-sm font-medium leading-9 transition"
+            :class="booleanDefaultValue === false ? 'bg-rose-50 text-rose-700 shadow-sm' : 'text-gray-400'"
+            @click="booleanDefaultValue = false"
+          >
+            FALSE
+          </button>
+        </div>
+      </div>
+
+      <div v-else-if="selectedType === OFVarType.Number" class="space-y-1">
+        <div class="font-semibold leading-8 text-gray-600">默认值</div>
+        <input
+          v-model="numberDefaultValue"
+          type="number"
+          class="w-full appearance-none rounded-lg border border-transparent bg-gray-50 px-3 py-2 text-gray-800 outline-none transition-all placeholder:text-gray-400 hover:border-emerald-200 hover:bg-emerald-50/20 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10"
+          placeholder="可选，运行时会自动填充"
+        />
+      </div>
+
+      <div v-else-if="isJsonType" class="space-y-3">
+        <div class="space-y-1">
+          <div class="flex items-center justify-between">
+            <div class="font-semibold leading-8 text-gray-600">JSON Schema</div>
+            <button
+              type="button"
+              class="rounded-md border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-medium text-sky-700 hover:bg-sky-100"
+              @click="openSchemaEditor"
+            >
+              配置 Schema
+            </button>
+          </div>
+          <div class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-500">
+            {{ schemaSummary }}
+          </div>
+        </div>
+
+        <div class="space-y-1">
+          <div class="rounded-lg border border-emerald-100 bg-emerald-50/60 px-3 py-2 text-xs text-emerald-700">
+            默认值请在 Schema 编辑器内部配置。
+          </div>
+        </div>
+      </div>
+
+      <div v-else class="space-y-1">
+        <div class="font-semibold leading-8 text-gray-600">默认值</div>
         <input
           v-model="textDefaultValue"
           class="w-full appearance-none rounded-lg border border-transparent bg-gray-50 px-3 py-2 text-gray-800 outline-none transition-all placeholder:text-gray-400 hover:border-emerald-200 hover:bg-emerald-50/20 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10"
-          placeholder="可选，运行测试时会自动填充"
+          placeholder="可选，运行时会自动填充"
         />
-      </div>
-
-      <div v-else class="space-y-3">
-        <div>
-          <div class="mb-1 font-semibold leading-8 text-gray-600">默认列表值</div>
-          <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
-            <div class="mb-3 flex items-center justify-between">
-              <div class="text-xs text-gray-500">运行测试时的初始列表项</div>
-              <button
-                type="button"
-                class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs text-emerald-700 hover:bg-emerald-100"
-                @click="appendDefaultArrayItem"
-              >
-                添加项
-              </button>
-            </div>
-
-            <div v-if="arrayDefaultItems.length === 0" class="text-xs text-gray-400">
-              暂无默认值，保存后运行测试时初始为空列表
-            </div>
-
-            <div
-              v-for="(item, index) in arrayDefaultItems"
-              :key="`default-item-${index}`"
-              class="mb-2 flex items-center gap-2 last:mb-0"
-            >
-              <div class="w-8 shrink-0 text-center text-xs text-gray-400">
-                {{ index + 1 }}
-              </div>
-              <input
-                :value="item"
-                class="flex-1 appearance-none rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10"
-                placeholder="请输入默认列表项"
-                @input="updateDefaultArrayItem(index, ($event.target as HTMLInputElement).value)"
-              />
-              <button
-                type="button"
-                class="rounded-md px-2 py-1 text-xs text-red-500 hover:bg-red-50"
-                @click="removeDefaultArrayItem(index)"
-              >
-                删除
-              </button>
-            </div>
-          </div>
-        </div>
       </div>
 
       <div class="pt-2">
@@ -189,11 +112,7 @@
           <input v-model="form.required" type="checkbox" class="hidden" />
           <div
             class="flex h-4 w-4 items-center justify-center rounded border"
-            :class="
-              form.required
-                ? 'border-emerald-500 bg-emerald-500 text-white'
-                : 'border-gray-300 bg-white'
-            "
+            :class="form.required ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-gray-300 bg-white'"
           >
             <svg
               v-if="form.required"
@@ -209,6 +128,10 @@
           </div>
           <span class="font-semibold text-gray-700">必填</span>
         </label>
+      </div>
+
+      <div v-if="errorMessage" class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
+        {{ errorMessage }}
       </div>
     </div>
 
@@ -231,22 +154,30 @@
       </div>
     </template>
   </CenteredDialog>
+
+  <StartNodeSchemaEditor
+    v-model="schemaEditorVisible"
+    :schema="currentSchema"
+    :root-type="schemaEditorRootType"
+    @save="handleSchemaSave"
+  />
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import CenteredDialog from '@renderer/views/LuminaApp/Maincontent/OrchestraFlowView/EditorView/Common/CenteredDialog.vue'
-import { OFVarType, type OFVariable } from '@shared/Orchestraflow-types'
+import WhiteSelect, { type WhiteSelectOption } from '@renderer/views/LuminaApp/Maincontent/NormalChat/components/WhiteSelect.vue'
+import StartNodeSchemaEditor from '../StartNodeSchemaEditor/index.vue'
+import type { OFStructuredJsonSchema, OFVariable } from '@shared/Orchestraflow-types'
+import { OFVarType } from '@shared/Orchestraflow-types'
+import type { OFSchemaRootType } from '@renderer/stores/orchestraflow/workflow-editor/object-schema-editor/object-schema-editor.types'
 
-interface FieldTypeItem {
-  id: 'text' | 'array'
-  name: string
-  type: string
-}
-
-const FIELD_TYPES: FieldTypeItem[] = [
-  { id: 'text', name: '文本', type: OFVarType.String },
-  { id: 'array', name: '列表', type: OFVarType.Array }
+const fieldTypeOptions: WhiteSelectOption[] = [
+  { label: 'string', value: OFVarType.String },
+  { label: 'number', value: OFVarType.Number },
+  { label: 'boolean', value: OFVarType.Boolean },
+  { label: 'object', value: OFVarType.Object },
+  { label: 'array', value: OFVarType.Array }
 ]
 
 const props = defineProps<{
@@ -261,9 +192,11 @@ const emit = defineEmits<{
     payload: {
       name: string
       label: string
-      type: OFVarType.String | OFVarType.Array
+      type: OFVarType
       required: boolean
-      defaultValue?: string | string[]
+      description?: string
+      defaultValue?: string | number | boolean | Record<string, any> | any[] | null
+      schema?: OFStructuredJsonSchema | null
     }
   ): void
 }>()
@@ -272,28 +205,42 @@ const visible = ref(props.modelValue)
 const form = ref({
   name: '',
   label: '',
+  description: '',
   required: true
 })
-const selectedType = ref<FieldTypeItem>(FIELD_TYPES[0])
+const selectedType = ref<OFVarType>(OFVarType.String)
 const textDefaultValue = ref('')
-const arrayDefaultItems = ref<string[]>([])
-const isTypeDropdownOpen = ref(false)
-const typeDropdownRef = ref<HTMLElement | null>(null)
+const numberDefaultValue = ref('')
+const booleanDefaultValue = ref<boolean>(true)
+const currentSchema = ref<OFStructuredJsonSchema | null>(null)
+const errorMessage = ref('')
+const schemaEditorVisible = ref(false)
 
 const dialogTitle = computed(() => (props.initialField ? '编辑变量' : '添加变量'))
+const isJsonType = computed(
+  () => selectedType.value === OFVarType.Object || selectedType.value === OFVarType.Array
+)
+const schemaEditorRootType = computed<OFSchemaRootType>(() =>
+  selectedType.value === OFVarType.Array ? 'array<object>' : 'object'
+)
+const schemaSummary = computed(() => {
+  if (!currentSchema.value) return '必须先配置 Schema，object/array 字段才允许保存。'
+  return JSON.stringify(currentSchema.value, null, 2)
+})
 
 watch(
   () => props.modelValue,
-  (val) => {
-    visible.value = val
-    if (val) {
+  (value) => {
+    visible.value = value
+    if (value) {
       hydrateFormFromInitialField()
     }
-  }
+  },
+  { immediate: true }
 )
 
-watch(visible, (val) => {
-  emit('update:modelValue', val)
+watch(visible, (value) => {
+  emit('update:modelValue', value)
 })
 
 watch(
@@ -307,67 +254,61 @@ watch(
 
 function hydrateFormFromInitialField() {
   const field = props.initialField
-  const nextType = field?.type === OFVarType.Array ? FIELD_TYPES[1] : FIELD_TYPES[0]
-  selectedType.value = nextType
+  selectedType.value = (field?.type as OFVarType) || OFVarType.String
   form.value = {
     name: field?.variable || '',
     label: field?.label || '',
+    description: field?.description || '',
     required: field?.required ?? true
   }
-  textDefaultValue.value =
-    typeof field?.default === 'string' ? field.default : field?.default == null ? '' : String(field.default)
-  arrayDefaultItems.value = Array.isArray(field?.default)
-    ? field.default.map((item) => (typeof item === 'string' ? item : String(item)))
-    : []
+  currentSchema.value = field?.schema || null
+  errorMessage.value = ''
+
+  textDefaultValue.value = typeof field?.default === 'string' ? field.default : ''
+  numberDefaultValue.value =
+    typeof field?.default === 'number' && Number.isFinite(field.default) ? String(field.default) : ''
+  booleanDefaultValue.value = typeof field?.default === 'boolean' ? field.default : true
 }
 
 function resetForm() {
   form.value = {
     name: '',
     label: '',
+    description: '',
     required: true
   }
-  selectedType.value = FIELD_TYPES[0]
+  selectedType.value = OFVarType.String
   textDefaultValue.value = ''
-  arrayDefaultItems.value = []
-  isTypeDropdownOpen.value = false
+  numberDefaultValue.value = ''
+  booleanDefaultValue.value = true
+  currentSchema.value = null
+  errorMessage.value = ''
+  schemaEditorVisible.value = false
 }
 
-function toggleTypeDropdown() {
-  isTypeDropdownOpen.value = !isTypeDropdownOpen.value
-}
+function handleTypeChange(value: string | number | null) {
+  const previousType = selectedType.value
+  selectedType.value = String(value || OFVarType.String) as OFVarType
+  errorMessage.value = ''
+  if (!isJsonType.value) {
+    currentSchema.value = null
+    return
+  }
 
-function selectType(type: FieldTypeItem) {
-  selectedType.value = type
-  isTypeDropdownOpen.value = false
-  if (type.id === 'text') {
-    arrayDefaultItems.value = []
-  } else {
-    textDefaultValue.value = ''
+  if (
+    (previousType === OFVarType.Array && selectedType.value === OFVarType.Object) ||
+    (previousType === OFVarType.Object && selectedType.value === OFVarType.Array)
+  ) {
+    currentSchema.value = null
   }
 }
 
-function handleClickOutside(event: MouseEvent) {
-  if (!typeDropdownRef.value) return
-  if (!typeDropdownRef.value.contains(event.target as Node)) {
-    isTypeDropdownOpen.value = false
-  }
+function openSchemaEditor() {
+  schemaEditorVisible.value = true
 }
 
-function appendDefaultArrayItem() {
-  arrayDefaultItems.value = [...arrayDefaultItems.value, '']
-}
-
-function updateDefaultArrayItem(index: number, value: string) {
-  const nextItems = [...arrayDefaultItems.value]
-  nextItems[index] = value
-  arrayDefaultItems.value = nextItems
-}
-
-function removeDefaultArrayItem(index: number) {
-  const nextItems = [...arrayDefaultItems.value]
-  nextItems.splice(index, 1)
-  arrayDefaultItems.value = nextItems
+function handleSchemaSave(schema: OFStructuredJsonSchema) {
+  currentSchema.value = schema
 }
 
 function cancel() {
@@ -376,28 +317,46 @@ function cancel() {
 
 function confirm() {
   const name = form.value.name.trim()
-  if (!name) return
+  if (!name) {
+    errorMessage.value = '变量名称不能为空'
+    return
+  }
+  if (isJsonType.value && !currentSchema.value) {
+    errorMessage.value = 'object / array 类型必须先配置 Schema'
+    return
+  }
 
-  emit('confirm', {
-    name,
-    label: form.value.label.trim() || name,
-    type: selectedType.value.type as OFVarType.String | OFVarType.Array,
-    required: form.value.required,
-    defaultValue:
-      selectedType.value.id === 'array' ? [...arrayDefaultItems.value] : textDefaultValue.value
-  })
+  try {
+    emit('confirm', {
+      name,
+      label: form.value.label.trim() || name,
+      type: selectedType.value,
+      required: form.value.required,
+      description: form.value.description.trim() || undefined,
+      defaultValue: buildDefaultValue(),
+      schema: isJsonType.value ? currentSchema.value : null
+    })
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '默认值格式无效'
+    return
+  }
 
   resetForm()
   visible.value = false
 }
 
-onMounted(() => {
-  document.addEventListener('mousedown', handleClickOutside)
-})
-
-onBeforeUnmount(() => {
-  document.removeEventListener('mousedown', handleClickOutside)
-})
-
-hydrateFormFromInitialField()
+function buildDefaultValue() {
+  switch (selectedType.value) {
+    case OFVarType.Number:
+      return numberDefaultValue.value.trim() ? Number(numberDefaultValue.value.trim()) : undefined
+    case OFVarType.Boolean:
+      return booleanDefaultValue.value
+    case OFVarType.Object:
+    case OFVarType.Array:
+      return currentSchema.value?.default
+    case OFVarType.String:
+    default:
+      return textDefaultValue.value || undefined
+  }
+}
 </script>

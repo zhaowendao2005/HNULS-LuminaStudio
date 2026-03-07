@@ -53,24 +53,31 @@ export enum OFVarType {
 
 // ===== 结构化输出 / Schema =====
 export type OFStructuredFieldType = 'string' | 'number' | 'boolean'
+export type OFStructuredSchemaNodeType = OFStructuredFieldType | 'object' | 'array'
 
 export interface OFJsonSchemaField {
   type: OFStructuredFieldType
   description?: string
+  default?: string | number | boolean | null
 }
 
 export interface OFJsonSchemaObject {
   type: 'object'
-  properties: Record<string, OFJsonSchemaField>
+  properties: Record<string, OFJsonSchemaProperty>
   required: string[]
   additionalProperties: false
+  description?: string
+  default?: Record<string, any> | null
 }
 
 export interface OFJsonSchemaArray {
   type: 'array'
-  items: OFJsonSchemaObject
+  items: OFJsonSchemaProperty
+  description?: string
+  default?: any[] | null
 }
 
+export type OFJsonSchemaProperty = OFJsonSchemaField | OFJsonSchemaObject | OFJsonSchemaArray
 export type OFStructuredJsonSchema = OFJsonSchemaObject | OFJsonSchemaArray
 
 export interface OFStructuredOutputConfig {
