@@ -14,11 +14,22 @@ function createDefaultLoopVariable(): OFLoopVariableData {
   return {
     id: `loop_var_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
     variable: 'counter',
-    label: 'counter',
+    label: '',
     type: OFVarType.Number,
     value_type: 'constant',
     value: 0
   }
+}
+
+function createUniqueLoopVariableName(existingVariables: OFLoopVariableData[]): string {
+  const occupiedNames = new Set(existingVariables.map((item) => String(item.variable || '').trim()).filter(Boolean))
+  if (!occupiedNames.has('counter')) return 'counter'
+
+  let index = 2
+  while (occupiedNames.has(`counter_${index}`)) {
+    index += 1
+  }
+  return `counter_${index}`
 }
 
 function createDefaultCondition(): OFIfElseCondition {
@@ -105,6 +116,7 @@ export const useLoopNodeConfigStore = defineStore('of-loop-node-config', () => {
     patchConfig,
     clear,
     createDefaultLoopVariable,
+    createUniqueLoopVariableName,
     createDefaultCondition
   }
 })

@@ -11,6 +11,7 @@ export type VariableSelectorTargetType =
   | 'iteration-input'
   | 'iteration-output'
   | 'variable-assign-source'
+  | 'variable-assign-target'
   | 'loop-variable-init'
   | 'loop-condition-left'
   | 'loop-condition-right'

@@ -1124,6 +1124,39 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
     })
   }
 
+  function syncExpandedSubgraphChildren(iterationNodeId: string) {
+    const iterationNode = findNodeByIdFrom(iterationNodeId, nodes.value)
+    if (
+      !iterationNode ||
+      (iterationNode.data.type !== OFBlockEnum.Iteration && iterationNode.data.type !== OFBlockEnum.Loop)
+    ) {
+      return
+    }
+
+    const subgraph = (iterationNode.data as OFIterationNodeData | OFLoopNodeData).subgraph
+    const nextChildNodes = (subgraph?.nodes || []).map((node) => normalizeNode(cloneNode(node)))
+    const nextChildNodeIds = new Set(nextChildNodes.map((node) => node.id))
+    const previousChildNodeIds = new Set(
+      nodes.value
+        .filter((node) => node.parentNode === iterationNodeId)
+        .map((node) => node.id)
+    )
+
+    nodes.value = dedupeNodes([
+      ...nodes.value.filter((node) => node.parentNode !== iterationNodeId),
+      ...nextChildNodes
+    ])
+
+    edges.value = dedupeEdges([
+      ...edges.value.filter(
+        (edge) => !(previousChildNodeIds.has(edge.source) && previousChildNodeIds.has(edge.target))
+      ),
+      ...(subgraph?.edges || [])
+        .filter((edge) => nextChildNodeIds.has(edge.source) && nextChildNodeIds.has(edge.target))
+        .map((edge) => cloneEdge(edge))
+    ])
+  }
+
   function resizeIterationNode(nodeId: string, width: number, height: number) {
     const childNodes = getIterationChildNodes(nodeId)
     let minWidth = ITERATION_MIN_WIDTH
@@ -1581,6 +1614,7 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
 
     if (currentNode.data.type === OFBlockEnum.Loop) {
       const updatedNode = findNodeByIdFrom(nodeId, nodes.value)
+      syncExpandedSubgraphChildren(nodeId)
       if (typeof nextData.title === 'string') {
         const nextNamespace = normalizeOFVariableNamespace(nextData.title, 'loop')
         syncNodeNamespaceReferences(previousNamespace, nextNamespace, nodeId)

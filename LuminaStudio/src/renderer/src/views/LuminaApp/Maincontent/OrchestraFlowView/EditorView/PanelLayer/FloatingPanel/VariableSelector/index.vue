@@ -45,7 +45,7 @@
 
                 <div
                   v-else
-                  class="flex h-7 cursor-pointer items-center gap-2 rounded-md pl-3 pr-2 text-sm"
+                  class="flex min-h-9 cursor-pointer items-center gap-2 rounded-md pl-3 pr-2 py-1 text-sm"
                   :class="
                     selectedId === row.item.id
                       ? 'bg-[#eef2ff] text-gray-900'
@@ -90,7 +90,10 @@
 
                   <div class="min-w-0 flex-1">
                     <div class="truncate text-[13px] font-medium">
-                      {{ row.item.label }}
+                      {{ row.item.label || row.item.variable }}
+                    </div>
+                    <div class="truncate text-[11px] text-gray-400">
+                      变量名 · {{ row.item.variable }}
                     </div>
                   </div>
 

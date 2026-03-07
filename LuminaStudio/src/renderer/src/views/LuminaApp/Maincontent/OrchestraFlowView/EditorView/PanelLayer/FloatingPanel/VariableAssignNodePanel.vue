@@ -188,7 +188,16 @@
 
                 <div class="grid grid-cols-2 gap-3">
                   <div class="space-y-2">
-                    <div class="system-sm-semibold-uppercase text-gray-700">目标变量名</div>
+                    <div class="flex items-center justify-between gap-2">
+                      <div class="system-sm-semibold-uppercase text-gray-700">目标变量名</div>
+                      <button
+                        type="button"
+                        class="text-xs font-semibold text-cyan-600 transition hover:text-cyan-700"
+                        @click="openTargetSelector(rule.id, $event)"
+                      >
+                        选择已有变量
+                      </button>
+                    </div>
                     <input
                       :value="rule.target_variable"
                       class="h-10 w-full rounded-xl border border-[#e5e7eb] bg-[#f3f4f6] px-3 text-sm text-gray-800 outline-none focus:bg-white"
@@ -459,6 +468,22 @@ function openRuleSelector(ruleId: string, event: MouseEvent) {
   )
 }
 
+function openTargetSelector(ruleId: string, event: MouseEvent) {
+  if (!uiStore.selectedNodeId) return
+  activeRuleId.value = ruleId
+  const anchorRect = (event.currentTarget as HTMLElement | null)?.getBoundingClientRect() || undefined
+  variableSelectorStore.openSelector(
+    uiStore.selectedNodeId,
+    'variable-assign-target',
+    anchorRect,
+    undefined,
+    {
+      x: event.clientX,
+      y: event.clientY
+    }
+  )
+}
+
 function parseSelectorPath(value: string): string[] {
   return value
     .split('.')
@@ -549,19 +574,33 @@ function handleVariableSelect(event: Event) {
   const detail = (event as CustomEvent).detail
   if (
     detail?.nodeId !== uiStore.selectedNodeId ||
-    detail?.targetType !== 'variable-assign-source' ||
     !activeRuleId.value
   ) {
     return
   }
 
-  patchRule(activeRuleId.value, {
-    source_mode: 'variable',
-    source_selector: detail.variable.valueSelector || [],
-    source_path: detail.variable.path,
-    source_label: detail.variable.label,
-    source_type: detail.variable.type
-  })
+  if (detail.targetType === 'variable-assign-source') {
+    patchRule(activeRuleId.value, {
+      source_mode: 'variable',
+      source_selector: detail.variable.valueSelector || [],
+      source_path: detail.variable.path,
+      source_label: detail.variable.label,
+      source_type: detail.variable.type
+    })
+    activeRuleId.value = null
+    return
+  }
+
+  if (detail.targetType === 'variable-assign-target') {
+    const rootVariable = detail.variable.valueSelector?.[0] || detail.variable.variable
+    patchRule(activeRuleId.value, {
+      target_variable: rootVariable,
+      target_label: detail.variable.label || rootVariable,
+      target_type: (detail.variable.type as OFVarType | undefined) || OFVarTypeEnum.String,
+      item_type: detail.variable.type === OFVarTypeEnum.Array ? detail.variable.type : undefined,
+      schema: detail.variable.schema || null
+    })
+  }
   activeRuleId.value = null
 }
 

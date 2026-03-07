@@ -270,12 +270,23 @@ function patchLoopVariable(variableId: string, patch: Partial<OFLoopVariableData
 }
 
 function addLoopVariable() {
-  patchNode({ loop_variables: [...loopVariables.value, configStore.createDefaultLoopVariable()] })
+  const nextVariable = configStore.createDefaultLoopVariable()
+  const variableName = configStore.createUniqueLoopVariableName(loopVariables.value)
+  patchNode({
+    loop_variables: [
+      ...loopVariables.value,
+      {
+        ...nextVariable,
+        variable: variableName,
+        label: ''
+      }
+    ]
+  })
 }
 
 function removeLoopVariable(variableId: string) {
   const nextVariables = loopVariables.value.filter((item) => (item.id || item.variable) !== variableId)
-  patchNode({ loop_variables: nextVariables.length ? nextVariables : [configStore.createDefaultLoopVariable()] })
+  patchNode({ loop_variables: nextVariables })
 }
 
 function addBreakCondition() {

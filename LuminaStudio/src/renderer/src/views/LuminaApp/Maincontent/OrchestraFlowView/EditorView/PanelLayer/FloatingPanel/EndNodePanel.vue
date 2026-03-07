@@ -184,14 +184,36 @@
               class="group flex items-center justify-between gap-3 border-b border-gray-100 py-2"
             >
               <div class="min-w-0 flex-1">
-                <div class="flex items-center gap-2 text-xs">
+                <div class="grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <div class="mb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-400">显示名</div>
+                    <input
+                      :value="output.label || ''"
+                      class="min-w-0 w-full border-0 border-b border-gray-200 bg-transparent px-0 font-semibold text-cyan-600 outline-none placeholder:text-gray-300"
+                      placeholder="label"
+                      @input="updateOutputLabel(index, ($event.target as HTMLInputElement).value)"
+                    />
+                  </div>
+                  <div>
+                    <div class="mb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-400">变量名</div>
+                    <input
+                      :value="output.variable"
+                      class="min-w-0 w-full border-0 border-b border-gray-200 bg-transparent px-0 font-semibold text-emerald-600 outline-none placeholder:text-gray-300"
+                      placeholder="variable"
+                      @input="updateOutputVariable(index, ($event.target as HTMLInputElement).value)"
+                    />
+                  </div>
+                </div>
+                <div class="mt-2 flex items-center gap-2 text-xs">
                   <input
-                    :value="output.variable"
-                    class="min-w-0 bg-transparent font-semibold text-emerald-600 outline-none placeholder:text-gray-300"
-                    placeholder="变量名"
-                    @input="updateOutputVariable(index, ($event.target as HTMLInputElement).value)"
+                    :value="output.type || 'string'"
+                    class="w-20 border-0 bg-transparent px-0 text-gray-400 outline-none"
+                    readonly
                   />
-                  <span class="text-gray-400">{{ output.type || 'string' }}</span>
+                  <span class="text-gray-300">·</span>
+                  <span class="truncate text-gray-400">
+                    {{ (output.label || '未命名显示名') + ' / ' + (output.variable || '未命名变量') }}
+                  </span>
                 </div>
                 <div class="mt-1 text-xs text-gray-400">
                   {{ output.value_selector?.join('.') || '未绑定变量路径' }}
@@ -256,7 +278,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
 import { useWorkflowEditorUIStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor-ui.store'
 import { useWorkflowEditorStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor.store'
 import { useVariableSelectorStore } from '@renderer/stores/orchestraflow/workflow-editor/variable-selector/variable-selector.store'
@@ -378,6 +400,12 @@ function updateOutputVariable(index: number, newVariable: string) {
   localOutputs.value = newOutputs
 }
 
+function updateOutputLabel(index: number, newLabel: string) {
+  const newOutputs = [...localOutputs.value]
+  newOutputs[index] = { ...newOutputs[index], label: newLabel }
+  localOutputs.value = newOutputs
+}
+
 function openOutputVariableSelector(event: MouseEvent) {
   const anchorRect =
     (event.currentTarget as HTMLElement | null)?.getBoundingClientRect() || undefined
@@ -452,6 +480,7 @@ function handleVariableSelect(event: CustomEvent) {
     ...localOutputs.value,
     {
       variable: varName,
+      label: variable.label || varName,
       value_selector: variable.valueSelector,
       type: variable.type as OFVarType | undefined,
       schema: variable.schema || null
