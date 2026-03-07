@@ -628,6 +628,10 @@ function openPromptVariableSelector(promptId: string, event: MouseEvent) {
   if (!currentNode.value) return
   const anchorRect =
     (event.currentTarget as HTMLElement | null)?.getBoundingClientRect() || undefined
+  const anchorPoint = {
+    x: event.clientX,
+    y: event.clientY
+  }
   const editorRef = promptEditorRefs.get(promptId)
   activePromptTarget.value = {
     promptId,
@@ -637,7 +641,8 @@ function openPromptVariableSelector(promptId: string, event: MouseEvent) {
     currentNode.value.id,
     'prompt',
     activePromptTarget.value.cursorPosition,
-    anchorRect
+    anchorRect,
+    anchorPoint
   )
 }
 

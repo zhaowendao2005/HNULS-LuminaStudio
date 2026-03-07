@@ -45,4 +45,8 @@ export interface VariableSelectorState {
   searchKeyword: string
   cursorPosition: number
   anchorRect?: DOMRect | null
+  anchorPoint?: {
+    x: number
+    y: number
+  } | null
 }

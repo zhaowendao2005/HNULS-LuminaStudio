@@ -3,6 +3,7 @@
     <Transition name="fade">
       <div v-if="store.visible" class="fixed inset-0 z-50" @click="handleOverlayClick">
         <div
+          ref="panelRef"
           class="absolute w-[296px] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-[0_18px_60px_rgba(15,23,42,0.18)]"
           :style="panelStyle"
           @click.stop
@@ -131,6 +132,7 @@ type SelectorRow =
 const store = useVariableSelectorStore()
 
 const searchInput = ref<HTMLInputElement | null>(null)
+const panelRef = ref<HTMLDivElement | null>(null)
 const localKeyword = ref('')
 const selectedId = ref('')
 const panelStyle = ref({
@@ -193,10 +195,29 @@ const selectableItems = computed(() =>
 
 function updatePanelStyle() {
   const anchor = store.anchorRect
+  const point = store.anchorPoint
   const panelWidth = 296
-  const maxHeight = Math.min(window.innerHeight - 24, 620)
+  const panelHeight = panelRef.value?.offsetHeight || 360
   const padding = 12
   const gap = 8
+
+  if (point) {
+    let left = point.x + gap
+    let top = point.y + gap
+
+    if (left + panelWidth > window.innerWidth - padding) {
+      left = Math.max(padding, window.innerWidth - panelWidth - padding)
+    }
+    if (top + panelHeight > window.innerHeight - padding) {
+      top = Math.max(padding, window.innerHeight - panelHeight - padding)
+    }
+
+    panelStyle.value = {
+      top: `${Math.min(Math.max(top, padding), window.innerHeight - 120)}px`,
+      left: `${Math.min(Math.max(left, padding), window.innerWidth - panelWidth - padding)}px`
+    }
+    return
+  }
 
   if (!anchor) {
     panelStyle.value = {
@@ -210,10 +231,10 @@ function updatePanelStyle() {
   let top = anchor.bottom + gap
 
   if (left + panelWidth > window.innerWidth - padding) {
-    left = window.innerWidth - panelWidth - padding
+    left = Math.max(padding, window.innerWidth - panelWidth - padding)
   }
-  if (top + maxHeight > window.innerHeight - padding) {
-    top = Math.max(padding, anchor.top - maxHeight - gap)
+  if (top + panelHeight > window.innerHeight - padding) {
+    top = Math.max(padding, window.innerHeight - panelHeight - padding)
   }
 
   panelStyle.value = {
@@ -296,8 +317,8 @@ watch(
     localKeyword.value = ''
     expandedIds.value = {}
     store.setSearchKeyword('')
-    updatePanelStyle()
     await nextTick()
+    updatePanelStyle()
     selectedId.value = selectableItems.value[0]?.id || ''
     searchInput.value?.focus()
   }
@@ -305,15 +326,19 @@ watch(
 
 watch(
   () => store.availableGroups,
-  () => {
+  async () => {
     if (!selectedId.value && selectableItems.value.length > 0) {
       selectedId.value = selectableItems.value[0].id
+      await nextTick()
+      updatePanelStyle()
       return
     }
 
     if (selectedId.value && !selectableItems.value.some((item) => item.id === selectedId.value)) {
       selectedId.value = selectableItems.value[0]?.id || ''
     }
+    await nextTick()
+    updatePanelStyle()
   },
   { deep: true }
 )

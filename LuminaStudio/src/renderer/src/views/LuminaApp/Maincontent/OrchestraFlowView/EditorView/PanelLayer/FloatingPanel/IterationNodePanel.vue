@@ -369,13 +369,25 @@ function updateOutputVariable(variable: OFVariable | null) {
 function openInputVariableSelector(event: MouseEvent) {
   if (!uiStore.selectedNodeId) return
   const anchorRect = (event.currentTarget as HTMLElement | null)?.getBoundingClientRect() || undefined
-  variableSelectorStore.openSelector(uiStore.selectedNodeId, 'iteration-input', anchorRect)
+  variableSelectorStore.openSelector(uiStore.selectedNodeId, 'iteration-input', anchorRect, undefined, {
+    x: event.clientX,
+    y: event.clientY
+  })
 }
 
 function openOutputVariableSelector(event: MouseEvent) {
   if (!uiStore.selectedNodeId) return
   const anchorRect = (event.currentTarget as HTMLElement | null)?.getBoundingClientRect() || undefined
-  variableSelectorStore.openSelector(uiStore.selectedNodeId, 'iteration-output', anchorRect)
+  variableSelectorStore.openSelector(
+    uiStore.selectedNodeId,
+    'iteration-output',
+    anchorRect,
+    undefined,
+    {
+      x: event.clientX,
+      y: event.clientY
+    }
+  )
 }
 
 function toggleErrorResponseMode() {

@@ -419,7 +419,16 @@ function updateOutputVariable(index: number, newVariable: string) {
 function openOutputVariableSelector(event: MouseEvent) {
   const anchorRect =
     (event.currentTarget as HTMLElement | null)?.getBoundingClientRect() || undefined
-  variableSelectorStore.openSelector(uiStore.selectedNodeId!, 'output', anchorRect)
+  variableSelectorStore.openSelector(
+    uiStore.selectedNodeId!,
+    'output',
+    anchorRect,
+    undefined,
+    {
+      x: event.clientX,
+      y: event.clientY
+    }
+  )
 }
 
 // 关闭面板

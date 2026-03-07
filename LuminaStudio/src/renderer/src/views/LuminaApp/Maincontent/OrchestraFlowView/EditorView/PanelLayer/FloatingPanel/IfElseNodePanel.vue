@@ -471,7 +471,10 @@ function openConditionSelector(caseId: string, conditionId: string, event: Mouse
   activeConditionTarget.value = { caseId, conditionId }
   const anchorRect =
     (event.currentTarget as HTMLElement | null)?.getBoundingClientRect() || undefined
-  variableSelectorStore.openSelector(currentNode.value.id, 'condition', anchorRect)
+  variableSelectorStore.openSelector(currentNode.value.id, 'condition', anchorRect, undefined, {
+    x: event.clientX,
+    y: event.clientY
+  })
 }
 
 function handleConditionVariableClick(caseId: string, conditionId: string, event: Event) {

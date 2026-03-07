@@ -107,6 +107,7 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
   const searchKeyword = ref('')
   const cursorPosition = ref(0)
   const anchorRect = ref<DOMRect | null>(null)
+  const anchorPoint = ref<{ x: number; y: number } | null>(null)
 
   const editorStore = useWorkflowEditorStore()
 
@@ -299,16 +300,19 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
     nodeId: string,
     type: VariableSelectorTargetType,
     positionOrAnchor?: number | DOMRect,
-    maybeAnchor?: DOMRect
+    maybeAnchor?: DOMRect,
+    point?: { x: number; y: number }
   ) {
     targetNodeId.value = nodeId
     targetType.value = type
     if (typeof positionOrAnchor === 'number') {
       cursorPosition.value = positionOrAnchor
       anchorRect.value = maybeAnchor || null
+      anchorPoint.value = point || null
     } else {
       cursorPosition.value = 0
       anchorRect.value = positionOrAnchor || null
+      anchorPoint.value = point || null
     }
     searchKeyword.value = ''
     visible.value = true
@@ -319,6 +323,7 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
     targetNodeId.value = null
     searchKeyword.value = ''
     anchorRect.value = null
+    anchorPoint.value = null
   }
 
   function setSearchKeyword(keyword: string) {
@@ -336,6 +341,7 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
     searchKeyword,
     cursorPosition,
     anchorRect,
+    anchorPoint,
     availableGroups,
     availableVariables,
     openSelector,
