@@ -408,6 +408,7 @@ export type OFIterationNodeData = OFCommonNodeType & {
   type: OFBlockEnum.Iteration
   iterator_selector: string[]
   output_selector: string[]
+  branch_output_selectors?: OFIterationBranchOutputSelector[]
   start_node_id: string
   subgraph: OFSubWorkflowGraph
   parallel_mode?: OFIterationParallelMode
@@ -614,6 +615,7 @@ export interface OFIterationNodeConfig {
   desc: string
   iterator_selector: string[]
   output_selector: string[]
+  branch_output_selectors?: OFIterationBranchOutputSelector[]
   start_node_id: string
   subgraph: OFSubWorkflowGraph
   parallel_mode?: OFIterationParallelMode
@@ -621,6 +623,12 @@ export interface OFIterationNodeConfig {
   error_handle_mode?: OFIterationErrorHandleMode
   flatten_output?: boolean
   output: OFNodeOutput
+}
+
+export interface OFIterationBranchOutputSelector {
+  source_node_id: string
+  source_handle_id: string
+  output_selector: string[]
 }
 
 export interface OFIterationStartNodeConfig {

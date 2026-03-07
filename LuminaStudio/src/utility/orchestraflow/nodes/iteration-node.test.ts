@@ -33,6 +33,7 @@ function createIterationNodeDefinition(overrides: Record<string, any> = {}): OFN
       desc: '',
       iterator_selector: ['items'],
       output_selector: ['loop.item'],
+      branch_output_selectors: [],
       start_node_id: 'child-start',
       subgraph: createIterationGraph(),
       parallel_mode: 'sequential',
@@ -186,6 +187,45 @@ describe('IterationNode', () => {
 
     expect(result.error).toBeUndefined()
     expect(result.outputs.result).toEqual([null, null])
+  })
+
+  it('命中条件分支时优先使用对应 branch_output_selector', async () => {
+    const variableStore = new VariableStore()
+    variableStore.set('items', ['x'])
+    const node = createIterationNodeDefinition({
+      output_selector: ['fallback.value'],
+      branch_output_selectors: [
+        {
+          source_node_id: 'ifelse-1',
+          source_handle_id: 'if',
+          output_selector: ['branch.if.value']
+        },
+        {
+          source_node_id: 'ifelse-1',
+          source_handle_id: 'else',
+          output_selector: ['branch.else.value']
+        }
+      ]
+    })
+    const executeGraph = vi.fn(async ({ variableStore: childStore }) => {
+      childStore.set('branch.if.value', 'poem')
+      childStore.set('fallback.value', 'fallback')
+      return {
+        status: 'succeeded' as const,
+        selectedBranches: [
+          {
+            sourceNodeId: 'ifelse-1',
+            sourceHandleId: 'if'
+          }
+        ]
+      }
+    })
+
+    const iterationNode = new IterationNode(node, variableStore)
+    const result = await iterationNode.execute(createContext(node, variableStore, { executeGraph }))
+
+    expect(result.error).toBeUndefined()
+    expect(result.outputs.result).toEqual(['poem'])
   })
 
   it('flatten_output 仅在所有非 null 输出都是数组时做一层展开', async () => {

@@ -27,12 +27,21 @@
       </div>
     </div>
 
-    <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
+    <div
+      class="rounded-lg border border-gray-200 bg-gray-50 p-3 cursor-pointer"
+      @click="toggleResultPreview"
+    >
       <div class="flex items-center justify-between">
         <div class="text-xs font-medium uppercase text-gray-500">真实输出</div>
         <div class="text-xs text-gray-400">共 {{ resultItems.length }} 项</div>
       </div>
-      <pre class="mt-2 whitespace-pre-wrap break-all text-sm text-gray-700">{{ resultPreview }}</pre>
+      <pre class="mt-2 whitespace-pre-wrap break-all text-sm text-gray-700">{{ displayResultPreview }}</pre>
+      <div
+        v-if="shouldTruncateResultPreview"
+        class="mt-2 text-xs font-medium text-indigo-600 hover:text-indigo-700"
+      >
+        {{ expandedResultPreview ? '收起' : '展开' }}
+      </div>
     </div>
 
     <div v-if="iterationRuns.length" class="mt-3 space-y-2">
@@ -74,7 +83,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import type { OFNodeTracing } from '@shared/Orchestraflow-types'
 import { OFNodeRunningStatus } from '@shared/Orchestraflow-types'
 
@@ -97,6 +106,7 @@ const resultItems = computed(() => {
   const raw = props.tracing.outputs?.result
   return Array.isArray(raw) ? raw : []
 })
+const expandedResultPreview = ref(false)
 
 const resultPreview = computed(() => {
   try {
@@ -105,6 +115,12 @@ const resultPreview = computed(() => {
     return String(props.tracing.outputs?.result ?? [])
   }
 })
+const shouldTruncateResultPreview = computed(() => resultPreview.value.length > 30)
+const displayResultPreview = computed(() =>
+  expandedResultPreview.value || !shouldTruncateResultPreview.value
+    ? resultPreview.value
+    : `${resultPreview.value.slice(0, 30)}...`
+)
 
 const iterationRuns = computed<IterationRunSummary[]>(() => {
   const grouped = new Map<string, OFNodeTracing[]>()
@@ -206,5 +222,10 @@ function getStatusClass(status: OFNodeRunningStatus) {
     default:
       return 'bg-gray-100 text-gray-600'
   }
+}
+
+function toggleResultPreview() {
+  if (!shouldTruncateResultPreview.value) return
+  expandedResultPreview.value = !expandedResultPreview.value
 }
 </script>

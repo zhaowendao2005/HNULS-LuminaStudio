@@ -52,31 +52,41 @@
 
         <!-- 节点追踪列表 -->
         <div v-if="runStore.tracingList.length > 0" class="space-y-4">
-          <div
-            v-for="(tracing, index) in runStore.tracingList"
-            :key="getTraceKey(tracing)"
-            class="relative pl-4"
-          >
-            <!-- 连接线 -->
-            <div
-              v-if="index < runStore.tracingList.length - 1"
-              class="absolute left-[9px] top-6 bottom-[-16px] w-0.5 bg-gray-200"
-            ></div>
+          <template v-for="section in traceSections" :key="section.key">
+            <div v-if="section.kind === 'trace'" class="relative pl-4">
+              <component
+                :is="getTraceComponent(section.tracing.nodeType)"
+                :tracing="section.tracing"
+                :all-traces="runStore.tracingList"
+              />
+            </div>
 
-            <!-- 节点输出组件 -->
-            <StartNodeOutput v-if="tracing.nodeType === OFBlockEnum.Start" :tracing="tracing" />
-            <LLMNodeOutput v-else-if="tracing.nodeType === OFBlockEnum.LLM" :tracing="tracing" />
-            <IterationNodeOutput
-              v-else-if="tracing.nodeType === OFBlockEnum.Iteration"
-              :tracing="tracing"
-              :all-traces="runStore.tracingList"
-            />
-            <IfElseNodeOutput
-              v-else-if="tracing.nodeType === OFBlockEnum.IfElse"
-              :tracing="tracing"
-            />
-            <EndNodeOutput v-else-if="tracing.nodeType === OFBlockEnum.End" :tracing="tracing" />
-          </div>
+            <div v-else class="rounded-xl border border-cyan-100 bg-cyan-50/50 p-3">
+              <div class="flex items-center justify-between">
+                <div>
+                  <div class="text-sm font-semibold text-cyan-800">
+                    第 {{ section.iterationIndex + 1 }} 轮
+                  </div>
+                  <div class="mt-1 text-xs text-cyan-600">
+                    {{ section.scopeLabel }}
+                  </div>
+                </div>
+                <div class="text-xs text-cyan-600">
+                  {{ section.parallelRunId || 'serial' }}
+                </div>
+              </div>
+
+              <div class="mt-3 space-y-3 pl-4">
+                <div v-for="tracing in section.traces" :key="getTraceKey(tracing)" class="relative pl-4">
+                  <component
+                    :is="getTraceComponent(tracing.nodeType)"
+                    :tracing="tracing"
+                    :all-traces="runStore.tracingList"
+                  />
+                </div>
+              </div>
+            </div>
+          </template>
         </div>
 
         <!-- 无结果状态 -->
@@ -247,6 +257,53 @@ const statusText = computed(() => {
   }
 })
 
+type TraceSection =
+  | { kind: 'trace'; key: string; tracing: OFNodeTracing }
+  | {
+      kind: 'iteration-round'
+      key: string
+      iterationIndex: number
+      parallelRunId?: string
+      scopeLabel: string
+      traces: OFNodeTracing[]
+    }
+
+const traceSections = computed<TraceSection[]>(() => {
+  const sections: TraceSection[] = []
+  const grouped = new Map<string, TraceSection & { kind: 'iteration-round' }>()
+
+  for (const tracing of runStore.tracingList) {
+    const inIterationId = tracing.execution_metadata?.in_iteration_id
+    const iterationIndex = tracing.execution_metadata?.iteration_index
+
+    if (!inIterationId || iterationIndex === undefined) {
+      sections.push({ kind: 'trace', key: getTraceKey(tracing), tracing })
+      continue
+    }
+
+    const key = `${inIterationId}::${iterationIndex}::${tracing.execution_metadata?.parallel_run_id || 'serial'}`
+    const existing = grouped.get(key)
+
+    if (existing) {
+      existing.traces.push(tracing)
+      continue
+    }
+
+    const nextSection: TraceSection & { kind: 'iteration-round' } = {
+      kind: 'iteration-round',
+      key,
+      iterationIndex,
+      parallelRunId: tracing.execution_metadata?.parallel_run_id,
+      scopeLabel: (tracing.scope_path || tracing.execution_metadata?.scope_path || []).join(' / ') || 'root',
+      traces: [tracing]
+    }
+    grouped.set(key, nextSection)
+    sections.push(nextSection)
+  }
+
+  return sections
+})
+
 function handleClose(): void {
   emit('close')
 }
@@ -264,5 +321,22 @@ function handleRunAgain(): void {
 
 function getTraceKey(tracing: OFNodeTracing): string {
   return getOFTraceIdentity(tracing)
+}
+
+function getTraceComponent(nodeType: OFBlockEnum) {
+  switch (nodeType) {
+    case OFBlockEnum.Start:
+      return StartNodeOutput
+    case OFBlockEnum.LLM:
+      return LLMNodeOutput
+    case OFBlockEnum.Iteration:
+      return IterationNodeOutput
+    case OFBlockEnum.IfElse:
+      return IfElseNodeOutput
+    case OFBlockEnum.End:
+      return EndNodeOutput
+    default:
+      return StartNodeOutput
+  }
 }
 </script>

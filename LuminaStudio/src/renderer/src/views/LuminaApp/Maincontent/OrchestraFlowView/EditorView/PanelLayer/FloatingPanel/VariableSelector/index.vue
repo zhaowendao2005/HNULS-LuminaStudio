@@ -104,6 +104,13 @@
 
           <div class="border-t border-gray-100 px-3 py-2 text-[11px] text-gray-400">
             Enter 选择，Esc 关闭，方向键切换
+            <span v-if="store.targetType === 'iteration-output'" class="ml-2">
+              {{
+                store.targetBranchSourceNodeId && store.targetBranchSourceHandleId
+                  ? '仅展示当前支路可达变量'
+                  : '展示迭代子图内部变量'
+              }}
+            </span>
           </div>
         </div>
       </div>
@@ -254,6 +261,8 @@ function handleSelect(variable: OFAvailableVariable) {
       detail: {
         nodeId: store.targetNodeId,
         targetType: store.targetType,
+        branchSourceNodeId: store.targetBranchSourceNodeId,
+        branchSourceHandleId: store.targetBranchSourceHandleId,
         variable,
         cursorPosition: store.cursorPosition
       }

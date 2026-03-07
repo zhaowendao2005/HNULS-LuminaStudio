@@ -253,6 +253,29 @@ watch(
   { deep: true }
 )
 
+watch(
+  inputVars,
+  (vars) => {
+    const activeKeys = new Set(vars.map((item) => item.variable))
+
+    Object.keys(formData).forEach((key) => {
+      if (!activeKeys.has(key)) {
+        delete formData[key]
+      }
+    })
+
+    vars.forEach((item) => {
+      if (formData[item.variable] !== undefined) return
+      if (item.type === OFVarType.Array) {
+        formData[item.variable] = Array.isArray(item.default) ? [...item.default] : []
+        return
+      }
+      formData[item.variable] = typeof item.default === 'string' ? item.default : ''
+    })
+  },
+  { immediate: true }
+)
+
 // 校验：直接使用当前 formData，避免与 store 同步时机问题
 function validate(): boolean {
   const normalized = normalizeWorkflowInputs(inputVars.value, formData)

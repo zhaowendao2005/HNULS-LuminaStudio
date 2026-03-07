@@ -34,11 +34,18 @@
 
     <div
       v-else-if="tracing.outputs?.llmoutput"
-      class="mb-3 rounded-lg border border-gray-200 bg-gray-50 p-3"
+      class="mb-3 rounded-lg border border-gray-200 bg-gray-50 p-3 cursor-pointer"
+      @click="toggleTextOutput"
     >
       <div class="text-xs font-medium uppercase text-gray-500">文本输出</div>
       <div class="mt-2 whitespace-pre-wrap break-words text-sm text-gray-700">
-        {{ tracing.outputs.llmoutput }}
+        {{ displayTextOutput }}
+      </div>
+      <div
+        v-if="shouldTruncateTextOutput"
+        class="mt-2 text-xs font-medium text-indigo-600 hover:text-indigo-700"
+      >
+        {{ expandedTextOutput ? '收起' : '展开' }}
       </div>
     </div>
 
@@ -66,32 +73,30 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import type { OFNodeTracing } from '@shared/Orchestraflow-types'
 import { OFNodeRunningStatus } from '@shared/Orchestraflow-types'
-import { createStreamingChunks } from '@renderer/stores/orchestraflow/workflow-run/workflow-run.mock'
 
 const props = defineProps<{
   tracing: OFNodeTracing
 }>()
 
-const streamedOutput = ref('')
+const expandedTextOutput = ref(false)
+const streamedOutput = computed(() => String(props.tracing.outputs?.llmoutput || ''))
 const prettyStructured = computed(() =>
   JSON.stringify(props.tracing.outputs?.structured_output || {}, null, 2)
 )
+const textOutput = computed(() => String(props.tracing.outputs?.llmoutput || ''))
+const shouldTruncateTextOutput = computed(() => textOutput.value.length > 30)
+const displayTextOutput = computed(() =>
+  expandedTextOutput.value || !shouldTruncateTextOutput.value
+    ? textOutput.value
+    : `${textOutput.value.slice(0, 30)}...`
+)
 
-function simulateStreaming() {
-  streamedOutput.value = ''
-  const chunks = createStreamingChunks()
-  let index = 0
-  const timer = setInterval(() => {
-    if (index >= chunks.length) {
-      clearInterval(timer)
-      return
-    }
-    streamedOutput.value += chunks[index]
-    index += 1
-  }, 100)
+function toggleTextOutput() {
+  if (!shouldTruncateTextOutput.value) return
+  expandedTextOutput.value = !expandedTextOutput.value
 }
 
 const statusText = computed(() => {
@@ -121,21 +126,6 @@ const statusClass = computed(() => {
       return 'bg-gray-100 text-gray-600'
     default:
       return 'bg-gray-100 text-gray-600'
-  }
-})
-
-watch(
-  () => props.tracing.status,
-  (status) => {
-    if (status === OFNodeRunningStatus.Running) {
-      simulateStreaming()
-    }
-  }
-)
-
-onMounted(() => {
-  if (props.tracing.status === OFNodeRunningStatus.Running) {
-    simulateStreaming()
   }
 })
 </script>

@@ -11,6 +11,7 @@ import {
 } from '@shared/Orchestraflow-types'
 import { executeNode } from './executor'
 import type {
+  BranchSelection,
   ExecuteGraphParams,
   GraphExecutionResult,
   IterationExecutionContext,
@@ -52,6 +53,7 @@ export class GraphExecutor {
     const edgesBySource = this.buildEdgesBySource(params.graph.edges)
     let activeNodeIds = this.getInitialActiveNodeIds(nodeLevels, params.graph.nodes, params.startNodeId)
     let endOutputs: Record<string, any> | undefined
+    const selectedBranches: BranchSelection[] = []
 
     for (const levelNodes of nodeLevels) {
       if (this.options.isStopped()) {
@@ -162,10 +164,20 @@ export class GraphExecutor {
       }
 
       const firstFailed = levelResults.find((item) => item.result.error)
+      for (const item of levelResults) {
+        const handleIds = item.result.control?.selectedSourceHandleIds || []
+        handleIds.forEach((handleId) => {
+          selectedBranches.push({
+            sourceNodeId: item.node.id,
+            sourceHandleId: handleId
+          })
+        })
+      }
       if (firstFailed) {
         return {
           status: this.options.isStopped() ? 'stopped' : 'failed',
-          error: firstFailed.result.error
+          error: firstFailed.result.error,
+          selectedBranches
         }
       }
 
@@ -200,7 +212,8 @@ export class GraphExecutor {
 
     return {
       status: this.options.isStopped() ? 'stopped' : 'succeeded',
-      outputs: endOutputs
+      outputs: endOutputs,
+      selectedBranches
     }
   }
 

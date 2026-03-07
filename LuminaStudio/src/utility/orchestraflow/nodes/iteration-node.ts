@@ -9,7 +9,7 @@ import {
   OFBlockEnum,
   type OFIterationNodeData
 } from '@shared/Orchestraflow-types'
-import type { ExecutionContext, NodeResult } from './types'
+import type { BranchSelection, ExecutionContext, NodeResult } from './types'
 import { VariableStore } from '../services/variable-store'
 
 interface IterationItemResult {
@@ -82,7 +82,8 @@ export class IterationNode extends BaseNode {
         }
       }
 
-      const value = childStore.getBySelector(nodeData.output_selector)
+      const selector = this.resolveOutputSelector(nodeData, childResult.selectedBranches)
+      const value = selector.length ? childStore.getBySelector(selector) : null
       return {
         index,
         value: value === undefined ? null : value
@@ -217,8 +218,8 @@ export class IterationNode extends BaseNode {
     if (!nodeData.iterator_selector?.length) {
       throw new Error('iterator_selector 不能为空')
     }
-    if (!nodeData.output_selector?.length) {
-      throw new Error('output_selector 不能为空')
+    if (!nodeData.output_selector?.length && !nodeData.branch_output_selectors?.length) {
+      throw new Error('output_selector 或 branch_output_selectors 至少配置一个')
     }
     if (!nodeData.subgraph?.nodes?.length) {
       throw new Error('subgraph 不能为空')
@@ -245,5 +246,27 @@ export class IterationNode extends BaseNode {
   private clampParallel(value?: number): number {
     const normalized = Number.isFinite(value) ? Math.floor(value as number) : 1
     return Math.min(10, Math.max(1, normalized || 1))
+  }
+
+  private resolveOutputSelector(
+    nodeData: OFIterationNodeData,
+    selectedBranches?: BranchSelection[]
+  ): string[] {
+    const branchConfigs = nodeData.branch_output_selectors || []
+    if (selectedBranches?.length && branchConfigs.length) {
+      for (let index = selectedBranches.length - 1; index >= 0; index -= 1) {
+        const selectedBranch = selectedBranches[index]
+        const matchedBranchConfig = branchConfigs.find(
+          (config) =>
+            config.source_node_id === selectedBranch.sourceNodeId &&
+            config.source_handle_id === selectedBranch.sourceHandleId
+        )
+        if (matchedBranchConfig?.output_selector?.length) {
+          return matchedBranchConfig.output_selector
+        }
+      }
+    }
+
+    return nodeData.output_selector || []
   }
 }

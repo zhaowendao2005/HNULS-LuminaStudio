@@ -3,6 +3,7 @@
     <VueFlow
       :nodes="store.nodes"
       :edges="store.edges"
+      :elevate-nodes-on-select="false"
       :default-viewport="{
         x: store.viewport.x,
         y: store.viewport.y,

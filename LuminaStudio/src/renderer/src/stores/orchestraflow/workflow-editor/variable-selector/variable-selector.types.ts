@@ -41,6 +41,8 @@ export interface VariableSelectorState {
   visible: boolean
   targetNodeId: string | null
   targetType: VariableSelectorTargetType
+  targetBranchSourceNodeId?: string | null
+  targetBranchSourceHandleId?: string | null
   availableGroups: OFAvailableVariableGroup[]
   searchKeyword: string
   cursorPosition: number

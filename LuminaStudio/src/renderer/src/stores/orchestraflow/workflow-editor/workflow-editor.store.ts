@@ -277,6 +277,7 @@ function normalizeNode(node: OFNode): OFNode {
         height: data.height || ITERATION_DEFAULT_HEIGHT,
         iterator_selector: data.iterator_selector || [],
         output_selector: data.output_selector || [],
+        branch_output_selectors: data.branch_output_selectors || [],
         start_node_id: startNode.id,
         subgraph,
         parallel_mode: data.parallel_mode || 'sequential',
@@ -410,7 +411,15 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
           data: {
             ...data,
             iterator_selector: replaceNamespace(data.iterator_selector, oldNamespace, newNamespace),
-            output_selector: replaceNamespace(data.output_selector, oldNamespace, newNamespace)
+            output_selector: replaceNamespace(data.output_selector, oldNamespace, newNamespace),
+            branch_output_selectors: (data.branch_output_selectors || []).map((item) => ({
+              ...item,
+              output_selector: replaceNamespace(
+                item.output_selector,
+                oldNamespace,
+                newNamespace
+              )
+            }))
           }
         }
       }
@@ -685,6 +694,27 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
     })
   }
 
+  function syncIterationSubgraphSnapshot(iterationNodeId: string) {
+    const iterationNode = findNodeByIdFrom(iterationNodeId, nodes.value)
+    if (!iterationNode || iterationNode.data.type !== OFBlockEnum.Iteration) return
+
+    const childNodes = nodes.value
+      .filter((candidate) => candidate.parentNode === iterationNodeId)
+      .map((candidate) => cloneNode(candidate))
+    const childNodeIds = new Set(childNodes.map((candidate) => candidate.id))
+    const childEdges = edges.value
+      .filter((edge) => childNodeIds.has(edge.source) && childNodeIds.has(edge.target))
+      .map((edge) => cloneEdge(edge))
+
+    nodes.value = updateNodeCollection(nodes.value, iterationNodeId, {
+      subgraph: {
+        ...(iterationNode.data as OFIterationNodeData).subgraph,
+        nodes: childNodes,
+        edges: childEdges
+      }
+    } as Partial<OFIterationNodeData>)
+  }
+
   function updateNodePositionCollection(
     sourceNodes: OFNode[],
     targetNodeId: string,
@@ -860,6 +890,7 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
           height: ITERATION_DEFAULT_HEIGHT,
           iterator_selector: [],
           output_selector: [],
+          branch_output_selectors: [],
           start_node_id: `${id}-iteration-start`,
           subgraph: createDefaultIterationSubgraph(id, title),
           parallel_mode: 'sequential',
@@ -1029,6 +1060,13 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
     if (currentNode.data.type === OFBlockEnum.Iteration && typeof nextData.title === 'string') {
       const nextNamespace = normalizeOFVariableNamespace(nextData.title, 'iteration')
       syncNodeNamespaceReferences(previousNamespace, nextNamespace, nodeId)
+    }
+
+    if (currentNode.parentNode) {
+      const parentIterationId = findParentIterationNodeId(nodeId)
+      if (parentIterationId) {
+        syncIterationSubgraphSnapshot(parentIterationId)
+      }
     }
 
     scheduleSave()

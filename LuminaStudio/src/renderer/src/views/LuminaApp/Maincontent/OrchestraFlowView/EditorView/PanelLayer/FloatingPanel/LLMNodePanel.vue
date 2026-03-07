@@ -248,26 +248,29 @@
               </CapsuleTooltip>
             </div>
 
-            <div v-if="structuredOutputVariable" class="border-t border-gray-100 pt-4">
+            <div v-if="structuredEnabled" class="border-t border-gray-100 pt-4">
               <div class="flex items-center justify-between gap-3">
                 <div class="min-w-0">
                   <div class="flex min-w-0 items-center gap-2 leading-[18px]">
-                    <CapsuleTooltip :text="structuredOutputVariable.variable" placement="top">
+                    <CapsuleTooltip
+                      :text="structuredOutputVariable?.variable || 'structured_output'"
+                      placement="top"
+                    >
                       <div class="truncate text-[13px] font-semibold text-gray-800">
-                        {{ structuredOutputVariable.variable }}
+                        {{ structuredOutputVariable?.variable || 'structured_output' }}
                       </div>
                     </CapsuleTooltip>
                     <div class="shrink-0 text-[12px] text-gray-500">
-                      {{ structuredOutputVariable.type || 'object' }}
+                      {{ structuredOutputVariable?.type || 'object' }}
                     </div>
                   </div>
                   <CapsuleTooltip
-                    :text="formatOutputNamespace(structuredOutputVariable)"
+                    :text="formatStructuredOutputNamespace()"
                     placement="top"
                     max-width="420px"
                   >
                     <div class="mt-1 max-w-[220px] truncate text-xs text-gray-400">
-                      {{ formatOutputNamespace(structuredOutputVariable) }}
+                      {{ formatStructuredOutputNamespace() }}
                     </div>
                   </CapsuleTooltip>
                 </div>
@@ -278,6 +281,17 @@
                 >
                   配置
                 </button>
+              </div>
+
+              <div class="mt-2 text-xs text-gray-400">
+                开启后会保留当前面板；需要定义字段时再点击“配置”编辑 Schema。
+              </div>
+
+              <div
+                v-if="!structuredSchemaFields.length"
+                class="mt-3 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-3 py-3 text-xs text-gray-400"
+              >
+                尚未配置结构化字段，点击右侧“配置”创建 Schema。
               </div>
 
               <div v-if="structuredSchemaFields.length" class="mt-3 space-y-2 pl-3">
@@ -462,9 +476,6 @@ watch(structuredEnabled, (newValue) => {
     enabled: newValue,
     schema: nodeData.value.structured_output?.schema || null
   })
-  if (newValue && !nodeData.value.structured_output?.schema) {
-    openSchemaEditor()
-  }
 })
 
 const autoOutputs = computed(() => {
@@ -610,6 +621,15 @@ function formatOutputNamespace(item: OFVariable) {
     return nodeData.value?.title || 'llm'
   }
   return selector.join('.')
+}
+
+function formatStructuredOutputNamespace() {
+  if (structuredOutputVariable.value) {
+    return formatOutputNamespace(structuredOutputVariable.value)
+  }
+
+  const namespace = nodeData.value?.title || 'llm'
+  return `${namespace}.structured_output`
 }
 
 function handleSchemaSave(schema: OFStructuredJsonSchema) {

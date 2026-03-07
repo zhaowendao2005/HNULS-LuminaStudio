@@ -188,6 +188,7 @@
               v-for="(field, index) in localInputs"
               :key="index"
               class="group relative flex h-8 cursor-pointer items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-2.5 shadow-xs hover:shadow-md"
+              @click="handleEditFieldClick(index)"
             >
               <div class="flex w-0 grow items-center space-x-1">
                 <!-- 变量图标 -->
@@ -212,13 +213,9 @@
                     fill="currentColor"
                   />
                 </svg>
-                <!-- 变量名输入 -->
-                <input
-                  :value="field.variable"
-                  class="max-w-[130px] shrink-0 truncate text-[13px] font-medium text-gray-600 bg-transparent outline-none"
-                  placeholder="变量名"
-                  @input="updateFieldVariable(index, ($event.target as HTMLInputElement).value)"
-                />
+                <div class="max-w-[130px] shrink-0 truncate text-[13px] font-medium text-gray-600">
+                  {{ field.variable }}
+                </div>
                 <div class="shrink-0 text-xs font-medium text-gray-400">·</div>
                 <div class="max-w-[130px] truncate text-[13px] font-medium text-gray-400">
                   {{ field.type }}
@@ -229,7 +226,7 @@
                 <div class="text-xs font-normal text-gray-400 mr-2">
                   {{ field.required ? '必填' : '可选' }}
                 </div>
-                <div class="cursor-pointer" @click="removeInputField(index)">
+                <div class="cursor-pointer" @click.stop="removeInputField(index)">
                   <svg
                     viewBox="0 0 24 24"
                     xmlns="http://www.w3.org/2000/svg"
@@ -308,7 +305,11 @@
   </div>
 
   <!-- 添加字段对话框 -->
-  <AddFieldDialog v-model="showAddFieldDialog" @confirm="handleFieldCreated" />
+  <AddFieldDialog
+    v-model="showAddFieldDialog"
+    :initial-field="editingField"
+    @confirm="handleFieldCreated"
+  />
 </template>
 
 <script setup lang="ts">
@@ -337,6 +338,7 @@ const localDesc = ref('')
 const activeTab = ref<'settings' | 'lastRun'>('settings')
 const debugMode = ref(false)
 const showAddFieldDialog = ref(false)
+const editingFieldIndex = ref<number | null>(null)
 const theme = OF_PANEL_THEME.start
 
 // 获取当前选中的节点
@@ -382,6 +384,11 @@ const nodeDebugResult = computed(() => {
   return nodeDebugStore.getLastRun(nodeId)
 })
 
+const editingField = computed<OFVariable | null>(() => {
+  if (editingFieldIndex.value == null) return null
+  return localInputs.value[editingFieldIndex.value] || null
+})
+
 // Tab 切换
 function setActiveTab(tab: 'settings' | 'lastRun') {
   activeTab.value = tab
@@ -397,6 +404,12 @@ function enterDebugMode() {
 
 // 点击“添加字段”按钮：打开对话框
 function handleAddFieldClick() {
+  editingFieldIndex.value = null
+  showAddFieldDialog.value = true
+}
+
+function handleEditFieldClick(index: number) {
+  editingFieldIndex.value = index
   showAddFieldDialog.value = true
 }
 
@@ -404,24 +417,32 @@ function handleAddFieldClick() {
 function handleFieldCreated(payload: {
   name: string
   label: string
-  type: string
+  type: OFVarType.String | OFVarType.Array
   required: boolean
+  defaultValue?: string | string[]
 }) {
-  const fieldType = payload.type === OFVarType.Array ? OFVarType.Array : OFVarType.String
-  const newField: OFVariable = {
+  const nextField: OFVariable = {
     variable: payload.name,
     label: payload.label,
-    type: fieldType,
-    required: payload.required
+    type: payload.type,
+    required: payload.required,
+    default:
+      payload.type === OFVarType.Array
+        ? Array.isArray(payload.defaultValue)
+          ? [...payload.defaultValue]
+          : []
+        : typeof payload.defaultValue === 'string'
+          ? payload.defaultValue
+          : ''
   }
-  localInputs.value = [...localInputs.value, newField]
-}
-
-// 更新字段变量名
-function updateFieldVariable(index: number, newVariable: string) {
-  const newInputs = [...localInputs.value]
-  newInputs[index] = { ...newInputs[index], variable: newVariable }
-  localInputs.value = newInputs
+  if (editingFieldIndex.value == null) {
+    localInputs.value = [...localInputs.value, nextField]
+  } else {
+    const newInputs = [...localInputs.value]
+    newInputs[editingFieldIndex.value] = nextField
+    localInputs.value = newInputs
+  }
+  editingFieldIndex.value = null
 }
 
 // 移除输入字段
@@ -429,6 +450,9 @@ function removeInputField(index: number) {
   const newInputs = [...localInputs.value]
   newInputs.splice(index, 1)
   localInputs.value = newInputs
+  if (editingFieldIndex.value === index) {
+    editingFieldIndex.value = null
+  }
 }
 
 // 添加下一步节点
@@ -469,6 +493,7 @@ watch(
   () => uiStore.selectedNodeId,
   (newId) => {
     debugMode.value = false
+    editingFieldIndex.value = null
     if (newId && currentNode.value) {
       const nodeData = currentNode.value.data as OFStartNodeData
       localTitle.value = nodeData.title || '开始'

@@ -14,6 +14,7 @@ function createDefaultConfig(): OFIterationNodeConfig {
     desc: '',
     iterator_selector: [],
     output_selector: [],
+    branch_output_selectors: [],
     start_node_id: '',
     subgraph: {
       nodes: [],

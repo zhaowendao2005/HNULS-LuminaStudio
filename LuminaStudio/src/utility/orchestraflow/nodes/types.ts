@@ -56,10 +56,16 @@ export interface ExecuteGraphParams {
   loopContext?: LoopExecutionContext
 }
 
+export interface BranchSelection {
+  sourceNodeId: string
+  sourceHandleId: string
+}
+
 export interface GraphExecutionResult {
   status: 'succeeded' | 'failed' | 'stopped'
   outputs?: Record<string, any>
   error?: string
+  selectedBranches?: BranchSelection[]
 }
 
 export interface ExecutionContext {

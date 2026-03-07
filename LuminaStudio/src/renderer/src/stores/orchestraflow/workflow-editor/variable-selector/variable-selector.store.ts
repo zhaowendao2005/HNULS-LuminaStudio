@@ -38,6 +38,27 @@ function selectorToPath(selector: string[]): string {
   return selector.join('.')
 }
 
+function getReachableNodeIds(startNodeId: string, nodes: OFNode[], edges: OFEdge[]): Set<string> {
+  const reachable = new Set<string>()
+  const queue = [startNodeId]
+
+  while (queue.length > 0) {
+    const currentId = queue.shift()
+    if (!currentId || reachable.has(currentId)) continue
+    reachable.add(currentId)
+
+    edges
+      .filter((edge) => edge.source === currentId)
+      .forEach((edge) => {
+        if (!reachable.has(edge.target)) {
+          queue.push(edge.target)
+        }
+      })
+  }
+
+  return reachable
+}
+
 function buildObjectChildren(
   base: OFAvailableVariable,
   variable: OFVariable
@@ -104,6 +125,8 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
   const visible = ref(false)
   const targetNodeId = ref<string | null>(null)
   const targetType = ref<VariableSelectorTargetType>('prompt')
+  const targetBranchSourceNodeId = ref<string | null>(null)
+  const targetBranchSourceHandleId = ref<string | null>(null)
   const searchKeyword = ref('')
   const cursorPosition = ref(0)
   const anchorRect = ref<DOMRect | null>(null)
@@ -232,7 +255,31 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
 
     if (targetType.value === 'iteration-output' && targetNode?.data.type === OFBlockEnum.Iteration) {
       const iterationData = targetNode.data as OFIterationNodeData
-      const internalGroups = (iterationData.subgraph?.nodes || [])
+      const subgraphNodes = iterationData.subgraph?.nodes || []
+      const subgraphEdges = iterationData.subgraph?.edges || []
+
+      const targetNodeIds =
+        targetBranchSourceNodeId.value && targetBranchSourceHandleId.value
+          ? (() => {
+              const branchTargets = subgraphEdges
+                .filter(
+                  (edge) =>
+                    edge.source === targetBranchSourceNodeId.value &&
+                    (edge.sourceHandle || 'source') === targetBranchSourceHandleId.value
+                )
+                .map((edge) => edge.target)
+              const reachableNodeIds = new Set<string>()
+              branchTargets.forEach((branchTargetId) => {
+                getReachableNodeIds(branchTargetId, subgraphNodes, subgraphEdges).forEach((nodeId) => {
+                  reachableNodeIds.add(nodeId)
+                })
+              })
+              return reachableNodeIds
+            })()
+          : null
+
+      const internalGroups = subgraphNodes
+        .filter((node) => !targetNodeIds || targetNodeIds.has(node.id))
         .flatMap((node) => extractNodeOutputs(node))
         .filter((group) => group.items.length > 0)
 
@@ -331,10 +378,16 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
     type: VariableSelectorTargetType,
     positionOrAnchor?: number | DOMRect,
     maybeAnchor?: DOMRect,
-    point?: { x: number; y: number }
+    point?: { x: number; y: number },
+    options?: {
+      branchSourceNodeId?: string
+      branchSourceHandleId?: string
+    }
   ) {
     targetNodeId.value = nodeId
     targetType.value = type
+    targetBranchSourceNodeId.value = options?.branchSourceNodeId || null
+    targetBranchSourceHandleId.value = options?.branchSourceHandleId || null
     if (typeof positionOrAnchor === 'number') {
       cursorPosition.value = positionOrAnchor
       anchorRect.value = maybeAnchor || null
@@ -351,6 +404,8 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
   function closeSelector() {
     visible.value = false
     targetNodeId.value = null
+    targetBranchSourceNodeId.value = null
+    targetBranchSourceHandleId.value = null
     searchKeyword.value = ''
     anchorRect.value = null
     anchorPoint.value = null
@@ -368,6 +423,8 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
     visible,
     targetNodeId,
     targetType,
+    targetBranchSourceNodeId,
+    targetBranchSourceHandleId,
     searchKeyword,
     cursorPosition,
     anchorRect,

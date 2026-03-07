@@ -108,38 +108,98 @@
               ARRAY
             </div>
           </div>
-          <VariablePillButton
-            :text="iteratorSelectorDisplayText"
-            placeholder="选择数组变量"
-            button-class="!h-12 !rounded-xl !border-[#e5e7eb] !bg-[#f3f4f6] !px-3 !text-gray-500 hover:!border-cyan-200 hover:!bg-white"
-            @click="openInputVariableSelector"
-          >
-            <template #icon>
-              <span class="text-[15px] font-semibold text-[#94a3b8]">{x}</span>
-            </template>
-          </VariablePillButton>
+          <button class="group text-left" @click="openInputVariableSelector">
+            <div class="flex items-center gap-2 text-xs">
+              <span class="font-semibold text-cyan-600">输入变量</span>
+              <span
+                class="max-w-[240px] truncate transition"
+                :class="
+                  iteratorSelectorDisplayText
+                    ? 'text-cyan-700 group-hover:text-cyan-800'
+                    : 'text-gray-400 group-hover:text-cyan-600'
+                "
+              >
+                {{ iteratorSelectorDisplayText || '点击选择数组变量' }}
+              </span>
+            </div>
+          </button>
         </section>
 
         <section class="space-y-2 border-t border-gray-100 pt-4">
-          <div class="flex items-center justify-between">
-            <div class="system-sm-semibold-uppercase text-gray-700">
-              结果项变量
-              <span class="text-red-500">*</span>
+          <template v-if="branchOutputTargets.length === 0">
+            <div class="flex items-center justify-between">
+              <div class="system-sm-semibold-uppercase text-gray-700">
+                结果项变量
+                <span class="text-red-500">*</span>
+              </div>
+              <div class="rounded-full border px-2 py-0.5 text-[10px] font-medium" :class="theme.softBadgeClass">
+                INTERNAL
+              </div>
             </div>
-            <div class="rounded-full border px-2 py-0.5 text-[10px] font-medium" :class="theme.softBadgeClass">
-              INTERNAL
+            <button class="group text-left" @click="openOutputVariableSelector">
+              <div class="flex items-center gap-2 text-xs">
+                <span class="font-semibold text-emerald-600">输出变量</span>
+                <span
+                  class="max-w-[240px] truncate transition"
+                  :class="
+                    outputSelectorDisplayText
+                      ? 'text-emerald-700 group-hover:text-emerald-800'
+                      : 'text-gray-400 group-hover:text-emerald-600'
+                  "
+                >
+                  {{ outputSelectorDisplayText || '点击选择内部输出变量' }}
+                </span>
+              </div>
+            </button>
+          </template>
+
+          <template v-else>
+            <div class="flex items-center justify-between">
+              <div class="system-sm-semibold-uppercase text-gray-700">支路结果变量</div>
+              <div class="rounded-full border px-2 py-0.5 text-[10px] font-medium" :class="theme.softBadgeClass">
+                BRANCH
+              </div>
             </div>
+            <div class="space-y-3">
+              <div
+                v-for="branchTarget in branchOutputTargets"
+                :key="branchTarget.key"
+                class="rounded-2xl border border-gray-200 bg-white p-3"
+              >
+                <div class="mb-2 flex items-center justify-between gap-2">
+                  <div class="min-w-0">
+                    <div class="truncate text-sm font-semibold text-gray-800">
+                      {{ branchTarget.label }}
+                    </div>
+                    <div class="truncate text-xs text-gray-400">
+                      {{ branchTarget.nodeTitle }}
+                    </div>
+                  </div>
+                  <div class="text-[10px] uppercase text-gray-400">
+                    {{ branchTarget.sourceHandleId }}
+                  </div>
+                </div>
+                <button class="group text-left" @click="openBranchOutputVariableSelector(branchTarget, $event)">
+                  <div class="flex items-center gap-2 text-xs">
+                    <span class="font-semibold text-amber-600">{{ branchTarget.label }}</span>
+                    <span
+                      class="max-w-[220px] truncate transition"
+                      :class="
+                        getBranchSelectorDisplayText(branchTarget)
+                          ? 'text-amber-700 group-hover:text-amber-800'
+                          : 'text-gray-400 group-hover:text-amber-600'
+                      "
+                    >
+                      {{ getBranchSelectorDisplayText(branchTarget) || '点击选择该分支输出变量' }}
+                    </span>
+                  </div>
+                </button>
+              </div>
+            </div>
+          </template>
+          <div class="text-xs leading-5 text-gray-400">
+            存在条件分支时，需要为每条支路分别配置导出变量；运行时会按当前 item 实际命中的支路取值。
           </div>
-          <VariablePillButton
-            :text="outputSelectorDisplayText"
-            placeholder="选择内部图变量作为每项输出"
-            button-class="!h-12 !rounded-xl !border-[#e5e7eb] !bg-[#f3f4f6] !px-3 !text-gray-500 hover:!border-cyan-200 hover:!bg-white"
-            @click="openOutputVariableSelector"
-          >
-            <template #icon>
-              <span class="text-[15px] font-semibold text-[#94a3b8]">{x}</span>
-            </template>
-          </VariablePillButton>
         </section>
 
         <section class="space-y-4 border-t border-gray-100 pt-4">
@@ -262,9 +322,12 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type {
   OFIterationErrorHandleMode,
+  OFIterationBranchOutputSelector,
+  OFIfElseNodeData,
   OFIterationNodeData,
   OFVarType
 } from '@shared/Orchestraflow-types'
+import { OFBlockEnum } from '@shared/Orchestraflow-types'
 import { useWorkflowEditorUIStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor-ui.store'
 import { useWorkflowEditorStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor.store'
 import { useVariableSelectorStore } from '@renderer/stores/orchestraflow/workflow-editor/variable-selector/variable-selector.store'
@@ -274,7 +337,6 @@ import type { NodeDebugField } from './NodeDebug/NodeDebugForm.vue'
 import NodeDebugForm from './NodeDebug/NodeDebugForm.vue'
 import NodeDebugLastRun from './NodeDebug/NodeDebugLastRun.vue'
 import CapsuleTooltip from './components/CapsuleTooltip.vue'
-import VariablePillButton from './components/VariablePillButton.vue'
 import { OF_PANEL_THEME } from './panel-theme'
 import ToggleSwitch from '../Components/ToggleSwitch/index.vue'
 
@@ -315,6 +377,32 @@ const iteratorSelectorDisplayText = computed(() => formatSelector(nodeData.value
 const outputSelectorDisplayText = computed(() => formatSelector(nodeData.value?.output_selector))
 const outputPreviewVariables = computed(() => nodeData.value?.output?.variables || [])
 const outputNamespaceLabel = computed(() => nodeData.value?.title || 'iteration')
+const branchOutputTargets = computed(() => {
+  const subgraphNodes = nodeData.value?.subgraph?.nodes || []
+  return subgraphNodes
+    .filter((node) => node.data.type === OFBlockEnum.IfElse)
+    .flatMap((node) => {
+      const data = node.data as OFIfElseNodeData
+      const nodeTitle = data.title || '条件分支'
+      const caseTargets = (data.cases || []).map((item) => ({
+        key: `${node.id}:${item.handleId}`,
+        sourceNodeId: node.id,
+        sourceHandleId: item.handleId,
+        label: item.label,
+        nodeTitle
+      }))
+      return [
+        ...caseTargets,
+        {
+          key: `${node.id}:${data.elseCase.handleId}`,
+          sourceNodeId: node.id,
+          sourceHandleId: data.elseCase.handleId,
+          label: data.elseCase.label,
+          nodeTitle
+        }
+      ]
+    })
+})
 
 const parallelModeModel = computed({
   get: () => nodeData.value?.parallel_mode === 'parallel',
@@ -410,8 +498,70 @@ function openOutputVariableSelector(event: MouseEvent) {
   )
 }
 
+function openBranchOutputVariableSelector(
+  branchTarget: {
+    sourceNodeId: string
+    sourceHandleId: string
+  },
+  event: MouseEvent
+) {
+  if (!uiStore.selectedNodeId) return
+  const anchorRect = (event.currentTarget as HTMLElement | null)?.getBoundingClientRect() || undefined
+  variableSelectorStore.openSelector(
+    uiStore.selectedNodeId,
+    'iteration-output',
+    anchorRect,
+    undefined,
+    {
+      x: event.clientX,
+      y: event.clientY
+    },
+    {
+      branchSourceNodeId: branchTarget.sourceNodeId,
+      branchSourceHandleId: branchTarget.sourceHandleId
+    }
+  )
+}
+
 function formatSelector(selector?: string[]) {
   return selector?.length ? selector.join('.') : ''
+}
+
+function getBranchSelectorDisplayText(branchTarget: {
+  sourceNodeId: string
+  sourceHandleId: string
+}) {
+  const matchedSelector = (nodeData.value?.branch_output_selectors || []).find(
+    (item) =>
+      item.source_node_id === branchTarget.sourceNodeId &&
+      item.source_handle_id === branchTarget.sourceHandleId
+  )
+  return formatSelector(matchedSelector?.output_selector)
+}
+
+function patchBranchOutputSelector(
+  sourceNodeId: string,
+  sourceHandleId: string,
+  outputSelector: string[]
+) {
+  const currentSelectors = nodeData.value?.branch_output_selectors || []
+  const nextSelectors = [...currentSelectors]
+  const existingIndex = nextSelectors.findIndex(
+    (item) => item.source_node_id === sourceNodeId && item.source_handle_id === sourceHandleId
+  )
+  const nextItem: OFIterationBranchOutputSelector = {
+    source_node_id: sourceNodeId,
+    source_handle_id: sourceHandleId,
+    output_selector: outputSelector
+  }
+
+  if (existingIndex >= 0) {
+    nextSelectors[existingIndex] = nextItem
+  } else {
+    nextSelectors.push(nextItem)
+  }
+
+  patchNode({ branch_output_selectors: nextSelectors })
 }
 
 function handleDebugFormUpdate(values: Record<string, any>) {
@@ -443,6 +593,15 @@ function handleVariableSelect(event: Event) {
   }
 
   if (detail.targetType === 'iteration-output') {
+    if (detail.branchSourceNodeId && detail.branchSourceHandleId) {
+      patchBranchOutputSelector(
+        detail.branchSourceNodeId,
+        detail.branchSourceHandleId,
+        detail.variable.valueSelector || []
+      )
+      return
+    }
+
     patchNode({ output_selector: detail.variable.valueSelector || [] })
   }
 }
