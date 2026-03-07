@@ -14,6 +14,7 @@ export enum OFBlockEnum {
   IterationStart = 'iteration-start',
   Loop = 'loop',
   LoopStart = 'loop-start',
+  VariableAssign = 'variable-assign',
   End = 'end'
 }
 
@@ -108,6 +109,7 @@ export const OF_ITERATION_ITEM_VARIABLE_NAME = 'item'
 export const OF_ITERATION_INDEX_VARIABLE_NAME = 'index'
 export const OF_ITERATION_LENGTH_VARIABLE_NAME = 'length'
 export const OF_ITERATION_RESULT_VARIABLE_NAME = 'result'
+export const OF_VARIABLE_ASSIGN_NODE_NAME = 'assign'
 
 export function normalizeOFVariableNamespace(
   raw: string | null | undefined,
@@ -206,6 +208,57 @@ export function buildIterationOutputVariables(
 }
 
 // ===== 条件分支 =====
+export type OFVariableAssignSourceMode = 'variable' | 'constant'
+
+export interface OFVariableAssignRule {
+  id: string
+  source_mode: OFVariableAssignSourceMode
+  source_selector?: string[]
+  source_path?: string
+  source_label?: string
+  source_type?: OFVarType
+  constant_value?: string | number | boolean | Record<string, any> | any[] | null
+  target_variable: string
+  target_label?: string
+  target_type: OFVarType
+  item_type?: OFVarType
+  schema?: OFStructuredJsonSchema | null
+  item_schema?: OFJsonSchemaObject | null
+  description?: string
+}
+
+function resolveVariableAssignNamespace(namespace: string, fallbackNodeId?: string): string {
+  return normalizeOFVariableNamespace(namespace, fallbackNodeId || OF_VARIABLE_ASSIGN_NODE_NAME)
+}
+
+export function buildVariableAssignOutputVariables(
+  namespace: string,
+  rules: OFVariableAssignRule[],
+  fallbackNodeId?: string
+): OFVariable[] {
+  const resolvedNamespace = resolveVariableAssignNamespace(namespace, fallbackNodeId)
+  const outputMap = new Map<string, OFVariable>()
+
+  rules.forEach((rule) => {
+    const variable = String(rule.target_variable || '').trim()
+    if (!variable) return
+
+    outputMap.set(variable, {
+      variable,
+      label: String(rule.target_label || variable).trim() || variable,
+      type: rule.target_type,
+      item_type: rule.item_type,
+      description: rule.description,
+      required: true,
+      value_selector: [`${resolvedNamespace}.${variable}`],
+      schema: rule.schema ?? null,
+      item_schema: rule.item_schema ?? null
+    })
+  })
+
+  return Array.from(outputMap.values())
+}
+
 export type OFIfElseConditionOperator =
   | 'contains'
   | 'not_contains'
@@ -452,6 +505,12 @@ export type OFLoopStartNodeData = OFCommonNodeType & {
 }
 
 // ===== End 节点数据 =====
+export type OFVariableAssignNodeData = OFCommonNodeType & {
+  type: OFBlockEnum.VariableAssign
+  rules: OFVariableAssignRule[]
+  output: OFNodeOutput
+}
+
 export type OFEndNodeData = OFCommonNodeType & {
   type: OFBlockEnum.End
   output: OFNodeOutput
@@ -472,6 +531,7 @@ export type OFNode = {
     | OFIterationStartNodeData
     | OFLoopNodeData
     | OFLoopStartNodeData
+    | OFVariableAssignNodeData
     | OFEndNodeData
 }
 
@@ -654,6 +714,14 @@ export interface OFLoopStartNodeConfig {
   nodeId: string
   title: string
   desc: string
+}
+
+export interface OFVariableAssignNodeConfig {
+  nodeId: string
+  title: string
+  desc: string
+  rules: OFVariableAssignRule[]
+  output: OFNodeOutput
 }
 
 export interface OFEndNodeConfig {

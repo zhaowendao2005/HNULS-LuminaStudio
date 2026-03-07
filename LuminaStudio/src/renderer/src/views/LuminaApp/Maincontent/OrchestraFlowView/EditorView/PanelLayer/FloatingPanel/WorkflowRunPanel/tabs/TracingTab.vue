@@ -266,6 +266,8 @@ function getNodeIcon(nodeType: string): string {
       return 'L'
     case OFBlockEnum.Iteration:
       return 'R'
+    case OFBlockEnum.VariableAssign:
+      return 'V'
     case OFBlockEnum.IfElse:
       return 'I'
     case OFBlockEnum.End:
@@ -284,6 +286,8 @@ function getNodeIconClass(nodeType: string): string {
       return 'bg-purple-500'
     case OFBlockEnum.Iteration:
       return 'bg-cyan-500'
+    case OFBlockEnum.VariableAssign:
+      return 'bg-sky-500'
     case OFBlockEnum.IfElse:
       return 'bg-cyan-500'
     case OFBlockEnum.End:
@@ -302,6 +306,8 @@ function getNodeTitle(tracing: any): string {
       return 'LLM 节点'
     case OFBlockEnum.Iteration:
       return '迭代节点'
+    case OFBlockEnum.VariableAssign:
+      return '变量赋值节点'
     case OFBlockEnum.IfElse:
       return '条件分支节点'
     case OFBlockEnum.End:

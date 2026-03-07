@@ -44,6 +44,7 @@
         <LLMNodePanel v-else-if="uiStore.currentPanelType === 'llm-node'" />
         <IterationNodePanel v-else-if="uiStore.currentPanelType === 'iteration-node'" />
         <IfElseNodePanel v-else-if="uiStore.currentPanelType === 'ifelse-node'" />
+        <VariableAssignNodePanel v-else-if="uiStore.currentPanelType === 'variable-assign-node'" />
         <EndNodePanel v-else-if="uiStore.currentPanelType === 'end-node'" />
       </FloatingPanel>
 
@@ -74,6 +75,7 @@ import StartNodePanel from './FloatingPanel/StartNodePanel/index.vue'
 import LLMNodePanel from './FloatingPanel/LLMNodePanel.vue'
 import IterationNodePanel from './FloatingPanel/IterationNodePanel.vue'
 import IfElseNodePanel from './FloatingPanel/IfElseNodePanel.vue'
+import VariableAssignNodePanel from './FloatingPanel/VariableAssignNodePanel.vue'
 import EndNodePanel from './FloatingPanel/EndNodePanel.vue'
 import VariableSelector from './FloatingPanel/VariableSelector/index.vue'
 import WorkflowRunPanel from './FloatingPanel/WorkflowRunPanel/index.vue'
@@ -104,6 +106,8 @@ const panelTitle = computed(() => {
       return '迭代'
     case PanelType.IfElseNode:
       return '条件分支'
+    case PanelType.VariableAssignNode:
+      return '变量赋值'
     case PanelType.EndNode:
       return '结束'
     default:
@@ -122,6 +126,8 @@ const panelDescription = computed(() => {
       return '迭代容器节点，用于模拟多轮内部循环'
     case PanelType.IfElseNode:
       return '按 IF / ELIF / ELSE 规则判断条件并放行命中的分支'
+    case PanelType.VariableAssignNode:
+      return '对变量做赋值、类型转换和新变量生成'
     case PanelType.EndNode:
       return '工作流结束节点，用于输出结果'
     default:

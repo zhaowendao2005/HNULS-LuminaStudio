@@ -129,6 +129,21 @@
         <div class="px-2 py-1 text-xs font-medium text-gray-500 uppercase tracking-wide">结束</div>
         <div class="flex flex-col gap-1 mt-1">
           <div
+            class="flex cursor-pointer items-center gap-2 rounded px-2 py-2 text-sm text-gray-700 hover:bg-gray-50"
+            @click="handleAddNode(OFBlockEnum.VariableAssign)"
+          >
+            <div class="flex h-5 w-5 items-center justify-center rounded bg-sky-100">
+              <svg class="h-3 w-3 text-sky-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M7 7H17M7 12H13M7 17H11M16 12L18 14L22 10"
+                />
+              </svg>
+            </div>
+            变量赋值
+          </div>
+          <div
             class="px-2 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded cursor-pointer flex items-center gap-2"
             @click="handleAddNode(OFBlockEnum.End)"
           >

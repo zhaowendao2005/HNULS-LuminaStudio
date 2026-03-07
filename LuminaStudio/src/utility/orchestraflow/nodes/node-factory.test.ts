@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { OFBlockEnum, type OFNode } from '@shared/Orchestraflow-types'
 import { IterationNode } from './iteration-node'
 import { NodeFactory } from './node-factory'
+import { VariableAssignNode } from './variable-assign-node'
 import { VariableStore } from '../services/variable-store'
 
 describe('NodeFactory', () => {
@@ -45,5 +46,34 @@ describe('NodeFactory', () => {
     const instance = NodeFactory.createNode(node, new VariableStore())
 
     expect(instance).toBeInstanceOf(IterationNode)
+  })
+
+  it('会为 VariableAssign 节点实例化真实 VariableAssignNode', () => {
+    const node: OFNode = {
+      id: 'assign1',
+      type: 'variable-assign',
+      position: { x: 0, y: 0 },
+      data: {
+        type: OFBlockEnum.VariableAssign,
+        title: 'Assign',
+        desc: '',
+        rules: [
+          {
+            id: 'rule-1',
+            source_mode: 'constant',
+            constant_value: '42',
+            target_variable: 'answer',
+            target_type: 'number'
+          }
+        ],
+        output: {
+          variables: []
+        }
+      }
+    } as OFNode
+
+    const instance = NodeFactory.createNode(node, new VariableStore())
+
+    expect(instance).toBeInstanceOf(VariableAssignNode)
   })
 })

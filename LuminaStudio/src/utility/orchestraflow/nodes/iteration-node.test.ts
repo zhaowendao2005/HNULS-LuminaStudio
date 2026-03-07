@@ -39,6 +39,9 @@ function createIterationNodeDefinition(overrides: Record<string, any> = {}): OFN
       parallel_mode: 'sequential',
       error_handle_mode: 'terminated',
       flatten_output: false,
+      output: {
+        variables: []
+      },
       ...overrides
     }
   } as OFNode

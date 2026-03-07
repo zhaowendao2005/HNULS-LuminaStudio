@@ -23,6 +23,7 @@ export enum PanelType {
   LLMNode = 'llm-node',
   IterationNode = 'iteration-node',
   IfElseNode = 'ifelse-node',
+  VariableAssignNode = 'variable-assign-node',
   EndNode = 'end-node'
 }
 
@@ -150,6 +151,8 @@ export const useWorkflowEditorUIStore = defineStore('orchestraflow-workflow-edit
         return PanelType.IterationNode
       case OFBlockEnum.IfElse:
         return PanelType.IfElseNode
+      case OFBlockEnum.VariableAssign:
+        return PanelType.VariableAssignNode
       case OFBlockEnum.End:
         return PanelType.EndNode
       default:
@@ -264,6 +267,7 @@ export const useWorkflowEditorUIStore = defineStore('orchestraflow-workflow-edit
       currentPanelType.value === PanelType.LLMNode ||
       currentPanelType.value === PanelType.IterationNode ||
       currentPanelType.value === PanelType.IfElseNode ||
+      currentPanelType.value === PanelType.VariableAssignNode ||
       currentPanelType.value === PanelType.EndNode
     ) {
       currentPanelType.value = null

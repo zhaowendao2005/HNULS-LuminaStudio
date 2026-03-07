@@ -236,6 +236,9 @@ describe('LoopNode', () => {
               subgraph: {
                 nodes: [],
                 edges: []
+              },
+              output: {
+                variables: []
               }
             }
           } as OFNode

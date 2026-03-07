@@ -11,6 +11,7 @@ import { IterationNode } from './iteration-node'
 import { IterationStartNode } from './iteration-start-node'
 import { LoopNode } from './loop-node'
 import { LoopStartNode } from './loop-start-node'
+import { VariableAssignNode } from './variable-assign-node'
 import { EndNode } from './end-node'
 import type { OFNode } from '@shared/Orchestraflow-types'
 import { OFBlockEnum } from '@shared/Orchestraflow-types'
@@ -35,6 +36,8 @@ export class NodeFactory {
         return new LoopNode(node, variableStore)
       case OFBlockEnum.LoopStart:
         return new LoopStartNode(node, variableStore)
+      case OFBlockEnum.VariableAssign:
+        return new VariableAssignNode(node, variableStore)
       case OFBlockEnum.End:
         return new EndNode(node, variableStore)
       default:

@@ -10,6 +10,7 @@ export type VariableSelectorTargetType =
   | 'condition'
   | 'iteration-input'
   | 'iteration-output'
+  | 'variable-assign-source'
 
 export interface OFAvailableVariable {
   id: string

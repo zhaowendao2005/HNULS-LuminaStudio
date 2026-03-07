@@ -163,6 +163,7 @@ import StartNodeOutput from './nodes/StartNodeOutput.vue'
 import LLMNodeOutput from './nodes/LLMNodeOutput.vue'
 import IterationNodeOutput from './nodes/IterationNodeOutput.vue'
 import IfElseNodeOutput from './nodes/IfElseNodeOutput.vue'
+import VariableAssignNodeOutput from './nodes/VariableAssignNodeOutput.vue'
 import EndNodeOutput from './nodes/EndNodeOutput.vue'
 import StartTab from './tabs/StartTab.vue'
 import DetailTab from './tabs/DetailTab.vue'
@@ -333,6 +334,8 @@ function getTraceComponent(nodeType: OFBlockEnum) {
       return IterationNodeOutput
     case OFBlockEnum.IfElse:
       return IfElseNodeOutput
+    case OFBlockEnum.VariableAssign:
+      return VariableAssignNodeOutput
     case OFBlockEnum.End:
       return EndNodeOutput
     default:

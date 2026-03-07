@@ -33,6 +33,9 @@
       <template #node-ifelse="props">
         <IfElseNode v-bind="props" />
       </template>
+      <template #node-variable-assign="props">
+        <VariableAssignNode v-bind="props" />
+      </template>
       <template #node-end="props">
         <EndNode v-bind="props" />
       </template>
@@ -70,6 +73,7 @@ import IterationStartNode from './Nodes/IterationStartNode/index.vue'
 import LLMNode from './Nodes/LLMNode/index.vue'
 import IterationNode from './Nodes/IterationNode/index.vue'
 import IfElseNode from './Nodes/IfElseNode/index.vue'
+import VariableAssignNode from './Nodes/VariableAssignNode/index.vue'
 import EndNode from './Nodes/EndNode/index.vue'
 
 // 导入 VueFlow 核心样式
@@ -103,6 +107,9 @@ function getPanelType(nodeType: string): PanelType | null {
     case 'ifelse':
     case OFBlockEnum.IfElse:
       return PanelType.IfElseNode
+    case 'variable-assign':
+    case OFBlockEnum.VariableAssign:
+      return PanelType.VariableAssignNode
     case 'end':
     case OFBlockEnum.End:
       return PanelType.EndNode
@@ -138,6 +145,9 @@ function handleNodeClick(event: { node: Node }) {
       break
     case 'ifelse':
       ofBlockEnum = OFBlockEnum.IfElse
+      break
+    case 'variable-assign':
+      ofBlockEnum = OFBlockEnum.VariableAssign
       break
     case 'end':
       ofBlockEnum = OFBlockEnum.End

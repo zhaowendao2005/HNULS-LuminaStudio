@@ -18,6 +18,7 @@ import type {
   OFLLMNodeData,
   OFNode,
   OFStartNodeData,
+  OFVariableAssignNodeData,
   OFVariable
 } from '@shared/Orchestraflow-types'
 import { OFBlockEnum, OFVarType } from '@shared/Orchestraflow-types'
@@ -38,7 +39,7 @@ function selectorToPath(selector: string[]): string {
   return selector.join('.')
 }
 
-function getReachableNodeIds(startNodeId: string, nodes: OFNode[], edges: OFEdge[]): Set<string> {
+function getReachableNodeIds(startNodeId: string, edges: OFEdge[]): Set<string> {
   const reachable = new Set<string>()
   const queue = [startNodeId]
 
@@ -63,12 +64,19 @@ function buildObjectChildren(
   base: OFAvailableVariable,
   variable: OFVariable
 ): OFAvailableVariable[] {
-  if (variable.type !== OFVarType.Object || !variable.schema) {
+  if (variable.type !== OFVarType.Object || !variable.schema || variable.schema.type !== 'object') {
     return []
   }
 
   return Object.entries(variable.schema.properties || {}).map(([fieldName, fieldSchema]) => {
     const selector = [...(variable.value_selector || [variable.variable]), fieldName]
+    const fieldType =
+      fieldSchema.type === 'boolean'
+        ? OFVarType.Boolean
+        : fieldSchema.type === 'number'
+          ? OFVarType.Number
+          : OFVarType.String
+
     return {
       id: `${base.id}:${fieldName}`,
       variable: fieldName,
@@ -78,12 +86,8 @@ function buildObjectChildren(
       nodeType: base.nodeType,
       nodeTitle: base.nodeTitle,
       valueSelector: selector,
-      type:
-        fieldSchema.type === 'boolean'
-          ? OFVarType.Boolean
-          : fieldSchema.type === 'number'
-            ? OFVarType.Number
-            : OFVarType.String,
+      type: fieldType,
+      schema: null,
       selectable: true,
       expandable: false,
       children: []
@@ -154,10 +158,13 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
     } else if (
       nodeType === OFBlockEnum.LLM ||
       nodeType === OFBlockEnum.Iteration ||
+      nodeType === OFBlockEnum.VariableAssign ||
       nodeType === OFBlockEnum.End
     ) {
       variables = (
-        ((data as OFLLMNodeData | OFIterationNodeData | OFEndNodeData).output?.variables ||
+        ((
+          data as OFLLMNodeData | OFIterationNodeData | OFVariableAssignNodeData | OFEndNodeData
+        ).output?.variables ||
           []) as OFVariable[]
       ).map((item) => ({
         ...item,
@@ -270,7 +277,7 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
                 .map((edge) => edge.target)
               const reachableNodeIds = new Set<string>()
               branchTargets.forEach((branchTargetId) => {
-                getReachableNodeIds(branchTargetId, subgraphNodes, subgraphEdges).forEach((nodeId) => {
+                getReachableNodeIds(branchTargetId, subgraphEdges).forEach((nodeId) => {
                   reachableNodeIds.add(nodeId)
                 })
               })

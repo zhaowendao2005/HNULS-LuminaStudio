@@ -288,6 +288,92 @@ function createLoopWorkflow(): OFWorkflow {
   }
 }
 
+function createVariableAssignDebugWorkflow(): OFWorkflow {
+  const startNode: OFNode = {
+    id: 'start',
+    type: 'default',
+    position: { x: 0, y: 0 },
+    data: {
+      type: OFBlockEnum.Start,
+      title: 'Start',
+      desc: '',
+      input: {
+        variables: [
+          {
+            variable: 'profile',
+            type: 'object',
+            default: {
+              stats: {
+                score: 12
+              }
+            }
+          }
+        ]
+      }
+    }
+  } as OFNode
+
+  const assignNode: OFNode = {
+    id: 'assign-node',
+    type: 'variable-assign',
+    position: { x: 120, y: 0 },
+    data: {
+      type: OFBlockEnum.VariableAssign,
+      title: 'assign',
+      desc: '',
+      rules: [
+        {
+          id: 'rule-1',
+          source_mode: 'variable',
+          source_selector: ['profile', 'stats', 'score'],
+          source_path: 'profile.stats.score',
+          source_type: 'number',
+          target_variable: 'score_text',
+          target_type: 'string'
+        }
+      ],
+      output: {
+        variables: []
+      }
+    }
+  } as OFNode
+
+  const endNode: OFNode = {
+    id: 'end',
+    type: 'default',
+    position: { x: 240, y: 0 },
+    data: {
+      type: OFBlockEnum.End,
+      title: 'End',
+      desc: '',
+      output: {
+        variables: [
+          {
+            variable: 'result',
+            value_selector: ['assign.score_text']
+          }
+        ]
+      }
+    }
+  } as OFNode
+
+  return {
+    id: 'wf-assign',
+    name: 'assign-workflow',
+    author: 'tester',
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    status: 'draft',
+    graph: {
+      nodes: [startNode, assignNode, endNode],
+      edges: [
+        { id: 'edge-1', source: 'start', target: 'assign-node' },
+        { id: 'edge-2', source: 'assign-node', target: 'end' }
+      ]
+    }
+  }
+}
+
 describe('GraphExecutor integration', () => {
   it('根图和 Iteration 子图共用执行内核，并产出带 execution_metadata 的 child traces', async () => {
     const workflow = createWorkflow()
@@ -366,6 +452,29 @@ describe('GraphExecutor integration', () => {
 
     expect(result.status).toBe(OFNodeRunningStatus.Failed)
     expect(result.error).toContain('Node not found')
+  })
+
+  it('node debug 支持执行 VariableAssign 节点并返回转换结果', async () => {
+    const workflow = createVariableAssignDebugWorkflow()
+    const manager = new WorkflowInstanceManager(() => undefined)
+
+    const result = await manager.runNodeDebug(
+      workflow,
+      'assign-node',
+      {
+        profile: {
+          stats: {
+            score: 27
+          }
+        }
+      },
+      {}
+    )
+
+    expect(result.status).toBe(OFNodeRunningStatus.Succeeded)
+    expect(result.nodeType).toBe(OFBlockEnum.VariableAssign)
+    expect(result.outputs).toEqual({ score_text: '27' })
+    expect(result.error).toBeUndefined()
   })
 
   it('根图和 Loop 子图共用执行内核，并产出带 loop metadata 的 child traces', async () => {

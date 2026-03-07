@@ -1,6 +1,5 @@
 import type {
   OFNodeDebugResult,
-  OFNode,
   OFNodeTracing,
   OFSubWorkflowGraph,
   OFWorkflow,

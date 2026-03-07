@@ -1,0 +1,143 @@
+import { describe, expect, it } from 'vitest'
+import { OFBlockEnum, OFVarType, type OFNode } from '@shared/Orchestraflow-types'
+import type { ExecutionContext } from './types'
+import { VariableAssignNode } from './variable-assign-node'
+import { VariableStore } from '../services/variable-store'
+
+function createVariableAssignNode(overrides: Record<string, any> = {}): OFNode {
+  return {
+    id: 'assign-node',
+    type: 'variable-assign',
+    position: { x: 0, y: 0 },
+    data: {
+      type: OFBlockEnum.VariableAssign,
+      title: 'assign',
+      desc: '',
+      rules: [
+        {
+          id: 'rule-1',
+          source_mode: 'variable',
+          source_selector: ['profile', 'stats', 'score'],
+          source_path: 'profile.stats.score',
+          source_type: OFVarType.Number,
+          target_variable: 'score_text',
+          target_type: OFVarType.String
+        }
+      ],
+      output: { variables: [] },
+      ...overrides
+    }
+  } as OFNode
+}
+
+function createContext(
+  node: OFNode,
+  variableStore: VariableStore,
+  overrides: Partial<ExecutionContext> = {}
+): ExecutionContext {
+  return {
+    runId: 'run-assign',
+    node,
+    graph: { nodes: [node], edges: [] },
+    inputs: variableStore.getAll(),
+    variables: variableStore.getAll(),
+    scopePath: [],
+    traceKey: 'trace-assign',
+    providerConfigs: {},
+    executeGraph: async () => ({ status: 'succeeded' }),
+    isStopped: () => false,
+    ...overrides
+  }
+}
+
+describe('VariableAssignNode', () => {
+  it('supports nested variable selectors and writes namespaced outputs', async () => {
+    const variableStore = new VariableStore()
+    variableStore.set('profile', {
+      stats: {
+        score: 42
+      }
+    })
+    const node = createVariableAssignNode()
+
+    const result = await new VariableAssignNode(node, variableStore).execute(
+      createContext(node, variableStore)
+    )
+
+    expect(result.error).toBeUndefined()
+    expect(result.outputs).toEqual({ score_text: '42' })
+    expect(variableStore.get('assign.score_text')).toBe('42')
+    expect(variableStore.get('assign-node.score_text')).toBe('42')
+  })
+
+  it('converts constant JSON strings into structured values', async () => {
+    const variableStore = new VariableStore()
+    const node = createVariableAssignNode({
+      rules: [
+        {
+          id: 'rule-1',
+          source_mode: 'constant',
+          constant_value: '{"name":"Lumina"}',
+          target_variable: 'payload',
+          target_type: OFVarType.Object
+        },
+        {
+          id: 'rule-2',
+          source_mode: 'constant',
+          constant_value: '[1,2,3]',
+          target_variable: 'items',
+          target_type: OFVarType.Array
+        }
+      ]
+    })
+
+    const result = await new VariableAssignNode(node, variableStore).execute(
+      createContext(node, variableStore)
+    )
+
+    expect(result.error).toBeUndefined()
+    expect(result.outputs).toEqual({
+      payload: { name: 'Lumina' },
+      items: [1, 2, 3]
+    })
+  })
+
+  it('fails atomically when any rule conversion fails', async () => {
+    const variableStore = new VariableStore()
+    variableStore.set('profile', {
+      stats: {
+        score: 42
+      }
+    })
+    const node = createVariableAssignNode({
+      rules: [
+        {
+          id: 'rule-1',
+          source_mode: 'variable',
+          source_selector: ['profile', 'stats', 'score'],
+          source_path: 'profile.stats.score',
+          source_type: OFVarType.Number,
+          target_variable: 'score_text',
+          target_type: OFVarType.String
+        },
+        {
+          id: 'rule-2',
+          source_mode: 'constant',
+          constant_value: 'not-a-number',
+          target_variable: 'broken_number',
+          target_type: OFVarType.Number
+        }
+      ]
+    })
+
+    const result = await new VariableAssignNode(node, variableStore).execute(
+      createContext(node, variableStore)
+    )
+
+    expect(result.error).toContain('broken_number')
+    expect(result.outputs).toEqual({})
+    expect(variableStore.has('assign.score_text')).toBe(false)
+    expect(variableStore.has('assign-node.score_text')).toBe(false)
+    expect(variableStore.has('assign.broken_number')).toBe(false)
+  })
+})

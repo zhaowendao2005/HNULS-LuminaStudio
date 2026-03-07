@@ -13,6 +13,7 @@ import type {
   OFIterationStartNodeData,
   OFLoopNodeData,
   OFLoopStartNodeData,
+  OFVariableAssignNodeData,
   OFEndNodeData
 } from '@shared/Orchestraflow-types'
 import type { ExecutionContext, NodeResult } from './types'
@@ -80,6 +81,7 @@ export abstract class BaseNode {
     | OFIterationStartNodeData
     | OFLoopNodeData
     | OFLoopStartNodeData
+    | OFVariableAssignNodeData
     | OFEndNodeData {
     return this.context.node.data as any
   }

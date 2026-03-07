@@ -10,6 +10,7 @@ import {
   buildIterationInnerStartVariables,
   buildLLMOutputVariables,
   buildIterationOutputVariables,
+  buildVariableAssignOutputVariables,
   normalizeOFVariableNamespace
 } from '@shared/Orchestraflow-types'
 import type {
@@ -20,6 +21,7 @@ import type {
   OFLLMNodeData,
   OFIterationNodeData,
   OFIfElseNodeData,
+  OFVariableAssignNodeData,
   OFEndNodeData
 } from '@shared/Orchestraflow-types'
 import type { NodeChange, EdgeChange } from '@vue-flow/core'
@@ -38,6 +40,7 @@ const NESTED_NODE_DEFAULT_SIZES: Record<string, { width: number; height: number 
   'iteration-start': { width: 60, height: 60 },
   start: { width: 60, height: 60 },
   llm: { width: 312, height: 108 },
+  'variable-assign': { width: 248, height: 124 },
   ifelse: { width: 240, height: 120 },
   end: { width: 180, height: 84 }
 }
@@ -58,6 +61,8 @@ function getDefaultNodeTitle(type: OFBlockEnum): string {
       return '条件分支'
     case OFBlockEnum.Start:
       return '开始'
+    case OFBlockEnum.VariableAssign:
+      return '变量赋值'
     case OFBlockEnum.End:
       return '结束'
     default:
@@ -291,6 +296,22 @@ function normalizeNode(node: OFNode): OFNode {
     }
   }
 
+  if (node.data.type === OFBlockEnum.VariableAssign) {
+    const data = node.data as Partial<OFVariableAssignNodeData>
+    const title = normalizeNodeTitle(OFBlockEnum.VariableAssign, data.title)
+    return {
+      ...node,
+      data: {
+        ...buildCommonNodeShape(data, title),
+        type: OFBlockEnum.VariableAssign,
+        rules: data.rules || [],
+        output: {
+          variables: buildVariableAssignOutputVariables(title, data.rules || [], node.id)
+        }
+      } as OFVariableAssignNodeData
+    }
+  }
+
   if (node.data.type === OFBlockEnum.IfElse) {
     const data = node.data as Partial<OFIfElseNodeData>
     return {
@@ -420,6 +441,36 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
                 newNamespace
               )
             }))
+          }
+        }
+      }
+
+      if (node.data.type === OFBlockEnum.VariableAssign) {
+        const data = node.data as OFVariableAssignNodeData
+        const nextRules = (data.rules || []).map((rule) => ({
+          ...rule,
+          source_selector: replaceNamespace(rule.source_selector, oldNamespace, newNamespace),
+          source_path:
+            rule.source_path === oldNamespace
+              ? newNamespace
+              : rule.source_path?.startsWith(`${oldNamespace}.`)
+                ? `${newNamespace}${rule.source_path.slice(oldNamespace.length)}`
+                : rule.source_path,
+          source_label:
+            rule.source_label === oldNamespace
+              ? newNamespace
+              : rule.source_label?.startsWith(`${oldNamespace}.`)
+                ? `${newNamespace}${rule.source_label.slice(oldNamespace.length)}`
+                : rule.source_label
+        }))
+        return {
+          ...node,
+          data: {
+            ...data,
+            rules: nextRules,
+            output: {
+              variables: buildVariableAssignOutputVariables(data.title, nextRules, node.id)
+            }
           }
         }
       }
@@ -848,6 +899,7 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
       | OFLLMNodeData
       | OFIterationNodeData
       | OFIfElseNodeData
+      | OFVariableAssignNodeData
       | OFEndNodeData
       | undefined
 
@@ -926,6 +978,15 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
           }
         } as OFIfElseNodeData
         break
+      case OFBlockEnum.VariableAssign:
+        nodeData = {
+          title,
+          desc: '',
+          type: OFBlockEnum.VariableAssign,
+          rules: [],
+          output: { variables: [] }
+        } as OFVariableAssignNodeData
+        break
       case OFBlockEnum.End:
         nodeData = {
           title,
@@ -949,6 +1010,9 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
         break
       case OFBlockEnum.IfElse:
         vueFlowType = 'ifelse'
+        break
+      case OFBlockEnum.VariableAssign:
+        vueFlowType = 'variable-assign'
         break
       case OFBlockEnum.Iteration:
         vueFlowType = 'iteration'
@@ -1013,6 +1077,23 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
           }
         }
       }
+
+      if (currentNode.data.type === OFBlockEnum.VariableAssign) {
+        const variableAssignData = {
+          ...(currentNode.data as OFVariableAssignNodeData),
+          ...nextData
+        } as OFVariableAssignNodeData
+        nextData = {
+          ...nextData,
+          output: {
+            variables: buildVariableAssignOutputVariables(
+              uniqueTitle,
+              variableAssignData.rules || [],
+              nodeId
+            )
+          }
+        }
+      }
     }
 
     if (currentNode.data.type === OFBlockEnum.Iteration) {
@@ -1031,6 +1112,7 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
     }
 
     const llmPatch = data as Partial<OFLLMNodeData>
+    const variableAssignPatch = data as Partial<OFVariableAssignNodeData>
 
     if (currentNode.data.type === OFBlockEnum.LLM && llmPatch.structured_output) {
       const llmData = currentNode.data as OFLLMNodeData
@@ -1043,11 +1125,30 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
       }
     }
 
+    if (currentNode.data.type === OFBlockEnum.VariableAssign && variableAssignPatch.rules) {
+      const variableAssignData = currentNode.data as OFVariableAssignNodeData
+      const nextTitle = String(
+        (nextData.title as string | undefined) || variableAssignData.title || 'assign'
+      )
+      nextData = {
+        ...nextData,
+        output: {
+          variables: buildVariableAssignOutputVariables(
+            nextTitle,
+            variableAssignPatch.rules,
+            nodeId
+          )
+        }
+      }
+    }
+
     const previousNamespace =
       currentNode.data.type === OFBlockEnum.LLM
         ? normalizeOFVariableNamespace(currentNode.data.title, 'llm')
         : currentNode.data.type === OFBlockEnum.Iteration
           ? normalizeOFVariableNamespace(currentNode.data.title, 'iteration')
+          : currentNode.data.type === OFBlockEnum.VariableAssign
+            ? normalizeOFVariableNamespace(currentNode.data.title, 'assign')
           : ''
 
     nodes.value = updateNodeCollection(nodes.value, nodeId, nextData)
@@ -1059,6 +1160,11 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
 
     if (currentNode.data.type === OFBlockEnum.Iteration && typeof nextData.title === 'string') {
       const nextNamespace = normalizeOFVariableNamespace(nextData.title, 'iteration')
+      syncNodeNamespaceReferences(previousNamespace, nextNamespace, nodeId)
+    }
+
+    if (currentNode.data.type === OFBlockEnum.VariableAssign && typeof nextData.title === 'string') {
+      const nextNamespace = normalizeOFVariableNamespace(nextData.title, 'assign')
       syncNodeNamespaceReferences(previousNamespace, nextNamespace, nodeId)
     }
 

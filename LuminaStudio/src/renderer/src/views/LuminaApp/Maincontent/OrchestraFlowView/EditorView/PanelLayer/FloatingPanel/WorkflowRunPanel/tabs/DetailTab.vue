@@ -308,6 +308,8 @@ function getNodeTitle(tracing: any): string {
       return '迭代'
     case OFBlockEnum.IfElse:
       return '条件分支'
+    case OFBlockEnum.VariableAssign:
+      return '变量赋值'
     case OFBlockEnum.End:
       return '结束'
     default:
