@@ -1,5 +1,5 @@
 <template>
-  <div class="of-node-output">
+  <div class="of-node-output rounded-xl transition-shadow" :class="haloClass">
     <div class="mb-3 flex items-center gap-2">
       <div class="flex h-5 w-5 items-center justify-center rounded bg-indigo-500 text-white">
         <svg viewBox="0 0 14 14" class="h-3 w-3" fill="none">
@@ -92,6 +92,11 @@ const displayTextOutput = computed(() =>
   expandedTextOutput.value || !shouldTruncateTextOutput.value
     ? textOutput.value
     : `${textOutput.value.slice(0, 30)}...`
+)
+const haloClass = computed(() =>
+  props.tracing.status === OFNodeRunningStatus.Running
+    ? 'ring-2 ring-indigo-400/70 shadow-[0_0_0_6px_rgba(99,102,241,0.12)]'
+    : ''
 )
 
 function toggleTextOutput() {

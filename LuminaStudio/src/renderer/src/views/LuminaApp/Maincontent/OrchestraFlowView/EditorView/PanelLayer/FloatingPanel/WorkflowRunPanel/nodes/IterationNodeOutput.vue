@@ -1,5 +1,5 @@
 <template>
-  <div class="of-iteration-node-output">
+  <div class="of-iteration-node-output rounded-xl transition-shadow" :class="haloClass">
     <div class="mb-3 flex items-center gap-2">
       <div class="flex h-5 w-5 items-center justify-center rounded bg-cyan-500 text-white">
         <svg
@@ -120,6 +120,11 @@ const displayResultPreview = computed(() =>
   expandedResultPreview.value || !shouldTruncateResultPreview.value
     ? resultPreview.value
     : `${resultPreview.value.slice(0, 30)}...`
+)
+const haloClass = computed(() =>
+  props.tracing.status === OFNodeRunningStatus.Running
+    ? 'ring-2 ring-cyan-400/70 shadow-[0_0_0_6px_rgba(34,211,238,0.12)]'
+    : ''
 )
 
 const iterationRuns = computed<IterationRunSummary[]>(() => {

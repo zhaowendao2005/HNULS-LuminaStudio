@@ -1,5 +1,5 @@
 <template>
-  <div class="of-node-output">
+  <div class="of-node-output rounded-xl transition-shadow" :class="haloClass">
     <div class="mb-3 flex items-center gap-2">
       <div class="flex h-5 w-5 items-center justify-center rounded bg-cyan-500 text-white">
         <svg viewBox="0 0 24 24" class="h-3 w-3" fill="currentColor">
@@ -80,4 +80,9 @@ const statusClass = computed(() => {
       return 'bg-gray-100 text-gray-600'
   }
 })
+const haloClass = computed(() =>
+  props.tracing.status === OFNodeRunningStatus.Running
+    ? 'ring-2 ring-cyan-400/70 shadow-[0_0_0_6px_rgba(34,211,238,0.12)]'
+    : ''
+)
 </script>

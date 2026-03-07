@@ -1,5 +1,5 @@
 <template>
-  <div class="of-node-output of-end-node-output">
+  <div class="of-node-output of-end-node-output rounded-xl transition-shadow" :class="haloClass">
     <!-- 节点标题 -->
     <div class="flex items-center gap-2 mb-3">
       <div class="flex items-center justify-center w-5 h-5 rounded bg-red-500 text-white shrink-0">
@@ -60,6 +60,11 @@ interface Props {
 const props = defineProps<Props>()
 
 const outputs = computed(() => props.tracing.outputs || {})
+const haloClass = computed(() =>
+  props.tracing.status === OFNodeRunningStatus.Running
+    ? 'ring-2 ring-red-400/70 shadow-[0_0_0_6px_rgba(248,113,113,0.12)]'
+    : ''
+)
 
 function getStatusClass(status: OFNodeRunningStatus): string {
   switch (status) {
