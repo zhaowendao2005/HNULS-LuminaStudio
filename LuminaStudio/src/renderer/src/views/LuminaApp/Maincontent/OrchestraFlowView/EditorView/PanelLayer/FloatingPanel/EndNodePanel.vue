@@ -156,106 +156,50 @@
     <!-- 内容区 -->
     <div class="flex-1 overflow-y-auto">
       <!-- 设置 Tab -->
-      <div v-if="activeTab === 'settings' && !debugMode" class="mt-2 px-4 pb-4 space-y-4">
-        <!-- 输出变量 -->
-        <div>
+      <div v-if="activeTab === 'settings' && !debugMode" class="space-y-5 px-4 py-4">
+        <section class="space-y-2">
           <div class="flex items-center justify-between">
-            <div class="flex items-center">
-              <div class="system-sm-semibold-uppercase text-gray-500">
-                输出变量
-                <span class="text-red-500">*</span>
-              </div>
+            <div class="system-sm-semibold-uppercase text-gray-700">
+              输出变量
+              <span class="text-red-500">*</span>
             </div>
-            <div class="flex">
-              <!-- 引用变量按钮 -->
-              <CapsuleTooltip text="引用变量" placement="bottom">
-                <div
-                  class="cursor-pointer select-none rounded-md p-1 hover:bg-gray-100"
-                  @click="openOutputVariableSelector"
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    fill="currentColor"
-                    class="h-4 w-4 text-gray-400"
-                  >
-                    <path
-                      d="M14.6 16.6L19.2 12L14.6 7.4L16 6L22 12L16 18L14.6 16.6ZM9.4 16.6L4.8 12L9.4 7.4L8 6L2 12L8 18L9.4 16.6Z"
-                    />
-                  </svg>
-                </div>
-              </CapsuleTooltip>
-              <!-- 添加按钮 -->
-              <div
-                class="cursor-pointer select-none rounded-md p-1 hover:bg-gray-100"
-                @click="addOutput"
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24"
-                  height="24"
-                  fill="currentColor"
-                  class="h-4 w-4 text-gray-400"
-                >
-                  <path d="M11 11V5H13V11H19V13H13V19H11V13H5V11H11Z" />
-                </svg>
+            <div class="flex items-center gap-2">
+              <div class="rounded-full border px-2 py-0.5 text-[10px] font-medium" :class="theme.softBadgeClass">
+                END
               </div>
+              <button class="text-xs font-semibold text-cyan-600 hover:text-cyan-700" @click="openOutputVariableSelector">
+                引用变量
+              </button>
             </div>
           </div>
 
-          <div class="mt-1 space-y-2">
+          <div v-if="localOutputs.length === 0" class="text-xs text-gray-400">
+            暂无输出变量，点击下方添加或引用变量。
+          </div>
+
+          <div v-else class="border-t border-gray-100">
             <div
               v-for="(output, index) in localOutputs"
               :key="index"
-              class="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-2 py-2 group"
+              class="group flex items-center justify-between gap-3 border-b border-gray-100 py-2"
             >
-              <!-- 变量图标 -->
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-3.5 w-3.5 text-emerald-500 shrink-0"
-              >
-                <path
-                  d="M13.9986 8.76189C14.6132 8.04115 15.5117 7.625 16.459 7.625H16.5486C17.1009 7.625 17.5486 8.07272 17.5486 8.625C17.5486 9.17728 17.1009 9.625 16.5486 9.625H16.459C16.0994 9.625 15.7564 9.78289 15.5205 10.0595L13.1804 12.8039L13.9213 15.4107C13.9372 15.4666 13.9859 15.5 14.0355 15.5H15.4296C15.9819 15.5 16.4296 15.9477 16.4296 16.5C16.4296 17.0523 15.9819 17.5 15.4296 17.5H14.0355C13.0858 17.5 12.2562 16.8674 11.9975 15.9575L11.621 14.6328L10.1457 16.3631C9.5311 17.0839 8.63257 17.5 7.68532 17.5H7.59564C7.04336 17.5 6.59564 17.0523 6.59564 16.5C6.59564 15.9477 7.04336 15.5 7.59564 15.5H7.68532C8.04487 15.5 8.38789 15.3421 8.62379 15.0655L10.964 12.3209L10.2231 9.71433C10.2072 9.65839 10.1586 9.625 10.1089 9.625H8.71484C8.16256 9.625 7.71484 9.17728 7.71484 8.625C7.71484 8.07272 8.16256 7.625 8.71484 7.625H10.1089C11.0586 7.625 11.8883 8.25756 12.1469 9.16754L12.5234 10.4921L13.9986 8.76189Z"
-                  fill="currentColor"
-                />
-                <path
-                  d="M5.429 3C3.61372 3 2.143 4.47071 2.143 6.286V10.4428L1.29289 11.2929C1.10536 11.4804 1 11.7348 1 12C1 12.2652 1.10536 12.5196 1.29289 12.7071L2.143 13.5572V17.714C2.143 19.5293 3.61372 21 5.429 21C5.98128 21 6.429 20.5523 6.429 20C6.429 19.4477 5.98128 19 5.429 19C4.71828 19 4.143 18.4247 4.143 17.714V13.143C4.143 12.8778 4.03764 12.6234 3.85011 12.4359L3.41421 12L3.85011 11.5641C4.03764 11.3766 4.143 11.1222 4.143 10.857V6.286C4.143 5.57528 4.71828 5 5.429 5C5.98128 5 6.429 4.55228 6.429 4C6.429 3.44772 5.98128 3 5.429 3Z"
-                  fill="currentColor"
-                />
-                <path
-                  d="M18.5708 3C18.0185 3 17.5708 3.44772 17.5708 4C17.5708 4.55228 18.0185 5 18.5708 5C19.2815 5 19.8568 5.57529 19.8568 6.286V10.857C19.8568 11.1222 19.9622 11.3766 20.1497 11.5641L20.5856 12L20.1497 12.4359C19.9622 12.6234 19.8568 12.8778 19.8568 13.143V17.714C19.8568 18.4244 19.2808 19 18.5708 19C18.0185 19 17.5708 19.4477 17.5708 20C17.5708 20.5523 18.0185 21 18.5708 21C20.3848 21 21.8568 19.5296 21.8568 17.714V13.5572L22.7069 12.7071C23.0974 12.3166 23.0974 11.6834 22.7069 11.2929L21.8568 10.4428V6.286C21.8568 4.47071 20.3861 3 18.5708 3Z"
-                  fill="currentColor"
-                />
-              </svg>
-
-              <!-- 变量名输入 -->
-              <div class="flex-1 min-w-0">
-                <input
-                  :value="output.variable"
-                  class="w-full text-sm text-gray-700 bg-transparent outline-none"
-                  placeholder="变量名"
-                  @input="updateOutputVariable(index, ($event.target as HTMLInputElement).value)"
-                />
-              </div>
-
-              <!-- 类型选择 -->
-              <div class="text-gray-400 shrink-0">:</div>
-              <div class="flex items-center gap-1 shrink-0">
-                <div class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                  {{ output.type || 'string' }}
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2 text-xs">
+                  <input
+                    :value="output.variable"
+                    class="min-w-0 bg-transparent font-semibold text-emerald-600 outline-none placeholder:text-gray-300"
+                    placeholder="变量名"
+                    @input="updateOutputVariable(index, ($event.target as HTMLInputElement).value)"
+                  />
+                  <span class="text-gray-400">{{ output.type || 'string' }}</span>
+                </div>
+                <div class="mt-1 text-xs text-gray-400">
+                  {{ output.value_selector?.join('.') || '未绑定变量路径' }}
                 </div>
               </div>
-
-              <!-- 删除按钮 -->
-              <div
-                class="cursor-pointer shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+              <button
+                type="button"
+                class="shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
                 @click="removeOutput(index)"
               >
                 <svg
@@ -270,10 +214,24 @@
                     d="M6 19C6 20.1 6.9 21 8 21H16C17.1 21 18 20.1 18 19V7H6V19ZM19 4H15.5L14.5 3H9.5L8.5 4H5V6H19V4Z"
                   />
                 </svg>
-              </div>
+              </button>
             </div>
           </div>
-        </div>
+
+          <button class="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:text-emerald-700" @click="addOutput">
+            <svg
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              fill="currentColor"
+              class="h-3.5 w-3.5"
+            >
+              <path d="M11 11V5H13V11H19V13H13V19H11V13H5V11H11Z" />
+            </svg>
+            <span>添加输出</span>
+          </button>
+        </section>
       </div>
 
       <div v-else-if="activeTab === 'settings' && debugMode" class="mt-2 px-4 pb-4">

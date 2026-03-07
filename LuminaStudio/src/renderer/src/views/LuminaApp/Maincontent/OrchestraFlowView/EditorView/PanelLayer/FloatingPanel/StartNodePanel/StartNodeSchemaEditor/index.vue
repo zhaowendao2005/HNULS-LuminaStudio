@@ -7,7 +7,7 @@
     max-width="1180px"
     @update:model-value="handleVisibleChange"
   >
-    <div class="relative flex h-[78vh] min-h-[680px] flex-col">
+    <div class="relative flex h-[800px] min-h-[800px] flex-col">
       <Transition name="start-schema-toast">
         <div
           v-if="toastMessage"
