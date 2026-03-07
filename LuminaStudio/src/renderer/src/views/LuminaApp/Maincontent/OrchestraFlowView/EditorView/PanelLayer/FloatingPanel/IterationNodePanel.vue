@@ -190,16 +190,7 @@
                 </svg>
               </CapsuleTooltip>
             </div>
-            <button
-              class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
-              :class="flattenOutputModel ? 'bg-[#435ce7]' : 'bg-[#d1d5db]'"
-              @click="flattenOutputModel = !flattenOutputModel"
-            >
-              <span
-                class="inline-block h-5 w-5 transform rounded-full bg-white transition-transform"
-                :class="flattenOutputModel ? 'translate-x-5' : 'translate-x-1'"
-              />
-            </button>
+            <ToggleSwitch v-model="flattenOutputModel" />
           </div>
         </section>
 
@@ -268,6 +259,7 @@ import NodeDebugLastRun from './NodeDebug/NodeDebugLastRun.vue'
 import CapsuleTooltip from './components/CapsuleTooltip.vue'
 import VariablePillButton from './components/VariablePillButton.vue'
 import { OF_PANEL_THEME } from './panel-theme'
+import ToggleSwitch from '../Components/ToggleSwitch/index.vue'
 
 const uiStore = useWorkflowEditorUIStore()
 const editorStore = useWorkflowEditorStore()

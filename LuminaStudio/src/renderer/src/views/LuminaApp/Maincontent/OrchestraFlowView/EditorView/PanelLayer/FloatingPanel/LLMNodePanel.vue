@@ -227,16 +227,7 @@
                 </div>
               </CapsuleTooltip>
               <div class="system-xs-medium-uppercase text-gray-500">结构化输出</div>
-              <button
-                class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
-                :class="structuredEnabled ? 'bg-[#635bff]' : 'bg-[#cbd5e1]'"
-                @click="toggleStructuredOutput"
-              >
-                <span
-                  class="inline-block h-5 w-5 transform rounded-full bg-white transition-transform"
-                  :class="structuredEnabled ? 'translate-x-5' : 'translate-x-1'"
-                />
-              </button>
+              <ToggleSwitch v-model="structuredEnabled" />
             </div>
           </div>
 
@@ -346,7 +337,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type {
   OFJsonSchemaObject,
   OFLLMNodeData,
@@ -373,6 +364,7 @@ import WhiteSelect, {
   type WhiteSelectOption
 } from '@renderer/views/LuminaApp/Maincontent/NormalChat/components/WhiteSelect.vue'
 import { OF_PANEL_THEME } from './panel-theme'
+import ToggleSwitch from '../Components/ToggleSwitch/index.vue'
 
 const uiStore = useWorkflowEditorUIStore()
 const editorStore = useWorkflowEditorStore()
@@ -455,7 +447,26 @@ const modelNameModel = computed({
 
 const promptItems = computed(() => nodeData.value?.prompt_template || [])
 const structuredSchema = computed(() => nodeData.value?.structured_output?.schema || null)
-const structuredEnabled = computed(() => Boolean(nodeData.value?.structured_output?.enabled))
+const structuredEnabled = ref(Boolean(nodeData.value?.structured_output?.enabled))
+
+watch(
+  () => nodeData.value?.structured_output?.enabled,
+  (newEnabled) => {
+    structuredEnabled.value = Boolean(newEnabled)
+  }
+)
+
+watch(structuredEnabled, (newValue) => {
+  if (!nodeData.value) return
+  syncStructuredOutput({
+    enabled: newValue,
+    schema: nodeData.value.structured_output?.schema || null
+  })
+  if (newValue && !nodeData.value.structured_output?.schema) {
+    openSchemaEditor()
+  }
+})
+
 const autoOutputs = computed(() => {
   if (!nodeData.value) return []
   return buildLLMOutputVariables(nodeData.value.title || 'llm', nodeData.value.structured_output)
@@ -600,28 +611,17 @@ function formatOutputNamespace(item: OFVariable) {
   return selector.join('.')
 }
 
-function toggleStructuredOutput() {
-  if (!nodeData.value) return
-  const nextEnabled = !structuredEnabled.value
-  syncStructuredOutput({
-    enabled: nextEnabled,
-    schema: nodeData.value.structured_output?.schema || null
-  })
-  if (nextEnabled && !nodeData.value.structured_output?.schema) {
-    openSchemaEditor()
-  }
-}
-
-function openSchemaEditor() {
-  if (!currentNode.value) return
-  objectSchemaEditorStore.open(currentNode.value.id, structuredSchema.value)
-}
-
 function handleSchemaSave(schema: OFJsonSchemaObject) {
   syncStructuredOutput({
     enabled: true,
     schema
   })
+  structuredEnabled.value = true
+}
+
+function openSchemaEditor() {
+  if (!currentNode.value) return
+  objectSchemaEditorStore.open(currentNode.value.id, structuredSchema.value)
 }
 
 function openPromptVariableSelector(promptId: string, event: MouseEvent) {
