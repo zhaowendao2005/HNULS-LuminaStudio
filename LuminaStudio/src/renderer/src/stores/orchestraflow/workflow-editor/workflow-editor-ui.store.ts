@@ -22,6 +22,7 @@ export enum PanelType {
   StartNode = 'start-node',
   LLMNode = 'llm-node',
   IterationNode = 'iteration-node',
+  LoopNode = 'loop-node',
   IfElseNode = 'ifelse-node',
   VariableAssignNode = 'variable-assign-node',
   EndNode = 'end-node'
@@ -149,6 +150,8 @@ export const useWorkflowEditorUIStore = defineStore('orchestraflow-workflow-edit
         return PanelType.LLMNode
       case OFBlockEnum.Iteration:
         return PanelType.IterationNode
+      case OFBlockEnum.Loop:
+        return PanelType.LoopNode
       case OFBlockEnum.IfElse:
         return PanelType.IfElseNode
       case OFBlockEnum.VariableAssign:

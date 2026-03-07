@@ -11,6 +11,9 @@ export type VariableSelectorTargetType =
   | 'iteration-input'
   | 'iteration-output'
   | 'variable-assign-source'
+  | 'loop-variable-init'
+  | 'loop-condition-left'
+  | 'loop-condition-right'
 
 export interface OFAvailableVariable {
   id: string

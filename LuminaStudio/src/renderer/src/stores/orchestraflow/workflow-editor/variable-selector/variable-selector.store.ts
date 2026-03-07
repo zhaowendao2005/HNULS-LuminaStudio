@@ -17,12 +17,19 @@ import type {
   OFIterationStartNodeData,
   OFJsonSchemaProperty,
   OFLLMNodeData,
+  OFLoopNodeData,
+  OFLoopStartNodeData,
   OFNode,
   OFStartNodeData,
   OFVariableAssignNodeData,
   OFVariable
 } from '@shared/Orchestraflow-types'
-import { OFBlockEnum, OFVarType } from '@shared/Orchestraflow-types'
+import {
+  OFBlockEnum,
+  OFVarType,
+  OF_LOOP_COUNT_VARIABLE_NAME,
+  OF_LOOP_INDEX_VARIABLE_NAME
+} from '@shared/Orchestraflow-types'
 
 const SYSTEM_VARIABLES: Array<{
   variable: string
@@ -77,6 +84,13 @@ function getSchemaNodeType(schema: OFJsonSchemaProperty): OFVarType {
   }
 }
 
+function toStructuredSchema(
+  schema: OFJsonSchemaProperty | null | undefined
+): OFAvailableVariable['schema'] {
+  if (!schema) return null
+  return schema.type === 'object' || schema.type === 'array' ? schema : null
+}
+
 function buildSchemaChildren(
   base: OFAvailableVariable,
   schema: OFJsonSchemaProperty | null | undefined,
@@ -98,7 +112,7 @@ function buildSchemaChildren(
         nodeTitle: base.nodeTitle,
         valueSelector: fieldSelector,
         type: getSchemaNodeType(fieldSchema),
-        schema: fieldSchema.type === 'string' || fieldSchema.type === 'number' || fieldSchema.type === 'boolean' ? null : fieldSchema,
+        schema: toStructuredSchema(fieldSchema),
         selectable: true,
         expandable: children.length > 0,
         children
@@ -121,7 +135,7 @@ function buildSchemaChildren(
         nodeTitle: base.nodeTitle,
         valueSelector: itemSelector,
         type: getSchemaNodeType(itemSchema),
-        schema: itemSchema.type === 'string' || itemSchema.type === 'number' || itemSchema.type === 'boolean' ? null : itemSchema,
+        schema: toStructuredSchema(itemSchema),
         selectable: true,
         expandable: children.length > 0,
         children
@@ -183,10 +197,14 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
 
     let variables: OFVariable[] = []
 
-    if (nodeType === OFBlockEnum.Start || nodeType === OFBlockEnum.IterationStart) {
+    if (
+      nodeType === OFBlockEnum.Start ||
+      nodeType === OFBlockEnum.IterationStart ||
+      nodeType === OFBlockEnum.LoopStart
+    ) {
       variables = (
         (
-          data as OFStartNodeData | OFIterationStartNodeData
+          data as OFStartNodeData | OFIterationStartNodeData | OFLoopStartNodeData
         ).input?.variables || []
       ).map((item) => ({
         ...item,
@@ -195,12 +213,18 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
     } else if (
       nodeType === OFBlockEnum.LLM ||
       nodeType === OFBlockEnum.Iteration ||
+      nodeType === OFBlockEnum.Loop ||
       nodeType === OFBlockEnum.VariableAssign ||
       nodeType === OFBlockEnum.End
     ) {
       variables = (
         ((
-          data as OFLLMNodeData | OFIterationNodeData | OFVariableAssignNodeData | OFEndNodeData
+          data as
+            | OFLLMNodeData
+            | OFIterationNodeData
+            | OFLoopNodeData
+            | OFVariableAssignNodeData
+            | OFEndNodeData
         ).output?.variables ||
           []) as OFVariable[]
       ).map((item) => ({
@@ -275,6 +299,68 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
     }
   }
 
+  function buildLoopLocalVariableGroup(loopNodeId: string | null): OFAvailableVariableGroup | null {
+    if (!loopNodeId) return null
+    const loopNode = editorStore.findNodeById(loopNodeId)
+    if (!loopNode || loopNode.data.type !== OFBlockEnum.Loop) return null
+
+    const data = loopNode.data as OFLoopNodeData
+    const items: OFAvailableVariable[] = (data.loop_variables || []).map((item) => ({
+      id: `loop:${loopNodeId}:${item.variable}`,
+      variable: item.variable,
+      path: item.variable,
+      label: item.label || item.variable,
+      nodeId: loopNodeId,
+      nodeType: OFBlockEnum.Loop,
+      nodeTitle: 'LOOP',
+      valueSelector: [item.variable],
+      type: item.type || OFVarType.String,
+      schema: item.schema || null,
+      selectable: true,
+      expandable: false,
+      children: []
+    }))
+
+    items.push(
+      {
+        id: `loop:${loopNodeId}:${OF_LOOP_INDEX_VARIABLE_NAME}`,
+        variable: OF_LOOP_INDEX_VARIABLE_NAME,
+        path: OF_LOOP_INDEX_VARIABLE_NAME,
+        label: OF_LOOP_INDEX_VARIABLE_NAME,
+        nodeId: loopNodeId,
+        nodeType: OFBlockEnum.Loop,
+        nodeTitle: 'LOOP',
+        valueSelector: [OF_LOOP_INDEX_VARIABLE_NAME],
+        type: OFVarType.Number,
+        selectable: true,
+        expandable: false,
+        children: []
+      },
+      {
+        id: `loop:${loopNodeId}:${OF_LOOP_COUNT_VARIABLE_NAME}`,
+        variable: OF_LOOP_COUNT_VARIABLE_NAME,
+        path: OF_LOOP_COUNT_VARIABLE_NAME,
+        label: OF_LOOP_COUNT_VARIABLE_NAME,
+        nodeId: loopNodeId,
+        nodeType: OFBlockEnum.Loop,
+        nodeTitle: 'LOOP',
+        valueSelector: [OF_LOOP_COUNT_VARIABLE_NAME],
+        type: OFVarType.Number,
+        selectable: true,
+        expandable: false,
+        children: []
+      }
+    )
+
+    return {
+      id: `group:loop:${loopNodeId}`,
+      title: 'LOOP',
+      nodeId: loopNodeId,
+      nodeType: OFBlockEnum.Loop,
+      items
+    }
+  }
+
   function findUpstreamNodes(nodeId: string, nodes: OFNode[], edges: OFEdge[]): OFNode[] {
     const upstreamIds = new Set<string>()
     const queue = [nodeId]
@@ -297,6 +383,15 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
   const availableGroups = computed<OFAvailableVariableGroup[]>(() => {
     if (!targetNodeId.value) return []
     const targetNode = editorStore.findNodeById(targetNodeId.value)
+    const activeLoopNodeId =
+      targetNode?.data.type === OFBlockEnum.Loop
+        ? targetNode.id
+        : editorStore.findParentIterationNodeId(targetNodeId.value)
+    const localLoopGroup =
+      targetType.value === 'loop-condition-left' ||
+      targetType.value === 'loop-condition-right'
+        ? buildLoopLocalVariableGroup(activeLoopNodeId)
+        : null
 
     if (targetType.value === 'iteration-output' && targetNode?.data.type === OFBlockEnum.Iteration) {
       const iterationData = targetNode.data as OFIterationNodeData
@@ -328,12 +423,14 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
         .flatMap((node) => extractNodeOutputs(node))
         .filter((group) => group.items.length > 0)
 
+      const groups = [...(localLoopGroup ? [localLoopGroup] : []), ...internalGroups]
+
       if (!searchKeyword.value.trim()) {
-        return internalGroups
+        return groups
       }
 
       const keyword = searchKeyword.value.trim().toLowerCase()
-      return internalGroups
+      return groups
         .map((group) => {
           const filteredItems = group.items
             .map((item) => filterVariable(item, keyword))
@@ -372,7 +469,7 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
       .flatMap((node) => extractNodeOutputs(node))
       .filter((group) => group.items.length > 0)
 
-    const groups = [...upstreamGroups, buildSystemVariableGroup()]
+    const groups = [...(localLoopGroup ? [localLoopGroup] : []), ...upstreamGroups, buildSystemVariableGroup()]
 
     if (!searchKeyword.value.trim()) {
       return groups

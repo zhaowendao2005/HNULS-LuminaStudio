@@ -272,6 +272,10 @@ function getNodeIcon(nodeType: string): string {
       return 'I'
     case OFBlockEnum.End:
       return 'E'
+    case OFBlockEnum.Loop:
+      return 'O'
+    case OFBlockEnum.LoopStart:
+      return 'S'
     default:
       return '?'
   }
@@ -292,6 +296,10 @@ function getNodeIconClass(nodeType: string): string {
       return 'bg-cyan-500'
     case OFBlockEnum.End:
       return 'bg-green-500'
+    case OFBlockEnum.Loop:
+      return 'bg-amber-500'
+    case OFBlockEnum.LoopStart:
+      return 'bg-amber-400'
     default:
       return 'bg-gray-500'
   }
@@ -312,6 +320,10 @@ function getNodeTitle(tracing: any): string {
       return '条件分支节点'
     case OFBlockEnum.End:
       return '结束节点'
+    case OFBlockEnum.Loop:
+      return '循环节点'
+    case OFBlockEnum.LoopStart:
+      return '循环开始节点'
     default:
       return tracing.nodeType
   }

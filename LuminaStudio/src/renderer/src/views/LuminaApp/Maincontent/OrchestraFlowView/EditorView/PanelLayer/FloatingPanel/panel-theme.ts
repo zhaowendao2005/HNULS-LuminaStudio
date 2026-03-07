@@ -6,7 +6,7 @@ export type OFPanelTheme = {
 }
 
 export const OF_PANEL_THEME: Record<
-  'start' | 'llm' | 'iteration' | 'ifelse' | 'variableAssign' | 'end',
+  'start' | 'llm' | 'iteration' | 'loop' | 'ifelse' | 'variableAssign' | 'end',
   OFPanelTheme
 > = {
   start: {
@@ -26,6 +26,12 @@ export const OF_PANEL_THEME: Record<
     tabActiveClass: 'border-cyan-500 text-gray-900',
     controlFocusClass: 'focus:border-cyan-400 hover:border-cyan-300',
     softBadgeClass: 'text-cyan-700 bg-cyan-50 border-cyan-200'
+  },
+  loop: {
+    iconBgClass: 'bg-amber-500',
+    tabActiveClass: 'border-amber-500 text-gray-900',
+    controlFocusClass: 'focus:border-amber-400 hover:border-amber-300',
+    softBadgeClass: 'text-amber-700 bg-amber-50 border-amber-200'
   },
   ifelse: {
     iconBgClass: 'bg-cyan-500',

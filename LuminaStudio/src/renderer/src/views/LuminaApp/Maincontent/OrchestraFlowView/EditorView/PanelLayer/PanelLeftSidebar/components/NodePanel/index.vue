@@ -112,6 +112,20 @@
             class="flex cursor-pointer items-center gap-2 rounded px-2 py-2 text-sm text-gray-700 hover:bg-gray-50"
             @click="handleAddNode(OFBlockEnum.IfElse)"
           >
+            <div
+              class="mb-1 flex cursor-pointer items-center gap-2 rounded px-2 py-2 text-sm text-gray-700 hover:bg-amber-50"
+              @click.stop="handleAddNode(OFBlockEnum.Loop)"
+            >
+              <div class="flex h-5 w-5 items-center justify-center rounded bg-amber-100">
+                <svg class="h-3 w-3 text-amber-600" viewBox="0 0 24 24" fill="currentColor">
+                  <path
+                    d="M12 3a9 9 0 1 0 8.485 12H18l3.5 3.5L25 15h-2.54A11 11 0 1 1 12 1v2Zm-1 4h2v6h-2V7Zm0 8h2v2h-2v-2Z"
+                    transform="translate(-1)"
+                  />
+                </svg>
+              </div>
+              循环
+            </div>
             <div class="flex h-5 w-5 items-center justify-center rounded bg-cyan-100">
               <svg class="h-3 w-3 text-cyan-600" viewBox="0 0 24 24" fill="currentColor">
                 <path

@@ -36,7 +36,10 @@ export function evaluateCondition(
   condition: OFIfElseCondition
 ): boolean {
   const actual = variableStore.getBySelector(condition.variable_selector || [])
-  const expected = condition.value
+  const expected =
+    condition.compare_source_mode === 'variable'
+      ? variableStore.getBySelector(condition.compare_selector || [])
+      : condition.value
 
   switch (condition.operator) {
     case 'contains':
@@ -65,6 +68,16 @@ export function evaluateCondition(
       return Number(actual) < Number(expected)
     case 'lte':
       return Number(actual) <= Number(expected)
+    case 'length_is':
+      return getArrayLength(actual) === Number(expected)
+    case 'length_gt':
+      return getArrayLength(actual) > Number(expected)
+    case 'length_gte':
+      return getArrayLength(actual) >= Number(expected)
+    case 'length_lt':
+      return getArrayLength(actual) < Number(expected)
+    case 'length_lte':
+      return getArrayLength(actual) <= Number(expected)
     default:
       return false
   }
@@ -86,4 +99,8 @@ function isEmptyValue(value: unknown): boolean {
   if (Array.isArray(value)) return value.length === 0
   if (typeof value === 'object') return Object.keys(value as Record<string, unknown>).length === 0
   return false
+}
+
+function getArrayLength(value: unknown): number {
+  return Array.isArray(value) ? value.length : 0
 }

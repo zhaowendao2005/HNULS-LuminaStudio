@@ -43,6 +43,7 @@
         <StartNodePanel v-if="uiStore.currentPanelType === 'start-node'" />
         <LLMNodePanel v-else-if="uiStore.currentPanelType === 'llm-node'" />
         <IterationNodePanel v-else-if="uiStore.currentPanelType === 'iteration-node'" />
+        <LoopNodePanel v-else-if="uiStore.currentPanelType === 'loop-node'" />
         <IfElseNodePanel v-else-if="uiStore.currentPanelType === 'ifelse-node'" />
         <VariableAssignNodePanel v-else-if="uiStore.currentPanelType === 'variable-assign-node'" />
         <EndNodePanel v-else-if="uiStore.currentPanelType === 'end-node'" />
@@ -74,6 +75,7 @@ import SystemVariablesPanel from './FloatingPanel/SystemVariablesPanel.vue'
 import StartNodePanel from './FloatingPanel/StartNodePanel/index.vue'
 import LLMNodePanel from './FloatingPanel/LLMNodePanel.vue'
 import IterationNodePanel from './FloatingPanel/IterationNodePanel.vue'
+import LoopNodePanel from './FloatingPanel/LoopNodePanel/index.vue'
 import IfElseNodePanel from './FloatingPanel/IfElseNodePanel.vue'
 import VariableAssignNodePanel from './FloatingPanel/VariableAssignNodePanel.vue'
 import EndNodePanel from './FloatingPanel/EndNodePanel.vue'
@@ -110,6 +112,8 @@ const panelTitle = computed(() => {
       return '变量赋值'
     case PanelType.EndNode:
       return '结束'
+    case PanelType.LoopNode:
+      return '循环'
     default:
       return ''
   }
@@ -130,6 +134,8 @@ const panelDescription = computed(() => {
       return '对变量做赋值、类型转换和新变量生成'
     case PanelType.EndNode:
       return '工作流结束节点，用于输出结果'
+    case PanelType.LoopNode:
+      return '循环容器节点，用于管理循环变量、终止条件与循环体子图'
     default:
       return ''
   }

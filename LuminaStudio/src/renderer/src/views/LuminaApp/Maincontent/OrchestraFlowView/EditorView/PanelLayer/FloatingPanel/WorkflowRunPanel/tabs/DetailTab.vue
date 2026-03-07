@@ -312,6 +312,10 @@ function getNodeTitle(tracing: any): string {
       return '变量赋值'
     case OFBlockEnum.End:
       return '结束'
+    case OFBlockEnum.Loop:
+      return '循环'
+    case OFBlockEnum.LoopStart:
+      return '循环开始'
     default:
       return tracing.nodeType
   }

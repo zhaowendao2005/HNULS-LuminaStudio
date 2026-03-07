@@ -1,6 +1,9 @@
 import { randomUUID } from 'crypto'
 import { BaseNode } from './base-node'
 import {
+  OF_LOOP_COUNT_VARIABLE_NAME,
+  OF_LOOP_RESULT_VARIABLE_NAME,
+  OF_LOOP_INDEX_VARIABLE_NAME,
   normalizeOFVariableNamespace,
   OFBlockEnum,
   type OFIfElseCondition,
@@ -122,10 +125,10 @@ export class LoopNode extends BaseNode {
     index: number,
     loopCount: number
   ): void {
-    store.set(`${normalizedTitle}.index`, index)
-    store.set(`${normalizedTitle}.loop_count`, loopCount)
-    store.set(`${loopNodeId}.index`, index)
-    store.set(`${loopNodeId}.loop_count`, loopCount)
+    store.set(`${normalizedTitle}.${OF_LOOP_INDEX_VARIABLE_NAME}`, index)
+    store.set(`${normalizedTitle}.${OF_LOOP_COUNT_VARIABLE_NAME}`, loopCount)
+    store.set(`${loopNodeId}.${OF_LOOP_INDEX_VARIABLE_NAME}`, index)
+    store.set(`${loopNodeId}.${OF_LOOP_COUNT_VARIABLE_NAME}`, loopCount)
   }
 
   private shouldBreak(
@@ -181,7 +184,7 @@ export class LoopNode extends BaseNode {
     }
 
     return {
-      result,
+      [OF_LOOP_RESULT_VARIABLE_NAME]: result,
       ...result
     }
   }
@@ -191,9 +194,9 @@ export class LoopNode extends BaseNode {
     normalizedTitle: string,
     loopNodeId: string
   ): void {
-    const result = outputs.result || {}
-    this.setOutput(`${normalizedTitle}.result`, result)
-    this.setOutput(`${loopNodeId}.result`, result)
+    const result = outputs[OF_LOOP_RESULT_VARIABLE_NAME] || {}
+    this.setOutput(`${normalizedTitle}.${OF_LOOP_RESULT_VARIABLE_NAME}`, result)
+    this.setOutput(`${loopNodeId}.${OF_LOOP_RESULT_VARIABLE_NAME}`, result)
 
     Object.entries(result).forEach(([key, value]) => {
       this.setOutput(`${normalizedTitle}.${key}`, value)

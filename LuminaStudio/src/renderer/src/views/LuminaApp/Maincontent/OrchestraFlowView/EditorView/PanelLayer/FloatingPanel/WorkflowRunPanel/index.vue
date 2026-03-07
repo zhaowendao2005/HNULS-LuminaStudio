@@ -162,6 +162,7 @@ import FloatingPanel from '../index.vue'
 import StartNodeOutput from './nodes/StartNodeOutput.vue'
 import LLMNodeOutput from './nodes/LLMNodeOutput.vue'
 import IterationNodeOutput from './nodes/IterationNodeOutput.vue'
+import LoopNodeOutput from './nodes/LoopNodeOutput.vue'
 import IfElseNodeOutput from './nodes/IfElseNodeOutput.vue'
 import VariableAssignNodeOutput from './nodes/VariableAssignNodeOutput.vue'
 import EndNodeOutput from './nodes/EndNodeOutput.vue'
@@ -274,16 +275,20 @@ const traceSections = computed<TraceSection[]>(() => {
   const grouped = new Map<string, TraceSection & { kind: 'iteration-round' }>()
 
   for (const tracing of runStore.tracingList) {
-    const inIterationId = tracing.execution_metadata?.in_iteration_id
-    const iterationIndex = tracing.execution_metadata?.iteration_index
+      const inIterationId = tracing.execution_metadata?.in_iteration_id
+      const iterationIndex = tracing.execution_metadata?.iteration_index
+      const inLoopId = tracing.execution_metadata?.in_loop_id
+      const loopIndex = tracing.execution_metadata?.loop_index
 
-    if (!inIterationId || iterationIndex === undefined) {
-      sections.push({ kind: 'trace', key: getTraceKey(tracing), tracing })
-      continue
-    }
+      if ((!inIterationId || iterationIndex === undefined) && (!inLoopId || loopIndex === undefined)) {
+        sections.push({ kind: 'trace', key: getTraceKey(tracing), tracing })
+        continue
+      }
 
-    const key = `${inIterationId}::${iterationIndex}::${tracing.execution_metadata?.parallel_run_id || 'serial'}`
-    const existing = grouped.get(key)
+      const scopeId = inIterationId || inLoopId
+      const scopeIndex = iterationIndex ?? loopIndex ?? 0
+      const key = `${scopeId}::${scopeIndex}::${tracing.execution_metadata?.parallel_run_id || 'serial'}`
+      const existing = grouped.get(key)
 
     if (existing) {
       existing.traces.push(tracing)
@@ -291,12 +296,12 @@ const traceSections = computed<TraceSection[]>(() => {
     }
 
     const nextSection: TraceSection & { kind: 'iteration-round' } = {
-      kind: 'iteration-round',
-      key,
-      iterationIndex,
-      parallelRunId: tracing.execution_metadata?.parallel_run_id,
-      scopeLabel: (tracing.scope_path || tracing.execution_metadata?.scope_path || []).join(' / ') || 'root',
-      traces: [tracing]
+        kind: 'iteration-round',
+        key,
+        iterationIndex: scopeIndex,
+        parallelRunId: tracing.execution_metadata?.parallel_run_id,
+        scopeLabel: (tracing.scope_path || tracing.execution_metadata?.scope_path || []).join(' / ') || 'root',
+        traces: [tracing]
     }
     grouped.set(key, nextSection)
     sections.push(nextSection)
@@ -332,6 +337,10 @@ function getTraceComponent(nodeType: OFBlockEnum) {
       return LLMNodeOutput
     case OFBlockEnum.Iteration:
       return IterationNodeOutput
+    case OFBlockEnum.Loop:
+      return LoopNodeOutput
+    case OFBlockEnum.LoopStart:
+      return StartNodeOutput
     case OFBlockEnum.IfElse:
       return IfElseNodeOutput
     case OFBlockEnum.VariableAssign:

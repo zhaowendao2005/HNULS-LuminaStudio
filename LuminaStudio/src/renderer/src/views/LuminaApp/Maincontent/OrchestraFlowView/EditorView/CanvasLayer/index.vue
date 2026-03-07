@@ -24,11 +24,17 @@
       <template #node-iteration-start="props">
         <IterationStartNode v-bind="props" />
       </template>
+      <template #node-loop-start="props">
+        <LoopStartNode v-bind="props" />
+      </template>
       <template #node-llm="props">
         <LLMNode v-bind="props" />
       </template>
       <template #node-iteration="props">
         <IterationNode v-bind="props" />
+      </template>
+      <template #node-loop="props">
+        <LoopNode v-bind="props" />
       </template>
       <template #node-ifelse="props">
         <IfElseNode v-bind="props" />
@@ -70,8 +76,10 @@ import { useModelConfigStore } from '@renderer/stores/model-config/store'
 // 导入自定义节点组件
 import StartNode from './Nodes/StartNode/index.vue'
 import IterationStartNode from './Nodes/IterationStartNode/index.vue'
+import LoopStartNode from './Nodes/LoopStartNode/index.vue'
 import LLMNode from './Nodes/LLMNode/index.vue'
 import IterationNode from './Nodes/IterationNode/index.vue'
+import LoopNode from './Nodes/LoopNode/index.vue'
 import IfElseNode from './Nodes/IfElseNode/index.vue'
 import VariableAssignNode from './Nodes/VariableAssignNode/index.vue'
 import EndNode from './Nodes/EndNode/index.vue'
@@ -101,9 +109,15 @@ function getPanelType(nodeType: string): PanelType | null {
     case 'iteration-start':
     case OFBlockEnum.IterationStart:
       return null
+    case 'loop-start':
+    case OFBlockEnum.LoopStart:
+      return null
     case 'iteration':
     case OFBlockEnum.Iteration:
       return PanelType.IterationNode
+    case 'loop':
+    case OFBlockEnum.Loop:
+      return PanelType.LoopNode
     case 'ifelse':
     case OFBlockEnum.IfElse:
       return PanelType.IfElseNode
@@ -140,8 +154,13 @@ function handleNodeClick(event: { node: Node }) {
       break
     case 'iteration-start':
       return
+    case 'loop-start':
+      return
     case 'iteration':
       ofBlockEnum = OFBlockEnum.Iteration
+      break
+    case 'loop':
+      ofBlockEnum = OFBlockEnum.Loop
       break
     case 'ifelse':
       ofBlockEnum = OFBlockEnum.IfElse
@@ -203,12 +222,13 @@ function handleNodeDragStop(event: { node: Node }) {
   }
 
   const hasEdges = store.edges.some((edge) => edge.source === node.id || edge.target === node.id)
-  if (!hasEdges && node.type !== 'iteration') {
+  if (!hasEdges && node.type !== 'iteration' && node.type !== 'loop') {
     const dropTarget = store.nodes.find((candidate) => {
       if (
         candidate.id === node.id ||
         candidate.parentNode ||
-        candidate.data.type !== OFBlockEnum.Iteration
+          candidate.data.type !== OFBlockEnum.Iteration &&
+          candidate.data.type !== OFBlockEnum.Loop
       ) {
         return false
       }

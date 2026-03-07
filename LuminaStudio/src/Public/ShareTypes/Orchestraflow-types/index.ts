@@ -116,6 +116,9 @@ export const OF_ITERATION_ITEM_VARIABLE_NAME = 'item'
 export const OF_ITERATION_INDEX_VARIABLE_NAME = 'index'
 export const OF_ITERATION_LENGTH_VARIABLE_NAME = 'length'
 export const OF_ITERATION_RESULT_VARIABLE_NAME = 'result'
+export const OF_LOOP_INDEX_VARIABLE_NAME = 'index'
+export const OF_LOOP_COUNT_VARIABLE_NAME = 'loop_count'
+export const OF_LOOP_RESULT_VARIABLE_NAME = 'result'
 export const OF_VARIABLE_ASSIGN_NODE_NAME = 'assign'
 
 export function normalizeOFVariableNamespace(
@@ -214,6 +217,75 @@ export function buildIterationOutputVariables(
   ]
 }
 
+function resolveLoopNamespace(namespace: string, fallbackNodeId?: string): string {
+  return normalizeOFVariableNamespace(namespace, fallbackNodeId || 'loop')
+}
+
+export function buildLoopInnerStartVariables(
+  namespace: string,
+  loopVariables: OFLoopVariableData[],
+  fallbackNodeId?: string
+): OFVariable[] {
+  const resolvedNamespace = resolveLoopNamespace(namespace, fallbackNodeId)
+
+  return [
+    ...loopVariables.map((item) => ({
+      variable: item.variable,
+      label: item.label || item.variable,
+      type: item.type,
+      item_type: item.item_type,
+      description: item.description,
+      required: item.required,
+      value_selector: [item.variable],
+      schema: item.schema || null,
+      item_schema: item.item_schema || null
+    })),
+    {
+      variable: OF_LOOP_INDEX_VARIABLE_NAME,
+      label: OF_LOOP_INDEX_VARIABLE_NAME,
+      type: OFVarType.Number,
+      required: true,
+      value_selector: [`${resolvedNamespace}.${OF_LOOP_INDEX_VARIABLE_NAME}`]
+    },
+    {
+      variable: OF_LOOP_COUNT_VARIABLE_NAME,
+      label: OF_LOOP_COUNT_VARIABLE_NAME,
+      type: OFVarType.Number,
+      required: true,
+      value_selector: [`${resolvedNamespace}.${OF_LOOP_COUNT_VARIABLE_NAME}`]
+    }
+  ]
+}
+
+export function buildLoopOutputVariables(
+  namespace: string,
+  loopVariables: OFLoopVariableData[],
+  fallbackNodeId?: string
+): OFVariable[] {
+  const resolvedNamespace = resolveLoopNamespace(namespace, fallbackNodeId)
+
+  return [
+    {
+      variable: OF_LOOP_RESULT_VARIABLE_NAME,
+      label: OF_LOOP_RESULT_VARIABLE_NAME,
+      type: OFVarType.Object,
+      required: true,
+      value_selector: [`${resolvedNamespace}.${OF_LOOP_RESULT_VARIABLE_NAME}`]
+    },
+    ...loopVariables.map((item) => ({
+      variable: item.variable,
+      label: item.label || item.variable,
+      type: item.type,
+      item_type: item.item_type,
+      description: item.description,
+      required: item.required,
+      value_selector: [`${resolvedNamespace}.${item.variable}`],
+      schema: item.schema || null,
+      item_schema: item.item_schema || null
+    }))
+  ]
+}
+
 // ===== 条件分支 =====
 export type OFVariableAssignSourceMode = 'variable' | 'constant'
 
@@ -279,8 +351,14 @@ export type OFIfElseConditionOperator =
   | 'gte'
   | 'lt'
   | 'lte'
+  | 'length_is'
+  | 'length_gt'
+  | 'length_gte'
+  | 'length_lt'
+  | 'length_lte'
 
 export type OFIfElseLogicalOperator = 'and' | 'or'
+export type OFIfElseCompareSourceMode = 'constant' | 'variable'
 
 export interface OFIfElseCondition {
   id: string
@@ -291,6 +369,11 @@ export interface OFIfElseCondition {
   operator: OFIfElseConditionOperator
   value?: string | number | boolean | null
   value_type?: OFVarType.String | OFVarType.Number | OFVarType.Boolean
+  compare_source_mode?: OFIfElseCompareSourceMode
+  compare_selector?: string[]
+  compare_path?: string
+  compare_label?: string
+  compare_type?: OFVarType
   logical_operator?: OFIfElseLogicalOperator
 }
 
@@ -484,6 +567,7 @@ export type OFIterationStartNodeData = OFCommonNodeType & {
 }
 
 export interface OFLoopVariableData {
+  id?: string
   variable: string
   label?: string
   type?: OFVarType
@@ -504,11 +588,13 @@ export type OFLoopNodeData = OFCommonNodeType & {
   break_conditions?: OFIfElseCondition[]
   logical_operator?: OFIfElseLogicalOperator
   start_node_id: string
-  subgraph: OFWorkflowGraph
+  subgraph: OFSubWorkflowGraph
+  output: OFNodeOutput
 }
 
 export type OFLoopStartNodeData = OFCommonNodeType & {
   type: OFBlockEnum.LoopStart
+  input?: OFNodeInput
 }
 
 // ===== End 节点数据 =====
@@ -714,13 +800,15 @@ export interface OFLoopNodeConfig {
   break_conditions?: OFIfElseCondition[]
   logical_operator?: OFIfElseLogicalOperator
   start_node_id: string
-  subgraph: OFWorkflowGraph
+  subgraph: OFSubWorkflowGraph
+  output: OFNodeOutput
 }
 
 export interface OFLoopStartNodeConfig {
   nodeId: string
   title: string
   desc: string
+  input?: OFNodeInput
 }
 
 export interface OFVariableAssignNodeConfig {
