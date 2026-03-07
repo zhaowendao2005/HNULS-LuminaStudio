@@ -22,7 +22,7 @@
         </div>
 
         <input
-          v-model="localTitle"
+          v-model="titleModel"
           class="system-xl-semibold h-7 min-w-0 flex-1 appearance-none rounded-md border border-transparent bg-transparent px-1 text-gray-900 outline-none focus:shadow-xs"
           placeholder="添加标题..."
         />
@@ -67,7 +67,7 @@
 
       <div class="mt-2">
         <textarea
-          v-model="localDesc"
+          v-model="descModel"
           class="w-full resize-none appearance-none bg-transparent text-xs leading-[18px] text-gray-600 outline-none placeholder:text-gray-400"
           placeholder="添加描述..."
           :style="{ height: '18px' }"
@@ -101,7 +101,7 @@
         <section class="space-y-2">
           <div class="flex items-center justify-between">
             <div class="system-sm-semibold-uppercase text-gray-700">
-              输入
+              输入数组
               <span class="text-red-500">*</span>
             </div>
             <div class="rounded-full border px-2 py-0.5 text-[10px] font-medium" :class="theme.softBadgeClass">
@@ -109,8 +109,8 @@
             </div>
           </div>
           <VariablePillButton
-            :text="inputDisplayText"
-            placeholder="设置变量值"
+            :text="iteratorSelectorDisplayText"
+            placeholder="选择数组变量"
             button-class="!h-12 !rounded-xl !border-[#e5e7eb] !bg-[#f3f4f6] !px-3 !text-gray-500 hover:!border-cyan-200 hover:!bg-white"
             @click="openInputVariableSelector"
           >
@@ -123,16 +123,16 @@
         <section class="space-y-2 border-t border-gray-100 pt-4">
           <div class="flex items-center justify-between">
             <div class="system-sm-semibold-uppercase text-gray-700">
-              输出变量
+              子图输出选择器
               <span class="text-red-500">*</span>
             </div>
             <div class="rounded-full border px-2 py-0.5 text-[10px] font-medium" :class="theme.softBadgeClass">
-              ARRAY
+              SELECTOR
             </div>
           </div>
           <VariablePillButton
-            :text="outputVariableDisplayText"
-            placeholder="设置变量值"
+            :text="outputSelectorDisplayText"
+            placeholder="选择子图输出"
             button-class="!h-12 !rounded-xl !border-[#e5e7eb] !bg-[#f3f4f6] !px-3 !text-gray-500 hover:!border-cyan-200 hover:!bg-white"
             @click="openOutputVariableSelector"
           >
@@ -145,8 +145,8 @@
         <section class="space-y-4 border-t border-gray-100 pt-4">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-1">
-              <div class="system-sm-semibold-uppercase text-gray-700">并行模式</div>
-              <CapsuleTooltip text="开启后可并行处理每一轮输入。" placement="top">
+              <div class="system-sm-semibold-uppercase text-gray-700">并行执行</div>
+              <CapsuleTooltip text="开启后将按并发数并行处理每一轮输入。" placement="top">
                 <svg viewBox="0 0 24 24" class="h-4 w-4 text-gray-300" fill="currentColor">
                   <path
                     d="M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2 22 6.477 22 12 17.523 22 12 22ZM11 10V17H13V10H11ZM11 7V9H13V7H11Z"
@@ -166,23 +166,41 @@
             </button>
           </div>
 
+          <div v-if="parallelModeModel" class="space-y-2">
+            <div class="system-sm-semibold-uppercase text-gray-700">并发数</div>
+            <input
+              v-model.number="parallelNumsModel"
+              type="number"
+              min="1"
+              max="10"
+              class="h-11 w-full rounded-xl border border-[#e5e7eb] bg-[#f3f4f6] px-3 text-sm text-gray-800 outline-none focus:border-cyan-300 focus:bg-white"
+            />
+          </div>
+
           <div class="space-y-2">
-            <div class="system-sm-semibold-uppercase text-gray-700">错误响应方法</div>
-            <button
-              class="flex h-12 w-full items-center justify-between rounded-xl border border-[#e5e7eb] bg-[#f3f4f6] px-4 text-left text-sm text-gray-800 transition hover:border-cyan-200 hover:bg-white"
-              @click="toggleErrorResponseMode"
-            >
-              <span>{{ errorResponseLabel }}</span>
-              <svg viewBox="0 0 24 24" class="h-4 w-4 text-gray-500" fill="currentColor">
-                <path d="M12 16L6 10H18L12 16Z" />
-              </svg>
-            </button>
+            <div class="system-sm-semibold-uppercase text-gray-700">错误策略</div>
+            <div class="grid grid-cols-1 gap-2">
+              <button
+                v-for="option in errorHandleOptions"
+                :key="option.value"
+                class="flex items-center justify-between rounded-xl border px-3 py-2 text-left text-sm transition"
+                :class="
+                  errorHandleModeModel === option.value
+                    ? 'border-cyan-300 bg-cyan-50 text-cyan-700'
+                    : 'border-[#e5e7eb] bg-[#f3f4f6] text-gray-700 hover:border-cyan-200 hover:bg-white'
+                "
+                @click="errorHandleModeModel = option.value"
+              >
+                <span>{{ option.label }}</span>
+                <span class="text-xs text-gray-400">{{ option.value }}</span>
+              </button>
+            </div>
           </div>
 
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-1">
               <div class="system-sm-semibold-uppercase text-gray-700">扁平化输出</div>
-              <CapsuleTooltip text="开启后将内部结果收敛为扁平化数组输出。" placement="top">
+              <CapsuleTooltip text="开启后会对每轮结果数组做一层扁平化。" placement="top">
                 <svg viewBox="0 0 24 24" class="h-4 w-4 text-gray-300" fill="currentColor">
                   <path
                     d="M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2 22 6.477 22 12 17.523 22 12 22ZM11 10V17H13V10H11ZM11 7V9H13V7H11Z"
@@ -210,9 +228,9 @@
                 </CapsuleTooltip>
                 <div class="shrink-0 text-[12px] text-gray-500">{{ item.type || 'string' }}</div>
               </div>
-              <CapsuleTooltip :text="formatOutputNamespace(item)" placement="top" max-width="420px">
+              <CapsuleTooltip :text="formatSelector(item.value_selector)" placement="top" max-width="420px">
                 <div class="max-w-[280px] truncate text-xs text-gray-400">
-                  {{ formatOutputNamespace(item) }}
+                  {{ formatSelector(item.value_selector) }}
                 </div>
               </CapsuleTooltip>
             </div>
@@ -243,11 +261,9 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type {
-  OFIterationErrorResponseMode,
-  OFIterationNodeData,
-  OFVariable
+  OFIterationErrorHandleMode,
+  OFIterationNodeData
 } from '@shared/Orchestraflow-types'
-import { OFVarType as OFVarTypeEnum } from '@shared/Orchestraflow-types'
 import { useWorkflowEditorUIStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor-ui.store'
 import { useWorkflowEditorStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor.store'
 import { useVariableSelectorStore } from '@renderer/stores/orchestraflow/workflow-editor/variable-selector/variable-selector.store'
@@ -270,8 +286,12 @@ const theme = OF_PANEL_THEME.iteration
 
 const activeTab = ref<'settings' | 'lastRun'>('settings')
 const debugMode = ref(false)
-const localTitle = ref('')
-const localDesc = ref('')
+
+const errorHandleOptions: Array<{ value: OFIterationErrorHandleMode; label: string }> = [
+  { value: 'terminated', label: '错误时终止' },
+  { value: 'continue-on-error', label: '错误时继续' },
+  { value: 'remove-abnormal-output', label: '移除异常输出' }
+]
 
 const currentNode = computed(() => {
   if (!uiStore.selectedNodeId) return null
@@ -280,40 +300,56 @@ const currentNode = computed(() => {
 
 const nodeData = computed(() => currentNode.value?.data as OFIterationNodeData | undefined)
 
-const inputVariable = computed(() => nodeData.value?.input?.variables?.[0] || null)
-const outputVariable = computed(() => nodeData.value?.outputVariable || null)
+const titleModel = computed({
+  get: () => nodeData.value?.title || '迭代',
+  set: (value: string) => patchNode({ title: value })
+})
+
+const descModel = computed({
+  get: () => nodeData.value?.desc || '',
+  set: (value: string) => patchNode({ desc: value })
+})
+
+const iteratorSelectorDisplayText = computed(() => formatSelector(nodeData.value?.iterator_selector))
+const outputSelectorDisplayText = computed(() => formatSelector(nodeData.value?.output_selector))
 const outputPreviewVariables = computed(() => nodeData.value?.output?.variables || [])
+const outputNamespaceLabel = computed(() => nodeData.value?.title || 'iteration')
 
 const parallelModeModel = computed({
-  get: () => Boolean(nodeData.value?.parallelMode),
-  set: (value: boolean) => patchNode({ parallelMode: value })
+  get: () => nodeData.value?.parallel_mode === 'parallel',
+  set: (value: boolean) => patchNode({ parallel_mode: value ? 'parallel' : 'sequential' })
+})
+
+const parallelNumsModel = computed({
+  get: () => Math.max(1, Number(nodeData.value?.parallel_nums || 1)),
+  set: (value: number) => patchNode({ parallel_nums: Math.max(1, Math.min(10, Number(value || 1))) })
 })
 
 const flattenOutputModel = computed({
-  get: () => Boolean(nodeData.value?.flattenOutput ?? true),
-  set: (value: boolean) => patchNode({ flattenOutput: value })
+  get: () => Boolean(nodeData.value?.flatten_output ?? true),
+  set: (value: boolean) => patchNode({ flatten_output: value })
 })
 
-const errorResponseModeModel = computed<OFIterationErrorResponseMode>({
-  get: () => nodeData.value?.errorResponseMode || 'terminate',
-  set: (value) => patchNode({ errorResponseMode: value })
+const errorHandleModeModel = computed<OFIterationErrorHandleMode>({
+  get: () => nodeData.value?.error_handle_mode || 'terminated',
+  set: (value) => patchNode({ error_handle_mode: value })
 })
-
-const inputDisplayText = computed(() => formatVariableDisplay(inputVariable.value))
-const outputVariableDisplayText = computed(() => formatVariableDisplay(outputVariable.value))
-const outputNamespaceLabel = computed(() => localTitle.value || nodeData.value?.title || 'iteration')
 
 const debugFields = computed<NodeDebugField[]>(() => {
-  const baseFields: NodeDebugField[] = []
-  if (inputVariable.value) {
-    baseFields.push({
-      key: inputVariable.value.value_selector?.join('.') || inputVariable.value.variable,
-      label: inputVariable.value.label || inputVariable.value.variable,
-      required: Boolean(inputVariable.value.required),
-      placeholder: `请输入 ${inputVariable.value.label || inputVariable.value.variable}`
-    })
+  const selector = nodeData.value?.iterator_selector || []
+  if (!selector.length) {
+    return []
   }
-  return baseFields
+
+  const path = selector.join('.')
+  return [
+    {
+      key: path,
+      label: path,
+      required: true,
+      placeholder: `请输入 ${path}`
+    }
+  ]
 })
 
 const debugFormValues = computed(() => {
@@ -325,10 +361,6 @@ const nodeDebugResult = computed(() => {
   const nodeId = uiStore.selectedNodeId
   return nodeId ? nodeDebugStore.getLastRun(nodeId) : undefined
 })
-
-const errorResponseLabel = computed(() =>
-  errorResponseModeModel.value === 'terminate' ? '错误时终止' : '错误时继续'
-)
 
 function setActiveTab(tab: 'settings' | 'lastRun') {
   activeTab.value = tab
@@ -350,20 +382,6 @@ function patchNode(patch: Partial<OFIterationNodeData>) {
   if (!currentNode.value) return
   configStore.patchConfig(patch as any)
   editorStore.updateNode(currentNode.value.id, patch)
-}
-
-function updateInputVariable(variable: OFVariable | null) {
-  patchNode({
-    input: {
-      variables: variable ? [variable] : []
-    }
-  } as Partial<OFIterationNodeData>)
-}
-
-function updateOutputVariable(variable: OFVariable | null) {
-  patchNode({
-    outputVariable: variable
-  } as Partial<OFIterationNodeData>)
 }
 
 function openInputVariableSelector(event: MouseEvent) {
@@ -390,31 +408,8 @@ function openOutputVariableSelector(event: MouseEvent) {
   )
 }
 
-function toggleErrorResponseMode() {
-  errorResponseModeModel.value =
-    errorResponseModeModel.value === 'terminate' ? 'continue' : 'terminate'
-}
-
-function formatVariableDisplay(variable: OFVariable | null) {
-  if (!variable) return ''
-  const selector = variable.value_selector || []
-  if (selector.length > 0) return selector.join('.')
-  return variable.label || variable.variable
-}
-
-function formatOutputNamespace(item: OFVariable) {
-  const selector = item.value_selector || []
-  return selector.length ? selector.join('.') : item.variable
-}
-
-function toIterationBoundVariable(variable: OFVariable): OFVariable {
-  return {
-    variable: variable.variable,
-    label: variable.label || variable.variable,
-    type: variable.type || OFVarTypeEnum.Array,
-    required: variable.required,
-    value_selector: variable.value_selector || [variable.variable]
-  }
+function formatSelector(selector?: string[]) {
+  return selector?.length ? selector.join('.') : ''
 }
 
 function handleDebugFormUpdate(values: Record<string, string>) {
@@ -431,7 +426,8 @@ async function executeNodeDebug(values: Record<string, string>) {
   await nodeDebugStore.runNodeDebug({
     workflowId: editorStore.currentWorkflowId,
     nodeId: uiStore.selectedNodeId,
-    inputs: { ...values }
+    inputs: { ...values },
+    scopePath: editorStore.getNodeAncestorPath(uiStore.selectedNodeId)
   })
 }
 
@@ -440,12 +436,12 @@ function handleVariableSelect(event: Event) {
   if (detail?.nodeId !== uiStore.selectedNodeId) return
 
   if (detail.targetType === 'iteration-input') {
-    updateInputVariable(toIterationBoundVariable(detail.variable))
+    patchNode({ iterator_selector: detail.variable.valueSelector || [] })
     return
   }
 
   if (detail.targetType === 'iteration-output') {
-    updateOutputVariable(toIterationBoundVariable(detail.variable))
+    patchNode({ output_selector: detail.variable.valueSelector || [] })
   }
 }
 
@@ -454,26 +450,13 @@ watch(
   () => {
     debugMode.value = false
     if (!currentNode.value || currentNode.value.data.type !== 'iteration') return
-    const data = currentNode.value.data as OFIterationNodeData
     configStore.loadConfig(currentNode.value.id, {
-      ...data,
+      ...(currentNode.value.data as OFIterationNodeData),
       nodeId: currentNode.value.id
     })
-    localTitle.value = data.title || '迭代'
-    localDesc.value = data.desc || ''
   },
   { immediate: true }
 )
-
-watch(localTitle, (value) => {
-  if (!currentNode.value) return
-  patchNode({ title: value } as Partial<OFIterationNodeData>)
-})
-
-watch(localDesc, (value) => {
-  if (!currentNode.value) return
-  patchNode({ desc: value } as Partial<OFIterationNodeData>)
-})
 
 onMounted(() => {
   window.addEventListener('of:variable-select', handleVariableSelect as EventListener)

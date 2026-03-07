@@ -10,7 +10,8 @@ export const NodeDebugDataSource = {
     const res = await window.api.orchestraflow.runNodeDebug({
       workflowId: params.workflowId,
       nodeId: params.nodeId,
-      inputs: toPlainObject(params.inputs)
+      inputs: toPlainObject(params.inputs),
+      scopePath: params.scopePath
     })
     if (!res.success || !res.data) {
       throw new Error(res.error || 'Failed to run node debug')

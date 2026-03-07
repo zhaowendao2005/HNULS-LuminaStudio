@@ -33,7 +33,7 @@
       <div class="space-y-2">
         <div
           v-for="tracing in runStore.tracingList"
-          :key="tracing.nodeId"
+          :key="getTraceKey(tracing)"
           class="border border-gray-200 rounded-lg overflow-hidden"
         >
           <div class="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 text-left">
@@ -61,6 +61,9 @@
           </div>
 
           <div class="border-t border-gray-200 p-3 bg-white space-y-2">
+            <div class="rounded-md bg-gray-50 px-2 py-2 text-xs text-gray-500">
+              {{ formatTraceMeta(tracing) }}
+            </div>
             <div class="flex items-center justify-between rounded-md bg-gray-50 px-2 py-2">
               <div class="text-xs text-gray-400 tracking-widest select-none">Raw ······</div>
               <button
@@ -148,7 +151,12 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useWorkflowRunStore } from '@renderer/stores/orchestraflow/workflow-run/workflow-run.store'
-import { OFBlockEnum, OFNodeRunningStatus } from '@shared/Orchestraflow-types'
+import {
+  getOFTraceIdentity,
+  OFBlockEnum,
+  OFNodeRunningStatus,
+  type OFNodeTracing
+} from '@shared/Orchestraflow-types'
 import CenteredDialog from '@renderer/views/LuminaApp/Maincontent/OrchestraFlowView/EditorView/Common/CenteredDialog.vue'
 
 const runStore = useWorkflowRunStore()
@@ -265,5 +273,24 @@ function getStatusText(status: OFNodeRunningStatus): string {
     default:
       return '未开始'
   }
+}
+
+function getTraceKey(tracing: OFNodeTracing): string {
+  return getOFTraceIdentity(tracing)
+}
+
+function formatTraceMeta(tracing: OFNodeTracing): string {
+  const parts = [`node=${tracing.nodeId}`]
+  const scopePath = tracing.scope_path || tracing.execution_metadata?.scope_path || []
+  if (scopePath.length) {
+    parts.push(`scope=${scopePath.join('/')}`)
+  }
+  if (tracing.execution_metadata?.iteration_index !== undefined) {
+    parts.push(`iteration=${tracing.execution_metadata.iteration_index}`)
+  }
+  if (tracing.execution_metadata?.parallel_run_id) {
+    parts.push(`parallel=${tracing.execution_metadata.parallel_run_id}`)
+  }
+  return parts.join(' · ')
 }
 </script>

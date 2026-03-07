@@ -823,49 +823,17 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
           title,
           desc: '',
           type: OFBlockEnum.Iteration,
-          width: 650,
-          height: 417,
-          input: { variables: [] },
-          iterationMode: 'fixed-count',
-          iterationCount: 3,
-          iterationSource: '',
-          outputVariable: {
-            variable: 'item',
-            label: 'item',
-            type: OFVarType.Array,
-            required: true,
-            value_selector: []
-          },
-          parallelMode: false,
-          errorResponseMode: 'terminate',
-          flattenOutput: true,
-          mockTemplateId: 'llm-summary',
-          graph: createDefaultIterationGraph(id),
-          preview: {
-            label: '迭代开始',
-            nodes: [{ id: 'preview-start', type: 'iteration-start', title: '迭代开始' }]
-          },
-          mockRun: {
-            iterations: [
-              {
-                index: 1,
-                title: '第 1 轮',
-                input: '读取输入上下文并拆解任务',
-                outputSummary: '完成第一轮候选答案整理',
-                status: OFNodeRunningStatus.Succeeded
-              },
-              {
-                index: 2,
-                title: '第 2 轮',
-                input: '继续补齐缺失信息',
-                outputSummary: '收敛为最终摘要',
-                status: OFNodeRunningStatus.Succeeded
-              }
-            ],
-            summary: '模拟执行 2 轮内部循环。',
-            finalOutput: '这是迭代节点的默认模拟输出。'
-          },
-          output: { variables: buildIterationOutputVariables(title, `iteration_${id}`) }
+          width: ITERATION_DEFAULT_WIDTH,
+          height: ITERATION_DEFAULT_HEIGHT,
+          iterator_selector: [],
+          output_selector: [],
+          start_node_id: `${id}-iteration-start`,
+          subgraph: createDefaultIterationSubgraph(id, title),
+          parallel_mode: 'sequential',
+          parallel_nums: 1,
+          error_handle_mode: 'terminated',
+          flatten_output: true,
+          output: { variables: buildIterationOutputVariables(title, id) }
         } as OFIterationNodeData
         break
       case OFBlockEnum.IfElse:
@@ -931,8 +899,8 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
     const nextEdges = [...edges.value]
 
     if (type === OFBlockEnum.Iteration) {
-      const iterationGraph = (nodeData as OFIterationNodeData).graph
-      iterationGraph.nodes.forEach((childNode) => {
+      const iterationSubgraph = (nodeData as OFIterationNodeData).subgraph
+      iterationSubgraph.nodes.forEach((childNode) => {
         nextNodes.push(
           normalizeNode({
             ...cloneNode(childNode),
@@ -941,7 +909,7 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
           })
         )
       })
-      iterationGraph.edges.forEach((childEdge) => {
+      iterationSubgraph.edges.forEach((childEdge) => {
         nextEdges.push(cloneEdge(childEdge))
       })
     }
@@ -984,16 +952,15 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
     }
 
     if (currentNode.data.type === OFBlockEnum.Iteration) {
-      const iterationPatch = data as Partial<OFIterationNodeData>
       const iterationData = {
         ...(currentNode.data as OFIterationNodeData),
         ...nextData
       } as OFIterationNodeData
-      if (typeof nextData.title === 'string' || iterationPatch.mockRun) {
+      if (typeof nextData.title === 'string') {
         nextData = {
           ...nextData,
           output: {
-            variables: buildIterationOutputVariables(iterationData.title, `iteration_${nodeId}`)
+            variables: buildIterationOutputVariables(iterationData.title, nodeId)
           }
         }
       }
@@ -1177,6 +1144,7 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
     addEdge,
     removeEdge,
     findNodeById: (nodeId: string) => findNodeByIdFrom(nodeId, nodes.value),
+    getNodeAncestorPath,
     findParentIterationNodeId,
     resizeIterationNode,
     updateIterationViewport,

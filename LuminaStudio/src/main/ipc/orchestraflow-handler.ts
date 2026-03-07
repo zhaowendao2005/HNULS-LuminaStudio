@@ -157,11 +157,6 @@ export class OrchestraflowIPCHandler {
           return { success: false, error: 'Workflow not found' }
         }
 
-        const targetNode = workflow.graph.nodes.find((node) => node.id === params.nodeId)
-        if (!targetNode) {
-          return { success: false, error: 'Node not found' }
-        }
-
         const modelConfig = await this.modelConfigService.getConfig()
         const providerConfigs: Record<string, PersistedModelProviderConfig> = {}
         for (const provider of modelConfig.providers) {

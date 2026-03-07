@@ -450,7 +450,8 @@ async function executeNodeDebug(values: Record<string, string>) {
     await nodeDebugStore.runNodeDebug({
       workflowId: editorStore.currentWorkflowId,
       nodeId: uiStore.selectedNodeId,
-      inputs: { ...values }
+      inputs: { ...values },
+      scopePath: editorStore.getNodeAncestorPath(uiStore.selectedNodeId)
     })
   } catch (error) {
     console.error('Node debug run failed:', error)

@@ -54,7 +54,7 @@
         <div v-if="runStore.tracingList.length > 0" class="space-y-4">
           <div
             v-for="(tracing, index) in runStore.tracingList"
-            :key="tracing.nodeId"
+            :key="getTraceKey(tracing)"
             class="relative pl-4"
           >
             <!-- 连接线 -->
@@ -69,6 +69,7 @@
             <IterationNodeOutput
               v-else-if="tracing.nodeType === OFBlockEnum.Iteration"
               :tracing="tracing"
+              :all-traces="runStore.tracingList"
             />
             <IfElseNodeOutput
               v-else-if="tracing.nodeType === OFBlockEnum.IfElse"
@@ -158,7 +159,12 @@ import DetailTab from './tabs/DetailTab.vue'
 import TracingTab from './tabs/TracingTab.vue'
 import { useWorkflowRunStore } from '@renderer/stores/orchestraflow/workflow-run/workflow-run.store'
 import { useWorkflowEditorStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor.store'
-import { OFWorkflowRunningStatus, OFBlockEnum } from '@shared/Orchestraflow-types'
+import {
+  getOFTraceIdentity,
+  OFWorkflowRunningStatus,
+  OFBlockEnum,
+  type OFNodeTracing
+} from '@shared/Orchestraflow-types'
 
 interface Props {
   visible: boolean
@@ -254,5 +260,9 @@ function handleRunAgain(): void {
     activeTab.value = 'start'
     runStore.runWorkflow(editorStore.currentWorkflowId, runStore.startInputs)
   }
+}
+
+function getTraceKey(tracing: OFNodeTracing): string {
+  return getOFTraceIdentity(tracing)
 }
 </script>

@@ -1,38 +1,30 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { OFIterationNodeConfig } from '@shared/Orchestraflow-types'
+import {
+  buildIterationOutputVariables,
+  type OFIterationNodeConfig
+} from '@shared/Orchestraflow-types'
+
+const DEFAULT_SUBGRAPH_VIEWPORT = { x: 0, y: 0, zoom: 1 }
 
 function createDefaultConfig(): OFIterationNodeConfig {
   return {
     nodeId: '',
     title: '迭代',
     desc: '',
-    input: { variables: [] },
-    iterationMode: 'fixed-count',
-    iterationCount: 3,
-    iterationSource: '',
-    outputVariable: null,
-    parallelMode: false,
-    errorResponseMode: 'terminate',
-    flattenOutput: true,
-    mockTemplateId: 'llm-summary',
-    graph: {
+    iterator_selector: [],
+    output_selector: [],
+    start_node_id: '',
+    subgraph: {
       nodes: [],
       edges: [],
-      viewport: { x: 0, y: 0, zoom: 1 }
+      viewport: { ...DEFAULT_SUBGRAPH_VIEWPORT }
     },
-    preview: {
-      label: '迭代开始',
-      nodes: [
-        { id: 'preview-start', type: 'iteration-start', title: '迭代开始' }
-      ]
-    },
-    mockRun: {
-      iterations: [],
-      summary: '',
-      finalOutput: ''
-    },
-    output: { variables: [] }
+    parallel_mode: 'sequential',
+    parallel_nums: 1,
+    error_handle_mode: 'terminated',
+    flatten_output: true,
+    output: { variables: buildIterationOutputVariables('迭代') }
   }
 }
 

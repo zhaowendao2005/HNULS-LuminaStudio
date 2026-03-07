@@ -28,47 +28,158 @@
     </div>
 
     <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
-      <div class="text-xs font-medium uppercase text-gray-500">聚合摘要</div>
-      <div class="mt-1 text-sm text-gray-700">{{ tracing.outputs?.summary || '(无)' }}</div>
+      <div class="flex items-center justify-between">
+        <div class="text-xs font-medium uppercase text-gray-500">真实输出</div>
+        <div class="text-xs text-gray-400">共 {{ resultItems.length }} 项</div>
+      </div>
+      <pre class="mt-2 whitespace-pre-wrap break-all text-sm text-gray-700">{{ resultPreview }}</pre>
     </div>
 
-    <div v-if="iterations.length" class="mt-3 space-y-2">
-      <div class="text-xs font-medium uppercase text-gray-500">迭代轮次</div>
+    <div v-if="iterationRuns.length" class="mt-3 space-y-2">
+      <div class="text-xs font-medium uppercase text-gray-500">子图轮次追踪</div>
       <div
-        v-for="item in iterations"
-        :key="item.index"
+        v-for="item in iterationRuns"
+        :key="item.id"
         class="rounded-lg border border-gray-200 bg-white px-3 py-2"
       >
-        <div class="flex items-center justify-between">
-          <span class="text-sm font-medium text-gray-700">{{ item.title }}</span>
-          <span class="text-xs text-cyan-600">第 {{ item.index }} 轮</span>
+        <div class="flex items-center justify-between gap-3">
+          <div class="min-w-0">
+            <div class="text-sm font-medium text-gray-700">
+              第 {{ item.iterationIndex + 1 }} 轮
+            </div>
+            <div class="mt-1 text-xs text-gray-400">
+              scope: {{ item.scopeLabel }}
+            </div>
+            <div v-if="item.parallelRunId" class="mt-1 text-xs text-gray-400">
+              parallel_run_id: {{ item.parallelRunId }}
+            </div>
+          </div>
+          <span class="rounded px-2 py-0.5 text-xs font-medium" :class="getStatusClass(item.status)">
+            {{ getStatusText(item.status) }}
+          </span>
         </div>
-        <div class="mt-1 text-xs text-gray-500">{{ item.outputSummary }}</div>
+
+        <div class="mt-2 flex flex-wrap gap-2 text-xs text-gray-500">
+          <span>trace 数: {{ item.traceCount }}</span>
+          <span v-if="item.resultPreview">结果: {{ item.resultPreview }}</span>
+        </div>
       </div>
     </div>
 
-    <div class="mt-3 rounded-lg border border-cyan-200 bg-cyan-50 p-3">
-      <div class="text-xs font-medium uppercase text-cyan-700">最终输出</div>
-      <div class="mt-1 text-sm text-cyan-900">{{ tracing.outputs?.finalOutput || '(无)' }}</div>
+    <div v-if="tracing.error" class="mt-3 rounded-lg border border-red-200 bg-red-50 p-3">
+      <div class="text-xs font-medium uppercase text-red-600">错误</div>
+      <div class="mt-1 text-sm text-red-700">{{ tracing.error }}</div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { OFIterationResultItem, OFNodeTracing } from '@shared/Orchestraflow-types'
+import type { OFNodeTracing } from '@shared/Orchestraflow-types'
 import { OFNodeRunningStatus } from '@shared/Orchestraflow-types'
 
 const props = defineProps<{
   tracing: OFNodeTracing
+  allTraces: OFNodeTracing[]
 }>()
 
-const iterations = computed<OFIterationResultItem[]>(() =>
-  Array.isArray(props.tracing.outputs?.iterations) ? props.tracing.outputs.iterations : []
-)
+interface IterationRunSummary {
+  id: string
+  iterationIndex: number
+  parallelRunId?: string
+  scopeLabel: string
+  status: OFNodeRunningStatus
+  traceCount: number
+  resultPreview: string
+}
 
-const statusText = computed(() => {
-  switch (props.tracing.status) {
+const resultItems = computed(() => {
+  const raw = props.tracing.outputs?.result
+  return Array.isArray(raw) ? raw : []
+})
+
+const resultPreview = computed(() => {
+  try {
+    return JSON.stringify(props.tracing.outputs?.result ?? [], null, 2)
+  } catch {
+    return String(props.tracing.outputs?.result ?? [])
+  }
+})
+
+const iterationRuns = computed<IterationRunSummary[]>(() => {
+  const grouped = new Map<string, OFNodeTracing[]>()
+
+  props.allTraces
+    .filter((trace) => trace.nodeId !== props.tracing.nodeId)
+    .filter((trace) => (trace.scope_path || []).includes(props.tracing.nodeId))
+    .filter((trace) => trace.execution_metadata?.in_iteration_id)
+    .forEach((trace) => {
+      const iterationIndex = trace.execution_metadata?.iteration_index ?? -1
+      const key = [
+        trace.execution_metadata?.in_iteration_id,
+        iterationIndex,
+        trace.execution_metadata?.parallel_run_id || 'serial'
+      ].join('::')
+      const current = grouped.get(key) || []
+      current.push(trace)
+      grouped.set(key, current)
+    })
+
+  return Array.from(grouped.entries())
+    .map(([id, traces]) => {
+      const sample = traces[0]
+      const iterationIndex = sample.execution_metadata?.iteration_index ?? 0
+      const parallelRunId = sample.execution_metadata?.parallel_run_id
+      const scopeLabel = (sample.scope_path || []).join(' / ') || 'root'
+      const resultValue =
+        iterationIndex >= 0 && iterationIndex < resultItems.value.length
+          ? resultItems.value[iterationIndex]
+          : undefined
+
+      return {
+        id,
+        iterationIndex,
+        parallelRunId,
+        scopeLabel,
+        status: resolveIterationStatus(traces),
+        traceCount: traces.length,
+        resultPreview: formatInlineValue(resultValue)
+      }
+    })
+    .sort((left, right) => left.iterationIndex - right.iterationIndex)
+})
+
+const statusText = computed(() => getStatusText(props.tracing.status))
+const statusClass = computed(() => getStatusClass(props.tracing.status))
+
+function resolveIterationStatus(traces: OFNodeTracing[]): OFNodeRunningStatus {
+  if (traces.some((trace) => trace.status === OFNodeRunningStatus.Failed)) {
+    return OFNodeRunningStatus.Failed
+  }
+  if (traces.some((trace) => trace.status === OFNodeRunningStatus.Running)) {
+    return OFNodeRunningStatus.Running
+  }
+  if (traces.some((trace) => trace.status === OFNodeRunningStatus.Succeeded)) {
+    return OFNodeRunningStatus.Succeeded
+  }
+  if (traces.every((trace) => trace.status === OFNodeRunningStatus.Skipped)) {
+    return OFNodeRunningStatus.Skipped
+  }
+  return OFNodeRunningStatus.NotStarted
+}
+
+function formatInlineValue(value: unknown): string {
+  if (value === undefined) return ''
+  if (typeof value === 'string') return value
+  try {
+    return JSON.stringify(value)
+  } catch {
+    return String(value)
+  }
+}
+
+function getStatusText(status: OFNodeRunningStatus) {
+  switch (status) {
     case OFNodeRunningStatus.Succeeded:
       return '成功'
     case OFNodeRunningStatus.Failed:
@@ -80,10 +191,10 @@ const statusText = computed(() => {
     default:
       return '未开始'
   }
-})
+}
 
-const statusClass = computed(() => {
-  switch (props.tracing.status) {
+function getStatusClass(status: OFNodeRunningStatus) {
+  switch (status) {
     case OFNodeRunningStatus.Succeeded:
       return 'bg-green-100 text-green-700'
     case OFNodeRunningStatus.Failed:
@@ -95,5 +206,5 @@ const statusClass = computed(() => {
     default:
       return 'bg-gray-100 text-gray-600'
   }
-})
+}
 </script>

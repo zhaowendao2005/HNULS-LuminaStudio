@@ -5,6 +5,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { OFWorkflowRunResult, OFNodeTracing, OFInputVar } from '@shared/Orchestraflow-types'
 import {
+  getOFTraceIdentity,
   OFWorkflowRunningStatus,
   OFNodeRunningStatus,
   OFBlockEnum
@@ -58,8 +59,7 @@ export const useWorkflowRunStore = defineStore('orchestraflow-workflow-run', () 
     try {
       const runResult = await WorkflowRunDataSource.run({
         workflowId,
-        inputs,
-        nodes: editorStore.nodes
+        inputs
       })
       result.value = runResult
       status.value = runResult.status
@@ -82,7 +82,8 @@ export const useWorkflowRunStore = defineStore('orchestraflow-workflow-run', () 
 
   function handleProgress(progress: OFNodeTracing) {
     const tracing = result.value?.tracing || []
-    const index = tracing.findIndex((t) => t.nodeId === progress.nodeId)
+    const identity = getOFTraceIdentity(progress)
+    const index = tracing.findIndex((t) => getOFTraceIdentity(t) === identity)
 
     if (index >= 0) {
       tracing[index] = progress
@@ -101,10 +102,10 @@ export const useWorkflowRunStore = defineStore('orchestraflow-workflow-run', () 
   }
 
   async function stopWorkflow() {
-    if (!currentWorkflowId.value) return
+    if (!currentRunId.value) return
 
     try {
-      await WorkflowRunDataSource.stop(currentWorkflowId.value)
+      await WorkflowRunDataSource.stop(currentRunId.value)
     } catch (error) {
       console.error('Failed to stop workflow:', error)
     } finally {

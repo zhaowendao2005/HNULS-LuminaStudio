@@ -297,14 +297,44 @@ describe('GraphExecutor integration', () => {
     ).toBe(true)
   })
 
-  it('node debug 传入子图 scopePath 时会返回 v1 not supported', async () => {
+  it('node debug 传入子图 scopePath 时会成功执行子图节点', async () => {
     const workflow = createWorkflow()
     const manager = new WorkflowInstanceManager(() => undefined)
 
-    const result = await manager.runNodeDebug(workflow, 'child-branch', {}, {}, ['iter1'])
+    const result = await manager.runNodeDebug(
+      workflow,
+      'child-branch',
+      {
+        'loop.index': 1
+      },
+      {},
+      ['iter1']
+    )
+
+    expect(result.status).toBe(OFNodeRunningStatus.Succeeded)
+    expect(result.nodeId).toBe('child-branch')
+    expect(result.nodeType).toBe(OFBlockEnum.IfElse)
+    expect(result.error).toBeUndefined()
+  })
+
+  it('node debug 传入非法 scopePath 时会稳定失败', async () => {
+    const workflow = createWorkflow()
+    const manager = new WorkflowInstanceManager(() => undefined)
+
+    const result = await manager.runNodeDebug(workflow, 'child-branch', {}, {}, ['missing-scope'])
 
     expect(result.status).toBe(OFNodeRunningStatus.Failed)
-    expect(result.error).toContain('not supported')
+    expect(result.error).toContain('Scope node not found')
+  })
+
+  it('node debug 在 scopePath 下找不到目标节点时会稳定失败', async () => {
+    const workflow = createWorkflow()
+    const manager = new WorkflowInstanceManager(() => undefined)
+
+    const result = await manager.runNodeDebug(workflow, 'missing-node', {}, {}, ['iter1'])
+
+    expect(result.status).toBe(OFNodeRunningStatus.Failed)
+    expect(result.error).toContain('Node not found')
   })
 
   it('根图和 Loop 子图共用执行内核，并产出带 loop metadata 的 child traces', async () => {
