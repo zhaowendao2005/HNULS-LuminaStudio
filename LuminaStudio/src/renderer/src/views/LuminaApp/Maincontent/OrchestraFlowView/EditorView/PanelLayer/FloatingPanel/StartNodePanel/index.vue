@@ -364,6 +364,7 @@ const debugFields = computed<NodeDebugField[]>(() =>
   localInputs.value.map((field) => ({
     key: field.variable,
     label: field.label || field.variable,
+    type: field.type,
     required: field.required,
     placeholder: field.description || `请输入 ${field.label || field.variable}`
   }))
@@ -406,11 +407,11 @@ function handleFieldCreated(payload: {
   type: string
   required: boolean
 }) {
-  // 仅支持文本类型（text-input）
+  const fieldType = payload.type === OFVarType.Array ? OFVarType.Array : OFVarType.String
   const newField: OFVariable = {
     variable: payload.name,
     label: payload.label,
-    type: OFVarType.String,
+    type: fieldType,
     required: payload.required
   }
   localInputs.value = [...localInputs.value, newField]
@@ -435,14 +436,14 @@ function addNextNode() {
   // TODO: 实现添加节点逻辑
 }
 
-function handleDebugFormUpdate(values: Record<string, string>) {
+function handleDebugFormUpdate(values: Record<string, any>) {
   if (!uiStore.selectedNodeId) return
   Object.entries(values).forEach(([key, value]) => {
     nodeDebugStore.setNodeFormValue(uiStore.selectedNodeId!, key, value)
   })
 }
 
-async function executeNodeDebug(values: Record<string, string>) {
+async function executeNodeDebug(values: Record<string, any>) {
   if (!editorStore.currentWorkflowId || !uiStore.selectedNodeId) return
   debugMode.value = false
   activeTab.value = 'lastRun'

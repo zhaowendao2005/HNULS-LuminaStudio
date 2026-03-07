@@ -8,7 +8,7 @@
         y: store.viewport.y,
         zoom: store.viewport.zoom
       }"
-      :delete-key-code="['Delete', 'Backspace']"
+      :delete-key-code="null"
       class="of-editor-canvas h-full w-full"
       @node-click="handleNodeClick"
       @connect="handleConnect"
@@ -241,7 +241,45 @@ function handleEdgesChange(changes: EdgeChange[]) {
 }
 
 // 使用 VueFlow composable 来同步 viewport
-const { onViewportChange, setViewport } = useVueFlow()
+const { onViewportChange, setViewport, getSelectedNodes, getSelectedEdges, removeNodes, removeEdges } =
+  useVueFlow()
+
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) {
+    return false
+  }
+
+  const tagName = target.tagName.toLowerCase()
+  return (
+    tagName === 'input' ||
+    tagName === 'textarea' ||
+    tagName === 'select' ||
+    target.isContentEditable
+  )
+}
+
+function handleDeleteKeydown(event: KeyboardEvent) {
+  if (event.defaultPrevented) return
+  if (isEditableTarget(event.target)) return
+  if (event.key !== 'Delete' && event.key !== 'Backspace') return
+
+  const selectedNodes = getSelectedNodes.value
+  const selectedEdges = getSelectedEdges.value
+
+  if (!selectedNodes.length && !selectedEdges.length) {
+    return
+  }
+
+  event.preventDefault()
+
+  if (selectedEdges.length) {
+    removeEdges(selectedEdges)
+  }
+
+  if (selectedNodes.length) {
+    removeNodes(selectedNodes, true, true)
+  }
+}
 
 // MiniMap 节点颜色函数
 // 注意：MiniMap 传入的 node 是 GraphNode 类型，包含 selected 属性
@@ -277,6 +315,7 @@ watch(
 
 // 组件挂载时初始化
 onMounted(async () => {
+  window.addEventListener('keydown', handleDeleteKeydown)
   if (modelConfigStore.providers.length === 0) {
     await modelConfigStore.fetchProviders()
   }
@@ -293,7 +332,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  // 这里目前没有需要清理的 VueFlow 资源
+  window.removeEventListener('keydown', handleDeleteKeydown)
 })
 </script>
 

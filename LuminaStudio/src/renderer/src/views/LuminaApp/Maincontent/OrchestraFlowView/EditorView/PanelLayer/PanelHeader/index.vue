@@ -184,7 +184,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useWorkflowEditorStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor.store'
-import { useWorkflowRunStore } from '@renderer/stores/orchestraflow/workflow-run/workflow-run.store'
+import {
+  normalizeWorkflowInputs,
+  useWorkflowRunStore
+} from '@renderer/stores/orchestraflow/workflow-run/workflow-run.store'
 import { useWorkflowEditorUIStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor-ui.store'
 
 const props = defineProps<{
@@ -235,8 +238,9 @@ function handleRunWorkflow() {
       return
     }
 
-    // 使用用户填写的输入运行
-    runStore.runWorkflow(editorStore.currentWorkflowId, runStore.startInputs)
+    const normalized = normalizeWorkflowInputs(inputVars, runStore.startInputs)
+    runStore.setStartInputs({ ...normalized.values })
+    runStore.runWorkflow(editorStore.currentWorkflowId, normalized.values)
   } else {
     // 无需输入，直接运行
     runStore.runWorkflow(editorStore.currentWorkflowId)

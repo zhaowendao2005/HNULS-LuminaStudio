@@ -65,9 +65,16 @@ export interface OFJsonSchemaObject {
   additionalProperties: false
 }
 
+export interface OFJsonSchemaArray {
+  type: 'array'
+  items: OFJsonSchemaObject
+}
+
+export type OFStructuredJsonSchema = OFJsonSchemaObject | OFJsonSchemaArray
+
 export interface OFStructuredOutputConfig {
   enabled: boolean
-  schema: OFJsonSchemaObject | null
+  schema: OFStructuredJsonSchema | null
 }
 
 export interface OFVariable {
@@ -80,7 +87,7 @@ export interface OFVariable {
   default?: string | number | boolean | Record<string, any> | any[] | null
   options?: string[]
   value_selector?: string[]
-  schema?: OFJsonSchemaObject | null
+  schema?: OFStructuredJsonSchema | null
   item_schema?: OFJsonSchemaObject | null
 }
 
@@ -131,10 +138,12 @@ export function buildLLMOutputVariables(
   ]
 
   if (structuredOutput?.enabled && structuredOutput.schema) {
+    const structuredOutputType =
+      structuredOutput.schema.type === 'array' ? OFVarType.Array : OFVarType.Object
     variables.push({
       variable: OF_LLM_STRUCTURED_OUTPUT_NAME,
       label: OF_LLM_STRUCTURED_OUTPUT_NAME,
-      type: OFVarType.Object,
+      type: structuredOutputType,
       required: true,
       value_selector: [`${normalizedNamespace}.${OF_LLM_STRUCTURED_OUTPUT_NAME}`],
       schema: structuredOutput.schema
@@ -423,7 +432,7 @@ export interface OFLoopVariableData {
   value_type: OFLoopVariableValueType
   value?: string | number | boolean | Record<string, any> | any[] | null
   value_selector?: string[]
-  schema?: OFJsonSchemaObject | null
+  schema?: OFStructuredJsonSchema | null
   item_schema?: OFJsonSchemaObject | null
 }
 

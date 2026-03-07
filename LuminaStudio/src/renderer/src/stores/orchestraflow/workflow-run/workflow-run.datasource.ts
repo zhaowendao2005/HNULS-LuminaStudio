@@ -13,12 +13,20 @@ export interface ProgressCallback {
   (runId: string, progress: OFNodeTracing): void
 }
 
+function toPlainObject(value: Record<string, any> | undefined): Record<string, any> | undefined {
+  if (!value) return undefined
+  return JSON.parse(JSON.stringify(value))
+}
+
 export const WorkflowRunDataSource = {
   /**
    * 运行工作流
    */
   async run(params: WorkflowRunParams): Promise<OFWorkflowRunResult> {
-    const res = await window.api.orchestraflow.run(params.workflowId, params.inputs)
+    const res = await window.api.orchestraflow.run(
+      params.workflowId,
+      toPlainObject(params.inputs)
+    )
     if (!res.success || !res.data) {
       throw new Error(res.error || 'Failed to run workflow')
     }

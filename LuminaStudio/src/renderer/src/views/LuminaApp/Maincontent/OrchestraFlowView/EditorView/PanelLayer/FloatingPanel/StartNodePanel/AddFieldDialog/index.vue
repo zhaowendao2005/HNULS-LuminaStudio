@@ -50,12 +50,12 @@
               :key="type.id"
               class="flex items-center justify-between px-3 py-2"
               :class="[
-                type.id === 'text'
+                type.id === 'text' || type.id === 'array'
                   ? 'cursor-pointer hover:bg-emerald-50'
                   : 'cursor-not-allowed opacity-40',
                 { 'bg-emerald-50/60': selectedType.id === type.id }
               ]"
-              @click="type.id === 'text' ? selectType(type) : null"
+              @click="type.id === 'text' || type.id === 'array' ? selectType(type) : null"
             >
               <div class="flex items-center">
                 <component
@@ -71,7 +71,11 @@
                 >
                   {{ type.name }}
                   <!-- 临时禁用标记：仅文本类型可用，其他类型待后续扩展 -->
-                  <span v-if="type.id !== 'text'" class="ml-1 text-xs text-gray-400">(待扩展)</span>
+                  <span
+                    v-if="type.id !== 'text' && type.id !== 'array'"
+                    class="ml-1 text-xs text-gray-400"
+                    >(待扩展)</span
+                  >
                 </span>
               </div>
               <div
@@ -468,6 +472,7 @@ const LinkIcon = {
 
 const FIELD_TYPES: FieldTypeItem[] = [
   { id: 'text', name: '文本', type: 'string', icon: TextIcon },
+  { id: 'array', name: '列表', type: 'array', icon: ParagraphIcon },
   { id: 'paragraph', name: '段落', type: 'string', icon: ParagraphIcon },
   { id: 'select', name: '下拉选项', type: 'string', icon: SelectIcon },
   { id: 'number', name: '数字', type: 'number', icon: NumberIcon },

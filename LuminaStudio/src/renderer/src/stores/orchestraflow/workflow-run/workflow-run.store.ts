@@ -8,10 +8,76 @@ import {
   getOFTraceIdentity,
   OFWorkflowRunningStatus,
   OFNodeRunningStatus,
-  OFBlockEnum
+  OFBlockEnum,
+  OFVarType
 } from '@shared/Orchestraflow-types'
 import { WorkflowRunDataSource } from './workflow-run.datasource'
 import { useWorkflowEditorStore } from '../workflow-editor/workflow-editor.store'
+
+export function parseWorkflowInputValue(inputVar: OFInputVar, rawValue: unknown) {
+  if (inputVar.type === OFVarType.Array) {
+    if (rawValue === undefined || rawValue === null || String(rawValue).trim() === '') {
+      return {
+        ok: false as const,
+        reason: 'empty'
+      }
+    }
+    try {
+      const parsed = typeof rawValue === 'string' ? JSON.parse(rawValue) : rawValue
+      if (!Array.isArray(parsed)) {
+        return {
+          ok: false as const,
+          reason: 'not-array'
+        }
+      }
+      return {
+        ok: true as const,
+        value: parsed
+      }
+    } catch {
+      return {
+        ok: false as const,
+        reason: 'invalid-json'
+      }
+    }
+  }
+
+  return {
+    ok: true as const,
+    value: rawValue
+  }
+}
+
+export function normalizeWorkflowInputs(
+  inputVars: OFInputVar[],
+  rawInputs: Record<string, any>
+): { values: Record<string, any>; errors: string[] } {
+  const values: Record<string, any> = {}
+  const errors: string[] = []
+
+  for (const inputVar of inputVars) {
+    const label = inputVar.label || inputVar.variable
+    const rawValue = rawInputs[inputVar.variable]
+    const parsed = parseWorkflowInputValue(inputVar, rawValue)
+
+    if (!parsed.ok) {
+      if (inputVar.required || rawValue !== undefined) {
+        if (parsed.reason === 'empty') {
+          errors.push(`"${label}" 为必填项`)
+        } else if (parsed.reason === 'invalid-json') {
+          errors.push(`"${label}" 必须是合法 JSON 数组`)
+        } else if (parsed.reason === 'not-array') {
+          errors.push(`"${label}" 必须是 JSON 数组`)
+        }
+      }
+      continue
+    }
+
+    values[inputVar.variable] = parsed.value
+  }
+
+  return { values, errors }
+}
 
 export const useWorkflowRunStore = defineStore('orchestraflow-workflow-run', () => {
   const editorStore = useWorkflowEditorStore()
@@ -148,16 +214,7 @@ export const useWorkflowRunStore = defineStore('orchestraflow-workflow-run', () 
 
   // 校验开始节点输入（需要传入 Start 节点的 inputs 定义）
   function validateStartInputs(inputVars: OFInputVar[]): { valid: boolean; errors: string[] } {
-    const errors: string[] = []
-
-    for (const inputVar of inputVars) {
-      if (inputVar.required) {
-        const value = startInputs.value[inputVar.variable]
-        if (value === undefined || value === null || value === '') {
-          errors.push(`"${inputVar.label || inputVar.variable}" 为必填项`)
-        }
-      }
-    }
+    const { errors } = normalizeWorkflowInputs(inputVars, startInputs.value)
 
     return {
       valid: errors.length === 0,

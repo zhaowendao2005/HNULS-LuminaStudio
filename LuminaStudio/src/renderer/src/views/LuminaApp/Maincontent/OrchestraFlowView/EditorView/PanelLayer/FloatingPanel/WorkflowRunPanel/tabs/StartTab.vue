@@ -123,6 +123,61 @@
           </option>
         </select>
 
+        <div
+          v-else-if="inputVar.type === OFVarType.Array"
+          class="space-y-2 rounded-lg border bg-white p-3"
+          :class="
+            errors.some((e) => e.includes(inputVar.label || inputVar.variable))
+              ? 'border-red-300 bg-red-50/40'
+              : 'border-gray-300'
+          "
+        >
+          <div class="flex items-center justify-between">
+            <div class="text-xs text-gray-500">列表输入</div>
+            <button
+              type="button"
+              class="rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1 text-xs text-indigo-700 hover:bg-indigo-100"
+              @click="appendArrayItem(inputVar.variable)"
+            >
+              添加项
+            </button>
+          </div>
+
+          <div v-if="getArrayItems(inputVar.variable).length === 0" class="text-xs text-gray-400">
+            暂无列表项，点击“添加项”录入测试数据
+          </div>
+
+          <div
+            v-for="(item, index) in getArrayItems(inputVar.variable)"
+            :key="`${inputVar.variable}-${index}`"
+            class="flex items-center gap-2"
+          >
+            <div class="w-8 shrink-0 text-center text-xs text-gray-400">
+              {{ index + 1 }}
+            </div>
+            <input
+              :value="item"
+              type="text"
+              class="flex-1 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              :placeholder="inputVar.description || '请输入列表项内容'"
+              @input="
+                updateArrayItem(
+                  inputVar.variable,
+                  index,
+                  ($event.target as HTMLInputElement).value
+                )
+              "
+            />
+            <button
+              type="button"
+              class="rounded-md px-2 py-1 text-xs text-red-500 hover:bg-red-50"
+              @click="removeArrayItem(inputVar.variable, index)"
+            >
+              删除
+            </button>
+          </div>
+        </div>
+
         <!-- 默认：文本输入 -->
         <input
           v-else
@@ -163,10 +218,11 @@
 <script setup lang="ts">
 import { ref, computed, watch, reactive } from 'vue'
 import { useWorkflowRunStore } from '@renderer/stores/orchestraflow/workflow-run/workflow-run.store'
+import { normalizeWorkflowInputs } from '@renderer/stores/orchestraflow/workflow-run/workflow-run.store'
 import { useWorkflowEditorStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor.store'
 import { useWorkflowEditorUIStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor-ui.store'
 import type { OFInputVar } from '@shared/Orchestraflow-types'
-import { OFBlockEnum } from '@shared/Orchestraflow-types'
+import { OFBlockEnum, OFVarType } from '@shared/Orchestraflow-types'
 
 const runStore = useWorkflowRunStore()
 const editorStore = useWorkflowEditorStore()
@@ -199,33 +255,24 @@ watch(
 
 // 校验：直接使用当前 formData，避免与 store 同步时机问题
 function validate(): boolean {
-  const errorsList: string[] = []
-
-  for (const inputVar of inputVars.value) {
-    if (inputVar.required) {
-      const value = formData[inputVar.variable]
-      if (value === undefined || value === null || String(value).trim() === '') {
-        errorsList.push(`"${inputVar.label || inputVar.variable}" 为必填项`)
-      }
-    }
-  }
-
-  errors.value = errorsList
-  return errorsList.length === 0
+  const normalized = normalizeWorkflowInputs(inputVars.value, formData)
+  errors.value = normalized.errors
+  return normalized.errors.length === 0
 }
 
 // 运行工作流
 function handleRun() {
   if (!editorStore.currentWorkflowId) return
 
-  // 先同步到 store，再校验（保证 store 与 formData 一致）
   runStore.setStartInputs({ ...formData })
 
   if (!validate()) {
     return
   }
 
-  runStore.runWorkflow(editorStore.currentWorkflowId, { ...formData })
+  const normalized = normalizeWorkflowInputs(inputVars.value, formData)
+  runStore.setStartInputs({ ...normalized.values })
+  runStore.runWorkflow(editorStore.currentWorkflowId, { ...normalized.values })
 }
 
 // 打开开始节点配置
@@ -233,5 +280,30 @@ function openStartNodeConfig() {
   if (startNode.value) {
     uiStore.setSelectedNodeId(startNode.value.id)
   }
+}
+
+function getArrayItems(variable: string): string[] {
+  const value = formData[variable]
+  return Array.isArray(value) ? value : []
+}
+
+function setArrayItems(variable: string, items: string[]) {
+  formData[variable] = items
+}
+
+function appendArrayItem(variable: string) {
+  setArrayItems(variable, [...getArrayItems(variable), ''])
+}
+
+function updateArrayItem(variable: string, index: number, value: string) {
+  const items = [...getArrayItems(variable)]
+  items[index] = value
+  setArrayItems(variable, items)
+}
+
+function removeArrayItem(variable: string, index: number) {
+  const items = [...getArrayItems(variable)]
+  items.splice(index, 1)
+  setArrayItems(variable, items)
 }
 </script>

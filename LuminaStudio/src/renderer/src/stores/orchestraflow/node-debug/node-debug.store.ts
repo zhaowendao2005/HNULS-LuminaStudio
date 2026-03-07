@@ -5,16 +5,16 @@ import type { OFNodeDebugResult, OFNodeDebugRunParams } from '@shared/Orchestraf
 
 export const useNodeDebugStore = defineStore('orchestraflow-node-debug', () => {
   const lastRunByNodeId = ref<Record<string, OFNodeDebugResult | undefined>>({})
-  const formValuesByNodeId = ref<Record<string, Record<string, string>>>({})
+  const formValuesByNodeId = ref<Record<string, Record<string, any>>>({})
   const runningNodeId = ref<string | null>(null)
 
   const isRunning = computed(() => runningNodeId.value !== null)
 
-  function getNodeFormValues(nodeId: string): Record<string, string> {
+  function getNodeFormValues(nodeId: string): Record<string, any> {
     return formValuesByNodeId.value[nodeId] || {}
   }
 
-  function setNodeFormValue(nodeId: string, key: string, value: string): void {
+  function setNodeFormValue(nodeId: string, key: string, value: any): void {
     const current = formValuesByNodeId.value[nodeId] || {}
     formValuesByNodeId.value[nodeId] = {
       ...current,

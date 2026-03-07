@@ -53,6 +53,25 @@ function createWorkflow(): OFWorkflow {
     }
   } as OFNode
 
+  const childEnd: OFNode = {
+    id: 'child-end',
+    type: 'default',
+    position: { x: 220, y: 0 },
+    data: {
+      type: OFBlockEnum.End,
+      title: 'Child End',
+      desc: '',
+      output: {
+        variables: [
+          {
+            variable: 'result',
+            value_selector: ['loop.item']
+          }
+        ]
+      }
+    }
+  } as OFNode
+
   const startNode: OFNode = {
     id: 'start',
     type: 'default',
@@ -85,12 +104,24 @@ function createWorkflow(): OFWorkflow {
       output_selector: ['loop.item'],
       start_node_id: 'child-start',
       subgraph: {
-        nodes: [childStart, childBranch],
+        nodes: [childStart, childBranch, childEnd],
         edges: [
           {
             id: 'child-edge-1',
             source: 'child-start',
             target: 'child-branch'
+          },
+          {
+            id: 'child-edge-2-if',
+            source: 'child-branch',
+            sourceHandle: 'if',
+            target: 'child-end'
+          },
+          {
+            id: 'child-edge-2-else',
+            source: 'child-branch',
+            sourceHandle: 'else',
+            target: 'child-end'
           }
         ]
       },

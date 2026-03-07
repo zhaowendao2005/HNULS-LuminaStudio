@@ -248,7 +248,9 @@
               <!-- 类型选择 -->
               <div class="text-gray-400 shrink-0">:</div>
               <div class="flex items-center gap-1 shrink-0">
-                <div class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">string</div>
+                <div class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                  {{ output.type || 'string' }}
+                </div>
               </div>
 
               <!-- 删除按钮 -->
@@ -358,6 +360,7 @@ const debugFields = computed<NodeDebugField[]>(() => {
     fieldMap.set(key, {
       key,
       label: selector[selector.length - 1] || key,
+      type: output.type,
       required: false,
       placeholder: `请输入 ${selector.join('.')}`
     })
@@ -396,7 +399,8 @@ function addOutput() {
     ...localOutputs.value,
     {
       variable: '',
-      value_selector: []
+      value_selector: [],
+      type: 'string' as OFVarType
     }
   ]
   localOutputs.value = newOutputs
@@ -436,14 +440,14 @@ function handleClose() {
   uiStore.closeNodeConfigPanel()
 }
 
-function handleDebugFormUpdate(values: Record<string, string>) {
+function handleDebugFormUpdate(values: Record<string, any>) {
   if (!uiStore.selectedNodeId) return
   Object.entries(values).forEach(([key, value]) => {
     nodeDebugStore.setNodeFormValue(uiStore.selectedNodeId!, key, value)
   })
 }
 
-async function executeNodeDebug(values: Record<string, string>) {
+async function executeNodeDebug(values: Record<string, any>) {
   if (!editorStore.currentWorkflowId || !uiStore.selectedNodeId) return
   debugMode.value = false
   activeTab.value = 'lastRun'
@@ -490,7 +494,9 @@ function handleVariableSelect(event: CustomEvent) {
     ...localOutputs.value,
     {
       variable: varName,
-      value_selector: variable.valueSelector
+      value_selector: variable.valueSelector,
+      type: variable.type as OFVarType | undefined,
+      schema: variable.schema || null
     }
   ]
   localOutputs.value = newOutputs

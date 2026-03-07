@@ -2,13 +2,13 @@
   <CenteredDialog
     :model-value="store.visible"
     title="结构化输出 Schema"
-    subtitle="配置 structured_output 的对象字段"
+    subtitle="配置 structured_output 的 object 或 array<object> Schema"
     :close-on-mask="true"
     max-width="1100px"
     @update:model-value="handleVisibleChange"
   >
     <div class="flex h-[78vh] min-h-[640px] flex-col">
-      <div class="flex items-center justify-between border-b border-gray-100 px-5 py-3">
+        <div class="flex items-center justify-between border-b border-gray-100 px-5 py-3">
         <div class="inline-flex rounded-md bg-gray-100/90 p-0.5">
           <button
             class="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all"
@@ -67,6 +67,34 @@
             <span>从 JSON 导入</span>
           </button>
         </div>
+
+        <div class="flex items-center gap-2 text-xs">
+          <span class="text-gray-500">Root</span>
+          <button
+            type="button"
+            class="rounded-md px-2.5 py-1 transition-colors"
+            :class="
+              store.rootType === 'object'
+                ? 'bg-indigo-50 text-indigo-700'
+                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+            "
+            @click="store.setRootType('object')"
+          >
+            object
+          </button>
+          <button
+            type="button"
+            class="rounded-md px-2.5 py-1 transition-colors"
+            :class="
+              store.rootType === 'array<object>'
+                ? 'bg-indigo-50 text-indigo-700'
+                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+            "
+            @click="store.setRootType('array<object>')"
+          >
+            array&lt;object&gt;
+          </button>
+        </div>
       </div>
 
       <div
@@ -80,7 +108,7 @@
         <div v-if="activeTab === 'visual'" class="mx-auto max-w-2xl space-y-1.5">
           <div class="flex items-center gap-2 pb-1.5">
             <span class="text-sm font-semibold text-gray-800">structured_output</span>
-            <span class="text-xs text-gray-400">object</span>
+            <span class="text-xs text-gray-400">{{ store.rootType }}</span>
           </div>
 
           <div class="ml-1.5 space-y-1.5 border-l-2 border-gray-200/70 pl-5">
@@ -238,7 +266,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import type { OFJsonSchemaObject, OFStructuredFieldType } from '@shared/Orchestraflow-types'
+import type { OFStructuredFieldType, OFStructuredJsonSchema } from '@shared/Orchestraflow-types'
 import CenteredDialog from '@renderer/views/LuminaApp/Maincontent/OrchestraFlowView/EditorView/Common/CenteredDialog.vue'
 import WhiteSelect, {
   type WhiteSelectOption
@@ -248,7 +276,7 @@ import CapsuleTooltip from '../components/CapsuleTooltip.vue'
 import { OF_PANEL_THEME } from '../panel-theme'
 
 const emit = defineEmits<{
-  save: [schema: OFJsonSchemaObject]
+  save: [schema: OFStructuredJsonSchema]
 }>()
 
 const store = useObjectSchemaEditorStore()

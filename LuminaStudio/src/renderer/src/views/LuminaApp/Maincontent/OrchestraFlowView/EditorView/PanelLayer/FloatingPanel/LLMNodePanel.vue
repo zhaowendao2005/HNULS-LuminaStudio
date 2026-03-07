@@ -339,10 +339,10 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type {
-  OFJsonSchemaObject,
   OFLLMNodeData,
   OFVariable,
   OFPromptItem,
+  OFStructuredJsonSchema,
   OFStructuredOutputConfig
 } from '@shared/Orchestraflow-types'
 import { buildLLMOutputVariables } from '@shared/Orchestraflow-types'
@@ -480,8 +480,9 @@ const structuredOutputVariable = computed(
 const structuredSchemaFields = computed(() => {
   const schema = structuredSchema.value
   if (!schema) return []
-  const requiredSet = new Set(schema.required || [])
-  return Object.entries(schema.properties || {}).map(([name, item]) => ({
+  const objectSchema = schema.type === 'array' ? schema.items : schema
+  const requiredSet = new Set(objectSchema.required || [])
+  return Object.entries(objectSchema.properties || {}).map(([name, item]) => ({
     name,
     type: item.type,
     required: requiredSet.has(name)
@@ -611,7 +612,7 @@ function formatOutputNamespace(item: OFVariable) {
   return selector.join('.')
 }
 
-function handleSchemaSave(schema: OFJsonSchemaObject) {
+function handleSchemaSave(schema: OFStructuredJsonSchema) {
   syncStructuredOutput({
     enabled: true,
     schema
@@ -673,14 +674,14 @@ function handleVariableSelect(event: Event) {
   activePromptTarget.value = null
 }
 
-function handleDebugFormUpdate(values: Record<string, string>) {
+function handleDebugFormUpdate(values: Record<string, any>) {
   if (!uiStore.selectedNodeId) return
   Object.entries(values).forEach(([key, value]) => {
     nodeDebugStore.setNodeFormValue(uiStore.selectedNodeId!, key, value)
   })
 }
 
-async function executeNodeDebug(values: Record<string, string>) {
+async function executeNodeDebug(values: Record<string, any>) {
   if (!editorStore.currentWorkflowId || !uiStore.selectedNodeId) return
   debugMode.value = false
   activeTab.value = 'lastRun'

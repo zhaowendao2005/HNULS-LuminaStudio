@@ -123,16 +123,16 @@
         <section class="space-y-2 border-t border-gray-100 pt-4">
           <div class="flex items-center justify-between">
             <div class="system-sm-semibold-uppercase text-gray-700">
-              子图输出选择器
+              结果项变量
               <span class="text-red-500">*</span>
             </div>
             <div class="rounded-full border px-2 py-0.5 text-[10px] font-medium" :class="theme.softBadgeClass">
-              SELECTOR
+              INTERNAL
             </div>
           </div>
           <VariablePillButton
             :text="outputSelectorDisplayText"
-            placeholder="选择子图输出"
+            placeholder="选择内部图变量作为每项输出"
             button-class="!h-12 !rounded-xl !border-[#e5e7eb] !bg-[#f3f4f6] !px-3 !text-gray-500 hover:!border-cyan-200 hover:!bg-white"
             @click="openOutputVariableSelector"
           >
@@ -262,7 +262,8 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type {
   OFIterationErrorHandleMode,
-  OFIterationNodeData
+  OFIterationNodeData,
+  OFVarType
 } from '@shared/Orchestraflow-types'
 import { useWorkflowEditorUIStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor-ui.store'
 import { useWorkflowEditorStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor.store'
@@ -346,8 +347,9 @@ const debugFields = computed<NodeDebugField[]>(() => {
     {
       key: path,
       label: path,
+      type: 'array' as OFVarType,
       required: true,
-      placeholder: `请输入 ${path}`
+      placeholder: `请输入 ${path} 对应的 JSON 数组`
     }
   ]
 })
@@ -412,14 +414,14 @@ function formatSelector(selector?: string[]) {
   return selector?.length ? selector.join('.') : ''
 }
 
-function handleDebugFormUpdate(values: Record<string, string>) {
+function handleDebugFormUpdate(values: Record<string, any>) {
   if (!uiStore.selectedNodeId) return
   Object.entries(values).forEach(([key, value]) => {
     nodeDebugStore.setNodeFormValue(uiStore.selectedNodeId!, key, value)
   })
 }
 
-async function executeNodeDebug(values: Record<string, string>) {
+async function executeNodeDebug(values: Record<string, any>) {
   if (!editorStore.currentWorkflowId || !uiStore.selectedNodeId) return
   debugMode.value = false
   activeTab.value = 'lastRun'

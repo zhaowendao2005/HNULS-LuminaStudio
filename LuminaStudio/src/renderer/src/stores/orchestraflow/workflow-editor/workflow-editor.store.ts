@@ -568,6 +568,39 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
     return ancestorPath.join('/') || 'root'
   }
 
+  function collectCascadeNodeIds(rootNodeId: string): Set<string> {
+    const removedNodeIds = new Set<string>([rootNodeId])
+    const pendingNodeIds = [rootNodeId]
+
+    while (pendingNodeIds.length > 0) {
+      const currentNodeId = pendingNodeIds.pop()!
+      const currentNode = findNodeByIdFrom(currentNodeId, nodes.value)
+      const subgraphNodes = (currentNode?.data as { subgraph?: { nodes?: OFNode[] } } | undefined)?.subgraph
+        ?.nodes
+
+      ;(subgraphNodes || []).forEach((childNode) => {
+        if (!removedNodeIds.has(childNode.id)) {
+          removedNodeIds.add(childNode.id)
+          pendingNodeIds.push(childNode.id)
+        }
+      })
+    }
+
+    let changed = true
+
+    while (changed) {
+      changed = false
+      nodes.value.forEach((node) => {
+        if (node.parentNode && removedNodeIds.has(node.parentNode) && !removedNodeIds.has(node.id)) {
+          removedNodeIds.add(node.id)
+          changed = true
+        }
+      })
+    }
+
+    return removedNodeIds
+  }
+
   function isDuplicateEdgeCandidate(edge: OFEdge): boolean {
     const layerKey = getNodeLayerKey(edge.source)
     return edges.value.some((candidate) => {
@@ -1026,23 +1059,15 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
   function removeNode(nodeId: string) {
     if (isIterationLocalStart(nodeId)) return
 
-    const removedNodeIds = new Set<string>([nodeId])
-    let changed = true
-
-    while (changed) {
-      changed = false
-      nodes.value.forEach((node) => {
-        if (node.parentNode && removedNodeIds.has(node.parentNode) && !removedNodeIds.has(node.id)) {
-          removedNodeIds.add(node.id)
-          changed = true
-        }
-      })
-    }
+    const removedNodeIds = collectCascadeNodeIds(nodeId)
 
     nodes.value = nodes.value.filter((node) => !removedNodeIds.has(node.id))
     edges.value = edges.value.filter(
       (edge) => !removedNodeIds.has(edge.source) && !removedNodeIds.has(edge.target)
     )
+    if (selectedNodeId.value && removedNodeIds.has(selectedNodeId.value)) {
+      selectedNodeId.value = null
+    }
     scheduleSave()
   }
 

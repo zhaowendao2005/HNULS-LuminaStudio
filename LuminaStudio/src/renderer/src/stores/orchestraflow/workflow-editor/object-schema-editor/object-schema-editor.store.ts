@@ -1,10 +1,12 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import type { OFJsonSchemaObject, OFStructuredFieldType } from '@shared/Orchestraflow-types'
+import type { OFStructuredFieldType, OFStructuredJsonSchema } from '@shared/Orchestraflow-types'
 import {
   fieldsToSchema,
+  resolveSchemaRootType,
   schemaToFieldDrafts,
   type OFObjectSchemaEditorState,
+  type OFSchemaRootType,
   type OFSchemaFieldDraft
 } from './object-schema-editor.types'
 
@@ -21,19 +23,22 @@ function createEmptyField(): OFSchemaFieldDraft {
 export const useObjectSchemaEditorStore = defineStore('orchestraflow-object-schema-editor', () => {
   const visible = ref(false)
   const nodeId = ref<string | null>(null)
+  const rootType = ref<OFSchemaRootType>('object')
   const fields = ref<OFSchemaFieldDraft[]>([])
 
   const state = computed<OFObjectSchemaEditorState>(() => ({
     visible: visible.value,
     nodeId: nodeId.value,
+    rootType: rootType.value,
     fields: fields.value
   }))
 
-  const schema = computed<OFJsonSchemaObject>(() => fieldsToSchema(fields.value))
+  const schema = computed<OFStructuredJsonSchema>(() => fieldsToSchema(fields.value, rootType.value))
 
-  function open(node: string, currentSchema?: OFJsonSchemaObject | null) {
+  function open(node: string, currentSchema?: OFStructuredJsonSchema | null) {
     nodeId.value = node
     visible.value = true
+    rootType.value = resolveSchemaRootType(currentSchema)
     fields.value = schemaToFieldDrafts(currentSchema)
     if (!fields.value.length) {
       fields.value = [createEmptyField()]
@@ -47,7 +52,12 @@ export const useObjectSchemaEditorStore = defineStore('orchestraflow-object-sche
   function clear() {
     visible.value = false
     nodeId.value = null
+    rootType.value = 'object'
     fields.value = []
+  }
+
+  function setRootType(nextRootType: OFSchemaRootType) {
+    rootType.value = nextRootType
   }
 
   function addField(type: OFStructuredFieldType = 'string') {
@@ -90,6 +100,7 @@ export const useObjectSchemaEditorStore = defineStore('orchestraflow-object-sche
   return {
     visible,
     nodeId,
+    rootType,
     fields,
     state,
     schema,
@@ -99,6 +110,7 @@ export const useObjectSchemaEditorStore = defineStore('orchestraflow-object-sche
     addField,
     removeField,
     updateField,
+    setRootType,
     reset
   }
 })

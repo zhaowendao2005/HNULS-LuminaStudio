@@ -228,6 +228,36 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
 
   const availableGroups = computed<OFAvailableVariableGroup[]>(() => {
     if (!targetNodeId.value) return []
+    const targetNode = editorStore.findNodeById(targetNodeId.value)
+
+    if (targetType.value === 'iteration-output' && targetNode?.data.type === OFBlockEnum.Iteration) {
+      const iterationData = targetNode.data as OFIterationNodeData
+      const internalGroups = (iterationData.subgraph?.nodes || [])
+        .flatMap((node) => extractNodeOutputs(node))
+        .filter((group) => group.items.length > 0)
+
+      if (!searchKeyword.value.trim()) {
+        return internalGroups
+      }
+
+      const keyword = searchKeyword.value.trim().toLowerCase()
+      return internalGroups
+        .map((group) => {
+          const filteredItems = group.items
+            .map((item) => filterVariable(item, keyword))
+            .filter(Boolean) as OFAvailableVariable[]
+
+          if (!filteredItems.length && !group.title.toLowerCase().includes(keyword)) {
+            return null
+          }
+
+          return {
+            ...group,
+            items: filteredItems
+          }
+        })
+        .filter(Boolean) as OFAvailableVariableGroup[]
+    }
 
     const parentIterationId = editorStore.findParentIterationNodeId(targetNodeId.value)
     const localUpstreamNodes = parentIterationId

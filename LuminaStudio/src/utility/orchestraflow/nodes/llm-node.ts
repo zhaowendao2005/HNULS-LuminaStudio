@@ -10,9 +10,9 @@ import {
   buildLLMOutputVariables,
   OF_LLM_STRUCTURED_OUTPUT_NAME,
   normalizeOFVariableNamespace,
-  type OFJsonSchemaObject,
   type OFLLMNodeData,
-  type OFModelCompletionParams
+  type OFModelCompletionParams,
+  type OFStructuredJsonSchema
 } from '@shared/Orchestraflow-types'
 import type { ExecutionContext, NodeResult } from './types'
 import { VariableStore } from '../services/variable-store'
@@ -222,11 +222,12 @@ export class LLMNode extends BaseNode {
     }
   }
 
-  private buildZodSchema(schema: OFJsonSchemaObject) {
+  private buildZodSchema(schema: OFStructuredJsonSchema) {
+    const objectSchema = schema.type === 'array' ? schema.items : schema
     const shape: Record<string, z.ZodTypeAny> = {}
-    const requiredSet = new Set(schema.required || [])
+    const requiredSet = new Set(objectSchema.required || [])
 
-    Object.entries(schema.properties || {}).forEach(([key, value]) => {
+    Object.entries(objectSchema.properties || {}).forEach(([key, value]) => {
       let base: z.ZodTypeAny
       switch (value.type) {
         case 'boolean':
@@ -248,7 +249,8 @@ export class LLMNode extends BaseNode {
       shape[key] = requiredSet.has(key) ? base : base.optional()
     })
 
-    return z.object(shape).strict()
+    const objectResult = z.object(shape).strict()
+    return schema.type === 'array' ? z.array(objectResult) : objectResult
   }
 
   private normalizeNumber(value: unknown): number | undefined {
