@@ -7,6 +7,7 @@ import {
   OFControlMode,
   OFBlockEnum,
   OFNodeRunningStatus,
+  OFVarType,
   buildLLMOutputVariables,
   buildIterationOutputVariables,
   normalizeOFVariableNamespace
@@ -195,9 +196,20 @@ function normalizeNode(node: OFNode): OFNode {
       data: {
         ...buildCommonNodeShape(data, title),
         type: OFBlockEnum.Iteration,
+        input: data.input || { variables: [] },
         iterationMode: data.iterationMode || 'fixed-count',
         iterationCount: Math.max(1, Number(data.iterationCount || 3)),
         iterationSource: data.iterationSource || '',
+        outputVariable: data.outputVariable || {
+          variable: 'item',
+          label: 'item',
+          type: OFVarType.Array,
+          required: true,
+          value_selector: []
+        },
+        parallelMode: Boolean(data.parallelMode),
+        errorResponseMode: data.errorResponseMode || 'terminate',
+        flattenOutput: data.flattenOutput ?? true,
         mockTemplateId: data.mockTemplateId || 'llm-summary',
         graph: data.graph || createDefaultIterationGraph(node.id),
         preview: data.preview || {
@@ -775,9 +787,20 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
           type: OFBlockEnum.Iteration,
           width: 650,
           height: 417,
+          input: { variables: [] },
           iterationMode: 'fixed-count',
           iterationCount: 3,
           iterationSource: '',
+          outputVariable: {
+            variable: 'item',
+            label: 'item',
+            type: OFVarType.Array,
+            required: true,
+            value_selector: []
+          },
+          parallelMode: false,
+          errorResponseMode: 'terminate',
+          flattenOutput: true,
           mockTemplateId: 'llm-summary',
           graph: createDefaultIterationGraph(id),
           preview: {

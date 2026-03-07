@@ -4,7 +4,12 @@
 
 import type { OFBlockEnum, OFJsonSchemaObject, OFVarType } from '@shared/Orchestraflow-types'
 
-export type VariableSelectorTargetType = 'prompt' | 'output' | 'condition'
+export type VariableSelectorTargetType =
+  | 'prompt'
+  | 'output'
+  | 'condition'
+  | 'iteration-input'
+  | 'iteration-output'
 
 export interface OFAvailableVariable {
   id: string

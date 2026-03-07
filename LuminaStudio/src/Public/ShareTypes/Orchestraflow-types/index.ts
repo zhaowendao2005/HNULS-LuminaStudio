@@ -92,6 +92,7 @@ export interface OFNodeOutput {
 }
 
 export type OFIterationMode = 'fixed-count' | 'mock-source'
+export type OFIterationErrorResponseMode = 'terminate' | 'continue'
 
 export interface OFIterationPreviewNode {
   id: string
@@ -387,9 +388,14 @@ export type OFLLMNodeData = OFCommonNodeType & {
 // ===== Iteration 节点数据 =====
 export type OFIterationNodeData = OFCommonNodeType & {
   type: OFBlockEnum.Iteration
+  input: OFNodeInput
   iterationMode: OFIterationMode
   iterationCount: number
   iterationSource?: string
+  outputVariable: OFVariable | null
+  parallelMode?: boolean
+  errorResponseMode?: OFIterationErrorResponseMode
+  flattenOutput?: boolean
   mockTemplateId: string
   graph: OFSubWorkflowGraph
   preview: OFIterationPreviewSnapshot
@@ -498,9 +504,14 @@ export interface OFIterationNodeConfig {
   nodeId: string
   title: string
   desc: string
+  input: OFNodeInput
   iterationMode: OFIterationMode
   iterationCount: number
   iterationSource?: string
+  outputVariable: OFVariable | null
+  parallelMode?: boolean
+  errorResponseMode?: OFIterationErrorResponseMode
+  flattenOutput?: boolean
   mockTemplateId: string
   graph: OFSubWorkflowGraph
   preview: OFIterationPreviewSnapshot
