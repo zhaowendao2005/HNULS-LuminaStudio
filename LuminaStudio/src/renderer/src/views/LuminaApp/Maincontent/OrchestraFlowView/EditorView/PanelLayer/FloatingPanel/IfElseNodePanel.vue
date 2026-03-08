@@ -85,143 +85,191 @@
         <div class="of-doc-divider"></div>
 
         <div class="of-branch-stack">
-          <div
-            v-for="item in cases"
-            :key="item.id"
-            class="of-branch-case"
-          >
-            <div
-              v-for="(condition, conditionIndex) in item.conditions"
-              :key="condition.id"
-              class="of-branch-line"
-              :class="conditionIndex > 0 ? 'of-branch-indent' : ''"
-            >
-              <span class="of-branch-keyword">
-                {{
-                  item.kind === 'if'
-                    ? conditionIndex === 0
-                      ? 'if'
-                      : condition.logical_operator === 'or'
-                        ? 'or'
-                        : 'and'
-                    : conditionIndex === 0
-                      ? 'else if'
-                      : condition.logical_operator === 'or'
-                        ? 'or'
-                        : 'and'
-                }}
-              </span>
-              <span class="text-gray-500">(</span>
-              <VariablePillButton
-                :text="condition.variable_path || ''"
-                placeholder="选择变量"
-                tooltip-max-width="520px"
-                @click="handleConditionVariableClick(item.id, condition.id, $event)"
-              />
-              <div class="of-choice-anchor">
-                <button
-                  type="button"
-                  class="of-branch-operator"
-                  @click.stop="toggleOperatorPicker(item.id, condition.id)"
-                >
-                  {{ getOperatorLabel(condition.operator, condition.variable_type) }}
-                </button>
+          <div v-for="item in cases" :key="item.id" class="of-branch-case of-branch-case-v7">
+            <div class="of-branch-v7-tree">
+              <div class="of-branch-v7-trunk"></div>
+              <div class="of-branch-v7-body">
                 <div
-                  v-if="isOperatorPickerOpen(item.id, condition.id)"
-                  class="of-choice-popup"
+                  v-for="(condition, conditionIndex) in item.conditions"
+                  :key="condition.id"
+                  class="of-branch-v7-node"
+                  :class="conditionIndex > 0 ? 'is-nested' : ''"
                 >
-                  <button
-                    v-for="option in getOperators(condition.variable_type)"
-                    :key="String(option.value)"
-                    type="button"
-                    class="of-choice-option"
-                    :class="String(option.value) === condition.operator ? 'of-choice-option-active' : ''"
-                    @click.stop="selectOperator(item.id, condition.id, String(option.value))"
-                  >
-                    {{ option.label }}
-                  </button>
-                </div>
-              </div>
-              <template v-if="needsValue(condition.operator)">
-                <input
-                  v-if="condition.variable_type !== OFVarType.Boolean"
-                  :type="condition.variable_type === OFVarType.Number ? 'number' : 'text'"
-                  :value="condition.value ?? ''"
-                  class="of-branch-inline-input"
-                  :class="condition.variable_type === OFVarType.Number ? 'w-12' : 'w-20'"
-                  placeholder="值"
-                  @input="handleValueInput(item.id, condition.id, condition.variable_type, $event)"
-                />
-                <div v-else class="of-choice-anchor">
-                  <button
-                    type="button"
-                    class="of-branch-operator"
-                    @click.stop="toggleBooleanPicker(item.id, condition.id)"
-                  >
-                    {{ condition.value === false ? 'FALSE' : 'TRUE' }}
-                  </button>
-                  <div
-                    v-if="isBooleanPickerOpen(item.id, condition.id)"
-                    class="of-choice-popup"
-                  >
-                    <button
-                      type="button"
-                      class="of-choice-option"
-                      :class="condition.value === true ? 'of-choice-option-active' : ''"
-                      @click.stop="selectBooleanValue(item.id, condition.id, true)"
-                    >
-                      TRUE
-                    </button>
-                    <button
-                      type="button"
-                      class="of-choice-option"
-                      :class="condition.value === false ? 'of-choice-option-active' : ''"
-                      @click.stop="selectBooleanValue(item.id, condition.id, false)"
-                    >
-                      FALSE
-                    </button>
+                  <div class="of-branch-v7-line">
+                    <span class="of-branch-v7-rail"></span>
+                    <div class="of-branch-v7-content">
+                      <div class="of-branch-line">
+                        <span class="of-branch-keyword">
+                          {{
+                            item.kind === 'if'
+                              ? conditionIndex === 0
+                                ? 'if'
+                                : condition.logical_operator === 'or'
+                                  ? 'or'
+                                  : 'and'
+                              : conditionIndex === 0
+                                ? 'else if'
+                                : condition.logical_operator === 'or'
+                                  ? 'or'
+                                  : 'and'
+                          }}
+                        </span>
+                        <span class="of-branch-v7-token">(</span>
+                        <VariablePillButton
+                          :text="condition.variable_path || ''"
+                          placeholder="选择变量"
+                          tooltip-max-width="520px"
+                          @click="handleConditionVariableClick(item.id, condition.id, $event)"
+                        />
+                        <div
+                          ref="operatorTriggerRefs"
+                          :data-popup-key="`operator:${item.id}:${condition.id}`"
+                          class="of-choice-anchor"
+                        >
+                          <button
+                            type="button"
+                            class="of-branch-operator"
+                            @click.stop="toggleOperatorPicker(item.id, condition.id)"
+                          >
+                            {{ getOperatorLabel(condition.operator, condition.variable_type) }}
+                          </button>
+                        </div>
+                        <Teleport to="body">
+                          <div
+                            v-if="isOperatorPickerOpen(item.id, condition.id)"
+                            class="of-choice-popup of-choice-popup-fixed"
+                            :style="getChoicePopupStyle(`operator:${item.id}:${condition.id}`)"
+                          >
+                            <button
+                              v-for="option in getOperators(condition.variable_type)"
+                              :key="String(option.value)"
+                              type="button"
+                              class="of-choice-option"
+                              :class="
+                                String(option.value) === condition.operator
+                                  ? 'of-choice-option-active'
+                                  : ''
+                              "
+                              @click.stop="selectOperator(item.id, condition.id, String(option.value))"
+                            >
+                              {{ option.label }}
+                            </button>
+                          </div>
+                        </Teleport>
+                        <template v-if="needsValue(condition.operator)">
+                          <input
+                            v-if="condition.variable_type !== OFVarType.Boolean"
+                            :type="condition.variable_type === OFVarType.Number ? 'number' : 'text'"
+                            :value="condition.value ?? ''"
+                            class="of-branch-inline-input"
+                            :class="condition.variable_type === OFVarType.Number ? 'w-12' : 'w-20'"
+                            placeholder="值"
+                            @input="handleValueInput(item.id, condition.id, condition.variable_type, $event)"
+                          />
+                          <div
+                            v-else
+                            ref="operatorTriggerRefs"
+                            :data-popup-key="`boolean:${item.id}:${condition.id}`"
+                            class="of-choice-anchor"
+                          >
+                            <button
+                              type="button"
+                              class="of-branch-operator"
+                              @click.stop="toggleBooleanPicker(item.id, condition.id)"
+                            >
+                              {{ condition.value === false ? 'FALSE' : 'TRUE' }}
+                            </button>
+                          </div>
+                          <Teleport to="body">
+                            <div
+                              v-if="isBooleanPickerOpen(item.id, condition.id)"
+                              class="of-choice-popup of-choice-popup-fixed"
+                              :style="getChoicePopupStyle(`boolean:${item.id}:${condition.id}`)"
+                            >
+                              <button
+                                type="button"
+                                class="of-choice-option"
+                                :class="condition.value === true ? 'of-choice-option-active' : ''"
+                                @click.stop="selectBooleanValue(item.id, condition.id, true)"
+                              >
+                                TRUE
+                              </button>
+                              <button
+                                type="button"
+                                class="of-choice-option"
+                                :class="condition.value === false ? 'of-choice-option-active' : ''"
+                                @click.stop="selectBooleanValue(item.id, condition.id, false)"
+                              >
+                                FALSE
+                              </button>
+                            </div>
+                          </Teleport>
+                        </template>
+                        <span class="of-branch-v7-token">)</span>
+                      </div>
+
+                      <div class="of-branch-v7-result">
+                        <span class="of-branch-v7-result-label">去</span>
+                        <button
+                          type="button"
+                          class="of-ref-trigger of-branch-target of-ref-trigger-empty"
+                        >
+                          <span class="of-ref-text">{{ item.label || '走分支' }}</span>
+                        </button>
+                      </div>
+
+                      <span class="of-branch-actions">
+                        <button type="button" class="of-branch-action" @click="addCondition(item.id)">
+                          添加条件
+                        </button>
+                        <button
+                          v-if="conditionIndex > 0"
+                          type="button"
+                          class="of-branch-action of-branch-action-danger"
+                          @click="removeCondition(item.id, condition.id)"
+                        >
+                          删除条件
+                        </button>
+                        <button
+                          v-if="item.kind === 'elif' && conditionIndex === 0"
+                          type="button"
+                          class="of-branch-action of-branch-action-danger"
+                          @click="removeCase(item.id)"
+                        >
+                          删除分支
+                        </button>
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </template>
-              <span class="text-gray-500">)</span>
-              <span class="of-branch-keyword">then</span>
-              <button type="button" class="of-ref-trigger of-branch-target of-ref-trigger-empty">
-                <span class="of-ref-text">{{ item.label || '走分支' }}</span>
-              </button>
-              <span class="of-branch-actions">
-                <button
-                  type="button"
-                  class="of-branch-action"
-                  @click="addCondition(item.id)"
-                >
-                  添加条件
-                </button>
-                <button
-                  v-if="conditionIndex > 0"
-                  type="button"
-                  class="of-branch-action of-branch-action-danger"
-                  @click="removeCondition(item.id, condition.id)"
-                >
-                  删除条件
-                </button>
-                <button
-                  v-if="item.kind === 'elif' && conditionIndex === 0"
-                  type="button"
-                  class="of-branch-action of-branch-action-danger"
-                  @click="removeCase(item.id)"
-                >
-                  删除分支
-                </button>
-              </span>
+              </div>
             </div>
           </div>
 
-          <div class="of-branch-case">
-            <div class="of-branch-line">
-              <span class="of-branch-keyword">else</span>
-              <button type="button" class="of-ref-trigger of-branch-target of-ref-trigger-empty">
-                <span class="of-ref-text">走默认分支</span>
-              </button>
+          <div class="of-branch-case of-branch-case-v7">
+            <div class="of-branch-v7-tree">
+              <div class="of-branch-v7-trunk"></div>
+              <div class="of-branch-v7-body">
+                <div class="of-branch-v7-node">
+                  <div class="of-branch-v7-line">
+                    <span class="of-branch-v7-rail"></span>
+                    <div class="of-branch-v7-content">
+                      <div class="of-branch-line">
+                        <span class="of-branch-keyword">else</span>
+                      </div>
+                      <div class="of-branch-v7-result">
+                        <span class="of-branch-v7-result-label">去</span>
+                        <button
+                          type="button"
+                          class="of-ref-trigger of-branch-target of-ref-trigger-empty"
+                        >
+                          <span class="of-ref-text">走默认分支</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -242,7 +290,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import {
   OFVarType,
   type OFIfElseCondition,
@@ -269,6 +317,8 @@ const activeChoicePopup = ref<{
   caseId: string
   conditionId: string
 } | null>(null)
+const popupPosition = ref<Record<string, { top: number; left: number }>>({})
+const operatorTriggerRefs = ref<HTMLElement[]>([])
 const theme = OF_PANEL_THEME.ifelse
 
 const currentNode = computed(() => {
@@ -454,6 +504,7 @@ function toggleOperatorPicker(caseId: string, conditionId: string) {
     return
   }
   activeChoicePopup.value = { kind: 'operator', caseId, conditionId }
+  void nextTick(() => updateChoicePopupPosition(`operator:${caseId}:${conditionId}`))
 }
 
 function toggleBooleanPicker(caseId: string, conditionId: string) {
@@ -462,6 +513,7 @@ function toggleBooleanPicker(caseId: string, conditionId: string) {
     return
   }
   activeChoicePopup.value = { kind: 'boolean', caseId, conditionId }
+  void nextTick(() => updateChoicePopupPosition(`boolean:${caseId}:${conditionId}`))
 }
 
 function isOperatorPickerOpen(caseId: string, conditionId: string) {
@@ -492,6 +544,39 @@ function selectBooleanValue(caseId: string, conditionId: string, value: boolean)
   activeChoicePopup.value = null
 }
 
+function findChoiceTrigger(popupKey: string) {
+  return operatorTriggerRefs.value.find((element) => element.dataset.popupKey === popupKey) || null
+}
+
+function updateChoicePopupPosition(popupKey: string) {
+  const trigger = findChoiceTrigger(popupKey)
+  if (!trigger) return
+  const rect = trigger.getBoundingClientRect()
+  popupPosition.value = {
+    ...popupPosition.value,
+    [popupKey]: {
+      top: rect.bottom + 8,
+      left: rect.left + rect.width / 2
+    }
+  }
+}
+
+function getChoicePopupStyle(popupKey: string) {
+  const position = popupPosition.value[popupKey]
+  if (!position) {
+    return {
+      top: '-9999px',
+      left: '-9999px'
+    }
+  }
+
+  return {
+    top: `${position.top}px`,
+    left: `${position.left}px`,
+    transform: 'translateX(-50%)'
+  }
+}
+
 function closePopup() {
   activeChoicePopup.value = null
 }
@@ -508,6 +593,13 @@ function handleGlobalKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape') {
     closePopup()
   }
+}
+
+function handleWindowLayoutChange() {
+  if (!activeChoicePopup.value) return
+  updateChoicePopupPosition(
+    `${activeChoicePopup.value.kind}:${activeChoicePopup.value.caseId}:${activeChoicePopup.value.conditionId}`
+  )
 }
 
 function handleVariableSelect(event: Event) {
@@ -552,12 +644,16 @@ onMounted(() => {
   window.addEventListener('of:variable-select', handleVariableSelect as EventListener)
   window.addEventListener('pointerdown', handleGlobalPointerDown)
   window.addEventListener('keydown', handleGlobalKeydown)
+  window.addEventListener('scroll', handleWindowLayoutChange, true)
+  window.addEventListener('resize', handleWindowLayoutChange)
 })
 
 onUnmounted(() => {
   window.removeEventListener('of:variable-select', handleVariableSelect as EventListener)
   window.removeEventListener('pointerdown', handleGlobalPointerDown)
   window.removeEventListener('keydown', handleGlobalKeydown)
+  window.removeEventListener('scroll', handleWindowLayoutChange, true)
+  window.removeEventListener('resize', handleWindowLayoutChange)
 })
 </script>
 

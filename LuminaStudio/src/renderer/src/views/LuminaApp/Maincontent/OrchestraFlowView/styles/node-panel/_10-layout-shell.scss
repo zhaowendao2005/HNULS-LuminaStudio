@@ -1,0 +1,267 @@
+/* ========================================
+   节点面板样式分卷：布局与文档壳层
+   ========================================
+
+   包含：
+   - 面板头壳 -> .of-panel-shell
+   - 文档分组流 -> .of-doc-block
+   - 文档区块 -> .of-doc-section
+   - 标题 / 正文 / 分割线等基础排版
+
+   适用说法：
+   - “照着面板头壳写”
+   - “照着文档区块写”
+   - “标题之间加分割线”
+   ======================================== */
+
+/* ========================================
+   元素：面板头壳
+   类名：.of-panel-shell
+   作用：主节点面板的统一外壳。
+   子项：
+   - &-header
+   - &-title-row
+   - &-icon
+   - &-title-input
+   - &-actions
+   - &-description / &-description-input
+   - &-tabs
+   - &-body / &-body-inner
+   - &-footer
+   ======================================== */
+
+.of-panel-shell {
+  --of-accent: #0f766e;
+  --of-accent-strong: #115e59;
+  --of-accent-muted: #0f766e;
+  --of-accent-soft-bg: #ecfeff;
+  --of-accent-soft-bg-strong: #cffafe;
+  --of-accent-soft-border: #99f6e4;
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  background: $np-white;
+
+  &-header {
+    flex-shrink: 0;
+    padding: 1rem 1rem 0.75rem;
+    border-bottom: 1px solid $np-border-soft;
+  }
+
+  &-title-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  &-icon {
+    display: flex;
+    width: 1.5rem;
+    height: 1.5rem;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.5rem;
+    color: $np-white;
+  }
+
+  &-title-input {
+    min-width: 0;
+    flex: 1 1 auto;
+    border: 0;
+    background: transparent;
+    padding: 0;
+    color: $np-text-strong;
+    outline: none;
+
+    &::placeholder {
+      color: $np-text-soft;
+    }
+
+    &:hover,
+    &:focus {
+      color: var(--of-accent-strong);
+    }
+  }
+
+  &-actions {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  &-description {
+    margin-top: 0.5rem;
+  }
+
+  &-description-input {
+    width: 100%;
+    min-height: 1.125rem;
+    resize: none;
+    border: 0;
+    background: transparent;
+    padding: 0;
+    color: $np-text-muted;
+    outline: none;
+    font-size: 12px;
+    line-height: 18px;
+
+    &::placeholder {
+      color: $np-text-soft;
+    }
+
+    &:hover,
+    &:focus {
+      color: var(--of-accent);
+    }
+  }
+
+  &-tabs {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 0.75rem;
+  }
+
+  &-body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+  }
+
+  &-body-inner {
+    padding: 1rem;
+  }
+
+  &-footer {
+    flex-shrink: 0;
+    padding: 0.875rem 1rem 1rem;
+    border-top: 1px solid $np-border-soft;
+  }
+
+  input,
+  textarea,
+  select,
+  button {
+    color: $np-text-strong;
+  }
+}
+
+/* ========================================
+   元素：文档分组流
+   类名：.of-doc-block
+   作用：多个文档区块之间的统一纵向节奏容器。
+   ======================================== */
+
+.of-doc-block {
+  > * + * {
+    margin-top: 0.875rem;
+  }
+}
+
+/* ========================================
+   元素：文档区块
+   类名：.of-doc-section
+   作用：带标题的标准文档块容器。
+   ======================================== */
+
+.of-doc-section {
+  > * + * {
+    margin-top: 0.75rem;
+  }
+
+  + .of-doc-section {
+    margin-top: 1.25rem;
+  }
+}
+
+/* ========================================
+   元素：文档标题组
+   类名：
+   - .of-doc-title
+   - .of-doc-title-muted
+   - .of-doc-title-strong
+   - .of-doc-title-row
+   - .of-doc-kicker
+   作用：文档式面板的统一标题层级。
+   ======================================== */
+
+.of-doc-title {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: $np-text-main;
+}
+
+.of-doc-title-muted {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: $np-text-muted;
+}
+
+.of-doc-title-strong {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: $np-text-main;
+}
+
+.of-doc-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.of-doc-kicker {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: $np-text-soft;
+}
+
+/* ========================================
+   元素：文档正文行
+   类名：
+   - .of-doc-paragraph
+   - .of-doc-line
+   - .of-doc-line-soft
+   作用：描述性文案与正文句子的统一阅读节奏。
+   ======================================== */
+
+.of-doc-paragraph {
+  font-size: 14px;
+  line-height: 1.9;
+  color: $np-text-body;
+}
+
+.of-doc-line {
+  font-size: 14px;
+  line-height: 1.95;
+  color: $np-text-body;
+}
+
+.of-doc-line-soft {
+  font-size: 14px;
+  line-height: 1.9;
+  color: $np-text-muted;
+}
+
+/* ========================================
+   元素：文档分割线
+   类名：
+   - .of-doc-divider
+   - .of-doc-divider-dashed
+   作用：在不回到卡片边框的前提下，分开同级元素。
+   ======================================== */
+
+.of-doc-divider {
+  border-top: 1px solid $np-border-soft;
+}
+
+.of-doc-divider-dashed {
+  border-top: 1px dashed $np-border-dashed;
+}
+

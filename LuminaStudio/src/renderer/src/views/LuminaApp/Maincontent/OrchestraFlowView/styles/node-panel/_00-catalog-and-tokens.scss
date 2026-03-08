@@ -1,0 +1,121 @@
+/* ========================================
+   节点面板样式分卷：目录与主题变量
+   ========================================
+
+   包含：
+   - 全局中性色 token
+   - 各节点主题注入类
+
+   说明：
+   - 这些主题类不是元素本身。
+   - 它们只负责给后续元素注入强调色变量。
+
+   主题入口：
+   - Start 节点主题 -> .of-panel-theme-start
+   - LLM 节点主题 -> .of-panel-theme-llm
+   - Iteration / IfElse 节点主题 -> .of-panel-theme-iteration / .of-panel-theme-ifelse
+   - Loop / End 节点主题 -> .of-panel-theme-loop / .of-panel-theme-end
+   - VariableAssign 节点主题 -> .of-panel-theme-variable-assign
+   ======================================== */
+
+$np-white: #ffffff;
+$np-text-strong: #111827;
+$np-text-main: #1f2937;
+$np-text-body: #374151;
+$np-text-muted: #6b7280;
+$np-text-soft: #9ca3af;
+$np-border-soft: #f1f5f9;
+$np-border-light: #f8fafc;
+$np-border-muted: #d1d5db;
+$np-border-dashed: #dbe3ec;
+$np-accent-teal: #0f766e;
+$np-accent-teal-strong: #115e59;
+$np-accent-teal-line: #99f6e4;
+$np-accent-teal-line-hover: #2dd4bf;
+$np-accent-blue: #2563eb;
+$np-accent-blue-line: #bfdbfe;
+$np-accent-purple: #7c3aed;
+$np-accent-orange: #c2410c;
+$np-accent-orange-soft: #b45309;
+$np-accent-orange-line: #fbbf24;
+$np-accent-orange-line-focus: #f59e0b;
+$np-success: #059669;
+$np-danger: #dc2626;
+
+/* ========================================
+   元素：Start 节点主题
+   类名：.of-panel-theme-start
+   作用：注入 Start 节点强调色变量。
+   ======================================== */
+
+.of-panel-theme-start {
+  --of-accent: #059669;
+  --of-accent-strong: #047857;
+  --of-accent-muted: #059669;
+  --of-accent-soft-bg: #ecfdf5;
+  --of-accent-soft-bg-strong: #d1fae5;
+  --of-accent-soft-border: #a7f3d0;
+}
+
+/* ========================================
+   元素：LLM 节点主题
+   类名：.of-panel-theme-llm
+   作用：注入 LLM 节点强调色变量。
+   ======================================== */
+
+.of-panel-theme-llm {
+  --of-accent: #4f46e5;
+  --of-accent-strong: #4338ca;
+  --of-accent-muted: #4f46e5;
+  --of-accent-soft-bg: #eef2ff;
+  --of-accent-soft-bg-strong: #e0e7ff;
+  --of-accent-soft-border: #c7d2fe;
+}
+
+/* ========================================
+   元素：Iteration / IfElse 节点主题
+   类名：.of-panel-theme-iteration / .of-panel-theme-ifelse
+   作用：注入共用青色强调变量。
+   ======================================== */
+
+.of-panel-theme-iteration,
+.of-panel-theme-ifelse {
+  --of-accent: #0891b2;
+  --of-accent-strong: #0e7490;
+  --of-accent-muted: #0891b2;
+  --of-accent-soft-bg: #ecfeff;
+  --of-accent-soft-bg-strong: #cffafe;
+  --of-accent-soft-border: #a5f3fc;
+}
+
+/* ========================================
+   元素：Loop / End 节点主题
+   类名：.of-panel-theme-loop / .of-panel-theme-end
+   作用：注入共用琥珀色强调变量。
+   ======================================== */
+
+.of-panel-theme-loop,
+.of-panel-theme-end {
+  --of-accent: #d97706;
+  --of-accent-strong: #b45309;
+  --of-accent-muted: #d97706;
+  --of-accent-soft-bg: #fffbeb;
+  --of-accent-soft-bg-strong: #fef3c7;
+  --of-accent-soft-border: #fcd34d;
+}
+
+/* ========================================
+   元素：变量赋值节点主题
+   类名：.of-panel-theme-variable-assign
+   作用：注入变量赋值节点强调色变量。
+   ======================================== */
+
+.of-panel-theme-variable-assign {
+  --of-accent: #0284c7;
+  --of-accent-strong: #0369a1;
+  --of-accent-muted: #0284c7;
+  --of-accent-soft-bg: #f0f9ff;
+  --of-accent-soft-bg-strong: #e0f2fe;
+  --of-accent-soft-border: #bae6fd;
+}
+

@@ -1,0 +1,268 @@
+/* ========================================
+   节点面板样式分卷：状态、提示与角色条
+   ========================================
+
+   包含：
+   - 空状态、提示文案、内联轻操作
+   - 信息提示点
+   - LLM 文档行内句、消息块、角色切换
+   - 标签页按钮
+
+   适用说法：
+   - “照着信息提示点写”
+   - “照着角色切换条写”
+   - “照着标签页按钮写”
+   ======================================== */
+
+/* ========================================
+   元素：状态与轻操作
+   类名：
+   - .of-state-empty
+   - .of-state-hint
+   - .of-state-inline-action
+   作用：空状态文案与轻量操作入口。
+   ======================================== */
+
+.of-state-empty {
+  font-size: 13px;
+  line-height: 1.8;
+  color: $np-text-soft;
+}
+
+.of-state-hint {
+  font-size: 12px;
+  line-height: 1.6;
+  color: $np-text-soft;
+}
+
+.of-state-inline-action {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--of-accent);
+  cursor: pointer;
+  transition: color 150ms ease;
+
+  &:hover {
+    color: var(--of-accent-strong);
+  }
+}
+
+/* ========================================
+   元素：信息提示点
+   类名：
+   - .of-info-trigger
+   - .of-info-trigger-icon
+   作用：统一的 tooltip 说明入口。
+   ======================================== */
+
+.of-info-trigger {
+  display: inline-flex;
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid var(--of-accent-soft-border);
+  background: var(--of-accent-soft-bg);
+  color: var(--of-accent);
+  cursor: help;
+  transition: color 150ms ease, border-color 150ms ease, background-color 150ms ease;
+
+  &:hover {
+    border-color: var(--of-accent);
+    background: var(--of-accent-soft-bg-strong);
+    color: var(--of-accent-strong);
+  }
+}
+
+.of-info-trigger-icon {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* ========================================
+   元素：文档行内说明组
+   类名：
+   - .of-doc-inline-sentence
+   - .of-doc-inline-meta
+   - .of-doc-inline-code
+   作用：文档式面板中的行内说明句与代码词。
+   ======================================== */
+
+.of-doc-inline-sentence {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  font-size: 14px;
+  line-height: 2;
+  color: $np-text-body;
+}
+
+.of-doc-inline-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: $np-text-muted;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.of-doc-inline-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  font-size: 12px;
+  color: $np-text-muted;
+}
+
+/* ========================================
+   元素：文档消息块
+   类名：
+   - .of-doc-message-list
+   - .of-doc-message-item
+   - .of-doc-message-head
+   - .of-doc-message-actions
+   作用：LLM 提示词区域使用的消息式文档块。
+   ======================================== */
+
+.of-doc-message-list {
+  > * + * {
+    margin-top: 1rem;
+  }
+}
+
+.of-doc-message-item {
+  padding: 0.125rem 0 0.25rem;
+}
+
+.of-doc-message-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+
+/* ========================================
+   元素：角色切换条
+   类名：
+   - .of-doc-role-switch
+   - .of-doc-role-option
+   - .of-doc-role-option-system
+   - .of-doc-role-option-user
+   - .of-doc-role-option-assistant
+   - .of-doc-role-separator
+   - .of-doc-role-caption
+   作用：提示词编辑里使用的横向彩色角色切换条。
+   ======================================== */
+
+.of-doc-role-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+}
+
+.of-doc-role-option {
+  border: 0;
+  background: transparent;
+  padding: 0.1rem 0 0.2rem;
+  border-bottom: 1px solid transparent;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  color: $np-text-soft;
+  transition: color 150ms ease, border-color 150ms ease, font-size 150ms ease, font-weight 150ms ease;
+
+  &.is-active {
+    font-size: 12px;
+    font-weight: 700;
+  }
+}
+
+.of-doc-role-option-system {
+  &.is-active {
+    color: #475569;
+    border-bottom-color: #cbd5e1;
+  }
+}
+
+.of-doc-role-option-user {
+  &.is-active {
+    color: #0f766e;
+    border-bottom-color: #5eead4;
+  }
+}
+
+.of-doc-role-option-assistant {
+  &.is-active {
+    color: #7c3aed;
+    border-bottom-color: #c4b5fd;
+  }
+}
+
+.of-doc-role-separator {
+  color: #d1d5db;
+  font-size: 11px;
+}
+
+.of-doc-role-caption {
+  color: $np-text-soft;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.of-doc-message-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-left: auto;
+}
+
+/* ========================================
+   元素：标签页按钮
+   类名：
+   - .of-panel-tab-button
+   - .of-panel-tab-button-active
+   - .of-panel-tab-button-inactive
+   作用：保持可交互显色的文档式标签页按钮。
+   ======================================== */
+
+.of-panel-tab-button {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  padding: 0.625rem 0 0.45rem;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  color: var(--of-accent-muted);
+  transition: color 150ms ease, border-color 150ms ease, background-color 150ms ease;
+
+  &:hover {
+    color: var(--of-accent-strong);
+    border-bottom-color: var(--of-accent-soft-border);
+  }
+}
+
+.of-panel-tab-button-active {
+  color: var(--of-accent-strong);
+}
+
+.of-panel-tab-button-inactive {
+  color: color-mix(in srgb, var(--of-accent) 72%, #ffffff 28%);
+}
+

@@ -1,0 +1,279 @@
+/* ========================================
+   节点面板样式分卷：声明类元素
+   ========================================
+
+   包含：
+   - 普通声明块 -> .of-declare-entry
+   - 循环变量声明块 -> .of-declare-loop-entry
+   - 句中输入、句中切换、布尔切换、轻操作
+
+   适用说法：
+   - “照着普通声明块写”
+   - “照着循环变量声明块写”
+   - “把常量/变量改成句中切换”
+   ======================================== */
+
+/* ========================================
+   元素：普通声明块
+   类名：
+   - .of-declare-list
+   - .of-declare-entry
+   作用：变量式配置区常用的标准声明行。
+   ======================================== */
+
+.of-declare-list {
+  > * + * {
+    margin-top: 0.875rem;
+  }
+}
+
+.of-declare-entry {
+  padding-bottom: 0.875rem;
+  border-bottom: 1px solid $np-border-light;
+
+  &:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+}
+
+/* ========================================
+   元素：声明句子内容
+   类名：
+   - .of-declare-line
+   - .of-declare-key
+   - .of-declare-token
+   - .of-declare-type
+   - .of-declare-default
+   - .of-declare-required
+   作用：声明块中的句子片段与强调词。
+   ======================================== */
+
+.of-declare-line {
+  font-size: 14px;
+  line-height: 2;
+  color: $np-text-body;
+}
+
+.of-declare-key {
+  display: inline-block;
+  margin-right: 0.25rem;
+  font-weight: 500;
+  color: $np-text-strong;
+}
+
+.of-declare-token,
+.of-declare-type,
+.of-declare-default {
+  display: inline-flex;
+  align-items: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  font-size: 13px;
+}
+
+.of-declare-token {
+  padding: 0 0.3rem;
+  border-radius: 0.35rem;
+  background: #ecfeff;
+  color: $np-accent-teal;
+}
+
+.of-declare-type {
+  color: $np-accent-orange-soft;
+}
+
+.of-declare-default {
+  color: $np-text-muted;
+}
+
+.of-declare-required {
+  margin-left: 0.3rem;
+  color: #e11d48;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* ========================================
+   元素：声明块轻操作
+   类名：
+   - .of-declare-actions
+   - .of-declare-action
+   - .of-declare-action-danger
+   作用：声明级别的编辑、删除等轻操作。
+   ======================================== */
+
+.of-declare-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.of-declare-action {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+  cursor: pointer;
+  color: $np-text-muted;
+  transition: color 150ms ease;
+
+  &:hover {
+    color: $np-accent-teal;
+  }
+
+  &.of-declare-action-danger:hover {
+    color: $np-danger;
+  }
+}
+
+/* ========================================
+   元素：循环变量声明块
+   类名：
+   - .of-declare-loop-list
+   - .of-declare-loop-entry
+   - .of-declare-loop-line
+   - .of-declare-loop-label
+   作用：循环节点里“循环变量声明”这一整块的标准样式。
+   ======================================== */
+
+.of-declare-loop-list {
+  > * + * {
+    margin-top: 1.25rem;
+  }
+}
+
+.of-declare-loop-entry {
+  padding-left: 0.25rem;
+
+  > * + * {
+    margin-top: 0.625rem;
+  }
+}
+
+.of-declare-loop-line {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  flex-wrap: wrap;
+  font-size: 14px;
+  line-height: 1.75;
+  color: $np-text-body;
+}
+
+.of-declare-loop-label {
+  width: 5.25rem;
+  flex-shrink: 0;
+  color: $np-text-main;
+  font-size: 14px;
+}
+
+/* ========================================
+   元素：句中输入
+   类名：
+   - .of-declare-inline-input
+   - .of-declare-inline-input-mono
+   作用：嵌在句子里的轻量输入框。
+   ======================================== */
+
+.of-declare-inline-input {
+  min-width: 3.5rem;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: transparent;
+  padding: 0 0 0.15rem;
+  color: var(--of-accent);
+  outline: none;
+  font-size: 14px;
+  line-height: 1.5;
+  transition: border-color 150ms ease, color 150ms ease;
+
+  &::placeholder {
+    color: $np-text-soft;
+  }
+
+  &:hover {
+    border-bottom-color: $np-border-muted;
+  }
+
+  &:focus {
+    border-bottom-color: var(--of-accent);
+  }
+}
+
+.of-declare-inline-input-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+}
+
+/* ========================================
+   元素：类型切换词
+   类名：
+   - .of-declare-choice
+   - .of-declare-choice-muted
+   作用：文档流里的词语式切换入口。
+   ======================================== */
+
+.of-declare-choice {
+  border: 0;
+  border-bottom: 1px dashed var(--of-accent-soft-border);
+  background: transparent;
+  padding: 0 0 0.15rem;
+  color: var(--of-accent);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.of-declare-choice-muted {
+  color: $np-text-soft;
+  border-bottom-color: $np-border-muted;
+}
+
+/* ========================================
+   元素：辅助说明与布尔切换
+   类名：
+   - .of-declare-meta
+   - .of-declare-bool-toggle
+   - .of-declare-bool-option
+   - .of-declare-bool-option-active-true
+   - .of-declare-bool-option-active-false
+   作用：辅助信息与布尔态强调切换。
+   ======================================== */
+
+.of-declare-meta {
+  font-size: 12px;
+  line-height: 1.6;
+  color: $np-text-soft;
+}
+
+.of-declare-bool-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.of-declare-bool-option {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+  cursor: pointer;
+  color: $np-text-soft;
+}
+
+.of-declare-bool-option-active-true {
+  color: $np-success;
+}
+
+.of-declare-bool-option-active-false {
+  color: $np-danger;
+}
+

@@ -1,0 +1,249 @@
+/* ========================================
+   节点面板样式分卷：条件判断块
+   ========================================
+
+   包含：
+   - 条件判断块 -> .of-condition-entry
+   - 条件头、运算符词、来源切换、句中输入、布尔切换
+   - 主题图标按钮
+
+   适用说法：
+   - “照着条件判断块写”
+   - “照着条件运算符词写”
+   - “照着主题图标按钮写”
+   ======================================== */
+
+/* ========================================
+   元素：条件头部
+   类名：
+   - .of-condition-header
+   - .of-condition-header-actions
+   - .of-condition-mode-switch
+   - .of-condition-mode-option
+   - .of-panel-icon-button
+   - .of-panel-icon-svg
+   作用：条件区标题层与图标操作。
+   ======================================== */
+
+.of-condition-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.of-condition-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.of-condition-mode-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.of-condition-mode-option {
+  border: 0;
+  background: transparent;
+  padding: 0.1rem 0 0.2rem;
+  border-bottom: 1px solid transparent;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  color: $np-text-soft;
+  transition: color 150ms ease, border-color 150ms ease;
+
+  &.is-active {
+    color: $np-text-main;
+    border-bottom-color: $np-border-muted;
+  }
+}
+
+.of-panel-icon-button {
+  color: var(--of-accent-muted);
+  background: var(--of-accent-soft-bg);
+  border: 1px solid transparent;
+  transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease;
+
+  &:hover {
+    color: var(--of-accent-strong);
+    background: var(--of-accent-soft-bg-strong);
+    border-color: var(--of-accent-soft-border);
+  }
+}
+
+.of-panel-icon-svg {
+  color: inherit !important;
+}
+
+/* ========================================
+   元素：条件判断块
+   类名：
+   - .of-condition-list
+   - .of-condition-entry
+   - .of-condition-entry-head
+   - .of-condition-index
+   - .of-condition-line
+   作用：循环或分支类条件的句子式表达块。
+   ======================================== */
+
+.of-condition-list {
+  > * + * {
+    margin-top: 1rem;
+  }
+}
+
+.of-condition-entry {
+  padding-bottom: 1rem;
+  border-bottom: 1px solid $np-border-light;
+
+  &:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+}
+
+.of-condition-entry-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.45rem;
+}
+
+.of-condition-index {
+  color: $np-text-soft;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.of-condition-line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  font-size: 14px;
+  line-height: 2;
+  color: $np-text-body;
+}
+
+/* ========================================
+   元素：条件运算符词
+   类名：.of-condition-operator
+   作用：可唤起横向浮条的句中运算符入口。
+   ======================================== */
+
+.of-condition-operator {
+  border: 0;
+  border-bottom: 1px dashed var(--of-accent-soft-border);
+  background: transparent;
+  padding: 0 0 0.15rem;
+  color: var(--of-accent);
+  font-size: 14px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+/* ========================================
+   元素：条件右值来源切换
+   类名：
+   - .of-condition-source-switch
+   - .of-condition-source-option
+   作用：条件右值的常量/变量来源切换。
+   ======================================== */
+
+.of-condition-source-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.of-condition-source-option {
+  border: 0;
+  background: transparent;
+  padding: 0 0 0.15rem;
+  border-bottom: 1px dashed transparent;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+  cursor: pointer;
+  color: $np-text-soft;
+  transition: color 150ms ease, border-color 150ms ease;
+
+  &.is-active {
+    color: $np-accent-purple;
+    border-bottom-color: #c4b5fd;
+  }
+}
+
+/* ========================================
+   元素：条件句中输入与布尔切换
+   类名：
+   - .of-condition-input
+   - .of-condition-bool-toggle
+   - .of-condition-bool-option
+   作用：条件句中的可编辑值片段与布尔切换。
+   ======================================== */
+
+.of-condition-input {
+  min-width: 3rem;
+  border: 0;
+  border-bottom: 1px dashed var(--of-accent-soft-border);
+  background: var(--of-accent-soft-bg);
+  padding: 0.15rem 0.45rem 0.2rem;
+  border-radius: 0.35rem 0.35rem 0 0;
+  color: var(--of-accent-strong);
+  outline: none;
+  font-size: 14px;
+  line-height: 1.5;
+
+  &::placeholder {
+    color: #cbd5e1;
+  }
+
+  &:focus {
+    border-bottom-color: var(--of-accent);
+    background: var(--of-accent-soft-bg-strong);
+  }
+}
+
+.of-condition-bool-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.of-condition-bool-option {
+  border: 0;
+  background: transparent;
+  padding: 0 0 0.15rem;
+  border-bottom: 1px dashed transparent;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.5;
+  cursor: pointer;
+  color: $np-text-soft;
+  transition: color 150ms ease, border-color 150ms ease;
+
+  &.is-true-active {
+    color: $np-success;
+    border-bottom-color: #a7f3d0;
+  }
+
+  &.is-false-active {
+    color: $np-danger;
+    border-bottom-color: #fecaca;
+  }
+}
+

@@ -1,0 +1,307 @@
+/* ========================================
+   节点面板样式分卷：分支与横向浮条
+   ========================================
+
+   包含：
+   - 分支条件块 -> .of-branch-case
+   - 横向浮条 -> .of-choice-popup / .of-choice-popup-fixed
+
+   适用说法：
+   - “照着条件分支块写”
+   - “照着横向选择浮条写”
+   ======================================== */
+
+/* ========================================
+   元素：分支条件块
+   类名：
+   - .of-branch-stack
+   - .of-branch-case
+   - .of-branch-line
+   - .of-branch-indent
+   - .of-branch-keyword
+   - .of-branch-operator
+   - .of-branch-target
+   - .of-branch-inline-input
+   - .of-branch-actions
+   - .of-branch-action
+   作用：IfElse 一类面板的分支条件表达块。
+   ======================================== */
+
+.of-branch-stack {
+  > * + * {
+    margin-top: 1rem;
+  }
+}
+
+.of-branch-case {
+  padding-bottom: 0.875rem;
+  border-bottom: 1px solid $np-border-light;
+
+  &:last-child {
+    border-bottom: 0;
+    padding-bottom: 0;
+  }
+}
+
+.of-branch-line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  font-size: 14px;
+  line-height: 2;
+  color: $np-text-body;
+
+  + .of-branch-line {
+    margin-top: 0.5rem;
+  }
+}
+
+.of-branch-indent {
+  padding-left: 1rem;
+  border-left: 2px solid #e5e7eb;
+}
+
+.of-branch-keyword {
+  font-weight: 600;
+  color: var(--of-accent);
+}
+
+.of-branch-operator {
+  border: 0;
+  border-bottom: 1px dashed var(--of-accent-soft-border);
+  background: transparent;
+  padding: 0 0 0.15rem;
+  color: var(--of-accent);
+  font-size: 14px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.of-branch-target {
+  color: var(--of-accent-strong);
+  border-bottom-color: var(--of-accent-soft-border);
+}
+
+.of-branch-inline-input {
+  min-width: 2rem;
+  border: 0;
+  border-bottom: 1px dashed $np-accent-orange-line;
+  background: transparent;
+  padding: 0 0 0.15rem;
+  color: $np-accent-orange-soft;
+  outline: none;
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: center;
+
+  &:focus {
+    border-bottom-color: $np-accent-orange-line-focus;
+  }
+
+  &::placeholder {
+    color: #cbd5e1;
+  }
+}
+
+.of-branch-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-left: 0.25rem;
+}
+
+.of-branch-action {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+  cursor: pointer;
+  color: $np-text-soft;
+  transition: color 150ms ease;
+
+  &:hover {
+    color: $np-accent-teal;
+  }
+
+  &.of-branch-action-danger:hover {
+    color: $np-danger;
+  }
+}
+
+/* ========================================
+   元素：V7 条件分支块
+   类名：
+   - .of-branch-case-v7
+   - .of-branch-v7-tree
+   - .of-branch-v7-trunk
+   - .of-branch-v7-body
+   - .of-branch-v7-node
+   - .of-branch-v7-line
+   - .of-branch-v7-rail
+   - .of-branch-v7-content
+   - .of-branch-v7-token
+   - .of-branch-v7-result
+   - .of-branch-v7-result-label
+   作用：窄面板竖排、小缩进细树线的 IfElse 编辑结构。
+   ======================================== */
+
+.of-branch-case-v7 {
+  padding-bottom: 1rem;
+}
+
+.of-branch-v7-tree {
+  display: flex;
+  align-items: stretch;
+  gap: 0.55rem;
+}
+
+.of-branch-v7-trunk {
+  width: 8px;
+  flex-shrink: 0;
+  border-left: 1px solid color-mix(in srgb, var(--of-accent) 28%, white);
+  opacity: 0.85;
+}
+
+.of-branch-v7-body {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.of-branch-v7-node {
+  + .of-branch-v7-node {
+    margin-top: 0.55rem;
+  }
+
+  &.is-nested {
+    margin-left: 0.65rem;
+  }
+}
+
+.of-branch-v7-line {
+  display: flex;
+  align-items: stretch;
+  gap: 0.45rem;
+}
+
+.of-branch-v7-rail {
+  position: relative;
+  width: 10px;
+  flex-shrink: 0;
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 0.15rem;
+    bottom: 0.25rem;
+    width: 1px;
+    background: color-mix(in srgb, var(--of-accent) 18%, white);
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 0.95rem;
+    width: 9px;
+    height: 1px;
+    background: color-mix(in srgb, var(--of-accent) 30%, white);
+  }
+}
+
+.of-branch-v7-content {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.of-branch-v7-token {
+  color: $np-text-soft;
+}
+
+.of-branch-v7-result {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  margin-top: 0.1rem;
+  padding-left: 0.1rem;
+}
+
+.of-branch-v7-result-label {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--of-accent);
+}
+
+/* ========================================
+   元素：横向浮条
+   类名：
+   - .of-choice-anchor
+   - .of-choice-popup
+   - .of-choice-popup-fixed
+   - .of-choice-option
+   - .of-choice-option-active
+   作用：复用型横向选择浮层，包含挂到 body 的 fixed 版本。
+   ======================================== */
+
+.of-choice-anchor {
+  position: relative;
+  display: inline-flex;
+}
+
+.of-choice-popup {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+  min-width: max-content;
+  max-width: 22rem;
+  padding: 0.5rem 0.625rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.1);
+}
+
+.of-choice-popup-fixed {
+  position: fixed;
+  top: 0;
+  left: 0;
+  transform: translateX(-50%);
+  z-index: 2147483647;
+}
+
+.of-choice-option {
+  border: 0;
+  background: transparent;
+  padding: 0.2rem 0.45rem;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  cursor: pointer;
+  color: var(--of-accent-muted);
+  transition: background-color 150ms ease, color 150ms ease;
+
+  &:hover {
+    background: var(--of-accent-soft-bg);
+    color: var(--of-accent-strong);
+  }
+}
+
+.of-choice-option-active {
+  background: var(--of-accent-soft-bg-strong);
+  color: var(--of-accent-strong);
+}
+

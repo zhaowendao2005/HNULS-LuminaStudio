@@ -1,0 +1,286 @@
+/* ========================================
+   节点面板样式分卷：引用与输出
+   ========================================
+
+   包含：
+   - 变量引用按钮 -> .of-ref-trigger
+   - 输出结构列表 / 树 / 代码式预览
+
+   适用说法：
+   - “照着变量引用按钮写”
+   - “照着输出结构树块写”
+   ======================================== */
+
+/* ========================================
+   元素：变量引用按钮
+   类名：
+   - .of-ref-trigger
+   - .of-ref-trigger-empty
+   - .of-ref-text
+   - .of-ref-meta
+   - .of-ref-target
+   作用：文档流里的变量引用入口。
+   ======================================== */
+
+.of-ref-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  max-width: 100%;
+  border: 0;
+  border-bottom: 1px dashed var(--of-accent-soft-border);
+  background: transparent;
+  padding: 0 0 0.15rem;
+  color: var(--of-accent);
+  cursor: pointer;
+  transition: color 150ms ease, border-color 150ms ease;
+
+  &:hover {
+    color: var(--of-accent-strong);
+    border-bottom-color: var(--of-accent);
+  }
+}
+
+.of-ref-trigger-empty {
+  color: $np-text-soft;
+  border-bottom-color: $np-border-muted;
+
+  &:hover {
+    color: var(--of-accent);
+    border-bottom-color: var(--of-accent-soft-border);
+  }
+}
+
+.of-ref-text {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.of-ref-meta {
+  color: $np-text-soft;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.of-ref-target {
+  color: #4b5563;
+  border-bottom-color: $np-border-muted;
+}
+
+/* ========================================
+   元素：输出结构块
+   类名：
+   - .of-output-list
+   - .of-output-entry
+   - .of-output-name
+   - .of-output-type
+   - .of-output-path
+   作用：输出结构的一级列表与条目。
+   ======================================== */
+
+.of-output-list {
+  > * + * {
+    margin-top: 0.75rem;
+  }
+}
+
+.of-output-entry {
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid $np-border-light;
+
+  &:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+}
+
+.of-output-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: $np-text-main;
+}
+
+.of-output-type {
+  font-size: 12px;
+  line-height: 1.5;
+  color: $np-text-muted;
+}
+
+.of-output-path {
+  font-size: 12px;
+  line-height: 1.6;
+  color: $np-text-soft;
+}
+
+/* ========================================
+   元素：输出结构树块
+   类名：
+   - .of-output-tree
+   - .of-output-tree-root
+   - .of-output-tree-root-label
+   - .of-output-tree-item
+   - .of-output-tree-item-last
+   - .of-output-tree-branch
+   - .of-output-tree-prop
+   - .of-output-tree-type
+   - .of-output-tree-nested
+   - .of-output-tree-divider
+   - .of-output-tree-divider-label
+   作用：结构化输出的树形可视块。
+   ======================================== */
+
+.of-output-tree {
+  padding: 0.75rem 0 0.25rem 0.5rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  font-size: 13px;
+  line-height: 1.85;
+  color: $np-text-main;
+}
+
+.of-output-tree-root {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-bottom: 0.25rem;
+}
+
+.of-output-tree-root-label {
+  color: $np-accent-blue;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.of-output-tree-item {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  position: relative;
+  padding-left: 1.25rem;
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: 0.75rem;
+    height: 1px;
+    background: $np-border-muted;
+  }
+}
+
+.of-output-tree-item-last {
+  &::before {
+    background: $np-border-muted;
+  }
+}
+
+.of-output-tree-branch {
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0.925rem;
+    width: 1px;
+    background: $np-border-muted;
+  }
+
+  &:last-child::after {
+    display: none;
+  }
+}
+
+.of-output-tree-prop {
+  color: $np-accent-teal;
+  font-weight: 500;
+}
+
+.of-output-tree-type {
+  color: $np-accent-orange;
+}
+
+.of-output-tree-nested {
+  padding-left: 1.25rem;
+  margin-top: 0.125rem;
+}
+
+.of-output-tree-divider {
+  margin: 0.5rem 0 0.5rem 1.25rem;
+  border-top: 1px dashed $np-border-muted;
+  position: relative;
+}
+
+.of-output-tree-divider-label {
+  position: absolute;
+  top: -0.625rem;
+  left: 0.5rem;
+  padding: 0 0.375rem;
+  background: $np-white;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: $np-text-soft;
+}
+
+/* ========================================
+   元素：输出代码预览
+   类名：
+   - .of-output-code
+   - .of-output-code-line
+   - .of-output-code-indent
+   - .of-output-code-keyword
+   - .of-output-code-typename
+   - .of-output-code-prop
+   - .of-output-code-type
+   - .of-output-code-comment
+   作用：代码式的输出预览表达。
+   ======================================== */
+
+.of-output-code {
+  padding: 0.75rem 0 0.25rem 1rem;
+  border-left: 2px solid $np-border-muted;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  font-size: 13px;
+  line-height: 1.9;
+  color: $np-text-main;
+}
+
+.of-output-code-line {
+  display: block;
+}
+
+.of-output-code-indent {
+  padding-left: 1.25rem;
+}
+
+.of-output-code-keyword {
+  color: $np-accent-purple;
+  font-weight: 600;
+}
+
+.of-output-code-typename {
+  color: $np-accent-blue;
+}
+
+.of-output-code-prop {
+  color: $np-accent-teal;
+}
+
+.of-output-code-type {
+  color: $np-accent-orange;
+}
+
+.of-output-code-comment {
+  color: $np-text-soft;
+  font-style: italic;
+}
+
