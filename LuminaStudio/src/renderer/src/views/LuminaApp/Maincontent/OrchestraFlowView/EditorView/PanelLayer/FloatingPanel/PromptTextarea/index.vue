@@ -2,7 +2,7 @@
   <div class="of-prompt-input-wrapper relative w-full" :style="{ minHeight: `${height}px` }">
     <div
       ref="editorRef"
-      class="of-prompt-editor min-h-full w-full whitespace-pre-wrap break-words rounded-xl bg-transparent px-0 py-0 text-sm leading-relaxed text-gray-700 outline-none"
+      class="of-prompt-editor min-h-full w-full whitespace-pre-wrap break-words rounded-xl px-3 py-2.5 text-sm leading-relaxed text-gray-700 outline-none"
       contenteditable="true"
       spellcheck="false"
       :data-placeholder="placeholder"
@@ -156,9 +156,29 @@ defineExpose({
 </script>
 
 <style scoped>
+.of-prompt-input-wrapper {
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  background: #f3f4f6;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.of-prompt-input-wrapper:focus-within {
+  border-color: #9ca3af;
+  background: #f8fafc;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 0 0 3px rgba(148, 163, 184, 0.12);
+}
+
 .of-prompt-editor {
   font-family: 'SFMono-Regular', 'Cascadia Code', 'JetBrains Mono', monospace;
   caret-color: #374151;
+  background: transparent;
 }
 
 .of-prompt-editor:empty::before {

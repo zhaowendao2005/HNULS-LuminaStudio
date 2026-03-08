@@ -1,9 +1,9 @@
 <template>
-  <div class="of-loop-node-panel h-full flex flex-col">
-    <div class="border-b border-gray-100 px-4 pb-2 pt-4">
-      <div class="flex items-center gap-3">
+  <div class="of-panel-shell of-loop-node-panel">
+    <div class="of-panel-shell-header">
+      <div class="of-panel-shell-title-row">
         <div
-          class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-white"
+          class="of-panel-shell-icon"
           :class="theme.iconBgClass"
         >
           <svg
@@ -23,11 +23,11 @@
 
         <input
           v-model="titleModel"
-          class="system-xl-semibold h-7 min-w-0 flex-1 appearance-none rounded-md border border-transparent bg-transparent px-1 text-gray-900 outline-none focus:shadow-xs"
+          class="system-xl-semibold of-panel-shell-title-input"
           placeholder="添加标题..."
         />
 
-        <div class="flex shrink-0 items-center gap-1">
+        <div class="of-panel-shell-actions">
           <CapsuleTooltip text="调试运行" placement="bottom">
             <button
               class="flex h-6 w-6 items-center justify-center rounded-md hover:bg-gray-100"
@@ -52,29 +52,33 @@
         </div>
       </div>
 
-      <div class="mt-2">
+      <div class="of-panel-shell-description">
         <textarea
           v-model="descModel"
-          class="w-full resize-none appearance-none bg-transparent text-xs leading-[18px] text-gray-600 outline-none placeholder:text-gray-400"
+          class="of-panel-shell-description-input"
           placeholder="添加描述..."
           :style="{ height: '18px' }"
         />
       </div>
 
-      <div class="mt-3 flex items-center gap-4">
+      <div class="of-panel-shell-tabs">
         <button
-          class="system-md-semibold border-b-2 pb-2 pt-2.5"
+          class="system-md-semibold of-panel-tab-button"
           :class="
-            activeTab === 'settings' ? theme.tabActiveClass : 'border-transparent text-gray-400'
+            activeTab === 'settings'
+              ? [theme.tabActiveClass, 'of-panel-tab-button-active']
+              : 'of-panel-tab-button-inactive'
           "
           @click="setActiveTab('settings')"
         >
           设置
         </button>
         <button
-          class="system-md-semibold border-b-2 pb-2 pt-2.5"
+          class="system-md-semibold of-panel-tab-button"
           :class="
-            activeTab === 'lastRun' ? theme.tabActiveClass : 'border-transparent text-gray-400'
+            activeTab === 'lastRun'
+              ? [theme.tabActiveClass, 'of-panel-tab-button-active']
+              : 'of-panel-tab-button-inactive'
           "
           @click="setActiveTab('lastRun')"
         >
@@ -83,8 +87,8 @@
       </div>
     </div>
 
-    <div class="flex-1 overflow-y-auto">
-      <div v-if="activeTab === 'settings' && !debugMode" class="space-y-5 px-4 py-4">
+    <div class="of-panel-shell-body">
+      <div v-if="activeTab === 'settings' && !debugMode" class="of-panel-shell-body-inner">
         <LoopVariableSection
           :model-value="loopVariables"
           :theme="theme"
@@ -117,7 +121,7 @@
         <ObjectSchemaEditor @save="handleSchemaSave" />
       </div>
 
-      <div v-else-if="activeTab === 'settings' && debugMode" class="px-4 py-4">
+      <div v-else-if="activeTab === 'settings' && debugMode" class="of-panel-shell-body-inner">
         <NodeDebugForm
           :fields="debugFields"
           :model-value="debugFormValues"
@@ -127,7 +131,7 @@
         />
       </div>
 
-      <div v-else-if="activeTab === 'lastRun'" class="px-4 py-4">
+      <div v-else-if="activeTab === 'lastRun'" class="of-panel-shell-body-inner">
         <NodeDebugLastRun
           :result="nodeDebugResult"
           :loading="nodeDebugStore.runningNodeId === uiStore.selectedNodeId"
@@ -501,8 +505,4 @@ onUnmounted(() => {
 })
 </script>
 
-<style scoped>
-.of-loop-node-panel {
-  font-family: inherit;
-}
-</style>
+<style scoped src="../../../../styles/node-panel.css"></style>

@@ -1,9 +1,9 @@
 <template>
-  <div class="of-llm-node-panel h-full flex flex-col">
-    <div class="border-b border-gray-100 px-4 pb-2 pt-4">
-      <div class="flex items-center gap-3">
+  <div class="of-panel-shell of-llm-node-panel">
+    <div class="of-panel-shell-header">
+      <div class="of-panel-shell-title-row">
         <div
-          class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-white"
+          class="of-panel-shell-icon"
           :class="theme.iconBgClass"
         >
           <svg viewBox="0 0 24 24" class="h-4 w-4" fill="currentColor">
@@ -15,11 +15,11 @@
 
         <input
           v-model="titleModel"
-          class="system-xl-semibold h-7 min-w-0 flex-1 appearance-none rounded-md border border-transparent bg-transparent px-1 text-gray-900 outline-none focus:shadow-xs"
+          class="system-xl-semibold of-panel-shell-title-input"
           placeholder="添加标题..."
         />
 
-        <div class="flex shrink-0 items-center gap-1">
+        <div class="of-panel-shell-actions">
           <CapsuleTooltip text="调试运行" placement="bottom">
             <button
               class="flex h-6 w-6 items-center justify-center rounded-md hover:bg-gray-100"
@@ -57,29 +57,33 @@
         </div>
       </div>
 
-      <div class="mt-2">
+      <div class="of-panel-shell-description">
         <textarea
           v-model="descModel"
-          class="w-full resize-none appearance-none bg-transparent text-xs leading-[18px] text-gray-600 outline-none placeholder:text-gray-400"
+          class="of-panel-shell-description-input"
           placeholder="添加描述..."
           :style="{ height: '18px' }"
         />
       </div>
 
-      <div class="mt-3 flex items-center gap-4">
+      <div class="of-panel-shell-tabs">
         <button
-          class="system-md-semibold border-b-2 pb-2 pt-2.5"
+          class="system-md-semibold of-panel-tab-button"
           :class="
-            activeTab === 'settings' ? theme.tabActiveClass : 'border-transparent text-gray-400'
+            activeTab === 'settings'
+              ? [theme.tabActiveClass, 'of-panel-tab-button-active']
+              : 'of-panel-tab-button-inactive'
           "
           @click="setActiveTab('settings')"
         >
           设置
         </button>
         <button
-          class="system-md-semibold border-b-2 pb-2 pt-2.5"
+          class="system-md-semibold of-panel-tab-button"
           :class="
-            activeTab === 'lastRun' ? theme.tabActiveClass : 'border-transparent text-gray-400'
+            activeTab === 'lastRun'
+              ? [theme.tabActiveClass, 'of-panel-tab-button-active']
+              : 'of-panel-tab-button-inactive'
           "
           @click="setActiveTab('lastRun')"
         >
@@ -88,8 +92,8 @@
       </div>
     </div>
 
-    <div class="flex-1 overflow-y-auto">
-      <div v-if="activeTab === 'settings' && !debugMode" class="of-spacing-lg px-4 py-4">
+    <div class="of-panel-shell-body">
+      <div v-if="activeTab === 'settings' && !debugMode" class="of-panel-shell-body-inner of-spacing-lg">
         <section class="of-panel-section">
           <div class="of-panel-section-header">
             <div>
@@ -192,7 +196,7 @@
               </div>
             </div>
 
-            <div class="mt-3 border-l border-cyan-200 pl-3">
+            <div class="mt-3">
               <PromptTextarea
                 :ref="(el) => setPromptEditorRef(item.id, el)"
                 :model-value="item.text"
@@ -314,7 +318,7 @@
         </section>
       </div>
 
-      <div v-else-if="activeTab === 'settings' && debugMode" class="px-4 py-4">
+      <div v-else-if="activeTab === 'settings' && debugMode" class="of-panel-shell-body-inner">
         <NodeDebugForm
           :fields="debugFields"
           :model-value="debugFormValues"
@@ -324,7 +328,7 @@
         />
       </div>
 
-      <div v-else-if="activeTab === 'lastRun'" class="px-4 py-4">
+      <div v-else-if="activeTab === 'lastRun'" class="of-panel-shell-body-inner">
         <NodeDebugLastRun
           :result="nodeDebugResult"
           :loading="nodeDebugStore.runningNodeId === uiStore.selectedNodeId"
@@ -720,26 +724,3 @@ onUnmounted(() => {
 
 <style scoped src="../../../styles/node-panel.css"></style>
 
-<style scoped>
-.of-llm-node-panel {
-  font-family: inherit;
-}
-
-.of-llm-node-panel input,
-.of-llm-node-panel select,
-.of-llm-node-panel textarea,
-.of-llm-node-panel button {
-  color: #111827;
-}
-
-.of-llm-node-panel textarea::placeholder,
-.of-llm-node-panel input::placeholder {
-  color: #9ca3af;
-}
-
-.of-llm-node-panel :deep(textarea),
-.of-llm-node-panel :deep(input),
-.of-llm-node-panel :deep(select) {
-  color: #111827;
-}
-</style>

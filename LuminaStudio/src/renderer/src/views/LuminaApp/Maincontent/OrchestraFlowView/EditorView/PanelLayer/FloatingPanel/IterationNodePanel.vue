@@ -1,9 +1,9 @@
 <template>
-  <div class="of-iteration-node-panel h-full flex flex-col">
-    <div class="border-b border-gray-100 px-4 pb-2 pt-4">
-      <div class="flex items-center gap-3">
+  <div class="of-panel-shell of-iteration-node-panel">
+    <div class="of-panel-shell-header">
+      <div class="of-panel-shell-title-row">
         <div
-          class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-white"
+          class="of-panel-shell-icon"
           :class="theme.iconBgClass"
         >
           <svg
@@ -23,11 +23,11 @@
 
         <input
           v-model="titleModel"
-          class="system-xl-semibold h-7 min-w-0 flex-1 appearance-none rounded-md border border-transparent bg-transparent px-1 text-gray-900 outline-none focus:shadow-xs"
+          class="system-xl-semibold of-panel-shell-title-input"
           placeholder="添加标题..."
         />
 
-        <div class="flex shrink-0 items-center gap-1">
+        <div class="of-panel-shell-actions">
           <CapsuleTooltip text="调试运行" placement="bottom">
             <button
               class="flex h-6 w-6 items-center justify-center rounded-md hover:bg-gray-100"
@@ -65,29 +65,33 @@
         </div>
       </div>
 
-      <div class="mt-2">
+      <div class="of-panel-shell-description">
         <textarea
           v-model="descModel"
-          class="w-full resize-none appearance-none bg-transparent text-xs leading-[18px] text-gray-600 outline-none placeholder:text-gray-400"
+          class="of-panel-shell-description-input"
           placeholder="添加描述..."
           :style="{ height: '18px' }"
         />
       </div>
 
-      <div class="mt-3 flex items-center gap-4">
+      <div class="of-panel-shell-tabs">
         <button
-          class="system-md-semibold border-b-2 pb-2 pt-2.5"
+          class="system-md-semibold of-panel-tab-button"
           :class="
-            activeTab === 'settings' ? theme.tabActiveClass : 'border-transparent text-gray-400'
+            activeTab === 'settings'
+              ? [theme.tabActiveClass, 'of-panel-tab-button-active']
+              : 'of-panel-tab-button-inactive'
           "
           @click="setActiveTab('settings')"
         >
           设置
         </button>
         <button
-          class="system-md-semibold border-b-2 pb-2 pt-2.5"
+          class="system-md-semibold of-panel-tab-button"
           :class="
-            activeTab === 'lastRun' ? theme.tabActiveClass : 'border-transparent text-gray-400'
+            activeTab === 'lastRun'
+              ? [theme.tabActiveClass, 'of-panel-tab-button-active']
+              : 'of-panel-tab-button-inactive'
           "
           @click="setActiveTab('lastRun')"
         >
@@ -96,9 +100,9 @@
       </div>
     </div>
 
-    <div class="flex-1 overflow-y-auto">
-      <div v-if="activeTab === 'settings' && !debugMode" class="space-y-5 px-4 py-4">
-        <section class="space-y-2">
+    <div class="of-panel-shell-body">
+      <div v-if="activeTab === 'settings' && !debugMode" class="of-panel-shell-body-inner">
+        <section class="of-panel-section of-panel-container-section">
           <div class="flex items-center justify-between">
             <div class="system-sm-semibold-uppercase text-gray-700">
               输入数组
@@ -111,15 +115,15 @@
               ARRAY
             </div>
           </div>
-          <button class="group text-left" @click="openInputVariableSelector">
-            <div class="flex items-center gap-2 text-xs">
-              <span class="font-semibold text-cyan-600">输入变量</span>
+          <button class="of-panel-variable-button" @click="openInputVariableSelector">
+            <div class="of-panel-variable-button-content">
+              <span class="of-panel-variable-button-label of-panel-variable-button-label-input">输入变量</span>
               <span
-                class="max-w-[240px] truncate transition"
+                class="of-panel-variable-button-placeholder"
                 :class="
                   iteratorSelectorDisplayText
-                    ? 'text-cyan-700 group-hover:text-cyan-800'
-                    : 'text-gray-400 group-hover:text-cyan-600'
+                    ? '!text-cyan-700'
+                    : ''
                 "
               >
                 {{ iteratorSelectorDisplayText || '点击选择数组变量' }}
@@ -128,7 +132,7 @@
           </button>
         </section>
 
-        <section class="space-y-2 border-t border-gray-100 pt-4">
+        <section class="of-panel-section of-panel-container-section">
           <template v-if="branchOutputTargets.length === 0">
             <div class="flex items-center justify-between">
               <div class="system-sm-semibold-uppercase text-gray-700">
@@ -142,15 +146,15 @@
                 INTERNAL
               </div>
             </div>
-            <button class="group text-left" @click="openOutputVariableSelector">
-              <div class="flex items-center gap-2 text-xs">
-                <span class="font-semibold text-emerald-600">输出变量</span>
+            <button class="of-panel-variable-button" @click="openOutputVariableSelector">
+              <div class="of-panel-variable-button-content">
+                <span class="of-panel-variable-button-label of-panel-variable-button-label-output">输出变量</span>
                 <span
-                  class="max-w-[240px] truncate transition"
+                  class="of-panel-variable-button-placeholder"
                   :class="
                     outputSelectorDisplayText
-                      ? 'text-emerald-700 group-hover:text-emerald-800'
-                      : 'text-gray-400 group-hover:text-emerald-600'
+                      ? '!text-emerald-700'
+                      : ''
                   "
                 >
                   {{ outputSelectorDisplayText || '点击选择内部输出变量' }}
@@ -169,11 +173,11 @@
                 BRANCH
               </div>
             </div>
-            <div class="space-y-3">
+            <div class="of-panel-list">
               <div
                 v-for="branchTarget in branchOutputTargets"
                 :key="branchTarget.key"
-                class="rounded-2xl border border-gray-200 bg-white p-3"
+                class="of-panel-list-card"
               >
                 <div class="mb-2 flex items-center justify-between gap-2">
                   <div class="min-w-0">
@@ -188,18 +192,15 @@
                     {{ branchTarget.sourceHandleId }}
                   </div>
                 </div>
-                <button
-                  class="group text-left"
-                  @click="openBranchOutputVariableSelector(branchTarget, $event)"
-                >
-                  <div class="flex items-center gap-2 text-xs">
-                    <span class="font-semibold text-amber-600">{{ branchTarget.label }}</span>
+                <button class="of-panel-variable-button" @click="openBranchOutputVariableSelector(branchTarget, $event)">
+                  <div class="of-panel-variable-button-content">
+                    <span class="of-panel-variable-button-label text-amber-600">{{ branchTarget.label }}</span>
                     <span
-                      class="max-w-[220px] truncate transition"
+                      class="of-panel-variable-button-placeholder max-w-[220px]"
                       :class="
                         getBranchSelectorDisplayText(branchTarget)
-                          ? 'text-amber-700 group-hover:text-amber-800'
-                          : 'text-gray-400 group-hover:text-amber-600'
+                          ? '!text-amber-700'
+                          : ''
                       "
                     >
                       {{ getBranchSelectorDisplayText(branchTarget) || '点击选择该分支输出变量' }}
@@ -214,7 +215,7 @@
           </div>
         </section>
 
-        <section class="space-y-4 border-t border-gray-100 pt-4">
+        <section class="of-panel-section of-panel-container-section">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-1">
               <div class="system-sm-semibold-uppercase text-gray-700">并行执行</div>
@@ -238,18 +239,18 @@
             </button>
           </div>
 
-          <div v-if="parallelModeModel" class="space-y-2">
+          <div v-if="parallelModeModel" class="of-panel-field-stack">
             <div class="system-sm-semibold-uppercase text-gray-700">并发数</div>
             <input
               v-model.number="parallelNumsModel"
               type="number"
               min="1"
               max="10"
-              class="h-11 w-full rounded-xl border border-[#e5e7eb] bg-[#f3f4f6] px-3 text-sm text-gray-800 outline-none focus:border-cyan-300 focus:bg-white"
+              class="of-panel-input h-11"
             />
           </div>
 
-          <div class="space-y-2">
+          <div class="of-panel-field-stack">
             <div class="system-sm-semibold-uppercase text-gray-700">错误策略</div>
             <div class="grid grid-cols-1 gap-2">
               <button
@@ -284,28 +285,28 @@
           </div>
         </section>
 
-        <section class="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
+        <section class="of-panel-section of-panel-container-card">
           <div class="flex items-center justify-between">
             <div class="system-sm-semibold-uppercase text-gray-700">输出预览</div>
             <div class="text-xs text-gray-400">{{ outputNamespaceLabel }}</div>
           </div>
 
-          <div class="space-y-4">
-            <div v-for="item in outputPreviewVariables" :key="item.variable" class="space-y-1">
-              <div class="flex min-w-0 items-center gap-2 leading-[18px]">
+          <div class="of-spacing-sm">
+            <div v-for="item in outputPreviewVariables" :key="item.variable" class="of-panel-variable-display">
+              <div class="of-panel-variable-info min-w-0 leading-[18px]">
                 <CapsuleTooltip :text="item.variable" placement="top">
-                  <div class="truncate text-[13px] font-semibold text-gray-800">
+                  <div class="of-panel-variable-name truncate">
                     {{ item.variable }}
                   </div>
                 </CapsuleTooltip>
-                <div class="shrink-0 text-[12px] text-gray-500">{{ item.type || 'string' }}</div>
+                <div class="of-panel-variable-type shrink-0">{{ item.type || 'string' }}</div>
               </div>
               <CapsuleTooltip
                 :text="formatSelector(item.value_selector)"
                 placement="top"
                 max-width="420px"
               >
-                <div class="max-w-[280px] truncate text-xs text-gray-400">
+                <div class="of-panel-variable-path max-w-[280px] truncate">
                   {{ formatSelector(item.value_selector) }}
                 </div>
               </CapsuleTooltip>
@@ -314,7 +315,7 @@
         </section>
       </div>
 
-      <div v-else-if="activeTab === 'settings' && debugMode" class="px-4 py-4">
+      <div v-else-if="activeTab === 'settings' && debugMode" class="of-panel-shell-body-inner">
         <NodeDebugForm
           :fields="debugFields"
           :model-value="debugFormValues"
@@ -324,7 +325,7 @@
         />
       </div>
 
-      <div v-else-if="activeTab === 'lastRun'" class="px-4 py-4">
+      <div v-else-if="activeTab === 'lastRun'" class="of-panel-shell-body-inner">
         <NodeDebugLastRun
           :result="nodeDebugResult"
           :loading="nodeDebugStore.runningNodeId === uiStore.selectedNodeId"
@@ -656,8 +657,4 @@ onUnmounted(() => {
 })
 </script>
 
-<style scoped>
-.of-iteration-node-panel {
-  font-family: inherit;
-}
-</style>
+<style scoped src="../../../styles/node-panel.css"></style>

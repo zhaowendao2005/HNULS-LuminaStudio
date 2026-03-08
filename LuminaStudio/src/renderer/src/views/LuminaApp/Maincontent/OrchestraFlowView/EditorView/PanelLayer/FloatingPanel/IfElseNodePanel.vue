@@ -1,9 +1,9 @@
 <template>
-  <div class="flex h-full flex-col">
-    <div class="border-b border-gray-100 px-4 pb-2 pt-4">
-      <div class="flex items-center gap-3">
+  <div class="of-panel-shell">
+    <div class="of-panel-shell-header">
+      <div class="of-panel-shell-title-row">
         <div
-          class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-white"
+          class="of-panel-shell-icon"
           :class="theme.iconBgClass"
         >
           <svg viewBox="0 0 24 24" class="h-4 w-4" fill="currentColor">
@@ -14,10 +14,10 @@
         </div>
         <input
           v-model="titleModel"
-          class="system-xl-semibold h-7 min-w-0 flex-1 appearance-none rounded-md border border-transparent bg-transparent px-1 text-gray-900 outline-none focus:shadow-xs"
+          class="system-xl-semibold of-panel-shell-title-input"
           placeholder="添加标题..."
         />
-        <div class="flex shrink-0 items-center gap-1">
+        <div class="of-panel-shell-actions">
           <CapsuleTooltip text="查看文档" placement="bottom">
             <a
               href="https://docs.dify.ai/zh/use-dify/nodes/ifelse"
@@ -47,29 +47,33 @@
         </div>
       </div>
 
-      <div class="mt-2">
+      <div class="of-panel-shell-description">
         <textarea
           v-model="descModel"
-          class="w-full resize-none appearance-none bg-transparent text-xs leading-[18px] text-gray-600 outline-none placeholder:text-gray-400"
+          class="of-panel-shell-description-input"
           placeholder="添加描述..."
           :style="{ height: '18px' }"
         />
       </div>
 
-      <div class="mt-3 flex items-center gap-4">
+      <div class="of-panel-shell-tabs">
         <button
-          class="system-md-semibold border-b-2 pb-2 pt-2.5"
+          class="system-md-semibold of-panel-tab-button"
           :class="
-            activeTab === 'settings' ? theme.tabActiveClass : 'border-transparent text-gray-400'
+            activeTab === 'settings'
+              ? [theme.tabActiveClass, 'of-panel-tab-button-active']
+              : 'of-panel-tab-button-inactive'
           "
           @click="activeTab = 'settings'"
         >
           设置
         </button>
         <button
-          class="system-md-semibold border-b-2 pb-2 pt-2.5"
+          class="system-md-semibold of-panel-tab-button"
           :class="
-            activeTab === 'lastRun' ? theme.tabActiveClass : 'border-transparent text-gray-400'
+            activeTab === 'lastRun'
+              ? [theme.tabActiveClass, 'of-panel-tab-button-active']
+              : 'of-panel-tab-button-inactive'
           "
           @click="activeTab = 'lastRun'"
         >
@@ -78,14 +82,14 @@
       </div>
     </div>
 
-    <div v-if="activeTab === 'settings'" class="flex-1 overflow-y-auto overflow-x-hidden px-4 py-4">
-      <div class="space-y-6">
+    <div v-if="activeTab === 'settings'" class="of-panel-shell-body overflow-x-hidden">
+      <div class="of-panel-shell-body-inner of-panel-rule-stack">
         <div
           v-for="item in cases"
           :key="item.id"
-          class="group relative rounded-xl bg-gray-50/50 p-3 transition hover:bg-gray-50"
+          class="group of-panel-rule-card"
         >
-          <div class="mb-2 flex items-center gap-2">
+          <div class="of-panel-rule-card-header">
             <div
               class="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide"
               :class="item.kind === 'if' ? 'bg-gray-900 text-white' : 'bg-gray-200 text-gray-600'"
@@ -133,7 +137,7 @@
             </div>
           </div>
 
-          <div class="space-y-2">
+          <div class="of-panel-rule-card-body">
             <div
               v-for="(condition, conditionIndex) in item.conditions"
               :key="condition.id"
@@ -283,7 +287,7 @@
           </button>
         </div>
 
-        <section class="rounded-xl border border-gray-200 bg-[#f8fafc] px-5 py-4">
+        <section class="of-panel-rule-else">
           <div class="text-[10px] font-bold uppercase tracking-wide text-gray-500">ELSE</div>
           <div class="mt-3 text-sm leading-7 text-gray-500">
             当前前面的 IF / ELIF 都不满足时，放行 ELSE 分支。
@@ -292,11 +296,13 @@
       </div>
     </div>
 
-    <div v-else class="flex-1 overflow-y-auto px-4 py-4">
+    <div v-else class="of-panel-shell-body">
+      <div class="of-panel-shell-body-inner">
       <NodeDebugLastRun
         :result="nodeDebugResult"
         :loading="nodeDebugStore.runningNodeId === uiStore.selectedNodeId"
       />
+      </div>
     </div>
   </div>
 </template>
@@ -328,16 +334,6 @@ const nodeDebugStore = useNodeDebugStore()
 const activeTab = ref<'settings' | 'lastRun'>('settings')
 const activeConditionTarget = ref<{ caseId: string; conditionId: string } | null>(null)
 const theme = OF_PANEL_THEME.ifelse
-
-const logicalOperatorOptions: WhiteSelectOption[] = [
-  { label: 'AND', value: 'and' },
-  { label: 'OR', value: 'or' }
-]
-
-const booleanValueOptions: WhiteSelectOption[] = [
-  { label: 'true', value: 'true' },
-  { label: 'false', value: 'false' }
-]
 
 const currentNode = computed(() => {
   if (!uiStore.selectedNodeId) return null
@@ -549,3 +545,5 @@ onUnmounted(() => {
   window.removeEventListener('of:variable-select', handleVariableSelect as EventListener)
 })
 </script>
+
+<style scoped src="../../../styles/node-panel.css"></style>

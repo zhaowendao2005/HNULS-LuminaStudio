@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>变体 6：长文本沉浸面板+附带释义的选项</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+
+<body class="bg-gray-100 p-8 font-sans min-h-screen">
+    <div class="max-w-2xl mx-auto">
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+            <div class="mb-4 pb-3 border-b border-gray-100">
+                <h2 class="text-lg font-bold text-gray-800">变体 6：长文本沉浸面板+附带释义的选项</h2>
+            </div>
+
+            <div class="space-y-6 pt-2">
+                <div class="pt-4 border-t border-gray-100">
+                    <div class="text-gray-800 text-[15px] font-medium mb-1">变量配置面板</div>
+                    <div class="text-gray-400 text-[13px] mb-4">设定在此节点中产出的具体变量信息。</div>
+                    <div class="bg-gray-50 rounded-xl p-4 space-y-4">
+                        <input type="text" placeholder="变量标识符 (字母、数字、下划线)"
+                            class="w-full bg-white border-none shadow-sm rounded px-3 py-2 text-[14px] outline-none text-teal-700" />
+                        <input type="text" placeholder="前端展示名称"
+                            class="w-full bg-white border-none shadow-sm rounded px-3 py-2 text-[14px] outline-none text-gray-700" />
+                        <div class="pt-2">
+                            <div class="text-[13px] font-medium text-gray-700 mb-2">选择类型结构</div>
+                            <div class="grid grid-cols-1 gap-2" id="v6-types-grid">
+                                <!-- JS Dynamic -->
+                            </div>
+                        </div>
+                        <input type="text" placeholder="填入默认初始值..."
+                            class="w-full bg-white border-none shadow-sm rounded px-3 py-2 text-[14px] outline-none" />
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="mt-6 text-center">
+            <a href="demo.html" class="text-teal-600 hover:underline text-sm flex items-center justify-center gap-1">
+                <i data-lucide="arrow-left" class="w-4 h-4"></i> 返回主列表
+            </a>
+        </div>
+    </div>
+
+    <script>
+        const varTypes = [
+            { id: 'String', desc: '文本字符串' },
+            { id: 'Number', desc: '数字类型' },
+            { id: 'Boolean', desc: '真假值' },
+        ];
+
+        const grid = document.getElementById('v6-types-grid');
+        grid.innerHTML = varTypes.map(t => `
+            <div data-type="${t.id}" class="v6-type-btn flex items-start gap-3 p-3 rounded-lg cursor-pointer border transition-colors ${t.id === 'String' ? 'bg-white border-teal-300 shadow-sm' : 'border-transparent hover:bg-gray-100'}">
+                <div class="v6-circle mt-0.5 w-4 h-4 rounded-full border flex justify-center items-center ${t.id === 'String' ? 'border-teal-500' : 'border-gray-300'}">
+                    ${t.id === 'String' ? '<div class="w-2 h-2 rounded-full bg-teal-500"></div>' : ''}
+                </div>
+                <div>
+                    <div class="v6-text text-[14px] font-medium ${t.id === 'String' ? 'text-teal-700' : 'text-gray-700'}">${t.id}</div>
+                    <div class="text-[12px] text-gray-400">${t.desc}</div>
+                </div>
+            </div>
+        `).join('');
+
+        document.querySelectorAll('.v6-type-btn').forEach(btn => btn.addEventListener('click', e => {
+            const type = e.currentTarget.dataset.type;
+            document.querySelectorAll('.v6-type-btn').forEach(b => {
+                const isSelected = b.dataset.type === type;
+                b.className = `v6-type-btn flex items-start gap-3 p-3 rounded-lg cursor-pointer border transition-colors ${isSelected ? 'bg-white border-teal-300 shadow-sm' : 'border-transparent hover:bg-gray-100'}`;
+                b.querySelector('.v6-circle').className = `v6-circle mt-0.5 w-4 h-4 rounded-full border flex justify-center items-center ${isSelected ? 'border-teal-500' : 'border-gray-300'}`;
+                b.querySelector('.v6-circle').innerHTML = isSelected ? '<div class="w-2 h-2 rounded-full bg-teal-500"></div>' : '';
+                b.querySelector('.v6-text').className = `v6-text text-[14px] font-medium ${isSelected ? 'text-teal-700' : 'text-gray-700'}`;
+            });
+        }));
+        lucide.createIcons();
+    </script>
+</body>
+
+</html>

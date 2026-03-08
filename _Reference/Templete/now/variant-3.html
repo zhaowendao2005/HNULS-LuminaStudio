@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>变体 3：胶囊选择面板 (仿Popover)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+
+<body class="bg-gray-100 p-8 font-sans min-h-screen">
+    <div class="max-w-2xl mx-auto">
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+            <div class="mb-4 pb-3 border-b border-gray-100">
+                <h2 class="text-lg font-bold text-gray-800">变体 3：胶囊选择面板 (仿Popover)</h2>
+            </div>
+
+            <!-- Context Header -->
+            <div class="space-y-6 mb-6">
+                <!-- ... common header ... -->
+                <div class="border-b border-gray-100 pb-5">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="text-gray-800 font-[500] text-[15px]">输入数组 <span class="text-red-500 ml-0.5">*</span>
+                        </h3>
+                        <span
+                            class="px-2.5 py-0.5 rounded-full border border-cyan-200 text-cyan-600 bg-cyan-50/50 text-[11px] font-medium tracking-wide">ARRAY</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-5">
+                <div class="pt-4 border-t border-gray-100">
+                    <div class="text-gray-800 font-[500] text-[15px] mb-4">变量配置</div>
+                    <div class="bg-gray-50 p-4 rounded-xl border border-gray-100 space-y-4">
+                        <div class="flex gap-4">
+                            <input type="text" placeholder="变量名 *"
+                                class="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-[14px] focus:border-teal-400 outline-none" />
+                            <input type="text" placeholder="展示名称"
+                                class="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-[14px] focus:border-teal-400 outline-none" />
+                        </div>
+                        <div class="relative">
+                            <div id="v3-toggle"
+                                class="flex items-center justify-between bg-white border border-gray-200 rounded-lg px-3 py-1.5 cursor-pointer hover:border-teal-300 transition-colors">
+                                <div class="flex items-center gap-2 text-[14px] text-gray-700">
+                                    <span class="text-gray-400">类型：</span>
+                                    <span id="v3-type-text"
+                                        class="font-medium text-teal-600 bg-teal-50 px-2 py-0.5 rounded">String</span>
+                                </div>
+                                <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400"></i>
+                            </div>
+                            <div id="v3-menu"
+                                class="hidden absolute top-full left-0 mt-1 w-full bg-white border border-gray-100 shadow-lg rounded-lg p-2 z-10 flex gap-2 overflow-x-auto">
+                                <!-- JS Dynamic -->
+                            </div>
+                        </div>
+                        <input type="text" placeholder="默认值"
+                            class="w-full bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-[14px] focus:border-teal-400 outline-none" />
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="mt-6 text-center">
+            <a href="demo.html" class="text-teal-600 hover:underline text-sm flex items-center justify-center gap-1">
+                <i data-lucide="arrow-left" class="w-4 h-4"></i> 返回主列表
+            </a>
+        </div>
+    </div>
+
+    <script>
+        const varTypes = ['String', 'Number', 'Boolean', 'Array', 'Object'];
+        let v3Show = false;
+        const v3Menu = document.getElementById('v3-menu');
+        const v3Toggle = document.getElementById('v3-toggle');
+        const v3TypeText = document.getElementById('v3-type-text');
+
+        v3Menu.innerHTML = varTypes.map(t => `<button data-type="${t}" class="v3-type-btn shrink-0 px-3 py-1.5 rounded-md text-[13px] ${t === 'String' ? 'bg-teal-500 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}">${t}</button>`).join('');
+
+        v3Toggle.addEventListener('click', () => {
+            v3Show = !v3Show;
+            v3Menu.style.display = v3Show ? 'flex' : 'none';
+        });
+
+        document.querySelectorAll('.v3-type-btn').forEach(btn => btn.addEventListener('click', e => {
+            const type = e.currentTarget.dataset.type;
+            v3TypeText.innerText = type;
+            v3Show = false;
+            v3Menu.style.display = 'none';
+            document.querySelectorAll('.v3-type-btn').forEach(b => {
+                b.className = `v3-type-btn shrink-0 px-3 py-1.5 rounded-md text-[13px] ${b.dataset.type === type ? 'bg-teal-500 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`;
+            });
+        }));
+        lucide.createIcons();
+    </script>
+</body>
+
+</html>

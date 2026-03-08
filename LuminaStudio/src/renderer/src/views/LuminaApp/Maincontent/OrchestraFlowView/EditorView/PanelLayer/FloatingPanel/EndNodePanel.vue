@@ -1,12 +1,12 @@
 <template>
-  <div class="of-node-config-panel of-end-panel h-full flex flex-col">
+  <div class="of-panel-shell of-node-config-panel of-end-panel">
     <!-- 头部 -->
-    <div class="px-4 pt-4 pb-2 flex-shrink-0 border-b border-gray-100">
+    <div class="of-panel-shell-header">
       <!-- 标题行：图标 + 输入框 + 操作按钮 -->
-      <div class="flex items-center gap-3">
+      <div class="of-panel-shell-title-row">
         <!-- 节点图标 -->
         <div
-          class="flex items-center justify-center w-6 h-6 rounded-lg text-white shrink-0"
+          class="of-panel-shell-icon"
           :class="theme.iconBgClass"
         >
           <svg
@@ -29,12 +29,12 @@
         <!-- 标题输入框 -->
         <input
           v-model="localTitle"
-          class="system-xl-semibold flex-1 h-7 min-w-0 appearance-none rounded-md border border-transparent bg-transparent px-1 text-gray-900 outline-none focus:shadow-xs"
+          class="system-xl-semibold of-panel-shell-title-input"
           placeholder="添加标题..."
         />
 
         <!-- 操作按钮 -->
-        <div class="flex items-center gap-1 shrink-0">
+        <div class="of-panel-shell-actions">
           <!-- 调试按钮 -->
           <CapsuleTooltip text="调试运行" placement="bottom">
             <div
@@ -119,10 +119,10 @@
       </div>
 
       <!-- 描述文本框 -->
-      <div class="mt-2">
+      <div class="of-panel-shell-description">
         <textarea
           v-model="localDesc"
-          class="w-full resize-none appearance-none bg-transparent text-xs leading-[18px] text-gray-600 outline-none placeholder:text-gray-400"
+          class="of-panel-shell-description-input"
           placeholder="添加描述..."
           :style="{ height: '18px' }"
         />
@@ -130,20 +130,24 @@
 
       <!-- Tab 切换 -->
       <div class="flex items-center justify-between mt-3">
-        <div class="flex gap-4">
+        <div class="of-panel-shell-tabs">
           <div
-            class="system-md-semibold relative flex cursor-pointer items-center border-b-2 pb-2 pt-2.5"
+            class="system-md-semibold of-panel-tab-button relative flex cursor-pointer items-center"
             :class="
-              activeTab === 'settings' ? theme.tabActiveClass : 'border-transparent text-gray-400'
+              activeTab === 'settings'
+                ? [theme.tabActiveClass, 'of-panel-tab-button-active']
+                : 'of-panel-tab-button-inactive'
             "
             @click="setActiveTab('settings')"
           >
             设置
           </div>
           <div
-            class="system-md-semibold relative flex cursor-pointer items-center border-b-2 pb-2 pt-2.5"
+            class="system-md-semibold of-panel-tab-button relative flex cursor-pointer items-center"
             :class="
-              activeTab === 'lastRun' ? theme.tabActiveClass : 'border-transparent text-gray-400'
+              activeTab === 'lastRun'
+                ? [theme.tabActiveClass, 'of-panel-tab-button-active']
+                : 'of-panel-tab-button-inactive'
             "
             @click="setActiveTab('lastRun')"
           >
@@ -154,10 +158,10 @@
     </div>
 
     <!-- 内容区 -->
-    <div class="flex-1 overflow-y-auto">
+    <div class="of-panel-shell-body">
       <!-- 设置 Tab -->
-      <div v-if="activeTab === 'settings' && !debugMode" class="space-y-5 px-4 py-4">
-        <section class="space-y-2">
+      <div v-if="activeTab === 'settings' && !debugMode" class="of-panel-shell-body-inner">
+        <section class="of-panel-section">
           <div class="flex items-center justify-between">
             <div class="system-sm-semibold-uppercase text-gray-700">
               输出变量
@@ -179,15 +183,15 @@
             </div>
           </div>
 
-          <div v-if="localOutputs.length === 0" class="text-xs text-gray-400">
+          <div v-if="localOutputs.length === 0" class="of-panel-empty text-left">
             暂无输出变量，点击下方添加或引用变量。
           </div>
 
-          <div v-else class="border-t border-gray-100">
+          <div v-else class="of-panel-list-separated">
             <div
               v-for="(output, index) in localOutputs"
               :key="index"
-              class="group flex items-center justify-between gap-3 border-b border-gray-100 py-2"
+              class="group of-panel-list-row"
             >
               <div class="min-w-0 flex-1">
                 <div class="grid grid-cols-2 gap-3 text-xs">
@@ -277,7 +281,7 @@
         </section>
       </div>
 
-      <div v-else-if="activeTab === 'settings' && debugMode" class="mt-2 px-4 pb-4">
+      <div v-else-if="activeTab === 'settings' && debugMode" class="of-panel-shell-body-inner">
         <NodeDebugForm
           :fields="debugFields"
           :model-value="debugFormValues"
@@ -288,7 +292,7 @@
       </div>
 
       <!-- 上次运行 Tab -->
-      <div v-else-if="activeTab === 'lastRun'" class="p-4">
+      <div v-else-if="activeTab === 'lastRun'" class="of-panel-shell-body-inner">
         <NodeDebugLastRun
           :result="nodeDebugResult"
           :loading="nodeDebugStore.runningNodeId === uiStore.selectedNodeId"
@@ -513,8 +517,4 @@ onUnmounted(() => {
 })
 </script>
 
-<style scoped>
-.of-node-config-panel {
-  font-family: inherit;
-}
-</style>
+<style scoped src="../../../styles/node-panel.css"></style>

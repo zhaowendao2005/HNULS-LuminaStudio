@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>变体 4：极简下划线+类似指令搜索输入</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+
+<body class="bg-gray-100 p-8 font-sans min-h-screen">
+    <div class="max-w-2xl mx-auto">
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+            <div class="mb-4 pb-3 border-b border-gray-100">
+                <h2 class="text-lg font-bold text-gray-800">变体 4：极简下划线+类似指令搜索输入</h2>
+            </div>
+
+            <!-- Context Header ... -->
+            <div class="space-y-6 mb-6">
+                <div class="border-b border-gray-100 pb-5">
+                    <h3 class="text-gray-800 font-[500] text-[15px]">输入/输出变量</h3>
+                </div>
+            </div>
+
+            <div class="space-y-5 pt-2">
+                <div class="pt-2 border-t border-gray-100 space-y-4">
+                    <div class="text-gray-800 text-[15px] mb-2 font-medium">声明变量</div>
+                    <div class="flex gap-6">
+                        <div
+                            class="flex-1 border-b border-gray-200 hover:border-teal-300 focus-within:border-teal-500 transition-colors pb-1">
+                            <input type="text" placeholder="变量名"
+                                class="w-full bg-transparent outline-none text-[14px] text-gray-800 placeholder-gray-300" />
+                        </div>
+                        <div
+                            class="flex-1 border-b border-gray-200 hover:border-teal-300 focus-within:border-teal-500 transition-colors pb-1">
+                            <input type="text" placeholder="展示名称"
+                                class="w-full bg-transparent outline-none text-[14px] text-gray-800 placeholder-gray-300" />
+                        </div>
+                    </div>
+                    <div
+                        class="border-b border-gray-200 hover:border-teal-300 focus-within:border-teal-500 transition-colors pb-1 pt-2">
+                        <input type="text" placeholder="默认值"
+                            class="w-full bg-transparent outline-none text-[14px] text-gray-800 placeholder-gray-300" />
+                    </div>
+                    <div class="pt-2">
+                        <div class="text-[12px] text-gray-400 mb-2">输入或选择类型</div>
+                        <div
+                            class="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded border border-gray-100 focus-within:border-teal-300 focus-within:bg-white transition-colors">
+                            <i data-lucide="search" class="w-3.5 h-3.5 text-gray-400"></i>
+                            <input id="v4-search" type="text" placeholder="当前: String"
+                                class="bg-transparent outline-none text-[13px] text-gray-700 w-full" />
+                        </div>
+                        <div id="v4-list" class="flex gap-2 mt-2"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="mt-6 text-center">
+            <a href="demo.html" class="text-teal-600 hover:underline text-sm flex items-center justify-center gap-1">
+                <i data-lucide="arrow-left" class="w-4 h-4"></i> 返回主列表
+            </a>
+        </div>
+    </div>
+
+    <script>
+        const varTypes = ['String', 'Number', 'Boolean', 'Array', 'Object'];
+        let v4Type = 'String';
+        const v4Input = document.getElementById('v4-search');
+        const v4List = document.getElementById('v4-list');
+
+        const renderV4List = (filterStr) => {
+            const filtered = varTypes.filter(t => t.toLowerCase().includes(filterStr.toLowerCase()));
+            v4List.innerHTML = filtered.map(t => `<span data-type="${t}" class="v4-type-btn text-[12px] text-teal-600 bg-teal-50 px-2 py-0.5 rounded cursor-pointer hover:bg-teal-100">${t}</span>`).join('');
+            v4List.querySelectorAll('.v4-type-btn').forEach(btn => btn.addEventListener('click', e => {
+                v4Type = e.currentTarget.dataset.type;
+                v4Input.value = '';
+                v4Input.placeholder = `当前: ${v4Type}`;
+                renderV4List('');
+            }));
+        };
+        v4Input.addEventListener('input', e => renderV4List(e.target.value));
+        renderV4List('');
+        lucide.createIcons();
+    </script>
+</body>
+
+</html>

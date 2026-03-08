@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>变体 10：自然语言完形填空 (最沉浸文本交互)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+
+<body class="bg-gray-100 p-8 font-sans min-h-screen">
+    <div class="max-w-2xl mx-auto">
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+            <div class="mb-4 pb-3 border-b border-gray-100">
+                <h2 class="text-lg font-bold text-gray-800">变体 10：自然语言完形填空 (最沉浸文本交互)</h2>
+            </div>
+
+            <div class="space-y-6 mb-6">
+                <div class="border-b border-gray-100 pb-5">
+                    <h3 class="text-gray-800 font-[500] text-[15px]">输入数组配置</h3>
+                </div>
+            </div>
+
+            <div class="space-y-4 pt-1">
+                <div class="pt-4 border-t border-gray-100">
+                    <div class="text-gray-800 text-[14px] mb-3">变量声明语句</div>
+                    <div
+                        class="bg-gray-50 rounded-xl p-5 border border-gray-100 leading-loose text-[14px] text-gray-700 font-serif">
+                        我需要声明一个类型为
+                        <span id="v10-type-btn"
+                            class="inline-block mx-2 font-sans font-medium text-teal-600 bg-teal-50 border-b-2 border-teal-200 px-2 py-0.5 rounded cursor-pointer hover:bg-teal-100 transition-colors">
+                            <span id="v10-type-text">String</span>
+                        </span>
+                        的变量，
+                        它的键名为
+                        <input type="text" placeholder="输入key"
+                            class="inline-block w-24 mx-2 font-sans bg-transparent border-b border-gray-300 outline-none focus:border-teal-500 text-center text-teal-700 placeholder-gray-300 transition-colors" />，
+                        前端展示名称叫做
+                        <input type="text" placeholder="输入名称"
+                            class="inline-block w-24 mx-2 font-sans bg-transparent border-b border-gray-300 outline-none focus:border-teal-500 text-center text-teal-700 placeholder-gray-300 transition-colors" />，
+                        并且将其默认值初始化为
+                        <input type="text" placeholder="空"
+                            class="inline-block w-16 mx-2 font-sans bg-transparent border-b border-gray-300 outline-none focus:border-teal-500 text-center text-teal-700 placeholder-gray-300 transition-colors" />。
+                    </div>
+                    <div class="text-[12px] text-gray-400 mt-2 ml-1">* 点击高亮的类型文字即可快速切换类型。</div>
+                </div>
+            </div>
+        </div>
+        <div class="mt-6 text-center">
+            <a href="demo.html" class="text-teal-600 hover:underline text-sm flex items-center justify-center gap-1">
+                <i data-lucide="arrow-left" class="w-4 h-4"></i> 返回主列表
+            </a>
+        </div>
+    </div>
+
+    <script>
+        const varTypes = ['String', 'Number', 'Boolean', 'Array', 'Object'];
+        let v10Type = 'String';
+        document.getElementById('v10-type-btn').addEventListener('click', () => {
+            const idx = varTypes.indexOf(v10Type);
+            v10Type = varTypes[(idx + 1) % varTypes.length];
+            document.getElementById('v10-type-text').innerText = v10Type;
+        });
+        lucide.createIcons();
+    </script>
+</body>
+
+</html>

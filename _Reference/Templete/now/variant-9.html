@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>变体 9：状态机切屏 (点击后替换当前视图)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+
+<body class="bg-gray-100 p-8 font-sans min-h-screen">
+    <div class="max-w-2xl mx-auto">
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+            <div class="mb-4 pb-3 border-b border-gray-100">
+                <h2 class="text-lg font-bold text-gray-800">变体 9：状态机切屏 (点击后替换当前视图)</h2>
+            </div>
+
+            <!-- Shared Context Header Simulation -->
+            <div class="space-y-6 mb-6">
+                <div class="border-b border-gray-100 pb-5">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="text-gray-800 font-[500] text-[15px]">输入数组 <span class="text-red-500 ml-0.5">*</span>
+                        </h3>
+                        <span
+                            class="px-2.5 py-0.5 rounded-full border border-cyan-200 text-cyan-600 bg-cyan-50/50 text-[11px] font-medium tracking-wide">ARRAY</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pt-4 border-t border-gray-100">
+                <div id="v9-view-1" class="space-y-4 duration-200">
+                    <div class="flex justify-between items-center">
+                        <div class="text-gray-800 text-[15px] font-medium">创建变量</div>
+                        <button id="v9-toggle"
+                            class="flex items-center gap-1 text-[12px] bg-teal-50 text-teal-600 px-2 py-1 rounded-full border border-teal-100 hover:bg-teal-100">
+                            类型: <span id="v9-type-text" class="font-bold">String</span>
+                        </button>
+                    </div>
+                    <div class="space-y-3">
+                        <input type="text" placeholder="变量名 (如 age)"
+                            class="w-full border-b border-gray-200 py-2 outline-none focus:border-teal-400 text-[14px]" />
+                        <input type="text" placeholder="展示名称 (如 年龄)"
+                            class="w-full border-b border-gray-200 py-2 outline-none focus:border-teal-400 text-[14px]" />
+                        <input type="text" placeholder="设置默认值"
+                            class="w-full border-b border-gray-200 py-2 outline-none focus:border-teal-400 text-[14px]" />
+                    </div>
+                </div>
+                <div id="v9-view-2" class="space-y-2 duration-200 bg-gray-50 p-4 rounded-xl" style="display: none;">
+                    <div class="flex justify-between items-center mb-2">
+                        <div class="text-gray-800 text-[14px] font-medium">请选择期望的类型</div>
+                        <button id="v9-back" class="text-gray-400 hover:text-gray-600">返回</button>
+                    </div>
+                    <div id="v9-list" class="space-y-1">
+                        <!-- JS Dynamic -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="mt-6 text-center">
+            <a href="demo.html" class="text-teal-600 hover:underline text-sm flex items-center justify-center gap-1">
+                <i data-lucide="arrow-left" class="w-4 h-4"></i> 返回主列表
+            </a>
+        </div>
+    </div>
+
+    <script>
+        const varTypes = ['String', 'Number', 'Boolean', 'Array', 'Object'];
+        const v9List = document.getElementById('v9-list');
+        const v9View1 = document.getElementById('v9-view-1');
+        const v9View2 = document.getElementById('v9-view-2');
+
+        v9List.innerHTML = varTypes.map(t => `
+            <div data-type="${t}" class="v9-type-btn p-3 rounded-lg bg-white border cursor-pointer flex justify-between items-center ${t === 'String' ? 'border-teal-500 shadow-sm' : 'border-transparent hover:border-gray-200'}">
+                <span class="v9-text text-[14px] ${t === 'String' ? 'text-teal-600 font-medium' : 'text-gray-700'}">${t}</span>
+                <i data-lucide="check-circle-2" class="v9-check w-4 h-4 text-teal-500" style="display: ${t === 'String' ? 'block' : 'none'};"></i>
+            </div>
+        `).join('');
+
+        document.getElementById('v9-toggle').addEventListener('click', () => { v9View1.style.display = 'none'; v9View2.style.display = 'block'; });
+        document.getElementById('v9-back').addEventListener('click', () => { v9View1.style.display = 'block'; v9View2.style.display = 'none'; });
+
+        document.querySelectorAll('.v9-type-btn').forEach(btn => btn.addEventListener('click', e => {
+            const type = e.currentTarget.dataset.type;
+            document.getElementById('v9-type-text').innerText = type;
+            v9View1.style.display = 'block';
+            v9View2.style.display = 'none';
+            document.querySelectorAll('.v9-type-btn').forEach(b => {
+                const isSelected = b.dataset.type === type;
+                b.className = `v9-type-btn p-3 rounded-lg bg-white border cursor-pointer flex justify-between items-center ${isSelected ? 'border-teal-500 shadow-sm' : 'border-transparent hover:border-gray-200'}`;
+                b.querySelector('.v9-text').className = `v9-text text-[14px] ${isSelected ? 'text-teal-600 font-medium' : 'text-gray-700'}`;
+                b.querySelector('.v9-check').style.display = isSelected ? 'block' : 'none';
+            });
+        }));
+        lucide.createIcons();
+    </script>
+</body>
+
+</html>

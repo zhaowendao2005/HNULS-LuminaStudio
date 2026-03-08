@@ -1,9 +1,9 @@
 <template>
-  <div class="of-variable-assign-node-panel h-full flex flex-col">
-    <div class="border-b border-gray-100 px-4 pb-2 pt-4">
-      <div class="flex items-center gap-3">
+  <div class="of-panel-shell of-variable-assign-node-panel">
+    <div class="of-panel-shell-header">
+      <div class="of-panel-shell-title-row">
         <div
-          class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-white"
+          class="of-panel-shell-icon"
           :class="theme.iconBgClass"
         >
           <svg
@@ -23,11 +23,11 @@
 
         <input
           v-model="titleModel"
-          class="system-xl-semibold h-7 min-w-0 flex-1 appearance-none rounded-md border border-transparent bg-transparent px-1 text-gray-900 outline-none focus:shadow-xs"
+          class="system-xl-semibold of-panel-shell-title-input"
           placeholder="添加标题..."
         />
 
-        <div class="flex shrink-0 items-center gap-1">
+        <div class="of-panel-shell-actions">
           <CapsuleTooltip text="调试运行" placement="bottom">
             <button
               class="flex h-6 w-6 items-center justify-center rounded-md hover:bg-gray-100"
@@ -52,29 +52,33 @@
         </div>
       </div>
 
-      <div class="mt-2">
+      <div class="of-panel-shell-description">
         <textarea
           v-model="descModel"
-          class="w-full resize-none appearance-none bg-transparent text-xs leading-[18px] text-gray-600 outline-none placeholder:text-gray-400"
+          class="of-panel-shell-description-input"
           placeholder="添加描述..."
           :style="{ height: '18px' }"
         />
       </div>
 
-      <div class="mt-3 flex items-center gap-4">
+      <div class="of-panel-shell-tabs">
         <button
-          class="system-md-semibold border-b-2 pb-2 pt-2.5"
+          class="system-md-semibold of-panel-tab-button"
           :class="
-            activeTab === 'settings' ? theme.tabActiveClass : 'border-transparent text-gray-400'
+            activeTab === 'settings'
+              ? [theme.tabActiveClass, 'of-panel-tab-button-active']
+              : 'of-panel-tab-button-inactive'
           "
           @click="setActiveTab('settings')"
         >
           设置
         </button>
         <button
-          class="system-md-semibold border-b-2 pb-2 pt-2.5"
+          class="system-md-semibold of-panel-tab-button"
           :class="
-            activeTab === 'lastRun' ? theme.tabActiveClass : 'border-transparent text-gray-400'
+            activeTab === 'lastRun'
+              ? [theme.tabActiveClass, 'of-panel-tab-button-active']
+              : 'of-panel-tab-button-inactive'
           "
           @click="setActiveTab('lastRun')"
         >
@@ -83,25 +87,25 @@
       </div>
     </div>
 
-    <div class="flex-1 overflow-y-auto">
-      <div v-if="activeTab === 'settings' && !debugMode" class="space-y-5 px-4 py-4">
-        <section class="space-y-3">
+    <div class="of-panel-shell-body">
+      <div v-if="activeTab === 'settings' && !debugMode" class="of-panel-shell-body-inner">
+        <section class="of-panel-section">
           <div class="flex items-center justify-between">
             <div class="system-sm-semibold-uppercase text-gray-700">赋值规则</div>
             <button
               type="button"
-              class="rounded-md border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700 hover:bg-sky-100"
+              class="of-panel-action-button of-panel-action-button-primary"
               @click="addRule"
             >
               添加规则
             </button>
           </div>
 
-          <div class="space-y-3">
+          <div class="of-panel-list">
             <div
               v-for="rule in rules"
               :key="rule.id"
-              class="rounded-2xl border border-gray-200 bg-white p-4"
+              class="of-panel-list-card"
             >
               <div class="mb-3 flex items-center justify-between">
                 <div class="inline-flex rounded-lg bg-gray-100 p-0.5">
@@ -155,8 +159,7 @@
                   />
                   <input
                     :value="rule.source_path || ''"
-                    class="h-10 w-full rounded-xl border border-[#e5e7eb] bg-[#f3f4f6] px-3 text-sm text-gray-800 outline-none focus:bg-white"
-                    :class="theme.controlFocusClass"
+                    class="of-panel-input h-10"
                     placeholder="可手动补充 .field 或 .0.name"
                     @input="
                       handleSourcePathInput(rule.id, ($event.target as HTMLInputElement).value)
@@ -170,8 +173,7 @@
                     v-if="usesJsonConstantEditor(rule)"
                     :value="getConstantDisplayValue(rule)"
                     rows="4"
-                    class="w-full rounded-xl border border-[#e5e7eb] bg-[#f3f4f6] px-3 py-2 font-mono text-sm text-gray-800 outline-none focus:bg-white"
-                    :class="theme.controlFocusClass"
+                    class="of-panel-textarea font-mono text-sm"
                     :placeholder="
                       rule.target_type === OFVarTypeEnum.Array
                         ? '请输入 JSON 数组，例如 []'
@@ -215,8 +217,7 @@
                     v-else
                     :value="getConstantDisplayValue(rule)"
                     :type="rule.target_type === OFVarTypeEnum.Number ? 'number' : 'text'"
-                    class="h-10 w-full rounded-xl border border-[#e5e7eb] bg-[#f3f4f6] px-3 text-sm text-gray-800 outline-none focus:bg-white"
-                    :class="theme.controlFocusClass"
+                    class="of-panel-input h-10"
                     placeholder="请输入常量值"
                     @input="
                       patchRule(rule.id, {
@@ -226,8 +227,8 @@
                   />
                 </div>
 
-                <div class="grid grid-cols-2 gap-3">
-                  <div class="space-y-2">
+                <div class="of-panel-field-grid-2">
+                  <div class="of-panel-field-block">
                     <div class="flex items-center justify-between gap-2">
                       <div class="system-sm-semibold-uppercase text-gray-700">目标变量名</div>
                       <button
@@ -240,8 +241,7 @@
                     </div>
                     <input
                       :value="rule.target_variable"
-                      class="h-10 w-full rounded-xl border border-[#e5e7eb] bg-[#f3f4f6] px-3 text-sm text-gray-800 outline-none focus:bg-white"
-                      :class="theme.controlFocusClass"
+                      class="of-panel-input h-10"
                       placeholder="例如 summary_text"
                       @input="
                         patchRule(rule.id, {
@@ -250,7 +250,7 @@
                       "
                     />
                   </div>
-                  <div class="space-y-2">
+                  <div class="of-panel-field-block">
                     <div class="system-sm-semibold-uppercase text-gray-700">目标类型</div>
                     <WhiteSelect
                       :model-value="rule.target_type"
@@ -270,7 +270,7 @@
                   v-if="rule.target_type === OFVarTypeEnum.Array"
                   class="grid grid-cols-[1fr_auto] gap-3"
                 >
-                  <div class="space-y-2">
+                  <div class="of-panel-field-block">
                     <div class="system-sm-semibold-uppercase text-gray-700">数组元素类型</div>
                     <WhiteSelect
                       :model-value="rule.item_type || OFVarTypeEnum.String"
@@ -296,7 +296,7 @@
 
                 <div
                   v-else-if="rule.target_type === OFVarTypeEnum.Object"
-                  class="flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-3 py-2"
+                  class="of-panel-list-card-soft flex items-center justify-between"
                 >
                   <div>
                     <div class="text-sm font-medium text-gray-700">对象 Schema</div>
@@ -315,21 +315,21 @@
           </div>
         </section>
 
-        <section class="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
+        <section class="of-panel-section of-panel-list-card">
           <div class="flex items-center justify-between">
             <div class="system-sm-semibold-uppercase text-gray-700">输出预览</div>
             <div class="text-xs text-gray-400">{{ outputNamespaceLabel }}</div>
           </div>
 
-          <div class="space-y-3">
-            <div v-for="item in outputPreviewVariables" :key="item.variable" class="space-y-1">
-              <div class="flex min-w-0 items-center gap-2 leading-[18px]">
-                <div class="truncate text-[13px] font-semibold text-gray-800">
+          <div class="of-spacing-sm">
+            <div v-for="item in outputPreviewVariables" :key="item.variable" class="of-panel-variable-display">
+              <div class="of-panel-variable-info min-w-0 leading-[18px]">
+                <div class="of-panel-variable-name truncate">
                   {{ item.variable }}
                 </div>
-                <div class="shrink-0 text-[12px] text-gray-500">{{ item.type || 'string' }}</div>
+                <div class="of-panel-variable-type shrink-0">{{ item.type || 'string' }}</div>
               </div>
-              <div class="max-w-[280px] truncate text-xs text-gray-400">
+              <div class="of-panel-variable-path max-w-[280px] truncate">
                 {{ formatSelector(item.value_selector) }}
               </div>
             </div>
@@ -339,7 +339,7 @@
         <ObjectSchemaEditor @save="handleSchemaSave" />
       </div>
 
-      <div v-else-if="activeTab === 'settings' && debugMode" class="px-4 py-4">
+      <div v-else-if="activeTab === 'settings' && debugMode" class="of-panel-shell-body-inner">
         <NodeDebugForm
           :fields="debugFields"
           :model-value="debugFormValues"
@@ -349,7 +349,7 @@
         />
       </div>
 
-      <div v-else-if="activeTab === 'lastRun'" class="px-4 py-4">
+      <div v-else-if="activeTab === 'lastRun'" class="of-panel-shell-body-inner">
         <NodeDebugLastRun
           :result="nodeDebugResult"
           :loading="nodeDebugStore.runningNodeId === uiStore.selectedNodeId"
@@ -702,8 +702,4 @@ onUnmounted(() => {
 })
 </script>
 
-<style scoped>
-.of-variable-assign-node-panel {
-  font-family: inherit;
-}
-</style>
+<style scoped src="../../../styles/node-panel.css"></style>
