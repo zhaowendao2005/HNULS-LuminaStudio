@@ -97,6 +97,26 @@ const store = useWorkflowEditorStore()
 const uiStore = useWorkflowEditorUIStore()
 const modelConfigStore = useModelConfigStore()
 
+async function loadWorkflowSafely(workflowId: string | null) {
+  if (!workflowId) {
+    store.unloadWorkflow()
+    return
+  }
+
+  try {
+    await store.loadWorkflow(workflowId)
+    setViewport({
+      x: store.viewport.x,
+      y: store.viewport.y,
+      zoom: store.viewport.zoom
+    })
+  } catch (error) {
+    store.unloadWorkflow()
+    console.error(`[OrchestraFlow] Failed to load workflow "${workflowId}"`, error)
+    alert(`工作流加载失败：${workflowId}`)
+  }
+}
+
 // 根据节点类型获取 PanelType
 function getPanelType(nodeType: string): PanelType | null {
   switch (nodeType) {
@@ -338,15 +358,7 @@ onViewportChange((viewport) => {
 watch(
   () => props.workflowId,
   async (newId) => {
-    if (newId) {
-      await store.loadWorkflow(newId)
-      // 加载后恢复 viewport
-      setViewport({
-        x: store.viewport.x,
-        y: store.viewport.y,
-        zoom: store.viewport.zoom
-      })
-    }
+    await loadWorkflowSafely(newId)
   },
   { immediate: true }
 )
@@ -356,16 +368,6 @@ onMounted(async () => {
   window.addEventListener('keydown', handleDeleteKeydown)
   if (modelConfigStore.providers.length === 0) {
     await modelConfigStore.fetchProviders()
-  }
-  // 如果有 workflowId 则加载
-  if (props.workflowId) {
-    await store.loadWorkflow(props.workflowId)
-    // 加载后恢复 viewport
-    setViewport({
-      x: store.viewport.x,
-      y: store.viewport.y,
-      zoom: store.viewport.zoom
-    })
   }
 })
 

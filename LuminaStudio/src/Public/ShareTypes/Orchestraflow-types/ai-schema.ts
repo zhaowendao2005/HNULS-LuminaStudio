@@ -58,6 +58,7 @@ export interface OFAISchemaBundle {
   nodes: OFAISchemaNodeSummary[]
   schema: Record<string, any>
   example: OFWorkflow
+  annotated_workflow_jsonc: string
   prompt_markdown: string
   bundled_markdown: string
 }

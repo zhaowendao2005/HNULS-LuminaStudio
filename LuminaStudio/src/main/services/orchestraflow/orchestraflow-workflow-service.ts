@@ -7,6 +7,7 @@ import { join } from 'path'
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, unlinkSync } from 'fs'
 import { logger } from '../logger'
 import type { OFWorkflow, OFWorkflowMeta } from '../../../Public/ShareTypes/Orchestraflow-types'
+import { parseJsonc } from './orchestraflow-workflow-json'
 
 const log = logger.scope('OrchestraflowWorkflowService')
 
@@ -29,9 +30,35 @@ function extractWorkflowId(filename: string): string {
   return filename.replace('.json', '')
 }
 
-// 检查文件是否存在
-function workflowExists(filename: string): boolean {
-  return existsSync(join(getWorkflowDir(), filename))
+/**
+ * 根据 workflowId 查找对应文件。
+ *
+ * 长期规则：
+ * - 文件名仍然是首选索引，因为它成本最低。
+ * - 但内容里的 workflow.id 才是最终业务标识，因此当文件名不一致时必须允许回查。
+ */
+function findWorkflowFileById(workflowId: string): string | null {
+  const dir = getWorkflowDir()
+  const files = readdirSync(dir).filter((f) => f.endsWith('.json'))
+
+  const directMatch = files.find((file) => extractWorkflowId(file) === workflowId)
+  if (directMatch) {
+    return directMatch
+  }
+
+  for (const file of files) {
+    try {
+      const content = readFileSync(join(dir, file), 'utf-8')
+      const workflow = parseJsonc<Partial<OFWorkflow>>(content)
+      if (workflow.id === workflowId) {
+        return file
+      }
+    } catch (e) {
+      log.warn(`Failed to inspect workflow file while resolving id: ${file}`, e)
+    }
+  }
+
+  return null
 }
 
 export class OrchestraflowWorkflowService {
@@ -50,7 +77,7 @@ export class OrchestraflowWorkflowService {
     for (const file of files) {
       try {
         const content = readFileSync(join(dir, file), 'utf-8')
-        const workflow: OFWorkflow = JSON.parse(content)
+        const workflow = parseJsonc<OFWorkflow>(content)
 
         // 关键词过滤
         if (
@@ -91,22 +118,18 @@ export class OrchestraflowWorkflowService {
    * 获取单个工作流
    */
   async get(workflowId: string): Promise<OFWorkflow | null> {
-    const dir = getWorkflowDir()
-    const files = readdirSync(dir).filter((f) => f.endsWith('.json'))
-
-    for (const file of files) {
-      const id = extractWorkflowId(file)
-      if (id === workflowId) {
-        try {
-          const content = readFileSync(join(dir, file), 'utf-8')
-          return JSON.parse(content)
-        } catch (e) {
-          log.error(`Failed to read workflow: ${file}`, e)
-          return null
-        }
-      }
+    const file = findWorkflowFileById(workflowId)
+    if (!file) {
+      return null
     }
-    return null
+
+    try {
+      const content = readFileSync(join(getWorkflowDir(), file), 'utf-8')
+      return parseJsonc<OFWorkflow>(content)
+    } catch (e) {
+      log.error(`Failed to read workflow: ${file}`, e)
+      return null
+    }
   }
 
   /**
@@ -150,38 +173,26 @@ export class OrchestraflowWorkflowService {
       updatedAt: Math.floor(Date.now() / 1000)
     }
 
-    const dir = getWorkflowDir()
-    const files = readdirSync(dir).filter((f) => f.endsWith('.json'))
+    const file = findWorkflowFileById(workflowId)
+    if (!file) return null
 
-    for (const file of files) {
-      const id = extractWorkflowId(file)
-      if (id === workflowId) {
-        const filepath = join(dir, file)
-        writeFileSync(filepath, JSON.stringify(updated, null, 2), 'utf-8')
-        log.info(`Workflow updated: ${workflowId}`)
-        return updated
-      }
-    }
-    return null
+    const filepath = join(getWorkflowDir(), file)
+    writeFileSync(filepath, JSON.stringify(updated, null, 2), 'utf-8')
+    log.info(`Workflow updated: ${workflowId}`)
+    return updated
   }
 
   /**
    * 删除工作流
    */
   async delete(workflowId: string): Promise<boolean> {
-    const dir = getWorkflowDir()
-    const files = readdirSync(dir).filter((f) => f.endsWith('.json'))
+    const file = findWorkflowFileById(workflowId)
+    if (!file) return false
 
-    for (const file of files) {
-      const id = extractWorkflowId(file)
-      if (id === workflowId) {
-        const filepath = join(dir, file)
-        unlinkSync(filepath)
-        log.info(`Workflow deleted: ${workflowId}`)
-        return true
-      }
-    }
-    return false
+    const filepath = join(getWorkflowDir(), file)
+    unlinkSync(filepath)
+    log.info(`Workflow deleted: ${workflowId}`)
+    return true
   }
 }
 

@@ -838,7 +838,7 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
     const data = await datasource.get(workflowId)
     const normalizedNodes = data.nodes.map(normalizeNode)
     const inflatedNodes = [...normalizedNodes]
-    const inflatedEdges = [...data.edges]
+    const inflatedEdges = data.edges.map((edge) => buildIterationEdgeData(cloneEdge(edge)))
 
     normalizedNodes.forEach((node) => {
       if (node.data.type !== OFBlockEnum.Iteration && node.data.type !== OFBlockEnum.Loop) return
@@ -850,7 +850,7 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
         inflatedNodes.push(cloneNode(childNode))
       })
       subgraph.edges.forEach((childEdge) => {
-        inflatedEdges.push(cloneEdge(childEdge))
+        inflatedEdges.push(buildIterationEdgeData(cloneEdge(childEdge)))
       })
     })
 
@@ -1166,7 +1166,7 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
       ),
       ...(subgraph?.edges || [])
         .filter((edge) => nextChildNodeIds.has(edge.source) && nextChildNodeIds.has(edge.target))
-        .map((edge) => cloneEdge(edge))
+        .map((edge) => buildIterationEdgeData(cloneEdge(edge)))
     ])
   }
 
