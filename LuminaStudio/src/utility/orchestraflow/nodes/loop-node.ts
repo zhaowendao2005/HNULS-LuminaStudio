@@ -222,11 +222,6 @@ export class LoopNode extends BaseNode {
       throw new Error('start_node_id 必须指向唯一的 LoopStart 节点')
     }
 
-    const endNodes = nodeData.subgraph.nodes.filter((node) => node.data.type === OFBlockEnum.End)
-    if (endNodes.length !== 1) {
-      throw new Error('subgraph 必须且只能包含一个 End 节点')
-    }
-
     const invalidContainerNode = nodeData.subgraph.nodes.find((node) =>
       [OFBlockEnum.Iteration, OFBlockEnum.Loop].includes(node.data.type)
     )

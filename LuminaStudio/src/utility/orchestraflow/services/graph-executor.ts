@@ -53,6 +53,7 @@ export class GraphExecutor {
     const edgesBySource = this.buildEdgesBySource(params.graph.edges)
     let activeNodeIds = this.getInitialActiveNodeIds(nodeLevels, params.graph.nodes, params.startNodeId)
     let endOutputs: Record<string, any> | undefined
+    let fallbackOutputs: Record<string, any> | undefined
     const selectedBranches: BranchSelection[] = []
 
     for (const levelNodes of nodeLevels) {
@@ -160,6 +161,8 @@ export class GraphExecutor {
         this.upsertTrace(nextTrace)
         if (item.node.data.type === OFBlockEnum.End && !item.result.error) {
           endOutputs = this.toSerializable(item.result.outputs || {})
+        } else if (!item.result.error) {
+          fallbackOutputs = this.toSerializable(item.result.outputs || {})
         }
       }
 
@@ -212,7 +215,7 @@ export class GraphExecutor {
 
     return {
       status: this.options.isStopped() ? 'stopped' : 'succeeded',
-      outputs: endOutputs,
+      outputs: endOutputs ?? fallbackOutputs,
       selectedBranches
     }
   }
