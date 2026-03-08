@@ -285,31 +285,28 @@
           </div>
         </section>
 
-        <section class="of-panel-section of-panel-container-card">
+        <section class="of-doc-section">
           <div class="flex items-center justify-between">
-            <div class="system-sm-semibold-uppercase text-gray-700">输出预览</div>
-            <div class="text-xs text-gray-400">{{ outputNamespaceLabel }}</div>
+            <div>
+              <div class="of-doc-title-strong">输出预览</div>
+              <div class="of-state-hint">{{ outputNamespaceLabel }}</div>
+            </div>
           </div>
 
-          <div class="of-spacing-sm">
-            <div v-for="item in outputPreviewVariables" :key="item.variable" class="of-panel-variable-display">
-              <div class="of-panel-variable-info min-w-0 leading-[18px]">
-                <CapsuleTooltip :text="item.variable" placement="top">
-                  <div class="of-panel-variable-name truncate">
-                    {{ item.variable }}
-                  </div>
-                </CapsuleTooltip>
-                <div class="of-panel-variable-type shrink-0">{{ item.type || 'string' }}</div>
-              </div>
-              <CapsuleTooltip
-                :text="formatSelector(item.value_selector)"
-                placement="top"
-                max-width="420px"
-              >
-                <div class="of-panel-variable-path max-w-[280px] truncate">
-                  {{ formatSelector(item.value_selector) }}
-                </div>
-              </CapsuleTooltip>
+          <div class="of-output-tree">
+            <div class="of-output-tree-root">
+              <span class="of-output-tree-root-label">Output</span>
+            </div>
+
+            <div
+              v-for="(item, index) in outputPreviewVariables"
+              :key="item.variable"
+              class="of-output-tree-item of-output-tree-branch"
+              :class="{ 'of-output-tree-item-last': index === outputPreviewVariables.length - 1 }"
+            >
+              <span class="of-output-tree-prop">{{ item.variable }}</span>
+              <span>: </span>
+              <span class="of-output-tree-type">{{ item.type || 'string' }}</span>
             </div>
           </div>
         </section>
@@ -657,4 +654,4 @@ onUnmounted(() => {
 })
 </script>
 
-<style scoped src="../../../styles/node-panel.css"></style>
+<style scoped src="../../../styles/node-panel.scss"></style>

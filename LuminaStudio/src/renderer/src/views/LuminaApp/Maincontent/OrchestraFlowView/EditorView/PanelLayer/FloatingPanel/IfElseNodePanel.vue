@@ -2,10 +2,7 @@
   <div class="of-panel-shell">
     <div class="of-panel-shell-header">
       <div class="of-panel-shell-title-row">
-        <div
-          class="of-panel-shell-icon"
-          :class="theme.iconBgClass"
-        >
+        <div class="of-panel-shell-icon" :class="theme.iconBgClass">
           <svg viewBox="0 0 24 24" class="h-4 w-4" fill="currentColor">
             <path
               d="M14 5h5v5h-2V8.414l-4.293 4.293L17 17v-1.5h2V20h-5v-2h1.586l-4-4H3v-2h8.586l4.293-4.293H14V5Z"
@@ -83,225 +80,162 @@
     </div>
 
     <div v-if="activeTab === 'settings'" class="of-panel-shell-body overflow-x-hidden">
-      <div class="of-panel-shell-body-inner of-panel-rule-stack">
-        <div
-          v-for="item in cases"
-          :key="item.id"
-          class="group of-panel-rule-card"
-        >
-          <div class="of-panel-rule-card-header">
-            <div
-              class="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide"
-              :class="item.kind === 'if' ? 'bg-gray-900 text-white' : 'bg-gray-200 text-gray-600'"
-            >
-              {{ item.label }}
-            </div>
-            <div class="flex-1 border-b border-dashed border-gray-200"></div>
-            <div
-              class="flex gap-1 transition"
-              :class="
-                item.kind === 'if'
-                  ? 'opacity-0 group-hover:opacity-100'
-                  : 'opacity-0 group-hover:opacity-100'
-              "
-            >
-              <button
-                type="button"
-                class="rounded border border-gray-100 bg-white p-1 text-gray-400 shadow-sm transition hover:text-cyan-600"
-                @click="addCondition(item.id)"
-              >
-                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
-              </button>
-              <button
-                v-if="item.kind === 'elif'"
-                type="button"
-                class="rounded border border-gray-100 bg-white p-1 text-gray-400 shadow-sm transition hover:text-red-500"
-                @click="removeCase(item.id)"
-              >
-                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                  />
-                </svg>
-              </button>
-            </div>
-          </div>
+      <div class="of-panel-shell-body-inner of-doc-block">
+        <div class="of-doc-kicker">分支逻辑配置</div>
+        <div class="of-doc-divider"></div>
 
-          <div class="of-panel-rule-card-body">
+        <div class="of-branch-stack">
+          <div
+            v-for="item in cases"
+            :key="item.id"
+            class="of-branch-case"
+          >
             <div
               v-for="(condition, conditionIndex) in item.conditions"
               :key="condition.id"
-              class="group/row text-sm"
+              class="of-branch-line"
+              :class="conditionIndex > 0 ? 'of-branch-indent' : ''"
             >
-              <div
-                class="grid items-center gap-x-2 gap-y-1.5"
-                style="grid-template-columns: 56px minmax(0, 1fr) 96px 24px"
-              >
+              <span class="of-branch-keyword">
+                {{
+                  item.kind === 'if'
+                    ? conditionIndex === 0
+                      ? 'if'
+                      : condition.logical_operator === 'or'
+                        ? 'or'
+                        : 'and'
+                    : conditionIndex === 0
+                      ? 'else if'
+                      : condition.logical_operator === 'or'
+                        ? 'or'
+                        : 'and'
+                }}
+              </span>
+              <span class="text-gray-500">(</span>
+              <VariablePillButton
+                :text="condition.variable_path || ''"
+                placeholder="选择变量"
+                tooltip-max-width="520px"
+                @click="handleConditionVariableClick(item.id, condition.id, $event)"
+              />
+              <div class="of-choice-anchor">
+                <button
+                  type="button"
+                  class="of-branch-operator"
+                  @click.stop="toggleOperatorPicker(item.id, condition.id)"
+                >
+                  {{ getOperatorLabel(condition.operator, condition.variable_type) }}
+                </button>
+                <div
+                  v-if="isOperatorPickerOpen(item.id, condition.id)"
+                  class="of-choice-popup"
+                >
+                  <button
+                    v-for="option in getOperators(condition.variable_type)"
+                    :key="String(option.value)"
+                    type="button"
+                    class="of-choice-option"
+                    :class="String(option.value) === condition.operator ? 'of-choice-option-active' : ''"
+                    @click.stop="selectOperator(item.id, condition.id, String(option.value))"
+                  >
+                    {{ option.label }}
+                  </button>
+                </div>
+              </div>
+              <template v-if="needsValue(condition.operator)">
+                <input
+                  v-if="condition.variable_type !== OFVarType.Boolean"
+                  :type="condition.variable_type === OFVarType.Number ? 'number' : 'text'"
+                  :value="condition.value ?? ''"
+                  class="of-branch-inline-input"
+                  :class="condition.variable_type === OFVarType.Number ? 'w-12' : 'w-20'"
+                  placeholder="值"
+                  @input="handleValueInput(item.id, condition.id, condition.variable_type, $event)"
+                />
+                <div v-else class="of-choice-anchor">
+                  <button
+                    type="button"
+                    class="of-branch-operator"
+                    @click.stop="toggleBooleanPicker(item.id, condition.id)"
+                  >
+                    {{ condition.value === false ? 'FALSE' : 'TRUE' }}
+                  </button>
+                  <div
+                    v-if="isBooleanPickerOpen(item.id, condition.id)"
+                    class="of-choice-popup"
+                  >
+                    <button
+                      type="button"
+                      class="of-choice-option"
+                      :class="condition.value === true ? 'of-choice-option-active' : ''"
+                      @click.stop="selectBooleanValue(item.id, condition.id, true)"
+                    >
+                      TRUE
+                    </button>
+                    <button
+                      type="button"
+                      class="of-choice-option"
+                      :class="condition.value === false ? 'of-choice-option-active' : ''"
+                      @click.stop="selectBooleanValue(item.id, condition.id, false)"
+                    >
+                      FALSE
+                    </button>
+                  </div>
+                </div>
+              </template>
+              <span class="text-gray-500">)</span>
+              <span class="of-branch-keyword">then</span>
+              <button type="button" class="of-ref-trigger of-branch-target of-ref-trigger-empty">
+                <span class="of-ref-text">{{ item.label || '走分支' }}</span>
+              </button>
+              <span class="of-branch-actions">
+                <button
+                  type="button"
+                  class="of-branch-action"
+                  @click="addCondition(item.id)"
+                >
+                  添加条件
+                </button>
                 <button
                   v-if="conditionIndex > 0"
                   type="button"
-                  class="h-6 w-14 rounded border px-1 py-0.5 text-[10px] font-bold uppercase transition"
-                  :class="
-                    (condition.logical_operator || 'and') === 'and'
-                      ? 'border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100'
-                      : 'border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100'
-                  "
-                  @click="
-                    updateCondition(item.id, condition.id, {
-                      logical_operator:
-                        (condition.logical_operator || 'and') === 'and' ? 'or' : 'and'
-                    })
-                  "
-                >
-                  {{ (condition.logical_operator || 'and') === 'and' ? 'AND' : 'OR' }}
-                </button>
-                <div v-else class="w-14 shrink-0"></div>
-
-                <div class="min-w-0">
-                  <VariablePillButton
-                    :text="condition.variable_path || ''"
-                    placeholder="选择变量"
-                    :button-class="theme.controlFocusClass"
-                    tooltip-max-width="520px"
-                    @click="handleConditionVariableClick(item.id, condition.id, $event)"
-                  >
-                    <template #icon>
-                      <svg
-                        class="mr-1.5 h-3.5 w-3.5 shrink-0 text-cyan-500"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"
-                        />
-                      </svg>
-                    </template>
-                  </VariablePillButton>
-                </div>
-
-                <WhiteSelect
-                  :model-value="condition.operator"
-                  :options="getOperators(condition.variable_type)"
-                  root-class="w-full min-w-0"
-                  trigger-class="!h-8 !w-full !rounded-md !border-transparent !bg-transparent !px-1 !py-1 !text-sm !text-gray-400 hover:!bg-white hover:!text-gray-700"
-                  panel-class="min-w-[132px]"
-                  teleport-to="body"
-                  @update:model-value="
-                    updateCondition(item.id, condition.id, { operator: String($event) as any })
-                  "
-                />
-
-                <button
-                  type="button"
-                  class="justify-self-end rounded p-1 text-gray-300 opacity-0 transition-all hover:text-red-500 group-hover/row:opacity-100"
+                  class="of-branch-action of-branch-action-danger"
                   @click="removeCondition(item.id, condition.id)"
                 >
-                  <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
+                  删除条件
                 </button>
+                <button
+                  v-if="item.kind === 'elif' && conditionIndex === 0"
+                  type="button"
+                  class="of-branch-action of-branch-action-danger"
+                  @click="removeCase(item.id)"
+                >
+                  删除分支
+                </button>
+              </span>
+            </div>
+          </div>
 
-                <div v-if="needsValue(condition.operator)" class="col-start-2 col-end-4 min-w-0">
-                  <!-- Boolean value toggle -->
-                  <button
-                    v-if="condition.variable_type === OFVarType.Boolean"
-                    type="button"
-                    class="inline-flex h-8 max-w-full items-center overflow-hidden rounded-md border border-gray-200 bg-white p-0.5 shadow-sm"
-                    :class="theme.controlFocusClass"
-                  >
-                    <span
-                      class="min-w-[54px] rounded-[5px] px-2 text-center text-xs font-semibold leading-7 transition"
-                      :class="
-                        condition.value === true
-                          ? 'bg-green-50 text-green-700 shadow-sm'
-                          : 'text-gray-400'
-                      "
-                      @click="updateCondition(item.id, condition.id, { value: true })"
-                    >
-                      TRUE
-                    </span>
-                    <span
-                      class="min-w-[54px] rounded-[5px] px-2 text-center text-xs font-semibold leading-7 transition"
-                      :class="
-                        condition.value === false
-                          ? 'bg-rose-50 text-rose-700 shadow-sm'
-                          : 'text-gray-400'
-                      "
-                      @click="updateCondition(item.id, condition.id, { value: false })"
-                    >
-                      FALSE
-                    </span>
-                  </button>
-
-                  <!-- Number/String value input -->
-                  <input
-                    v-else
-                    :type="condition.variable_type === OFVarType.Number ? 'number' : 'text'"
-                    :value="condition.value ?? ''"
-                    class="w-full rounded-md border border-transparent bg-white px-2 py-1 text-sm text-gray-900 outline-none transition placeholder:text-gray-300"
-                    :class="theme.controlFocusClass"
-                    placeholder="输入值"
-                    @input="
-                      handleValueInput(item.id, condition.id, condition.variable_type, $event)
-                    "
-                  />
-                </div>
-              </div>
+          <div class="of-branch-case">
+            <div class="of-branch-line">
+              <span class="of-branch-keyword">else</span>
+              <button type="button" class="of-ref-trigger of-branch-target of-ref-trigger-empty">
+                <span class="of-ref-text">走默认分支</span>
+              </button>
             </div>
           </div>
         </div>
 
-        <div class="flex items-center justify-center pt-2">
-          <button
-            type="button"
-            class="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-400 shadow-sm transition hover:border-cyan-200 hover:text-cyan-600"
-            @click="addElif"
-          >
-            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M12 4v16m8-8H4"
-              />
-            </svg>
-          </button>
-        </div>
-
-        <section class="of-panel-rule-else">
-          <div class="text-[10px] font-bold uppercase tracking-wide text-gray-500">ELSE</div>
-          <div class="mt-3 text-sm leading-7 text-gray-500">
-            当前前面的 IF / ELIF 都不满足时，放行 ELSE 分支。
-          </div>
-        </section>
+        <button type="button" class="of-state-inline-action" @click="addElif">添加 else if</button>
       </div>
     </div>
 
     <div v-else class="of-panel-shell-body">
       <div class="of-panel-shell-body-inner">
-      <NodeDebugLastRun
-        :result="nodeDebugResult"
-        :loading="nodeDebugStore.runningNodeId === uiStore.selectedNodeId"
-      />
+        <NodeDebugLastRun
+          :result="nodeDebugResult"
+          :loading="nodeDebugStore.runningNodeId === uiStore.selectedNodeId"
+        />
       </div>
     </div>
   </div>
@@ -318,9 +252,6 @@ import { useWorkflowEditorStore } from '@renderer/stores/orchestraflow/workflow-
 import { useWorkflowEditorUIStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor-ui.store'
 import { useVariableSelectorStore } from '@renderer/stores/orchestraflow/workflow-editor/variable-selector/variable-selector.store'
 import { useNodeDebugStore } from '@renderer/stores/orchestraflow/node-debug/node-debug.store'
-import WhiteSelect, {
-  type WhiteSelectOption
-} from '@renderer/views/LuminaApp/Maincontent/NormalChat/components/WhiteSelect.vue'
 import NodeDebugLastRun from './NodeDebug/NodeDebugLastRun.vue'
 import CapsuleTooltip from './components/CapsuleTooltip.vue'
 import VariablePillButton from './components/VariablePillButton.vue'
@@ -333,6 +264,11 @@ const nodeDebugStore = useNodeDebugStore()
 
 const activeTab = ref<'settings' | 'lastRun'>('settings')
 const activeConditionTarget = ref<{ caseId: string; conditionId: string } | null>(null)
+const activeChoicePopup = ref<{
+  kind: 'operator' | 'boolean'
+  caseId: string
+  conditionId: string
+} | null>(null)
 const theme = OF_PANEL_THEME.ifelse
 
 const currentNode = computed(() => {
@@ -357,7 +293,7 @@ const descModel = computed({
   set: (value: string) => patchNode({ desc: value })
 })
 
-const OPERATOR_OPTIONS: Record<string, WhiteSelectOption[]> = {
+const OPERATOR_OPTIONS = {
   default: [
     { value: 'is', label: '等于' },
     { value: 'is_not', label: '不等于' },
@@ -424,7 +360,13 @@ function addCondition(caseId: string) {
       item.id === caseId
         ? {
             ...item,
-            conditions: [...item.conditions, createCondition()]
+            conditions: [
+              ...item.conditions,
+              {
+                ...createCondition(),
+                logical_operator: 'and'
+              }
+            ]
           }
         : item
     )
@@ -499,6 +441,75 @@ function getOperators(type?: OFIfElseCondition['variable_type']) {
   return OPERATOR_OPTIONS.default
 }
 
+function getOperatorLabel(
+  operator: OFIfElseCondition['operator'],
+  type?: OFIfElseCondition['variable_type']
+) {
+  return getOperators(type).find((option) => option.value === operator)?.label || '选择比较'
+}
+
+function toggleOperatorPicker(caseId: string, conditionId: string) {
+  if (isOperatorPickerOpen(caseId, conditionId)) {
+    activeChoicePopup.value = null
+    return
+  }
+  activeChoicePopup.value = { kind: 'operator', caseId, conditionId }
+}
+
+function toggleBooleanPicker(caseId: string, conditionId: string) {
+  if (isBooleanPickerOpen(caseId, conditionId)) {
+    activeChoicePopup.value = null
+    return
+  }
+  activeChoicePopup.value = { kind: 'boolean', caseId, conditionId }
+}
+
+function isOperatorPickerOpen(caseId: string, conditionId: string) {
+  return (
+    activeChoicePopup.value?.kind === 'operator' &&
+    activeChoicePopup.value.caseId === caseId &&
+    activeChoicePopup.value.conditionId === conditionId
+  )
+}
+
+function isBooleanPickerOpen(caseId: string, conditionId: string) {
+  return (
+    activeChoicePopup.value?.kind === 'boolean' &&
+    activeChoicePopup.value.caseId === caseId &&
+    activeChoicePopup.value.conditionId === conditionId
+  )
+}
+
+function selectOperator(caseId: string, conditionId: string, operator: string) {
+  updateCondition(caseId, conditionId, {
+    operator: operator as OFIfElseCondition['operator']
+  })
+  activeChoicePopup.value = null
+}
+
+function selectBooleanValue(caseId: string, conditionId: string, value: boolean) {
+  updateCondition(caseId, conditionId, { value })
+  activeChoicePopup.value = null
+}
+
+function closePopup() {
+  activeChoicePopup.value = null
+}
+
+function handleGlobalPointerDown(event: Event) {
+  const target = event.target as HTMLElement | null
+  if (target?.closest('.of-choice-anchor')) {
+    return
+  }
+  closePopup()
+}
+
+function handleGlobalKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') {
+    closePopup()
+  }
+}
+
 function handleVariableSelect(event: Event) {
   const detail = (event as CustomEvent).detail
   if (
@@ -539,11 +550,15 @@ function handleVariableSelect(event: Event) {
 
 onMounted(() => {
   window.addEventListener('of:variable-select', handleVariableSelect as EventListener)
+  window.addEventListener('pointerdown', handleGlobalPointerDown)
+  window.addEventListener('keydown', handleGlobalKeydown)
 })
 
 onUnmounted(() => {
   window.removeEventListener('of:variable-select', handleVariableSelect as EventListener)
+  window.removeEventListener('pointerdown', handleGlobalPointerDown)
+  window.removeEventListener('keydown', handleGlobalKeydown)
 })
 </script>
 
-<style scoped src="../../../styles/node-panel.css"></style>
+<style scoped src="../../../styles/node-panel.scss"></style>

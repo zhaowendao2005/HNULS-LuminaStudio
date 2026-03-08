@@ -162,9 +162,9 @@
     <div class="of-panel-shell-body">
       <!-- 设置 Tab -->
       <div v-if="activeTab === 'settings' && !debugMode" class="of-panel-shell-body-inner">
-        <section class="of-panel-section">
-          <div class="flex items-center justify-between">
-            <div class="system-sm-semibold-uppercase text-gray-700">输入字段</div>
+        <section class="of-doc-block">
+          <div class="flex items-center justify-between gap-3">
+            <div class="of-doc-kicker">输入变量</div>
             <div
               class="rounded-full border px-2 py-0.5 text-[10px] font-medium"
               :class="theme.softBadgeClass"
@@ -172,70 +172,55 @@
               START
             </div>
           </div>
+          <div class="of-doc-divider"></div>
 
-          <div v-if="localInputs.length === 0" class="of-panel-empty text-left">
-            暂无输入字段，点击下方添加。
+          <div v-if="localInputs.length === 0" class="of-state-empty">
+            暂无输入字段。添加后会以文档声明的形式展示在这里。
           </div>
 
-          <div v-else class="of-panel-list-separated">
+          <div v-else class="of-declare-list">
             <div
               v-for="(field, index) in localInputs"
               :key="index"
-              class="group of-panel-list-row cursor-pointer"
-              @click="handleEditFieldClick(index)"
+              class="of-declare-entry"
             >
-              <div class="min-w-0 flex-1">
-                <div class="flex items-center gap-2 text-xs">
-                  <span class="font-semibold text-cyan-600">{{ field.variable }}</span>
-                  <span class="text-gray-400">{{ field.type }}</span>
-                  <span class="text-rose-500" v-if="field.required">*</span>
-                </div>
-                <div class="mt-1 text-xs text-gray-400">
-                  {{ field.description || field.label || '点击编辑字段配置' }}
-                </div>
+              <div class="of-declare-line">
+                <span class="of-declare-key">声明变量</span>
+                <span class="of-declare-token">{{ field.variable || 'unnamed' }}</span>
+                <span>，展示为</span>
+                <span class="of-declare-token">{{ field.label || field.variable || '未命名' }}</span>
+                <span>，类型是</span>
+                <span class="of-declare-type">{{ field.type }}</span>
+                <span v-if="field.required" class="of-declare-required">必填</span>
+                <template v-if="field.default !== undefined && field.default !== null && field.default !== ''">
+                  <span>，默认值为</span>
+                  <span class="of-declare-default">{{ formatDefaultValue(field.default) }}</span>
+                </template>
+                <span>。</span>
               </div>
-              <div class="flex items-center gap-2 shrink-0">
-                <div class="text-[10px] uppercase text-gray-400">
-                  {{ field.required ? 'required' : 'optional' }}
-                </div>
+              <div v-if="field.description" class="of-state-hint">
+                {{ field.description }}
+              </div>
+              <div class="of-declare-actions">
                 <button
                   type="button"
-                  class="opacity-0 transition-opacity group-hover:opacity-100"
+                  class="of-declare-action"
+                  @click.stop="handleEditFieldClick(index)"
+                >
+                  编辑
+                </button>
+                <button
+                  type="button"
+                  class="of-declare-action of-declare-action-danger"
                   @click.stop="removeInputField(index)"
                 >
-                  <svg
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    fill="currentColor"
-                    class="h-3.5 w-3.5 text-gray-400 hover:text-red-500"
-                  >
-                    <path
-                      d="M2 4C2 3.44772 2.44772 3 3 3H21C21.5523 3 22 3.44772 22 4V20C22 20.5523 21.5523 21 21 21H3C2.44772 21 2 20.5523 2 20V4ZM4 5V19H20V5H4ZM7 8H17V11H15V10H13V14H14.5V16H9.5V14H11V10H9V11H7V8Z"
-                    />
-                  </svg>
+                  删除
                 </button>
               </div>
             </div>
           </div>
 
-          <button
-            class="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:text-emerald-700"
-            @click="handleAddFieldClick"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              fill="currentColor"
-              class="h-3.5 w-3.5"
-            >
-              <path d="M11 11V5H13V11H19V13H13V19H11V13H5V11H11Z" />
-            </svg>
-            <span>添加字段</span>
-          </button>
+          <button class="of-state-inline-action" @click="handleAddFieldClick">添加字段</button>
         </section>
       </div>
 
@@ -445,6 +430,15 @@ function removeInputField(index: number) {
   }
 }
 
+function formatDefaultValue(value: unknown) {
+  if (typeof value === 'string') return value
+  try {
+    return JSON.stringify(value)
+  } catch {
+    return String(value)
+  }
+}
+
 // 添加下一步节点
 function addNextNode() {
   // TODO: 实现添加节点逻辑
@@ -494,4 +488,4 @@ watch(
 )
 </script>
 
-<style scoped src="../../../../styles/node-panel.css"></style>
+<style scoped src="../../../../styles/node-panel.scss"></style>

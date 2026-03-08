@@ -93,227 +93,173 @@
     </div>
 
     <div class="of-panel-shell-body">
-      <div v-if="activeTab === 'settings' && !debugMode" class="of-panel-shell-body-inner of-spacing-lg">
-        <section class="of-panel-section">
-          <div class="of-panel-section-header">
-            <div>
-              <div class="of-panel-section-title">模型</div>
-              <div class="of-panel-hint">使用统一模型选择器选择 Provider 和模型</div>
-            </div>
-          </div>
-
-          <div class="of-spacing-xs">
-            <button
-              class="of-panel-select-trigger flex min-h-11 items-center justify-between gap-3 text-left"
-              @click="modelSelectorVisible = true"
+      <div v-if="activeTab === 'settings' && !debugMode" class="of-panel-shell-body-inner of-doc-block">
+        <section class="of-doc-section">
+          <div class="of-doc-title-row">
+            <div class="of-doc-title-strong">模型配置</div>
+            <CapsuleTooltip
+              text="模型选择器会同时绑定 Provider 与模型名称；点击模型名即可切换。"
+              placement="top"
+              max-width="280px"
             >
-              <div class="min-w-0 flex-1">
-                <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  当前模型
-                </div>
-                <CapsuleTooltip :text="selectedModelDisplay" placement="top" max-width="420px">
-                  <div class="mt-1 truncate text-[13px] font-semibold text-gray-800">
-                    {{ selectedModelDisplay }}
-                  </div>
-                </CapsuleTooltip>
-              </div>
-              <svg
-                viewBox="0 0 24 24"
-                class="ml-3 h-4 w-4 shrink-0 text-gray-400"
-                fill="currentColor"
-              >
-                <path d="M12 16L6 10H18L12 16Z" />
-              </svg>
+              <span class="of-info-trigger" aria-label="模型配置说明">
+                <span class="of-info-trigger-icon">i</span>
+              </span>
+            </CapsuleTooltip>
+          </div>
+          <div class="of-doc-inline-sentence">
+            <span>使用</span>
+            <button type="button" class="of-ref-trigger" @click="modelSelectorVisible = true">
+              <span class="of-ref-text">{{ selectedModelDisplay }}</span>
             </button>
-
-            <div class="of-panel-empty text-left">
-              Provider:
-              <span class="font-medium text-gray-700">{{ selectedProviderName }}</span>
-            </div>
+            <span>模型进行生成，Provider 为</span>
+            <span class="of-doc-inline-code">{{ selectedProviderName }}</span>
+            <span>。</span>
           </div>
         </section>
 
-        <section class="of-panel-section">
-          <div class="of-panel-section-header">
-            <div>
-              <div class="of-panel-section-title">提示词</div>
-              <div class="of-panel-hint">
-                支持插入变量，格式为
-                <code v-pre>{{ variable.path }}</code>
-              </div>
+        <div class="of-doc-divider"></div>
+
+        <section class="of-doc-section">
+          <div class="flex items-center justify-between gap-3">
+            <div class="of-doc-title-row">
+              <div class="of-doc-title-strong">提示词</div>
+              <CapsuleTooltip
+                text="支持插入变量，格式为 {{ variable.path }}。角色颜色仅用于帮助快速识别消息来源。"
+                placement="top"
+                max-width="320px"
+              >
+                <span class="of-info-trigger" aria-label="提示词说明">
+                  <span class="of-info-trigger-icon">i</span>
+                </span>
+              </CapsuleTooltip>
             </div>
-            <button
-              class="of-panel-action-button of-panel-action-button-primary"
-              @click="addPrompt"
-            >
-              添加消息
-            </button>
+            <button class="of-state-inline-action" @click="addPrompt">添加消息</button>
           </div>
 
-          <div v-if="promptItems.length === 0" class="of-panel-empty">
-            暂无 Prompt，点击“添加消息”开始配置
+          <div v-if="promptItems.length === 0" class="of-state-empty">
+            暂无 Prompt，点击“添加消息”开始配置。
           </div>
 
-          <div
-            v-for="item in promptItems"
-            :key="item.id"
-            class="of-panel-list-item of-panel-nested-item"
-          >
-            <div class="flex items-center gap-2">
-              <WhiteSelect
-                :model-value="item.role"
-                :options="promptRoleOptions"
-                placeholder="选择角色"
-                root-class="w-[148px] shrink-0"
-                trigger-class="!h-8 !border-0 !border-b !border-gray-200 !bg-transparent !px-1 !py-1.5 !text-xs !font-semibold !uppercase !tracking-wide !text-gray-600 !rounded-none hover:!border-gray-300 hover:!bg-transparent"
-                panel-class="min-w-[148px]"
-                teleport-to="body"
-                @update:model-value="updatePromptRole(item.id, $event)"
-              />
-
-              <div class="ml-auto flex items-center gap-1">
+          <div v-for="item in promptItems" :key="item.id" class="of-doc-message-item">
+            <div class="of-doc-message-head">
+              <div class="of-doc-role-switch">
+                <CapsuleTooltip
+                  v-for="option in promptRoleOptions"
+                  :key="String(option.value)"
+                  :text="getPromptRoleCaption(String(option.value))"
+                  placement="top"
+                >
+                  <button
+                    type="button"
+                    class="of-doc-role-option"
+                    :class="[
+                      `of-doc-role-option-${String(option.value)}`,
+                      { 'is-active': item.role === option.value }
+                    ]"
+                    @click="updatePromptRole(item.id, option.value)"
+                  >
+                    {{ option.label }}
+                  </button>
+                </CapsuleTooltip>
+              </div>
+              <div class="of-doc-message-actions">
                 <button
-                  class="of-panel-action-button of-panel-action-button-primary flex items-center gap-1"
+                  class="of-state-inline-action"
                   @click="openPromptVariableSelector(item.id, $event)"
                 >
-                  <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="currentColor">
-                    <path
-                      d="M14.6 16.6L19.2 12L14.6 7.4L16 6L22 12L16 18L14.6 16.6ZM9.4 16.6L4.8 12L9.4 7.4L8 6L2 12L8 18L9.4 16.6Z"
-                    />
-                  </svg>
                   插入变量
                 </button>
                 <button
-                  class="of-panel-action-button of-panel-action-button-danger flex h-8 w-8 items-center justify-center"
+                  class="of-declare-action of-declare-action-danger"
                   @click="removePrompt(item.id)"
                 >
-                  <svg viewBox="0 0 24 24" class="h-4 w-4" fill="currentColor">
-                    <path
-                      d="M17 6H22V8H20V21C20 21.5523 19.5523 22 19 22H5C4.44772 22 4 21.5523 4 21V8H2V6H7V3C7 2.44772 7.44772 2 8 2H16C16.5523 2 17 2.44772 17 3V6ZM18 8H6V20H18V8ZM9 11H11V17H9V11ZM13 11H15V17H13V11ZM9 4V6H15V4H9Z"
-                    />
-                  </svg>
+                  删除
                 </button>
               </div>
             </div>
 
-            <div class="mt-3">
-              <PromptTextarea
-                :ref="(el) => setPromptEditorRef(item.id, el)"
-                :model-value="item.text"
-                :height="96"
-                placeholder="输入消息内容..."
-                @update:model-value="updatePrompt(item.id, { text: $event })"
-              />
-            </div>
+            <PromptTextarea
+              :ref="(el) => setPromptEditorRef(item.id, el)"
+              :model-value="item.text"
+              :height="96"
+              placeholder="输入消息内容..."
+              @update:model-value="updatePrompt(item.id, { text: $event })"
+            />
           </div>
         </section>
 
-        <section class="of-panel-section">
-          <div class="of-panel-section-header">
-            <div class="of-panel-variable-info">
-              <div class="of-panel-section-title">输出变量</div>
-              <svg viewBox="0 0 24 24" class="h-4 w-4 text-gray-300" fill="currentColor">
-                <path d="M12 16L6 10H18L12 16Z" />
-              </svg>
+        <div class="of-doc-divider"></div>
+
+        <section class="of-doc-section">
+          <div class="flex items-center justify-between gap-3">
+            <div class="of-doc-title-row">
+              <div class="of-doc-title-strong">输出结构</div>
+              <CapsuleTooltip
+                text="输出变量按代码结构预览，仅展示最终暴露给后续节点的字段层级。"
+                placement="top"
+                max-width="280px"
+              >
+                <span class="of-info-trigger" aria-label="输出结构说明">
+                  <span class="of-info-trigger-icon">i</span>
+                </span>
+              </CapsuleTooltip>
             </div>
             <div class="flex items-center gap-2">
-              <CapsuleTooltip v-if="structuredEnabled" text="结构化输出已开启" placement="top">
-                <div class="flex h-4 w-4 items-center justify-center text-[#f59f00]">
-                  <svg viewBox="0 0 24 24" class="h-4 w-4" fill="currentColor">
-                    <path
-                      d="M12.8659 3.00017L22.3922 19.5002C22.6684 19.9785 22.5045 20.5901 22.0262 20.8662C21.8742 20.954 21.7017 21.0002 21.5262 21.0002H2.47363C1.92135 21.0002 1.47363 20.5525 1.47363 20.0002C1.47363 19.8246 1.51984 19.6522 1.60761 19.5002L11.1339 3.00017C11.41 2.52187 12.0216 2.358 12.4999 2.63414C12.6519 2.72191 12.7782 2.84815 12.8659 3.00017Z"
-                    />
-                  </svg>
-                </div>
-              </CapsuleTooltip>
-              <div class="text-[10px] font-medium uppercase tracking-wide text-gray-500">
-                结构化输出
-              </div>
+              <div class="text-[10px] font-medium uppercase tracking-wide text-gray-500">结构化输出</div>
               <ToggleSwitch v-model="structuredEnabled" />
             </div>
           </div>
 
-          <div class="of-spacing-sm">
-            <div v-for="item in baseOutputs" :key="item.variable" class="of-panel-variable-display">
-              <div class="of-panel-variable-info min-w-0 leading-[18px]">
-                <CapsuleTooltip :text="item.variable" placement="top">
-                  <div class="of-panel-variable-name truncate">
-                    {{ item.variable }}
-                  </div>
-                </CapsuleTooltip>
-                <div class="of-panel-variable-type shrink-0">{{ item.type || 'string' }}</div>
-              </div>
-              <CapsuleTooltip :text="formatOutputNamespace(item)" placement="top" max-width="420px">
-                <div class="of-panel-variable-path max-w-[280px] truncate">
-                  {{ formatOutputNamespace(item) }}
-                </div>
-              </CapsuleTooltip>
+          <div class="of-output-tree">
+            <div class="of-output-tree-root">
+              <span class="of-output-tree-root-label">Output</span>
             </div>
 
-            <div v-if="structuredEnabled" class="of-panel-nested-item pt-1">
-              <div class="flex items-center justify-between gap-3">
-                <div class="min-w-0">
-                  <div class="of-panel-variable-info min-w-0 leading-[18px]">
-                    <CapsuleTooltip
-                      :text="structuredOutputVariable?.variable || 'structured_output'"
-                      placement="top"
-                    >
-                      <div class="of-panel-variable-name truncate">
-                        {{ structuredOutputVariable?.variable || 'structured_output' }}
-                      </div>
-                    </CapsuleTooltip>
-                    <div class="of-panel-variable-type shrink-0">
-                      {{ structuredOutputVariable?.type || 'object' }}
-                    </div>
-                  </div>
-                  <CapsuleTooltip
-                    :text="formatStructuredOutputNamespace()"
-                    placement="top"
-                    max-width="420px"
-                  >
-                    <div class="of-panel-variable-path mt-1 max-w-[220px] truncate">
-                      {{ formatStructuredOutputNamespace() }}
-                    </div>
-                  </CapsuleTooltip>
-                </div>
-                <button
-                  type="button"
-                  class="of-panel-action-button of-panel-action-button-secondary shrink-0"
-                  @click="openSchemaEditor"
-                >
-                  配置
+            <div
+              v-for="(item, index) in baseOutputs"
+              :key="item.variable"
+              class="of-output-tree-item of-output-tree-branch"
+              :class="{ 'of-output-tree-item-last': index === baseOutputs.length - 1 && !structuredEnabled }"
+            >
+              <span class="of-output-tree-prop">{{ item.variable }}</span>
+              <span>: </span>
+              <span class="of-output-tree-type">{{ item.type || 'string' }}</span>
+            </div>
+
+            <template v-if="structuredEnabled">
+              <div class="of-output-tree-divider">
+                <span class="of-output-tree-divider-label">格式化输出</span>
+              </div>
+              <div class="of-output-tree-item of-output-tree-branch of-output-tree-item-last">
+                <span class="of-output-tree-prop">
+                  {{ structuredOutputVariable?.variable || 'structured_output' }}
+                </span>
+                <span>: </span>
+                <span class="of-output-tree-type">
+                  {{ structuredOutputVariable?.type || 'object' }}
+                </span>
+              </div>
+
+              <div class="mt-2 pl-5">
+                <button type="button" class="of-state-inline-action" @click="openSchemaEditor">
+                  {{ structuredSchemaFields.length ? '编辑 Schema' : '配置 Schema' }}
                 </button>
               </div>
 
-              <div class="of-panel-hint mt-2">
-                开启后会保留当前面板；需要定义字段时再点击“配置”编辑 Schema。
-              </div>
-
-              <div v-if="!structuredSchemaFields.length" class="of-panel-empty mt-3 text-left">
-                尚未配置结构化字段，点击右侧“配置”创建 Schema。
-              </div>
-
-              <div v-if="structuredSchemaFields.length" class="mt-3 space-y-2">
+              <div v-if="structuredSchemaFields.length" class="of-output-tree-nested">
                 <div
-                  v-for="field in structuredSchemaFields"
+                  v-for="(field, fieldIndex) in structuredSchemaFields"
                   :key="field.name"
-                  class="flex min-w-0 items-center gap-3 border-l border-violet-200 pl-3"
+                  class="of-output-tree-item of-output-tree-branch"
+                  :class="{ 'of-output-tree-item-last': fieldIndex === structuredSchemaFields.length - 1 }"
                 >
-                  <CapsuleTooltip :text="field.name" placement="top">
-                    <div class="min-w-0 flex-1 truncate text-sm text-gray-700">
-                      {{ field.name }}
-                    </div>
-                  </CapsuleTooltip>
-                  <div class="shrink-0 text-xs text-gray-500">{{ field.type }}</div>
-                  <div
-                    v-if="field.required"
-                    class="shrink-0 text-[11px] font-medium uppercase text-[#f59f00]"
-                  >
-                    必填
-                  </div>
+                  <span class="of-output-tree-prop">{{ field.name }}</span>
+                  <span>: </span>
+                  <span class="of-output-tree-type">{{ field.type }}</span>
                 </div>
               </div>
-            </div>
+            </template>
           </div>
         </section>
       </div>
@@ -373,9 +319,6 @@ import ObjectSchemaEditor from './ObjectSchemaEditor/index.vue'
 import CapsuleTooltip from './components/CapsuleTooltip.vue'
 import ModelSelector from '@renderer/components/ModelSelector/index.vue'
 import type { Model, ModelProvider } from '@renderer/stores/model-config/types'
-import WhiteSelect, {
-  type WhiteSelectOption
-} from '@renderer/views/LuminaApp/Maincontent/NormalChat/components/WhiteSelect.vue'
 import { OF_PANEL_THEME } from './panel-theme'
 import ToggleSwitch from '../Components/ToggleSwitch/index.vue'
 
@@ -390,11 +333,11 @@ const activeTab = ref<'settings' | 'lastRun'>('settings')
 const debugMode = ref(false)
 const modelSelectorVisible = ref(false)
 const theme = OF_PANEL_THEME.llm
-const promptRoleOptions: WhiteSelectOption[] = [
+const promptRoleOptions = [
   { label: 'SYSTEM', value: 'system' },
   { label: 'USER', value: 'user' },
   { label: 'ASSISTANT', value: 'assistant' }
-]
+] as const
 const promptEditorRefs = new Map<string, { getCursorPosition: () => number }>()
 const activePromptTarget = ref<{ promptId: string; cursorPosition: number } | null>(null)
 
@@ -579,6 +522,12 @@ function updatePromptRole(promptId: string, value: string | number | null) {
   updatePrompt(promptId, { role: String(value) as OFPromptItem['role'] })
 }
 
+function getPromptRoleCaption(role: string) {
+  if (role === 'system') return '定义模型的全局行为与约束。'
+  if (role === 'assistant') return '补充模型前置回复或示例语气。'
+  return '提供本轮任务输入与上下文。'
+}
+
 function addPrompt() {
   const nextItem: OFPromptItem = {
     id: `prompt_${Date.now()}`,
@@ -722,5 +671,5 @@ onUnmounted(() => {
 })
 </script>
 
-<style scoped src="../../../styles/node-panel.css"></style>
+<style scoped src="../../../styles/node-panel.scss"></style>
 

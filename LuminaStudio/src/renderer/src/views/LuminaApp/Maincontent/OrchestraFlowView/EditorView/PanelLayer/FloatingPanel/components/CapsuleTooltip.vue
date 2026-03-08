@@ -1,25 +1,27 @@
 <template>
   <div
+    ref="triggerRef"
     class="of-capsule-tooltip group relative flex min-w-0"
-    @mouseenter="visible = true"
-    @mouseleave="visible = false"
+    @mouseenter="showTooltip"
+    @mouseleave="hideTooltip"
   >
     <slot />
+  </div>
+  <Teleport to="body">
     <Transition name="of-capsule-tooltip-fade">
       <div
         v-if="visible && text"
-        class="pointer-events-none absolute z-[70] rounded-xl border border-white/50 bg-white/80 px-3 py-1.5 text-xs text-slate-700 shadow-[0_8px_30px_rgb(0,0,0,0.08)] backdrop-blur-md"
-        :class="placementClass"
-        :style="{ maxWidth }"
+        class="pointer-events-none fixed z-[2147483647] rounded-xl border border-white/70 bg-white/92 px-3 py-1.5 text-xs text-slate-700 shadow-[0_12px_40px_rgba(15,23,42,0.14)] backdrop-blur-md"
+        :style="tooltipStyle"
       >
         <div class="truncate whitespace-nowrap" :title="text">{{ text }}</div>
       </div>
     </Transition>
-  </div>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref } from 'vue'
 
 const props = withDefaults(
   defineProps<{
@@ -34,18 +36,95 @@ const props = withDefaults(
 )
 
 const visible = ref(false)
+const triggerRef = ref<HTMLElement | null>(null)
+const tooltipPosition = ref({ top: 0, left: 0 })
 
-const placementClass = computed(() => {
+const GAP = 10
+
+const tooltipStyle = computed(() => {
   if (props.placement === 'bottom') {
-    return 'left-1/2 top-full mt-2 -translate-x-1/2'
+    return {
+      maxWidth: props.maxWidth,
+      top: `${tooltipPosition.value.top}px`,
+      left: `${tooltipPosition.value.left}px`,
+      transform: 'translate(-50%, 0)'
+    }
   }
   if (props.placement === 'left') {
-    return 'right-full top-1/2 mr-2 -translate-y-1/2'
+    return {
+      maxWidth: props.maxWidth,
+      top: `${tooltipPosition.value.top}px`,
+      left: `${tooltipPosition.value.left}px`,
+      transform: 'translate(-100%, -50%)'
+    }
   }
   if (props.placement === 'right') {
-    return 'left-full top-1/2 ml-2 -translate-y-1/2'
+    return {
+      maxWidth: props.maxWidth,
+      top: `${tooltipPosition.value.top}px`,
+      left: `${tooltipPosition.value.left}px`,
+      transform: 'translate(0, -50%)'
+    }
   }
-  return 'bottom-full left-1/2 mb-2 -translate-x-1/2'
+  return {
+    maxWidth: props.maxWidth,
+    top: `${tooltipPosition.value.top}px`,
+    left: `${tooltipPosition.value.left}px`,
+    transform: 'translate(-50%, -100%)'
+  }
+})
+
+function updatePosition() {
+  const element = triggerRef.value
+  if (!element) return
+  const rect = element.getBoundingClientRect()
+
+  if (props.placement === 'bottom') {
+    tooltipPosition.value = {
+      top: rect.bottom + GAP,
+      left: rect.left + rect.width / 2
+    }
+    return
+  }
+
+  if (props.placement === 'left') {
+    tooltipPosition.value = {
+      top: rect.top + rect.height / 2,
+      left: rect.left - GAP
+    }
+    return
+  }
+
+  if (props.placement === 'right') {
+    tooltipPosition.value = {
+      top: rect.top + rect.height / 2,
+      left: rect.right + GAP
+    }
+    return
+  }
+
+  tooltipPosition.value = {
+    top: rect.top - GAP,
+    left: rect.left + rect.width / 2
+  }
+}
+
+async function showTooltip() {
+  visible.value = true
+  await nextTick()
+  updatePosition()
+  window.addEventListener('scroll', updatePosition, true)
+  window.addEventListener('resize', updatePosition)
+}
+
+function hideTooltip() {
+  visible.value = false
+  window.removeEventListener('scroll', updatePosition, true)
+  window.removeEventListener('resize', updatePosition)
+}
+
+onBeforeUnmount(() => {
+  hideTooltip()
 })
 </script>
 

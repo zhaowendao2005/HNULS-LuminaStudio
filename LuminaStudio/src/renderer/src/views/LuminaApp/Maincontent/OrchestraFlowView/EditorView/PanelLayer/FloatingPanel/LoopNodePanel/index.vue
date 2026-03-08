@@ -505,4 +505,4 @@ onUnmounted(() => {
 })
 </script>
 
-<style scoped src="../../../../styles/node-panel.css"></style>
+<style scoped src="../../../../styles/node-panel.scss"></style>

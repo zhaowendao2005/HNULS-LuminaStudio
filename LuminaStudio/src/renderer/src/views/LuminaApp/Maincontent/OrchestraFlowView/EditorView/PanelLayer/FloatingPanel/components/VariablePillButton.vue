@@ -2,14 +2,14 @@
   <CapsuleTooltip :text="text || placeholder" placement="top" :max-width="tooltipMaxWidth">
     <button
       type="button"
-      class="flex h-8 min-w-0 w-full items-center gap-1.5 overflow-hidden rounded-md border border-gray-200 bg-white px-2 py-1 text-gray-700 shadow-sm transition"
-      :class="buttonClass"
+      class="of-ref-trigger"
+      :class="[buttonClass, { 'of-ref-trigger-empty': !text }]"
       @click="handleClick"
     >
       <span v-if="$slots.icon" class="flex shrink-0 items-center">
         <slot name="icon" />
       </span>
-      <span class="min-w-0 flex-1 truncate text-left">{{ text || placeholder }}</span>
+      <span class="of-ref-text">{{ text || placeholder }}</span>
     </button>
   </CapsuleTooltip>
 </template>
@@ -40,3 +40,5 @@ function handleClick(event: MouseEvent) {
   emit('click', event)
 }
 </script>
+
+<style scoped src="../../../../styles/node-panel.scss"></style>

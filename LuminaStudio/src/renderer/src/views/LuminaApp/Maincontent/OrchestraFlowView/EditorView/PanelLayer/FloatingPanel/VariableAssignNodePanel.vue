@@ -88,250 +88,199 @@
     </div>
 
     <div class="of-panel-shell-body">
-      <div v-if="activeTab === 'settings' && !debugMode" class="of-panel-shell-body-inner">
-        <section class="of-panel-section">
+      <div v-if="activeTab === 'settings' && !debugMode" class="of-panel-shell-body-inner of-doc-block">
+        <section class="of-doc-section">
           <div class="flex items-center justify-between">
-            <div class="system-sm-semibold-uppercase text-gray-700">赋值规则</div>
-            <button
-              type="button"
-              class="of-panel-action-button of-panel-action-button-primary"
-              @click="addRule"
-            >
-              添加规则
-            </button>
+            <div class="of-doc-title-strong">赋值规则</div>
+            <button type="button" class="of-state-inline-action" @click="addRule">添加规则</button>
           </div>
 
-          <div class="of-panel-list">
-            <div
-              v-for="rule in rules"
-              :key="rule.id"
-              class="of-panel-list-card"
-            >
-              <div class="mb-3 flex items-center justify-between">
-                <div class="inline-flex rounded-lg bg-gray-100 p-0.5">
+          <div class="of-declare-list">
+            <div v-for="(rule, index) in rules" :key="rule.id" class="of-declare-entry">
+              <div class="of-declare-text-row">
+                <span class="of-declare-text-label">源</span>
+
+                <div class="of-declare-text-left">
+                  <template v-if="rule.source_mode === 'variable'">
+                    <CapsuleTooltip :text="`点击选择上游节点输出${rule.source_path ? '\n完整路径：' + rule.source_path : ''}`" placement="top" :allow-newline="true">
+                      <button
+                        type="button"
+                        class="of-declare-text-var-pill"
+                        :class="{ 'of-declare-text-var-pill-empty': !rule.source_path }"
+                        @click="openRuleSelector(rule.id, $event)"
+                      >
+                        {{ rule.source_path || '请选择源' }}
+                      </button>
+                    </CapsuleTooltip>
+                  </template>
+                  <template v-else>
+                    <CapsuleTooltip :text="`直接输入固定值${getConstantDisplayValue(rule) ? '\n当前值：' + getConstantDisplayValue(rule) : ''}`" placement="top" :allow-newline="true">
+                      <input
+                        :value="getConstantDisplayValue(rule)"
+                        :type="rule.target_type === OFVarTypeEnum.Number ? 'number' : 'text'"
+                        class="of-declare-text-input"
+                        placeholder="输入常量"
+                        @input="
+                          patchRule(rule.id, {
+                            constant_value: ($event.target as HTMLInputElement).value
+                          })
+                        "
+                      />
+                    </CapsuleTooltip>
+                  </template>
+                </div>
+
+                <div class="of-declare-text-right">
+                  <CapsuleTooltip text="点击切换变量/常量模式" placement="top">
+                    <button
+                      type="button"
+                      class="of-declare-text-mode"
+                      @click="patchRule(rule.id, { source_mode: rule.source_mode === 'variable' ? 'constant' : 'variable' })"
+                    >
+                      {{ rule.source_mode === 'variable' ? '变量' : '常量' }}
+                    </button>
+                  </CapsuleTooltip>
+                </div>
+              </div>
+
+              <div class="of-declare-text-row">
+                <span class="of-declare-text-label">目标</span>
+
+                <div class="of-declare-text-left">
+                  <CapsuleTooltip :text="`输入新变量名${rule.target_variable ? '\n变量名：' + rule.target_variable : ''}`" placement="top" :allow-newline="true">
+                    <div class="of-declare-text-input-wrapper">
+                      <div v-if="rule.target_variable" class="of-declare-text-var-pill-inner">
+                        {{ rule.target_variable }}
+                      </div>
+                      <input
+                        v-else
+                        :value="rule.target_variable"
+                        class="of-declare-text-input"
+                        placeholder="请输入目标变量名"
+                        @input="
+                          patchRule(rule.id, {
+                            target_variable: ($event.target as HTMLInputElement).value
+                          })
+                        "
+                      />
+                    </div>
+                  </CapsuleTooltip>
+
+                  <CapsuleTooltip text="点击引用已有变量" placement="top">
+                    <button
+                      type="button"
+                      class="of-declare-text-var-btn"
+                      @click="openTargetSelector(rule.id, $event)"
+                    >
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="of-declare-text-var-icon">
+                        <g>
+                          <path d="M13.9986 8.76189C14.6132 8.04115 15.5117 7.625 16.459 7.625H16.5486C17.1009 7.625 17.5486 8.07272 17.5486 8.625C17.5486 9.17728 17.1009 9.625 16.5486 9.625H16.459C16.0994 9.625 15.7564 9.78289 15.5205 10.0595L13.1804 12.8039L13.9213 15.4107C13.9372 15.4666 13.9859 15.5 14.0355 15.5H15.4296C15.9819 15.5 16.4296 15.9477 16.4296 16.5C16.4296 17.0523 15.9819 17.5 15.4296 17.5H14.0355C13.0858 17.5 12.2562 16.8674 11.9975 15.9575L11.621 14.6328L10.1457 16.3631C9.5311 17.0839 8.63257 17.5 7.68532 17.5H7.59564C7.04336 17.5 6.59564 17.0523 6.59564 16.5C6.59564 15.9477 7.04336 15.5 7.59564 15.5H7.68532C8.04487 15.5 8.38789 15.3421 8.62379 15.0655L10.964 12.3209L10.2231 9.71433C10.2072 9.65839 10.1586 9.625 10.1089 9.625H8.71484C8.16256 9.625 7.71484 9.17728 7.71484 8.625C7.71484 8.07272 8.16256 7.625 8.71484 7.625H10.1089C11.0586 7.625 11.8883 8.25756 12.1469 9.16754L12.5234 10.4921L13.9986 8.76189Z" fill="currentColor"></path>
+                          <path d="M5.429 3C3.61372 3 2.143 4.47071 2.143 6.286V10.4428L1.29289 11.2929C1.10536 11.4804 1 11.7348 1 12C1 12.2652 1.10536 12.5196 1.29289 12.7071L2.143 13.5572V17.714C2.143 19.5293 3.61372 21 5.429 21C5.98128 21 6.429 20.5523 6.429 20C6.429 19.4477 5.98128 19 5.429 19C4.71828 19 4.143 18.4247 4.143 17.714V13.143C4.143 12.8778 4.03764 12.6234 3.85011 12.4359L3.41421 12L3.85011 11.5641C4.03764 11.3766 4.143 11.1222 4.143 10.857V6.286C4.143 5.57528 4.71828 5 5.429 5C5.98128 5 6.429 4.55228 6.429 4C6.429 3.44772 5.98128 3 5.429 3Z" fill="currentColor"></path>
+                          <path d="M18.5708 3C18.0185 3 17.5708 3.44772 17.5708 4C17.5708 4.55228 18.0185 5 18.5708 5C19.2815 5 19.8568 5.57529 19.8568 6.286V10.857C19.8568 11.1222 19.9622 11.3766 20.1497 11.5641L20.5856 12L20.1497 12.4359C19.9622 12.6234 19.8568 12.8778 19.8568 13.143V17.714C19.8568 18.4244 19.2808 19 18.5708 19C18.0185 19 17.5708 19.4477 17.5708 20C17.5708 20.5523 18.0185 21 18.5708 21C20.3848 21 21.8568 19.5296 21.8568 17.714V13.5572L22.7069 12.7071C23.0974 12.3166 23.0974 11.6834 22.7069 11.2929L21.8568 10.4428V6.286C21.8568 4.47071 20.3861 3 18.5708 3Z" fill="currentColor"></path>
+                        </g>
+                      </svg>
+                    </button>
+                  </CapsuleTooltip>
+                </div>
+
+                <div class="of-declare-text-right">
+                  <CapsuleTooltip text="点击循环切换类型" placement="top">
+                    <button
+                      type="button"
+                      class="of-declare-text-type"
+                      :class="`of-declare-text-type-${rule.target_type.toLowerCase()}`"
+                      @click="cycleRuleTargetType(rule)"
+                    >
+                      {{ rule.target_type }}
+                    </button>
+                  </CapsuleTooltip>
+                </div>
+              </div>
+
+              <div class="of-declare-text-row">
+                <span class="of-declare-text-index"></span>
+                <div class="of-declare-text-left"></div>
+                <div class="of-declare-text-right">
                   <button
                     type="button"
-                    class="rounded-md px-3 py-1 text-xs font-medium transition"
-                    :class="
-                      rule.source_mode === 'variable'
-                        ? 'bg-white text-gray-800 shadow-sm'
-                        : 'text-gray-500'
-                    "
-                    @click="patchRule(rule.id, { source_mode: 'variable' })"
+                    class="of-declare-action of-declare-action-danger"
+                    @click="removeRule(rule.id)"
                   >
-                    变量
-                  </button>
-                  <button
-                    type="button"
-                    class="rounded-md px-3 py-1 text-xs font-medium transition"
-                    :class="
-                      rule.source_mode === 'constant'
-                        ? 'bg-white text-gray-800 shadow-sm'
-                        : 'text-gray-500'
-                    "
-                    @click="patchRule(rule.id, { source_mode: 'constant' })"
-                  >
-                    常量
+                    删除
                   </button>
                 </div>
-                <button
-                  type="button"
-                  class="rounded-md p-1 text-gray-300 hover:bg-red-50 hover:text-red-500"
-                  @click="removeRule(rule.id)"
+              </div>
+
+              <div v-if="rule.target_type === OFVarTypeEnum.Boolean && rule.source_mode === 'constant'" class="of-declare-bool-toggle">
+                <span
+                  class="of-declare-bool-option"
+                  :class="rule.constant_value === true ? 'of-declare-bool-option-active-true' : ''"
+                  @click="patchRule(rule.id, { constant_value: true })"
                 >
-                  <svg viewBox="0 0 24 24" class="h-4 w-4" fill="currentColor">
-                    <path
-                      d="M17 6H22V8H20V21C20 21.5523 19.5523 22 19 22H5C4.44772 22 4 21.5523 4 21V8H2V6H7V3C7 2.44772 7.44772 2 8 2H16C16.5523 2 17 2.44772 17 3V6ZM18 8H6V20H18V8ZM9 11H11V17H9V11ZM13 11H15V17H13V11ZM9 4V6H15V4H9Z"
-                    />
-                  </svg>
+                  TRUE
+                </span>
+                <span class="text-gray-300">/</span>
+                <span
+                  class="of-declare-bool-option"
+                  :class="rule.constant_value === false ? 'of-declare-bool-option-active-false' : ''"
+                  @click="patchRule(rule.id, { constant_value: false })"
+                >
+                  FALSE
+                </span>
+              </div>
+
+              <div
+                v-if="rule.target_type === OFVarTypeEnum.Array && rule.item_type"
+                class="of-state-hint"
+              >
+                数组元素类型：
+                <button type="button" class="of-declare-choice" @click="cycleRuleItemType(rule)">
+                  {{ rule.item_type }}
+                </button>
+                <button
+                  v-if="rule.item_type === OFVarTypeEnum.Object"
+                  type="button"
+                  class="of-declare-action"
+                  @click="openSchemaEditor(rule.id)"
+                >
+                  配置 Schema
                 </button>
               </div>
 
-              <div class="space-y-3">
-                <div v-if="rule.source_mode === 'variable'" class="space-y-2">
-                  <div class="system-sm-semibold-uppercase text-gray-700">来源变量</div>
-                  <VariablePillButton
-                    :text="rule.source_path || ''"
-                    placeholder="选择来源变量"
-                    :button-class="theme.controlFocusClass"
-                    tooltip-max-width="520px"
-                    @click="openRuleSelector(rule.id, $event)"
-                  />
-                  <input
-                    :value="rule.source_path || ''"
-                    class="of-panel-input h-10"
-                    placeholder="可手动补充 .field 或 .0.name"
-                    @input="
-                      handleSourcePathInput(rule.id, ($event.target as HTMLInputElement).value)
-                    "
-                  />
-                </div>
-
-                <div v-else class="space-y-2">
-                  <div class="system-sm-semibold-uppercase text-gray-700">常量值</div>
-                  <textarea
-                    v-if="usesJsonConstantEditor(rule)"
-                    :value="getConstantDisplayValue(rule)"
-                    rows="4"
-                    class="of-panel-textarea font-mono text-sm"
-                    :placeholder="
-                      rule.target_type === OFVarTypeEnum.Array
-                        ? '请输入 JSON 数组，例如 []'
-                        : '请输入 JSON 对象，例如 {}'
-                    "
-                    @input="
-                      patchRule(rule.id, {
-                        constant_value: ($event.target as HTMLTextAreaElement).value
-                      })
-                    "
-                  />
-                  <button
-                    v-else-if="rule.target_type === OFVarTypeEnum.Boolean"
-                    type="button"
-                    class="inline-flex h-10 max-w-full items-center overflow-hidden rounded-xl border border-gray-200 bg-white p-0.5 shadow-sm"
-                  >
-                    <span
-                      class="min-w-[64px] rounded-[8px] px-2 text-center text-xs font-semibold leading-8 transition"
-                      :class="
-                        rule.constant_value === true
-                          ? 'bg-green-50 text-green-700 shadow-sm'
-                          : 'text-gray-400'
-                      "
-                      @click="patchRule(rule.id, { constant_value: true })"
-                    >
-                      TRUE
-                    </span>
-                    <span
-                      class="min-w-[64px] rounded-[8px] px-2 text-center text-xs font-semibold leading-8 transition"
-                      :class="
-                        rule.constant_value === false
-                          ? 'bg-rose-50 text-rose-700 shadow-sm'
-                          : 'text-gray-400'
-                      "
-                      @click="patchRule(rule.id, { constant_value: false })"
-                    >
-                      FALSE
-                    </span>
-                  </button>
-                  <input
-                    v-else
-                    :value="getConstantDisplayValue(rule)"
-                    :type="rule.target_type === OFVarTypeEnum.Number ? 'number' : 'text'"
-                    class="of-panel-input h-10"
-                    placeholder="请输入常量值"
-                    @input="
-                      patchRule(rule.id, {
-                        constant_value: ($event.target as HTMLInputElement).value
-                      })
-                    "
-                  />
-                </div>
-
-                <div class="of-panel-field-grid-2">
-                  <div class="of-panel-field-block">
-                    <div class="flex items-center justify-between gap-2">
-                      <div class="system-sm-semibold-uppercase text-gray-700">目标变量名</div>
-                      <button
-                        type="button"
-                        class="text-xs font-semibold text-cyan-600 transition hover:text-cyan-700"
-                        @click="openTargetSelector(rule.id, $event)"
-                      >
-                        选择已有变量
-                      </button>
-                    </div>
-                    <input
-                      :value="rule.target_variable"
-                      class="of-panel-input h-10"
-                      placeholder="例如 summary_text"
-                      @input="
-                        patchRule(rule.id, {
-                          target_variable: ($event.target as HTMLInputElement).value
-                        })
-                      "
-                    />
-                  </div>
-                  <div class="of-panel-field-block">
-                    <div class="system-sm-semibold-uppercase text-gray-700">目标类型</div>
-                    <WhiteSelect
-                      :model-value="rule.target_type"
-                      :options="targetTypeOptions"
-                      root-class="w-full"
-                      trigger-class="!h-10 !w-full !rounded-xl !border-[#e5e7eb] !bg-[#f3f4f6] !px-3 !text-sm !text-gray-800"
-                      panel-class="min-w-[140px]"
-                      teleport-to="body"
-                      @update:model-value="
-                        handleTargetTypeChange(rule.id, String($event) as OFVarType)
-                      "
-                    />
-                  </div>
-                </div>
-
-                <div
-                  v-if="rule.target_type === OFVarTypeEnum.Array"
-                  class="grid grid-cols-[1fr_auto] gap-3"
-                >
-                  <div class="of-panel-field-block">
-                    <div class="system-sm-semibold-uppercase text-gray-700">数组元素类型</div>
-                    <WhiteSelect
-                      :model-value="rule.item_type || OFVarTypeEnum.String"
-                      :options="arrayItemTypeOptions"
-                      root-class="w-full"
-                      trigger-class="!h-10 !w-full !rounded-xl !border-[#e5e7eb] !bg-[#f3f4f6] !px-3 !text-sm !text-gray-800"
-                      panel-class="min-w-[140px]"
-                      teleport-to="body"
-                      @update:model-value="
-                        patchRule(rule.id, { item_type: String($event) as OFVarType })
-                      "
-                    />
-                  </div>
-                  <button
-                    v-if="rule.item_type === OFVarTypeEnum.Object"
-                    type="button"
-                    class="mt-[26px] h-10 rounded-xl border border-sky-200 bg-sky-50 px-3 text-xs font-medium text-sky-700 hover:bg-sky-100"
-                    @click="openSchemaEditor(rule.id)"
-                  >
-                    配置 Schema
-                  </button>
-                </div>
-
-                <div
-                  v-else-if="rule.target_type === OFVarTypeEnum.Object"
-                  class="of-panel-list-card-soft flex items-center justify-between"
-                >
-                  <div>
-                    <div class="text-sm font-medium text-gray-700">对象 Schema</div>
-                    <div class="text-xs text-gray-400">{{ getSchemaSummary(rule) }}</div>
-                  </div>
-                  <button
-                    type="button"
-                    class="rounded-xl border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-medium text-sky-700 hover:bg-sky-100"
-                    @click="openSchemaEditor(rule.id)"
-                  >
-                    配置
-                  </button>
-                </div>
+              <div v-else-if="rule.target_type === OFVarTypeEnum.Object" class="of-state-hint">
+                对象 Schema：{{ getSchemaSummary(rule) }}
+                <button type="button" class="of-declare-action" @click="openSchemaEditor(rule.id)">
+                  配置
+                </button>
               </div>
             </div>
           </div>
         </section>
 
-        <section class="of-panel-section of-panel-list-card">
+        <div class="of-doc-divider"></div>
+
+        <section class="of-doc-section">
           <div class="flex items-center justify-between">
-            <div class="system-sm-semibold-uppercase text-gray-700">输出预览</div>
-            <div class="text-xs text-gray-400">{{ outputNamespaceLabel }}</div>
+            <div>
+              <div class="of-doc-title-strong">输出预览</div>
+              <div class="of-state-hint">{{ outputNamespaceLabel }}</div>
+            </div>
           </div>
 
-          <div class="of-spacing-sm">
-            <div v-for="item in outputPreviewVariables" :key="item.variable" class="of-panel-variable-display">
-              <div class="of-panel-variable-info min-w-0 leading-[18px]">
-                <div class="of-panel-variable-name truncate">
-                  {{ item.variable }}
-                </div>
-                <div class="of-panel-variable-type shrink-0">{{ item.type || 'string' }}</div>
-              </div>
-              <div class="of-panel-variable-path max-w-[280px] truncate">
-                {{ formatSelector(item.value_selector) }}
-              </div>
+          <div class="of-output-tree">
+            <div class="of-output-tree-root">
+              <span class="of-output-tree-root-label">Output</span>
+            </div>
+
+            <div
+              v-for="(item, index) in outputPreviewVariables"
+              :key="item.variable"
+              class="of-output-tree-item of-output-tree-branch"
+              :class="{ 'of-output-tree-item-last': index === outputPreviewVariables.length - 1 }"
+            >
+              <span class="of-output-tree-prop">{{ item.variable }}</span>
+              <span>: </span>
+              <span class="of-output-tree-type">{{ item.type || 'string' }}</span>
             </div>
           </div>
         </section>
@@ -374,9 +323,6 @@ import { useVariableSelectorStore } from '@renderer/stores/orchestraflow/workflo
 import { useNodeDebugStore } from '@renderer/stores/orchestraflow/node-debug/node-debug.store'
 import { useObjectSchemaEditorStore } from '@renderer/stores/orchestraflow/workflow-editor/object-schema-editor/object-schema-editor.store'
 import { useVariableAssignNodeConfigStore } from '@renderer/stores/orchestraflow/workflow-editor/node-config/variable-assign-node-config/variable-assign-node-config.store'
-import WhiteSelect, {
-  type WhiteSelectOption
-} from '@renderer/views/LuminaApp/Maincontent/NormalChat/components/WhiteSelect.vue'
 import type { NodeDebugField } from './NodeDebug/NodeDebugForm.vue'
 import NodeDebugForm from './NodeDebug/NodeDebugForm.vue'
 import NodeDebugLastRun from './NodeDebug/NodeDebugLastRun.vue'
@@ -398,7 +344,7 @@ const debugMode = ref(false)
 const activeRuleId = ref<string | null>(null)
 const activeSchemaRuleId = ref<string | null>(null)
 
-const targetTypeOptions: WhiteSelectOption[] = [
+const targetTypeOptions = [
   { label: 'string', value: OFVarTypeEnum.String },
   { label: 'number', value: OFVarTypeEnum.Number },
   { label: 'boolean', value: OFVarTypeEnum.Boolean },
@@ -406,7 +352,7 @@ const targetTypeOptions: WhiteSelectOption[] = [
   { label: 'array', value: OFVarTypeEnum.Array }
 ]
 
-const arrayItemTypeOptions: WhiteSelectOption[] = [
+const arrayItemTypeOptions = [
   { label: 'string', value: OFVarTypeEnum.String },
   { label: 'number', value: OFVarTypeEnum.Number },
   { label: 'boolean', value: OFVarTypeEnum.Boolean },
@@ -577,6 +523,19 @@ function handleTargetTypeChange(ruleId: string, targetType: OFVarType) {
   patchRule(ruleId, patch)
 }
 
+function cycleRuleTargetType(rule: OFVariableAssignRule) {
+  const currentIndex = targetTypeOptions.findIndex((item) => item.value === rule.target_type)
+  const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % targetTypeOptions.length : 0
+  handleTargetTypeChange(rule.id, targetTypeOptions[nextIndex].value as OFVarType)
+}
+
+function cycleRuleItemType(rule: OFVariableAssignRule) {
+  const currentValue = rule.item_type || OFVarTypeEnum.String
+  const currentIndex = arrayItemTypeOptions.findIndex((item) => item.value === currentValue)
+  const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % arrayItemTypeOptions.length : 0
+  patchRule(rule.id, { item_type: arrayItemTypeOptions[nextIndex].value as OFVarType })
+}
+
 function usesJsonConstantEditor(rule: OFVariableAssignRule) {
   return rule.target_type === OFVarTypeEnum.Object || rule.target_type === OFVarTypeEnum.Array
 }
@@ -702,4 +661,4 @@ onUnmounted(() => {
 })
 </script>
 
-<style scoped src="../../../styles/node-panel.css"></style>
+<style scoped src="../../../styles/node-panel.scss"></style>

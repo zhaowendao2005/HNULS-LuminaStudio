@@ -1,0 +1,1312 @@
+/* ========================================
+   OrchestraFlow panel doc-style system
+   ========================================
+
+   Usage:
+   - This file is the visual source for OrchestraFlow main node panels.
+   - Use semantic class groups only; do not add node-specific utility classes here.
+   - This file now uses SCSS variables and light nesting for maintainability.
+
+   Scope:
+   - Start / LLM / Iteration / Loop / IfElse / VariableAssign / End
+
+   Out of scope:
+   - Variable selector tree internals
+   - Workflow run side panels
+   - Node theme colors except when a component passes its own theme class
+   ======================================== */
+
+$np-white: #ffffff;
+$np-text-strong: #111827;
+$np-text-main: #1f2937;
+$np-text-body: #374151;
+$np-text-muted: #6b7280;
+$np-text-soft: #9ca3af;
+$np-border-soft: #f1f5f9;
+$np-border-light: #f8fafc;
+$np-border-muted: #d1d5db;
+$np-border-dashed: #dbe3ec;
+$np-accent-teal: #0f766e;
+$np-accent-teal-strong: #115e59;
+$np-accent-teal-line: #99f6e4;
+$np-accent-teal-line-hover: #2dd4bf;
+$np-accent-blue: #2563eb;
+$np-accent-blue-line: #bfdbfe;
+$np-accent-purple: #7c3aed;
+$np-accent-orange: #c2410c;
+$np-accent-orange-soft: #b45309;
+$np-accent-orange-line: #fbbf24;
+$np-accent-orange-line-focus: #f59e0b;
+$np-success: #059669;
+$np-danger: #dc2626;
+
+/* ========================================
+   1. Document layout group
+   ======================================== */
+
+.of-panel-shell {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  background: $np-white;
+
+  &-header {
+    flex-shrink: 0;
+    padding: 1rem 1rem 0.75rem;
+    border-bottom: 1px solid $np-border-soft;
+  }
+
+  &-title-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  &-icon {
+    display: flex;
+    width: 1.5rem;
+    height: 1.5rem;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.5rem;
+    color: $np-white;
+  }
+
+  &-title-input {
+    min-width: 0;
+    flex: 1 1 auto;
+    border: 0;
+    background: transparent;
+    padding: 0;
+    color: $np-text-strong;
+    outline: none;
+
+    &::placeholder {
+      color: $np-text-soft;
+    }
+  }
+
+  &-actions {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  &-description {
+    margin-top: 0.5rem;
+  }
+
+  &-description-input {
+    width: 100%;
+    min-height: 1.125rem;
+    resize: none;
+    border: 0;
+    background: transparent;
+    padding: 0;
+    color: $np-text-muted;
+    outline: none;
+    font-size: 12px;
+    line-height: 18px;
+
+    &::placeholder {
+      color: $np-text-soft;
+    }
+  }
+
+  &-tabs {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 0.75rem;
+  }
+
+  &-body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+  }
+
+  &-body-inner {
+    padding: 1rem;
+  }
+
+  &-footer {
+    flex-shrink: 0;
+    padding: 0.875rem 1rem 1rem;
+    border-top: 1px solid $np-border-soft;
+  }
+
+  input,
+  textarea,
+  select,
+  button {
+    color: $np-text-strong;
+  }
+}
+
+.of-doc-block {
+  > * + * {
+    margin-top: 0.875rem;
+  }
+}
+
+.of-doc-section {
+  > * + * {
+    margin-top: 0.75rem;
+  }
+
+  + .of-doc-section {
+    margin-top: 1.25rem;
+  }
+}
+
+.of-doc-title {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: $np-text-main;
+}
+
+.of-doc-title-muted {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: $np-text-muted;
+}
+
+.of-doc-title-strong {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: $np-text-main;
+}
+
+.of-doc-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.of-doc-kicker {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: $np-text-soft;
+}
+
+.of-doc-paragraph {
+  font-size: 14px;
+  line-height: 1.9;
+  color: $np-text-body;
+}
+
+.of-doc-line {
+  font-size: 14px;
+  line-height: 1.95;
+  color: $np-text-body;
+}
+
+.of-doc-line-soft {
+  font-size: 14px;
+  line-height: 1.9;
+  color: $np-text-muted;
+}
+
+.of-doc-divider {
+  border-top: 1px solid $np-border-soft;
+}
+
+.of-doc-divider-dashed {
+  border-top: 1px dashed $np-border-dashed;
+}
+
+/* ========================================
+   2. Variable declaration group
+   ======================================== */
+
+.of-declare-list {
+  > * + * {
+    margin-top: 0.875rem;
+  }
+}
+
+.of-declare-entry {
+  padding-bottom: 0.875rem;
+  border-bottom: 1px solid $np-border-light;
+
+  &:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+}
+
+.of-declare-line {
+  font-size: 14px;
+  line-height: 2;
+  color: $np-text-body;
+}
+
+.of-declare-key {
+  display: inline-block;
+  margin-right: 0.25rem;
+  font-weight: 500;
+  color: $np-text-strong;
+}
+
+.of-declare-token,
+.of-declare-type,
+.of-declare-default {
+  display: inline-flex;
+  align-items: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  font-size: 13px;
+}
+
+.of-declare-token {
+  padding: 0 0.3rem;
+  border-radius: 0.35rem;
+  background: #ecfeff;
+  color: $np-accent-teal;
+}
+
+.of-declare-type {
+  color: $np-accent-orange-soft;
+}
+
+.of-declare-default {
+  color: $np-text-muted;
+}
+
+.of-declare-required {
+  margin-left: 0.3rem;
+  color: #e11d48;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.of-declare-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.of-declare-action {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+  cursor: pointer;
+  color: $np-text-muted;
+  transition: color 150ms ease;
+
+  &:hover {
+    color: $np-accent-teal;
+  }
+
+  &.of-declare-action-danger:hover {
+    color: $np-danger;
+  }
+}
+
+.of-declare-loop-list {
+  > * + * {
+    margin-top: 1.25rem;
+  }
+}
+
+.of-declare-loop-entry {
+  padding-left: 0.25rem;
+
+  > * + * {
+    margin-top: 0.625rem;
+  }
+}
+
+.of-declare-loop-line {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  flex-wrap: wrap;
+  font-size: 14px;
+  line-height: 1.75;
+  color: $np-text-body;
+}
+
+.of-declare-loop-label {
+  width: 5.25rem;
+  flex-shrink: 0;
+  color: $np-text-main;
+  font-size: 14px;
+}
+
+.of-declare-inline-input {
+  min-width: 3.5rem;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: transparent;
+  padding: 0 0 0.15rem;
+  color: $np-accent-teal;
+  outline: none;
+  font-size: 14px;
+  line-height: 1.5;
+  transition: border-color 150ms ease, color 150ms ease;
+
+  &::placeholder {
+    color: $np-text-soft;
+  }
+
+  &:hover {
+    border-bottom-color: $np-border-muted;
+  }
+
+  &:focus {
+    border-bottom-color: #14b8a6;
+  }
+}
+
+.of-declare-inline-input-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+}
+
+.of-declare-choice {
+  border: 0;
+  border-bottom: 1px dashed $np-accent-teal-line;
+  background: transparent;
+  padding: 0 0 0.15rem;
+  color: $np-accent-teal;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.of-declare-choice-muted {
+  color: $np-text-soft;
+  border-bottom-color: $np-border-muted;
+}
+
+.of-declare-meta {
+  font-size: 12px;
+  line-height: 1.6;
+  color: $np-text-soft;
+}
+
+.of-declare-bool-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.of-declare-bool-option {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+  cursor: pointer;
+  color: $np-text-soft;
+}
+
+.of-declare-bool-option-active-true {
+  color: $np-success;
+}
+
+.of-declare-bool-option-active-false {
+  color: $np-danger;
+}
+
+/* ========================================
+   3. Variable reference group
+   ======================================== */
+
+.of-ref-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  max-width: 100%;
+  border: 0;
+  border-bottom: 1px dashed $np-accent-teal-line;
+  background: transparent;
+  padding: 0 0 0.15rem;
+  color: $np-accent-teal;
+  cursor: pointer;
+  transition: color 150ms ease, border-color 150ms ease;
+
+  &:hover {
+    color: $np-accent-teal-strong;
+    border-bottom-color: $np-accent-teal-line-hover;
+  }
+}
+
+.of-ref-trigger-empty {
+  color: $np-text-soft;
+  border-bottom-color: $np-border-muted;
+
+  &:hover {
+    color: $np-accent-teal;
+    border-bottom-color: $np-accent-teal-line;
+  }
+}
+
+.of-ref-text {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.of-ref-meta {
+  color: $np-text-soft;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.of-ref-target {
+  color: #4b5563;
+  border-bottom-color: $np-border-muted;
+}
+
+/* ========================================
+   4. Output structure group
+   ======================================== */
+
+.of-output-list {
+  > * + * {
+    margin-top: 0.75rem;
+  }
+}
+
+.of-output-entry {
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid $np-border-light;
+
+  &:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+}
+
+.of-output-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: $np-text-main;
+}
+
+.of-output-type {
+  font-size: 12px;
+  line-height: 1.5;
+  color: $np-text-muted;
+}
+
+.of-output-path {
+  font-size: 12px;
+  line-height: 1.6;
+  color: $np-text-soft;
+}
+
+.of-output-tree {
+  padding: 0.75rem 0 0.25rem 0.5rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  font-size: 13px;
+  line-height: 1.85;
+  color: $np-text-main;
+}
+
+.of-output-tree-root {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-bottom: 0.25rem;
+}
+
+.of-output-tree-root-label {
+  color: $np-accent-blue;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.of-output-tree-item {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  position: relative;
+  padding-left: 1.25rem;
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: 0.75rem;
+    height: 1px;
+    background: $np-border-muted;
+  }
+}
+
+.of-output-tree-item-last {
+  &::before {
+    background: $np-border-muted;
+  }
+}
+
+.of-output-tree-branch {
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0.925rem;
+    width: 1px;
+    background: $np-border-muted;
+  }
+
+  &:last-child::after {
+    display: none;
+  }
+}
+
+.of-output-tree-prop {
+  color: $np-accent-teal;
+  font-weight: 500;
+}
+
+.of-output-tree-type {
+  color: $np-accent-orange;
+}
+
+.of-output-tree-nested {
+  padding-left: 1.25rem;
+  margin-top: 0.125rem;
+}
+
+.of-output-tree-divider {
+  margin: 0.5rem 0 0.5rem 1.25rem;
+  border-top: 1px dashed $np-border-muted;
+  position: relative;
+}
+
+.of-output-tree-divider-label {
+  position: absolute;
+  top: -0.625rem;
+  left: 0.5rem;
+  padding: 0 0.375rem;
+  background: $np-white;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: $np-text-soft;
+}
+
+.of-output-code {
+  padding: 0.75rem 0 0.25rem 1rem;
+  border-left: 2px solid $np-border-muted;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  font-size: 13px;
+  line-height: 1.9;
+  color: $np-text-main;
+}
+
+.of-output-code-line {
+  display: block;
+}
+
+.of-output-code-indent {
+  padding-left: 1.25rem;
+}
+
+.of-output-code-keyword {
+  color: $np-accent-purple;
+  font-weight: 600;
+}
+
+.of-output-code-typename {
+  color: $np-accent-blue;
+}
+
+.of-output-code-prop {
+  color: $np-accent-teal;
+}
+
+.of-output-code-type {
+  color: $np-accent-orange;
+}
+
+.of-output-code-comment {
+  color: $np-text-soft;
+  font-style: italic;
+}
+
+/* ========================================
+   5. IfElse branch group
+   ======================================== */
+
+.of-branch-stack {
+  > * + * {
+    margin-top: 1rem;
+  }
+}
+
+.of-branch-case {
+  padding-bottom: 0.875rem;
+  border-bottom: 1px solid $np-border-light;
+
+  &:last-child {
+    border-bottom: 0;
+    padding-bottom: 0;
+  }
+}
+
+.of-branch-line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  font-size: 14px;
+  line-height: 2;
+  color: $np-text-body;
+
+  + .of-branch-line {
+    margin-top: 0.5rem;
+  }
+}
+
+.of-branch-indent {
+  padding-left: 1rem;
+  border-left: 2px solid #e5e7eb;
+}
+
+.of-branch-keyword {
+  font-weight: 600;
+  color: $np-accent-purple;
+}
+
+.of-branch-operator {
+  border: 0;
+  border-bottom: 1px dashed $np-accent-blue-line;
+  background: transparent;
+  padding: 0 0 0.15rem;
+  color: $np-accent-blue;
+  font-size: 14px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.of-branch-target {
+  color: #4b5563;
+  border-bottom-color: $np-border-muted;
+}
+
+.of-branch-inline-input {
+  min-width: 2rem;
+  border: 0;
+  border-bottom: 1px dashed $np-accent-orange-line;
+  background: transparent;
+  padding: 0 0 0.15rem;
+  color: $np-accent-orange-soft;
+  outline: none;
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: center;
+
+  &:focus {
+    border-bottom-color: $np-accent-orange-line-focus;
+  }
+
+  &::placeholder {
+    color: #cbd5e1;
+  }
+}
+
+.of-branch-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-left: 0.25rem;
+}
+
+.of-branch-action {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+  cursor: pointer;
+  color: $np-text-soft;
+  transition: color 150ms ease;
+
+  &:hover {
+    color: $np-accent-teal;
+  }
+
+  &.of-branch-action-danger:hover {
+    color: $np-danger;
+  }
+}
+
+/* ========================================
+   6. Horizontal choice popup group
+   ======================================== */
+
+.of-choice-anchor {
+  position: relative;
+  display: inline-flex;
+}
+
+.of-choice-popup {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+  min-width: max-content;
+  max-width: 22rem;
+  padding: 0.5rem 0.625rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.1);
+}
+
+.of-choice-option {
+  border: 0;
+  background: transparent;
+  padding: 0.2rem 0.45rem;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  cursor: pointer;
+  color: $np-text-muted;
+  transition: background-color 150ms ease, color 150ms ease;
+
+  &:hover {
+    background: #f8fafc;
+    color: $np-accent-teal;
+  }
+}
+
+.of-choice-option-active {
+  background: #ecfeff;
+  color: $np-accent-teal;
+}
+
+/* ========================================
+   7. State, hint and action group
+   ======================================== */
+
+.of-state-empty {
+  font-size: 13px;
+  line-height: 1.8;
+  color: $np-text-soft;
+}
+
+.of-state-hint {
+  font-size: 12px;
+  line-height: 1.6;
+  color: $np-text-soft;
+}
+
+.of-state-inline-action {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: $np-success;
+  cursor: pointer;
+  transition: color 150ms ease;
+
+  &:hover {
+    color: #047857;
+  }
+}
+
+.of-info-trigger {
+  display: inline-flex;
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid #dbe3ec;
+  background: #fff;
+  color: $np-text-soft;
+  cursor: help;
+  transition: color 150ms ease, border-color 150ms ease, background-color 150ms ease;
+
+  &:hover {
+    border-color: #cbd5e1;
+    background: #f8fafc;
+    color: $np-text-muted;
+  }
+}
+
+.of-info-trigger-icon {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.of-doc-inline-sentence {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  font-size: 14px;
+  line-height: 2;
+  color: $np-text-body;
+}
+
+.of-doc-inline-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: $np-text-muted;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.of-doc-inline-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  font-size: 12px;
+  color: $np-text-muted;
+}
+
+.of-doc-message-list {
+  > * + * {
+    margin-top: 1rem;
+  }
+}
+
+.of-doc-message-item {
+  padding: 0.125rem 0 0.25rem;
+}
+
+.of-doc-message-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+
+.of-doc-role-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+}
+
+.of-doc-role-option {
+  border: 0;
+  background: transparent;
+  padding: 0.1rem 0 0.2rem;
+  border-bottom: 1px solid transparent;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  color: $np-text-soft;
+  transition: color 150ms ease, border-color 150ms ease, font-size 150ms ease, font-weight 150ms ease;
+
+  &.is-active {
+    font-size: 12px;
+    font-weight: 700;
+  }
+}
+
+.of-doc-role-option-system {
+  &.is-active {
+    color: #475569;
+    border-bottom-color: #cbd5e1;
+  }
+}
+
+.of-doc-role-option-user {
+  &.is-active {
+    color: #0f766e;
+    border-bottom-color: #5eead4;
+  }
+}
+
+.of-doc-role-option-assistant {
+  &.is-active {
+    color: #7c3aed;
+    border-bottom-color: #c4b5fd;
+  }
+}
+
+.of-doc-role-separator {
+  color: #d1d5db;
+  font-size: 11px;
+}
+
+.of-doc-role-caption {
+  color: $np-text-soft;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.of-doc-message-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-left: auto;
+}
+
+.of-panel-tab-button {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  padding: 0.625rem 0 0.45rem;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 150ms ease, border-color 150ms ease;
+}
+
+.of-panel-tab-button-active {
+  color: $np-text-strong;
+}
+
+.of-panel-tab-button-inactive {
+  color: $np-text-soft;
+}
+
+/* ========================================
+   8. Compatibility reserve
+   ======================================== */
+
+.of-panel-section {
+  > * + * {
+    margin-top: 0.75rem;
+  }
+
+  + .of-panel-section {
+    margin-top: 1.25rem;
+  }
+}
+
+.of-panel-empty {
+  font-size: 13px;
+  line-height: 1.8;
+  color: $np-text-soft;
+}
+
+.of-panel-hint {
+  font-size: 12px;
+  line-height: 1.6;
+  color: $np-text-soft;
+}
+
+.of-spacing-lg {
+  > * + * {
+    margin-top: 1.25rem;
+  }
+}
+
+
+/* ========================================
+   9. Text-based assignment row group
+   ======================================== */
+
+.of-declare-text-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 13px;
+  line-height: 1.8;
+
+  + .of-declare-text-row {
+    margin-top: 0.5rem;
+  }
+}
+
+.of-declare-text-index {
+  width: 1.5rem;
+  flex-shrink: 0;
+  color: $np-text-soft;
+  font-size: 13px;
+}
+
+.of-declare-text-label {
+  width: 1.5rem;
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0.05em;
+  color: $np-text-soft;
+}
+
+.of-declare-text-left {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.of-declare-text-divider {
+  width: 1px;
+  height: 1rem;
+  flex-shrink: 0;
+  background: $np-border-muted;
+}
+
+.of-declare-text-right {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-left: auto;
+}
+
+.of-declare-text-trigger {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: $np-accent-teal;
+  font-size: 13px;
+  line-height: 1.6;
+  cursor: pointer;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 150ms ease;
+
+  &:hover {
+    color: $np-accent-teal-strong;
+  }
+}
+
+.of-declare-text-input {
+  flex: 1 1 0;
+  min-width: 0;
+  border: 0;
+  background: #f9fafb;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+  color: $np-text-main;
+  font-size: 13px;
+  line-height: 1.6;
+  outline: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: background-color 150ms ease;
+
+  &::placeholder {
+    color: $np-text-soft;
+  }
+
+  &:focus {
+    background: #f1f5f9;
+    color: $np-accent-teal;
+  }
+}
+
+.of-declare-text-mode,
+.of-declare-text-type {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+  cursor: pointer;
+  transition: color 150ms ease;
+}
+
+.of-declare-text-mode {
+  color: $np-accent-purple;
+
+  &:hover {
+    color: #6d28d9;
+  }
+}
+
+.of-declare-text-type-string {
+  color: #0891b2;
+
+  &:hover {
+    color: #0e7490;
+  }
+}
+
+.of-declare-text-type-number {
+  color: #ea580c;
+
+  &:hover {
+    color: #c2410c;
+  }
+}
+
+.of-declare-text-type-boolean {
+  color: #7c3aed;
+
+  &:hover {
+    color: #6d28d9;
+  }
+}
+
+.of-declare-text-type-object {
+  color: #059669;
+
+  &:hover {
+    color: #047857;
+  }
+}
+
+.of-declare-text-type-array {
+  color: #dc2626;
+
+  &:hover {
+    color: #b91c1c;
+  }
+}
+
+.of-declare-text-clear {
+  display: inline-flex;
+  width: 1.125rem;
+  height: 1.125rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.3rem;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  color: #9ca3af;
+  font-size: 11px;
+  font-style: italic;
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+
+  &:hover {
+    background: #fff;
+    border-color: #d1d5db;
+    color: #6b7280;
+  }
+}
+
+.of-declare-text-var-btn {
+  display: inline-flex;
+  width: 1.5rem;
+  height: 1.5rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.375rem;
+  border: 0.5px solid #e5e7eb;
+  background: #f9fafb;
+  cursor: pointer;
+  transition: background-color 150ms ease, border-color 150ms ease;
+
+  &:hover {
+    background: #fff;
+    border-color: $np-accent-teal;
+  }
+}
+
+.of-declare-text-var-icon {
+  width: 1rem;
+  height: 1rem;
+  color: $np-accent-teal;
+}
+
+.of-declare-text-input-wrapper {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  background: #f9fafb;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+  transition: background-color 150ms ease;
+
+  &:focus-within {
+    background: #f1f5f9;
+  }
+}
+
+.of-declare-text-var-pill-inner {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.4rem;
+  border-radius: 0.3rem;
+  background: #ecfeff;
+  color: $np-accent-teal;
+  font-size: 13px;
+  line-height: 1.6;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.of-declare-text-var-pill {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 0.15rem 0.5rem;
+  border-radius: 0.375rem;
+  background: #ecfeff;
+  color: $np-accent-teal;
+  font-size: 13px;
+  line-height: 1.6;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease;
+
+  &:hover {
+    background: #cffafe;
+    color: $np-accent-teal-strong;
+  }
+}
+
+.of-declare-text-var-pill-empty {
+  background: transparent;
+  border: 1px dashed $np-border-muted;
+  color: $np-text-soft;
+
+  &:hover {
+    background: #f8fafc;
+    border-color: $np-accent-teal-line;
+    color: $np-accent-teal;
+  }
+}
