@@ -13,7 +13,9 @@
           v-if="toastMessage"
           class="pointer-events-none absolute left-1/2 top-3 z-20 w-[min(520px,calc(100%-32px))] -translate-x-1/2"
         >
-          <div class="mx-auto rounded-[24px] border border-white/70 bg-black/92 px-5 py-3 text-center text-sm text-white shadow-[0_18px_60px_rgba(0,0,0,0.32)] backdrop-blur-xl">
+          <div
+            class="mx-auto rounded-[24px] border border-white/70 bg-black/92 px-5 py-3 text-center text-sm text-white shadow-[0_18px_60px_rgba(0,0,0,0.32)] backdrop-blur-xl"
+          >
             {{ toastMessage }}
           </div>
         </div>
@@ -38,9 +40,7 @@
           <button
             class="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all"
             :class="
-              activeTab === 'json'
-                ? 'bg-sky-50 text-sky-700'
-                : 'text-gray-500 hover:text-gray-800'
+              activeTab === 'json' ? 'bg-sky-50 text-sky-700' : 'text-gray-500 hover:text-gray-800'
             "
             @click="activeTab = 'json'"
           >
@@ -55,7 +55,11 @@
 
         <div class="flex items-center gap-2 text-xs">
           <span class="text-gray-600">Root</span>
-          <button type="button" class="rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-[11px] uppercase tracking-[0.12em] text-cyan-700" disabled>
+          <button
+            type="button"
+            class="rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-[11px] uppercase tracking-[0.12em] text-cyan-700"
+            disabled
+          >
             {{ rootType }}
           </button>
         </div>
@@ -93,7 +97,9 @@
           v-else
           class="relative flex h-full overflow-hidden rounded-2xl border border-gray-200 bg-white font-mono text-xs"
         >
-          <div class="min-h-full select-none border-r border-gray-200 bg-slate-50 px-3 py-3 text-right text-gray-400">
+          <div
+            class="min-h-full select-none border-r border-gray-200 bg-slate-50 px-3 py-3 text-right text-gray-400"
+          >
             <div v-for="lineNo in lineNumbers" :key="lineNo">{{ lineNo }}</div>
           </div>
 
@@ -108,9 +114,9 @@
       <div class="flex items-center justify-between border-t border-gray-100 bg-white px-4 py-3">
         <button
           type="button"
-            class="text-xs text-gray-500 transition-colors hover:text-gray-800"
-            @click="resetFields"
-          >
+          class="text-xs text-gray-500 transition-colors hover:text-gray-800"
+          @click="resetFields"
+        >
           清空配置
         </button>
 
@@ -225,18 +231,16 @@ function createField(type: StartSchemaDraftType = 'string'): StartSchemaDraftFie
     required: true,
     description: '',
     default:
-      type === 'object'
-        ? {}
-        : type === 'array'
-          ? []
-          : type === 'boolean'
-            ? false
-            : undefined,
+      type === 'object' ? {} : type === 'array' ? [] : type === 'boolean' ? false : undefined,
     children: type === 'object' || type === 'array' ? [] : undefined
   }
 }
 
-function schemaNodeToField(name: string, schema: OFJsonSchemaProperty, required: boolean): StartSchemaDraftField {
+function schemaNodeToField(
+  name: string,
+  schema: OFJsonSchemaProperty,
+  required: boolean
+): StartSchemaDraftField {
   return {
     id: `start_schema_field_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
     name,
@@ -251,7 +255,11 @@ function schemaNodeToField(name: string, schema: OFJsonSchemaProperty, required:
           )
         : schema.type === 'array' && schema.items.type === 'object'
           ? Object.entries(schema.items.properties || {}).map(([childName, childSchema]) =>
-              schemaNodeToField(childName, childSchema, new Set(schema.items.required || []).has(childName))
+              schemaNodeToField(
+                childName,
+                childSchema,
+                new Set(schema.items.required || []).has(childName)
+              )
             )
           : []
   }
@@ -279,23 +287,33 @@ function schemaToFields(
 
 function fieldToSchemaNode(field: StartSchemaDraftField): OFJsonSchemaProperty {
   if (field.type === 'object') {
-    const properties = Object.fromEntries((field.children || []).map((child) => [child.name.trim(), fieldToSchemaNode(child)]))
+    const properties = Object.fromEntries(
+      (field.children || []).map((child) => [child.name.trim(), fieldToSchemaNode(child)])
+    )
     return {
       type: 'object',
       properties,
-      required: (field.children || []).filter((child) => child.required).map((child) => child.name.trim()),
+      required: (field.children || [])
+        .filter((child) => child.required)
+        .map((child) => child.name.trim()),
       additionalProperties: false,
       description: field.description?.trim() || undefined,
       default:
-        field.default && typeof field.default === 'object' && !Array.isArray(field.default) ? field.default : undefined
+        field.default && typeof field.default === 'object' && !Array.isArray(field.default)
+          ? field.default
+          : undefined
     }
   }
 
   if (field.type === 'array') {
     const itemObject = {
       type: 'object' as const,
-      properties: Object.fromEntries((field.children || []).map((child) => [child.name.trim(), fieldToSchemaNode(child)])),
-      required: (field.children || []).filter((child) => child.required).map((child) => child.name.trim()),
+      properties: Object.fromEntries(
+        (field.children || []).map((child) => [child.name.trim(), fieldToSchemaNode(child)])
+      ),
+      required: (field.children || [])
+        .filter((child) => child.required)
+        .map((child) => child.name.trim()),
       additionalProperties: false
     }
     return {
@@ -310,15 +328,22 @@ function fieldToSchemaNode(field: StartSchemaDraftField): OFJsonSchemaProperty {
     type: field.type,
     description: field.description?.trim() || undefined,
     default:
-      field.default === '' || field.default === undefined ? undefined : (field.default as string | number | boolean | null)
+      field.default === '' || field.default === undefined
+        ? undefined
+        : (field.default as string | number | boolean | null)
   }
 }
 
-function fieldsToSchema(drafts: StartSchemaDraftField[], rootType: OFSchemaRootType): OFStructuredJsonSchema {
+function fieldsToSchema(
+  drafts: StartSchemaDraftField[],
+  rootType: OFSchemaRootType
+): OFStructuredJsonSchema {
   const normalized = drafts.filter((field) => field.name.trim())
   const objectSchema = {
     type: 'object' as const,
-    properties: Object.fromEntries(normalized.map((field) => [field.name.trim(), fieldToSchemaNode(field)])),
+    properties: Object.fromEntries(
+      normalized.map((field) => [field.name.trim(), fieldToSchemaNode(field)])
+    ),
     required: normalized.filter((field) => field.required).map((field) => field.name.trim()),
     additionalProperties: false
   }
@@ -393,7 +418,9 @@ function removeField(fieldId: string) {
 }
 
 function updateField(fieldId: string, patch: Partial<StartSchemaDraftField>) {
-  fields.value = fields.value.map((field) => (field.id === fieldId ? { ...field, ...patch } : field))
+  fields.value = fields.value.map((field) =>
+    field.id === fieldId ? { ...field, ...patch } : field
+  )
 }
 
 function resetFields() {

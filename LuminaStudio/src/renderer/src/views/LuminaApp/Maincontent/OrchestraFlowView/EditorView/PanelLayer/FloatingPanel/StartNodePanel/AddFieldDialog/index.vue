@@ -44,11 +44,17 @@
 
       <div v-if="selectedType === OFVarType.Boolean" class="space-y-1">
         <div class="font-semibold leading-8 text-gray-600">默认值</div>
-        <div class="inline-flex h-10 items-center overflow-hidden rounded-lg border border-gray-200 bg-white p-0.5 shadow-sm">
+        <div
+          class="inline-flex h-10 items-center overflow-hidden rounded-lg border border-gray-200 bg-white p-0.5 shadow-sm"
+        >
           <button
             type="button"
             class="min-w-[72px] rounded-[6px] px-3 text-sm font-medium leading-9 transition"
-            :class="booleanDefaultValue === true ? 'bg-green-50 text-green-700 shadow-sm' : 'text-gray-400'"
+            :class="
+              booleanDefaultValue === true
+                ? 'bg-green-50 text-green-700 shadow-sm'
+                : 'text-gray-400'
+            "
             @click="booleanDefaultValue = true"
           >
             TRUE
@@ -56,7 +62,9 @@
           <button
             type="button"
             class="min-w-[72px] rounded-[6px] px-3 text-sm font-medium leading-9 transition"
-            :class="booleanDefaultValue === false ? 'bg-rose-50 text-rose-700 shadow-sm' : 'text-gray-400'"
+            :class="
+              booleanDefaultValue === false ? 'bg-rose-50 text-rose-700 shadow-sm' : 'text-gray-400'
+            "
             @click="booleanDefaultValue = false"
           >
             FALSE
@@ -92,7 +100,9 @@
         </div>
 
         <div class="space-y-1">
-          <div class="rounded-lg border border-emerald-100 bg-emerald-50/60 px-3 py-2 text-xs text-emerald-700">
+          <div
+            class="rounded-lg border border-emerald-100 bg-emerald-50/60 px-3 py-2 text-xs text-emerald-700"
+          >
             默认值请在 Schema 编辑器内部配置。
           </div>
         </div>
@@ -112,7 +122,11 @@
           <input v-model="form.required" type="checkbox" class="hidden" />
           <div
             class="flex h-4 w-4 items-center justify-center rounded border"
-            :class="form.required ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-gray-300 bg-white'"
+            :class="
+              form.required
+                ? 'border-emerald-500 bg-emerald-500 text-white'
+                : 'border-gray-300 bg-white'
+            "
           >
             <svg
               v-if="form.required"
@@ -130,7 +144,10 @@
         </label>
       </div>
 
-      <div v-if="errorMessage" class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
+      <div
+        v-if="errorMessage"
+        class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600"
+      >
         {{ errorMessage }}
       </div>
     </div>
@@ -166,7 +183,9 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import CenteredDialog from '@renderer/views/LuminaApp/Maincontent/OrchestraFlowView/EditorView/Common/CenteredDialog.vue'
-import WhiteSelect, { type WhiteSelectOption } from '@renderer/views/LuminaApp/Maincontent/NormalChat/components/WhiteSelect.vue'
+import WhiteSelect, {
+  type WhiteSelectOption
+} from '@renderer/views/LuminaApp/Maincontent/NormalChat/components/WhiteSelect.vue'
 import StartNodeSchemaEditor from '../StartNodeSchemaEditor/index.vue'
 import type { OFStructuredJsonSchema, OFVariable } from '@shared/Orchestraflow-types'
 import { OFVarType } from '@shared/Orchestraflow-types'
@@ -266,7 +285,9 @@ function hydrateFormFromInitialField() {
 
   textDefaultValue.value = typeof field?.default === 'string' ? field.default : ''
   numberDefaultValue.value =
-    typeof field?.default === 'number' && Number.isFinite(field.default) ? String(field.default) : ''
+    typeof field?.default === 'number' && Number.isFinite(field.default)
+      ? String(field.default)
+      : ''
   booleanDefaultValue.value = typeof field?.default === 'boolean' ? field.default : true
 }
 

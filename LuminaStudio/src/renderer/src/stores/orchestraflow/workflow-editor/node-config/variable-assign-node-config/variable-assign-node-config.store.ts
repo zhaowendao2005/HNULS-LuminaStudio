@@ -33,57 +33,60 @@ function createDefaultConfig(): OFVariableAssignNodeConfig {
   }
 }
 
-export const useVariableAssignNodeConfigStore = defineStore('of-variable-assign-node-config', () => {
-  const currentNodeId = ref<string | null>(null)
-  const config = ref<OFVariableAssignNodeConfig>(createDefaultConfig())
+export const useVariableAssignNodeConfigStore = defineStore(
+  'of-variable-assign-node-config',
+  () => {
+    const currentNodeId = ref<string | null>(null)
+    const config = ref<OFVariableAssignNodeConfig>(createDefaultConfig())
 
-  function loadConfig(nodeId: string, data: Partial<OFVariableAssignNodeConfig>) {
-    currentNodeId.value = nodeId
-    const nextConfig = {
-      ...createDefaultConfig(),
-      ...data,
-      nodeId
-    }
-    config.value = {
-      ...nextConfig,
-      output: {
-        variables: buildVariableAssignOutputVariables(
-          nextConfig.title,
-          nextConfig.rules || [],
-          nodeId
-        )
+    function loadConfig(nodeId: string, data: Partial<OFVariableAssignNodeConfig>) {
+      currentNodeId.value = nodeId
+      const nextConfig = {
+        ...createDefaultConfig(),
+        ...data,
+        nodeId
+      }
+      config.value = {
+        ...nextConfig,
+        output: {
+          variables: buildVariableAssignOutputVariables(
+            nextConfig.title,
+            nextConfig.rules || [],
+            nodeId
+          )
+        }
       }
     }
-  }
 
-  function patchConfig(patch: Partial<OFVariableAssignNodeConfig>) {
-    const nextConfig = {
-      ...config.value,
-      ...patch
-    }
-    config.value = {
-      ...nextConfig,
-      output: {
-        variables: buildVariableAssignOutputVariables(
-          nextConfig.title,
-          nextConfig.rules || [],
-          nextConfig.nodeId
-        )
+    function patchConfig(patch: Partial<OFVariableAssignNodeConfig>) {
+      const nextConfig = {
+        ...config.value,
+        ...patch
+      }
+      config.value = {
+        ...nextConfig,
+        output: {
+          variables: buildVariableAssignOutputVariables(
+            nextConfig.title,
+            nextConfig.rules || [],
+            nextConfig.nodeId
+          )
+        }
       }
     }
-  }
 
-  function clear() {
-    currentNodeId.value = null
-    config.value = createDefaultConfig()
-  }
+    function clear() {
+      currentNodeId.value = null
+      config.value = createDefaultConfig()
+    }
 
-  return {
-    currentNodeId,
-    config,
-    loadConfig,
-    patchConfig,
-    clear,
-    createDefaultRule
+    return {
+      currentNodeId,
+      config,
+      loadConfig,
+      patchConfig,
+      clear,
+      createDefaultRule
+    }
   }
-})
+)

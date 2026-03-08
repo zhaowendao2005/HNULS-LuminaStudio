@@ -1,5 +1,8 @@
 <template>
-  <div class="of-node-output of-start-node-output pl-6 rounded-xl transition-shadow" :class="haloClass">
+  <div
+    class="of-node-output of-start-node-output pl-6 rounded-xl transition-shadow"
+    :class="haloClass"
+  >
     <!-- 节点标题 -->
     <div class="flex items-center gap-2 mb-3">
       <div class="flex items-center justify-center w-5 h-5 rounded bg-blue-500 text-white shrink-0">

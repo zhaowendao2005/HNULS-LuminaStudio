@@ -33,7 +33,9 @@ export const useObjectSchemaEditorStore = defineStore('orchestraflow-object-sche
     fields: fields.value
   }))
 
-  const schema = computed<OFStructuredJsonSchema>(() => fieldsToSchema(fields.value, rootType.value))
+  const schema = computed<OFStructuredJsonSchema>(() =>
+    fieldsToSchema(fields.value, rootType.value)
+  )
 
   function open(node: string, currentSchema?: OFStructuredJsonSchema | null) {
     nodeId.value = node

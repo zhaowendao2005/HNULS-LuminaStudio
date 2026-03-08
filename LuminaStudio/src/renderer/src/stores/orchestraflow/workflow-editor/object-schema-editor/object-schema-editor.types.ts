@@ -22,7 +22,9 @@ export interface OFObjectSchemaEditorState {
   fields: OFSchemaFieldDraft[]
 }
 
-function isPrimitiveSchemaNode(schema: OFJsonSchemaProperty): schema is { type: OFStructuredFieldType; description?: string } {
+function isPrimitiveSchemaNode(
+  schema: OFJsonSchemaProperty
+): schema is { type: OFStructuredFieldType; description?: string } {
   return schema.type === 'string' || schema.type === 'number' || schema.type === 'boolean'
 }
 

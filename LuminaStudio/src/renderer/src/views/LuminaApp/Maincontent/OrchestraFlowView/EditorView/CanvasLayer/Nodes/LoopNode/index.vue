@@ -33,14 +33,24 @@
         v-if="resizePreview"
         class="pointer-events-none absolute inset-0 z-20 rounded-[22px] border-2 border-[#d4a514]/70 bg-[#facc15]/[0.06] shadow-[0_0_0_1px_rgba(212,165,20,0.08)]"
       >
-        <div class="absolute bottom-4 right-4 rounded-lg bg-white/95 px-2.5 py-1 text-[11px] font-medium text-[#0f172a] shadow-sm">
+        <div
+          class="absolute bottom-4 right-4 rounded-lg bg-white/95 px-2.5 py-1 text-[11px] font-medium text-[#0f172a] shadow-sm"
+        >
           {{ Math.round(resolvedWidth) }} x {{ Math.round(resolvedHeight) }}
         </div>
       </div>
 
       <div class="flex items-center gap-3 px-4 pb-3 pt-4">
-        <div class="flex h-8 w-8 items-center justify-center rounded-xl bg-[#d4a514] text-white shadow-sm">
-          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.2">
+        <div
+          class="flex h-8 w-8 items-center justify-center rounded-xl bg-[#d4a514] text-white shadow-sm"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            class="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.2"
+          >
             <path
               d="M20 11A8 8 0 1 0 6.062 16.938M20 11V4m0 7h-7M4 13a8 8 0 0 0 13.938 5.938M4 13v7m0-7h7"
               stroke-linecap="round"

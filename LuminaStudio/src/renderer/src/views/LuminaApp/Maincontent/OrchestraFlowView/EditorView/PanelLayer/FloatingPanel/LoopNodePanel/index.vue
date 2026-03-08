@@ -2,8 +2,17 @@
   <div class="of-loop-node-panel h-full flex flex-col">
     <div class="border-b border-gray-100 px-4 pb-2 pt-4">
       <div class="flex items-center gap-3">
-        <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-white" :class="theme.iconBgClass">
-          <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2">
+        <div
+          class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-white"
+          :class="theme.iconBgClass"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            class="h-3.5 w-3.5"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
             <path
               d="M20 11A8 8 0 1 0 6.062 16.938M20 11V4m0 7h-7M4 13a8 8 0 0 0 13.938 5.938M4 13v7m0-7h7"
               stroke-linecap="round"
@@ -20,7 +29,10 @@
 
         <div class="flex shrink-0 items-center gap-1">
           <CapsuleTooltip text="调试运行" placement="bottom">
-            <button class="flex h-6 w-6 items-center justify-center rounded-md hover:bg-gray-100" @click="enterDebugMode">
+            <button
+              class="flex h-6 w-6 items-center justify-center rounded-md hover:bg-gray-100"
+              @click="enterDebugMode"
+            >
               <svg viewBox="0 0 24 24" class="h-4 w-4 text-gray-400" fill="currentColor">
                 <path
                   d="M8 18.3915V5.60846L18.2264 12L8 18.3915ZM6 3.80421V20.1957C6 20.9812 6.86395 21.46 7.53 21.0437L20.6432 12.848C21.2699 12.4563 21.2699 11.5436 20.6432 11.152L7.53 2.95621C6.86395 2.53993 6 3.01878 6 3.80421Z"
@@ -52,14 +64,18 @@
       <div class="mt-3 flex items-center gap-4">
         <button
           class="system-md-semibold border-b-2 pb-2 pt-2.5"
-          :class="activeTab === 'settings' ? theme.tabActiveClass : 'border-transparent text-gray-400'"
+          :class="
+            activeTab === 'settings' ? theme.tabActiveClass : 'border-transparent text-gray-400'
+          "
           @click="setActiveTab('settings')"
         >
           设置
         </button>
         <button
           class="system-md-semibold border-b-2 pb-2 pt-2.5"
-          :class="activeTab === 'lastRun' ? theme.tabActiveClass : 'border-transparent text-gray-400'"
+          :class="
+            activeTab === 'lastRun' ? theme.tabActiveClass : 'border-transparent text-gray-400'
+          "
           @click="setActiveTab('lastRun')"
         >
           上次运行
@@ -123,8 +139,19 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import type { OFIfElseCondition, OFLoopNodeData, OFLoopVariableData, OFStructuredJsonSchema, OFVarType } from '@shared/Orchestraflow-types'
-import { OFBlockEnum, OFVarType as OFVarTypeEnum, OF_LOOP_COUNT_VARIABLE_NAME, OF_LOOP_INDEX_VARIABLE_NAME } from '@shared/Orchestraflow-types'
+import type {
+  OFIfElseCondition,
+  OFLoopNodeData,
+  OFLoopVariableData,
+  OFStructuredJsonSchema,
+  OFVarType
+} from '@shared/Orchestraflow-types'
+import {
+  OFBlockEnum,
+  OFVarType as OFVarTypeEnum,
+  OF_LOOP_COUNT_VARIABLE_NAME,
+  OF_LOOP_INDEX_VARIABLE_NAME
+} from '@shared/Orchestraflow-types'
 import { useWorkflowEditorUIStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor-ui.store'
 import { useWorkflowEditorStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor.store'
 import { useVariableSelectorStore } from '@renderer/stores/orchestraflow/workflow-editor/variable-selector/variable-selector.store'
@@ -263,7 +290,14 @@ function patchLoopVariable(variableId: string, patch: Partial<OFLoopVariableData
   patchNode({
     loop_variables: loopVariables.value.map((item) =>
       (item.id || item.variable) === variableId
-        ? { ...item, ...patch, value: patch.value !== undefined ? normalizeConstantValue({ ...item, ...patch }, patch.value) : item.value }
+        ? {
+            ...item,
+            ...patch,
+            value:
+              patch.value !== undefined
+                ? normalizeConstantValue({ ...item, ...patch }, patch.value)
+                : item.value
+          }
         : item
     )
   })
@@ -285,7 +319,9 @@ function addLoopVariable() {
 }
 
 function removeLoopVariable(variableId: string) {
-  const nextVariables = loopVariables.value.filter((item) => (item.id || item.variable) !== variableId)
+  const nextVariables = loopVariables.value.filter(
+    (item) => (item.id || item.variable) !== variableId
+  )
   patchNode({ loop_variables: nextVariables })
 }
 
@@ -299,40 +335,63 @@ function removeBreakCondition(conditionId: string) {
 
 function patchBreakCondition(conditionId: string, patch: Partial<OFIfElseCondition>) {
   patchNode({
-    break_conditions: breakConditions.value.map((item) => (item.id === conditionId ? { ...item, ...patch } : item))
+    break_conditions: breakConditions.value.map((item) =>
+      item.id === conditionId ? { ...item, ...patch } : item
+    )
   })
 }
 
 function openLoopVariableSelector(variableId: string, event: MouseEvent) {
   if (!uiStore.selectedNodeId) return
   activeLoopVariableId.value = variableId
-  const anchorRect = (event.currentTarget as HTMLElement | null)?.getBoundingClientRect() || undefined
-  variableSelectorStore.openSelector(uiStore.selectedNodeId, 'loop-variable-init', anchorRect, undefined, {
-    x: event.clientX,
-    y: event.clientY
-  })
+  const anchorRect =
+    (event.currentTarget as HTMLElement | null)?.getBoundingClientRect() || undefined
+  variableSelectorStore.openSelector(
+    uiStore.selectedNodeId,
+    'loop-variable-init',
+    anchorRect,
+    undefined,
+    {
+      x: event.clientX,
+      y: event.clientY
+    }
+  )
 }
 
 function openConditionLeftSelector(conditionId: string, event: MouseEvent) {
   if (!uiStore.selectedNodeId) return
   activeConditionId.value = conditionId
   activeConditionSide.value = 'left'
-  const anchorRect = (event.currentTarget as HTMLElement | null)?.getBoundingClientRect() || undefined
-  variableSelectorStore.openSelector(uiStore.selectedNodeId, 'loop-condition-left', anchorRect, undefined, {
-    x: event.clientX,
-    y: event.clientY
-  })
+  const anchorRect =
+    (event.currentTarget as HTMLElement | null)?.getBoundingClientRect() || undefined
+  variableSelectorStore.openSelector(
+    uiStore.selectedNodeId,
+    'loop-condition-left',
+    anchorRect,
+    undefined,
+    {
+      x: event.clientX,
+      y: event.clientY
+    }
+  )
 }
 
 function openConditionRightSelector(conditionId: string, event: MouseEvent) {
   if (!uiStore.selectedNodeId) return
   activeConditionId.value = conditionId
   activeConditionSide.value = 'right'
-  const anchorRect = (event.currentTarget as HTMLElement | null)?.getBoundingClientRect() || undefined
-  variableSelectorStore.openSelector(uiStore.selectedNodeId, 'loop-condition-right', anchorRect, undefined, {
-    x: event.clientX,
-    y: event.clientY
-  })
+  const anchorRect =
+    (event.currentTarget as HTMLElement | null)?.getBoundingClientRect() || undefined
+  variableSelectorStore.openSelector(
+    uiStore.selectedNodeId,
+    'loop-condition-right',
+    anchorRect,
+    undefined,
+    {
+      x: event.clientX,
+      y: event.clientY
+    }
+  )
 }
 
 function openLoopVariableSchema(variableId: string, mode: 'object' | 'array-item') {
@@ -340,7 +399,10 @@ function openLoopVariableSchema(variableId: string, mode: 'object' | 'array-item
   const item = loopVariables.value.find((entry) => (entry.id || entry.variable) === variableId)
   if (!item) return
   activeSchemaTarget.value = { variableId, mode }
-  objectSchemaEditorStore.open(currentNode.value.id, mode === 'array-item' ? item.item_schema || null : item.schema || null)
+  objectSchemaEditorStore.open(
+    currentNode.value.id,
+    mode === 'array-item' ? item.item_schema || null : item.schema || null
+  )
 }
 
 function handleSchemaSave(schema: OFStructuredJsonSchema) {
@@ -373,7 +435,10 @@ function handleVariableSelect(event: Event) {
     return
   }
 
-  if ((detail.targetType === 'loop-condition-left' || detail.targetType === 'loop-condition-right') && activeConditionId.value) {
+  if (
+    (detail.targetType === 'loop-condition-left' || detail.targetType === 'loop-condition-right') &&
+    activeConditionId.value
+  ) {
     if (activeConditionSide.value === 'left') {
       patchBreakCondition(activeConditionId.value, {
         variable_selector: detail.variable.valueSelector || [],

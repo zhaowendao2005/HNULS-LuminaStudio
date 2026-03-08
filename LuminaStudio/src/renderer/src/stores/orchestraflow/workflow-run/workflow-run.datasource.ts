@@ -23,10 +23,7 @@ export const WorkflowRunDataSource = {
    * 运行工作流
    */
   async run(params: WorkflowRunParams): Promise<OFWorkflowRunResult> {
-    const res = await window.api.orchestraflow.run(
-      params.workflowId,
-      toPlainObject(params.inputs)
-    )
+    const res = await window.api.orchestraflow.run(params.workflowId, toPlainObject(params.inputs))
     if (!res.success || !res.data) {
       throw new Error(res.error || 'Failed to run workflow')
     }

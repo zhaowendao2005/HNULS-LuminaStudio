@@ -31,14 +31,22 @@
       >
         <span
           class="min-w-[54px] rounded-[5px] px-2 text-center text-xs font-semibold leading-7 transition"
-          :class="props.modelValue[field.key] === true ? 'bg-green-50 text-green-700 shadow-sm' : 'text-gray-400'"
+          :class="
+            props.modelValue[field.key] === true
+              ? 'bg-green-50 text-green-700 shadow-sm'
+              : 'text-gray-400'
+          "
           @click="onBooleanInput(field.key, true)"
         >
           TRUE
         </span>
         <span
           class="min-w-[54px] rounded-[5px] px-2 text-center text-xs font-semibold leading-7 transition"
-          :class="props.modelValue[field.key] === false ? 'bg-rose-50 text-rose-700 shadow-sm' : 'text-gray-400'"
+          :class="
+            props.modelValue[field.key] === false
+              ? 'bg-rose-50 text-rose-700 shadow-sm'
+              : 'text-gray-400'
+          "
           @click="onBooleanInput(field.key, false)"
         >
           FALSE
@@ -59,7 +67,10 @@
         class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-500"
       >
         <summary class="cursor-pointer select-none text-gray-600">JSON Schema 提示</summary>
-        <pre class="mt-2 overflow-auto whitespace-pre-wrap break-all font-mono text-[11px] leading-5 text-gray-500">{{ formatSchema(field.schema) }}</pre>
+        <pre
+          class="mt-2 overflow-auto whitespace-pre-wrap break-all font-mono text-[11px] leading-5 text-gray-500"
+          >{{ formatSchema(field.schema) }}</pre
+        >
       </details>
     </div>
 
@@ -187,7 +198,10 @@ function handleExecute() {
           list.push(`"${field.label}" 必须是 JSON 数组`)
           continue
         }
-        if (isObjectField(field) && (Array.isArray(parsed) || parsed === null || typeof parsed !== 'object')) {
+        if (
+          isObjectField(field) &&
+          (Array.isArray(parsed) || parsed === null || typeof parsed !== 'object')
+        ) {
           list.push(`"${field.label}" 必须是 JSON 对象`)
           continue
         }

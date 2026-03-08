@@ -1,8 +1,5 @@
 import { BaseNode } from './base-node'
-import {
-  OFBlockEnum,
-  type OFIfElseNodeData
-} from '@shared/Orchestraflow-types'
+import { OFBlockEnum, type OFIfElseNodeData } from '@shared/Orchestraflow-types'
 import type { ExecutionContext, NodeResult } from './types'
 import { VariableStore } from '../services/variable-store'
 import { evaluateIfElseCase } from './condition-evaluator'

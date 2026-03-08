@@ -120,7 +120,8 @@ export class WorkflowInstanceManager {
     if ('error' in resolvedGraph) {
       return {
         nodeId,
-        nodeType: workflow.graph.nodes.find((item) => item.id === nodeId)?.data.type || OFBlockEnum.Start,
+        nodeType:
+          workflow.graph.nodes.find((item) => item.id === nodeId)?.data.type || OFBlockEnum.Start,
         status: OFNodeRunningStatus.Failed,
         error: resolvedGraph.error,
         inputs: this.toSerializable(inputs || {})
@@ -183,9 +184,7 @@ export class WorkflowInstanceManager {
   private resolveDebugGraph(
     workflow: OFWorkflow,
     scopePath?: string[]
-  ):
-    | { graph: OFWorkflowGraph | OFSubWorkflowGraph; scopePath: string[] }
-    | { error: string } {
+  ): { graph: OFWorkflowGraph | OFSubWorkflowGraph; scopePath: string[] } | { error: string } {
     let graph: OFWorkflowGraph | OFSubWorkflowGraph = workflow.graph
     const resolvedScopePath: string[] = []
 
@@ -197,7 +196,10 @@ export class WorkflowInstanceManager {
         }
       }
 
-      if (scopeNode.data.type !== OFBlockEnum.Iteration && scopeNode.data.type !== OFBlockEnum.Loop) {
+      if (
+        scopeNode.data.type !== OFBlockEnum.Iteration &&
+        scopeNode.data.type !== OFBlockEnum.Loop
+      ) {
         return {
           error: `Scope node ${scopeNodeId} is not a container node`
         }

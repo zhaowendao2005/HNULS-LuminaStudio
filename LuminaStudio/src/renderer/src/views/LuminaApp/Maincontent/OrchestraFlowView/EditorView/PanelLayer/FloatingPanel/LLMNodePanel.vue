@@ -89,25 +89,26 @@
     </div>
 
     <div class="flex-1 overflow-y-auto">
-      <div v-if="activeTab === 'settings' && !debugMode" class="space-y-5 px-4 py-4">
-        <section class="space-y-3 rounded-2xl border border-gray-200 bg-[#fafbff] p-4">
-          <div class="flex items-center justify-between">
+      <div v-if="activeTab === 'settings' && !debugMode" class="of-spacing-lg px-4 py-4">
+        <section class="of-panel-section">
+          <div class="of-panel-section-header">
             <div>
-              <div class="system-sm-semibold-uppercase text-gray-500">模型</div>
-              <div class="mt-1 text-xs text-gray-400">使用统一模型选择器选择 Provider 和模型</div>
+              <div class="of-panel-section-title">模型</div>
+              <div class="of-panel-hint">使用统一模型选择器选择 Provider 和模型</div>
             </div>
           </div>
 
-          <div class="space-y-2">
+          <div class="of-spacing-xs">
             <button
-              class="flex h-11 w-full items-center justify-between rounded-xl border border-gray-200 bg-white px-3 text-left text-sm text-gray-700 transition hover:bg-[#f8faff]"
-              :class="theme.controlFocusClass"
+              class="of-panel-select-trigger flex min-h-11 items-center justify-between gap-3 text-left"
               @click="modelSelectorVisible = true"
             >
               <div class="min-w-0 flex-1">
-                <div class="text-xs font-medium text-gray-500">当前模型</div>
+                <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  当前模型
+                </div>
                 <CapsuleTooltip :text="selectedModelDisplay" placement="top" max-width="420px">
-                  <div class="mt-0.5 truncate font-medium text-gray-800">
+                  <div class="mt-1 truncate text-[13px] font-semibold text-gray-800">
                     {{ selectedModelDisplay }}
                   </div>
                 </CapsuleTooltip>
@@ -121,43 +122,38 @@
               </svg>
             </button>
 
-            <div
-              class="rounded-xl border border-dashed border-gray-200 bg-white/70 px-3 py-2 text-xs text-gray-500"
-            >
+            <div class="of-panel-empty text-left">
               Provider:
               <span class="font-medium text-gray-700">{{ selectedProviderName }}</span>
             </div>
           </div>
         </section>
 
-        <section class="space-y-3">
-          <div class="flex items-center justify-between">
+        <section class="of-panel-section">
+          <div class="of-panel-section-header">
             <div>
-              <div class="system-sm-semibold-uppercase text-gray-500">提示词</div>
-              <div class="mt-1 text-xs text-gray-400">
+              <div class="of-panel-section-title">提示词</div>
+              <div class="of-panel-hint">
                 支持插入变量，格式为
                 <code v-pre>{{ variable.path }}</code>
               </div>
             </div>
             <button
-              class="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
+              class="of-panel-action-button of-panel-action-button-primary"
               @click="addPrompt"
             >
               添加消息
             </button>
           </div>
 
-          <div
-            v-if="promptItems.length === 0"
-            class="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-center text-sm text-gray-400"
-          >
+          <div v-if="promptItems.length === 0" class="of-panel-empty">
             暂无 Prompt，点击“添加消息”开始配置
           </div>
 
           <div
             v-for="item in promptItems"
             :key="item.id"
-            class="rounded-2xl border border-gray-200 bg-white p-3 shadow-xs"
+            class="of-panel-list-item of-panel-nested-item"
           >
             <div class="flex items-center gap-2">
               <WhiteSelect
@@ -165,7 +161,7 @@
                 :options="promptRoleOptions"
                 placeholder="选择角色"
                 root-class="w-[148px] shrink-0"
-                trigger-class="!h-8 !rounded-lg !border-gray-200 !bg-[#f8fafc] !px-3 !py-1.5 !text-xs !font-medium !uppercase !tracking-wide !text-gray-600 hover:!bg-white"
+                trigger-class="!h-8 !border-0 !border-b !border-gray-200 !bg-transparent !px-1 !py-1.5 !text-xs !font-semibold !uppercase !tracking-wide !text-gray-600 !rounded-none hover:!border-gray-300 hover:!bg-transparent"
                 panel-class="min-w-[148px]"
                 teleport-to="body"
                 @update:model-value="updatePromptRole(item.id, $event)"
@@ -173,7 +169,7 @@
 
               <div class="ml-auto flex items-center gap-1">
                 <button
-                  class="flex h-8 items-center gap-1 rounded-lg border border-gray-200 bg-white px-2 text-xs text-gray-500 hover:bg-gray-50"
+                  class="of-panel-action-button of-panel-action-button-primary flex items-center gap-1"
                   @click="openPromptVariableSelector(item.id, $event)"
                 >
                   <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="currentColor">
@@ -184,7 +180,7 @@
                   插入变量
                 </button>
                 <button
-                  class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500"
+                  class="of-panel-action-button of-panel-action-button-danger flex h-8 w-8 items-center justify-center"
                   @click="removePrompt(item.id)"
                 >
                   <svg viewBox="0 0 24 24" class="h-4 w-4" fill="currentColor">
@@ -196,7 +192,7 @@
               </div>
             </div>
 
-            <div class="mt-3 rounded-2xl border border-gray-200 bg-[#fbfcff] px-3 py-2">
+            <div class="mt-3 border-l border-cyan-200 pl-3">
               <PromptTextarea
                 :ref="(el) => setPromptEditorRef(item.id, el)"
                 :model-value="item.text"
@@ -208,10 +204,10 @@
           </div>
         </section>
 
-        <section class="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-1">
-              <div class="system-sm-semibold-uppercase text-gray-700">输出变量</div>
+        <section class="of-panel-section">
+          <div class="of-panel-section-header">
+            <div class="of-panel-variable-info">
+              <div class="of-panel-section-title">输出变量</div>
               <svg viewBox="0 0 24 24" class="h-4 w-4 text-gray-300" fill="currentColor">
                 <path d="M12 16L6 10H18L12 16Z" />
               </svg>
@@ -226,41 +222,43 @@
                   </svg>
                 </div>
               </CapsuleTooltip>
-              <div class="system-xs-medium-uppercase text-gray-500">结构化输出</div>
+              <div class="text-[10px] font-medium uppercase tracking-wide text-gray-500">
+                结构化输出
+              </div>
               <ToggleSwitch v-model="structuredEnabled" />
             </div>
           </div>
 
-          <div class="space-y-4">
-            <div v-for="item in baseOutputs" :key="item.variable" class="space-y-1">
-              <div class="flex min-w-0 items-center gap-2 leading-[18px]">
+          <div class="of-spacing-sm">
+            <div v-for="item in baseOutputs" :key="item.variable" class="of-panel-variable-display">
+              <div class="of-panel-variable-info min-w-0 leading-[18px]">
                 <CapsuleTooltip :text="item.variable" placement="top">
-                  <div class="truncate text-[13px] font-semibold text-gray-800">
+                  <div class="of-panel-variable-name truncate">
                     {{ item.variable }}
                   </div>
                 </CapsuleTooltip>
-                <div class="shrink-0 text-[12px] text-gray-500">{{ item.type || 'string' }}</div>
+                <div class="of-panel-variable-type shrink-0">{{ item.type || 'string' }}</div>
               </div>
               <CapsuleTooltip :text="formatOutputNamespace(item)" placement="top" max-width="420px">
-                <div class="max-w-[280px] truncate text-xs text-gray-400">
+                <div class="of-panel-variable-path max-w-[280px] truncate">
                   {{ formatOutputNamespace(item) }}
                 </div>
               </CapsuleTooltip>
             </div>
 
-            <div v-if="structuredEnabled" class="border-t border-gray-100 pt-4">
+            <div v-if="structuredEnabled" class="of-panel-nested-item pt-1">
               <div class="flex items-center justify-between gap-3">
                 <div class="min-w-0">
-                  <div class="flex min-w-0 items-center gap-2 leading-[18px]">
+                  <div class="of-panel-variable-info min-w-0 leading-[18px]">
                     <CapsuleTooltip
                       :text="structuredOutputVariable?.variable || 'structured_output'"
                       placement="top"
                     >
-                      <div class="truncate text-[13px] font-semibold text-gray-800">
+                      <div class="of-panel-variable-name truncate">
                         {{ structuredOutputVariable?.variable || 'structured_output' }}
                       </div>
                     </CapsuleTooltip>
-                    <div class="shrink-0 text-[12px] text-gray-500">
+                    <div class="of-panel-variable-type shrink-0">
                       {{ structuredOutputVariable?.type || 'object' }}
                     </div>
                   </div>
@@ -269,36 +267,33 @@
                     placement="top"
                     max-width="420px"
                   >
-                    <div class="mt-1 max-w-[220px] truncate text-xs text-gray-400">
+                    <div class="of-panel-variable-path mt-1 max-w-[220px] truncate">
                       {{ formatStructuredOutputNamespace() }}
                     </div>
                   </CapsuleTooltip>
                 </div>
                 <button
                   type="button"
-                  class="shrink-0 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
+                  class="of-panel-action-button of-panel-action-button-secondary shrink-0"
                   @click="openSchemaEditor"
                 >
                   配置
                 </button>
               </div>
 
-              <div class="mt-2 text-xs text-gray-400">
+              <div class="of-panel-hint mt-2">
                 开启后会保留当前面板；需要定义字段时再点击“配置”编辑 Schema。
               </div>
 
-              <div
-                v-if="!structuredSchemaFields.length"
-                class="mt-3 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-3 py-3 text-xs text-gray-400"
-              >
+              <div v-if="!structuredSchemaFields.length" class="of-panel-empty mt-3 text-left">
                 尚未配置结构化字段，点击右侧“配置”创建 Schema。
               </div>
 
-              <div v-if="structuredSchemaFields.length" class="mt-3 space-y-2 pl-3">
+              <div v-if="structuredSchemaFields.length" class="mt-3 space-y-2">
                 <div
                   v-for="field in structuredSchemaFields"
                   :key="field.name"
-                  class="flex min-w-0 items-center gap-3 border-l border-gray-200 pl-3"
+                  class="flex min-w-0 items-center gap-3 border-l border-violet-200 pl-3"
                 >
                   <CapsuleTooltip :text="field.name" placement="top">
                     <div class="min-w-0 flex-1 truncate text-sm text-gray-700">
@@ -722,6 +717,8 @@ onUnmounted(() => {
   window.removeEventListener('of:variable-select', handleVariableSelect as EventListener)
 })
 </script>
+
+<style scoped src="../../../styles/node-panel.css"></style>
 
 <style scoped>
 .of-llm-node-panel {

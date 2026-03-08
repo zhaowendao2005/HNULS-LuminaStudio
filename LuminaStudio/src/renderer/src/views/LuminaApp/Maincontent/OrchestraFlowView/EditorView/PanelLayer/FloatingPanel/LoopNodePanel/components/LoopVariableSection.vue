@@ -21,7 +21,11 @@
           <div class="min-w-0 flex-1 space-y-2">
             <div class="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_124px] gap-3">
               <div class="min-w-0">
-                <div class="mb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-400">显示名</div>
+                <div
+                  class="mb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-400"
+                >
+                  显示名
+                </div>
                 <input
                   :value="item.label || ''"
                   class="h-7 w-full border-0 border-b border-gray-300 bg-transparent px-0 text-[13px] font-semibold leading-[18px] text-gray-900 outline-none"
@@ -31,7 +35,11 @@
                 />
               </div>
               <div class="min-w-0">
-                <div class="mb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-400">变量名</div>
+                <div
+                  class="mb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-400"
+                >
+                  变量名
+                </div>
                 <input
                   :value="item.variable"
                   class="h-7 w-full border-0 border-b border-gray-300 bg-transparent px-0 text-[13px] font-semibold leading-[18px] text-gray-900 outline-none"
@@ -41,7 +49,11 @@
                 />
               </div>
               <div class="min-w-0">
-                <div class="mb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-400">类型</div>
+                <div
+                  class="mb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-400"
+                >
+                  类型
+                </div>
                 <WhiteSelect
                   :model-value="item.type || OFVarTypeEnum.String"
                   :options="typeOptions"
@@ -70,7 +82,11 @@
           <button
             type="button"
             class="font-semibold transition"
-            :class="item.value_type === 'constant' ? 'text-emerald-600' : 'text-gray-400 hover:text-gray-600'"
+            :class="
+              item.value_type === 'constant'
+                ? 'text-emerald-600'
+                : 'text-gray-400 hover:text-gray-600'
+            "
             @click="patch(item, { value_type: 'constant', value_selector: [] })"
           >
             常量
@@ -79,7 +95,9 @@
           <button
             type="button"
             class="font-semibold transition"
-            :class="item.value_type === 'variable' ? 'text-cyan-600' : 'text-gray-400 hover:text-gray-600'"
+            :class="
+              item.value_type === 'variable' ? 'text-cyan-600' : 'text-gray-400 hover:text-gray-600'
+            "
             @click="patch(item, { value_type: 'variable' })"
           >
             变量
@@ -112,7 +130,11 @@
                 class="min-w-0 flex-1 border-0 bg-transparent px-0 text-[13px] leading-[18px] text-gray-800 outline-none"
                 :class="theme.controlFocusClass"
                 placeholder=".field / .0.name"
-                @input="patch(item, { value_selector: parseSelector(($event.target as HTMLInputElement).value) })"
+                @input="
+                  patch(item, {
+                    value_selector: parseSelector(($event.target as HTMLInputElement).value)
+                  })
+                "
               />
             </div>
           </template>
@@ -133,7 +155,9 @@
             >
               <span
                 class="font-semibold transition"
-                :class="item.value === true ? 'text-emerald-600' : 'text-gray-400 hover:text-gray-600'"
+                :class="
+                  item.value === true ? 'text-emerald-600' : 'text-gray-400 hover:text-gray-600'
+                "
                 @click="patch(item, { value: true })"
               >
                 TRUE
@@ -141,7 +165,9 @@
               <span class="text-gray-300">/</span>
               <span
                 class="font-semibold transition"
-                :class="item.value === false ? 'text-rose-600' : 'text-gray-400 hover:text-gray-600'"
+                :class="
+                  item.value === false ? 'text-rose-600' : 'text-gray-400 hover:text-gray-600'
+                "
                 @click="patch(item, { value: false })"
               >
                 FALSE
@@ -157,7 +183,10 @@
             />
           </template>
 
-          <div v-if="item.type === OFVarTypeEnum.Array" class="grid grid-cols-[1fr_auto] gap-3 border-t border-gray-100 pt-3">
+          <div
+            v-if="item.type === OFVarTypeEnum.Array"
+            class="grid grid-cols-[1fr_auto] gap-3 border-t border-gray-100 pt-3"
+          >
             <WhiteSelect
               :model-value="item.item_type || OFVarTypeEnum.String"
               :options="typeOptions"

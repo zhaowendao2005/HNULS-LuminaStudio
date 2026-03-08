@@ -2,7 +2,13 @@
   <div class="rounded-xl transition-shadow" :class="haloClass">
     <div class="mb-3 flex items-center gap-2">
       <div class="flex h-5 w-5 items-center justify-center rounded bg-amber-500 text-white">
-        <svg viewBox="0 0 24 24" class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="2.2">
+        <svg
+          viewBox="0 0 24 24"
+          class="h-3 w-3"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.2"
+        >
           <path
             d="M20 11A8 8 0 1 0 6.062 16.938M20 11V4m0 7h-7M4 13a8 8 0 0 0 13.938 5.938M4 13v7m0-7h7"
             stroke-linecap="round"
@@ -12,29 +18,44 @@
       </div>
       <div class="system-md-semibold text-gray-900">循环</div>
       <div v-if="tracing.status" class="ml-auto">
-        <span class="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium" :class="statusClass">
+        <span
+          class="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium"
+          :class="statusClass"
+        >
           {{ statusText }}
         </span>
       </div>
     </div>
 
-    <div class="rounded-lg border border-gray-200 bg-gray-50 p-3 cursor-pointer" @click="toggleResultPreview">
+    <div
+      class="rounded-lg border border-gray-200 bg-gray-50 p-3 cursor-pointer"
+      @click="toggleResultPreview"
+    >
       <div class="flex items-center justify-between">
         <div class="text-xs font-medium uppercase text-gray-500">真实输出</div>
         <div class="text-xs text-gray-400">共 {{ loopRuns.length }} 轮</div>
       </div>
-      <pre class="mt-2 whitespace-pre-wrap break-all text-sm text-gray-700">{{ displayResultPreview }}</pre>
+      <pre class="mt-2 whitespace-pre-wrap break-all text-sm text-gray-700">{{
+        displayResultPreview
+      }}</pre>
     </div>
 
     <div v-if="loopRuns.length" class="mt-3 space-y-2">
       <div class="text-xs font-medium uppercase text-gray-500">循环轮次追踪</div>
-      <div v-for="item in loopRuns" :key="item.id" class="rounded-lg border border-gray-200 bg-white px-3 py-2">
+      <div
+        v-for="item in loopRuns"
+        :key="item.id"
+        class="rounded-lg border border-gray-200 bg-white px-3 py-2"
+      >
         <div class="flex items-center justify-between gap-3">
           <div class="min-w-0">
             <div class="text-sm font-medium text-gray-700">第 {{ item.loopIndex + 1 }} 轮</div>
             <div class="mt-1 text-xs text-gray-400">scope: {{ item.scopeLabel }}</div>
           </div>
-          <span class="rounded px-2 py-0.5 text-xs font-medium" :class="getStatusClass(item.status)">
+          <span
+            class="rounded px-2 py-0.5 text-xs font-medium"
+            :class="getStatusClass(item.status)"
+          >
             {{ getStatusText(item.status) }}
           </span>
         </div>
@@ -113,9 +134,12 @@ const statusText = computed(() => getStatusText(props.tracing.status))
 const statusClass = computed(() => getStatusClass(props.tracing.status))
 
 function resolveStatus(traces: OFNodeTracing[]) {
-  if (traces.some((trace) => trace.status === OFNodeRunningStatus.Failed)) return OFNodeRunningStatus.Failed
-  if (traces.some((trace) => trace.status === OFNodeRunningStatus.Running)) return OFNodeRunningStatus.Running
-  if (traces.some((trace) => trace.status === OFNodeRunningStatus.Succeeded)) return OFNodeRunningStatus.Succeeded
+  if (traces.some((trace) => trace.status === OFNodeRunningStatus.Failed))
+    return OFNodeRunningStatus.Failed
+  if (traces.some((trace) => trace.status === OFNodeRunningStatus.Running))
+    return OFNodeRunningStatus.Running
+  if (traces.some((trace) => trace.status === OFNodeRunningStatus.Succeeded))
+    return OFNodeRunningStatus.Succeeded
   return OFNodeRunningStatus.NotStarted
 }
 

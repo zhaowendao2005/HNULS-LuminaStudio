@@ -2,7 +2,12 @@
   <div class="of-start-tab-4a2 h-full flex flex-col">
     <div v-if="!startNode" class="py-8 text-center">
       <div class="mb-2 text-gray-400">
-        <svg class="mx-auto h-12 w-12 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg
+          class="mx-auto h-12 w-12 text-gray-300"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
           <path
             stroke-linecap="round"
             stroke-linejoin="round"
@@ -17,7 +22,12 @@
 
     <div v-else-if="!inputVars.length" class="py-8 text-center">
       <div class="mb-2 text-gray-400">
-        <svg class="mx-auto h-12 w-12 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg
+          class="mx-auto h-12 w-12 text-gray-300"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
           <path
             stroke-linecap="round"
             stroke-linejoin="round"
@@ -28,7 +38,10 @@
       </div>
       <div class="system-md-regular text-gray-500">无输入参数</div>
       <div class="mt-1 text-sm text-gray-400">开始节点未配置输入字段</div>
-      <button class="mt-4 px-4 py-2 text-sm text-indigo-600 hover:text-indigo-700" @click="openStartNodeConfig">
+      <button
+        class="mt-4 px-4 py-2 text-sm text-indigo-600 hover:text-indigo-700"
+        @click="openStartNodeConfig"
+      >
         去配置 →
       </button>
     </div>
@@ -62,7 +75,9 @@ const uiStore = useWorkflowEditorUIStore()
 
 const formData = reactive<Record<string, any>>({})
 
-const startNode = computed(() => editorStore.nodes.find((node) => node.data.type === OFBlockEnum.Start))
+const startNode = computed(() =>
+  editorStore.nodes.find((node) => node.data.type === OFBlockEnum.Start)
+)
 
 const inputVars = computed<OFInputVar[]>(() => {
   if (!startNode.value) return []

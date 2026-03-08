@@ -89,10 +89,7 @@ function normalizeNodeTitle(type: OFBlockEnum, raw: string | undefined): string 
   return trimmed || getDefaultNodeTitle(type)
 }
 
-function createIterationStartNode(
-  iterationNodeId: string,
-  iterationTitle: string
-): OFNode {
+function createIterationStartNode(iterationNodeId: string, iterationTitle: string): OFNode {
   return {
     id: `${iterationNodeId}-iteration-start`,
     type: 'iteration-start',
@@ -188,11 +185,9 @@ function getNestedNodeFootprint(node: OFNode): { width: number; height: number }
   return NESTED_NODE_DEFAULT_SIZES[node.type] || { width: 240, height: 96 }
 }
 
-function buildCommonNodeShape<T extends { title?: string; desc?: string; width?: number; height?: number }>(
-  raw: T,
-  title: string,
-  fallbackDesc = ''
-) {
+function buildCommonNodeShape<
+  T extends { title?: string; desc?: string; width?: number; height?: number }
+>(raw: T, title: string, fallbackDesc = '') {
   return {
     title,
     desc: raw.desc || fallbackDesc,
@@ -558,10 +553,16 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
     newRoot: string
   ): string[] {
     if (!selector?.length) return selector || []
-    return selector.map((segment, index) => (index === 0 && segment === oldRoot ? newRoot : segment))
+    return selector.map((segment, index) =>
+      index === 0 && segment === oldRoot ? newRoot : segment
+    )
   }
 
-  function replacePathRoot(path: string | undefined, oldRoot: string, newRoot: string): string | undefined {
+  function replacePathRoot(
+    path: string | undefined,
+    oldRoot: string,
+    newRoot: string
+  ): string | undefined {
     if (!path) return path
     if (path === oldRoot) return newRoot
     if (path.startsWith(`${oldRoot}.`)) {
@@ -606,11 +607,7 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
             output_selector: replaceNamespace(data.output_selector, oldNamespace, newNamespace),
             branch_output_selectors: (data.branch_output_selectors || []).map((item) => ({
               ...item,
-              output_selector: replaceNamespace(
-                item.output_selector,
-                oldNamespace,
-                newNamespace
-              )
+              output_selector: replaceNamespace(item.output_selector, oldNamespace, newNamespace)
             }))
           }
         }
@@ -715,7 +712,11 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
           : undefined
         const nextItem = matchedById || nextVariables[index]
         if (!nextItem) return null
-        if (!previousItem.variable || !nextItem.variable || previousItem.variable === nextItem.variable) {
+        if (
+          !previousItem.variable ||
+          !nextItem.variable ||
+          previousItem.variable === nextItem.variable
+        ) {
           return null
         }
         return { oldVariable: previousItem.variable, newVariable: nextItem.variable }
@@ -814,7 +815,11 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
               ...data,
               rules: (data.rules || []).map((rule) => ({
                 ...rule,
-                source_selector: replaceSelectorRoot(rule.source_selector, oldVariable, newVariable),
+                source_selector: replaceSelectorRoot(
+                  rule.source_selector,
+                  oldVariable,
+                  newVariable
+                ),
                 source_path: replacePathRoot(rule.source_path, oldVariable, newVariable),
                 source_label: replacePathRoot(rule.source_label, oldVariable, newVariable)
               }))
@@ -967,8 +972,8 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
     while (pendingNodeIds.length > 0) {
       const currentNodeId = pendingNodeIds.pop()!
       const currentNode = findNodeByIdFrom(currentNodeId, nodes.value)
-      const subgraphNodes = (currentNode?.data as { subgraph?: { nodes?: OFNode[] } } | undefined)?.subgraph
-        ?.nodes
+      const subgraphNodes = (currentNode?.data as { subgraph?: { nodes?: OFNode[] } } | undefined)
+        ?.subgraph?.nodes
 
       ;(subgraphNodes || []).forEach((childNode) => {
         if (!removedNodeIds.has(childNode.id)) {
@@ -983,7 +988,11 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
     while (changed) {
       changed = false
       nodes.value.forEach((node) => {
-        if (node.parentNode && removedNodeIds.has(node.parentNode) && !removedNodeIds.has(node.id)) {
+        if (
+          node.parentNode &&
+          removedNodeIds.has(node.parentNode) &&
+          !removedNodeIds.has(node.id)
+        ) {
           removedNodeIds.add(node.id)
           changed = true
         }
@@ -1039,7 +1048,8 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
     const iterationNode = findNodeByIdFrom(iterationNodeId, nodes.value)
     if (
       !iterationNode ||
-      (iterationNode.data.type !== OFBlockEnum.Iteration && iterationNode.data.type !== OFBlockEnum.Loop)
+      (iterationNode.data.type !== OFBlockEnum.Iteration &&
+        iterationNode.data.type !== OFBlockEnum.Loop)
     ) {
       return
     }
@@ -1050,7 +1060,10 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
 
     childNodes.forEach((childNode) => {
       const size = getNestedNodeFootprint(childNode)
-      nextWidth = Math.max(nextWidth, Math.round(childNode.position.x + size.width + ITERATION_RESIZE_PADDING_X))
+      nextWidth = Math.max(
+        nextWidth,
+        Math.round(childNode.position.x + size.width + ITERATION_RESIZE_PADDING_X)
+      )
       nextHeight = Math.max(
         nextHeight,
         Math.round(childNode.position.y + size.height + ITERATION_RESIZE_PADDING_Y)
@@ -1086,7 +1099,8 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
     const iterationNode = findNodeByIdFrom(iterationNodeId, nodes.value)
     if (
       !iterationNode ||
-      (iterationNode.data.type !== OFBlockEnum.Iteration && iterationNode.data.type !== OFBlockEnum.Loop)
+      (iterationNode.data.type !== OFBlockEnum.Iteration &&
+        iterationNode.data.type !== OFBlockEnum.Loop)
     ) {
       return
     }
@@ -1128,7 +1142,8 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
     const iterationNode = findNodeByIdFrom(iterationNodeId, nodes.value)
     if (
       !iterationNode ||
-      (iterationNode.data.type !== OFBlockEnum.Iteration && iterationNode.data.type !== OFBlockEnum.Loop)
+      (iterationNode.data.type !== OFBlockEnum.Iteration &&
+        iterationNode.data.type !== OFBlockEnum.Loop)
     ) {
       return
     }
@@ -1137,9 +1152,7 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
     const nextChildNodes = (subgraph?.nodes || []).map((node) => normalizeNode(cloneNode(node)))
     const nextChildNodeIds = new Set(nextChildNodes.map((node) => node.id))
     const previousChildNodeIds = new Set(
-      nodes.value
-        .filter((node) => node.parentNode === iterationNodeId)
-        .map((node) => node.id)
+      nodes.value.filter((node) => node.parentNode === iterationNodeId).map((node) => node.id)
     )
 
     nodes.value = dedupeNodes([
@@ -1164,7 +1177,10 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
 
     childNodes.forEach((childNode) => {
       const size = getNestedNodeFootprint(childNode)
-      minWidth = Math.max(minWidth, Math.round(childNode.position.x + size.width + ITERATION_RESIZE_PADDING_X))
+      minWidth = Math.max(
+        minWidth,
+        Math.round(childNode.position.x + size.width + ITERATION_RESIZE_PADDING_X)
+      )
       minHeight = Math.max(
         minHeight,
         Math.round(childNode.position.y + size.height + ITERATION_RESIZE_PADDING_Y)
@@ -1178,7 +1194,10 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
     scheduleSave()
   }
 
-  function updateIterationViewport(nodeId: string, viewportValue: { x: number; y: number; zoom: number }) {
+  function updateIterationViewport(
+    nodeId: string,
+    viewportValue: { x: number; y: number; zoom: number }
+  ) {
     const target = findNodeByIdFrom(nodeId, nodes.value)
     if (
       !target ||
@@ -1222,7 +1241,8 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
     if (
       !movingNode ||
       !targetIteration ||
-      (targetIteration.data.type !== OFBlockEnum.Iteration && targetIteration.data.type !== OFBlockEnum.Loop)
+      (targetIteration.data.type !== OFBlockEnum.Iteration &&
+        targetIteration.data.type !== OFBlockEnum.Loop)
     ) {
       return
     }
@@ -1236,7 +1256,9 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
       return
     }
 
-    const hasConnectedEdges = edges.value.some((edge) => edge.source === nodeId || edge.target === nodeId)
+    const hasConnectedEdges = edges.value.some(
+      (edge) => edge.source === nodeId || edge.target === nodeId
+    )
     if (hasConnectedEdges) return
 
     const parentIterationId = findParentIterationNodeId(nodeId)
@@ -1279,7 +1301,10 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
   function addNode(type: OFBlockEnum): string {
     const id = `node_${type}_${Date.now()}`
     const position = { x: 200 + Math.random() * 100, y: 200 + Math.random() * 100 }
-    const title = getUniqueNodeTitle(type, type === OFBlockEnum.Loop ? '循环' : getDefaultNodeTitle(type))
+    const title = getUniqueNodeTitle(
+      type,
+      type === OFBlockEnum.Loop ? '循环' : getDefaultNodeTitle(type)
+    )
 
     let nodeData:
       | OFStartNodeData
@@ -1552,7 +1577,11 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
             loopData.subgraph
           ),
           output: {
-            variables: buildLoopOutputVariables(loopData.title, loopData.loop_variables || [], nodeId)
+            variables: buildLoopOutputVariables(
+              loopData.title,
+              loopData.loop_variables || [],
+              nodeId
+            )
           }
         }
       }
@@ -1596,9 +1625,9 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
           ? normalizeOFVariableNamespace(currentNode.data.title, 'iteration')
           : currentNode.data.type === OFBlockEnum.Loop
             ? normalizeOFVariableNamespace(currentNode.data.title, 'loop')
-          : currentNode.data.type === OFBlockEnum.VariableAssign
-            ? normalizeOFVariableNamespace(currentNode.data.title, 'assign')
-          : ''
+            : currentNode.data.type === OFBlockEnum.VariableAssign
+              ? normalizeOFVariableNamespace(currentNode.data.title, 'assign')
+              : ''
 
     nodes.value = updateNodeCollection(nodes.value, nodeId, nextData)
 
@@ -1623,12 +1652,16 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
         syncLoopVariableReferences(
           nodeId,
           (currentNode.data as OFLoopNodeData).loop_variables || [],
-          ((updatedNode.data as OFLoopNodeData).loop_variables || []) as OFLoopNodeData['loop_variables']
+          ((updatedNode.data as OFLoopNodeData).loop_variables ||
+            []) as OFLoopNodeData['loop_variables']
         )
       }
     }
 
-    if (currentNode.data.type === OFBlockEnum.VariableAssign && typeof nextData.title === 'string') {
+    if (
+      currentNode.data.type === OFBlockEnum.VariableAssign &&
+      typeof nextData.title === 'string'
+    ) {
       const nextNamespace = normalizeOFVariableNamespace(nextData.title, 'assign')
       syncNodeNamespaceReferences(previousNamespace, nextNamespace, nodeId)
     }

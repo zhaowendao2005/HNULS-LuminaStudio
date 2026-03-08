@@ -104,7 +104,10 @@
               输入数组
               <span class="text-red-500">*</span>
             </div>
-            <div class="rounded-full border px-2 py-0.5 text-[10px] font-medium" :class="theme.softBadgeClass">
+            <div
+              class="rounded-full border px-2 py-0.5 text-[10px] font-medium"
+              :class="theme.softBadgeClass"
+            >
               ARRAY
             </div>
           </div>
@@ -132,7 +135,10 @@
                 结果项变量
                 <span class="text-red-500">*</span>
               </div>
-              <div class="rounded-full border px-2 py-0.5 text-[10px] font-medium" :class="theme.softBadgeClass">
+              <div
+                class="rounded-full border px-2 py-0.5 text-[10px] font-medium"
+                :class="theme.softBadgeClass"
+              >
                 INTERNAL
               </div>
             </div>
@@ -156,7 +162,10 @@
           <template v-else>
             <div class="flex items-center justify-between">
               <div class="system-sm-semibold-uppercase text-gray-700">支路结果变量</div>
-              <div class="rounded-full border px-2 py-0.5 text-[10px] font-medium" :class="theme.softBadgeClass">
+              <div
+                class="rounded-full border px-2 py-0.5 text-[10px] font-medium"
+                :class="theme.softBadgeClass"
+              >
                 BRANCH
               </div>
             </div>
@@ -179,7 +188,10 @@
                     {{ branchTarget.sourceHandleId }}
                   </div>
                 </div>
-                <button class="group text-left" @click="openBranchOutputVariableSelector(branchTarget, $event)">
+                <button
+                  class="group text-left"
+                  @click="openBranchOutputVariableSelector(branchTarget, $event)"
+                >
                   <div class="flex items-center gap-2 text-xs">
                     <span class="font-semibold text-amber-600">{{ branchTarget.label }}</span>
                     <span
@@ -288,7 +300,11 @@
                 </CapsuleTooltip>
                 <div class="shrink-0 text-[12px] text-gray-500">{{ item.type || 'string' }}</div>
               </div>
-              <CapsuleTooltip :text="formatSelector(item.value_selector)" placement="top" max-width="420px">
+              <CapsuleTooltip
+                :text="formatSelector(item.value_selector)"
+                placement="top"
+                max-width="420px"
+              >
                 <div class="max-w-[280px] truncate text-xs text-gray-400">
                   {{ formatSelector(item.value_selector) }}
                 </div>
@@ -373,7 +389,9 @@ const descModel = computed({
   set: (value: string) => patchNode({ desc: value })
 })
 
-const iteratorSelectorDisplayText = computed(() => formatSelector(nodeData.value?.iterator_selector))
+const iteratorSelectorDisplayText = computed(() =>
+  formatSelector(nodeData.value?.iterator_selector)
+)
 const outputSelectorDisplayText = computed(() => formatSelector(nodeData.value?.output_selector))
 const outputPreviewVariables = computed(() => nodeData.value?.output?.variables || [])
 const outputNamespaceLabel = computed(() => nodeData.value?.title || 'iteration')
@@ -411,7 +429,8 @@ const parallelModeModel = computed({
 
 const parallelNumsModel = computed({
   get: () => Math.max(1, Number(nodeData.value?.parallel_nums || 1)),
-  set: (value: number) => patchNode({ parallel_nums: Math.max(1, Math.min(10, Number(value || 1))) })
+  set: (value: number) =>
+    patchNode({ parallel_nums: Math.max(1, Math.min(10, Number(value || 1))) })
 })
 
 const flattenOutputModel = computed({
@@ -476,16 +495,24 @@ function patchNode(patch: Partial<OFIterationNodeData>) {
 
 function openInputVariableSelector(event: MouseEvent) {
   if (!uiStore.selectedNodeId) return
-  const anchorRect = (event.currentTarget as HTMLElement | null)?.getBoundingClientRect() || undefined
-  variableSelectorStore.openSelector(uiStore.selectedNodeId, 'iteration-input', anchorRect, undefined, {
-    x: event.clientX,
-    y: event.clientY
-  })
+  const anchorRect =
+    (event.currentTarget as HTMLElement | null)?.getBoundingClientRect() || undefined
+  variableSelectorStore.openSelector(
+    uiStore.selectedNodeId,
+    'iteration-input',
+    anchorRect,
+    undefined,
+    {
+      x: event.clientX,
+      y: event.clientY
+    }
+  )
 }
 
 function openOutputVariableSelector(event: MouseEvent) {
   if (!uiStore.selectedNodeId) return
-  const anchorRect = (event.currentTarget as HTMLElement | null)?.getBoundingClientRect() || undefined
+  const anchorRect =
+    (event.currentTarget as HTMLElement | null)?.getBoundingClientRect() || undefined
   variableSelectorStore.openSelector(
     uiStore.selectedNodeId,
     'iteration-output',
@@ -506,7 +533,8 @@ function openBranchOutputVariableSelector(
   event: MouseEvent
 ) {
   if (!uiStore.selectedNodeId) return
-  const anchorRect = (event.currentTarget as HTMLElement | null)?.getBoundingClientRect() || undefined
+  const anchorRect =
+    (event.currentTarget as HTMLElement | null)?.getBoundingClientRect() || undefined
   variableSelectorStore.openSelector(
     uiStore.selectedNodeId,
     'iteration-output',

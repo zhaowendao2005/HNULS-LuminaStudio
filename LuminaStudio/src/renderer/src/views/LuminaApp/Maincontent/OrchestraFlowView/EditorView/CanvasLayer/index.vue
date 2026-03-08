@@ -227,14 +227,15 @@ function handleNodeDragStop(event: { node: Node }) {
       if (
         candidate.id === node.id ||
         candidate.parentNode ||
-          candidate.data.type !== OFBlockEnum.Iteration &&
-          candidate.data.type !== OFBlockEnum.Loop
+        (candidate.data.type !== OFBlockEnum.Iteration && candidate.data.type !== OFBlockEnum.Loop)
       ) {
         return false
       }
       const width = candidate.data.width || 650
       const height = candidate.data.height || 417
-      const nodeWidth = Number((node as Node & { dimensions?: { width?: number } }).dimensions?.width || 120)
+      const nodeWidth = Number(
+        (node as Node & { dimensions?: { width?: number } }).dimensions?.width || 120
+      )
       const nodeHeight = Number(
         (node as Node & { dimensions?: { height?: number } }).dimensions?.height || 60
       )
@@ -272,8 +273,14 @@ function handleEdgesChange(changes: EdgeChange[]) {
 }
 
 // 使用 VueFlow composable 来同步 viewport
-const { onViewportChange, setViewport, getSelectedNodes, getSelectedEdges, removeNodes, removeEdges } =
-  useVueFlow()
+const {
+  onViewportChange,
+  setViewport,
+  getSelectedNodes,
+  getSelectedEdges,
+  removeNodes,
+  removeEdges
+} = useVueFlow()
 
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) {

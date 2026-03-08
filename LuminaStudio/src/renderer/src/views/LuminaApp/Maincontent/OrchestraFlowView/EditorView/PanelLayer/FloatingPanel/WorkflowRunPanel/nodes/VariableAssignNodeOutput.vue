@@ -18,7 +18,10 @@
       <pre class="mt-2 whitespace-pre-wrap break-all text-sm text-gray-700">{{ prettyOutput }}</pre>
     </div>
 
-    <div v-if="tracing.error" class="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+    <div
+      v-if="tracing.error"
+      class="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+    >
       {{ tracing.error }}
     </div>
   </div>

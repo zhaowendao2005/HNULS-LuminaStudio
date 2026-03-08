@@ -203,9 +203,8 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
       nodeType === OFBlockEnum.LoopStart
     ) {
       variables = (
-        (
-          data as OFStartNodeData | OFIterationStartNodeData | OFLoopStartNodeData
-        ).input?.variables || []
+        (data as OFStartNodeData | OFIterationStartNodeData | OFLoopStartNodeData).input
+          ?.variables || []
       ).map((item) => ({
         ...item,
         value_selector: item.value_selector?.length ? item.value_selector : [item.variable]
@@ -225,8 +224,7 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
             | OFLoopNodeData
             | OFVariableAssignNodeData
             | OFEndNodeData
-        ).output?.variables ||
-          []) as OFVariable[]
+        ).output?.variables || []) as OFVariable[]
       ).map((item) => ({
         ...item,
         value_selector: item.value_selector?.length ? item.value_selector : [item.variable]
@@ -388,12 +386,14 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
         ? targetNode.id
         : editorStore.findParentIterationNodeId(targetNodeId.value)
     const localLoopGroup =
-      targetType.value === 'loop-condition-left' ||
-      targetType.value === 'loop-condition-right'
+      targetType.value === 'loop-condition-left' || targetType.value === 'loop-condition-right'
         ? buildLoopLocalVariableGroup(activeLoopNodeId)
         : null
 
-    if (targetType.value === 'iteration-output' && targetNode?.data.type === OFBlockEnum.Iteration) {
+    if (
+      targetType.value === 'iteration-output' &&
+      targetNode?.data.type === OFBlockEnum.Iteration
+    ) {
       const iterationData = targetNode.data as OFIterationNodeData
       const subgraphNodes = iterationData.subgraph?.nodes || []
       const subgraphEdges = iterationData.subgraph?.edges || []
@@ -469,7 +469,11 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
       .flatMap((node) => extractNodeOutputs(node))
       .filter((group) => group.items.length > 0)
 
-    const groups = [...(localLoopGroup ? [localLoopGroup] : []), ...upstreamGroups, buildSystemVariableGroup()]
+    const groups = [
+      ...(localLoopGroup ? [localLoopGroup] : []),
+      ...upstreamGroups,
+      buildSystemVariableGroup()
+    ]
 
     if (!searchKeyword.value.trim()) {
       return groups

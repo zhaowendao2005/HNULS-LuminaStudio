@@ -111,7 +111,11 @@ export class IterationNode extends BaseNode {
             return
           }
 
-          const itemResult = await runItem(items[currentIndex], currentIndex, `worker-${workerIndex}`)
+          const itemResult = await runItem(
+            items[currentIndex],
+            currentIndex,
+            `worker-${workerIndex}`
+          )
           results[currentIndex] = itemResult.value
           if (itemResult.error) {
             if (errorMode === 'terminated') {
@@ -124,9 +128,7 @@ export class IterationNode extends BaseNode {
         }
       }
 
-      await Promise.all(
-        Array.from({ length: concurrency }, (_item, index) => worker(index))
-      )
+      await Promise.all(Array.from({ length: concurrency }, (_item, index) => worker(index)))
     } else {
       for (let index = 0; index < items.length; index += 1) {
         if (context.isStopped()) {

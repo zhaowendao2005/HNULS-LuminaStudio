@@ -6,7 +6,13 @@
           class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-white"
           :class="theme.iconBgClass"
         >
-          <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2">
+          <svg
+            viewBox="0 0 24 24"
+            class="h-3.5 w-3.5"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
             <path
               stroke-linecap="round"
               stroke-linejoin="round"
@@ -58,14 +64,18 @@
       <div class="mt-3 flex items-center gap-4">
         <button
           class="system-md-semibold border-b-2 pb-2 pt-2.5"
-          :class="activeTab === 'settings' ? theme.tabActiveClass : 'border-transparent text-gray-400'"
+          :class="
+            activeTab === 'settings' ? theme.tabActiveClass : 'border-transparent text-gray-400'
+          "
           @click="setActiveTab('settings')"
         >
           设置
         </button>
         <button
           class="system-md-semibold border-b-2 pb-2 pt-2.5"
-          :class="activeTab === 'lastRun' ? theme.tabActiveClass : 'border-transparent text-gray-400'"
+          :class="
+            activeTab === 'lastRun' ? theme.tabActiveClass : 'border-transparent text-gray-400'
+          "
           @click="setActiveTab('lastRun')"
         >
           上次运行
@@ -98,7 +108,11 @@
                   <button
                     type="button"
                     class="rounded-md px-3 py-1 text-xs font-medium transition"
-                    :class="rule.source_mode === 'variable' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500'"
+                    :class="
+                      rule.source_mode === 'variable'
+                        ? 'bg-white text-gray-800 shadow-sm'
+                        : 'text-gray-500'
+                    "
                     @click="patchRule(rule.id, { source_mode: 'variable' })"
                   >
                     变量
@@ -106,7 +120,11 @@
                   <button
                     type="button"
                     class="rounded-md px-3 py-1 text-xs font-medium transition"
-                    :class="rule.source_mode === 'constant' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500'"
+                    :class="
+                      rule.source_mode === 'constant'
+                        ? 'bg-white text-gray-800 shadow-sm'
+                        : 'text-gray-500'
+                    "
                     @click="patchRule(rule.id, { source_mode: 'constant' })"
                   >
                     常量
@@ -140,7 +158,9 @@
                     class="h-10 w-full rounded-xl border border-[#e5e7eb] bg-[#f3f4f6] px-3 text-sm text-gray-800 outline-none focus:bg-white"
                     :class="theme.controlFocusClass"
                     placeholder="可手动补充 .field 或 .0.name"
-                    @input="handleSourcePathInput(rule.id, ($event.target as HTMLInputElement).value)"
+                    @input="
+                      handleSourcePathInput(rule.id, ($event.target as HTMLInputElement).value)
+                    "
                   />
                 </div>
 
@@ -152,8 +172,16 @@
                     rows="4"
                     class="w-full rounded-xl border border-[#e5e7eb] bg-[#f3f4f6] px-3 py-2 font-mono text-sm text-gray-800 outline-none focus:bg-white"
                     :class="theme.controlFocusClass"
-                    :placeholder="rule.target_type === OFVarTypeEnum.Array ? '请输入 JSON 数组，例如 []' : '请输入 JSON 对象，例如 {}'"
-                    @input="patchRule(rule.id, { constant_value: ($event.target as HTMLTextAreaElement).value })"
+                    :placeholder="
+                      rule.target_type === OFVarTypeEnum.Array
+                        ? '请输入 JSON 数组，例如 []'
+                        : '请输入 JSON 对象，例如 {}'
+                    "
+                    @input="
+                      patchRule(rule.id, {
+                        constant_value: ($event.target as HTMLTextAreaElement).value
+                      })
+                    "
                   />
                   <button
                     v-else-if="rule.target_type === OFVarTypeEnum.Boolean"
@@ -162,14 +190,22 @@
                   >
                     <span
                       class="min-w-[64px] rounded-[8px] px-2 text-center text-xs font-semibold leading-8 transition"
-                      :class="rule.constant_value === true ? 'bg-green-50 text-green-700 shadow-sm' : 'text-gray-400'"
+                      :class="
+                        rule.constant_value === true
+                          ? 'bg-green-50 text-green-700 shadow-sm'
+                          : 'text-gray-400'
+                      "
                       @click="patchRule(rule.id, { constant_value: true })"
                     >
                       TRUE
                     </span>
                     <span
                       class="min-w-[64px] rounded-[8px] px-2 text-center text-xs font-semibold leading-8 transition"
-                      :class="rule.constant_value === false ? 'bg-rose-50 text-rose-700 shadow-sm' : 'text-gray-400'"
+                      :class="
+                        rule.constant_value === false
+                          ? 'bg-rose-50 text-rose-700 shadow-sm'
+                          : 'text-gray-400'
+                      "
                       @click="patchRule(rule.id, { constant_value: false })"
                     >
                       FALSE
@@ -182,7 +218,11 @@
                     class="h-10 w-full rounded-xl border border-[#e5e7eb] bg-[#f3f4f6] px-3 text-sm text-gray-800 outline-none focus:bg-white"
                     :class="theme.controlFocusClass"
                     placeholder="请输入常量值"
-                    @input="patchRule(rule.id, { constant_value: ($event.target as HTMLInputElement).value })"
+                    @input="
+                      patchRule(rule.id, {
+                        constant_value: ($event.target as HTMLInputElement).value
+                      })
+                    "
                   />
                 </div>
 
@@ -203,7 +243,11 @@
                       class="h-10 w-full rounded-xl border border-[#e5e7eb] bg-[#f3f4f6] px-3 text-sm text-gray-800 outline-none focus:bg-white"
                       :class="theme.controlFocusClass"
                       placeholder="例如 summary_text"
-                      @input="patchRule(rule.id, { target_variable: ($event.target as HTMLInputElement).value })"
+                      @input="
+                        patchRule(rule.id, {
+                          target_variable: ($event.target as HTMLInputElement).value
+                        })
+                      "
                     />
                   </div>
                   <div class="space-y-2">
@@ -215,12 +259,17 @@
                       trigger-class="!h-10 !w-full !rounded-xl !border-[#e5e7eb] !bg-[#f3f4f6] !px-3 !text-sm !text-gray-800"
                       panel-class="min-w-[140px]"
                       teleport-to="body"
-                      @update:model-value="handleTargetTypeChange(rule.id, String($event) as OFVarType)"
+                      @update:model-value="
+                        handleTargetTypeChange(rule.id, String($event) as OFVarType)
+                      "
                     />
                   </div>
                 </div>
 
-                <div v-if="rule.target_type === OFVarTypeEnum.Array" class="grid grid-cols-[1fr_auto] gap-3">
+                <div
+                  v-if="rule.target_type === OFVarTypeEnum.Array"
+                  class="grid grid-cols-[1fr_auto] gap-3"
+                >
                   <div class="space-y-2">
                     <div class="system-sm-semibold-uppercase text-gray-700">数组元素类型</div>
                     <WhiteSelect
@@ -230,7 +279,9 @@
                       trigger-class="!h-10 !w-full !rounded-xl !border-[#e5e7eb] !bg-[#f3f4f6] !px-3 !text-sm !text-gray-800"
                       panel-class="min-w-[140px]"
                       teleport-to="body"
-                      @update:model-value="patchRule(rule.id, { item_type: String($event) as OFVarType })"
+                      @update:model-value="
+                        patchRule(rule.id, { item_type: String($event) as OFVarType })
+                      "
                     />
                   </div>
                   <button
@@ -243,7 +294,10 @@
                   </button>
                 </div>
 
-                <div v-else-if="rule.target_type === OFVarTypeEnum.Object" class="flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
+                <div
+                  v-else-if="rule.target_type === OFVarTypeEnum.Object"
+                  class="flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-3 py-2"
+                >
                   <div>
                     <div class="text-sm font-medium text-gray-700">对象 Schema</div>
                     <div class="text-xs text-gray-400">{{ getSchemaSummary(rule) }}</div>
@@ -270,7 +324,9 @@
           <div class="space-y-3">
             <div v-for="item in outputPreviewVariables" :key="item.variable" class="space-y-1">
               <div class="flex min-w-0 items-center gap-2 leading-[18px]">
-                <div class="truncate text-[13px] font-semibold text-gray-800">{{ item.variable }}</div>
+                <div class="truncate text-[13px] font-semibold text-gray-800">
+                  {{ item.variable }}
+                </div>
                 <div class="shrink-0 text-[12px] text-gray-500">{{ item.type || 'string' }}</div>
               </div>
               <div class="max-w-[280px] truncate text-xs text-gray-400">
@@ -318,7 +374,9 @@ import { useVariableSelectorStore } from '@renderer/stores/orchestraflow/workflo
 import { useNodeDebugStore } from '@renderer/stores/orchestraflow/node-debug/node-debug.store'
 import { useObjectSchemaEditorStore } from '@renderer/stores/orchestraflow/workflow-editor/object-schema-editor/object-schema-editor.store'
 import { useVariableAssignNodeConfigStore } from '@renderer/stores/orchestraflow/workflow-editor/node-config/variable-assign-node-config/variable-assign-node-config.store'
-import WhiteSelect, { type WhiteSelectOption } from '@renderer/views/LuminaApp/Maincontent/NormalChat/components/WhiteSelect.vue'
+import WhiteSelect, {
+  type WhiteSelectOption
+} from '@renderer/views/LuminaApp/Maincontent/NormalChat/components/WhiteSelect.vue'
 import type { NodeDebugField } from './NodeDebug/NodeDebugForm.vue'
 import NodeDebugForm from './NodeDebug/NodeDebugForm.vue'
 import NodeDebugLastRun from './NodeDebug/NodeDebugLastRun.vue'
@@ -455,7 +513,8 @@ function removeRule(ruleId: string) {
 function openRuleSelector(ruleId: string, event: MouseEvent) {
   if (!uiStore.selectedNodeId) return
   activeRuleId.value = ruleId
-  const anchorRect = (event.currentTarget as HTMLElement | null)?.getBoundingClientRect() || undefined
+  const anchorRect =
+    (event.currentTarget as HTMLElement | null)?.getBoundingClientRect() || undefined
   variableSelectorStore.openSelector(
     uiStore.selectedNodeId,
     'variable-assign-source',
@@ -471,7 +530,8 @@ function openRuleSelector(ruleId: string, event: MouseEvent) {
 function openTargetSelector(ruleId: string, event: MouseEvent) {
   if (!uiStore.selectedNodeId) return
   activeRuleId.value = ruleId
-  const anchorRect = (event.currentTarget as HTMLElement | null)?.getBoundingClientRect() || undefined
+  const anchorRect =
+    (event.currentTarget as HTMLElement | null)?.getBoundingClientRect() || undefined
   variableSelectorStore.openSelector(
     uiStore.selectedNodeId,
     'variable-assign-target',
@@ -572,10 +632,7 @@ function formatSelector(selector?: string[]) {
 
 function handleVariableSelect(event: Event) {
   const detail = (event as CustomEvent).detail
-  if (
-    detail?.nodeId !== uiStore.selectedNodeId ||
-    !activeRuleId.value
-  ) {
+  if (detail?.nodeId !== uiStore.selectedNodeId || !activeRuleId.value) {
     return
   }
 

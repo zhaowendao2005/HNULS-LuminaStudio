@@ -39,7 +39,13 @@ export class LoopNode extends BaseNode {
         return this.buildStoppedResult(nodeData, workingStore)
       }
 
-      this.setLoopRuntimeMetadata(workingStore, normalizedTitle, context.node.id, index, nodeData.loop_count)
+      this.setLoopRuntimeMetadata(
+        workingStore,
+        normalizedTitle,
+        context.node.id,
+        index,
+        nodeData.loop_count
+      )
       if (this.shouldBreak(nodeData.break_conditions, nodeData.logical_operator, workingStore)) {
         break
       }
@@ -84,7 +90,10 @@ export class LoopNode extends BaseNode {
     return { outputs }
   }
 
-  private initializeLoopVariables(loopVariables: OFLoopVariableData[], workingStore: VariableStore): void {
+  private initializeLoopVariables(
+    loopVariables: OFLoopVariableData[],
+    workingStore: VariableStore
+  ): void {
     for (const loopVariable of loopVariables) {
       const value = this.resolveLoopVariableValue(loopVariable, workingStore)
       workingStore.set(loopVariable.variable, value)
@@ -164,10 +173,7 @@ export class LoopNode extends BaseNode {
     }
   }
 
-  private buildStoppedResult(
-    nodeData: OFLoopNodeData,
-    workingStore: VariableStore
-  ): NodeResult {
+  private buildStoppedResult(nodeData: OFLoopNodeData, workingStore: VariableStore): NodeResult {
     return {
       outputs: this.buildFinalOutputs(nodeData, workingStore),
       error: 'Workflow stopped'

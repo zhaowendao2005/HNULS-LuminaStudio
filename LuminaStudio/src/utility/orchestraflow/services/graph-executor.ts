@@ -2,13 +2,9 @@ import type {
   OFEdge,
   OFNode,
   OFNodeExecutionMetadata,
-  OFNodeTracing,
+  OFNodeTracing
 } from '@shared/Orchestraflow-types'
-import {
-  buildOFNodeTraceKey,
-  OFBlockEnum,
-  OFNodeRunningStatus
-} from '@shared/Orchestraflow-types'
+import { buildOFNodeTraceKey, OFBlockEnum, OFNodeRunningStatus } from '@shared/Orchestraflow-types'
 import { executeNode } from './executor'
 import type {
   BranchSelection,
@@ -51,7 +47,11 @@ export class GraphExecutor {
   async executeGraph(params: ExecuteGraphParams): Promise<GraphExecutionResult> {
     const nodeLevels = this.topologicalLevels(params.graph.nodes, params.graph.edges)
     const edgesBySource = this.buildEdgesBySource(params.graph.edges)
-    let activeNodeIds = this.getInitialActiveNodeIds(nodeLevels, params.graph.nodes, params.startNodeId)
+    let activeNodeIds = this.getInitialActiveNodeIds(
+      nodeLevels,
+      params.graph.nodes,
+      params.startNodeId
+    )
     let endOutputs: Record<string, any> | undefined
     let fallbackOutputs: Record<string, any> | undefined
     const selectedBranches: BranchSelection[] = []

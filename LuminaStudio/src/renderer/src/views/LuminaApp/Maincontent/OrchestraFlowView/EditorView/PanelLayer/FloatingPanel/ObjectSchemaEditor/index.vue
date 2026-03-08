@@ -8,7 +8,7 @@
     @update:model-value="handleVisibleChange"
   >
     <div class="flex h-[78vh] min-h-[640px] flex-col">
-        <div class="flex items-center justify-between border-b border-gray-100 px-5 py-3">
+      <div class="flex items-center justify-between border-b border-gray-100 px-5 py-3">
         <div class="inline-flex rounded-md bg-gray-100/90 p-0.5">
           <button
             class="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all"
@@ -118,7 +118,8 @@
         v-if="visualTabDisabled"
         class="mx-5 mt-4 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-700"
       >
-        当前 Schema 含嵌套 object/array。可视化编辑器只适合简单一层字段；复杂结构请直接编辑 JSON Schema。
+        当前 Schema 含嵌套 object/array。可视化编辑器只适合简单一层字段；复杂结构请直接编辑 JSON
+        Schema。
       </div>
 
       <div class="flex-1 overflow-auto bg-slate-50/50 p-5">
@@ -413,6 +414,8 @@ function handleSave() {
 }
 
 async function copySchema() {
-  await navigator.clipboard.writeText(activeTab.value === 'json' ? jsonDraft.value : prettySchema.value)
+  await navigator.clipboard.writeText(
+    activeTab.value === 'json' ? jsonDraft.value : prettySchema.value
+  )
 }
 </script>

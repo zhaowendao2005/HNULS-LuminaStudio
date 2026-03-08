@@ -1,8 +1,4 @@
-import {
-  OFVarType,
-  type OFIfElseCase,
-  type OFIfElseCondition
-} from '@shared/Orchestraflow-types'
+import { OFVarType, type OFIfElseCase, type OFIfElseCondition } from '@shared/Orchestraflow-types'
 import type { VariableStore } from '../services/variable-store'
 
 export function evaluateIfElseCase(variableStore: VariableStore, item: OFIfElseCase): boolean {

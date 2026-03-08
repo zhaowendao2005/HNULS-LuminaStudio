@@ -164,10 +164,16 @@
               <span class="text-red-500">*</span>
             </div>
             <div class="flex items-center gap-2">
-              <div class="rounded-full border px-2 py-0.5 text-[10px] font-medium" :class="theme.softBadgeClass">
+              <div
+                class="rounded-full border px-2 py-0.5 text-[10px] font-medium"
+                :class="theme.softBadgeClass"
+              >
                 END
               </div>
-              <button class="text-xs font-semibold text-cyan-600 hover:text-cyan-700" @click="openOutputVariableSelector">
+              <button
+                class="text-xs font-semibold text-cyan-600 hover:text-cyan-700"
+                @click="openOutputVariableSelector"
+              >
                 引用变量
               </button>
             </div>
@@ -186,7 +192,11 @@
               <div class="min-w-0 flex-1">
                 <div class="grid grid-cols-2 gap-3 text-xs">
                   <div>
-                    <div class="mb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-400">显示名</div>
+                    <div
+                      class="mb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-400"
+                    >
+                      显示名
+                    </div>
                     <input
                       :value="output.label || ''"
                       class="min-w-0 w-full border-0 border-b border-gray-200 bg-transparent px-0 font-semibold text-cyan-600 outline-none placeholder:text-gray-300"
@@ -195,12 +205,18 @@
                     />
                   </div>
                   <div>
-                    <div class="mb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-400">变量名</div>
+                    <div
+                      class="mb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-400"
+                    >
+                      变量名
+                    </div>
                     <input
                       :value="output.variable"
                       class="min-w-0 w-full border-0 border-b border-gray-200 bg-transparent px-0 font-semibold text-emerald-600 outline-none placeholder:text-gray-300"
                       placeholder="variable"
-                      @input="updateOutputVariable(index, ($event.target as HTMLInputElement).value)"
+                      @input="
+                        updateOutputVariable(index, ($event.target as HTMLInputElement).value)
+                      "
                     />
                   </div>
                 </div>
@@ -212,7 +228,9 @@
                   />
                   <span class="text-gray-300">·</span>
                   <span class="truncate text-gray-400">
-                    {{ (output.label || '未命名显示名') + ' / ' + (output.variable || '未命名变量') }}
+                    {{
+                      (output.label || '未命名显示名') + ' / ' + (output.variable || '未命名变量')
+                    }}
                   </span>
                 </div>
                 <div class="mt-1 text-xs text-gray-400">
@@ -240,7 +258,10 @@
             </div>
           </div>
 
-          <button class="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:text-emerald-700" @click="addOutput">
+          <button
+            class="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:text-emerald-700"
+            @click="addOutput"
+          >
             <svg
               viewBox="0 0 24 24"
               xmlns="http://www.w3.org/2000/svg"
@@ -409,16 +430,10 @@ function updateOutputLabel(index: number, newLabel: string) {
 function openOutputVariableSelector(event: MouseEvent) {
   const anchorRect =
     (event.currentTarget as HTMLElement | null)?.getBoundingClientRect() || undefined
-  variableSelectorStore.openSelector(
-    uiStore.selectedNodeId!,
-    'output',
-    anchorRect,
-    undefined,
-    {
-      x: event.clientX,
-      y: event.clientY
-    }
-  )
+  variableSelectorStore.openSelector(uiStore.selectedNodeId!, 'output', anchorRect, undefined, {
+    x: event.clientX,
+    y: event.clientY
+  })
 }
 
 // 关闭面板

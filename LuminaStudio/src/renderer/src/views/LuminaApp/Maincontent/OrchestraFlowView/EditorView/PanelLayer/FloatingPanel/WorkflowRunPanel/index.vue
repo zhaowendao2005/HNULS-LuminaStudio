@@ -77,7 +77,11 @@
               </div>
 
               <div class="mt-3 space-y-3 pl-4">
-                <div v-for="tracing in section.traces" :key="getTraceKey(tracing)" class="relative pl-4">
+                <div
+                  v-for="tracing in section.traces"
+                  :key="getTraceKey(tracing)"
+                  class="relative pl-4"
+                >
                   <component
                     :is="getTraceComponent(tracing.nodeType)"
                     :tracing="tracing"
@@ -275,20 +279,23 @@ const traceSections = computed<TraceSection[]>(() => {
   const grouped = new Map<string, TraceSection & { kind: 'iteration-round' }>()
 
   for (const tracing of runStore.tracingList) {
-      const inIterationId = tracing.execution_metadata?.in_iteration_id
-      const iterationIndex = tracing.execution_metadata?.iteration_index
-      const inLoopId = tracing.execution_metadata?.in_loop_id
-      const loopIndex = tracing.execution_metadata?.loop_index
+    const inIterationId = tracing.execution_metadata?.in_iteration_id
+    const iterationIndex = tracing.execution_metadata?.iteration_index
+    const inLoopId = tracing.execution_metadata?.in_loop_id
+    const loopIndex = tracing.execution_metadata?.loop_index
 
-      if ((!inIterationId || iterationIndex === undefined) && (!inLoopId || loopIndex === undefined)) {
-        sections.push({ kind: 'trace', key: getTraceKey(tracing), tracing })
-        continue
-      }
+    if (
+      (!inIterationId || iterationIndex === undefined) &&
+      (!inLoopId || loopIndex === undefined)
+    ) {
+      sections.push({ kind: 'trace', key: getTraceKey(tracing), tracing })
+      continue
+    }
 
-      const scopeId = inIterationId || inLoopId
-      const scopeIndex = iterationIndex ?? loopIndex ?? 0
-      const key = `${scopeId}::${scopeIndex}::${tracing.execution_metadata?.parallel_run_id || 'serial'}`
-      const existing = grouped.get(key)
+    const scopeId = inIterationId || inLoopId
+    const scopeIndex = iterationIndex ?? loopIndex ?? 0
+    const key = `${scopeId}::${scopeIndex}::${tracing.execution_metadata?.parallel_run_id || 'serial'}`
+    const existing = grouped.get(key)
 
     if (existing) {
       existing.traces.push(tracing)
@@ -296,12 +303,13 @@ const traceSections = computed<TraceSection[]>(() => {
     }
 
     const nextSection: TraceSection & { kind: 'iteration-round' } = {
-        kind: 'iteration-round',
-        key,
-        iterationIndex: scopeIndex,
-        parallelRunId: tracing.execution_metadata?.parallel_run_id,
-        scopeLabel: (tracing.scope_path || tracing.execution_metadata?.scope_path || []).join(' / ') || 'root',
-        traces: [tracing]
+      kind: 'iteration-round',
+      key,
+      iterationIndex: scopeIndex,
+      parallelRunId: tracing.execution_metadata?.parallel_run_id,
+      scopeLabel:
+        (tracing.scope_path || tracing.execution_metadata?.scope_path || []).join(' / ') || 'root',
+      traces: [tracing]
     }
     grouped.set(key, nextSection)
     sections.push(nextSection)

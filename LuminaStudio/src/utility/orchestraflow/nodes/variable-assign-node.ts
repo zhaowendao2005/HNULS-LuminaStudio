@@ -30,7 +30,10 @@ export class VariableAssignNode extends BaseNode {
       const nodeData = this.getNodeData() as OFVariableAssignNodeData
       this.validateConfig(nodeData)
 
-      const normalizedTitle = normalizeOFVariableNamespace(nodeData.title, OF_VARIABLE_ASSIGN_NODE_NAME)
+      const normalizedTitle = normalizeOFVariableNamespace(
+        nodeData.title,
+        OF_VARIABLE_ASSIGN_NODE_NAME
+      )
       const pendingWrites: PendingWrite[] = []
       const outputs: Record<string, unknown> = {}
 
@@ -77,7 +80,9 @@ export class VariableAssignNode extends BaseNode {
 
     const value = this.getVariable(rule.source_selector)
     if (value === undefined) {
-      throw new Error(`Variable "${rule.source_path || rule.source_selector.join('.')}" is undefined`)
+      throw new Error(
+        `Variable "${rule.source_path || rule.source_selector.join('.')}" is undefined`
+      )
     }
     return value
   }

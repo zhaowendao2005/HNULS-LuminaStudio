@@ -39,7 +39,11 @@
             v-if="field.type === 'boolean'"
             type="button"
             class="rounded-full px-2 py-0.5 text-[11px] font-medium transition-colors"
-            :class="field.default === true ? 'bg-emerald-50 text-emerald-700' : 'text-gray-500 hover:text-emerald-700'"
+            :class="
+              field.default === true
+                ? 'bg-emerald-50 text-emerald-700'
+                : 'text-gray-500 hover:text-emerald-700'
+            "
             @click="emitPatch({ default: true })"
           >
             TRUE
@@ -48,7 +52,11 @@
             v-if="field.type === 'boolean'"
             type="button"
             class="rounded-full px-2 py-0.5 text-[11px] font-medium transition-colors"
-            :class="field.default === false ? 'bg-rose-50 text-rose-700' : 'text-gray-500 hover:text-rose-700'"
+            :class="
+              field.default === false
+                ? 'bg-rose-50 text-rose-700'
+                : 'text-gray-500 hover:text-rose-700'
+            "
             @click="emitPatch({ default: false })"
           >
             FALSE
@@ -161,9 +169,13 @@ const typeOptions = [
 ]
 
 const nestedFields = computed(() => props.field.children || [])
-const stringDefaultValue = computed(() => (typeof props.field.default === 'string' ? props.field.default : ''))
+const stringDefaultValue = computed(() =>
+  typeof props.field.default === 'string' ? props.field.default : ''
+)
 const numberDefaultValue = computed(() =>
-  typeof props.field.default === 'number' && Number.isFinite(props.field.default) ? String(props.field.default) : ''
+  typeof props.field.default === 'number' && Number.isFinite(props.field.default)
+    ? String(props.field.default)
+    : ''
 )
 const level = computed(() => props.level ?? 0)
 const levelTone = computed(() => {
@@ -225,7 +237,8 @@ function typeTextClass(type: StartSchemaDraftType) {
   if (type === 'string') return active ? 'text-sky-700' : 'text-gray-400 hover:text-sky-600'
   if (type === 'number') return active ? 'text-violet-700' : 'text-gray-400 hover:text-violet-600'
   if (type === 'boolean') return active ? 'text-rose-700' : 'text-gray-400 hover:text-rose-600'
-  if (type === 'object') return active ? levelTone.value.labelClass : 'text-gray-400 hover:text-emerald-600'
+  if (type === 'object')
+    return active ? levelTone.value.labelClass : 'text-gray-400 hover:text-emerald-600'
   return active ? 'text-cyan-700' : 'text-gray-400 hover:text-cyan-600'
 }
 
@@ -240,7 +253,9 @@ function addChild() {
 
 function updateChild(childId: string, patch: Partial<StartSchemaDraftField>) {
   emitPatch({
-    children: nestedFields.value.map((child) => (child.id === childId ? { ...child, ...patch } : child))
+    children: nestedFields.value.map((child) =>
+      child.id === childId ? { ...child, ...patch } : child
+    )
   })
 }
 

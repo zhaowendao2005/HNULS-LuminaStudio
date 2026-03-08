@@ -161,7 +161,10 @@
         <section class="space-y-2">
           <div class="flex items-center justify-between">
             <div class="system-sm-semibold-uppercase text-gray-700">输入字段</div>
-            <div class="rounded-full border px-2 py-0.5 text-[10px] font-medium" :class="theme.softBadgeClass">
+            <div
+              class="rounded-full border px-2 py-0.5 text-[10px] font-medium"
+              :class="theme.softBadgeClass"
+            >
               START
             </div>
           </div>
@@ -213,7 +216,10 @@
             </div>
           </div>
 
-          <button class="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:text-emerald-700" @click="handleAddFieldClick">
+          <button
+            class="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:text-emerald-700"
+            @click="handleAddFieldClick"
+          >
             <svg
               viewBox="0 0 24 24"
               xmlns="http://www.w3.org/2000/svg"

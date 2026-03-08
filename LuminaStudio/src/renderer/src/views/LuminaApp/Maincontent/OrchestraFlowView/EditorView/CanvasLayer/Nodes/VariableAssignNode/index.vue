@@ -30,15 +30,21 @@
           />
         </svg>
       </div>
-      <div class="mr-1 min-w-0 flex grow items-center truncate text-base font-semibold text-gray-900">
+      <div
+        class="mr-1 min-w-0 flex grow items-center truncate text-base font-semibold text-gray-900"
+      >
         {{ data.title || '变量赋值' }}
       </div>
-      <div v-if="runningStatus === OFNodeRunningStatus.Succeeded" class="of-node-status-success">✓</div>
+      <div v-if="runningStatus === OFNodeRunningStatus.Succeeded" class="of-node-status-success">
+        ✓
+      </div>
       <div
         v-else-if="runningStatus === OFNodeRunningStatus.Running"
         class="of-node-status-running"
       ></div>
-      <div v-else-if="runningStatus === OFNodeRunningStatus.Failed" class="of-node-status-failed">!</div>
+      <div v-else-if="runningStatus === OFNodeRunningStatus.Failed" class="of-node-status-failed">
+        !
+      </div>
     </div>
 
     <div class="space-y-1 px-3 pb-2">
@@ -65,10 +71,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Handle, Position } from '@vue-flow/core'
-import {
-  OFNodeRunningStatus,
-  type OFVariableAssignNodeData
-} from '@shared/Orchestraflow-types'
+import { OFNodeRunningStatus, type OFVariableAssignNodeData } from '@shared/Orchestraflow-types'
 
 const props = defineProps<{
   data: OFVariableAssignNodeData
@@ -84,7 +87,8 @@ const previewRules = computed(() =>
 
 const runningStatus = computed(() => props.data?._runningStatus || OFNodeRunningStatus.NotStarted)
 const containerClass = computed(() => {
-  if (runningStatus.value === OFNodeRunningStatus.Running) return 'border-indigo-400 of-node-running'
+  if (runningStatus.value === OFNodeRunningStatus.Running)
+    return 'border-indigo-400 of-node-running'
   if (runningStatus.value === OFNodeRunningStatus.Succeeded) return 'border-emerald-500'
   if (runningStatus.value === OFNodeRunningStatus.Failed) return 'border-red-400'
   return 'border-transparent'

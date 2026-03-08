@@ -35,7 +35,9 @@
         <div class="text-xs font-medium uppercase text-gray-500">真实输出</div>
         <div class="text-xs text-gray-400">共 {{ resultItems.length }} 项</div>
       </div>
-      <pre class="mt-2 whitespace-pre-wrap break-all text-sm text-gray-700">{{ displayResultPreview }}</pre>
+      <pre class="mt-2 whitespace-pre-wrap break-all text-sm text-gray-700">{{
+        displayResultPreview
+      }}</pre>
       <div
         v-if="shouldTruncateResultPreview"
         class="mt-2 text-xs font-medium text-indigo-600 hover:text-indigo-700"
@@ -53,17 +55,16 @@
       >
         <div class="flex items-center justify-between gap-3">
           <div class="min-w-0">
-            <div class="text-sm font-medium text-gray-700">
-              第 {{ item.iterationIndex + 1 }} 轮
-            </div>
-            <div class="mt-1 text-xs text-gray-400">
-              scope: {{ item.scopeLabel }}
-            </div>
+            <div class="text-sm font-medium text-gray-700">第 {{ item.iterationIndex + 1 }} 轮</div>
+            <div class="mt-1 text-xs text-gray-400">scope: {{ item.scopeLabel }}</div>
             <div v-if="item.parallelRunId" class="mt-1 text-xs text-gray-400">
               parallel_run_id: {{ item.parallelRunId }}
             </div>
           </div>
-          <span class="rounded px-2 py-0.5 text-xs font-medium" :class="getStatusClass(item.status)">
+          <span
+            class="rounded px-2 py-0.5 text-xs font-medium"
+            :class="getStatusClass(item.status)"
+          >
             {{ getStatusText(item.status) }}
           </span>
         </div>

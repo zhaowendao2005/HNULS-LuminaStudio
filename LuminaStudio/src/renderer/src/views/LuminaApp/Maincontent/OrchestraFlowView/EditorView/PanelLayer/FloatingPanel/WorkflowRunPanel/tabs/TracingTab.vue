@@ -36,7 +36,9 @@
             v-if="section.kind === 'iteration-round'"
             class="rounded-xl border border-cyan-100 bg-cyan-50/50 p-3"
           >
-            <div class="text-sm font-semibold text-cyan-800">第 {{ section.iterationIndex + 1 }} 轮</div>
+            <div class="text-sm font-semibold text-cyan-800">
+              第 {{ section.iterationIndex + 1 }} 轮
+            </div>
             <div class="mt-1 text-xs text-cyan-600">{{ section.scopeLabel }}</div>
 
             <div class="mt-3 space-y-3 pl-4">
@@ -45,7 +47,9 @@
                 :key="getTraceKey(tracing)"
                 class="border border-gray-200 rounded-lg overflow-hidden"
               >
-                <div class="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 text-left">
+                <div
+                  class="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 text-left"
+                >
                   <div class="flex items-center gap-2">
                     <div
                       class="flex items-center justify-center w-5 h-5 rounded text-white text-xs"
@@ -53,13 +57,18 @@
                     >
                       {{ getNodeIcon(tracing.nodeType) }}
                     </div>
-                    <span class="text-sm font-medium text-gray-700">{{ getNodeTitle(tracing) }}</span>
+                    <span class="text-sm font-medium text-gray-700">
+                      {{ getNodeTitle(tracing) }}
+                    </span>
                   </div>
                   <div class="flex items-center gap-2">
                     <span v-if="tracing.elapsed_time" class="text-xs text-gray-400">
                       {{ tracing.elapsed_time }}ms
                     </span>
-                    <span class="px-2 py-0.5 text-xs rounded" :class="getStatusClass(tracing.status)">
+                    <span
+                      class="px-2 py-0.5 text-xs rounded"
+                      :class="getStatusClass(tracing.status)"
+                    >
                       {{ getStatusText(tracing.status) }}
                     </span>
                   </div>
@@ -75,7 +84,12 @@
                   >
                     <div class="text-[11px] font-medium uppercase text-gray-400">Raw</div>
                     <div class="mt-1 text-xs text-gray-700 whitespace-pre-wrap break-all">
-                      {{ getPreview(formatRawData(tracing), expandedStates[`${getTraceKey(tracing)}:raw`]) }}
+                      {{
+                        getPreview(
+                          formatRawData(tracing),
+                          expandedStates[`${getTraceKey(tracing)}:raw`]
+                        )
+                      }}
                     </div>
                     <div
                       v-if="shouldTruncate(formatRawData(tracing))"
@@ -92,7 +106,12 @@
                     >
                       <div class="text-[11px] font-medium uppercase text-gray-400">Input</div>
                       <div class="mt-1 text-xs text-gray-700 whitespace-pre-wrap break-all">
-                        {{ getPreview(formatJson(tracing.inputs), expandedStates[`${getTraceKey(tracing)}:input`]) }}
+                        {{
+                          getPreview(
+                            formatJson(tracing.inputs),
+                            expandedStates[`${getTraceKey(tracing)}:input`]
+                          )
+                        }}
                       </div>
                       <div
                         v-if="shouldTruncate(formatJson(tracing.inputs))"
@@ -107,7 +126,12 @@
                     >
                       <div class="text-[11px] font-medium uppercase text-gray-400">Output</div>
                       <div class="mt-1 text-xs text-gray-700 whitespace-pre-wrap break-all">
-                        {{ getPreview(formatJson(tracing.outputs), expandedStates[`${getTraceKey(tracing)}:output`]) }}
+                        {{
+                          getPreview(
+                            formatJson(tracing.outputs),
+                            expandedStates[`${getTraceKey(tracing)}:output`]
+                          )
+                        }}
                       </div>
                       <div
                         v-if="shouldTruncate(formatJson(tracing.outputs))"
@@ -122,92 +146,109 @@
             </div>
           </div>
 
-          <div
-            v-else
-            class="border border-gray-200 rounded-lg overflow-hidden"
-          >
-          <div class="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 text-left">
-            <div class="flex items-center gap-2">
-              <!-- 节点图标 -->
-              <div
-                class="flex items-center justify-center w-5 h-5 rounded text-white text-xs"
-                :class="getNodeIconClass(section.tracing.nodeType)"
-              >
-                {{ getNodeIcon(section.tracing.nodeType) }}
-              </div>
-              <!-- 节点名称 -->
-              <span class="text-sm font-medium text-gray-700">{{ getNodeTitle(section.tracing) }}</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <!-- 耗时 -->
-              <span v-if="section.tracing.elapsed_time" class="text-xs text-gray-400">
-                {{ section.tracing.elapsed_time }}ms
-              </span>
-              <!-- 状态 -->
-              <span class="px-2 py-0.5 text-xs rounded" :class="getStatusClass(section.tracing.status)">
-                {{ getStatusText(section.tracing.status) }}
-              </span>
-            </div>
-          </div>
-
-          <div class="border-t border-gray-200 p-3 bg-white space-y-2">
-            <div class="rounded-md bg-gray-50 px-2 py-2 text-xs text-gray-500">
-              {{ formatTraceMeta(section.tracing) }}
-            </div>
-            <div
-              class="rounded-md bg-gray-50 px-2 py-2 cursor-pointer"
-              @click="toggleExpanded(`${getTraceKey(section.tracing)}:raw`)"
-            >
-              <div class="text-[11px] font-medium uppercase text-gray-400">Raw</div>
-              <div class="mt-1 text-xs text-gray-700 whitespace-pre-wrap break-all">
-                {{ getPreview(formatRawData(section.tracing), expandedStates[`${getTraceKey(section.tracing)}:raw`]) }}
-              </div>
-              <div
-                v-if="shouldTruncate(formatRawData(section.tracing))"
-                class="mt-2 text-xs font-medium text-indigo-600 hover:text-indigo-700"
-              >
-                {{ expandedStates[`${getTraceKey(section.tracing)}:raw`] ? '收起' : '展开' }}
-              </div>
-            </div>
-
-            <div v-if="section.tracing.error" class="p-3 bg-red-50 border-t border-gray-200">
-              <div class="text-xs font-medium text-red-600 mb-1">错误信息</div>
-              <div class="text-xs text-red-700">{{ section.tracing.error }}</div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-2">
-              <div
-                class="rounded-md bg-gray-50 px-2 py-2 cursor-pointer"
-                @click="toggleExpanded(`${getTraceKey(section.tracing)}:input`)"
-              >
-                <div class="text-[11px] font-medium uppercase text-gray-400">Input</div>
-                <div class="mt-1 text-xs text-gray-700 whitespace-pre-wrap break-all">
-                  {{ getPreview(formatJson(section.tracing.inputs), expandedStates[`${getTraceKey(section.tracing)}:input`]) }}
-                </div>
+          <div v-else class="border border-gray-200 rounded-lg overflow-hidden">
+            <div class="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 text-left">
+              <div class="flex items-center gap-2">
+                <!-- 节点图标 -->
                 <div
-                  v-if="shouldTruncate(formatJson(section.tracing.inputs))"
-                  class="mt-2 text-xs font-medium text-indigo-600 hover:text-indigo-700"
+                  class="flex items-center justify-center w-5 h-5 rounded text-white text-xs"
+                  :class="getNodeIconClass(section.tracing.nodeType)"
                 >
-                  {{ expandedStates[`${getTraceKey(section.tracing)}:input`] ? '收起' : '展开' }}
+                  {{ getNodeIcon(section.tracing.nodeType) }}
                 </div>
+                <!-- 节点名称 -->
+                <span class="text-sm font-medium text-gray-700">
+                  {{ getNodeTitle(section.tracing) }}
+                </span>
+              </div>
+              <div class="flex items-center gap-2">
+                <!-- 耗时 -->
+                <span v-if="section.tracing.elapsed_time" class="text-xs text-gray-400">
+                  {{ section.tracing.elapsed_time }}ms
+                </span>
+                <!-- 状态 -->
+                <span
+                  class="px-2 py-0.5 text-xs rounded"
+                  :class="getStatusClass(section.tracing.status)"
+                >
+                  {{ getStatusText(section.tracing.status) }}
+                </span>
+              </div>
+            </div>
+
+            <div class="border-t border-gray-200 p-3 bg-white space-y-2">
+              <div class="rounded-md bg-gray-50 px-2 py-2 text-xs text-gray-500">
+                {{ formatTraceMeta(section.tracing) }}
               </div>
               <div
                 class="rounded-md bg-gray-50 px-2 py-2 cursor-pointer"
-                @click="toggleExpanded(`${getTraceKey(section.tracing)}:output`)"
+                @click="toggleExpanded(`${getTraceKey(section.tracing)}:raw`)"
               >
-                <div class="text-[11px] font-medium uppercase text-gray-400">Output</div>
+                <div class="text-[11px] font-medium uppercase text-gray-400">Raw</div>
                 <div class="mt-1 text-xs text-gray-700 whitespace-pre-wrap break-all">
-                  {{ getPreview(formatJson(section.tracing.outputs), expandedStates[`${getTraceKey(section.tracing)}:output`]) }}
+                  {{
+                    getPreview(
+                      formatRawData(section.tracing),
+                      expandedStates[`${getTraceKey(section.tracing)}:raw`]
+                    )
+                  }}
                 </div>
                 <div
-                  v-if="shouldTruncate(formatJson(section.tracing.outputs))"
+                  v-if="shouldTruncate(formatRawData(section.tracing))"
                   class="mt-2 text-xs font-medium text-indigo-600 hover:text-indigo-700"
                 >
-                  {{ expandedStates[`${getTraceKey(section.tracing)}:output`] ? '收起' : '展开' }}
+                  {{ expandedStates[`${getTraceKey(section.tracing)}:raw`] ? '收起' : '展开' }}
+                </div>
+              </div>
+
+              <div v-if="section.tracing.error" class="p-3 bg-red-50 border-t border-gray-200">
+                <div class="text-xs font-medium text-red-600 mb-1">错误信息</div>
+                <div class="text-xs text-red-700">{{ section.tracing.error }}</div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-2">
+                <div
+                  class="rounded-md bg-gray-50 px-2 py-2 cursor-pointer"
+                  @click="toggleExpanded(`${getTraceKey(section.tracing)}:input`)"
+                >
+                  <div class="text-[11px] font-medium uppercase text-gray-400">Input</div>
+                  <div class="mt-1 text-xs text-gray-700 whitespace-pre-wrap break-all">
+                    {{
+                      getPreview(
+                        formatJson(section.tracing.inputs),
+                        expandedStates[`${getTraceKey(section.tracing)}:input`]
+                      )
+                    }}
+                  </div>
+                  <div
+                    v-if="shouldTruncate(formatJson(section.tracing.inputs))"
+                    class="mt-2 text-xs font-medium text-indigo-600 hover:text-indigo-700"
+                  >
+                    {{ expandedStates[`${getTraceKey(section.tracing)}:input`] ? '收起' : '展开' }}
+                  </div>
+                </div>
+                <div
+                  class="rounded-md bg-gray-50 px-2 py-2 cursor-pointer"
+                  @click="toggleExpanded(`${getTraceKey(section.tracing)}:output`)"
+                >
+                  <div class="text-[11px] font-medium uppercase text-gray-400">Output</div>
+                  <div class="mt-1 text-xs text-gray-700 whitespace-pre-wrap break-all">
+                    {{
+                      getPreview(
+                        formatJson(section.tracing.outputs),
+                        expandedStates[`${getTraceKey(section.tracing)}:output`]
+                      )
+                    }}
+                  </div>
+                  <div
+                    v-if="shouldTruncate(formatJson(section.tracing.outputs))"
+                    class="mt-2 text-xs font-medium text-indigo-600 hover:text-indigo-700"
+                  >
+                    {{ expandedStates[`${getTraceKey(section.tracing)}:output`] ? '收起' : '展开' }}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
           </div>
         </template>
       </div>
@@ -385,7 +426,8 @@ const traceSections = computed<TraceSection[]>(() => {
       kind: 'iteration-round',
       key,
       iterationIndex,
-      scopeLabel: (tracing.scope_path || tracing.execution_metadata?.scope_path || []).join(' / ') || 'root',
+      scopeLabel:
+        (tracing.scope_path || tracing.execution_metadata?.scope_path || []).join(' / ') || 'root',
       traces: [tracing]
     }
     grouped.set(key, nextSection)

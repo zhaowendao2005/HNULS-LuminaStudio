@@ -147,7 +147,13 @@
             @click="handleAddNode(OFBlockEnum.VariableAssign)"
           >
             <div class="flex h-5 w-5 items-center justify-center rounded bg-sky-100">
-              <svg class="h-3 w-3 text-sky-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <svg
+                class="h-3 w-3 text-sky-600"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
                 <path
                   stroke-linecap="round"
                   stroke-linejoin="round"

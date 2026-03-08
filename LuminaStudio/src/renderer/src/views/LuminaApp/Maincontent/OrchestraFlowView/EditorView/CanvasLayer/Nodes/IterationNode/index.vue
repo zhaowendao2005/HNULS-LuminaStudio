@@ -33,7 +33,9 @@
         v-if="resizePreview"
         class="pointer-events-none absolute inset-0 z-20 rounded-[22px] border-2 border-[#32acd0]/70 bg-[#32acd0]/[0.05] shadow-[0_0_0_1px_rgba(50,172,208,0.08)]"
       >
-        <div class="absolute bottom-4 right-4 rounded-lg bg-white/95 px-2.5 py-1 text-[11px] font-medium text-[#0f172a] shadow-sm">
+        <div
+          class="absolute bottom-4 right-4 rounded-lg bg-white/95 px-2.5 py-1 text-[11px] font-medium text-[#0f172a] shadow-sm"
+        >
           {{ Math.round(resolvedWidth) }} × {{ Math.round(resolvedHeight) }}
         </div>
       </div>
@@ -42,7 +44,13 @@
         <div
           class="flex h-8 w-8 items-center justify-center rounded-xl bg-[#35abd0] text-white shadow-sm"
         >
-          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.2">
+          <svg
+            viewBox="0 0 24 24"
+            class="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.2"
+          >
             <path
               d="M20 11A8 8 0 1 0 6.062 16.938M20 11V4m0 7h-7M4 13a8 8 0 0 0 13.938 5.938M4 13v7m0-7h7"
               stroke-linecap="round"
@@ -69,10 +77,7 @@
 import { computed, ref } from 'vue'
 import { Handle, Position } from '@vue-flow/core'
 import { NodeResizer } from '@vue-flow/node-resizer'
-import {
-  OFNodeRunningStatus,
-  type OFIterationNodeData
-} from '@shared/Orchestraflow-types'
+import { OFNodeRunningStatus, type OFIterationNodeData } from '@shared/Orchestraflow-types'
 import { useWorkflowEditorStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor.store'
 
 import '@vue-flow/node-resizer/dist/style.css'

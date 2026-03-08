@@ -22,7 +22,9 @@ function createDefaultLoopVariable(): OFLoopVariableData {
 }
 
 function createUniqueLoopVariableName(existingVariables: OFLoopVariableData[]): string {
-  const occupiedNames = new Set(existingVariables.map((item) => String(item.variable || '').trim()).filter(Boolean))
+  const occupiedNames = new Set(
+    existingVariables.map((item) => String(item.variable || '').trim()).filter(Boolean)
+  )
   if (!occupiedNames.has('counter')) return 'counter'
 
   let index = 2
@@ -82,7 +84,11 @@ export const useLoopNodeConfigStore = defineStore('of-loop-node-config', () => {
     config.value = {
       ...nextConfig,
       output: {
-        variables: buildLoopOutputVariables(nextConfig.title, nextConfig.loop_variables || [], nodeId)
+        variables: buildLoopOutputVariables(
+          nextConfig.title,
+          nextConfig.loop_variables || [],
+          nodeId
+        )
       }
     }
   }

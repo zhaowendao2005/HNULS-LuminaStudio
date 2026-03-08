@@ -7,7 +7,9 @@
           <button
             type="button"
             class="rounded-md px-3 py-1 text-xs font-medium transition"
-            :class="logicalOperator === 'and' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500'"
+            :class="
+              logicalOperator === 'and' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500'
+            "
             @click="emit('update:logical-operator', 'and')"
           >
             AND
@@ -32,9 +34,15 @@
     </div>
 
     <div class="space-y-3">
-      <div v-for="item in modelValue" :key="item.id" class="rounded-2xl border border-gray-200 bg-white p-4">
+      <div
+        v-for="item in modelValue"
+        :key="item.id"
+        class="rounded-2xl border border-gray-200 bg-white p-4"
+      >
         <div class="mb-3 flex items-center justify-between">
-          <div class="text-sm font-medium text-gray-700">{{ item.variable_label || item.variable_path || '未选择左值' }}</div>
+          <div class="text-sm font-medium text-gray-700">
+            {{ item.variable_label || item.variable_path || '未选择左值' }}
+          </div>
           <button
             type="button"
             class="rounded-md p-1 text-gray-300 hover:bg-red-50 hover:text-red-500"
@@ -64,7 +72,9 @@
             trigger-class="!h-10 !w-full !rounded-xl !border-[#e5e7eb] !bg-[#f3f4f6] !px-3 !text-sm !text-gray-800"
             panel-class="min-w-[180px]"
             teleport-to="body"
-            @update:model-value="emit('patch', item.id, { operator: String($event) as OFIfElseConditionOperator })"
+            @update:model-value="
+              emit('patch', item.id, { operator: String($event) as OFIfElseConditionOperator })
+            "
           />
 
           <template v-if="needsRightValue(item)">
@@ -72,15 +82,25 @@
               <button
                 type="button"
                 class="rounded-md px-3 py-1 text-xs font-medium transition"
-                :class="(item.compare_source_mode || 'constant') === 'constant' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500'"
-                @click="emit('patch', item.id, { compare_source_mode: 'constant', compare_selector: [] })"
+                :class="
+                  (item.compare_source_mode || 'constant') === 'constant'
+                    ? 'bg-white text-gray-800 shadow-sm'
+                    : 'text-gray-500'
+                "
+                @click="
+                  emit('patch', item.id, { compare_source_mode: 'constant', compare_selector: [] })
+                "
               >
                 常量
               </button>
               <button
                 type="button"
                 class="rounded-md px-3 py-1 text-xs font-medium transition"
-                :class="item.compare_source_mode === 'variable' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500'"
+                :class="
+                  item.compare_source_mode === 'variable'
+                    ? 'bg-white text-gray-800 shadow-sm'
+                    : 'text-gray-500'
+                "
                 @click="emit('patch', item.id, { compare_source_mode: 'variable' })"
               >
                 变量
@@ -99,7 +119,12 @@
                 :value="item.compare_path || ''"
                 class="h-10 w-full rounded-xl border border-[#e5e7eb] bg-[#f3f4f6] px-3 text-sm text-gray-800 outline-none focus:bg-white"
                 :class="theme.controlFocusClass"
-                @input="emit('patch', item.id, { compare_path: ($event.target as HTMLInputElement).value, compare_selector: parseSelector(($event.target as HTMLInputElement).value) })"
+                @input="
+                  emit('patch', item.id, {
+                    compare_path: ($event.target as HTMLInputElement).value,
+                    compare_selector: parseSelector(($event.target as HTMLInputElement).value)
+                  })
+                "
               />
             </template>
 
@@ -111,14 +136,18 @@
               >
                 <span
                   class="min-w-[64px] rounded-[8px] px-2 text-center text-xs font-semibold leading-8 transition"
-                  :class="item.value === true ? 'bg-green-50 text-green-700 shadow-sm' : 'text-gray-400'"
+                  :class="
+                    item.value === true ? 'bg-green-50 text-green-700 shadow-sm' : 'text-gray-400'
+                  "
                   @click="emit('patch', item.id, { value: true })"
                 >
                   TRUE
                 </span>
                 <span
                   class="min-w-[64px] rounded-[8px] px-2 text-center text-xs font-semibold leading-8 transition"
-                  :class="item.value === false ? 'bg-rose-50 text-rose-700 shadow-sm' : 'text-gray-400'"
+                  :class="
+                    item.value === false ? 'bg-rose-50 text-rose-700 shadow-sm' : 'text-gray-400'
+                  "
                   @click="emit('patch', item.id, { value: false })"
                 >
                   FALSE
@@ -130,7 +159,9 @@
                 :type="resolveRightType(item) === OFVarTypeEnum.Number ? 'number' : 'text'"
                 class="h-10 w-full rounded-xl border border-[#e5e7eb] bg-[#f3f4f6] px-3 text-sm text-gray-800 outline-none focus:bg-white"
                 :class="theme.controlFocusClass"
-                @input="emit('patch', item.id, { value: ($event.target as HTMLInputElement).value })"
+                @input="
+                  emit('patch', item.id, { value: ($event.target as HTMLInputElement).value })
+                "
               />
             </template>
           </template>
