@@ -135,6 +135,28 @@
           <span class="text-xs font-medium text-gray-700">ENV</span>
         </button>
 
+        <button
+          class="relative group flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-gray-100 text-gray-700 rounded-md transition-colors border border-gray-200"
+          title="复制给 AI 的可运行 OrchestraFlow workflow schema"
+          @click="handleCopyAISchema"
+        >
+          <svg
+            class="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2M10 10h8a2 2 0 012 2v8a2 2 0 01-2 2h-8a2 2 0 01-2-2v-8a2 2 0 012-2z"
+            />
+          </svg>
+          <span class="text-sm font-medium">复制 AI Schema</span>
+        </button>
+
         <!-- 系统变量按钮 -->
         <button
           class="relative group w-8 h-8 bg-white hover:bg-gray-100 rounded-md transition-colors flex items-center justify-center"
@@ -252,5 +274,18 @@ function handleRunWorkflow() {
 
 function openRunPanel() {
   uiStore.openWorkflowRunPanel()
+}
+
+async function handleCopyAISchema() {
+  const response = await window.api.orchestraflow.getAISchemaBundle()
+  if (!response.success || !response.data) {
+    alert(response.error || 'AI Schema 导出失败')
+    return
+  }
+
+  await navigator.clipboard.writeText(response.data.bundled_markdown)
+  alert(
+    '可运行的 OrchestraFlow workflow schema 已复制到剪贴板。请让 AI 直接输出最终工作流 JSON。'
+  )
 }
 </script>

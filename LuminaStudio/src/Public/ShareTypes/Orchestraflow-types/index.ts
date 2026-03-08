@@ -825,3 +825,5 @@ export interface OFEndNodeConfig {
   desc: string
   output: OFNodeOutput
 }
+
+export * from './ai-schema'

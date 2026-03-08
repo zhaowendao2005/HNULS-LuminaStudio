@@ -26,6 +26,10 @@ export const orchestraflowAPI: OFWorkflowAPI = {
     return ipcRenderer.invoke('orchestraflow:workflow-delete', workflowId)
   },
 
+  getAISchemaBundle: () => {
+    return ipcRenderer.invoke('orchestraflow:ai-schema-bundle')
+  },
+
   run: (workflowId, inputs) => {
     return ipcRenderer.invoke('orchestraflow:workflow-run', workflowId, inputs)
   },
