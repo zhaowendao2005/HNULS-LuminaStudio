@@ -1,9 +1,11 @@
 <template>
-  <section class="of-doc-block">
+  <section class="of-doc-section">
     <div class="flex items-center justify-between gap-3">
-      <div class="of-doc-kicker">循环变量</div>
+      <div class="of-doc-title-strong">循环变量声明</div>
       <button type="button" class="of-state-inline-action" @click="emit('add')">添加变量</button>
     </div>
+
+    <div class="of-doc-line-soft">定义循环体内部可读写的局部变量及其初始来源。</div>
 
     <div class="of-declare-loop-list">
       <div
@@ -107,20 +109,15 @@
           <span class="of-declare-loop-label">值来源</span>
           <button
             type="button"
-            class="of-declare-choice"
-            :class="item.value_type === 'constant' ? '' : 'of-declare-choice-muted'"
-            @click="patch(item, { value_type: 'constant', value_selector: [] })"
+            class="of-declare-text-mode"
+            @click="
+              patch(item, {
+                value_type: item.value_type === 'variable' ? 'constant' : 'variable',
+                value_selector: item.value_type === 'variable' ? [] : item.value_selector
+              })
+            "
           >
-            常量
-          </button>
-          <span class="text-gray-300">/</span>
-          <button
-            type="button"
-            class="of-declare-choice"
-            :class="item.value_type === 'variable' ? '' : 'of-declare-choice-muted'"
-            @click="patch(item, { value_type: 'variable' })"
-          >
-            变量
+            {{ item.value_type === 'variable' ? '变量' : '常量' }}
           </button>
         </div>
 

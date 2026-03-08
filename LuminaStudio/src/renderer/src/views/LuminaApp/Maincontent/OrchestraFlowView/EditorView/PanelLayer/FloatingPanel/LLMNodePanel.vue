@@ -1,5 +1,5 @@
 <template>
-  <div class="of-panel-shell of-llm-node-panel">
+  <div class="of-panel-shell of-llm-node-panel" :class="theme.panelClass">
     <div class="of-panel-shell-header">
       <div class="of-panel-shell-title-row">
         <div
@@ -22,10 +22,10 @@
         <div class="of-panel-shell-actions">
           <CapsuleTooltip text="调试运行" placement="bottom">
             <button
-              class="flex h-6 w-6 items-center justify-center rounded-md hover:bg-gray-100"
+              class="of-panel-icon-button flex h-6 w-6 items-center justify-center rounded-md"
               @click="enterDebugMode"
             >
-              <svg viewBox="0 0 24 24" class="h-4 w-4 text-gray-400" fill="currentColor">
+              <svg viewBox="0 0 24 24" class="of-panel-icon-svg h-4 w-4" fill="currentColor">
                 <path
                   d="M8 18.3915V5.60846L18.2264 12L8 18.3915ZM6 3.80421V20.1957C6 20.9812 6.86395 21.46 7.53 21.0437L20.6432 12.848C21.2699 12.4563 21.2699 11.5436 20.6432 11.152L7.53 2.95621C6.86395 2.53993 6 3.01878 6 3.80421Z"
                 />
@@ -36,9 +36,9 @@
             <a
               href="https://docs.dify.ai/zh/use-dify/nodes/llm"
               target="_blank"
-              class="flex h-6 w-6 items-center justify-center rounded-md hover:bg-gray-100"
+              class="of-panel-icon-button flex h-6 w-6 items-center justify-center rounded-md"
             >
-              <svg viewBox="0 0 24 24" class="h-4 w-4 text-gray-400" fill="currentColor">
+              <svg viewBox="0 0 24 24" class="of-panel-icon-svg h-4 w-4" fill="currentColor">
                 <path
                   d="M13 21V23H11V21H3C2.44772 21 2 20.5523 2 20V4C2 3.44772 2.44772 3 3 3H9C10.1947 3 11.2671 3.52375 12 4.35418C12.7329 3.52375 13.8053 3 15 3H21C21.5523 3 22 3.44772 22 4V20C22 20.5523 21.5523 21 21 21H13ZM20 19V5H15C13.8954 5 13 5.89543 13 7V19H20ZM11 19V7C11 5.89543 10.1046 5 9 5H4V19H11Z"
                 />
@@ -46,8 +46,8 @@
             </a>
           </CapsuleTooltip>
           <CapsuleTooltip text="关闭面板" placement="bottom">
-            <button class="flex h-6 w-6 items-center justify-center" @click="handleClose">
-              <svg viewBox="0 0 24 24" class="h-4 w-4 text-gray-400" fill="currentColor">
+            <button class="of-panel-icon-button flex h-6 w-6 items-center justify-center rounded-md" @click="handleClose">
+              <svg viewBox="0 0 24 24" class="of-panel-icon-svg h-4 w-4" fill="currentColor">
                 <path
                   d="M11.9997 10.5865L16.9495 5.63672L18.3637 7.05093L13.4139 12.0007L18.3637 16.9504L16.9495 18.3646L11.9997 13.4149L7.04996 18.3646L5.63574 16.9504L10.5855 12.0007L5.63574 7.05093L7.04996 5.63672L11.9997 10.5865Z"
                 />

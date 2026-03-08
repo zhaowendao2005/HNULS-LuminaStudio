@@ -1,5 +1,5 @@
 <template>
-  <div class="of-panel-shell of-loop-node-panel">
+  <div class="of-panel-shell of-loop-node-panel" :class="theme.panelClass">
     <div class="of-panel-shell-header">
       <div class="of-panel-shell-title-row">
         <div
@@ -30,10 +30,10 @@
         <div class="of-panel-shell-actions">
           <CapsuleTooltip text="调试运行" placement="bottom">
             <button
-              class="flex h-6 w-6 items-center justify-center rounded-md hover:bg-gray-100"
+              class="of-panel-icon-button flex h-6 w-6 items-center justify-center rounded-md"
               @click="enterDebugMode"
             >
-              <svg viewBox="0 0 24 24" class="h-4 w-4 text-gray-400" fill="currentColor">
+              <svg viewBox="0 0 24 24" class="of-panel-icon-svg h-4 w-4" fill="currentColor">
                 <path
                   d="M8 18.3915V5.60846L18.2264 12L8 18.3915ZM6 3.80421V20.1957C6 20.9812 6.86395 21.46 7.53 21.0437L20.6432 12.848C21.2699 12.4563 21.2699 11.5436 20.6432 11.152L7.53 2.95621C6.86395 2.53993 6 3.01878 6 3.80421Z"
                 />
@@ -41,8 +41,8 @@
             </button>
           </CapsuleTooltip>
           <CapsuleTooltip text="关闭面板" placement="bottom">
-            <button class="flex h-6 w-6 items-center justify-center" @click="handleClose">
-              <svg viewBox="0 0 24 24" class="h-4 w-4 text-gray-400" fill="currentColor">
+            <button class="of-panel-icon-button flex h-6 w-6 items-center justify-center rounded-md" @click="handleClose">
+              <svg viewBox="0 0 24 24" class="of-panel-icon-svg h-4 w-4" fill="currentColor">
                 <path
                   d="M11.9997 10.5865L16.9495 5.63672L18.3637 7.05093L13.4139 12.0007L18.3637 16.9504L16.9495 18.3646L11.9997 13.4149L7.04996 18.3646L5.63574 16.9504L10.5855 12.0007L5.63574 7.05093L7.0502 5.63672L11.9997 10.5865Z"
                 />
@@ -88,7 +88,7 @@
     </div>
 
     <div class="of-panel-shell-body">
-      <div v-if="activeTab === 'settings' && !debugMode" class="of-panel-shell-body-inner">
+      <div v-if="activeTab === 'settings' && !debugMode" class="of-panel-shell-body-inner of-doc-block">
         <LoopVariableSection
           :model-value="loopVariables"
           :theme="theme"
@@ -99,6 +99,8 @@
           @open-selector="openLoopVariableSelector"
           @schema="openLoopVariableSchema"
         />
+
+        <div class="of-doc-divider"></div>
 
         <LoopConditionSection
           :model-value="breakConditions"
@@ -111,6 +113,8 @@
           @open-right-selector="openConditionRightSelector"
           @update:logical-operator="patchNode({ logical_operator: $event })"
         />
+
+        <div class="of-doc-divider"></div>
 
         <LoopLimitSection
           :model-value="loopCount"
