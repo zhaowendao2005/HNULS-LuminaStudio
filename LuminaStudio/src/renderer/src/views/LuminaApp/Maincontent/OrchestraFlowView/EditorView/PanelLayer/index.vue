@@ -35,6 +35,7 @@
         :z-index="nodeConfigPanelStyle.zIndex"
         :offset-x="nodeConfigPanelStyle.offsetX"
         :active="uiStore.isPanelActive('node-config')"
+        :theme-class="nodeConfigPanelThemeClass"
         :title="panelTitle"
         :description="panelDescription"
         @close="uiStore.closeNodeConfigPanel"
@@ -81,6 +82,7 @@ import VariableAssignNodePanel from './FloatingPanel/VariableAssignNodePanel.vue
 import EndNodePanel from './FloatingPanel/EndNodePanel.vue'
 import VariableSelector from './FloatingPanel/VariableSelector/index.vue'
 import WorkflowRunPanel from './FloatingPanel/WorkflowRunPanel/index.vue'
+import { OF_PANEL_THEME } from './FloatingPanel/panel-theme'
 import {
   useWorkflowEditorUIStore,
   PanelType
@@ -96,6 +98,26 @@ const uiStore = useWorkflowEditorUIStore()
 const systemPanelStyle = computed(() => uiStore.getPanelStyle('system-variables'))
 const nodeConfigPanelStyle = computed(() => uiStore.getPanelStyle('node-config'))
 const workflowRunPanelStyle = computed(() => uiStore.getPanelStyle('workflow-run'))
+const nodeConfigPanelThemeClass = computed(() => {
+  switch (uiStore.currentPanelType) {
+    case PanelType.StartNode:
+      return OF_PANEL_THEME.start.panelClass
+    case PanelType.LLMNode:
+      return OF_PANEL_THEME.llm.panelClass
+    case PanelType.IterationNode:
+      return OF_PANEL_THEME.iteration.panelClass
+    case PanelType.LoopNode:
+      return OF_PANEL_THEME.loop.panelClass
+    case PanelType.IfElseNode:
+      return OF_PANEL_THEME.ifelse.panelClass
+    case PanelType.VariableAssignNode:
+      return OF_PANEL_THEME.variableAssign.panelClass
+    case PanelType.EndNode:
+      return OF_PANEL_THEME.end.panelClass
+    default:
+      return ''
+  }
+})
 
 // 根据面板类型计算标题
 const panelTitle = computed(() => {

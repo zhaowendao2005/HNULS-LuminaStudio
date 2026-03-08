@@ -31,27 +31,33 @@
    ======================================== */
 
 .of-panel-shell {
-  --of-accent: #0f766e;
-  --of-accent-strong: #115e59;
-  --of-accent-muted: #0f766e;
-  --of-accent-soft-bg: #ecfeff;
-  --of-accent-soft-bg-strong: #cffafe;
-  --of-accent-soft-border: #99f6e4;
   display: flex;
   height: 100%;
   flex-direction: column;
-  background: $np-white;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--of-accent-soft-bg, #ecfeff) 52%, #ffffff 48%) 0,
+    #ffffff 5.5rem
+  );
 
   &-header {
     flex-shrink: 0;
     padding: 1rem 1rem 0.75rem;
-    border-bottom: 1px solid $np-border-soft;
+    border-bottom: 1px solid
+      color-mix(in srgb, var(--of-accent-soft-border, #99f6e4) 72%, #ffffff 28%);
+    background:
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--of-accent-soft-bg-strong, #cffafe) 82%, #ffffff 18%) 0,
+        color-mix(in srgb, var(--of-accent-soft-bg, #ecfeff) 52%, #ffffff 48%) 100%
+      );
   }
 
   &-title-row {
     display: flex;
     align-items: center;
     gap: 0.75rem;
+    color: var(--of-accent-muted);
   }
 
   &-icon {
@@ -80,7 +86,7 @@
 
     &:hover,
     &:focus {
-      color: var(--of-accent-strong);
+      color: var(--of-accent-strong, #115e59);
     }
   }
 
@@ -113,7 +119,7 @@
 
     &:hover,
     &:focus {
-      color: var(--of-accent);
+      color: var(--of-accent, #0f766e);
     }
   }
 
@@ -144,6 +150,19 @@
   select,
   button {
     color: $np-text-strong;
+  }
+}
+
+.of-theme-control-focus {
+  transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+
+  &:hover {
+    border-color: var(--of-accent-soft-border) !important;
+  }
+
+  &:focus {
+    border-color: var(--of-accent) !important;
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--of-accent) 18%, transparent);
   }
 }
 

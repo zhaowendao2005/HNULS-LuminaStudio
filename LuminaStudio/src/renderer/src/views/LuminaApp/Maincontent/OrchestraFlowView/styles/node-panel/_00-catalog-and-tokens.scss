@@ -49,9 +49,9 @@ $np-danger: #dc2626;
    ======================================== */
 
 .of-panel-theme-start {
-  --of-accent: #059669;
-  --of-accent-strong: #047857;
-  --of-accent-muted: #059669;
+  --of-accent: #10b981;
+  --of-accent-strong: #059669;
+  --of-accent-muted: #10b981;
   --of-accent-soft-bg: #ecfdf5;
   --of-accent-soft-bg-strong: #d1fae5;
   --of-accent-soft-border: #a7f3d0;
@@ -64,9 +64,9 @@ $np-danger: #dc2626;
    ======================================== */
 
 .of-panel-theme-llm {
-  --of-accent: #4f46e5;
-  --of-accent-strong: #4338ca;
-  --of-accent-muted: #4f46e5;
+  --of-accent: #6366f1;
+  --of-accent-strong: #4f46e5;
+  --of-accent-muted: #6366f1;
   --of-accent-soft-bg: #eef2ff;
   --of-accent-soft-bg-strong: #e0e7ff;
   --of-accent-soft-border: #c7d2fe;
@@ -80,9 +80,9 @@ $np-danger: #dc2626;
 
 .of-panel-theme-iteration,
 .of-panel-theme-ifelse {
-  --of-accent: #0891b2;
-  --of-accent-strong: #0e7490;
-  --of-accent-muted: #0891b2;
+  --of-accent: #06b6d4;
+  --of-accent-strong: #0891b2;
+  --of-accent-muted: #06b6d4;
   --of-accent-soft-bg: #ecfeff;
   --of-accent-soft-bg-strong: #cffafe;
   --of-accent-soft-border: #a5f3fc;
@@ -96,9 +96,18 @@ $np-danger: #dc2626;
 
 .of-panel-theme-loop,
 .of-panel-theme-end {
-  --of-accent: #d97706;
-  --of-accent-strong: #b45309;
-  --of-accent-muted: #d97706;
+  --of-accent: #ef4444;
+  --of-accent-strong: #dc2626;
+  --of-accent-muted: #ef4444;
+  --of-accent-soft-bg: #fef2f2;
+  --of-accent-soft-bg-strong: #fee2e2;
+  --of-accent-soft-border: #fecaca;
+}
+
+.of-panel-theme-loop {
+  --of-accent: #f59e0b;
+  --of-accent-strong: #d97706;
+  --of-accent-muted: #f59e0b;
   --of-accent-soft-bg: #fffbeb;
   --of-accent-soft-bg-strong: #fef3c7;
   --of-accent-soft-border: #fcd34d;
@@ -111,9 +120,9 @@ $np-danger: #dc2626;
    ======================================== */
 
 .of-panel-theme-variable-assign {
-  --of-accent: #0284c7;
-  --of-accent-strong: #0369a1;
-  --of-accent-muted: #0284c7;
+  --of-accent: #0ea5e9;
+  --of-accent-strong: #0284c7;
+  --of-accent-muted: #0ea5e9;
   --of-accent-soft-bg: #f0f9ff;
   --of-accent-soft-bg-strong: #e0f2fe;
   --of-accent-soft-border: #bae6fd;

@@ -216,6 +216,10 @@
     border-bottom-color: var(--of-accent);
     background: var(--of-accent-soft-bg-strong);
   }
+
+  &:hover {
+    border-bottom-color: var(--of-accent-soft-border);
+  }
 }
 
 .of-condition-bool-toggle {
