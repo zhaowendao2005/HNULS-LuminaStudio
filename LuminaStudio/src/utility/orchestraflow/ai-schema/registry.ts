@@ -1,4 +1,5 @@
 import type {
+  OFAuthoringDefaultRecommendation,
   OFInvariantContract,
   OFNode,
   OFNodeAuthoringContract,
@@ -307,6 +308,46 @@ const WORKFLOW_AUTHORING_CONTRACT: OFWorkflowAuthoringContract = {
   nodes: RUNTIME_NODE_DESCRIPTORS.map((item) => item.contract)
 }
 
+const WORKFLOW_AUTHORING_DEFAULTS: OFAuthoringDefaultRecommendation[] = [
+  {
+    path: 'graph.nodes[start].data.input.variables[*].default',
+    kind: 'recommended',
+    value: 'example text',
+    summary: '为开始节点输入变量补 default，可让导入后的工作流直接运行，再由用户微调。',
+    omit_when: '该输入变量仅应由用户在每次运行前手动输入，且不应预填。'
+  },
+  {
+    path: 'graph.nodes[start].data.input.variables[string].default',
+    kind: 'example',
+    value: 'batch',
+    summary: 'string 输入变量使用非空短字符串作为可运行示例值。'
+  },
+  {
+    path: 'graph.nodes[start].data.input.variables[number].default',
+    kind: 'example',
+    value: 3,
+    summary: 'number 输入变量使用真实数字，避免写成字符串。'
+  },
+  {
+    path: 'graph.nodes[start].data.input.variables[boolean].default',
+    kind: 'example',
+    value: false,
+    summary: 'boolean 输入变量直接写 true/false。'
+  },
+  {
+    path: 'graph.nodes[start].data.input.variables[array].default',
+    kind: 'example',
+    value: ['sample-item-1', 'sample-item-2'],
+    summary: 'array 输入变量写真实 JSON 数组，不要写成字符串化 JSON。'
+  },
+  {
+    path: 'graph.nodes[start].data.input.variables[object].default',
+    kind: 'example',
+    value: { topic: 'demo', priority: 1 },
+    summary: 'object 输入变量写真实 JSON 对象，不要写成字符串化 JSON。'
+  }
+]
+
 export function getOFRuntimeNodeDescriptors(): OFRuntimeNodeDescriptor[] {
   return RUNTIME_NODE_DESCRIPTORS.map((item) => ({
     ...item,
@@ -336,6 +377,16 @@ export function getOFWorkflowAuthoringContract(): OFWorkflowAuthoringContract {
     global_invariants: [...WORKFLOW_AUTHORING_CONTRACT.global_invariants],
     nodes: getOFRuntimeNodeDescriptors().map((item) => item.contract)
   }
+}
+
+export function getOFWorkflowAuthoringDefaults(): OFAuthoringDefaultRecommendation[] {
+  return WORKFLOW_AUTHORING_DEFAULTS.map((item) => ({
+    ...item,
+    value:
+      item.value && typeof item.value === 'object'
+        ? JSON.parse(JSON.stringify(item.value))
+        : item.value
+  }))
 }
 
 export function createRuntimeNodeByDescriptor(

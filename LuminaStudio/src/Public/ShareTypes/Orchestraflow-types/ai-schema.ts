@@ -52,12 +52,23 @@ export interface OFAISchemaNodeSummary {
   internal?: boolean
 }
 
+export type OFAuthoringDefaultKind = 'recommended' | 'example'
+
+export interface OFAuthoringDefaultRecommendation {
+  path: string
+  kind: OFAuthoringDefaultKind
+  value: string | number | boolean | Record<string, any> | any[] | null
+  summary: string
+  omit_when?: string
+}
+
 export interface OFAISchemaBundle {
   version: '1.0'
   format: 'orchestraflow-runnable-workflow'
   generated_at: string
   nodes: OFAISchemaNodeSummary[]
   authoring_contract: OFWorkflowAuthoringContract
+  authoring_defaults: OFAuthoringDefaultRecommendation[]
   schema: Record<string, any>
   example: OFRunnableWorkflow
   annotated_workflow_jsonc: string

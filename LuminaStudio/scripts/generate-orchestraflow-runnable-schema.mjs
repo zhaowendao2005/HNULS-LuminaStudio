@@ -39,13 +39,112 @@ function getExportedType(checker, sourceFile, exportName) {
 
 function createConverter(checker) {
   const visiting = new WeakSet()
+  const hoistedTypeNames = new WeakMap()
+  const defs = new Map()
+  const usedDefNames = new Set()
 
-  function convertType(type) {
+  function sanitizeDefName(value) {
+    const sanitized = value.replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '')
+    return sanitized || 'AnonymousType'
+  }
+
+  function buildPathName(pathSegments) {
+    return sanitizeDefName(pathSegments.join('_'))
+  }
+
+  function getTypeSymbol(type) {
+    return type.aliasSymbol || type.getSymbol?.() || null
+  }
+
+  function isStableSymbolName(name) {
+    return Boolean(name && name !== '__type' && name !== '__object')
+  }
+
+  function allocateDefName(type, pathSegments) {
+    const existingName = hoistedTypeNames.get(type)
+    if (existingName) {
+      return existingName
+    }
+
+    const symbol = getTypeSymbol(type)
+    const baseName = isStableSymbolName(symbol?.name)
+      ? sanitizeDefName(symbol.name)
+      : buildPathName(pathSegments)
+
+    let nextName = baseName
+    let suffix = 2
+    while (usedDefNames.has(nextName)) {
+      nextName = `${baseName}_${suffix}`
+      suffix += 1
+    }
+
+    usedDefNames.add(nextName)
+    hoistedTypeNames.set(type, nextName)
+    return nextName
+  }
+
+  function buildObjectSchema(type, pathSegments) {
+    if (visiting.has(type)) {
+      const recursiveName = hoistedTypeNames.get(type)
+      return recursiveName ? { $ref: `#/$defs/${recursiveName}` } : {}
+    }
+    visiting.add(type)
+
+    const properties = {}
+    const required = []
+    const stringIndexType = checker.getIndexTypeOfType(type, ts.IndexKind.String)
+
+    checker.getPropertiesOfType(type).forEach((symbol) => {
+      const declaration = symbol.valueDeclaration || symbol.declarations?.[0]
+      const propertyType = checker.getTypeOfSymbolAtLocation(symbol, declaration)
+      properties[symbol.name] = convertType(propertyType, [...pathSegments, symbol.name])
+      const isOptional = (symbol.flags & ts.SymbolFlags.Optional) !== 0
+      if (!isOptional) {
+        required.push(symbol.name)
+      }
+    })
+
+    visiting.delete(type)
+
+    const schema = {
+      type: 'object',
+      properties,
+      required,
+      additionalProperties: stringIndexType
+        ? convertType(stringIndexType, [...pathSegments, 'additionalProperties'])
+        : false
+    }
+
+    if (!required.length) {
+      delete schema.required
+    }
+
+    return schema
+  }
+
+  function shouldHoistObjectType(type, pathSegments, options = {}) {
+    if (options.inline) {
+      return false
+    }
+    if (checker.isArrayType(type) || checker.isTupleType(type)) {
+      return false
+    }
+
+    const properties = checker.getPropertiesOfType(type)
+    const hasStringIndex = Boolean(checker.getIndexTypeOfType(type, ts.IndexKind.String))
+    if (properties.length === 0 && !hasStringIndex) {
+      return false
+    }
+
+    return pathSegments.length > 0
+  }
+
+  function convertType(type, pathSegments = [], options = {}) {
     if (checker.isArrayType(type)) {
       const itemType = checker.getTypeArguments(type)[0] || checker.getAnyType()
       return {
         type: 'array',
-        items: convertType(itemType)
+        items: convertType(itemType, [...pathSegments, 'item'])
       }
     }
 
@@ -54,7 +153,7 @@ function createConverter(checker) {
       return {
         type: 'array',
         minItems: tupleItems.length,
-        prefixItems: tupleItems.map((item) => convertType(item))
+        prefixItems: tupleItems.map((item, index) => convertType(item, [...pathSegments, `item_${index}`]))
       }
     }
 
@@ -78,11 +177,15 @@ function createConverter(checker) {
       if (members.every((item) => item.isNumberLiteral?.())) {
         return { type: 'number', enum: members.map((item) => item.value) }
       }
-      return { oneOf: members.map((item) => convertType(item)) }
+      return {
+        oneOf: members.map((item, index) => convertType(item, [...pathSegments, `union_${index}`]))
+      }
     }
 
     if (type.isIntersection()) {
-      const objectSchemas = type.types.map((item) => convertType(item))
+      const objectSchemas = type.types.map((item, index) =>
+        convertType(item, [...pathSegments, `intersection_${index}`], { inline: true })
+      )
       const properties = {}
       const required = new Set()
       let additionalProperties = false
@@ -107,44 +210,29 @@ function createConverter(checker) {
       }
     }
 
-    if (visiting.has(type)) {
-      return {}
-    }
-    visiting.add(type)
-
-    const properties = {}
-    const required = []
-    const stringIndexType = checker.getIndexTypeOfType(type, ts.IndexKind.String)
-
-    checker.getPropertiesOfType(type).forEach((symbol) => {
-      const declaration = symbol.valueDeclaration || symbol.declarations?.[0]
-      const propertyType = checker.getTypeOfSymbolAtLocation(symbol, declaration)
-      properties[symbol.name] = convertType(propertyType)
-      const isOptional = (symbol.flags & ts.SymbolFlags.Optional) !== 0
-      if (!isOptional) {
-        required.push(symbol.name)
+    if (type.flags & ts.TypeFlags.Object) {
+      if (shouldHoistObjectType(type, pathSegments, options)) {
+        const defName = allocateDefName(type, pathSegments)
+        if (!defs.has(defName)) {
+          defs.set(defName, {})
+          defs.set(defName, buildObjectSchema(type, pathSegments))
+        }
+        return { $ref: `#/$defs/${defName}` }
       }
-    })
 
-    visiting.delete(type)
-
-    const schema = {
-      type: 'object',
-      properties,
-      required,
-      additionalProperties: stringIndexType ? convertType(stringIndexType) : false
+      return buildObjectSchema(type, pathSegments)
     }
 
-    if (!required.length) {
-      delete schema.required
-    }
-
-    return schema
+    return {}
   }
 
   return {
     convertRoot(type) {
-      return convertType(type)
+      const rootSchema = buildObjectSchema(type, [])
+      if (defs.size > 0) {
+        rootSchema.$defs = Object.fromEntries(defs.entries())
+      }
+      return rootSchema
     }
   }
 }
@@ -163,11 +251,12 @@ function main() {
     $schema: 'https://json-schema.org/draft/2020-12/schema',
     $id: 'orchestraflow-runnable-workflow.schema.json',
     title: 'OrchestraFlow Runnable Workflow',
-    description: '由共享类型自动派生的可运行工作流结构 schema。',
+    description: 'Runnable workflow schema generated from shared OrchestraFlow types.',
     ...converter.convertRoot(rootType)
   }
 
-  const fileContent = `// Auto-generated by scripts/generate-orchestraflow-runnable-schema.mjs\n` +
+  const fileContent =
+    `// Auto-generated by scripts/generate-orchestraflow-runnable-schema.mjs\n` +
     `// Do not edit manually.\n` +
     `export const GENERATED_RUNNABLE_WORKFLOW_SCHEMA = ${JSON.stringify(schemaDocument, null, 2)} as const\n`
 
