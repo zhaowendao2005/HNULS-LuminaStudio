@@ -4,7 +4,11 @@ import type {
   OFRunnableSubgraphNode,
   OFRunnableWorkflow
 } from '../../../Public/ShareTypes/Orchestraflow-types'
-import { OFBlockEnum } from '../../../Public/ShareTypes/Orchestraflow-types'
+import {
+  collectOFSelectorVariableRoots,
+  normalizeOFRunnableNodeSelectorData,
+  OFBlockEnum
+} from '../../../Public/ShareTypes/Orchestraflow-types'
 
 function isRecord(value: unknown): value is Record<string, any> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -314,6 +318,7 @@ export function assertRunnableWorkflow(value: unknown): OFRunnableWorkflow {
     throw new Error('workflow.graph.nodes 不能为空')
   }
 
+  const selectorVariableRoots = collectOFSelectorVariableRoots(nodes)
   const nodeMap = new Map<string, Record<string, any>>()
   nodes.forEach((node, index) => {
     const path = `workflow.graph.nodes[${index}]`
@@ -326,10 +331,11 @@ export function assertRunnableWorkflow(value: unknown): OFRunnableWorkflow {
     if (record.parentNode !== undefined || record.extent !== undefined) {
       throw new Error(`${path} 根图节点不能带 parentNode 或 extent`)
     }
-    validateSelectorFields(nodeType, assertRecord(record.data, `${path}.data`), `${path}.data`)
+    const data = assertRecord(record.data, `${path}.data`)
+    normalizeOFRunnableNodeSelectorData(nodeType, data, selectorVariableRoots)
+    validateSelectorFields(nodeType, data, `${path}.data`)
 
     if (nodeType === OFBlockEnum.Iteration || nodeType === OFBlockEnum.Loop) {
-      const data = assertRecord(record.data, `${path}.data`)
       const subgraph = assertRecord(data.subgraph, `${path}.data.subgraph`)
       const startNodeId = assertNonEmptyString(data.start_node_id, `${path}.data.start_node_id`)
       validateSubgraph(

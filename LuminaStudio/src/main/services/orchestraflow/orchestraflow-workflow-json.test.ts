@@ -125,4 +125,127 @@ describe('orchestraflow workflow jsonc helpers', () => {
 
     expect(() => parseRunnableWorkflowJsonc(source)).toThrow(/sourceHandle/)
   })
+
+  it('normalizes malformed nested selectors from legacy AI-generated workflows', () => {
+    const source = `{
+  "id": "demo",
+  "name": "demo",
+  "author": "codex",
+  "createdAt": 1,
+  "updatedAt": 1,
+  "status": "draft",
+  "graph": {
+    "nodes": [
+      {
+        "id": "start",
+        "type": "start",
+        "position": { "x": 0, "y": 0 },
+        "data": {
+          "title": "start",
+          "desc": "",
+          "type": "start",
+          "input": {
+            "variables": [
+              {
+                "variable": "content_package",
+                "label": "content_package",
+                "type": "object",
+                "required": true,
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "config": {
+                      "type": "object",
+                      "properties": {
+                        "process_mode": { "type": "string", "default": "batch" }
+                      },
+                      "required": ["process_mode"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["config"],
+                  "additionalProperties": false
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "branch",
+        "type": "ifelse",
+        "position": { "x": 100, "y": 0 },
+        "data": {
+          "title": "branch",
+          "desc": "",
+          "type": "ifelse",
+          "cases": [
+            {
+              "id": "case_if",
+              "kind": "if",
+              "label": "IF",
+              "handleId": "if",
+              "conditions": [
+                {
+                  "id": "cond_1",
+                  "compare_source_mode": "variable",
+                  "compare_selector": ["content_package.config.process_mode"],
+                  "operator": "is",
+                  "value": "batch",
+                  "value_type": "string"
+                }
+              ]
+            }
+          ],
+          "elseCase": { "handleId": "else", "label": "ELSE" }
+        }
+      },
+      {
+        "id": "end",
+        "type": "end",
+        "position": { "x": 200, "y": 0 },
+        "data": {
+          "title": "end",
+          "desc": "",
+          "type": "end",
+          "output": {
+            "variables": [
+              {
+                "variable": "result",
+                "label": "result",
+                "type": "string",
+                "value_selector": ["branch.matchedLabel"]
+              }
+            ]
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "edge_start_branch",
+        "source": "start",
+        "target": "branch",
+        "sourceHandle": "source",
+        "targetHandle": "target"
+      },
+      {
+        "id": "edge_branch_end",
+        "source": "branch",
+        "target": "end",
+        "sourceHandle": "if",
+        "targetHandle": "target"
+      }
+    ]
+  }
+}`
+
+    const parsed = parseRunnableWorkflowJsonc(source)
+    const branch = parsed.graph.nodes.find((node) => node.id === 'branch')
+    const condition = (branch?.data as any).cases[0].conditions[0]
+
+    expect(condition.variable_selector).toEqual(['content_package', 'config', 'process_mode'])
+    expect(condition.compare_selector).toBeUndefined()
+    expect(condition.compare_source_mode).toBeUndefined()
+  })
 })

@@ -34,11 +34,11 @@
    - 变量 pill -> .of-declare-text-var-pill
    ======================================== */
 
-@import './node-panel/_00-catalog-and-tokens';
-@import './node-panel/_10-layout-shell';
-@import './node-panel/_20-declare-blocks';
-@import './node-panel/_30-reference-and-output';
-@import './node-panel/_40-branch-and-choice';
-@import './node-panel/_50-state-and-hints';
-@import './node-panel/_60-condition-blocks';
-@import './node-panel/_70-compat-and-text-assignment';
+@use './node-panel/00-catalog-and-tokens' as *;
+@use './node-panel/10-layout-shell' as *;
+@use './node-panel/20-declare-blocks' as *;
+@use './node-panel/30-reference-and-output' as *;
+@use './node-panel/40-branch-and-choice' as *;
+@use './node-panel/50-state-and-hints' as *;
+@use './node-panel/60-condition-blocks' as *;
+@use './node-panel/70-compat-and-text-assignment' as *;

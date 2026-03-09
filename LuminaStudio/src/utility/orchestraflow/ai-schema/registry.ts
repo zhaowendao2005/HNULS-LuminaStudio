@@ -16,7 +16,12 @@ const WORKFLOW_AUTHORING_CONTRACT_BASE: Omit<OFWorkflowAuthoringContract, 'nodes
     nested_path_supported: true,
     dots_allowed_in_first_segment: true,
     empty_segments_allowed: false,
-    examples: [['input'], ['node_llm.llmoutput'], ['node_llm.structured_output', 'reason']]
+    examples: [
+      ['input'],
+      ['content_package', 'config', 'process_mode'],
+      ['node_llm.llmoutput'],
+      ['node_llm.structured_output', 'reason']
+    ]
   },
   edge_contract: {
     explicit_handles_required: true,

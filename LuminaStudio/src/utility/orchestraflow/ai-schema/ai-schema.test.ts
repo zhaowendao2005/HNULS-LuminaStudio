@@ -30,6 +30,8 @@ describe('orchestraflow ai schema bundle', () => {
     expect(bundle.prompt_markdown).toContain('OFRunnableWorkflow')
     expect(bundle.prompt_markdown).toContain('`selector[0]` 是变量存储 key')
     expect(bundle.prompt_markdown).toContain('不要输出空 selector 数组')
+    expect(bundle.prompt_markdown).toContain('开始节点 object 输入的嵌套字段必须写成分段 selector')
+    expect(bundle.prompt_markdown).toContain('不要写成 `["content_package.config.process_mode"]`')
     expect(bundle.prompt_markdown).toContain('优先补 `default`，让导入后的工作流可以直接运行')
     expect(bundle.prompt_markdown).toContain('`default` 是运行前预填值，不是 `value_selector`')
     expect(bundle.prompt_markdown).toContain('`object` / `array` 必须声明 `schema`')
@@ -38,6 +40,12 @@ describe('orchestraflow ai schema bundle', () => {
     )
     expect(bundle.prompt_markdown).toContain('不要把 `loop.output.variables[].type` 写成 `object`')
     expect(bundle.prompt_markdown).not.toContain('```json')
+    expect(bundle.annotated_workflow_jsonc).toContain(
+      'start object field selectors must be segmented arrays'
+    )
+    expect(bundle.annotated_workflow_jsonc).toContain(
+      'never collapse a start object field path into selector[0]'
+    )
     expect(bundle.annotated_workflow_jsonc).toContain(
       'include `default` so the run panel can prefill runnable values'
     )

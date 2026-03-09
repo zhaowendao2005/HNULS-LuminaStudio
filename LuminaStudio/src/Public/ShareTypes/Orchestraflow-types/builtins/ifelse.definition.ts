@@ -36,10 +36,17 @@ export const ifElseNodeDefinition = defineStandardOFNodeDefinition<OFIfElseNodeD
       notes: ['IfElse 节点通过 control.selectedSourceHandleIds 驱动后续边选择。']
     },
     warnings_zh: [
+      '每个 condition 都必须始终提供左值 `variable_selector`；`compare_selector` 绝不能替代它。',
+      '`variable_path` / `compare_path` 只是 selector 的可读路径文本，不能替代真正的 selector。',
+      '开始节点 object 输入的嵌套字段请写成分段 selector，例如 `["content_package","config","process_mode"]`，不要写成 `["content_package.config.process_mode"]`。',
       '仅当 `compare_source_mode=variable` 时才写 `compare_selector`，且 selector 必须非空。',
       '不要为普通分支条件补空 `compare_selector: []` 占位。'
     ],
-    selector_policies: ['所有条件 selector 必须是至少 1 段的非空字符串数组。'],
+    selector_policies: [
+      '每个 condition 的左值必须使用 `variable_selector`，且必须是至少 1 段的非空字符串数组。',
+      '`variable_path` 仅作为由 `variable_selector` 派生的展示文本。',
+      '开始节点 object 输入字段应使用分段 selector，而不是把整个点路径塞进 selector[0]。'
+    ],
     omit_rules: ['仅在 `compare_source_mode=variable` 时输出 `compare_selector`。']
   },
   prompt: {
