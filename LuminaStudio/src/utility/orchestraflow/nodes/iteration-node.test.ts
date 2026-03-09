@@ -278,7 +278,10 @@ describe('IterationNode', () => {
               break_conditions: [],
               logical_operator: 'and',
               start_node_id: 'child-start',
-              subgraph: createIterationGraph()
+              subgraph: createIterationGraph(),
+              output: {
+                variables: []
+              }
             }
           } as OFNode
         ],

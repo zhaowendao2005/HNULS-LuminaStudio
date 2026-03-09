@@ -63,10 +63,8 @@
 import { Annotation, END, START, StateGraph } from '@langchain/langgraph'
 import type {
   LangchainClientChatMessage,
-  LangchainClientToMainMessage,
   UserInteractionResponsePayload
 } from '@shared/langchain-client.types'
-import type { AgentRuntime } from '../../factory'
 import type { AgentModelGraphContext } from '../types'
 import { buildChatModelFromProvider } from '../../model-factory'
 import { runPlanning, type PlanningOutput } from '../../nodes/structure-planning/planning.node'
@@ -167,26 +165,27 @@ export function buildKnowledgeQaGraph(params: AgentModelGraphContext) {
   ) {
     throw new Error('Knowledge-QA 配置缺失：请设置首轮规划模型、回环规划模型与总结模型')
   }
+  const resolvedKnowledgeQaConfig = knowledgeQaConfig
 
   const maxIterations = Math.max(
     1,
-    Math.floor(knowledgeQaConfig.graph?.maxIterations ?? MAX_ITERATIONS)
+    Math.floor(resolvedKnowledgeQaConfig.graph?.maxIterations ?? MAX_ITERATIONS)
   )
 
   // 为三个模型分别创建 ChatModel 实例
   const initialPlanModel = buildChatModelFromProvider(
-    knowledgeQaConfig.initialPlanModel.provider,
-    knowledgeQaConfig.initialPlanModel.modelId
+    resolvedKnowledgeQaConfig.initialPlanModel.provider!,
+    resolvedKnowledgeQaConfig.initialPlanModel.modelId!
   )
 
   const loopPlanModel = buildChatModelFromProvider(
-    knowledgeQaConfig.loopPlanModel.provider,
-    knowledgeQaConfig.loopPlanModel.modelId
+    resolvedKnowledgeQaConfig.loopPlanModel.provider!,
+    resolvedKnowledgeQaConfig.loopPlanModel.modelId!
   )
 
   const summaryModel = buildChatModelFromProvider(
-    knowledgeQaConfig.summaryModel.provider,
-    knowledgeQaConfig.summaryModel.modelId
+    resolvedKnowledgeQaConfig.summaryModel.provider!,
+    resolvedKnowledgeQaConfig.summaryModel.modelId!
   )
 
   // ====================================================================
@@ -207,7 +206,7 @@ export function buildKnowledgeQaGraph(params: AgentModelGraphContext) {
       ...pubmedSearchReg,
       nodeFactory: (systemParams: any) =>
         pubmedSearchReg.nodeFactory({
-          apiKey: knowledgeQaConfig?.pubmed?.apiKey,
+          apiKey: resolvedKnowledgeQaConfig.pubmed?.apiKey,
           abortSignal: systemParams.abortSignal
         })
     }
@@ -219,7 +218,7 @@ export function buildKnowledgeQaGraph(params: AgentModelGraphContext) {
   async function executePlanning(
     state: typeof State.State,
     model: any,
-    modelConfig: typeof knowledgeQaConfig.initialPlanModel,
+    modelConfig: typeof resolvedKnowledgeQaConfig.initialPlanModel,
     nodeKind: 'initial_planning' | 'planning',
     label: string
   ): Promise<PlanningOutput> {
@@ -319,7 +318,7 @@ export function buildKnowledgeQaGraph(params: AgentModelGraphContext) {
     const plan = await executePlanning(
       state,
       initialPlanModel as any,
-      knowledgeQaConfig.initialPlanModel,
+      resolvedKnowledgeQaConfig.initialPlanModel,
       'initial_planning',
       '首轮深度规划'
     )
@@ -413,8 +412,8 @@ export function buildKnowledgeQaGraph(params: AgentModelGraphContext) {
 
     // approve：直接通过，记录审批意见（含补充意见）到 memory
     const memoParts: string[] = ['[用户审批-通过]']
-    if (response.selectedOptions && response.selectedOptions.length > 0) {
-      memoParts.push(`选择方案：${response.selectedOptions.join(', ')}`)
+    if (response.selectedOptionIds && response.selectedOptionIds.length > 0) {
+      memoParts.push(`选择方案：${response.selectedOptionIds.join(', ')}`)
     }
     if (response.textInput?.trim()) {
       memoParts.push(`补充意见：${response.textInput.trim()}`)
@@ -437,7 +436,7 @@ export function buildKnowledgeQaGraph(params: AgentModelGraphContext) {
     const plan = await executePlanning(
       state,
       loopPlanModel as any,
-      knowledgeQaConfig.loopPlanModel,
+      resolvedKnowledgeQaConfig.loopPlanModel,
       'planning',
       '回环规划'
     )
@@ -556,7 +555,7 @@ export function buildKnowledgeQaGraph(params: AgentModelGraphContext) {
         nodeKind: 'summary',
         label: '总结与判断',
         uiHint: { component: 'summary', title: '总结与判断' },
-        modelId: knowledgeQaConfig.summaryModel.modelId ?? undefined,
+        modelId: resolvedKnowledgeQaConfig.summaryModel.modelId ?? undefined,
         inputs: {
           userInput: state.input,
           planningInput: state.planningInput?.trim() || state.input,
@@ -587,8 +586,8 @@ export function buildKnowledgeQaGraph(params: AgentModelGraphContext) {
         iteration: state.iteration,
         results: state.toolResults ?? [],
         maxIterations,
-        systemPromptInstruction: knowledgeQaConfig.summaryModel.systemPromptInstruction,
-        systemPromptConstraint: knowledgeQaConfig.summaryModel.systemPromptConstraint,
+        systemPromptInstruction: resolvedKnowledgeQaConfig.summaryModel.systemPromptInstruction,
+        systemPromptConstraint: resolvedKnowledgeQaConfig.summaryModel.systemPromptConstraint,
         contextInfo: memoryContext
       })
     } catch (err) {
@@ -600,7 +599,7 @@ export function buildKnowledgeQaGraph(params: AgentModelGraphContext) {
           nodeId,
           nodeKind: 'summary',
           label: '总结与判断',
-          modelId: knowledgeQaConfig.summaryModel.modelId ?? undefined,
+          modelId: resolvedKnowledgeQaConfig.summaryModel.modelId ?? undefined,
           error: { message: `总结节点失败: ${msg}` }
         }
       })
@@ -617,16 +616,20 @@ export function buildKnowledgeQaGraph(params: AgentModelGraphContext) {
         nodeId,
         nodeKind: 'summary',
         label: '总结与判断',
-        modelId: knowledgeQaConfig.summaryModel.modelId ?? undefined,
+        modelId: resolvedKnowledgeQaConfig.summaryModel.modelId ?? undefined,
         outputs: { ...decision }
       }
     })
 
     // A) 质量达标 → 输出最终答案，记录 summary 到 memory
-    if (decision.isGoodEnough) {
-      params.emit({ type: 'invoke:text-delta', requestId: state.requestId, delta: decision.text })
+    if (!decision.shouldLoop) {
+      params.emit({
+        type: 'invoke:text-delta',
+        requestId: state.requestId,
+        delta: decision.message
+      })
       const summaryMemo = `[Summary-完成] 第 ${state.iteration + 1} 轮总结：质量达标，输出最终答案`
-      return { decision, fullText: decision.text, memory: [summaryMemo] }
+      return { decision, fullText: decision.message, memory: [summaryMemo] }
     }
 
     // B) 需要回环但已达上限 → 输出降级答案，记录到 memory

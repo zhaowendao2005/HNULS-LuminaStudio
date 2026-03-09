@@ -2,7 +2,7 @@
   <div>
     <!-- AI 消息：Markdown 渲染 -->
     <div v-if="role === 'assistant'" class="markdown-content">
-      <div v-html="renderMarkdown(content)" class="markdown"></div>
+      <div class="markdown" v-html="renderMarkdown(content)"></div>
       <span
         v-if="isStreaming"
         class="inline-block w-1 h-4 bg-emerald-500 animate-pulse ml-0.5 align-middle"

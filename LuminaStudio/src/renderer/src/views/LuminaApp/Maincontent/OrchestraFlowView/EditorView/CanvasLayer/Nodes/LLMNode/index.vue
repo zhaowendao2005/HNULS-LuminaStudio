@@ -6,15 +6,15 @@
     style="--of-handle-top: 28px"
   >
     <Handle
+      id="target"
       type="target"
       :position="Position.Left"
-      id="target"
       class="of-node-handle of-handle-target of-llm-target-handle"
     />
     <Handle
+      id="source"
       type="source"
       :position="Position.Right"
-      id="source"
       class="of-node-handle of-handle-source of-llm-source-handle"
     />
 
@@ -72,15 +72,15 @@
     <div class="px-4 pt-3 text-xs font-medium tracking-wide text-gray-500">LLM</div>
 
     <Handle
+      id="target"
       type="target"
       :position="Position.Left"
-      id="target"
       class="of-node-handle of-handle-target of-llm-target-handle"
     />
     <Handle
+      id="source"
       type="source"
       :position="Position.Right"
-      id="source"
       class="of-node-handle of-handle-source of-llm-source-handle"
     />
 

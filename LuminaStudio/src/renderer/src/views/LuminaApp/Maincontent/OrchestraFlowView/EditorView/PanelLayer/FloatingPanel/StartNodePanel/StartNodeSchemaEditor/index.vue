@@ -143,7 +143,11 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import type { OFJsonSchemaProperty, OFStructuredJsonSchema } from '@shared/Orchestraflow-types'
+import type {
+  OFJsonSchemaObject,
+  OFJsonSchemaProperty,
+  OFStructuredJsonSchema
+} from '@shared/Orchestraflow-types'
 import CenteredDialog from '@renderer/views/LuminaApp/Maincontent/OrchestraFlowView/EditorView/Common/CenteredDialog.vue'
 import type { OFSchemaRootType } from '@renderer/stores/orchestraflow/workflow-editor/object-schema-editor/object-schema-editor.types'
 import StartNodeSchemaFieldEditor, {
@@ -167,6 +171,10 @@ const jsonDraft = ref('')
 const fields = ref<StartSchemaDraftField[]>([])
 const toastMessage = ref('')
 let toastTimer: ReturnType<typeof setTimeout> | null = null
+
+function isObjectSchema(schema: OFJsonSchemaProperty): schema is OFJsonSchemaObject {
+  return schema.type === 'object'
+}
 
 const currentSchema = computed(() => fieldsToSchema(fields.value, props.rootType))
 const lineNumbers = computed(() =>
@@ -241,6 +249,8 @@ function schemaNodeToField(
   schema: OFJsonSchemaProperty,
   required: boolean
 ): StartSchemaDraftField {
+  const arrayItemSchema =
+    schema.type === 'array' && isObjectSchema(schema.items) ? schema.items : null
   return {
     id: `start_schema_field_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
     name,
@@ -248,20 +258,19 @@ function schemaNodeToField(
     required,
     description: schema.description,
     default: (schema as any).default,
-    children:
-      schema.type === 'object'
-        ? Object.entries(schema.properties || {}).map(([childName, childSchema]) =>
-            schemaNodeToField(childName, childSchema, new Set(schema.required || []).has(childName))
-          )
-        : schema.type === 'array' && schema.items.type === 'object'
-          ? Object.entries(schema.items.properties || {}).map(([childName, childSchema]) =>
-              schemaNodeToField(
-                childName,
-                childSchema,
-                new Set(schema.items.required || []).has(childName)
-              )
+    children: isObjectSchema(schema)
+      ? Object.entries(schema.properties || {}).map(([childName, childSchema]) =>
+          schemaNodeToField(childName, childSchema, new Set(schema.required || []).has(childName))
+        )
+      : arrayItemSchema
+        ? Object.entries(arrayItemSchema.properties || {}).map(([childName, childSchema]) =>
+            schemaNodeToField(
+              childName,
+              childSchema,
+              new Set(arrayItemSchema.required || []).has(childName)
             )
-          : []
+          )
+        : []
   }
 }
 
@@ -277,8 +286,9 @@ function schemaToFields(
     )
   }
   if (rootType === 'array<object>' && schema.type === 'array' && schema.items.type === 'object') {
-    const requiredSet = new Set(schema.items.required || [])
-    return Object.entries(schema.items.properties || {}).map(([name, value]) =>
+    const itemSchema = schema.items
+    const requiredSet = new Set(itemSchema.required || [])
+    return Object.entries(itemSchema.properties || {}).map(([name, value]) =>
       schemaNodeToField(name, value, requiredSet.has(name))
     )
   }
@@ -306,7 +316,7 @@ function fieldToSchemaNode(field: StartSchemaDraftField): OFJsonSchemaProperty {
   }
 
   if (field.type === 'array') {
-    const itemObject = {
+    const itemObject: OFJsonSchemaObject = {
       type: 'object' as const,
       properties: Object.fromEntries(
         (field.children || []).map((child) => [child.name.trim(), fieldToSchemaNode(child)])
@@ -339,7 +349,7 @@ function fieldsToSchema(
   rootType: OFSchemaRootType
 ): OFStructuredJsonSchema {
   const normalized = drafts.filter((field) => field.name.trim())
-  const objectSchema = {
+  const objectSchema: OFJsonSchemaObject = {
     type: 'object' as const,
     properties: Object.fromEntries(
       normalized.map((field) => [field.name.trim(), fieldToSchemaNode(field)])

@@ -124,10 +124,7 @@ export const iterationNodeDefinition = defineContainerOFNodeDefinition<OFIterati
         ...node,
         data: {
           ...data,
-          output_selector:
-            Array.isArray(data.output_selector) && data.output_selector.length === 0
-              ? undefined
-              : data.output_selector,
+          output_selector: data.output_selector,
           branch_output_selectors: (data.branch_output_selectors || []).filter(
             (item) => Array.isArray(item.output_selector) && item.output_selector.length > 0
           ),

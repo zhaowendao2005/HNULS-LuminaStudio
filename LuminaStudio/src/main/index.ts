@@ -22,6 +22,8 @@ import { OrchestraflowIPCHandler } from './ipc/orchestraflow-handler'
 import { orchestraflowBridge } from './services/orchestraflow-bridge'
 import { logger } from './services/logger'
 
+const log = logger.scope('Main')
+
 // 确保开发环境也使用 LuminaStudio 作为应用名称（生产环境自动使用 productName）
 if (!app.isPackaged) {
   app.setName('LuminaStudio')

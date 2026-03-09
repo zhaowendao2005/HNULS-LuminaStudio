@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import {
   OFVarType,
   OFBlockEnum,
+  type OFContainerNodeDefinition,
   type OFIfElseCondition,
   type OFNode,
   type OFLoopNodeData,
@@ -12,10 +13,12 @@ import {
 import { resolveOFNodeDefinition } from '@shared/Orchestraflow-types/node-definition-registry'
 
 function createDefaultNodeData(nodeId: string, title: string): OFLoopNodeData {
-  return resolveOFNodeDefinition(OFBlockEnum.Loop).editor.createDefaultData({
+  return (
+    resolveOFNodeDefinition(OFBlockEnum.Loop) as OFContainerNodeDefinition<OFLoopNodeData>
+  ).editor.createDefaultData({
     nodeId,
     title
-  }) as OFLoopNodeData
+  })
 }
 
 function toLoopNodeConfig(nodeId: string, data: OFLoopNodeData): OFLoopNodeConfig {
@@ -69,7 +72,9 @@ function createDefaultConfig(): OFLoopNodeConfig {
 
 function normalizeConfig(nodeId: string, data: Partial<OFLoopNodeConfig>): OFLoopNodeConfig {
   const defaultNodeData = createDefaultNodeData(nodeId, '循环')
-  const normalizedData = resolveOFNodeDefinition(OFBlockEnum.Loop).editor.normalizeData({
+  const normalizedData = (
+    resolveOFNodeDefinition(OFBlockEnum.Loop) as OFContainerNodeDefinition<OFLoopNodeData>
+  ).editor.normalizeData({
     node: {
       id: nodeId,
       type: 'loop',
@@ -92,7 +97,7 @@ function normalizeConfig(nodeId: string, data: Partial<OFLoopNodeConfig>): OFLoo
         }
       }
     }
-  }) as OFLoopNodeData
+  })
 
   return toLoopNodeConfig(nodeId, normalizedData)
 }

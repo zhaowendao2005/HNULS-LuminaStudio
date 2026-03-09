@@ -51,7 +51,12 @@ export const useSourcesStore = defineStore('ai-chat-sources', () => {
         }
         // 只有文档被勾选且已选择 embedding 才算有效
         if (isChecked && hasEmbedding) {
-          result.push({ kbId: kb.id, kbName: kb.name, doc, embedding: doc.selectedEmbedding })
+          result.push({
+            kbId: kb.id,
+            kbName: kb.name,
+            doc,
+            embedding: doc.selectedEmbedding!
+          })
         }
       }
     }

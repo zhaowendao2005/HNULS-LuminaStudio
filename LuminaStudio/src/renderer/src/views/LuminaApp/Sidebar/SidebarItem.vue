@@ -1,12 +1,12 @@
 <template>
   <button
-    @click="$emit('click')"
     :class="[
       'w-10 h-10 flex items-center justify-center rounded-xl transition-all duration-300 mb-4 group relative',
       active
         ? 'bg-gradient-to-br from-emerald-100 to-teal-50 text-emerald-700 shadow-md shadow-emerald-100'
         : 'text-slate-400 hover:bg-emerald-50 hover:text-emerald-700'
     ]"
+    @click="$emit('click')"
   >
     <svg
       class="w-5 h-5 flex-shrink-0"

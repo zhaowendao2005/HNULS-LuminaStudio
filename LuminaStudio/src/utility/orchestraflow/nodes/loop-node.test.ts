@@ -68,6 +68,9 @@ function createLoopNodeDefinition(overrides: Record<string, any> = {}): OFNode {
       logical_operator: 'and',
       start_node_id: 'child-start',
       subgraph: createLoopGraph(),
+      output: {
+        variables: []
+      },
       ...overrides
     }
   } as OFNode

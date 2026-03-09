@@ -63,10 +63,7 @@
  */
 
 import { randomUUID } from 'node:crypto'
-import type {
-  UserInteractionResponsePayload,
-  LangchainClientToMainMessage
-} from '@shared/langchain-client.types'
+import type { UserInteractionResponsePayload } from '@shared/langchain-client.types'
 import type { RequestUserInteractionParams } from './types'
 
 /**

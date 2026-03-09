@@ -152,8 +152,8 @@
             <div class="mt-3 flex items-center gap-2">
               <!-- 查看详情按钮 -->
               <button
-                @click="openAbstractModal(paper)"
                 class="flex items-center gap-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 px-2.5 py-1.5 rounded-md hover:bg-slate-50 hover:text-blue-600 hover:border-blue-200 transition-all shadow-sm"
+                @click="openAbstractModal(paper)"
               >
                 <svg
                   class="w-[14px] h-[14px]"
@@ -171,13 +171,13 @@
               <!-- TODO: 加入知识库功能（后端对接留桩） -->
               <button
                 v-if="paper.fullTextAvailable"
-                @click="toggleAddToKnowledge(paper.uid)"
                 :class="[
                   'flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-md transition-all shadow-sm',
                   addedPaperIds.has(paper.uid)
                     ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                     : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:text-slate-800'
                 ]"
+                @click="toggleAddToKnowledge(paper.uid)"
               >
                 <svg
                   v-if="addedPaperIds.has(paper.uid)"
@@ -264,8 +264,8 @@
             </div>
           </div>
           <button
-            @click="closeAbstractModal"
             class="p-1 hover:bg-slate-200 rounded-full transition-colors text-slate-400 hover:text-slate-600"
+            @click="closeAbstractModal"
           >
             <svg
               class="w-5 h-5"

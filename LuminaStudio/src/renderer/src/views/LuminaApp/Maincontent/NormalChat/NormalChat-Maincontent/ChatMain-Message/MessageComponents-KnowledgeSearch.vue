@@ -83,8 +83,8 @@
                 </span>
               </div>
               <button
-                @click="$emit('show-detail', { scope, hit, scopeIdx, hitIdx })"
                 class="flex-shrink-0 text-[10px] text-purple-500 hover:text-purple-700 font-medium transition-colors flex items-center gap-0.5"
+                @click="$emit('show-detail', { scope, hit, scopeIdx, hitIdx })"
               >
                 <span>详情</span>
                 <svg

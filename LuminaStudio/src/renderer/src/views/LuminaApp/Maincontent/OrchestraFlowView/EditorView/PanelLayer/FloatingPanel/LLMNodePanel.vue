@@ -307,13 +307,14 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type {
+  OFJsonSchemaObject,
+  OFJsonSchemaProperty,
   OFLLMNodeData,
-  OFVariable,
   OFPromptItem,
   OFStructuredJsonSchema,
   OFStructuredOutputConfig
 } from '@shared/Orchestraflow-types'
-import { buildLLMOutputVariables } from '@shared/Orchestraflow-types'
+import { llmOutputVariableDefinition } from '@shared/Orchestraflow-types/variable-definition'
 import { useWorkflowEditorStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor.store'
 import { useWorkflowEditorUIStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor-ui.store'
 import { useVariableSelectorStore } from '@renderer/stores/orchestraflow/workflow-editor/variable-selector/variable-selector.store'
@@ -349,6 +350,10 @@ const promptRoleOptions = [
 ] as const
 const promptEditorRefs = new Map<string, { getCursorPosition: () => number }>()
 const activePromptTarget = ref<{ promptId: string; cursorPosition: number } | null>(null)
+
+function isObjectSchema(schema: OFJsonSchemaProperty): schema is OFJsonSchemaObject {
+  return schema.type === 'object'
+}
 
 const currentNode = computed(() => {
   if (!uiStore.selectedNodeId) return null
@@ -431,7 +436,10 @@ watch(structuredEnabled, (newValue) => {
 
 const autoOutputs = computed(() => {
   if (!nodeData.value) return []
-  return buildLLMOutputVariables(nodeData.value.title || 'llm', nodeData.value.structured_output)
+  return llmOutputVariableDefinition.build({
+    namespace: nodeData.value.title || 'llm',
+    structuredOutput: nodeData.value.structured_output
+  })
 })
 const baseOutputs = computed(() =>
   autoOutputs.value.filter((item) => item.variable !== 'structured_output')
@@ -443,6 +451,7 @@ const structuredSchemaFields = computed(() => {
   const schema = structuredSchema.value
   if (!schema) return []
   const objectSchema = schema.type === 'array' ? schema.items : schema
+  if (!isObjectSchema(objectSchema)) return []
   const requiredSet = new Set(objectSchema.required || [])
   return Object.entries(objectSchema.properties || {}).map(([name, item]) => ({
     name,
@@ -556,7 +565,10 @@ function syncStructuredOutput(nextStructuredOutput: OFStructuredOutputConfig) {
   patchNode({
     structured_output: nextStructuredOutput,
     output: {
-      variables: buildLLMOutputVariables(nodeData.value.title || 'llm', nextStructuredOutput)
+      variables: llmOutputVariableDefinition.build({
+        namespace: nodeData.value.title || 'llm',
+        structuredOutput: nextStructuredOutput
+      })
     }
   } as Partial<OFLLMNodeData>)
 }
@@ -570,23 +582,6 @@ function handleModelSelect(payload: { provider: ModelProvider; model: Model }) {
       name: payload.model.id
     }
   } as Partial<OFLLMNodeData>)
-}
-
-function formatOutputNamespace(item: OFVariable) {
-  const selector = item.value_selector || []
-  if (selector.length <= 1) {
-    return nodeData.value?.title || 'llm'
-  }
-  return selector.join('.')
-}
-
-function formatStructuredOutputNamespace() {
-  if (structuredOutputVariable.value) {
-    return formatOutputNamespace(structuredOutputVariable.value)
-  }
-
-  const namespace = nodeData.value?.title || 'llm'
-  return `${namespace}.structured_output`
 }
 
 function handleSchemaSave(schema: OFStructuredJsonSchema) {

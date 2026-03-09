@@ -72,9 +72,9 @@
             <button
               v-for="model in provider.models"
               :key="model.id"
-              @click="handleSelect(provider, model)"
               class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-slate-50 transition-colors group"
               :class="{ 'bg-emerald-50 hover:bg-emerald-50/80': currentModelId === model.id }"
+              @click="handleSelect(provider, model)"
             >
               <div class="flex items-center gap-3">
                 <div

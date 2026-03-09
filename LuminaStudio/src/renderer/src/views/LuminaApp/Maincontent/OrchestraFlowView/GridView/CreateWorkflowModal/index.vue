@@ -15,8 +15,8 @@
         >
           <h2 class="text-lg font-semibold text-slate-900">创建工作流</h2>
           <button
-            @click="$emit('close')"
             class="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600"
+            @click="$emit('close')"
           >
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
@@ -92,7 +92,6 @@
                   <button
                     v-for="color in iconBackgrounds"
                     :key="color"
-                    @click="formData.iconBackground = color"
                     class="w-8 h-8 rounded border-2 transition-all"
                     :class="
                       formData.iconBackground === color
@@ -100,6 +99,7 @@
                         : 'border-slate-300'
                     "
                     :style="{ backgroundColor: color }"
+                    @click="formData.iconBackground = color"
                   />
                 </div>
               </div>
@@ -114,14 +114,14 @@
               <button
                 v-for="iconName in commonIcons"
                 :key="iconName"
+                class="w-10 h-10 flex items-center justify-center rounded hover:bg-emerald-100 transition-colors"
+                :class="iconComponents[iconName].color"
                 @click="
                   () => {
                     formData.icon = iconName
                     showIconPicker = false
                   }
                 "
-                class="w-10 h-10 flex items-center justify-center rounded hover:bg-emerald-100 transition-colors"
-                :class="iconComponents[iconName].color"
                 v-html="iconComponents[iconName].svg"
               />
             </div>
@@ -133,15 +133,15 @@
           class="flex-shrink-0 px-6 py-4 border-t border-slate-200 flex items-center justify-end gap-3"
         >
           <button
-            @click="$emit('close')"
             class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+            @click="$emit('close')"
           >
             取消
           </button>
           <button
-            @click="handleConfirm"
             :disabled="!formData.name.trim() || !formData.author.trim()"
             class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            @click="handleConfirm"
           >
             创建
           </button>

@@ -99,7 +99,7 @@
           </div>
 
           <div class="of-declare-list">
-            <div v-for="(rule, index) in rules" :key="rule.id" class="of-declare-entry">
+            <div v-for="rule in rules" :key="rule.id" class="of-declare-entry">
               <div class="of-declare-text-row">
                 <span class="of-declare-text-label">源</span>
 
@@ -351,6 +351,8 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type {
+  OFJsonSchemaObject,
+  OFJsonSchemaProperty,
   OFStructuredJsonSchema,
   OFVarType,
   OFVariableAssignNodeData,
@@ -367,7 +369,6 @@ import type { NodeDebugField } from './NodeDebug/NodeDebugForm.vue'
 import NodeDebugForm from './NodeDebug/NodeDebugForm.vue'
 import NodeDebugLastRun from './NodeDebug/NodeDebugLastRun.vue'
 import CapsuleTooltip from './components/CapsuleTooltip.vue'
-import VariablePillButton from './components/VariablePillButton.vue'
 import ObjectSchemaEditor from './ObjectSchemaEditor/index.vue'
 import { OF_PANEL_THEME } from './panel-theme'
 
@@ -383,6 +384,10 @@ const activeTab = ref<'settings' | 'lastRun'>('settings')
 const debugMode = ref(false)
 const activeRuleId = ref<string | null>(null)
 const activeSchemaRuleId = ref<string | null>(null)
+
+function isObjectSchema(schema: OFJsonSchemaProperty): schema is OFJsonSchemaObject {
+  return schema.type === 'object'
+}
 
 const targetTypeOptions = [
   { label: 'string', value: OFVarTypeEnum.String },
@@ -477,7 +482,7 @@ function handleClose() {
 
 function patchNode(patch: Partial<OFVariableAssignNodeData>) {
   if (!currentNode.value) return
-  configStore.patchConfig(patch as any)
+  configStore.patchConfig(patch)
   editorStore.updateNode(currentNode.value.id, patch)
 }
 
@@ -530,20 +535,6 @@ function openTargetSelector(ruleId: string, event: MouseEvent) {
   )
 }
 
-function parseSelectorPath(value: string): string[] {
-  return value
-    .split('.')
-    .map((segment) => segment.trim())
-    .filter(Boolean)
-}
-
-function handleSourcePathInput(ruleId: string, value: string) {
-  patchRule(ruleId, {
-    source_path: value,
-    source_selector: parseSelectorPath(value)
-  })
-}
-
 function handleTargetTypeChange(ruleId: string, targetType: OFVarType) {
   const patch: Partial<OFVariableAssignRule> = {
     target_type: targetType
@@ -574,10 +565,6 @@ function cycleRuleItemType(rule: OFVariableAssignRule) {
   const currentIndex = arrayItemTypeOptions.findIndex((item) => item.value === currentValue)
   const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % arrayItemTypeOptions.length : 0
   patchRule(rule.id, { item_type: arrayItemTypeOptions[nextIndex].value as OFVarType })
-}
-
-function usesJsonConstantEditor(rule: OFVariableAssignRule) {
-  return rule.target_type === OFVarTypeEnum.Object || rule.target_type === OFVarTypeEnum.Array
 }
 
 function getConstantDisplayValue(rule: OFVariableAssignRule): string {
@@ -615,18 +602,22 @@ function handleSchemaSave(schema: OFStructuredJsonSchema) {
   if (activeRule.target_type === OFVarTypeEnum.Array) {
     patchRule(activeSchemaRuleId.value, {
       item_type: OFVarTypeEnum.Object,
-      item_schema: schema.type === 'array' ? schema.items : schema,
+      item_schema:
+        schema.type === 'array'
+          ? isObjectSchema(schema.items)
+            ? schema.items
+            : null
+          : isObjectSchema(schema)
+            ? schema
+            : null,
       schema
     })
   } else {
     patchRule(activeSchemaRuleId.value, {
-      schema: schema.type === 'array' ? schema.items : schema
+      schema:
+        schema.type === 'array' ? (isObjectSchema(schema.items) ? schema.items : null) : schema
     })
   }
-}
-
-function formatSelector(selector?: string[]) {
-  return selector?.length ? selector.join('.') : ''
 }
 
 function handleVariableSelect(event: Event) {

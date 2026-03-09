@@ -29,13 +29,13 @@
         <div class="flex-1 overflow-y-auto p-3 space-y-1">
           <div v-for="(preset, idx) in presets" :key="preset.id" class="relative group/preset">
             <button
-              @click="handleSelectPreset(preset.id)"
               class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all"
               :class="
                 selectedPresetId === preset.id
                   ? 'bg-white shadow-sm ring-1 ring-slate-100'
                   : 'hover:bg-slate-100'
               "
+              @click="handleSelectPreset(preset.id)"
             >
               <div
                 class="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold shadow-sm"
@@ -53,9 +53,9 @@
             <!-- 删除按钮：仅对非默认 Preset 显示 -->
             <button
               v-if="!isDefaultPreset(preset.id)"
-              @click.stop="handleDeletePreset(preset.id)"
               class="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover/preset:opacity-100 transition-opacity px-2 py-1 rounded-md text-[10px] text-red-500 hover:bg-red-50"
               title="删除预设"
+              @click.stop="handleDeletePreset(preset.id)"
             >
               删除
             </button>

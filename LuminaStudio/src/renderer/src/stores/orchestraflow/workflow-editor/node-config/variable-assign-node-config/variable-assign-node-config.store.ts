@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import {
   OFVarType,
   OFBlockEnum,
+  type OFStandardNodeDefinition,
   type OFNode,
   type OFVariableAssignNodeData,
   type OFVariableAssignNodeConfig,
@@ -11,10 +12,14 @@ import {
 import { resolveOFNodeDefinition } from '@shared/Orchestraflow-types/node-definition-registry'
 
 function createDefaultNodeData(nodeId: string, title: string): OFVariableAssignNodeData {
-  return resolveOFNodeDefinition(OFBlockEnum.VariableAssign).editor.createDefaultData({
+  return (
+    resolveOFNodeDefinition(
+      OFBlockEnum.VariableAssign
+    ) as OFStandardNodeDefinition<OFVariableAssignNodeData>
+  ).editor.createDefaultData({
     nodeId,
     title
-  }) as OFVariableAssignNodeData
+  })
 }
 
 function toVariableAssignNodeConfig(
@@ -52,7 +57,11 @@ function normalizeConfig(
   data: Partial<OFVariableAssignNodeConfig>
 ): OFVariableAssignNodeConfig {
   const defaultNodeData = createDefaultNodeData(nodeId, '变量赋值')
-  const normalizedData = resolveOFNodeDefinition(OFBlockEnum.VariableAssign).editor.normalizeData({
+  const normalizedData = (
+    resolveOFNodeDefinition(
+      OFBlockEnum.VariableAssign
+    ) as OFStandardNodeDefinition<OFVariableAssignNodeData>
+  ).editor.normalizeData({
     node: {
       id: nodeId,
       type: 'variable-assign',
@@ -75,7 +84,7 @@ function normalizeConfig(
         }
       }
     }
-  }) as OFVariableAssignNodeData
+  })
 
   return toVariableAssignNodeConfig(nodeId, normalizedData)
 }

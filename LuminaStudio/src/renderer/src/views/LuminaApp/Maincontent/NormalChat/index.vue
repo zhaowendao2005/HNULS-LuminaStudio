@@ -9,7 +9,7 @@
     <!-- Left Panel -->
     <LeftPanel
       v-model:collapsed="leftCollapsed"
-      v-model:currentTab="currentTab"
+      v-model:current-tab="currentTab"
       :tab-options="leftTabOptions"
       :sources-disabled="inputBarStore.mode === 'normal'"
       @open-config="handleOpenConfig"
@@ -17,9 +17,9 @@
 
     <!-- Center Chat -->
     <ChatMain
+      v-model:user-input="userInput"
       :messages="messages"
       :is-generating="isGenerating"
-      v-model:user-input="userInput"
       :display-provider-id="displayProviderId"
       :display-model-id="displayModelId"
       @send="handleSend"

@@ -6,9 +6,9 @@
     style="--of-handle-top: 23px"
   >
     <Handle
+      id="source"
       type="source"
       :position="Position.Right"
-      id="source"
       class="of-node-handle of-handle-source of-start-source-handle"
     />
 
@@ -32,9 +32,9 @@
     <div class="px-4 pt-3 text-xs font-medium tracking-wide text-gray-500">开始</div>
 
     <Handle
+      id="source"
       type="source"
       :position="Position.Right"
-      id="source"
       class="of-node-handle of-handle-source of-start-source-handle"
     />
 

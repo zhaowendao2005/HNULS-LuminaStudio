@@ -5,14 +5,14 @@
     <!-- 文本输入区域 -->
     <textarea
       :value="userInput"
-      @input="$emit('update:userInput', ($event.target as HTMLTextAreaElement).value)"
-      @keydown="handleKeydown"
       placeholder="在这里输入消息，按 Enter 发送"
       spellcheck="false"
       rows="2"
       :disabled="isGenerating"
       class="w-full px-4 py-3 text-sm focus:outline-none resize-none overflow-y-auto text-slate-700 placeholder:text-slate-300 bg-transparent"
       style="min-height: 46px; max-height: 406px"
+      @input="$emit('update:userInput', ($event.target as HTMLTextAreaElement).value)"
+      @keydown="handleKeydown"
     ></textarea>
 
     <!-- 底部工具栏 -->
@@ -22,9 +22,9 @@
         <!-- 新建对话 -->
         <button
           type="button"
-          @click="$emit('showConversationList')"
           class="w-7 h-7 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
           title="新建对话"
+          @click="$emit('showConversationList')"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -267,22 +267,22 @@
         <div class="relative z-10">
           <WhiteSelect
             :model-value="inputBarStore.mode"
-            @update:model-value="(v) => inputBarStore.setMode((v as any) ?? 'normal')"
             :options="modeOptions"
             placeholder="选择模式"
             root-class="w-28"
             trigger-class="!py-1.5 !px-2.5 !h-7 !text-xs"
             panel-class="!w-32 !bottom-full !top-auto !mb-2 !mt-0"
+            @update:model-value="(v) => inputBarStore.setMode((v as any) ?? 'normal')"
           />
         </div>
 
         <!-- 中断按钮 (生成中显示) -->
         <button
           v-if="isGenerating"
-          @click="$emit('abort')"
           type="button"
           class="w-8 h-8 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded-full transition-all"
           title="中断生成"
+          @click="$emit('abort')"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -300,7 +300,6 @@
         <!-- 发送按钮 (默认显示) -->
         <button
           v-else
-          @click="$emit('send')"
           :disabled="!canSend"
           type="button"
           class="w-8 h-8 flex items-center justify-center rounded-full transition-all disabled:opacity-30 disabled:cursor-not-allowed"
@@ -310,6 +309,7 @@
               : 'bg-slate-200 text-slate-400'
           "
           title="发送消息"
+          @click="$emit('send')"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"

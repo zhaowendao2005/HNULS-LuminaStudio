@@ -206,7 +206,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed } from 'vue'
 import NodePanel from './components/NodePanel/index.vue'
 import BottomPanel from './components/BottomPanel/index.vue'
 

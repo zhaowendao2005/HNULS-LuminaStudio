@@ -7,13 +7,13 @@
           <button
             v-for="tab in tabs"
             :key="tab.value"
-            @click="activeTab = tab.value"
             :class="[
               'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
               activeTab === tab.value
                 ? 'bg-emerald-100 text-emerald-700'
                 : 'text-slate-600 hover:text-emerald-600 hover:bg-emerald-50'
             ]"
+            @click="activeTab = tab.value"
           >
             {{ tab.label }}
           </button>
@@ -24,10 +24,10 @@
           <div class="relative">
             <input
               v-model="searchKeyword"
-              @input="handleSearch"
               type="text"
               placeholder="搜索工作流..."
               class="w-full px-4 py-2 pl-10 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              @input="handleSearch"
             />
             <svg
               class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"
@@ -105,7 +105,6 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useDebounceFn } from '@vueuse/core'
 import { useWorkflowListStore } from '@renderer/stores/orchestraflow/workflow-list/workflow-list.store'
-import type { OFWorkflowMeta } from '@shared/Orchestraflow-types'
 import CreateWorkflowCard from './CreateWorkflowCard.vue'
 import WorkflowCard from './WorkflowCard.vue'
 import CreateWorkflowModal from './CreateWorkflowModal/index.vue'
@@ -129,13 +128,10 @@ const workflows = computed(() => workflowListStore.workflows)
 const loading = computed(() => workflowListStore.loading)
 
 // 搜索防抖（500ms，同 Dify）
-const handleSearch = useDebounceFn(
-  () => {
-    workflowListStore.setSearchKeyword(searchKeyword.value)
-    workflowListStore.fetchWorkflows()
-  },
-  { wait: 500 }
-)
+const handleSearch = useDebounceFn(() => {
+  workflowListStore.setSearchKeyword(searchKeyword.value)
+  workflowListStore.fetchWorkflows()
+}, 500)
 
 function handleCreateWorkflow() {
   showCreateModal.value = true

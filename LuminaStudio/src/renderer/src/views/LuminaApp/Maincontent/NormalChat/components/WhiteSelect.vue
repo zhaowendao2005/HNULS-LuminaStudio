@@ -29,8 +29,8 @@
     <Teleport :to="teleportTo" :disabled="!teleportTo">
       <Transition name="white-select-pop">
         <div
-          ref="panelRef"
           v-if="open"
+          ref="panelRef"
           class="WhiteSelect_panel z-[1100] rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden"
           data-floating-portal="true"
           :class="[panelClass, teleportTo ? 'fixed' : 'absolute mt-2 w-full']"

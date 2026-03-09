@@ -54,7 +54,9 @@ function findWorkflowFileById(workflowId: string): string | null {
         return file
       }
     } catch (e) {
-      log.warn(`Failed to inspect workflow file while resolving id: ${file}`, e)
+      log.warn(`Failed to inspect workflow file while resolving id: ${file}`, {
+        error: e instanceof Error ? e.message : String(e)
+      })
     }
   }
 
@@ -135,7 +137,7 @@ export class OrchestraflowWorkflowService {
   /**
    * 创建工作流
    */
-  async create(data: { name: string; description?: string }): Promise<OFWorkflow> {
+  async create(data: { name: string; description?: string; author?: string }): Promise<OFWorkflow> {
     const now = Math.floor(Date.now() / 1000)
     const randomSuffix = generateRandomSuffix()
     const workflowId = `${data.name}-${randomSuffix}`
@@ -144,7 +146,7 @@ export class OrchestraflowWorkflowService {
       id: workflowId,
       name: data.name,
       description: data.description,
-      author: data.author,
+      author: data.author || 'LuminaStudio',
       createdAt: now,
       updatedAt: now,
       status: 'draft',

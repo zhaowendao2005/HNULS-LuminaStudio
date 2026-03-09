@@ -40,8 +40,8 @@
               </div>
             </div>
             <button
-              @click="$emit('update:modelValue', false)"
               class="w-8 h-8 rounded-lg hover:bg-white/60 transition-colors flex items-center justify-center text-slate-400 hover:text-slate-600"
+              @click="$emit('update:modelValue', false)"
             >
               <svg
                 class="w-5 h-5"
@@ -107,8 +107,8 @@
                 知识库ID: {{ detail?.scope.knowledgeBaseId }}
               </div>
               <button
-                @click="$emit('update:modelValue', false)"
                 class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded-lg transition-colors"
+                @click="$emit('update:modelValue', false)"
               >
                 关闭
               </button>

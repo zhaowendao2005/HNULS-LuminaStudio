@@ -8,10 +8,10 @@ import type { OFLLMNodeData } from '../core-types'
 import { OFBlockEnum } from '../core-types'
 import { omitOFField, omitOFNullSchemaFields } from './helpers'
 
-function buildOutputs(title: string, structuredOutput?: OFLLMNodeData['structured_output']) {
+function buildOutputs(title: string, structuredOutput?: OFLLMNodeData['structured_output'] | null) {
   return llmOutputVariableDefinition.build({
     namespace: title,
-    structuredOutput
+    structuredOutput: structuredOutput ?? undefined
   })
 }
 

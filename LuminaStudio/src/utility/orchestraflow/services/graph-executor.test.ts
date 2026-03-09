@@ -248,6 +248,9 @@ function createLoopWorkflow(): OFWorkflow {
             target: 'loop-child-end'
           }
         ]
+      },
+      output: {
+        variables: []
       }
     }
   } as OFNode

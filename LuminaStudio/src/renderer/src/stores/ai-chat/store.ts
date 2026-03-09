@@ -216,7 +216,7 @@ export const useAiChatStore = defineStore('ai-chat', () => {
     }
 
     // Agent mode: attach retrieval scope snapshot + provider override
-    let retrieval = mode === 'agent' ? buildRetrievalConfigFromSources() : undefined
+    const retrieval = mode === 'agent' ? buildRetrievalConfigFromSources() : undefined
 
     if (mode === 'agent' && retrieval) {
       retrieval.k = knowledgeQaConfig.retrieval.topK

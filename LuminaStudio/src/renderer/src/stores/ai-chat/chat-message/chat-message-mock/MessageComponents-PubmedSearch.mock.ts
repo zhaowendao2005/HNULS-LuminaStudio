@@ -83,6 +83,8 @@ const PubmedSearchMockCase: MessageComponentMockCase = {
               }
             },
             result: {
+              nodeId: 'pubmed-search-node-1',
+              nodeKind: 'pubmed_search',
               outputs: {
                 result: MOCK_PUBMED_RESULT
               }

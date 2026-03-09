@@ -94,8 +94,8 @@
           </svg>
           <p class="text-sm">{{ rerankStore.error }}</p>
           <button
-            @click="rerankStore.fetchModels(true)"
             class="mt-2 text-xs text-emerald-600 hover:underline"
+            @click="rerankStore.fetchModels(true)"
           >
             重试
           </button>
@@ -118,9 +118,9 @@
             <button
               v-for="model in models"
               :key="model.id"
-              @click="handleSelect(model)"
               class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-slate-50 transition-colors group"
               :class="{ 'bg-amber-50 hover:bg-amber-50/80': currentModelId === model.id }"
+              @click="handleSelect(model)"
             >
               <div class="flex items-center gap-3">
                 <div
@@ -184,8 +184,8 @@
       >
         <span>从 KnowledgeDatabase 获取</span>
         <button
-          @click="rerankStore.fetchModels(true)"
           class="hover:text-emerald-600 transition-colors"
+          @click="rerankStore.fetchModels(true)"
         >
           刷新列表
         </button>

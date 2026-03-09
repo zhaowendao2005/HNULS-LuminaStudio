@@ -6,9 +6,9 @@
     <div class="px-4 pt-3 text-xs font-medium tracking-wide text-gray-500">结束</div>
 
     <Handle
+      id="target"
       type="target"
       :position="Position.Left"
-      id="target"
       class="of-node-handle of-handle-target of-end-target-handle"
     />
 

@@ -10,9 +10,13 @@ import type {
   OFAIDslNode,
   OFAIDslWorkflow,
   OFEdge,
+  OFIfElseCondition,
   OFIterationNodeData,
+  OFIterationBranchOutputSelector,
+  OFLLMNodeData,
   OFLoopVariableData,
   OFNode,
+  OFVariable,
   OFWorkflow
 } from '@shared/Orchestraflow-types'
 import { normalizeOFVariableNamespace, OFBlockEnum } from '@shared/Orchestraflow-types'
@@ -56,7 +60,7 @@ export function compileAIDslToWorkflow(dsl: OFAIDslWorkflow): OFWorkflow {
 function compileDslGraph(
   graph: Pick<OFAIDslWorkflow, 'nodes' | 'edges'>,
   context: CompileGraphContext
-): { nodes: OFNode[]; edges: OFEdge[] } {
+): OFWorkflow['graph'] {
   // 容器子图递归编译，并使用自己的 id 命名空间，避免父子图节点冲突。
   const idMap = new Map<string, string>()
   graph.nodes.forEach((node) => {
@@ -81,6 +85,9 @@ function compileDslNode(
 
   const compiledId = expectCompiledId(node.id, idMap)
   const definition = resolveOFNodeDefinition(node.type)
+  if (!('compiler' in definition)) {
+    throw new Error(`Node type does not support AI DSL compilation: ${node.type}`)
+  }
   const title = String(
     node.title || definition.meta.title || getOFDefaultNodeTitle(node.type)
   ).trim()
@@ -240,12 +247,7 @@ function compileDslEdge(edge: OFAIDslEdge, index: number, idMap: Map<string, str
   }
 }
 
-function createNodeShell(
-  id: string,
-  type: OFBlockEnum,
-  index: number,
-  parentNodeId?: string
-): OFNode {
+function createNodeShell(id: string, type: string, index: number, parentNodeId?: string): OFNode {
   const position = parentNodeId
     ? { x: 40 + index * 260, y: 60 + (index % 2) * 140 }
     : { x: 80 + index * 300, y: 180 + (index % 3) * 120 }
@@ -299,19 +301,6 @@ function compileConditions(source: unknown[], idMap: Map<string, string>): OFIfE
       ...condition,
       variable_selector: compileSelectorField(condition.variable_selector, idMap),
       compare_selector: compileSelectorField(condition.compare_selector, idMap)
-    }
-  })
-}
-
-function compileVariableAssignRules(
-  source: unknown[],
-  idMap: Map<string, string>
-): OFVariableAssignRule[] {
-  return source.map((item) => {
-    const rule = item as OFVariableAssignRule
-    return {
-      ...rule,
-      source_selector: compileSelectorField(rule.source_selector, idMap)
     }
   })
 }

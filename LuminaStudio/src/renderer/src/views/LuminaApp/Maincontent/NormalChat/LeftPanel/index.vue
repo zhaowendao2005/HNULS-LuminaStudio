@@ -10,10 +10,10 @@
       <div v-if="!collapsed" class="flex-1 min-w-0">
         <WhiteSelect
           :model-value="currentTab"
-          @update:model-value="(v) => emit('update:currentTab', String(v))"
           :options="tabOptions"
           placeholder="选择页面"
           trigger-class="!px-3 !py-2 !text-sm !font-semibold border-0 hover:bg-slate-50"
+          @update:model-value="(v) => emit('update:currentTab', String(v))"
         />
       </div>
       <button

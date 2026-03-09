@@ -9,7 +9,7 @@ import {
   loopOutputVariableDefinition
 } from '../variable-definition'
 import type { OFLoopNodeData, OFLoopStartNodeData, OFNode } from '../core-types'
-import { OFBlockEnum } from '../core-types'
+import { OFBlockEnum, OFVarType } from '../core-types'
 import { omitOFEmptySelector, omitOFNullSchemaFields } from './helpers'
 
 const DEFAULT_SUBGRAPH_VIEWPORT = { x: 0, y: 0, zoom: 1 }
@@ -161,7 +161,7 @@ export const loopNodeDefinition = defineContainerOFNodeDefinition<OFLoopNodeData
           id: `loop_var_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
           variable: 'counter',
           label: 'counter',
-          type: 'number',
+          type: OFVarType.Number,
           value_type: 'constant',
           value: 0
         }

@@ -25,7 +25,7 @@
       </div>
       <div v-else>
         {{ sourcesStore.error || '知识库服务未连接' }}
-        <button @click="handleRetry" class="ml-2 underline hover:text-amber-900">重试</button>
+        <button class="ml-2 underline hover:text-amber-900" @click="handleRetry">重试</button>
       </div>
     </div>
 
@@ -52,8 +52,8 @@
     <!-- 操作按钮组 -->
     <div class="flex gap-2">
       <button
-        @click="sourcesStore.selectAll()"
         class="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-medium text-slate-600 hover:border-emerald-200 hover:text-emerald-600 transition-colors"
+        @click="sourcesStore.selectAll()"
       >
         <svg
           class="w-3.5 h-3.5"
@@ -67,8 +67,8 @@
         全选
       </button>
       <button
-        @click="sourcesStore.deselectAll()"
         class="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-medium text-slate-600 hover:border-slate-300 transition-colors"
+        @click="sourcesStore.deselectAll()"
       >
         <svg
           class="w-3.5 h-3.5"
@@ -83,10 +83,10 @@
         清空
       </button>
       <button
-        @click="sourcesStore.refresh()"
         :disabled="sourcesStore.isLoading"
         class="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-medium text-slate-600 hover:border-blue-200 hover:text-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         title="刷新知识库列表"
+        @click="sourcesStore.refresh()"
       >
         <svg
           :class="['w-3.5 h-3.5', sourcesStore.isLoading && 'animate-spin']"
@@ -128,8 +128,8 @@
             type="checkbox"
             :checked="sourcesStore.isKnowledgeBaseSelected(kb.id)"
             :indeterminate.prop="sourcesStore.isKnowledgeBaseIndeterminate(kb.id)"
-            @click.stop="sourcesStore.toggleKnowledgeBaseSelection(kb.id)"
             class="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 focus:ring-2 cursor-pointer flex-shrink-0"
+            @click.stop="sourcesStore.toggleKnowledgeBaseSelection(kb.id)"
           />
 
           <!-- 展开/折叠图标 -->
@@ -193,12 +193,12 @@
           <div class="text-xs text-slate-600 font-medium">批量设置表：</div>
           <WhiteSelect
             :model-value="getKnowledgeBaseEmbeddingValue(kb.id) || null"
-            @update:model-value="(v) => v && handleGlobalEmbeddingChange(kb.id, v as string)"
             :options="getKnowledgeBaseEmbeddingOptions(kb.id)"
             :placeholder="getKnowledgeBaseEmbeddingLabel(kb.id)"
             :disabled="getSelectedDocCount(kb.id) === 0"
             trigger-class="!py-1.5 !px-2 !text-xs"
             teleport-to="body"
+            @update:model-value="(v) => v && handleGlobalEmbeddingChange(kb.id, v as string)"
           />
         </div>
 
@@ -242,8 +242,8 @@
                 <input
                   type="checkbox"
                   :checked="sourcesStore.isDocumentSelected(kb.id, doc.fileKey)"
-                  @click.stop="sourcesStore.toggleDocumentSelection(kb.id, doc.id)"
                   class="w-3.5 h-3.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 focus:ring-1 cursor-pointer flex-shrink-0"
+                  @click.stop="sourcesStore.toggleDocumentSelection(kb.id, doc.id)"
                 />
 
                 <!-- 展开/折叠图标 -->

@@ -387,8 +387,8 @@
                       <div class="flex items-center gap-2 flex-shrink-0">
                         <button
                           class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors opacity-0 group-hover:opacity-100"
-                          @click="removeModel(model.id)"
                           title="删除模型"
+                          @click="removeModel(model.id)"
                         >
                           <!-- Minus Icon -->
                           <svg
@@ -639,8 +639,8 @@
                   <button
                     v-if="isModelAdded(model.id)"
                     class="flex-shrink-0 ml-3 p-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors"
-                    @click="handleRemoveSingleModel(model.id)"
                     title="取消订阅"
+                    @click="handleRemoveSingleModel(model.id)"
                   >
                     <svg
                       class="w-4 h-4"
@@ -655,8 +655,8 @@
                   <button
                     v-else
                     class="flex-shrink-0 ml-3 p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors opacity-0 group-hover:opacity-100"
-                    @click="handleAddSingleModel(model)"
                     title="添加模型"
+                    @click="handleAddSingleModel(model)"
                   >
                     <svg
                       class="w-4 h-4"

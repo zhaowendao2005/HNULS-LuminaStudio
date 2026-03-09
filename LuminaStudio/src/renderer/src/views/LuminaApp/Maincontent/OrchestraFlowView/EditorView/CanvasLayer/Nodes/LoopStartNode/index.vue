@@ -5,9 +5,9 @@
     style="--of-handle-top: 23px"
   >
     <Handle
+      id="source"
       type="source"
       :position="Position.Right"
-      id="source"
       class="of-node-handle of-handle-source of-loop-start-source-handle"
     />
 

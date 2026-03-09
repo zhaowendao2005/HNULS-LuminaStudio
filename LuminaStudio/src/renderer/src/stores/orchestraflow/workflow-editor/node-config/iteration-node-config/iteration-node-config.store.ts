@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import {
   OFBlockEnum,
+  type OFContainerNodeDefinition,
   type OFIterationNodeConfig,
   type OFIterationNodeData,
   type OFNode
@@ -9,10 +10,12 @@ import {
 import { resolveOFNodeDefinition } from '@shared/Orchestraflow-types/node-definition-registry'
 
 function createDefaultNodeData(nodeId: string, title: string): OFIterationNodeData {
-  return resolveOFNodeDefinition(OFBlockEnum.Iteration).editor.createDefaultData({
+  return (
+    resolveOFNodeDefinition(OFBlockEnum.Iteration) as OFContainerNodeDefinition<OFIterationNodeData>
+  ).editor.createDefaultData({
     nodeId,
     title
-  }) as OFIterationNodeData
+  })
 }
 
 function toIterationNodeConfig(nodeId: string, data: OFIterationNodeData): OFIterationNodeConfig {
@@ -31,7 +34,9 @@ function normalizeConfig(
   data: Partial<OFIterationNodeConfig>
 ): OFIterationNodeConfig {
   const defaultNodeData = createDefaultNodeData(nodeId, '迭代')
-  const normalizedData = resolveOFNodeDefinition(OFBlockEnum.Iteration).editor.normalizeData({
+  const normalizedData = (
+    resolveOFNodeDefinition(OFBlockEnum.Iteration) as OFContainerNodeDefinition<OFIterationNodeData>
+  ).editor.normalizeData({
     node: {
       id: nodeId,
       type: 'iteration',
@@ -54,7 +59,7 @@ function normalizeConfig(
         }
       }
     }
-  }) as OFIterationNodeData
+  })
 
   return toIterationNodeConfig(nodeId, normalizedData)
 }

@@ -35,8 +35,8 @@
         </p>
 
         <button
-          @click="$emit('open-config', 'knowledge-qa')"
           class="w-full py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 hover:text-emerald-600 hover:border-emerald-200 hover:bg-emerald-50 rounded-lg transition-all flex items-center justify-center gap-1.5 shadow-sm"
+          @click="$emit('open-config', 'knowledge-qa')"
         >
           <svg
             class="w-3.5 h-3.5"

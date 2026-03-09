@@ -10,13 +10,14 @@ import type {
   OFAuthoringDefaultRecommendation,
   OFAISchemaBundle,
   OFAIDslWorkflow,
-  OFEdge,
   OFIterationNodeData,
   OFNode,
+  OFRunnableEdge,
+  OFRunnableRootNode,
   OFRunnableWorkflow,
   OFWorkflowAuthoringContract
 } from '@shared/Orchestraflow-types'
-import { OFVarType } from '@shared/Orchestraflow-types'
+import { OFBlockEnum, OFVarType } from '@shared/Orchestraflow-types'
 import { listOFNodeDefinitions } from '@shared/Orchestraflow-types/node-definition-registry'
 import { compileAIDslToWorkflow } from './compiler'
 import { GENERATED_RUNNABLE_WORKFLOW_SCHEMA } from './generated-runnable-schema'
@@ -118,7 +119,7 @@ function buildPromptMarkdown(
 }
 
 function buildCompactRunnableExampleWorkflow(): OFRunnableWorkflow {
-  const workflow = compileAIDslToWorkflow(exampleDsl())
+  const workflow = assertRunnableWorkflow(compileAIDslToWorkflow(exampleDsl()))
   const rootNodeMap = new Map<string, OFNode>(workflow.graph.nodes.map((node) => [node.id, node]))
 
   workflow.graph.edges = workflow.graph.edges.map((edge) =>
@@ -127,7 +128,7 @@ function buildCompactRunnableExampleWorkflow(): OFRunnableWorkflow {
         rootNodeMap.get(edge.source)?.data.type === 'ifelse' ? undefined : 'source',
       defaultTargetHandle: 'target'
     })
-  )
+  ) as OFRunnableEdge[]
 
   workflow.graph.nodes = workflow.graph.nodes.map((node) => {
     if (node.data.type !== 'iteration' && node.data.type !== 'loop') {
@@ -139,7 +140,7 @@ function buildCompactRunnableExampleWorkflow(): OFRunnableWorkflow {
       patchedNode.data.subgraph.nodes.map((item) => [item.id, item as OFNode])
     )
     patchedNode.data.subgraph.edges = patchedNode.data.subgraph.edges.map((edge) =>
-      normalizeEdge(edge, subgraphNodeMap, {
+      normalizeEdge(edge as OFRunnableEdge, subgraphNodeMap, {
         defaultSourceHandle:
           subgraphNodeMap.get(edge.source)?.data.type === 'ifelse' ? undefined : 'source',
         defaultTargetHandle: 'target'
@@ -167,7 +168,7 @@ function buildCompactRunnableExampleWorkflow(): OFRunnableWorkflow {
       }
     }
     return patchedNode
-  })
+  }) as OFRunnableRootNode[]
 
   return assertRunnableWorkflow(sanitizeWorkflowForPromptExample(workflow))
 }
@@ -250,11 +251,8 @@ function sanitizeNodeDataForPromptExample(data: OFNode['data']): OFNode['data'] 
     case 'iteration':
       return {
         ...data,
-        output_selector:
-          Array.isArray(data.output_selector) && data.output_selector.length === 0
-            ? undefined
-            : data.output_selector,
-        branch_output_selectors: data.branch_output_selectors.filter(
+        output_selector: data.output_selector,
+        branch_output_selectors: (data.branch_output_selectors ?? []).filter(
           (item) => Array.isArray(item.output_selector) && item.output_selector.length > 0
         ),
         output: {
@@ -299,6 +297,9 @@ function sanitizeNodeDataForPromptExample(data: OFNode['data']): OFNode['data'] 
       }
     case 'iteration-start':
     case 'loop-start':
+      if (!data.input) {
+        return data
+      }
       return {
         ...data,
         input: {
@@ -376,13 +377,13 @@ function patchContainerSubgraphEdges(node: OFNode): OFNode {
 }
 
 function normalizeEdge(
-  edge: OFEdge,
+  edge: OFRunnableEdge,
   nodeMap: Map<string, OFNode>,
   params: {
     defaultSourceHandle?: string
     defaultTargetHandle: string
   }
-): OFEdge {
+): OFRunnableEdge {
   const sourceNode = nodeMap.get(edge.source)
   if (sourceNode?.data.type === 'ifelse' && !edge.sourceHandle) {
     throw new Error(`IfElse edge must declare sourceHandle: ${edge.id}`)
@@ -424,9 +425,7 @@ function renderWorkflowRuleLines(contract: OFWorkflowAuthoringContract): string[
 
 function renderNodeRuleLines(
   contractNode: OFWorkflowAuthoringContract['nodes'][number],
-  definition:
-    | (typeof listOFNodeDefinitions extends (...args: any[]) => infer R ? R : never)[number]
-    | undefined
+  definition: ReturnType<typeof listOFNodeDefinitions>[number] | undefined
 ): string[] {
   const metadata = definition?.authoring
   const lines = [

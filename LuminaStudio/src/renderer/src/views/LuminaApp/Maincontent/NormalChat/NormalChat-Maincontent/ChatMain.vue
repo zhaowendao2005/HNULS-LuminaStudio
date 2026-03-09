@@ -7,8 +7,8 @@
       style="min-width: min-content"
     >
       <button
-        @click="$emit('showConversationList')"
         class="flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-emerald-600 transition-colors group flex-shrink-0"
+        @click="$emit('showConversationList')"
       >
         <span>对话</span>
         <svg
@@ -23,8 +23,8 @@
       </button>
 
       <button
-        @click="$emit('showModelSelector')"
         class="flex items-center gap-2 px-4 py-1.5 bg-white border border-slate-200 rounded-full text-xs font-medium text-slate-600 hover:border-emerald-200 hover:text-emerald-700 hover:shadow-sm transition-all flex-shrink-0"
+        @click="$emit('showModelSelector')"
       >
         <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
         <span class="uppercase">{{ displayProviderId }}</span>

@@ -17,8 +17,8 @@
       <div class="relative">
         <button
           ref="menuButtonRef"
-          @click.stop="toggleMenu"
           class="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-slate-100 transition-opacity"
+          @click.stop="toggleMenu"
         >
           <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
@@ -42,21 +42,21 @@
             }"
           >
             <button
-              @click.stop="handleEdit"
               class="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-emerald-50 hover:text-emerald-700"
+              @click.stop="handleEdit"
             >
               编辑
             </button>
             <button
-              @click.stop="handleCopy"
               class="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-emerald-50 hover:text-emerald-700"
+              @click.stop="handleCopy"
             >
               复制
             </button>
             <div class="h-px bg-slate-100 my-1" />
             <button
-              @click.stop="handleDelete"
               class="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+              @click.stop="handleDelete"
             >
               删除
             </button>
@@ -84,6 +84,8 @@
 <script setup lang="ts">
 import { ref, computed, Teleport } from 'vue'
 import type { OFWorkflowMeta } from '@shared/Orchestraflow-types'
+
+type ClickOutsideElement = HTMLElement & { clickOutsideEvent?: EventListener }
 
 const props = defineProps<{
   workflow: OFWorkflowMeta
@@ -224,7 +226,11 @@ const iconComponents: Record<string, any> = {
 
 // 获取工作流图标
 const workflowIconData = computed(() => {
-  return iconComponents[props.workflow.icon] || iconComponents.ClipboardDocumentListIcon
+  const iconKey =
+    props.workflow.icon && props.workflow.icon in iconComponents
+      ? props.workflow.icon
+      : 'ClipboardDocumentListIcon'
+  return iconComponents[iconKey]
 })
 
 function formatTime(timestamp: number): string {
@@ -263,16 +269,18 @@ function handleDelete() {
 
 // 点击外部关闭菜单
 const vClickOutside = {
-  mounted(el: HTMLElement, binding: any) {
-    el.clickOutsideEvent = (event: MouseEvent) => {
+  mounted(el: ClickOutsideElement, binding: { value: () => void }) {
+    el.clickOutsideEvent = (event: Event) => {
       if (!(el === event.target || el.contains(event.target as Node))) {
         binding.value()
       }
     }
     document.addEventListener('click', el.clickOutsideEvent)
   },
-  unmounted(el: HTMLElement) {
-    document.removeEventListener('click', (el as any).clickOutsideEvent)
+  unmounted(el: ClickOutsideElement) {
+    if (el.clickOutsideEvent) {
+      document.removeEventListener('click', el.clickOutsideEvent)
+    }
   }
 }
 </script>

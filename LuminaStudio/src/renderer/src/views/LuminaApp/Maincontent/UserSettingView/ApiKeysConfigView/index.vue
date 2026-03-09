@@ -109,16 +109,16 @@
             <button
               type="button"
               class="px-4 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
-              @click="handleReset"
               :disabled="!isModified || isSaving"
+              @click="handleReset"
             >
               重置
             </button>
             <button
               type="button"
               class="px-4 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              @click="handleSave"
               :disabled="!isModified || isSaving"
+              @click="handleSave"
             >
               {{ isSaving ? '保存中...' : '保存' }}
             </button>

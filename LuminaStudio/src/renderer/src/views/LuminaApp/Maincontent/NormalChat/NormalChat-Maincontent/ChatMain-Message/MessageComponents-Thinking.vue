@@ -1,13 +1,13 @@
 ﻿<template>
   <div class="mb-4 w-full">
     <button
-      @click="toggleExpanded"
       :class="[
         'flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-300 border',
         isExpanded
           ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
           : 'bg-white text-slate-500 border-slate-100 hover:bg-slate-50'
       ]"
+      @click="toggleExpanded"
     >
       <div class="relative flex items-center justify-center w-5 h-5">
         <svg

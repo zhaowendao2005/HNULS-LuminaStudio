@@ -24,6 +24,17 @@ export default defineConfig(
   {
     files: ['**/*.{ts,mts,tsx,vue}'],
     rules: {
+      '@typescript-eslint/explicit-function-return-type': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_'
+        }
+      ],
+      'no-undef': 'off',
       'vue/require-default-prop': 'off',
       'vue/multi-word-component-names': 'off',
       'vue/block-lang': [
@@ -37,6 +48,37 @@ export default defineConfig(
       'vue/max-attributes-per-line': 'off',
       'vue/singleline-html-element-content-newline': 'off',
       'vue/multiline-html-element-content-newline': 'off'
+    }
+  },
+  {
+    files: [
+      'src/preload/types/**/*.{ts,tsx}',
+      'src/main/services/**/*.{ts,tsx}',
+      'src/Public/ShareTypes/**/*.{ts,tsx}'
+    ],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'warn'
+    }
+  },
+  {
+    files: ['**/*.{test,spec}.{ts,tsx}', '**/*.mock.ts'],
+    rules: {
+      '@typescript-eslint/no-unused-vars': 'off'
+    }
+  },
+  {
+    files: ['scripts/**/*.{js,mjs,ts}'],
+    rules: {
+      '@typescript-eslint/explicit-function-return-type': 'off',
+      '@typescript-eslint/no-unused-vars': 'off',
+      'no-control-regex': 'off',
+      'no-empty': 'off'
+    }
+  },
+  {
+    files: ['**/*.vue'],
+    rules: {
+      'vue/no-unused-vars': 'warn'
     }
   },
   eslintConfigPrettier

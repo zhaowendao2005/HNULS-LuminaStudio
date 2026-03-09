@@ -16,15 +16,15 @@
     />
 
     <Handle
+      id="target"
       type="target"
       :position="Position.Left"
-      id="target"
       class="of-node-handle of-handle-target of-iteration-target-handle"
     />
     <Handle
+      id="source"
       type="source"
       :position="Position.Right"
-      id="source"
       class="of-node-handle of-handle-source of-iteration-source-handle"
     />
 
