@@ -1,4 +1,5 @@
-import type { OFBlockEnum, OFWorkflow } from './index'
+import type { OFBlockEnum } from './index'
+import type { OFRunnableWorkflow, OFWorkflowAuthoringContract } from './contract'
 
 /**
  * 代码即文档：
@@ -56,8 +57,9 @@ export interface OFAISchemaBundle {
   format: 'orchestraflow-runnable-workflow'
   generated_at: string
   nodes: OFAISchemaNodeSummary[]
+  authoring_contract: OFWorkflowAuthoringContract
   schema: Record<string, any>
-  example: OFWorkflow
+  example: OFRunnableWorkflow
   annotated_workflow_jsonc: string
   prompt_markdown: string
   bundled_markdown: string

@@ -8,3 +8,4 @@
 export * from './registry'
 export * from './builder'
 export * from './compiler'
+export * from './validator'

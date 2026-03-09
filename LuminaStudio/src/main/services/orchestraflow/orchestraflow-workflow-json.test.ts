@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { parseJsonc, stripJsonLineComments } from './orchestraflow-workflow-json'
+import {
+  parseJsonc,
+  parseRunnableWorkflowJsonc,
+  stripJsonLineComments
+} from './orchestraflow-workflow-json'
 
 describe('orchestraflow workflow jsonc helpers', () => {
   it('strips full-line and inline // comments', () => {
@@ -27,9 +31,9 @@ describe('orchestraflow workflow jsonc helpers', () => {
     expect(parsed.text).toBe('query // not a comment')
   })
 
-  it('parses jsonc workflow snippets after stripping comments', () => {
+  it('parses strict runnable workflow snippets after stripping comments', () => {
     const source = `{
-  // 可运行工作流
+  // 严格可运行工作流
   "id": "demo",
   "name": "demo",
   "author": "codex",
@@ -37,18 +41,88 @@ describe('orchestraflow workflow jsonc helpers', () => {
   "updatedAt": 1,
   "status": "draft",
   "graph": {
-    "nodes": [],
-    "edges": [] // 允许空图例
+    "nodes": [
+      {
+        "id": "start",
+        "type": "start",
+        "position": { "x": 0, "y": 0 },
+        "data": {
+          "title": "start",
+          "desc": "",
+          "type": "start",
+          "input": {
+            "variables": [{ "variable": "input", "type": "string", "required": true }]
+          }
+        }
+      },
+      {
+        "id": "end",
+        "type": "end",
+        "position": { "x": 320, "y": 0 },
+        "data": {
+          "title": "end",
+          "desc": "",
+          "type": "end",
+          "output": {
+            "variables": [{ "variable": "input", "type": "string", "value_selector": ["input"] }]
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "edge_start_end",
+        "source": "start",
+        "target": "end",
+        "sourceHandle": "source",
+        "targetHandle": "target"
+      } // 严格要求显式 handle
+    ]
   }
 }`
 
-    const parsed = parseJsonc<{
-      id: string
-      graph: { nodes: unknown[]; edges: unknown[] }
-    }>(source)
-
+    const parsed = parseRunnableWorkflowJsonc(source)
     expect(parsed.id).toBe('demo')
-    expect(parsed.graph.nodes).toEqual([])
-    expect(parsed.graph.edges).toEqual([])
+    expect(parsed.graph.edges[0].sourceHandle).toBe('source')
+  })
+
+  it('rejects runnable workflows with missing edge handles', () => {
+    const source = `{
+  "id": "demo",
+  "name": "demo",
+  "author": "codex",
+  "createdAt": 1,
+  "updatedAt": 1,
+  "status": "draft",
+  "graph": {
+    "nodes": [
+      {
+        "id": "start",
+        "type": "start",
+        "position": { "x": 0, "y": 0 },
+        "data": {
+          "title": "start",
+          "desc": "",
+          "type": "start",
+          "input": { "variables": [{ "variable": "input", "type": "string", "required": true }] }
+        }
+      },
+      {
+        "id": "end",
+        "type": "end",
+        "position": { "x": 320, "y": 0 },
+        "data": {
+          "title": "end",
+          "desc": "",
+          "type": "end",
+          "output": { "variables": [{ "variable": "input", "type": "string", "value_selector": ["input"] }] }
+        }
+      }
+    ],
+    "edges": [{ "id": "edge_start_end", "source": "start", "target": "end" }]
+  }
+}`
+
+    expect(() => parseRunnableWorkflowJsonc(source)).toThrow(/sourceHandle/)
   })
 })

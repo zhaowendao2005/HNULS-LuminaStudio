@@ -1,3 +1,6 @@
+import type { OFRunnableWorkflow } from '@shared/Orchestraflow-types'
+import { assertRunnableWorkflow } from '../../../utility/orchestraflow/ai-schema/validator'
+
 /**
  * OrchestraFlow 工作流 JSON/JSONC 解析辅助。
  *
@@ -60,4 +63,8 @@ export function parseJsonc<T>(content: string): T {
     const reason = error instanceof Error ? error.message : String(error)
     throw new Error(`Invalid workflow JSON after stripping // comments: ${reason}`)
   }
+}
+
+export function parseRunnableWorkflowJsonc(content: string): OFRunnableWorkflow {
+  return assertRunnableWorkflow(parseJsonc<unknown>(content))
 }

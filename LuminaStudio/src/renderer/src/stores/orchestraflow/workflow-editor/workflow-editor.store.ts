@@ -838,7 +838,7 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
     const data = await datasource.get(workflowId)
     const normalizedNodes = data.nodes.map(normalizeNode)
     const inflatedNodes = [...normalizedNodes]
-    const inflatedEdges = data.edges.map((edge) => buildIterationEdgeData(cloneEdge(edge)))
+    const inflatedEdges = data.edges.map((edge) => cloneEdge(edge))
 
     normalizedNodes.forEach((node) => {
       if (node.data.type !== OFBlockEnum.Iteration && node.data.type !== OFBlockEnum.Loop) return
@@ -850,12 +850,12 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
         inflatedNodes.push(cloneNode(childNode))
       })
       subgraph.edges.forEach((childEdge) => {
-        inflatedEdges.push(buildIterationEdgeData(cloneEdge(childEdge)))
+        inflatedEdges.push(cloneEdge(childEdge))
       })
     })
 
     nodes.value = dedupeNodes(inflatedNodes)
-    edges.value = dedupeEdges(inflatedEdges)
+    edges.value = dedupeEdges(inflatedEdges.map((edge) => buildIterationEdgeData(edge, nodes.value)))
     nodes.value
       .filter(
         (node) => node.data.type === OFBlockEnum.Iteration || node.data.type === OFBlockEnum.Loop
@@ -1016,11 +1016,23 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
     })
   }
 
-  function buildIterationEdgeData(edge: OFEdge): OFEdge {
-    const sourceNode = findNodeByIdFrom(edge.source, nodes.value)
-    const targetNode = findNodeByIdFrom(edge.target, nodes.value)
-    const sourceAncestorPath = sourceNode ? getNodeAncestorPath(sourceNode.id) : []
-    const targetAncestorPath = targetNode ? getNodeAncestorPath(targetNode.id) : []
+  function getNodeAncestorPathFrom(nodeId: string, sourceNodes: OFNode[]): string[] {
+    const path: string[] = []
+    let currentNode = findNodeByIdFrom(nodeId, sourceNodes)
+
+    while (currentNode?.parentNode) {
+      path.unshift(currentNode.parentNode)
+      currentNode = findNodeByIdFrom(currentNode.parentNode, sourceNodes)
+    }
+
+    return path
+  }
+
+  function buildIterationEdgeData(edge: OFEdge, sourceNodes: OFNode[] = nodes.value): OFEdge {
+    const sourceNode = findNodeByIdFrom(edge.source, sourceNodes)
+    const targetNode = findNodeByIdFrom(edge.target, sourceNodes)
+    const sourceAncestorPath = sourceNode ? getNodeAncestorPathFrom(sourceNode.id, sourceNodes) : []
+    const targetAncestorPath = targetNode ? getNodeAncestorPathFrom(targetNode.id, sourceNodes) : []
     const iterationId =
       sourceAncestorPath[sourceAncestorPath.length - 1] ||
       targetAncestorPath[targetAncestorPath.length - 1] ||

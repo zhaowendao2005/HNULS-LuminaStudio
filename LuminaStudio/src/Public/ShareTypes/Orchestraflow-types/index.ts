@@ -826,4 +826,5 @@ export interface OFEndNodeConfig {
   output: OFNodeOutput
 }
 
+export * from './contract'
 export * from './ai-schema'

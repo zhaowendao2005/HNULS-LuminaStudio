@@ -9,6 +9,7 @@
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint --cache .",
+    "generate:orchestraflow-schema": "node scripts/generate-orchestraflow-runnable-schema.mjs",
     "test:orchestraflow": "vitest run --config vitest.orchestraflow.config.ts",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
     "typecheck:web": "vue-tsc --noEmit -p tsconfig.web.json --composite false",
