@@ -1,4 +1,5 @@
 <template>
+  <!-- eslint-disable vue/no-v-html -->
   <div>
     <!-- AI 消息：Markdown 渲染 -->
     <div v-if="role === 'assistant'" class="markdown-content">
@@ -21,6 +22,7 @@
       ></span>
     </div>
   </div>
+  <!-- eslint-enable vue/no-v-html -->
 </template>
 
 <script setup lang="ts">

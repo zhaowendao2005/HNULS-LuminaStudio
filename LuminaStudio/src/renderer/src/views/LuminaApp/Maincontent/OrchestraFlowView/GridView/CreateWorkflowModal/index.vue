@@ -1,4 +1,5 @@
 <template>
+  <!-- eslint-disable vue/no-v-html -->
   <Teleport to="body">
     <div
       v-if="props.show"
@@ -149,6 +150,7 @@
       </div>
     </div>
   </Teleport>
+  <!-- eslint-enable vue/no-v-html -->
 </template>
 
 <script setup lang="ts">

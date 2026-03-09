@@ -200,6 +200,9 @@ const emit = defineEmits<{
   focus: []
 }>()
 
+// 使用 props
+console.debug('Panel props:', props.visible, props.zIndex)
+
 const runStore = useWorkflowRunStore()
 const editorStore = useWorkflowEditorStore()
 

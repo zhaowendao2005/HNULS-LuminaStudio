@@ -18,32 +18,32 @@
       @edges-change="handleEdgesChange"
     >
       <!-- 自定义节点 -->
-      <template #node-start="props">
-        <StartNode v-bind="props" />
+      <template #node-start="nodeProps">
+        <StartNode v-bind="nodeProps" />
       </template>
-      <template #node-iteration-start="props">
-        <IterationStartNode v-bind="props" />
+      <template #node-iteration-start="nodeProps">
+        <IterationStartNode v-bind="nodeProps" />
       </template>
-      <template #node-loop-start="props">
-        <LoopStartNode v-bind="props" />
+      <template #node-loop-start="nodeProps">
+        <LoopStartNode v-bind="nodeProps" />
       </template>
-      <template #node-llm="props">
-        <LLMNode v-bind="props" />
+      <template #node-llm="nodeProps">
+        <LLMNode v-bind="nodeProps" />
       </template>
-      <template #node-iteration="props">
-        <IterationNode v-bind="props" />
+      <template #node-iteration="nodeProps">
+        <IterationNode v-bind="nodeProps" />
       </template>
-      <template #node-loop="props">
-        <LoopNode v-bind="props" />
+      <template #node-loop="nodeProps">
+        <LoopNode v-bind="nodeProps" />
       </template>
-      <template #node-ifelse="props">
-        <IfElseNode v-bind="props" />
+      <template #node-ifelse="nodeProps">
+        <IfElseNode v-bind="nodeProps" />
       </template>
-      <template #node-variable-assign="props">
-        <VariableAssignNode v-bind="props" />
+      <template #node-variable-assign="nodeProps">
+        <VariableAssignNode v-bind="nodeProps" />
       </template>
-      <template #node-end="props">
-        <EndNode v-bind="props" />
+      <template #node-end="nodeProps">
+        <EndNode v-bind="nodeProps" />
       </template>
 
       <!-- 点阵背景 -->

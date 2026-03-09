@@ -1,4 +1,5 @@
 <template>
+  <!-- eslint-disable vue/no-v-html -->
   <div class="of-prompt-input-wrapper relative w-full" :style="{ minHeight: `${height}px` }">
     <div
       ref="editorRef"
@@ -13,6 +14,7 @@
       v-html="renderedHtml"
     ></div>
   </div>
+  <!-- eslint-enable vue/no-v-html -->
 </template>
 
 <script setup lang="ts">

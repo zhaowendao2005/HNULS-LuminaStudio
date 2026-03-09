@@ -98,10 +98,12 @@ export const variableAssignNodeDefinition =
     },
     compiler: {
       compileData({ node, title, desc, helpers, compiledId }) {
-        const rules = (node.config.rules || []).map((item: any) => ({
-          ...item,
-          source_selector: helpers.compileSelectorField(item.source_selector)
-        }))
+        const rules = (node.config.rules || []).map(
+          (item: OFVariableAssignNodeData['rules'][number]) => ({
+            ...item,
+            source_selector: helpers.compileSelectorField(item.source_selector)
+          })
+        )
         return {
           title,
           desc,

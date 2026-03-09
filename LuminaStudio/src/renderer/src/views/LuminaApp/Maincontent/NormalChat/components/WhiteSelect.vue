@@ -73,7 +73,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, Teleport } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 export type WhiteSelectOption<T = string> = {
   label: string

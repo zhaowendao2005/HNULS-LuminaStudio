@@ -83,7 +83,7 @@ export interface OFNodeAuthoringDefinition {
   examples?: Array<{
     label: string
     summary: string
-    value?: string | number | boolean | Record<string, any> | any[] | null
+    value?: string | number | boolean | Record<string, unknown> | unknown[] | null
   }>
   system_managed_fields?: string[]
   selector_policies?: string[]

@@ -70,7 +70,7 @@ export interface OFWorkflowAPI {
 
   run(
     workflowId: string,
-    inputs?: Record<string, any>
+    inputs?: Record<string, unknown>
   ): Promise<{
     success: boolean
     data?: OFWorkflowRunResult

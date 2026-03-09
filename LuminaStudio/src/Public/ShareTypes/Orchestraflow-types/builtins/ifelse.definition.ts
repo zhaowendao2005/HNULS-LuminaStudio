@@ -112,7 +112,7 @@ export const ifElseNodeDefinition = defineStandardOFNodeDefinition<OFIfElseNodeD
         title,
         desc,
         type: OFBlockEnum.IfElse,
-        cases: (node.config.cases || []).map((item: any) => ({
+        cases: (node.config.cases || []).map((item: OFIfElseNodeData['cases'][number]) => ({
           ...item,
           conditions: helpers.compileConditions(item.conditions || [])
         })),

@@ -33,7 +33,7 @@ export interface OFAIDslNode {
   type: OFBlockEnum
   title?: string
   description?: string
-  config: Record<string, any>
+  config: Record<string, unknown>
   subgraph?: OFAIDslSubgraph
 }
 
@@ -57,7 +57,7 @@ export type OFAuthoringDefaultKind = 'recommended' | 'example'
 export interface OFAuthoringDefaultRecommendation {
   path: string
   kind: OFAuthoringDefaultKind
-  value: string | number | boolean | Record<string, any> | any[] | null
+  value: string | number | boolean | Record<string, unknown> | unknown[] | null
   summary: string
   omit_when?: string
 }
@@ -69,7 +69,7 @@ export interface OFAISchemaBundle {
   nodes: OFAISchemaNodeSummary[]
   authoring_contract: OFWorkflowAuthoringContract
   authoring_defaults: OFAuthoringDefaultRecommendation[]
-  schema: Record<string, any>
+  schema: Record<string, unknown>
   example: OFRunnableWorkflow
   annotated_workflow_jsonc: string
   prompt_markdown: string

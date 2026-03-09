@@ -23,7 +23,7 @@
 <script setup lang="ts">
 import type { OFPanelTheme } from '../../panel-theme'
 
-const props = defineProps<{
+defineProps<{
   modelValue: number
   theme: OFPanelTheme
 }>()

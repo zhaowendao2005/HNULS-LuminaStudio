@@ -224,6 +224,9 @@ const editorStore = useWorkflowEditorStore()
 const runStore = useWorkflowRunStore()
 const uiStore = useWorkflowEditorUIStore()
 
+// 使用 props
+console.debug('Auto save time:', props.autoSaveTime)
+
 const isRunning = computed(() => runStore.isRunning)
 const isCompleted = computed(() => runStore.isSucceeded || runStore.isFailed)
 

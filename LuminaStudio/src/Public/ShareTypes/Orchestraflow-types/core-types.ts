@@ -67,14 +67,14 @@ export interface OFJsonSchemaObject {
   required: string[]
   additionalProperties: false
   description?: string
-  default?: Record<string, any> | null
+  default?: Record<string, unknown> | null
 }
 
 export interface OFJsonSchemaArray {
   type: 'array'
   items: OFJsonSchemaProperty
   description?: string
-  default?: any[] | null
+  default?: unknown[] | null
 }
 
 export type OFJsonSchemaProperty = OFJsonSchemaField | OFJsonSchemaObject | OFJsonSchemaArray
@@ -92,7 +92,7 @@ export interface OFVariable {
   item_type?: OFVarType
   description?: string
   required?: boolean
-  default?: string | number | boolean | Record<string, any> | any[] | null
+  default?: string | number | boolean | Record<string, unknown> | unknown[] | null
   options?: string[]
   value_selector?: string[]
   schema?: OFStructuredJsonSchema | null
@@ -144,7 +144,7 @@ export interface OFVariableAssignRule {
   source_path?: string
   source_label?: string
   source_type?: OFVarType
-  constant_value?: string | number | boolean | Record<string, any> | any[] | null
+  constant_value?: string | number | boolean | Record<string, unknown> | unknown[] | null
   target_variable: string
   target_label?: string
   target_type: OFVarType
@@ -250,7 +250,7 @@ export interface OFSubWorkflowGraph extends OFWorkflowGraph {
 export interface OFEnvironmentVariable {
   id: string
   name: string
-  value: any
+  value: string | number
   value_type: 'string' | 'number' | 'secret'
   description: string
 }
@@ -391,7 +391,7 @@ export interface OFLoopVariableData {
   description?: string
   required?: boolean
   value_type: OFLoopVariableValueType
-  value?: string | number | boolean | Record<string, any> | any[] | null
+  value?: string | number | boolean | Record<string, unknown> | unknown[] | null
   value_selector?: string[]
   schema?: OFStructuredJsonSchema | null
   item_schema?: OFJsonSchemaObject | null
@@ -476,8 +476,8 @@ export interface OFNodeTracing {
   scope_path?: string[]
   execution_metadata?: OFNodeExecutionMetadata
   elapsed_time?: number
-  inputs?: Record<string, any>
-  outputs?: Record<string, any>
+  inputs?: Record<string, unknown>
+  outputs?: Record<string, unknown>
   error?: string
 }
 
@@ -530,7 +530,7 @@ export interface OFWorkflowRunResult {
   elapsed_time?: number
   total_tokens?: number
   tracing: OFNodeTracing[]
-  outputs?: Record<string, any>
+  outputs?: Record<string, unknown>
   error?: string
 }
 
@@ -538,7 +538,7 @@ export interface OFWorkflowRunResult {
 export interface OFNodeDebugRunParams {
   workflowId: string
   nodeId: string
-  inputs?: Record<string, any>
+  inputs?: Record<string, unknown>
   scopePath?: string[]
 }
 
@@ -547,8 +547,8 @@ export interface OFNodeDebugResult {
   nodeType: OFBlockEnum
   status: OFNodeRunningStatus
   elapsed_time?: number
-  inputs?: Record<string, any>
-  outputs?: Record<string, any>
+  inputs?: Record<string, unknown>
+  outputs?: Record<string, unknown>
   error?: string
 }
 

@@ -854,7 +854,7 @@ import { useModelConfigStore } from '@renderer/stores/model-config/store'
 import type { Model } from '@renderer/stores/model-config/types'
 import { storeToRefs } from 'pinia'
 
-const emit = defineEmits<{
+defineEmits<{
   (e: 'back'): void
 }>()
 

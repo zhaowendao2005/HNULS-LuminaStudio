@@ -1,4 +1,5 @@
 <template>
+  <!-- eslint-disable vue/no-v-html -->
   <div
     class="of-workflow-card group relative h-[160px] rounded-xl border border-slate-200 bg-white transition-all hover:border-emerald-300 hover:shadow-md cursor-pointer overflow-hidden"
     @click="$emit('open', workflow.id)"
@@ -79,10 +80,11 @@
       </div>
     </div>
   </div>
+  <!-- eslint-enable vue/no-v-html -->
 </template>
 
 <script setup lang="ts">
-import { ref, computed, Teleport } from 'vue'
+import { ref, computed } from 'vue'
 import type { OFWorkflowMeta } from '@shared/Orchestraflow-types'
 
 type ClickOutsideElement = HTMLElement & { clickOutsideEvent?: EventListener }

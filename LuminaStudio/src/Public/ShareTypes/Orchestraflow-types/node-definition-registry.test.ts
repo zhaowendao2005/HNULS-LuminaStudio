@@ -14,19 +14,19 @@ import {
 
 const compilerHelpers = {
   compileVariables(source: unknown[]) {
-    return source as any[]
+    return source as unknown[]
   },
   compileLoopVariables(source: unknown[]) {
-    return source as any[]
+    return source as unknown[]
   },
   compileConditions(source: unknown[]) {
-    return source as any[]
+    return source as unknown[]
   },
   compileIterationBranchOutputSelectors(source: unknown[]) {
-    return source as any[]
+    return source as unknown[]
   },
   compileNodeContext(value: unknown) {
-    return value as any
+    return value
   },
   compileSelectorField(value: unknown) {
     return Array.isArray(value) ? value.map(String) : []
@@ -85,7 +85,7 @@ function createNode(type: OFBlockEnum, id = `node-${type}`, title?: string): OFN
   }
 }
 
-function createDslNode(type: OFBlockEnum): any {
+function createDslNode(type: OFBlockEnum): Record<string, unknown> {
   switch (type) {
     case OFBlockEnum.Start:
       return { id: 'start', type, config: { input: { variables: [] } } }

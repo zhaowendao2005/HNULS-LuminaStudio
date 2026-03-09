@@ -229,8 +229,8 @@ export class AiChatService {
         messageId: state.assistantMessageId
       })
       try {
-        ;(state as any).unsubscribe?.()
-      } catch (err) {
+        state.unsubscribe?.()
+      } catch (_err) {
         log.warn('Failed to unsubscribe utility stream', { requestId: state.requestId })
       }
       this.activeStreams.delete(state.requestId)
@@ -720,7 +720,7 @@ export class AiChatService {
             this.sendEvent(sender, {
               type: 'reasoning-start',
               requestId: state.requestId,
-              id: (part as any).id ?? 'reasoning-block'
+              id: (part as { id?: string }).id ?? 'reasoning-block'
             })
             break
           }
@@ -731,7 +731,7 @@ export class AiChatService {
             this.sendEvent(sender, {
               type: 'reasoning-delta',
               requestId: state.requestId,
-              id: (part as any).id ?? 'reasoning-block',
+              id: (part as { id?: string }).id ?? 'reasoning-block',
               delta
             })
             break
@@ -741,13 +741,14 @@ export class AiChatService {
             this.sendEvent(sender, {
               type: 'reasoning-end',
               requestId: state.requestId,
-              id: (part as any).id ?? 'reasoning-block'
+              id: (part as { id?: string }).id ?? 'reasoning-block'
             })
             break
           }
 
           case 'error': {
-            const errorMsg = (part as any).error?.message ?? 'Unknown error'
+            const errorMsg =
+              (part as { error?: { message?: string } }).error?.message ?? 'Unknown error'
             this.sendEvent(sender, {
               type: 'error',
               requestId: state.requestId,
@@ -773,7 +774,13 @@ export class AiChatService {
 
       // 写入 usage
       if (usage) {
-        const usageData = usage as any
+        const usageData = usage as {
+          promptTokens?: number
+          inputTokens?: number
+          completionTokens?: number
+          outputTokens?: number
+          totalTokens?: number
+        }
         this.insertUsage(
           state.assistantMessageId,
           {
@@ -786,7 +793,13 @@ export class AiChatService {
       }
 
       // 发送 finish
-      const usageData = usage as any
+      const usageData = usage as {
+        promptTokens?: number
+        inputTokens?: number
+        completionTokens?: number
+        outputTokens?: number
+        totalTokens?: number
+      }
       this.sendEvent(sender, {
         type: 'finish',
         requestId: state.requestId,
@@ -802,8 +815,9 @@ export class AiChatService {
       })
 
       log.info('Stream finished successfully', { requestId: state.requestId })
-    } catch (error: any) {
-      if (error.name === 'AbortError') {
+    } catch (error: unknown) {
+      const err = error as { name?: string; message?: string; stack?: string }
+      if (err.name === 'AbortError') {
         // 用户中断
         this.updateAssistantMessage(
           state.assistantMessageId,
@@ -828,14 +842,14 @@ export class AiChatService {
           state.answerText,
           state.reasoningText,
           'error',
-          error.message
+          err.message
         )
 
         this.sendEvent(sender, {
           type: 'error',
           requestId: state.requestId,
-          message: error.message ?? 'Unknown error',
-          stack: error.stack
+          message: err.message ?? 'Unknown error',
+          stack: err.stack
         })
 
         this.sendEvent(sender, {
@@ -855,7 +869,7 @@ export class AiChatService {
   /**
    * 兼容提取 delta（兼容 v5 不同版本字段差异）
    */
-  private extractDelta(part: any): string {
+  private extractDelta(part: { delta?: string; text?: string; textDelta?: string }): string {
     return part.delta ?? part.text ?? part.textDelta ?? ''
   }
 
@@ -1203,7 +1217,7 @@ export class AiChatService {
     }
 
     // Ensure cleanup after finish/error
-    ;(state as any).unsubscribe = unsubscribe
+    state.unsubscribe = unsubscribe
 
     return { requestId, conversationId }
   }
@@ -1214,7 +1228,7 @@ export class AiChatService {
     msg: LangchainClientToMainMessage
   ): void {
     // Only handle current request
-    if ('requestId' in (msg as any) && (msg as any).requestId !== state.requestId) return
+    if ('requestId' in msg && (msg as { requestId?: string }).requestId !== state.requestId) return
     if (this.abortedAgentRequests.has(state.requestId)) {
       return
     }
@@ -1313,8 +1327,8 @@ export class AiChatService {
 
         // cleanup
         try {
-          ;(state as any).unsubscribe?.()
-        } catch (err) {
+          state.unsubscribe?.()
+        } catch (_err) {
           log.warn('Failed to unsubscribe utility stream', { requestId: state.requestId })
         }
         this.activeStreams.delete(state.requestId)

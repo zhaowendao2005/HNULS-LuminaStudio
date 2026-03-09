@@ -94,4 +94,7 @@ export interface StreamState {
   answerText: string
   reasoningText: string
   startedAt: Date
+
+  /** Unsubscribe function for utility stream */
+  unsubscribe?: () => void
 }

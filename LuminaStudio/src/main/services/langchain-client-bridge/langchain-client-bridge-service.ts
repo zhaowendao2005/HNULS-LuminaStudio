@@ -364,7 +364,7 @@ export class LangchainClientBridgeService {
         break
 
       default:
-        log.warn('Unknown message from utility process', { type: (msg as any).type })
+        log.warn('Unknown message from utility process', { type: (msg as { type?: string }).type })
     }
   }
 }

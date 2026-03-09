@@ -107,7 +107,7 @@ export class OrchestraflowBridgeService {
   async runWorkflow(
     workflowId: string,
     workflow: OFWorkflow,
-    inputs: Record<string, any>,
+    inputs: Record<string, unknown>,
     providerConfigs?: Record<
       string,
       {
@@ -148,7 +148,7 @@ export class OrchestraflowBridgeService {
   async runNodeDebug(
     workflow: OFWorkflow,
     nodeId: string,
-    inputs: Record<string, any>,
+    inputs: Record<string, unknown>,
     scopePath?: string[],
     providerConfigs?: Record<
       string,
@@ -311,7 +311,7 @@ export class OrchestraflowBridgeService {
       }
 
       default:
-        log.warn('Unknown message from utility process', { type: (msg as any).type })
+        log.warn('Unknown message from utility process', { type: (msg as { type?: string }).type })
     }
   }
 }
