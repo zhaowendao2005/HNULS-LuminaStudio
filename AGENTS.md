@@ -1,3 +1,21 @@
+# 本项目使用electron+vue+pnpm架构，辅以eslint、ts-types-check
+# 优先第一批需要加载的内容和需要做的事情
+## 扫一遍skills列表看看有什么是需要加载的
+D:\code\Large-scale-integrated-project\HNULS-LabHub\HNULS-LuminaStudio\.agents\skills
+每次必须加载的:
+## 写代码前看一眼eslint规则和eslint补丁
+D:\code\Large-scale-integrated-project\HNULS-LabHub\HNULS-LuminaStudio\LuminaStudio\eslint.config.mjs
+D:\code\Large-scale-integrated-project\HNULS-LabHub\HNULS-LuminaStudio\LuminaStudio\scripts\eslint\orchestraflow-plugin.mjs
+
+## 多用别名，我们的别名配置位置
+D:\code\Large-scale-integrated-project\HNULS-LabHub\HNULS-LuminaStudio\LuminaStudio\tsconfig.node.json
+D:\code\Large-scale-integrated-project\HNULS-LabHub\HNULS-LuminaStudio\LuminaStudio\tsconfig.web.json
+D:\code\Large-scale-integrated-project\HNULS-LabHub\HNULS-LuminaStudio\LuminaStudio\vitest.orchestraflow.config.ts
+
+## 一轮任务完成了后记得使用eslint和tscheck进行扫尾
+
+---
+项目基本规则
 ---
 description: 应用于HNULS-LuminaStudio项目下
 trigger: always_on

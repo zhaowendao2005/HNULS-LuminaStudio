@@ -1,4 +1,0 @@
-interface:
-  display_name: "ripgrep-mcp Analyst"
-  short_description: "Code search and AST analysis workflow"
-  default_prompt: "Use $ripgrep-mcp-analyst to analyze this codebase with ripgrep-mcp, narrowing scope before reading files."
