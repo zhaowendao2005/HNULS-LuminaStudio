@@ -30,7 +30,21 @@ trigger: always_on
 链接与仓库https://github.com/vercel/ai  https://deepwiki.com/vercel/ai 官方文档：https://docs.vercel.com/docs/rest-api/reference/sdk
 2. sqlite 数据库1 https://deepwiki.com/sqlite/sqlite https://github.com/sqlite/sqlite
 3 langchainjs https://deepwiki.com/langchain-ai/langchainjs
- 
+
+## 0.6 OrchestraFlow / LangChain Client 边界提醒
+
+- `orchestraflow` 与 `langchain-client` 都是独立子系统，不要默认把它们和普通 renderer 页面逻辑混在一起理解。
+- 遇到 OrchestraFlow 相关任务，优先判断问题是在 shared definition、utility runtime、renderer store，还是 main/preload 透传层。
+- 先看 `LuminaStudio/src/Public/ShareTypes/Orchestraflow-types/`，再看 `LuminaStudio/src/utility/orchestraflow/`，最后才看调用方。
+
+## 0.7 OrchestraFlow 共享契约规则
+
+- **必须**：`LuminaStudio/src/Public/ShareTypes/Orchestraflow-types/` 作为 OrchestraFlow 共享契约的单一事实来源。
+- **必须**：普通消费者优先从 `@shared/Orchestraflow-types` 获取公开 API，不要继续扩散旧 deep import / legacy entrypoint。
+- **必须**：built-in 节点结构、authoring 约束、selector / output / omit 策略优先落在 `builtins/*.definition.ts`。
+- **禁止**：在 renderer store、utility runtime、AI schema builder 中重复手写一份同等业务分支，绕过 shared definitions。
+- **必须**：涉及 OrchestraFlow 的快速检查优先运行 `pnpm lint:orchestraflow`。
+
 ## 1. 目录结构与文件放置（强制）
 
 ### 1.1 顶层目录禁止"散乱文件"
@@ -267,5 +281,16 @@ log.error('Failed to connect', error, { host: 'localhost' })
 
 - **必须**：任何新增目录规则、命名规则、跨层通信规则，都要同步更新本 Rules 或对应 README，确保"规则可追溯且唯一"。
 - **禁止**：只口头约定、不落文档，导致后续 agent/新人无法按形式推进。
+
+---
+
+## 11. ESLint / Typecheck 收口要求（强制）
+
+- **必须**：修改完成后处理掉自己引入的 `eslint` 与 `typecheck` 问题，不能把明显可见的问题留给下一轮。
+- **必须**：优先从一开始就按现有规则写代码，避免最后集中修补。
+- **必须**：至少执行与改动范围相匹配的检查。
+  - OrchestraFlow 相关改动：`pnpm lint:orchestraflow`
+  - 常规 TypeScript 改动：`pnpm exec tsc -p tsconfig.json --noEmit` 或等效 typecheck
+- **禁止**：明知本轮改动引入 lint / typecheck 问题却直接结束。
 
 ---

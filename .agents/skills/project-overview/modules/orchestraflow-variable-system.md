@@ -1,331 +1,227 @@
-# OrchestraFlow 变量系统扩展
+# OrchestraFlow Definition / Variable System
 
-> 本模块只关注 `OrchestraFlow` 系统里的变量定义、变量运行时流转、变量选择器和扩展约束。
-> 目标不是记录一份易过时的实现快照，而是让 AI 在扩展变量系统时知道应该先看哪里、改哪些层、哪些地方最容易改错。
+> 本模块关注的是 `OrchestraFlow` 现在的 definition/registry 驱动结构，而不再把旧 helper / descriptor 入口当成主阅读路径。
+> 目标是让 AI 在改 shared contract、AI schema、变量流转、变量选择器时，能先找到真正的处理层和单一事实来源。
 
-## 一、先记住这套系统的四层
+## 一、先记住这套系统的五层
 
-扩展变量系统时，不要只盯某一个节点文件。当前系统至少有四层需要一起看：
+当前 OrchestraFlow 至少有五层要一起看：
 
-1. **共享类型层**
+1. **共享契约层**
    - 路径：`src/Public/ShareTypes/Orchestraflow-types/index.ts`
-   - 职责：定义变量 schema、节点 input/output schema、节点数据结构
-2. **运行时存储层**
-   - 路径：`src/utility/orchestraflow/services/variable-store.ts`
-   - 职责：变量的 set/get/getBySelector
-3. **节点执行层**
-   - 路径：`src/utility/orchestraflow/nodes/*.ts`
-   - 职责：什么时候写变量、什么时候读变量
-4. **前端编辑器层**
-   - 路径：`src/renderer/src/stores/orchestraflow/workflow-editor/variable-selector/*`
-   - 职责：哪些变量能被选中、如何展示给用户
+   - 职责：稳定 barrel 入口，向外导出 runnable types、definition API、authoring contract、registry helpers
+2. **definition / registry 层**
+   - 路径：
+     - `src/Public/ShareTypes/Orchestraflow-types/node-definition.ts`
+     - `src/Public/ShareTypes/Orchestraflow-types/node-definition-registry.ts`
+     - `src/Public/ShareTypes/Orchestraflow-types/builtins/*.definition.ts`
+   - 职责：定义 built-in 节点的 meta、defaults、variables、authoring metadata、runtime binding
+3. **运行时层**
+   - 路径：
+     - `src/utility/orchestraflow/services/variable-store.ts`
+     - `src/utility/orchestraflow/nodes/*.ts`
+     - `src/utility/orchestraflow/nodes/node-factory.ts`
+   - 职责：变量读写、selector 解析、节点执行
+4. **AI schema 层**
+   - 路径：`src/utility/orchestraflow/ai-schema/*`
+   - 职责：从 shared definitions + authoring metadata 导出 AI-facing runnable workflow contract
+5. **前端编辑器层**
+   - 路径：`src/renderer/src/stores/orchestraflow/workflow-editor/*`
+   - 职责：节点默认值、normalize、node config、变量选择器、编辑器态派生
 
-如果只改其中一层，变量系统通常会出现“类型加了但 UI 看不到”“UI 能选但运行时读不到”“End 节点 selector 正常但中间节点插值不支持”等问题。
+如果只改其中一层，很容易出现“shared type 改了但 editor 没收口”“AI schema 还是旧规则”“运行时能跑但 selector 不可选”的问题。
 
 ---
 
-## 二、变量定义的单一事实来源
+## 二、单一事实来源已经从“零散 helper”切到 shared definitions
 
-变量定义的权威来源是：
+优先看这些文件：
 
 - `src/Public/ShareTypes/Orchestraflow-types/index.ts`
+- `src/Public/ShareTypes/Orchestraflow-types/core-types.ts`
+- `src/Public/ShareTypes/Orchestraflow-types/node-definition.ts`
+- `src/Public/ShareTypes/Orchestraflow-types/node-definition-registry.ts`
+- `src/Public/ShareTypes/Orchestraflow-types/variable-definition.ts`
 
-关键类型：
+当前规则：
 
-- `OFVarType`
-- `OFVariable`
-- `OFNodeInput`
-- `OFNodeOutput`
-
-当前写法核心是：
-
-```ts
-export enum OFVarType {
-  String = 'string',
-  Number = 'number',
-  Boolean = 'boolean',
-  Object = 'object',
-  Array = 'array'
-}
-
-export interface OFVariable {
-  variable: string
-  label?: string
-  type?: OFVarType
-  description?: string
-  required?: boolean
-  default?: string | number | boolean | object | any[]
-  options?: string[]
-  value_selector?: string[]
-}
-```
-
-理解要点：
-
-- `variable` 是运行时 key，也是跨节点传递的名字
-- `label` 主要给前端展示
-- `type` 主要给前端渲染和部分运行时处理
-- `default` 主要由 Start 节点读取
-- `value_selector` 主要由 End 节点和变量选择器使用
+- `@shared/Orchestraflow-types` 是外部消费者的稳定入口
+- `resolveOFNodeDefinition()` / `listOFNodeDefinitions()` 是标准读取入口
+- built-in 节点拆在 `builtins/*.definition.ts`
+- editor、AI schema、runtime binding 都应该消费 shared definitions，而不是各自维护一套业务分支
 
 ---
 
-## 三、变量是怎么流转的
+## 三、变量与节点规则现在怎么落地
 
-### 1. Start 节点负责把输入写进变量池
+### 1. Start / built-in definitions 负责定义变量入口与默认值
 
-文件：
+优先看：
+
+- `src/Public/ShareTypes/Orchestraflow-types/builtins/start.definition.ts`
+- `src/Public/ShareTypes/Orchestraflow-types/builtins/iteration.definition.ts`
+- `src/Public/ShareTypes/Orchestraflow-types/builtins/loop.definition.ts`
+
+这些 definition 文件现在承担：
+
+- 节点 meta
+- 默认 data shape
+- 可见变量规则
+- authoring metadata
+- selector / output / omit 策略
+
+### 2. Runtime 负责执行，不再充当 schema 权威
+
+优先看：
 
 - `src/utility/orchestraflow/nodes/start-node.ts`
-
-当前逻辑：
-
-- 遍历 `input.variables`
-- 从 `context.inputs[v.variable]` 取值
-- 没传则回落到 `v.default`
-- 再写入 `VariableStore`
-
-结论：
-
-- Start 节点是工作流输入变量进入运行时上下文的入口
-
-### 2. 中间节点负责消费变量并产出新变量
-
-当前最典型的是：
-
 - `src/utility/orchestraflow/nodes/llm-node.ts`
+- `src/utility/orchestraflow/nodes/node-factory.ts`
+- `src/utility/orchestraflow/services/variable-store.ts`
 
-这里有两种变量读取方式：
+运行时仍负责：
 
-- prompt 模板中的 `{{variable_name}}`，通过 `variableStore.get(varName)` 替换
-- 运行上下文 `context.inputs`，用于兜底或直接输入
+- Start 把输入写进变量池
+- 中间节点消费 selector 或变量值后产出新变量
+- End 做最终输出映射
 
-输出方式：
+但“哪些字段存在、哪些字段系统托管、哪些字段应省略”这类约束，优先来源已经是 shared definitions。
 
-- 遍历 `output.variables`
-- 逐个 `setOutput(varName, value)` 写入 `VariableStore`
+### 3. AI schema builder 已开始 definition-driven
 
-结论：
+优先看：
 
-- 只要一个节点要向下游暴露变量，最终都要写进 `VariableStore`
+- `src/utility/orchestraflow/ai-schema/builder.ts`
+- `src/utility/orchestraflow/ai-schema/registry.ts`
+- `src/utility/orchestraflow/ai-schema/runtime-binding-registry.ts`
 
-### 3. End 节点负责按 selector 取最终结果
+当前状态：
 
-文件：
+- `prompt_markdown` / `annotated_workflow_jsonc` 已从 definition authoring metadata 渲染关键规则
+- `compiler.ts` 仍是内部辅助生成器
+- bundle 还没做到完全零硬编码，example scaffold 仍有少量手写逻辑
 
-- `src/utility/orchestraflow/nodes/end-node.ts`
+### 4. Renderer variable selector 现在按 definition 提供变量
 
-当前逻辑：
+优先看：
 
-- 遍历 `output.variables`
-- 如果配置了 `value_selector`，按 selector 取值
-- 否则默认按 `[v.variable]` 取值
+- `src/renderer/src/stores/orchestraflow/workflow-editor/workflow-editor.store.ts`
+- `src/renderer/src/stores/orchestraflow/workflow-editor/variable-selector/variable-selector.store.ts`
 
-结论：
+当前规则：
 
-- End 节点本质上不是重新生成变量，而是从已有变量池里做一次“结果映射”
+- editor 的 addNode / normalize 走 shared definition 默认值
+- variable selector 通过 `definition.variables.getSelectableVariables` 收口可选变量
+- node config store 负责把 `NodeData` 显式转换成具体 config 结构
 
 ---
 
-## 四、当前 selector 机制的真实语义
+## 四、selector 的真实语义仍然要先核对 runtime
 
-运行时 selector 解析在：
+selector 的最终解释权仍在：
 
 - `src/utility/orchestraflow/services/variable-store.ts`
 
-虽然注释写了：
+当前应理解为：
 
-- `['nodeId', 'outputKey']`
+- 第一个 segment 是变量池 key
+- 后续 segment 是对象路径
 
-但按当前实现，真正语义是：
+所以扩展 selector 时，仍然要同步检查：
 
-- 第一个元素是 `VariableStore` 的 key
-- 后续元素是对象路径
-
-也就是更接近：
-
-```ts
-['summary']
-['profile', 'name']
-['result', 'items', '0']
-```
-
-而不是严格意义上的：
-
-```ts
-['nodeId', 'field']
-```
-
-这点非常重要，因为它决定了扩展时不能误以为系统已经有“node 级命名空间”。
+1. shared definition 的 selector policy
+2. runtime `getBySelector()` 语义
+3. renderer variable selector 生成逻辑
+4. AI schema builder 的文档描述
 
 ---
 
-## 五、前端变量选择器是怎么构建可选变量的
+## 五、推荐阅读顺序
 
-变量选择器在：
+如果任务落在 OrchestraFlow，建议按这个顺序打开：
 
-- `src/renderer/src/stores/orchestraflow/workflow-editor/variable-selector/variable-selector.store.ts`
-
-当前策略：
-
-1. 从目标节点反向遍历边，找到所有上游节点
-2. 从上游节点里提取“可引用变量”
-3. Start 节点提取 `input.variables`
-4. 其它节点提取 `output.variables`
-5. 若变量自身没有 `value_selector`，前端默认用 `[variable]`
-
-结论：
-
-- 前端“能选到什么变量”不是运行时自动推导出来的，而是变量选择器单独算出来的
-- 因此变量 schema 一旦变化，变量选择器通常也要同步改
+1. `src/Public/ShareTypes/Orchestraflow-types/index.ts`
+2. `src/Public/ShareTypes/Orchestraflow-types/node-definition-registry.ts`
+3. `src/Public/ShareTypes/Orchestraflow-types/builtins/start.definition.ts`
+4. `src/Public/ShareTypes/Orchestraflow-types/builtins/iteration.definition.ts`
+5. `src/Public/ShareTypes/Orchestraflow-types/builtins/loop.definition.ts`
+6. `src/utility/orchestraflow/ai-schema/builder.ts`
+7. `src/renderer/src/stores/orchestraflow/workflow-editor/workflow-editor.store.ts`
+8. `src/renderer/src/stores/orchestraflow/workflow-editor/variable-selector/variable-selector.store.ts`
 
 ---
 
-## 六、扩展变量系统时应遵循的顺序
+## 六、最容易踩的坑
 
-如果你要给 OrchestraFlow 扩展新的变量能力，建议严格按下面顺序推进：
+### 1. 重新在调用层手写业务规则
 
-### 场景 1：只扩展变量元数据
+常见坏味道：
 
-例如新增：
+- renderer store 自己写节点 type 分支
+- AI schema 再维护一份独立 descriptor
+- runtime 节点之外的地方手动拼 derived fields
 
-- `placeholder`
-- `ui_type`
-- `schema`
-- `allow_multiple`
+优先做法：
 
-顺序：
+- 先补 shared definition
+- 再让调用层消费 definition
 
-1. 先改 `OFVariable`
-2. 再改对应节点配置 UI
-3. 再改变量选择器展示逻辑
-4. 如果运行时需要依赖这个字段，再改节点执行逻辑
+### 2. 绕过 barrel 入口做 deep import
 
-### 场景 2：新增变量类型
+外部消费者应该优先从：
 
-例如新增：
+- `@shared/Orchestraflow-types`
 
-- `json`
-- `image`
-- `file`
+获取公开 API。否则容易把私有实现路径固化到别的层。
 
-顺序：
+### 3. 只改变量结构，不改 selector / AI schema / editor
 
-1. 先扩展 `OFVarType`
-2. 检查各节点的变量编辑表单是否支持该类型
-3. 检查 `LLMNode` 或其它中间节点输出时是否真正按该类型处理
-4. 检查 `EndNode` / selector / 调试输出是否仍能正确展示
+变量结构变化至少要检查：
 
-### 场景 3：增强 selector 机制
+1. shared definitions
+2. runtime variable store
+3. AI schema builder
+4. renderer variable selector
 
-例如想支持：
+### 4. 把 lint 规则当成收尾装饰
 
-- 节点命名空间
-- 更深层对象路径
-- 数组索引
-- 表达式求值
+现在已经有 OrchestraFlow 定向规则：
 
-顺序：
+- `pnpm lint:orchestraflow`
 
-1. 先定义 selector 的统一语义
-2. 再改 `VariableStore.getBySelector()`
-3. 再改前端变量选择器生成规则
-4. 再改 End 节点和其它消费 selector 的节点
-5. 最后补文档，防止前后端对 selector 的理解不一致
+这不是可选装饰，而是用来防止 legacy entrypoint、deep import、调用层手写业务分支回流的。
 
 ---
 
-## 七、当前最容易踩的坑
+## 七、扩展时的最小顺序
 
-### 1. 同名变量覆盖
+### 场景 1：新增或修改 built-in 节点字段
 
-当前 `VariableStore` 是：
+1. 先改 `builtins/*.definition.ts`
+2. 再检查 shared barrel 是否需要补导出
+3. 再看 editor / AI schema / runtime 是否只需消费新 metadata
+4. 最后跑 `pnpm lint:orchestraflow`
 
-- `Map<string, any>`
+### 场景 2：增强变量能力
 
-所以不同节点如果都输出 `result`，后写入的会覆盖先写入的。
+1. 先改 shared variable / definition contracts
+2. 再核对 `variable-store.ts`
+3. 再核对 `variable-selector.store.ts`
+4. 再核对 AI schema 文档输出
 
-如果要支持真正稳定的跨节点引用，后续可能要考虑：
+### 场景 3：处理旧入口迁移
 
-- key 带节点命名空间
-- 或者按 `Map<nodeId, Record<varName, any>>` 存
-
-### 2. selector 注释与实现不一致
-
-注释接近“按 nodeId 取”，实现实际是“按变量 key + 对象路径取”。
-
-扩展时必须先统一语义，再写功能，否则：
-
-- 前端生成一套 selector
-- 后端按另一套方式解析
-
-最后一定出错。
-
-### 3. `LLMNode` 对复杂类型支持并不完整
-
-当前 `object` / `array` 分支只是把文本内容原样塞回去，并没有真正做结构化解析。
-
-所以：
-
-- 新增变量类型时，不能只改枚举
-- 还要确认中间节点是否真的按该类型产出值
-
-### 4. prompt 插值和 selector 是两套机制
-
-当前 `{{var}}` 插值走的是：
-
-- `variableStore.get(varName)`
-
-不是 `getBySelector()`
-
-所以：
-
-- 你即使增强了 `value_selector`
-- prompt 模板也不会自动获得同样能力
-
-### 5. 前端可选变量与运行时变量不是同一套代码
-
-变量选择器是前端单独算的。
-
-因此：
-
-- 运行时支持了某种新变量结构
-- 不代表前端能自动展示出来
+1. 先确认能否直接改成 `@shared/Orchestraflow-types`
+2. 再看是否命中了本地 ESLint 规则
+3. 不要新增新的 legacy helper 作为过渡常态
 
 ---
 
-## 八、推荐的最小改动原则
+## 八、建议输出方式
 
-在不大改架构的前提下，优先采用下面策略：
+以后如果 AI 要解释 OrchestraFlow，建议按这个顺序：
 
-1. 保持 `OFVariable` 仍然是统一 schema 入口
-2. 保持 `VariableStore` 仍然是唯一运行时变量池
-3. 保持节点自己决定“何时读变量、何时写变量”
-4. 保持变量选择器只负责“展示可引用变量”，不把运行时逻辑搬到前端
-
-也就是说，尽量是在现有四层里补强，不要一上来重写整个变量系统。
-
----
-
-## 九、扩展前自检清单
-
-动手前至少确认：
-
-1. 我改的是变量 schema、运行时存储、节点执行逻辑，还是前端选择器？
-2. 我这次改动是否需要四层一起同步？
-3. 新字段是不是只在 UI 生效，还是运行时也要依赖？
-4. 新类型是不是只有枚举，还是节点真的会按该类型处理？
-5. selector 的语义前后端是不是一致？
-6. 有没有同名变量覆盖风险？
-7. prompt 插值逻辑是否也要同步扩展？
-
----
-
-## 十、建议输出方式
-
-以后如果 AI 要解释 OrchestraFlow 变量系统，建议按这个顺序：
-
-1. 先说共享类型定义在哪里
-2. 再说变量运行时怎么流转
-3. 再说前端变量选择器怎么构建
-4. 最后说扩展时要同步哪些层，以及当前有哪些坑
+1. 先说 shared barrel 和 definition registry 在哪里
+2. 再说 built-in definition 如何描述节点规则
+3. 再说 runtime / AI schema / renderer 分别怎么消费这些定义
+4. 最后说扩展时要同步哪些层，以及该跑哪些检查

@@ -1,17 +1,26 @@
 # OrchestraFlow AI Schema
 
-这里是 OrchestraFlow 给外部 AI 使用的可运行工作流导出层。
+This directory exports the AI-facing runnable workflow contract for OrchestraFlow.
 
-核心规则：
+## Current Model
 
-- 外部 AI 最终写的是可直接落盘的 `OFWorkflow` JSON
-- `registry.ts` 是节点目录入口。新增节点时，先补这里
-- `builder.ts` 负责导出给 AI 的 runnable workflow schema / example / prompt bundle
-- `compiler.ts` 仍保留为内部辅助生成器，用于从更高层结构生成最终 graph
-- `iteration-start` 和 `loop-start` 虽然是内部节点，但在最终 runnable JSON 里必须真实存在
+- External AI should produce strict `OFRunnableWorkflow` JSON.
+- Shared schema and shared node definitions come from `@shared/Orchestraflow-types`.
+- `builder.ts` assembles the compact AI bundle from generated schema, shared definition metadata, authoring defaults, and contract summaries.
+- `compiler.ts` remains an internal helper that converts the higher-level AI DSL into runnable workflow JSON.
+- `registry.ts` and `runtime-binding-registry.ts` keep the AI schema layer aligned with the shared definition system.
+- `iteration-start` and `loop-start` are internal nodes, but they still exist in the runnable graph and must be represented accurately.
 
-为什么这样做：
+## Architectural Rules
 
-- 最终目标不是中间格式，而是 AI 生成后可以直接放进工作流目录运行
-- registry 保证节点目录和运行时注册集中，避免 schema 与执行器脱节
-- builder 负责把这些约束输出成 AI 可直接遵循的 runnable workflow 规范
+- Do not reintroduce a separate legacy descriptor source for node behavior.
+- Prefer definition metadata from `builtins/*.definition.ts` when describing system-managed fields, selector policies, output policies, and omit rules.
+- Keep `prompt_markdown` compact; use `schema` and `annotated_workflow_jsonc` for full structure guidance.
+- External callers should consume shared public APIs from `@shared/Orchestraflow-types`, not deep private paths.
+
+## Fast Verification
+
+```bash
+pnpm test:orchestraflow
+pnpm lint:orchestraflow
+```

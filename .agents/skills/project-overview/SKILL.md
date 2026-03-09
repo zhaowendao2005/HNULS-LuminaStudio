@@ -2,7 +2,7 @@
 description: 当 AI 需要了解本项目的整体架构、目录结构、技术栈、业务模块、数据库结构，或者需要快速构建项目上下文时激活此技能。此技能同时承担“项目总索引入口”的角色：帮助后续 agent 先判断问题落在哪个业务域、哪一层是处理层、哪一层只是透传层，并给出最小阅读路径与检索锚点。适用于：(1) 首次接触本项目需要快速了解全貌；(2) 需要定位某个功能模块的代码位置；(3) 涉及数据库表结构、Schema 设计等需要了解当前数据库状态；(4) 涉及 LangChain Agent 架构、Graph/Node/Tool 扩展需要理解 Agent 子系统；(5) 需要查询项目最新文档或代码变更；(6) 需要为后续任务建立可靠的“从粗到细”的检索路线。
 ---
 
-# LuminaStudio — Project Overview Skill
+# LuminaStudio — 项目总览技能
 
 ## 目的
 
@@ -11,6 +11,36 @@ description: 当 AI 需要了解本项目的整体架构、目录结构、技术
 - 先判断任务属于哪个业务域
 - 再判断应该先看处理层还是透传层
 - 最后再收窄到具体文件、类型名、组件名、事件名
+
+## ⚠️ 必读：主 Skill 与分 Skill 的阅读顺序
+
+**本技能是项目的"主索引入口"，但不是全部。**
+
+在使用本技能建立粗粒度地图后，你**必须**继续阅读以下"分 Skills"文档：
+
+### 核心分 Skills（按优先级排序）
+
+1. **`LuminaStudio/README.md`**
+   - 作用：项目整体架构、技术栈、核心特性、快速开始指南
+   - 何时读：在本 skill 之后**立即阅读**
+   - 重点关注：技术栈、项目结构、核心功能、开发指南
+
+2. **`LuminaStudio/src/utility/orchestraflow/ai-schema/README.md`**
+   - 作用：OrchestraFlow AI schema 架构规则、runnable workflow 契约、架构边界
+   - 何时读：涉及 OrchestraFlow AI 集成、workflow 生成、节点定义时**必读**
+   - 重点关注：架构规则、快速验证命令、模型契约
+
+### 阅读流程
+
+```
+本 Skill (粗粒度地图)
+    ↓
+LuminaStudio/README.md (整体架构 + 技术栈)
+    ↓
+根据任务类型选择：
+  - OrchestraFlow 相关 → ai-schema/README.md
+  - 其他业务域 → 对应层级 README
+```
 
 ## 使用目标
 
@@ -25,6 +55,13 @@ description: 当 AI 需要了解本项目的整体架构、目录结构、技术
 
 如果你对当前任务还没有任何上下文，先按下面顺序建立粗粒度地图：
 
+**第一步：阅读本 Skill**（你正在做）
+
+**第二步：立即阅读核心分 Skills**
+1. `LuminaStudio/README.md` ← **必读，不可跳过**
+2. 根据任务类型决定是否阅读 `LuminaStudio/src/utility/orchestraflow/ai-schema/README.md`
+
+**第三步：按需阅读层级 README**
 1. `LuminaStudio/src/main/README.md`
 2. `LuminaStudio/src/preload/README.md`
 3. `LuminaStudio/src/renderer/README.md`
@@ -146,11 +183,18 @@ description: 当 AI 需要了解本项目的整体架构、目录结构、技术
 - `node-start`
 - `node-result`
 
-### 4. OrchestraFlow 变量系统与工作流编辑器
+### 4. OrchestraFlow definition / AI schema / 工作流编辑器
+
+**⚠️ 在深入此部分前，必须先阅读：**
+- `LuminaStudio/README.md` 的项目结构章节
+- `LuminaStudio/src/utility/orchestraflow/ai-schema/README.md` ← **架构规则权威来源**
+
+这两份文档定义了 OrchestraFlow 的核心架构原则、AI schema 契约、节点定义规范。不阅读这些文档直接修改代码可能导致架构违规。
 
 - `LuminaStudio/src/renderer/src/stores/orchestraflow/`
 - `LuminaStudio/src/utility/orchestraflow/services/variable-store.ts`
 - `LuminaStudio/src/utility/orchestraflow/nodes/`
+- `LuminaStudio/src/utility/orchestraflow/ai-schema/`
 - `modules/orchestraflow-variable-system.md`
 
 高价值锚点词：
@@ -163,6 +207,8 @@ description: 当 AI 需要了解本项目的整体架构、目录结构、技术
 - `start-node`
 - `end-node`
 - `llm-node`
+- `OFRunnableWorkflow`
+- `ai-schema`
 
 ### 5. 数据库与 Schema
 
@@ -237,14 +283,15 @@ description: 当 AI 需要了解本项目的整体架构、目录结构、技术
 
 ## 权威来源优先级
 
-1. **本地源码**：最权威，尤其是 `LuminaStudio/src/**`
-2. **各层 README**：解释目录职责与边界，适合快速建立地图
-3. **本 Skill 模块**：结构化索引，作用是加速而不是替代源码
-4. **Devin 私有仓库查询**（`zhaowendao2005/HNULS-LuminaStudio`）：需要跨模块全局线索时使用
-5. **DeepWiki 公共仓库查询**：查询外部依赖文档时使用
-   - `vercel/ai`
-   - `langchain-ai/langchainjs`
-   - `sqlite/sqlite`
+1. **核心分 Skills 文档**（必读）
+   - `LuminaStudio/README.md`
+   - `LuminaStudio/src/utility/orchestraflow/ai-schema/README.md`
+   
+2. **本地源码**：最权威，尤其是 `LuminaStudio/src/**`
+
+3. **各层 README**：解释目录职责与边界，适合快速建立地图
+
+4. **本 Skill 模块**：结构
 
 ## 注意事项
 
