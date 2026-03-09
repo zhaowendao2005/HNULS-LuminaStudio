@@ -76,6 +76,7 @@ let providerConfigs: Record<
     baseUrl: string
     apiKey: string
     enabled: boolean
+    defaultHeaders?: Record<string, string>
   }
 > = {}
 

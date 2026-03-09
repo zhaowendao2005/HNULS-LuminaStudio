@@ -6,6 +6,6 @@ import { BASE_CONFIG_TABLES } from './tables'
  */
 export const BASE_CONFIG_SCHEMA: DatabaseSchema = {
   name: 'BaseConfig',
-  version: 1,
+  version: 2,
   tables: BASE_CONFIG_TABLES
 }

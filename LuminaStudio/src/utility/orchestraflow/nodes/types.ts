@@ -87,6 +87,7 @@ export interface ExecutionContext {
       baseUrl: string
       apiKey: string
       enabled: boolean
+      defaultHeaders?: Record<string, string>
     }
   >
   executeGraph: (params: ExecuteGraphParams) => Promise<GraphExecutionResult>

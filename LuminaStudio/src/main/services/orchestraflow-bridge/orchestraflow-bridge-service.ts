@@ -110,7 +110,14 @@ export class OrchestraflowBridgeService {
     inputs: Record<string, any>,
     providerConfigs?: Record<
       string,
-      { id: string; name: string; baseUrl: string; apiKey: string; enabled: boolean }
+      {
+        id: string
+        name: string
+        baseUrl: string
+        apiKey: string
+        enabled: boolean
+        defaultHeaders?: Record<string, string>
+      }
     >,
     timeoutMs = 1800000
   ): Promise<OFWorkflowRunResult> {
@@ -145,7 +152,14 @@ export class OrchestraflowBridgeService {
     scopePath?: string[],
     providerConfigs?: Record<
       string,
-      { id: string; name: string; baseUrl: string; apiKey: string; enabled: boolean }
+      {
+        id: string
+        name: string
+        baseUrl: string
+        apiKey: string
+        enabled: boolean
+        defaultHeaders?: Record<string, string>
+      }
     >,
     timeoutMs = 600000
   ): Promise<OFNodeDebugResult> {

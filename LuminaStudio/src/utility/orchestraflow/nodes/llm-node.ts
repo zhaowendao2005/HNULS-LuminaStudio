@@ -19,6 +19,7 @@ import type { ExecutionContext, NodeResult } from './types'
 import { VariableStore } from '../services/variable-store'
 import { ChatOpenAI } from '@langchain/openai'
 import { AIMessage, HumanMessage, SystemMessage } from '@langchain/core/messages'
+import { normalizeOpenAICompatibleBaseUrl } from '@utility/langchain-client/model-factory'
 
 type StructuredResult = {
   raw: AIMessage
@@ -58,7 +59,7 @@ export class LLMNode extends BaseNode {
       }
 
       const providerConfig = this.getProviderConfig(nodeData.model.provider)
-      const baseUrl = providerConfig?.baseUrl || 'https://api.openai.com/v1'
+      const baseUrl = providerConfig?.baseUrl || 'https://api.openai.com'
       const apiKey = providerConfig?.apiKey || ''
 
       if (!apiKey) {
@@ -87,12 +88,13 @@ export class LLMNode extends BaseNode {
         }
       })
 
-      const normalizedBaseUrl = baseUrl.replace(/\/$/, '')
+      const normalizedBaseUrl = normalizeOpenAICompatibleBaseUrl(baseUrl)
       this.model = new ChatOpenAI({
         ...modelOptions,
         apiKey,
         configuration: {
-          baseURL: normalizedBaseUrl
+          baseURL: normalizedBaseUrl,
+          defaultHeaders: providerConfig?.defaultHeaders
         }
       })
 

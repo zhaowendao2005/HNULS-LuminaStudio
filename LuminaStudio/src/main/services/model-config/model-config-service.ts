@@ -64,7 +64,7 @@ export interface ModelConfig {
  * 默认配置
  */
 const DEFAULT_MODEL_CONFIG: ModelConfig = {
-  version: 1,
+  version: 2,
   updatedAt: new Date(0).toISOString(),
   activeProviderId: null,
   providers: []
@@ -132,7 +132,7 @@ export class ModelConfigService {
         .get() as AppSettingRow | undefined
 
       const config: ModelConfig = {
-        version: 1,
+        version: 2,
         updatedAt: new Date().toISOString(),
         activeProviderId: activeRow?.value || null,
         providers
@@ -157,6 +157,8 @@ export class ModelConfigService {
       const transaction = this.db.transaction(() => {
         // 1. 更新 providers（如果提供）
         if (patch.providers) {
+          this.assertNoDuplicateModelsWithinProvider(patch.providers)
+
           // 删除所有旧数据（CASCADE 会自动删除相关的 model_configs）
           this.db.prepare('DELETE FROM model_providers').run()
 
@@ -331,5 +333,20 @@ export class ModelConfigService {
 
     // 4) 其他都进默认组
     return DEFAULT
+  }
+
+  private assertNoDuplicateModelsWithinProvider(providers: PersistedModelProviderConfig[]): void {
+    for (const provider of providers) {
+      const seenModelIds = new Set<string>()
+
+      for (const model of provider.models) {
+        if (seenModelIds.has(model.id)) {
+          throw new Error(
+            `Duplicate model id "${model.id}" found in provider "${provider.id}". Model ids must be unique within a provider.`
+          )
+        }
+        seenModelIds.add(model.id)
+      }
+    }
   }
 }

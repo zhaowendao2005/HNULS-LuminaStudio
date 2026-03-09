@@ -44,13 +44,14 @@ export const MODEL_CONFIGS_TABLE: TableDefinition = {
   name: 'model_configs',
   createSQL: `
     CREATE TABLE IF NOT EXISTS model_configs (
-      id TEXT PRIMARY KEY,
       provider_id TEXT NOT NULL,
+      id TEXT NOT NULL,
       display_name TEXT NOT NULL,
       group_name TEXT,
       sort_order INTEGER DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY (provider_id, id),
       FOREIGN KEY (provider_id) REFERENCES model_providers(id) ON DELETE CASCADE
     );
   `

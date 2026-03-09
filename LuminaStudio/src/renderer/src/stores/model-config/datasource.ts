@@ -80,7 +80,7 @@ export const ModelConfigDataSource = {
     if (isDefaultConfig) {
       // 创建空配置
       await window.api.modelConfig.update({
-        version: 1,
+        version: 2,
         activeProviderId: null,
         providers: []
       })

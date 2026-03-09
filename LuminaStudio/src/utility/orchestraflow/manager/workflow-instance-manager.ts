@@ -48,6 +48,7 @@ export class WorkflowInstanceManager {
         baseUrl: string
         apiKey: string
         enabled: boolean
+        defaultHeaders?: Record<string, string>
       }
     > = {}
   ): Promise<OFWorkflowRunResult> {
@@ -112,6 +113,7 @@ export class WorkflowInstanceManager {
         baseUrl: string
         apiKey: string
         enabled: boolean
+        defaultHeaders?: Record<string, string>
       }
     > = {},
     scopePath?: string[]
