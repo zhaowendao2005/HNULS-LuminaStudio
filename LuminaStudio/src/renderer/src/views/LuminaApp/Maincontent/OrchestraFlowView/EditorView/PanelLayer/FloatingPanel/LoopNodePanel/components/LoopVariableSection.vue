@@ -8,11 +8,7 @@
     <div class="of-doc-line-soft">定义循环体内部可读写的局部变量及其初始来源。</div>
 
     <div class="of-declare-loop-list">
-      <div
-        v-for="item in modelValue"
-        :key="item.id || item.variable"
-        class="of-declare-loop-entry"
-      >
+      <div v-for="item in modelValue" :key="item.id || item.variable" class="of-declare-loop-entry">
         <div class="flex items-center justify-between gap-3">
           <div class="of-doc-title-muted">声明变量</div>
           <button
@@ -69,7 +65,11 @@
             placeholder="为空则无默认值"
             @input="patch(item, { value: ($event.target as HTMLTextAreaElement).value })"
           />
-          <button v-else-if="item.type === OFVarTypeEnum.Boolean" type="button" class="of-declare-bool-toggle">
+          <button
+            v-else-if="item.type === OFVarTypeEnum.Boolean"
+            type="button"
+            class="of-declare-bool-toggle"
+          >
             <span
               class="of-declare-bool-option"
               :class="item.value === true ? 'of-declare-bool-option-active-true' : ''"

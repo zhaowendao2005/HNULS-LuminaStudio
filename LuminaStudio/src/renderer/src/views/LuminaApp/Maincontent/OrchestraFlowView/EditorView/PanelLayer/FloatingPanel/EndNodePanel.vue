@@ -5,16 +5,8 @@
       <!-- 标题行：图标 + 输入框 + 操作按钮 -->
       <div class="of-panel-shell-title-row">
         <!-- 节点图标 -->
-        <div
-          class="of-panel-shell-icon"
-          :class="theme.iconBgClass"
-        >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            class="h-4 w-4"
-          >
+        <div class="of-panel-shell-icon" :class="theme.iconBgClass">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4">
             <path
               d="M12 3C7.02944 3 3 7.02944 3 12C3 16.9706 7.02944 21 12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3ZM9 9.75C9 9.33579 9.33579 9 9.75 9H14.25C14.6642 9 15 9.33579 15 9.75V14.25C15 14.6642 14.6642 15 14.25 15H9.75C9.33579 15 9 14.6642 9 14.25V9.75Z"
               fill="currentColor"

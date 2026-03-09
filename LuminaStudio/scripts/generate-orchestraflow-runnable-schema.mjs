@@ -29,11 +29,16 @@ function getExportedType(checker, sourceFile, exportName) {
   if (!moduleSymbol) {
     throw new Error(`Unable to resolve module symbol for ${sourceFile.fileName}`)
   }
-  const exportSymbol = checker.getExportsOfModule(moduleSymbol).find((item) => item.name === exportName)
+  const exportSymbol = checker
+    .getExportsOfModule(moduleSymbol)
+    .find((item) => item.name === exportName)
   if (!exportSymbol) {
     throw new Error(`Unable to find exported symbol ${exportName}`)
   }
-  const symbol = exportSymbol.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(exportSymbol) : exportSymbol
+  const symbol =
+    exportSymbol.flags & ts.SymbolFlags.Alias
+      ? checker.getAliasedSymbol(exportSymbol)
+      : exportSymbol
   return checker.getDeclaredTypeOfSymbol(symbol)
 }
 
@@ -153,7 +158,9 @@ function createConverter(checker) {
       return {
         type: 'array',
         minItems: tupleItems.length,
-        prefixItems: tupleItems.map((item, index) => convertType(item, [...pathSegments, `item_${index}`]))
+        prefixItems: tupleItems.map((item, index) =>
+          convertType(item, [...pathSegments, `item_${index}`])
+        )
       }
     }
 

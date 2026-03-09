@@ -190,7 +190,8 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
     const nodeTitle = data.title || '未命名节点'
     const nodeId = node.id
 
-    const variables: OFVariable[] = resolveOFNodeDefinition(nodeType).variables.getSelectableVariables(node)
+    const variables: OFVariable[] =
+      resolveOFNodeDefinition(nodeType).variables.getSelectableVariables(node)
 
     if (!variables.length) {
       return []

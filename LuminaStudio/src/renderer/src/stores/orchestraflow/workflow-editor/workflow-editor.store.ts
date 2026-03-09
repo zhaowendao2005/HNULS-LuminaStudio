@@ -476,7 +476,9 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
     })
 
     nodes.value = dedupeNodes(inflatedNodes)
-    edges.value = dedupeEdges(inflatedEdges.map((edge) => buildIterationEdgeData(edge, nodes.value)))
+    edges.value = dedupeEdges(
+      inflatedEdges.map((edge) => buildIterationEdgeData(edge, nodes.value))
+    )
     nodes.value
       .filter(
         (node) => node.data.type === OFBlockEnum.Iteration || node.data.type === OFBlockEnum.Loop

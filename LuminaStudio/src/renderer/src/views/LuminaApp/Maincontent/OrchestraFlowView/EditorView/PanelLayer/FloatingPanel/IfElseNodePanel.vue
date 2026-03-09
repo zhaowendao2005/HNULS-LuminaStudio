@@ -150,7 +150,9 @@
                                   ? 'of-choice-option-active'
                                   : ''
                               "
-                              @click.stop="selectOperator(item.id, condition.id, String(option.value))"
+                              @click.stop="
+                                selectOperator(item.id, condition.id, String(option.value))
+                              "
                             >
                               {{ option.label }}
                             </button>
@@ -164,7 +166,14 @@
                             class="of-branch-inline-input"
                             :class="condition.variable_type === OFVarType.Number ? 'w-12' : 'w-20'"
                             placeholder="值"
-                            @input="handleValueInput(item.id, condition.id, condition.variable_type, $event)"
+                            @input="
+                              handleValueInput(
+                                item.id,
+                                condition.id,
+                                condition.variable_type,
+                                $event
+                              )
+                            "
                           />
                           <div
                             v-else
@@ -219,7 +228,11 @@
                       </div>
 
                       <span class="of-branch-actions">
-                        <button type="button" class="of-branch-action" @click="addCondition(item.id)">
+                        <button
+                          type="button"
+                          class="of-branch-action"
+                          @click="addCondition(item.id)"
+                        >
                           添加条件
                         </button>
                         <button

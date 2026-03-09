@@ -1,8 +1,8 @@
+import { buildOFCommonNodeShape, defineInternalStartOFNodeDefinition } from '../node-definition'
 import {
-  buildOFCommonNodeShape,
-  defineInternalStartOFNodeDefinition
-} from '../node-definition'
-import { ensureOFSelectableVariables, loopInnerStartVariableDefinition } from '../variable-definition'
+  ensureOFSelectableVariables,
+  loopInnerStartVariableDefinition
+} from '../variable-definition'
 import type { OFLoopStartNodeData, OFLoopVariableData } from '../core-types'
 import { OFBlockEnum } from '../core-types'
 import { omitOFEmptySelector, omitOFNullSchemaFields } from './helpers'

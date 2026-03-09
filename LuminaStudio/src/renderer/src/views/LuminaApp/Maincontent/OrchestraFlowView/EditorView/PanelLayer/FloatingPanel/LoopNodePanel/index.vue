@@ -2,10 +2,7 @@
   <div class="of-panel-shell of-loop-node-panel" :class="theme.panelClass">
     <div class="of-panel-shell-header">
       <div class="of-panel-shell-title-row">
-        <div
-          class="of-panel-shell-icon"
-          :class="theme.iconBgClass"
-        >
+        <div class="of-panel-shell-icon" :class="theme.iconBgClass">
           <svg
             viewBox="0 0 24 24"
             class="h-3.5 w-3.5"
@@ -41,7 +38,10 @@
             </button>
           </CapsuleTooltip>
           <CapsuleTooltip text="关闭面板" placement="bottom">
-            <button class="of-panel-icon-button flex h-6 w-6 items-center justify-center rounded-md" @click="handleClose">
+            <button
+              class="of-panel-icon-button flex h-6 w-6 items-center justify-center rounded-md"
+              @click="handleClose"
+            >
               <svg viewBox="0 0 24 24" class="of-panel-icon-svg h-4 w-4" fill="currentColor">
                 <path
                   d="M11.9997 10.5865L16.9495 5.63672L18.3637 7.05093L13.4139 12.0007L18.3637 16.9504L16.9495 18.3646L11.9997 13.4149L7.04996 18.3646L5.63574 16.9504L10.5855 12.0007L5.63574 7.05093L7.0502 5.63672L11.9997 10.5865Z"
@@ -88,7 +88,10 @@
     </div>
 
     <div class="of-panel-shell-body">
-      <div v-if="activeTab === 'settings' && !debugMode" class="of-panel-shell-body-inner of-doc-block">
+      <div
+        v-if="activeTab === 'settings' && !debugMode"
+        class="of-panel-shell-body-inner of-doc-block"
+      >
         <LoopVariableSection
           :model-value="loopVariables"
           :theme="theme"

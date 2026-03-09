@@ -96,10 +96,7 @@ export const ifElseNodeDefinition = defineStandardOFNodeDefinition<OFIfElseNodeD
     normalizeData({ node }) {
       const data = node.data as Partial<OFIfElseNodeData>
       return {
-        ...buildOFCommonNodeShape(
-          data,
-          normalizeOFNodeTitle(OFBlockEnum.IfElse, data.title)
-        ),
+        ...buildOFCommonNodeShape(data, normalizeOFNodeTitle(OFBlockEnum.IfElse, data.title)),
         type: OFBlockEnum.IfElse,
         cases: data.cases || [],
         elseCase: data.elseCase || {

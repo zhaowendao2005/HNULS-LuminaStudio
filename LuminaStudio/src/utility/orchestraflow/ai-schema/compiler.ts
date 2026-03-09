@@ -15,13 +15,8 @@ import type {
   OFNode,
   OFWorkflow
 } from '@shared/Orchestraflow-types'
-import {
-  normalizeOFVariableNamespace,
-  OFBlockEnum
-} from '@shared/Orchestraflow-types'
-import {
-  getOFDefaultNodeTitle
-} from '@shared/Orchestraflow-types/node-definition'
+import { normalizeOFVariableNamespace, OFBlockEnum } from '@shared/Orchestraflow-types'
+import { getOFDefaultNodeTitle } from '@shared/Orchestraflow-types/node-definition'
 import { resolveOFNodeDefinition } from '@shared/Orchestraflow-types/node-definition-registry'
 
 type CompileGraphContext = {
@@ -86,9 +81,16 @@ function compileDslNode(
 
   const compiledId = expectCompiledId(node.id, idMap)
   const definition = resolveOFNodeDefinition(node.type)
-  const title = String(node.title || definition.meta.title || getOFDefaultNodeTitle(node.type)).trim()
+  const title = String(
+    node.title || definition.meta.title || getOFDefaultNodeTitle(node.type)
+  ).trim()
   const desc = String(node.description || '').trim()
-  const shell = createNodeShell(compiledId, definition.meta.vueFlowType, index, context.parentNodeId)
+  const shell = createNodeShell(
+    compiledId,
+    definition.meta.vueFlowType,
+    index,
+    context.parentNodeId
+  )
   const helpers = {
     compileVariables(source: unknown[]) {
       return compileVariables(source, idMap)
@@ -238,7 +240,12 @@ function compileDslEdge(edge: OFAIDslEdge, index: number, idMap: Map<string, str
   }
 }
 
-function createNodeShell(id: string, type: OFBlockEnum, index: number, parentNodeId?: string): OFNode {
+function createNodeShell(
+  id: string,
+  type: OFBlockEnum,
+  index: number,
+  parentNodeId?: string
+): OFNode {
   const position = parentNodeId
     ? { x: 40 + index * 260, y: 60 + (index % 2) * 140 }
     : { x: 80 + index * 300, y: 180 + (index % 3) * 120 }
@@ -337,7 +344,9 @@ function compileNodeContext(
 function compileSelectorField(value: unknown, idMap: Map<string, string>): string[] {
   // 运行时 selector 的真实格式是路径数组；字符串形式只是一种作者输入便利。
   if (Array.isArray(value)) {
-    return value.length ? [rewriteSelectorRoot(String(value[0]), idMap), ...value.slice(1).map(String)] : []
+    return value.length
+      ? [rewriteSelectorRoot(String(value[0]), idMap), ...value.slice(1).map(String)]
+      : []
   }
 
   if (typeof value === 'string') {

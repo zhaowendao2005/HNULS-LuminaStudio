@@ -48,7 +48,11 @@ function getNodeDisplayType(node: Record<string, any>, path: string): OFBlockEnu
   return nodeType
 }
 
-function validateSelectorFields(nodeType: OFBlockEnum, data: Record<string, any>, path: string): void {
+function validateSelectorFields(
+  nodeType: OFBlockEnum,
+  data: Record<string, any>,
+  path: string
+): void {
   switch (nodeType) {
     case OFBlockEnum.Start:
       ;(data.input?.variables || []).forEach((item: any, index: number) => {
@@ -96,7 +100,10 @@ function validateSelectorFields(nodeType: OFBlockEnum, data: Record<string, any>
         }
       })
       ;(data.break_conditions || []).forEach((condition: any, index: number) => {
-        assertStringArray(condition.variable_selector, `${path}.break_conditions[${index}].variable_selector`)
+        assertStringArray(
+          condition.variable_selector,
+          `${path}.break_conditions[${index}].variable_selector`
+        )
       })
       return
     case OFBlockEnum.VariableAssign:
@@ -109,7 +116,10 @@ function validateSelectorFields(nodeType: OFBlockEnum, data: Record<string, any>
     case OFBlockEnum.End:
       ;(data.output?.variables || []).forEach((item: any, index: number) => {
         if (item.value_selector !== undefined) {
-          assertStringArray(item.value_selector, `${path}.output.variables[${index}].value_selector`)
+          assertStringArray(
+            item.value_selector,
+            `${path}.output.variables[${index}].value_selector`
+          )
         }
       })
       return
@@ -129,7 +139,9 @@ function validateEdgeHandles(
   const targetHandle = assertNonEmptyString(edge.targetHandle, `${edgePath}.targetHandle`)
 
   const sourceNode = nodeMap.get(source)
-  const sourceType = sourceNode ? getNodeDisplayType(sourceNode, `${edgePath}.sourceNode`) : undefined
+  const sourceType = sourceNode
+    ? getNodeDisplayType(sourceNode, `${edgePath}.sourceNode`)
+    : undefined
   if (targetHandle !== 'target') {
     throw new Error(`${edgePath}.targetHandle 必须等于 target`)
   }
@@ -138,7 +150,9 @@ function validateEdgeHandles(
     const elseHandle = sourceNode?.data?.elseCase?.handleId
     const allowed = new Set([...cases.map((item) => item.handleId), elseHandle].filter(Boolean))
     if (!allowed.has(sourceHandle)) {
-      throw new Error(`${edgePath}.sourceHandle 必须匹配 IfElse 的 case.handleId 或 elseCase.handleId`)
+      throw new Error(
+        `${edgePath}.sourceHandle 必须匹配 IfElse 的 case.handleId 或 elseCase.handleId`
+      )
     }
   } else if (sourceHandle !== 'source') {
     throw new Error(`${edgePath}.sourceHandle 必须等于 source`)
@@ -179,7 +193,11 @@ function validateSubgraph(
     if (nodeType === OFBlockEnum.Iteration || nodeType === OFBlockEnum.Loop) {
       throw new Error(`${nodePath} 子图内禁止再嵌套容器节点`)
     }
-    validateSelectorFields(nodeType, assertRecord(record.data, `${nodePath}.data`), `${nodePath}.data`)
+    validateSelectorFields(
+      nodeType,
+      assertRecord(record.data, `${nodePath}.data`),
+      `${nodePath}.data`
+    )
     nodeMap.set(nodeId, record)
     if (nodeType === expectedStartType) {
       startNodes.push(record as OFRunnableSubgraphNode)
@@ -194,7 +212,11 @@ function validateSubgraph(
   }
 
   edges.forEach((edge, index) =>
-    validateEdgeHandles(assertRecord(edge, `${path}.edges[${index}]`), `${path}.edges[${index}]`, nodeMap)
+    validateEdgeHandles(
+      assertRecord(edge, `${path}.edges[${index}]`),
+      `${path}.edges[${index}]`,
+      nodeMap
+    )
   )
 }
 

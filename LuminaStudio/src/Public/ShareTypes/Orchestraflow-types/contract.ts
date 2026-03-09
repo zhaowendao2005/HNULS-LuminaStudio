@@ -121,7 +121,10 @@ export type OFRunnableSubgraphNode = Omit<OFNode, 'data' | 'parentNode' | 'exten
   data: OFRunnableSubgraphNodeData
 }
 
-export type OFRunnableSubWorkflowGraph = Omit<OFSubWorkflowGraph, 'nodes' | 'edges' | 'viewport'> & {
+export type OFRunnableSubWorkflowGraph = Omit<
+  OFSubWorkflowGraph,
+  'nodes' | 'edges' | 'viewport'
+> & {
   nodes: OFRunnableSubgraphNode[]
   edges: OFRunnableEdge[]
   viewport: {

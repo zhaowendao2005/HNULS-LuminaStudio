@@ -74,10 +74,7 @@ function updatePosition() {
     placement = 'top'
   } else if (placement === 'left' && rect.left - width - GAP < VIEWPORT_PADDING) {
     placement = 'right'
-  } else if (
-    placement === 'right' &&
-    rect.right + width + GAP > viewportWidth - VIEWPORT_PADDING
-  ) {
+  } else if (placement === 'right' && rect.right + width + GAP > viewportWidth - VIEWPORT_PADDING) {
     placement = 'left'
   }
 

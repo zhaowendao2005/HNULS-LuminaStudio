@@ -2,10 +2,7 @@
   <div class="of-panel-shell of-variable-assign-node-panel" :class="theme.panelClass">
     <div class="of-panel-shell-header">
       <div class="of-panel-shell-title-row">
-        <div
-          class="of-panel-shell-icon"
-          :class="theme.iconBgClass"
-        >
+        <div class="of-panel-shell-icon" :class="theme.iconBgClass">
           <svg
             viewBox="0 0 24 24"
             class="h-3.5 w-3.5"
@@ -41,7 +38,10 @@
             </button>
           </CapsuleTooltip>
           <CapsuleTooltip text="关闭面板" placement="bottom">
-            <button class="of-panel-icon-button flex h-6 w-6 items-center justify-center rounded-md" @click="handleClose">
+            <button
+              class="of-panel-icon-button flex h-6 w-6 items-center justify-center rounded-md"
+              @click="handleClose"
+            >
               <svg viewBox="0 0 24 24" class="of-panel-icon-svg h-4 w-4" fill="currentColor">
                 <path
                   d="M11.9997 10.5865L16.9495 5.63672L18.3637 7.05093L13.4139 12.0007L18.3637 16.9504L16.9495 18.3646L11.9997 13.4149L7.04996 18.3646L5.63574 16.9504L10.5855 12.0007L5.63574 7.05093L7.0502 5.63672L11.9997 10.5865Z"
@@ -88,7 +88,10 @@
     </div>
 
     <div class="of-panel-shell-body">
-      <div v-if="activeTab === 'settings' && !debugMode" class="of-panel-shell-body-inner of-doc-block">
+      <div
+        v-if="activeTab === 'settings' && !debugMode"
+        class="of-panel-shell-body-inner of-doc-block"
+      >
         <section class="of-doc-section">
           <div class="flex items-center justify-between">
             <div class="of-doc-title-strong">赋值规则</div>
@@ -102,7 +105,11 @@
 
                 <div class="of-declare-text-left">
                   <template v-if="rule.source_mode === 'variable'">
-                    <CapsuleTooltip :text="`点击选择上游节点输出${rule.source_path ? '\n完整路径：' + rule.source_path : ''}`" placement="top" :allow-newline="true">
+                    <CapsuleTooltip
+                      :text="`点击选择上游节点输出${rule.source_path ? '\n完整路径：' + rule.source_path : ''}`"
+                      placement="top"
+                      :allow-newline="true"
+                    >
                       <button
                         type="button"
                         class="of-declare-text-var-pill"
@@ -114,7 +121,11 @@
                     </CapsuleTooltip>
                   </template>
                   <template v-else>
-                    <CapsuleTooltip :text="`直接输入固定值${getConstantDisplayValue(rule) ? '\n当前值：' + getConstantDisplayValue(rule) : ''}`" placement="top" :allow-newline="true">
+                    <CapsuleTooltip
+                      :text="`直接输入固定值${getConstantDisplayValue(rule) ? '\n当前值：' + getConstantDisplayValue(rule) : ''}`"
+                      placement="top"
+                      :allow-newline="true"
+                    >
                       <input
                         :value="getConstantDisplayValue(rule)"
                         :type="rule.target_type === OFVarTypeEnum.Number ? 'number' : 'text'"
@@ -135,7 +146,11 @@
                     <button
                       type="button"
                       class="of-declare-text-mode"
-                      @click="patchRule(rule.id, { source_mode: rule.source_mode === 'variable' ? 'constant' : 'variable' })"
+                      @click="
+                        patchRule(rule.id, {
+                          source_mode: rule.source_mode === 'variable' ? 'constant' : 'variable'
+                        })
+                      "
                     >
                       {{ rule.source_mode === 'variable' ? '变量' : '常量' }}
                     </button>
@@ -147,7 +162,11 @@
                 <span class="of-declare-text-label">目标</span>
 
                 <div class="of-declare-text-left">
-                  <CapsuleTooltip :text="`输入新变量名${rule.target_variable ? '\n变量名：' + rule.target_variable : ''}`" placement="top" :allow-newline="true">
+                  <CapsuleTooltip
+                    :text="`输入新变量名${rule.target_variable ? '\n变量名：' + rule.target_variable : ''}`"
+                    placement="top"
+                    :allow-newline="true"
+                  >
                     <div class="of-declare-text-input-wrapper">
                       <div v-if="rule.target_variable" class="of-declare-text-var-pill-inner">
                         {{ rule.target_variable }}
@@ -172,11 +191,27 @@
                       class="of-declare-text-var-btn"
                       @click="openTargetSelector(rule.id, $event)"
                     >
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="of-declare-text-var-icon">
+                      <svg
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="of-declare-text-var-icon"
+                      >
                         <g>
-                          <path d="M13.9986 8.76189C14.6132 8.04115 15.5117 7.625 16.459 7.625H16.5486C17.1009 7.625 17.5486 8.07272 17.5486 8.625C17.5486 9.17728 17.1009 9.625 16.5486 9.625H16.459C16.0994 9.625 15.7564 9.78289 15.5205 10.0595L13.1804 12.8039L13.9213 15.4107C13.9372 15.4666 13.9859 15.5 14.0355 15.5H15.4296C15.9819 15.5 16.4296 15.9477 16.4296 16.5C16.4296 17.0523 15.9819 17.5 15.4296 17.5H14.0355C13.0858 17.5 12.2562 16.8674 11.9975 15.9575L11.621 14.6328L10.1457 16.3631C9.5311 17.0839 8.63257 17.5 7.68532 17.5H7.59564C7.04336 17.5 6.59564 17.0523 6.59564 16.5C6.59564 15.9477 7.04336 15.5 7.59564 15.5H7.68532C8.04487 15.5 8.38789 15.3421 8.62379 15.0655L10.964 12.3209L10.2231 9.71433C10.2072 9.65839 10.1586 9.625 10.1089 9.625H8.71484C8.16256 9.625 7.71484 9.17728 7.71484 8.625C7.71484 8.07272 8.16256 7.625 8.71484 7.625H10.1089C11.0586 7.625 11.8883 8.25756 12.1469 9.16754L12.5234 10.4921L13.9986 8.76189Z" fill="currentColor"></path>
-                          <path d="M5.429 3C3.61372 3 2.143 4.47071 2.143 6.286V10.4428L1.29289 11.2929C1.10536 11.4804 1 11.7348 1 12C1 12.2652 1.10536 12.5196 1.29289 12.7071L2.143 13.5572V17.714C2.143 19.5293 3.61372 21 5.429 21C5.98128 21 6.429 20.5523 6.429 20C6.429 19.4477 5.98128 19 5.429 19C4.71828 19 4.143 18.4247 4.143 17.714V13.143C4.143 12.8778 4.03764 12.6234 3.85011 12.4359L3.41421 12L3.85011 11.5641C4.03764 11.3766 4.143 11.1222 4.143 10.857V6.286C4.143 5.57528 4.71828 5 5.429 5C5.98128 5 6.429 4.55228 6.429 4C6.429 3.44772 5.98128 3 5.429 3Z" fill="currentColor"></path>
-                          <path d="M18.5708 3C18.0185 3 17.5708 3.44772 17.5708 4C17.5708 4.55228 18.0185 5 18.5708 5C19.2815 5 19.8568 5.57529 19.8568 6.286V10.857C19.8568 11.1222 19.9622 11.3766 20.1497 11.5641L20.5856 12L20.1497 12.4359C19.9622 12.6234 19.8568 12.8778 19.8568 13.143V17.714C19.8568 18.4244 19.2808 19 18.5708 19C18.0185 19 17.5708 19.4477 17.5708 20C17.5708 20.5523 18.0185 21 18.5708 21C20.3848 21 21.8568 19.5296 21.8568 17.714V13.5572L22.7069 12.7071C23.0974 12.3166 23.0974 11.6834 22.7069 11.2929L21.8568 10.4428V6.286C21.8568 4.47071 20.3861 3 18.5708 3Z" fill="currentColor"></path>
+                          <path
+                            d="M13.9986 8.76189C14.6132 8.04115 15.5117 7.625 16.459 7.625H16.5486C17.1009 7.625 17.5486 8.07272 17.5486 8.625C17.5486 9.17728 17.1009 9.625 16.5486 9.625H16.459C16.0994 9.625 15.7564 9.78289 15.5205 10.0595L13.1804 12.8039L13.9213 15.4107C13.9372 15.4666 13.9859 15.5 14.0355 15.5H15.4296C15.9819 15.5 16.4296 15.9477 16.4296 16.5C16.4296 17.0523 15.9819 17.5 15.4296 17.5H14.0355C13.0858 17.5 12.2562 16.8674 11.9975 15.9575L11.621 14.6328L10.1457 16.3631C9.5311 17.0839 8.63257 17.5 7.68532 17.5H7.59564C7.04336 17.5 6.59564 17.0523 6.59564 16.5C6.59564 15.9477 7.04336 15.5 7.59564 15.5H7.68532C8.04487 15.5 8.38789 15.3421 8.62379 15.0655L10.964 12.3209L10.2231 9.71433C10.2072 9.65839 10.1586 9.625 10.1089 9.625H8.71484C8.16256 9.625 7.71484 9.17728 7.71484 8.625C7.71484 8.07272 8.16256 7.625 8.71484 7.625H10.1089C11.0586 7.625 11.8883 8.25756 12.1469 9.16754L12.5234 10.4921L13.9986 8.76189Z"
+                            fill="currentColor"
+                          ></path>
+                          <path
+                            d="M5.429 3C3.61372 3 2.143 4.47071 2.143 6.286V10.4428L1.29289 11.2929C1.10536 11.4804 1 11.7348 1 12C1 12.2652 1.10536 12.5196 1.29289 12.7071L2.143 13.5572V17.714C2.143 19.5293 3.61372 21 5.429 21C5.98128 21 6.429 20.5523 6.429 20C6.429 19.4477 5.98128 19 5.429 19C4.71828 19 4.143 18.4247 4.143 17.714V13.143C4.143 12.8778 4.03764 12.6234 3.85011 12.4359L3.41421 12L3.85011 11.5641C4.03764 11.3766 4.143 11.1222 4.143 10.857V6.286C4.143 5.57528 4.71828 5 5.429 5C5.98128 5 6.429 4.55228 6.429 4C6.429 3.44772 5.98128 3 5.429 3Z"
+                            fill="currentColor"
+                          ></path>
+                          <path
+                            d="M18.5708 3C18.0185 3 17.5708 3.44772 17.5708 4C17.5708 4.55228 18.0185 5 18.5708 5C19.2815 5 19.8568 5.57529 19.8568 6.286V10.857C19.8568 11.1222 19.9622 11.3766 20.1497 11.5641L20.5856 12L20.1497 12.4359C19.9622 12.6234 19.8568 12.8778 19.8568 13.143V17.714C19.8568 18.4244 19.2808 19 18.5708 19C18.0185 19 17.5708 19.4477 17.5708 20C17.5708 20.5523 18.0185 21 18.5708 21C20.3848 21 21.8568 19.5296 21.8568 17.714V13.5572L22.7069 12.7071C23.0974 12.3166 23.0974 11.6834 22.7069 11.2929L21.8568 10.4428V6.286C21.8568 4.47071 20.3861 3 18.5708 3Z"
+                            fill="currentColor"
+                          ></path>
                         </g>
                       </svg>
                     </button>
@@ -211,7 +246,10 @@
                 </div>
               </div>
 
-              <div v-if="rule.target_type === OFVarTypeEnum.Boolean && rule.source_mode === 'constant'" class="of-declare-bool-toggle">
+              <div
+                v-if="rule.target_type === OFVarTypeEnum.Boolean && rule.source_mode === 'constant'"
+                class="of-declare-bool-toggle"
+              >
                 <span
                   class="of-declare-bool-option"
                   :class="rule.constant_value === true ? 'of-declare-bool-option-active-true' : ''"
@@ -222,7 +260,9 @@
                 <span class="text-gray-300">/</span>
                 <span
                   class="of-declare-bool-option"
-                  :class="rule.constant_value === false ? 'of-declare-bool-option-active-false' : ''"
+                  :class="
+                    rule.constant_value === false ? 'of-declare-bool-option-active-false' : ''
+                  "
                   @click="patchRule(rule.id, { constant_value: false })"
                 >
                   FALSE
@@ -279,7 +319,7 @@
               :class="{ 'of-output-tree-item-last': index === outputPreviewVariables.length - 1 }"
             >
               <span class="of-output-tree-prop">{{ item.variable }}</span>
-              <span>: </span>
+              <span>:</span>
               <span class="of-output-tree-type">{{ item.type || 'string' }}</span>
             </div>
           </div>

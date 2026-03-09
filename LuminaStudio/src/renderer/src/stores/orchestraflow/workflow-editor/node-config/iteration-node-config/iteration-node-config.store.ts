@@ -26,7 +26,10 @@ function createDefaultConfig(): OFIterationNodeConfig {
   return toIterationNodeConfig('', createDefaultNodeData('', '迭代'))
 }
 
-function normalizeConfig(nodeId: string, data: Partial<OFIterationNodeConfig>): OFIterationNodeConfig {
+function normalizeConfig(
+  nodeId: string,
+  data: Partial<OFIterationNodeConfig>
+): OFIterationNodeConfig {
   const defaultNodeData = createDefaultNodeData(nodeId, '迭代')
   const normalizedData = resolveOFNodeDefinition(OFBlockEnum.Iteration).editor.normalizeData({
     node: {

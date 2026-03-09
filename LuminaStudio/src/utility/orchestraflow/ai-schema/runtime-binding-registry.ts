@@ -41,7 +41,10 @@ export function listOFNodeRuntimeBindings(): OFNodeRuntimeBinding[] {
   }))
 }
 
-export function createRuntimeNodeFromDefinition(node: OFNode, variableStore: VariableStore): BaseNode {
+export function createRuntimeNodeFromDefinition(
+  node: OFNode,
+  variableStore: VariableStore
+): BaseNode {
   resolveOFNodeDefinition(node.data.type)
   const RuntimeNode = RUNTIME_BINDINGS.get(node.data.type)
   if (!RuntimeNode) {

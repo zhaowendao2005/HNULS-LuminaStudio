@@ -123,7 +123,8 @@ function buildCompactRunnableExampleWorkflow(): OFRunnableWorkflow {
 
   workflow.graph.edges = workflow.graph.edges.map((edge) =>
     normalizeEdge(edge, rootNodeMap, {
-      defaultSourceHandle: rootNodeMap.get(edge.source)?.data.type === 'ifelse' ? undefined : 'source',
+      defaultSourceHandle:
+        rootNodeMap.get(edge.source)?.data.type === 'ifelse' ? undefined : 'source',
       defaultTargetHandle: 'target'
     })
   )
@@ -146,7 +147,9 @@ function buildCompactRunnableExampleWorkflow(): OFRunnableWorkflow {
     )
     if (patchedNode.data.subgraph.edges.length === 0) {
       const startNodeId = patchedNode.data.start_node_id
-      const firstBusinessNode = patchedNode.data.subgraph.nodes.find((item) => item.id !== startNodeId)
+      const firstBusinessNode = patchedNode.data.subgraph.nodes.find(
+        (item) => item.id !== startNodeId
+      )
       if (firstBusinessNode) {
         patchedNode.data.subgraph.edges = [
           normalizeEdge(
@@ -174,7 +177,9 @@ function sanitizeWorkflowForPromptExample(workflow: OFRunnableWorkflow): OFRunna
     ...workflow,
     graph: {
       ...workflow.graph,
-      nodes: workflow.graph.nodes.map((node) => sanitizeNodeForPromptExample(node as OFNode)) as typeof workflow.graph.nodes
+      nodes: workflow.graph.nodes.map((node) =>
+        sanitizeNodeForPromptExample(node as OFNode)
+      ) as typeof workflow.graph.nodes
     }
   }
 }
@@ -189,7 +194,9 @@ function sanitizeNodeForPromptExample(node: OFNode): OFNode {
         ...data,
         subgraph: {
           ...data.subgraph,
-          nodes: data.subgraph.nodes.map((item) => sanitizeNodeForPromptExample(item as OFNode)) as typeof data.subgraph.nodes
+          nodes: data.subgraph.nodes.map((item) =>
+            sanitizeNodeForPromptExample(item as OFNode)
+          ) as typeof data.subgraph.nodes
         }
       }
     }
@@ -285,7 +292,9 @@ function sanitizeNodeDataForPromptExample(data: OFNode['data']): OFNode['data'] 
         ...data,
         output: {
           ...data.output,
-          variables: data.output.variables.map((item) => omitEmptySelector(omitNullSchemaFields(item), 'value_selector'))
+          variables: data.output.variables.map((item) =>
+            omitEmptySelector(omitNullSchemaFields(item), 'value_selector')
+          )
         }
       }
     case 'iteration-start':
@@ -294,7 +303,9 @@ function sanitizeNodeDataForPromptExample(data: OFNode['data']): OFNode['data'] 
         ...data,
         input: {
           ...data.input,
-          variables: data.input.variables.map((item) => omitNullSchemaFields(omitEmptySelector(item, 'value_selector')))
+          variables: data.input.variables.map((item) =>
+            omitNullSchemaFields(omitEmptySelector(item, 'value_selector'))
+          )
         }
       }
     default:
@@ -413,7 +424,9 @@ function renderWorkflowRuleLines(contract: OFWorkflowAuthoringContract): string[
 
 function renderNodeRuleLines(
   contractNode: OFWorkflowAuthoringContract['nodes'][number],
-  definition: (typeof listOFNodeDefinitions extends (...args: any[]) => infer R ? R : never)[number] | undefined
+  definition:
+    | (typeof listOFNodeDefinitions extends (...args: any[]) => infer R ? R : never)[number]
+    | undefined
 ): string[] {
   const metadata = definition?.authoring
   const lines = [
@@ -421,7 +434,9 @@ function renderNodeRuleLines(
   ]
 
   if (metadata?.system_managed_fields?.length) {
-    lines.push(`- \`${contractNode.type}\` system-managed：${metadata.system_managed_fields.join('、')}`)
+    lines.push(
+      `- \`${contractNode.type}\` system-managed：${metadata.system_managed_fields.join('、')}`
+    )
   }
   if (metadata?.selector_policies?.length) {
     lines.push(`- \`${contractNode.type}\` selector：${metadata.selector_policies.join('；')}`)
@@ -449,7 +464,9 @@ function buildAnnotatedCommentLines(
 ): string[] {
   const managedFields = Array.from(
     new Set(
-      Array.from(definitionMap.values()).flatMap((item) => item.authoring.system_managed_fields || [])
+      Array.from(definitionMap.values()).flatMap(
+        (item) => item.authoring.system_managed_fields || []
+      )
     )
   )
   const omitRules = Array.from(
@@ -466,9 +483,7 @@ function buildAnnotatedCommentLines(
     `// edge rule: ifelse sourceHandle must follow ${contract.edge_contract.ifelse_source_handle_rule}.`,
     `// Edge rule: non-ifelse nodes use ${contract.edge_contract.default_source_handle} -> ${contract.edge_contract.default_target_handle}.`,
     ...defaults.slice(0, 2).map((item) => `// default hint: ${item.path} => ${item.summary}`),
-    ...(managedFields.length
-      ? [`// system-managed fields: ${managedFields.join(', ')}.`]
-      : []),
+    ...(managedFields.length ? [`// system-managed fields: ${managedFields.join(', ')}.`] : []),
     ...omitRules.map((item) => `// omit rule: ${item}`),
     '// Only // line comments are supported. /* */ is not supported.'
   ]

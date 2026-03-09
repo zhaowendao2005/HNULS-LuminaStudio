@@ -16,7 +16,11 @@ const DEFAULT_SUBGRAPH_VIEWPORT = { x: 0, y: 0, zoom: 1 }
 const DEFAULT_WIDTH = 650
 const DEFAULT_HEIGHT = 417
 
-function buildLoopOutputs(title: string, loopVariables: OFLoopNodeData['loop_variables'], nodeId: string) {
+function buildLoopOutputs(
+  title: string,
+  loopVariables: OFLoopNodeData['loop_variables'],
+  nodeId: string
+) {
   return loopOutputVariableDefinition.build({
     namespace: title,
     loopVariables,

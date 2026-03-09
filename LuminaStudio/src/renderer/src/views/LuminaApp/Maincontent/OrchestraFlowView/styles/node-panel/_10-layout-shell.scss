@@ -45,12 +45,11 @@
     padding: 1rem 1rem 0.75rem;
     border-bottom: 1px solid
       color-mix(in srgb, var(--of-accent-soft-border, #99f6e4) 72%, #ffffff 28%);
-    background:
-      linear-gradient(
-        180deg,
-        color-mix(in srgb, var(--of-accent-soft-bg-strong, #cffafe) 82%, #ffffff 18%) 0,
-        color-mix(in srgb, var(--of-accent-soft-bg, #ecfeff) 52%, #ffffff 48%) 100%
-      );
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--of-accent-soft-bg-strong, #cffafe) 82%, #ffffff 18%) 0,
+      color-mix(in srgb, var(--of-accent-soft-bg, #ecfeff) 52%, #ffffff 48%) 100%
+    );
   }
 
   &-title-row {
@@ -154,7 +153,10 @@
 }
 
 .of-theme-control-focus {
-  transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease,
+    background-color 150ms ease;
 
   &:hover {
     border-color: var(--of-accent-soft-border) !important;
@@ -283,4 +285,3 @@
 .of-doc-divider-dashed {
   border-top: 1px dashed $np-border-dashed;
 }
-

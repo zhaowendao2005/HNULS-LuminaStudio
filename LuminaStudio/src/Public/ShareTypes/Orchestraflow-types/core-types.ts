@@ -154,7 +154,6 @@ export interface OFVariableAssignRule {
   description?: string
 }
 
-
 export type OFIfElseConditionOperator =
   | 'contains'
   | 'not_contains'

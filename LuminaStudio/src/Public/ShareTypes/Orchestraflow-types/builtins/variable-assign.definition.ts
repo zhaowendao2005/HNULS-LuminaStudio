@@ -36,10 +36,10 @@ export const variableAssignNodeDefinition =
         title: '变量赋值',
         ai_exposed: true,
         author_required_fields: ['data.rules'],
-      compiler_injected_fields: ['data.output.variables'],
-      runtime_invariants: [],
-      produced_outputs: ['rules[*].target_variable'],
-      notes: ['变量赋值节点输出变量由规则目标变量自动派生。']
+        compiler_injected_fields: ['data.output.variables'],
+        runtime_invariants: [],
+        produced_outputs: ['rules[*].target_variable'],
+        notes: ['变量赋值节点输出变量由规则目标变量自动派生。']
       },
       system_managed_fields: ['data.output.variables'],
       selector_policies: ['`rules[*].source_selector` 仅在 `source_mode=variable` 时出现。'],

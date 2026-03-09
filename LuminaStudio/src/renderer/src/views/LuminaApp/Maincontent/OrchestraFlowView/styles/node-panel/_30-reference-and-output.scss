@@ -33,7 +33,9 @@
   padding: 0 0 0.15rem;
   color: var(--of-accent);
   cursor: pointer;
-  transition: color 150ms ease, border-color 150ms ease;
+  transition:
+    color 150ms ease,
+    border-color 150ms ease;
 
   &:hover {
     color: var(--of-accent-strong);
@@ -135,8 +137,9 @@
 
 .of-output-tree {
   padding: 0.75rem 0 0.25rem 0.5rem;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
-    "Courier New", monospace;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+    monospace;
   font-size: 13px;
   line-height: 1.85;
   color: $np-text-main;
@@ -247,8 +250,9 @@
 .of-output-code {
   padding: 0.75rem 0 0.25rem 1rem;
   border-left: 2px solid $np-border-muted;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
-    "Courier New", monospace;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+    monospace;
   font-size: 13px;
   line-height: 1.9;
   color: $np-text-main;
@@ -283,4 +287,3 @@
   color: $np-text-soft;
   font-style: italic;
 }
-

@@ -292,7 +292,9 @@
   line-height: 1.4;
   cursor: pointer;
   color: var(--of-accent-muted);
-  transition: background-color 150ms ease, color 150ms ease;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
 
   &:hover {
     background: var(--of-accent-soft-bg);
@@ -304,4 +306,3 @@
   background: var(--of-accent-soft-bg-strong);
   color: var(--of-accent-strong);
 }
-

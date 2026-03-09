@@ -2,10 +2,7 @@
   <div class="of-panel-shell of-iteration-node-panel" :class="theme.panelClass">
     <div class="of-panel-shell-header">
       <div class="of-panel-shell-title-row">
-        <div
-          class="of-panel-shell-icon"
-          :class="theme.iconBgClass"
-        >
+        <div class="of-panel-shell-icon" :class="theme.iconBgClass">
           <svg
             viewBox="0 0 24 24"
             class="h-3.5 w-3.5"
@@ -54,7 +51,10 @@
             </a>
           </CapsuleTooltip>
           <CapsuleTooltip text="关闭面板" placement="bottom">
-            <button class="of-panel-icon-button flex h-6 w-6 items-center justify-center rounded-md" @click="handleClose">
+            <button
+              class="of-panel-icon-button flex h-6 w-6 items-center justify-center rounded-md"
+              @click="handleClose"
+            >
               <svg viewBox="0 0 24 24" class="of-panel-icon-svg h-4 w-4" fill="currentColor">
                 <path
                   d="M11.9997 10.5865L16.9495 5.63672L18.3637 7.05093L13.4139 12.0007L18.3637 16.9504L16.9495 18.3646L11.9997 13.4149L7.04996 18.3646L5.63574 16.9504L10.5855 12.0007L5.63574 7.05093L7.0502 5.63672L11.9997 10.5865Z"
@@ -117,14 +117,12 @@
           </div>
           <button class="of-panel-variable-button" @click="openInputVariableSelector">
             <div class="of-panel-variable-button-content">
-              <span class="of-panel-variable-button-label of-panel-variable-button-label-input">输入变量</span>
+              <span class="of-panel-variable-button-label of-panel-variable-button-label-input">
+                输入变量
+              </span>
               <span
                 class="of-panel-variable-button-placeholder"
-                :class="
-                  iteratorSelectorDisplayText
-                    ? '!text-cyan-700'
-                    : ''
-                "
+                :class="iteratorSelectorDisplayText ? '!text-cyan-700' : ''"
               >
                 {{ iteratorSelectorDisplayText || '点击选择数组变量' }}
               </span>
@@ -148,14 +146,12 @@
             </div>
             <button class="of-panel-variable-button" @click="openOutputVariableSelector">
               <div class="of-panel-variable-button-content">
-                <span class="of-panel-variable-button-label of-panel-variable-button-label-output">输出变量</span>
+                <span class="of-panel-variable-button-label of-panel-variable-button-label-output">
+                  输出变量
+                </span>
                 <span
                   class="of-panel-variable-button-placeholder"
-                  :class="
-                    outputSelectorDisplayText
-                      ? '!text-emerald-700'
-                      : ''
-                  "
+                  :class="outputSelectorDisplayText ? '!text-emerald-700' : ''"
                 >
                   {{ outputSelectorDisplayText || '点击选择内部输出变量' }}
                 </span>
@@ -192,16 +188,17 @@
                     {{ branchTarget.sourceHandleId }}
                   </div>
                 </div>
-                <button class="of-panel-variable-button" @click="openBranchOutputVariableSelector(branchTarget, $event)">
+                <button
+                  class="of-panel-variable-button"
+                  @click="openBranchOutputVariableSelector(branchTarget, $event)"
+                >
                   <div class="of-panel-variable-button-content">
-                    <span class="of-panel-variable-button-label text-amber-600">{{ branchTarget.label }}</span>
+                    <span class="of-panel-variable-button-label text-amber-600">
+                      {{ branchTarget.label }}
+                    </span>
                     <span
                       class="of-panel-variable-button-placeholder max-w-[220px]"
-                      :class="
-                        getBranchSelectorDisplayText(branchTarget)
-                          ? '!text-amber-700'
-                          : ''
-                      "
+                      :class="getBranchSelectorDisplayText(branchTarget) ? '!text-amber-700' : ''"
                     >
                       {{ getBranchSelectorDisplayText(branchTarget) || '点击选择该分支输出变量' }}
                     </span>
@@ -305,7 +302,7 @@
               :class="{ 'of-output-tree-item-last': index === outputPreviewVariables.length - 1 }"
             >
               <span class="of-output-tree-prop">{{ item.variable }}</span>
-              <span>: </span>
+              <span>:</span>
               <span class="of-output-tree-type">{{ item.type || 'string' }}</span>
             </div>
           </div>

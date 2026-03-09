@@ -59,7 +59,9 @@
   text-transform: uppercase;
   cursor: pointer;
   color: $np-text-soft;
-  transition: color 150ms ease, border-color 150ms ease;
+  transition:
+    color 150ms ease,
+    border-color 150ms ease;
 
   &.is-active {
     color: $np-text-main;
@@ -71,7 +73,10 @@
   color: var(--of-accent-muted);
   background: var(--of-accent-soft-bg);
   border: 1px solid transparent;
-  transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease;
+  transition:
+    color 150ms ease,
+    background-color 150ms ease,
+    border-color 150ms ease;
 
   &:hover {
     color: var(--of-accent-strong);
@@ -179,7 +184,9 @@
   line-height: 1.5;
   cursor: pointer;
   color: $np-text-soft;
-  transition: color 150ms ease, border-color 150ms ease;
+  transition:
+    color 150ms ease,
+    border-color 150ms ease;
 
   &.is-active {
     color: $np-accent-purple;
@@ -238,7 +245,9 @@
   line-height: 1.5;
   cursor: pointer;
   color: $np-text-soft;
-  transition: color 150ms ease, border-color 150ms ease;
+  transition:
+    color 150ms ease,
+    border-color 150ms ease;
 
   &.is-true-active {
     color: $np-success;
@@ -250,4 +259,3 @@
     border-bottom-color: #fecaca;
   }
 }
-

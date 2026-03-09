@@ -15,7 +15,10 @@
         <div class="of-floating-panel-header px-4 pt-4 pb-2 flex-shrink-0">
           <div class="flex items-center justify-between">
             <h3 class="system-xl-semibold of-floating-panel-title">{{ title }}</h3>
-            <button class="of-floating-panel-close flex h-6 w-6 cursor-pointer items-center justify-center" @click="handleClose">
+            <button
+              class="of-floating-panel-close flex h-6 w-6 cursor-pointer items-center justify-center"
+              @click="handleClose"
+            >
               <svg
                 viewBox="0 0 24 24"
                 xmlns="http://www.w3.org/2000/svg"
@@ -122,7 +125,9 @@ function handleFocus() {
 .of-floating-panel-close {
   color: color-mix(in srgb, var(--of-floating-accent) 55%, #94a3b8 45%);
   border-radius: 0.5rem;
-  transition: color 150ms ease, background-color 150ms ease;
+  transition:
+    color 150ms ease,
+    background-color 150ms ease;
 }
 
 .of-floating-panel-close:hover {

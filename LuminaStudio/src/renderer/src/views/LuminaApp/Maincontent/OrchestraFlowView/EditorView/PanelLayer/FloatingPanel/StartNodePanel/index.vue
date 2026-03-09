@@ -6,10 +6,7 @@
       <!-- 标题行：图标 + 输入框 + 操作按钮 -->
       <div class="of-panel-shell-title-row">
         <!-- 节点图标 -->
-        <div
-          class="of-panel-shell-icon"
-          :class="theme.iconBgClass"
-        >
+        <div class="of-panel-shell-icon" :class="theme.iconBgClass">
           <svg
             width="14"
             height="14"
@@ -179,20 +176,22 @@
           </div>
 
           <div v-else class="of-declare-list">
-            <div
-              v-for="(field, index) in localInputs"
-              :key="index"
-              class="of-declare-entry"
-            >
+            <div v-for="(field, index) in localInputs" :key="index" class="of-declare-entry">
               <div class="of-declare-line">
                 <span class="of-declare-key">声明变量</span>
                 <span class="of-declare-token">{{ field.variable || 'unnamed' }}</span>
                 <span>，展示为</span>
-                <span class="of-declare-token">{{ field.label || field.variable || '未命名' }}</span>
+                <span class="of-declare-token">
+                  {{ field.label || field.variable || '未命名' }}
+                </span>
                 <span>，类型是</span>
                 <span class="of-declare-type">{{ field.type }}</span>
                 <span v-if="field.required" class="of-declare-required">必填</span>
-                <template v-if="field.default !== undefined && field.default !== null && field.default !== ''">
+                <template
+                  v-if="
+                    field.default !== undefined && field.default !== null && field.default !== ''
+                  "
+                >
                   <span>，默认值为</span>
                   <span class="of-declare-default">{{ formatDefaultValue(field.default) }}</span>
                 </template>
@@ -296,9 +295,7 @@ import AddFieldDialog from './AddFieldDialog/index.vue'
 import NodeDebugForm from '../NodeDebug/NodeDebugForm.vue'
 import NodeDebugLastRun from '../NodeDebug/NodeDebugLastRun.vue'
 import CapsuleTooltip from '../components/CapsuleTooltip.vue'
-import {
-  useWorkflowEditorUIStore
-} from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor-ui.store'
+import { useWorkflowEditorUIStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor-ui.store'
 import { useWorkflowEditorStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor.store'
 import { useNodeDebugStore } from '@renderer/stores/orchestraflow/node-debug/node-debug.store'
 import { OFVarType, type OFStartNodeData, type OFVariable } from '@shared/Orchestraflow-types'

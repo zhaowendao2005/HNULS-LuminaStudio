@@ -67,8 +67,9 @@
 .of-declare-default {
   display: inline-flex;
   align-items: center;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
-    "Courier New", monospace;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+    monospace;
   font-size: 13px;
 }
 
@@ -188,7 +189,9 @@
   outline: none;
   font-size: 14px;
   line-height: 1.5;
-  transition: border-color 150ms ease, color 150ms ease;
+  transition:
+    border-color 150ms ease,
+    color 150ms ease;
 
   &::placeholder {
     color: $np-text-soft;
@@ -204,8 +207,9 @@
 }
 
 .of-declare-inline-input-mono {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
-    "Courier New", monospace;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+    monospace;
 }
 
 /* ========================================
@@ -276,4 +280,3 @@
 .of-declare-bool-option-active-false {
   color: $np-danger;
 }
-

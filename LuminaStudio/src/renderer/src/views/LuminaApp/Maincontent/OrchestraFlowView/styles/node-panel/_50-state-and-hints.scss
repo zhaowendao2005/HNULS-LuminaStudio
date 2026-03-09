@@ -71,7 +71,10 @@
   background: var(--of-accent-soft-bg);
   color: var(--of-accent);
   cursor: help;
-  transition: color 150ms ease, border-color 150ms ease, background-color 150ms ease;
+  transition:
+    color 150ms ease,
+    border-color 150ms ease,
+    background-color 150ms ease;
 
   &:hover {
     border-color: var(--of-accent);
@@ -81,8 +84,9 @@
 }
 
 .of-info-trigger-icon {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
-    "Courier New", monospace;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+    monospace;
   font-size: 10px;
   font-weight: 700;
   line-height: 1;
@@ -117,8 +121,9 @@
 }
 
 .of-doc-inline-code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
-    "Courier New", monospace;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+    monospace;
   font-size: 12px;
   color: $np-text-muted;
 }
@@ -183,7 +188,11 @@
   text-transform: uppercase;
   cursor: pointer;
   color: $np-text-soft;
-  transition: color 150ms ease, border-color 150ms ease, font-size 150ms ease, font-weight 150ms ease;
+  transition:
+    color 150ms ease,
+    border-color 150ms ease,
+    font-size 150ms ease,
+    font-weight 150ms ease;
 
   &.is-active {
     font-size: 12px;
@@ -250,7 +259,10 @@
   text-transform: uppercase;
   cursor: pointer;
   color: var(--of-accent-muted);
-  transition: color 150ms ease, border-color 150ms ease, background-color 150ms ease;
+  transition:
+    color 150ms ease,
+    border-color 150ms ease,
+    background-color 150ms ease;
 
   &:hover {
     color: var(--of-accent-strong);
@@ -266,4 +278,3 @@
   color: color-mix(in srgb, var(--of-accent) 78%, #ffffff 22%);
   opacity: 0.78;
 }
-

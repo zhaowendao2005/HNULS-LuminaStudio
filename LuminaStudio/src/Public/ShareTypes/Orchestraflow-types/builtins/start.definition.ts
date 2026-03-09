@@ -47,7 +47,9 @@ export const startNodeDefinition = defineStandardOFNodeDefinition<OFStartNodeDat
           ...data,
           input: {
             ...data.input,
-            variables: data.input.variables.map((item) => omitOFEmptySelector(item, 'value_selector'))
+            variables: data.input.variables.map((item) =>
+              omitOFEmptySelector(item, 'value_selector')
+            )
           }
         }
       }

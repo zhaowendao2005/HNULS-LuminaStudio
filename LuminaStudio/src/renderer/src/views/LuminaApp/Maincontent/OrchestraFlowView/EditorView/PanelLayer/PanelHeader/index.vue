@@ -284,8 +284,6 @@ async function handleCopyAISchema() {
   }
 
   await navigator.clipboard.writeText(response.data.bundled_markdown)
-  alert(
-    '可运行的 OrchestraFlow workflow schema 已复制到剪贴板。请让 AI 直接输出最终工作流 JSON。'
-  )
+  alert('可运行的 OrchestraFlow workflow schema 已复制到剪贴板。请让 AI 直接输出最终工作流 JSON。')
 }
 </script>

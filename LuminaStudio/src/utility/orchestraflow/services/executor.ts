@@ -33,9 +33,7 @@ export interface ExecuteNodeParams {
   executionMetadata?: OFNodeExecutionMetadata
   iterationContext?: IterationExecutionContext
   loopContext?: LoopExecutionContext
-  executeGraph: (
-    params: ExecuteGraphParams
-  ) => Promise<{
+  executeGraph: (params: ExecuteGraphParams) => Promise<{
     status: 'succeeded' | 'failed' | 'stopped'
     outputs?: Record<string, any>
     error?: string

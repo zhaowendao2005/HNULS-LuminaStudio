@@ -51,7 +51,6 @@
   }
 }
 
-
 /* ========================================
    元素：文本赋值行块
    类名：
@@ -258,7 +257,10 @@
   font-size: 11px;
   font-style: italic;
   cursor: pointer;
-  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease,
+    border-color 150ms ease;
 
   &:hover {
     background: #fff;
@@ -289,7 +291,9 @@
   border: 0.5px solid #e5e7eb;
   background: var(--of-accent-soft-bg);
   cursor: pointer;
-  transition: background-color 150ms ease, border-color 150ms ease;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease;
 
   &:hover {
     background: var(--of-accent-soft-bg-strong);
@@ -348,7 +352,9 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   cursor: pointer;
-  transition: background-color 150ms ease, color 150ms ease;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
 
   &:hover {
     background: var(--of-accent-soft-bg);

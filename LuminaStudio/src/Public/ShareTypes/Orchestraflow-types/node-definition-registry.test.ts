@@ -100,7 +100,11 @@ function createDslNode(type: OFBlockEnum): any {
         }
       }
     case OFBlockEnum.IfElse:
-      return { id: 'ifelse', type, config: { cases: [], elseCase: { handleId: 'else', label: 'ELSE' } } }
+      return {
+        id: 'ifelse',
+        type,
+        config: { cases: [], elseCase: { handleId: 'else', label: 'ELSE' } }
+      }
     case OFBlockEnum.Iteration:
       return {
         id: 'iteration',
