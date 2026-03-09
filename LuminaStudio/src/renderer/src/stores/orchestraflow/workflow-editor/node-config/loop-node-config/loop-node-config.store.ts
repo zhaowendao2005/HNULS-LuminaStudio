@@ -2,13 +2,28 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import {
   OFVarType,
-  buildLoopOutputVariables,
+  OFBlockEnum,
   type OFIfElseCondition,
+  type OFNode,
+  type OFLoopNodeData,
   type OFLoopNodeConfig,
   type OFLoopVariableData
 } from '@shared/Orchestraflow-types'
+import { resolveOFNodeDefinition } from '@shared/Orchestraflow-types/node-definition-registry'
 
-const DEFAULT_SUBGRAPH_VIEWPORT = { x: 0, y: 0, zoom: 1 }
+function createDefaultNodeData(nodeId: string, title: string): OFLoopNodeData {
+  return resolveOFNodeDefinition(OFBlockEnum.Loop).editor.createDefaultData({
+    nodeId,
+    title
+  }) as OFLoopNodeData
+}
+
+function toLoopNodeConfig(nodeId: string, data: OFLoopNodeData): OFLoopNodeConfig {
+  return {
+    nodeId,
+    ...data
+  }
+}
 
 function createDefaultLoopVariable(): OFLoopVariableData {
   return {
@@ -49,25 +64,37 @@ function createDefaultCondition(): OFIfElseCondition {
 }
 
 function createDefaultConfig(): OFLoopNodeConfig {
-  const loopVariables = [createDefaultLoopVariable()]
-  return {
-    nodeId: '',
-    title: '循环',
-    desc: '',
-    loop_count: 10,
-    loop_variables: loopVariables,
-    break_conditions: [],
-    logical_operator: 'and',
-    start_node_id: '',
-    subgraph: {
-      nodes: [],
-      edges: [],
-      viewport: { ...DEFAULT_SUBGRAPH_VIEWPORT }
-    },
-    output: {
-      variables: buildLoopOutputVariables('循环', loopVariables)
+  return toLoopNodeConfig('', createDefaultNodeData('', '循环'))
+}
+
+function normalizeConfig(nodeId: string, data: Partial<OFLoopNodeConfig>): OFLoopNodeConfig {
+  const defaultNodeData = createDefaultNodeData(nodeId, '循环')
+  const normalizedData = resolveOFNodeDefinition(OFBlockEnum.Loop).editor.normalizeData({
+    node: {
+      id: nodeId,
+      type: 'loop',
+      position: { x: 0, y: 0 },
+      data: {
+        ...defaultNodeData,
+        ...data
+      }
+    } as OFNode,
+    helpers: {
+      normalizeNode(node) {
+        const definition = resolveOFNodeDefinition(node.data.type)
+        return {
+          ...node,
+          type: definition.meta.vueFlowType,
+          data: definition.editor.normalizeData({
+            node,
+            helpers: this
+          })
+        }
+      }
     }
-  }
+  }) as OFLoopNodeData
+
+  return toLoopNodeConfig(nodeId, normalizedData)
 }
 
 export const useLoopNodeConfigStore = defineStore('of-loop-node-config', () => {
@@ -76,38 +103,14 @@ export const useLoopNodeConfigStore = defineStore('of-loop-node-config', () => {
 
   function loadConfig(nodeId: string, data: Partial<OFLoopNodeConfig>) {
     currentNodeId.value = nodeId
-    const nextConfig = {
-      ...createDefaultConfig(),
-      ...data,
-      nodeId
-    }
-    config.value = {
-      ...nextConfig,
-      output: {
-        variables: buildLoopOutputVariables(
-          nextConfig.title,
-          nextConfig.loop_variables || [],
-          nodeId
-        )
-      }
-    }
+    config.value = normalizeConfig(nodeId, data)
   }
 
   function patchConfig(patch: Partial<OFLoopNodeConfig>) {
-    const nextConfig = {
+    config.value = normalizeConfig(config.value.nodeId || '', {
       ...config.value,
       ...patch
-    }
-    config.value = {
-      ...nextConfig,
-      output: {
-        variables: buildLoopOutputVariables(
-          nextConfig.title,
-          nextConfig.loop_variables || [],
-          nextConfig.nodeId
-        )
-      }
-    }
+    })
   }
 
   function clear() {

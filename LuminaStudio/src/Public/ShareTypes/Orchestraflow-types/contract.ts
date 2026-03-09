@@ -14,8 +14,8 @@ import type {
   OFVariableAssignNodeData,
   OFWorkflow,
   OFWorkflowGraph
-} from './index'
-import { OFBlockEnum } from './index'
+} from './core-types'
+import { OFBlockEnum } from './core-types'
 
 export type OFFieldSource = 'author' | 'compiler' | 'runtime'
 

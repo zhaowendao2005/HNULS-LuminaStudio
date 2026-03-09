@@ -4,6 +4,7 @@
  */
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
+import { resolveOFNodeDefinition } from '@shared/Orchestraflow-types/node-definition-registry'
 import { useWorkflowEditorStore } from '../workflow-editor.store'
 import type {
   OFAvailableVariable,
@@ -12,16 +13,10 @@ import type {
 } from './variable-selector.types'
 import type {
   OFEdge,
-  OFEndNodeData,
-  OFIterationNodeData,
-  OFIterationStartNodeData,
   OFJsonSchemaProperty,
-  OFLLMNodeData,
+  OFIterationNodeData,
   OFLoopNodeData,
-  OFLoopStartNodeData,
   OFNode,
-  OFStartNodeData,
-  OFVariableAssignNodeData,
   OFVariable
 } from '@shared/Orchestraflow-types'
 import {
@@ -195,41 +190,7 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
     const nodeTitle = data.title || '未命名节点'
     const nodeId = node.id
 
-    let variables: OFVariable[] = []
-
-    if (
-      nodeType === OFBlockEnum.Start ||
-      nodeType === OFBlockEnum.IterationStart ||
-      nodeType === OFBlockEnum.LoopStart
-    ) {
-      variables = (
-        (data as OFStartNodeData | OFIterationStartNodeData | OFLoopStartNodeData).input
-          ?.variables || []
-      ).map((item) => ({
-        ...item,
-        value_selector: item.value_selector?.length ? item.value_selector : [item.variable]
-      }))
-    } else if (
-      nodeType === OFBlockEnum.LLM ||
-      nodeType === OFBlockEnum.Iteration ||
-      nodeType === OFBlockEnum.Loop ||
-      nodeType === OFBlockEnum.VariableAssign ||
-      nodeType === OFBlockEnum.End
-    ) {
-      variables = (
-        ((
-          data as
-            | OFLLMNodeData
-            | OFIterationNodeData
-            | OFLoopNodeData
-            | OFVariableAssignNodeData
-            | OFEndNodeData
-        ).output?.variables || []) as OFVariable[]
-      ).map((item) => ({
-        ...item,
-        value_selector: item.value_selector?.length ? item.value_selector : [item.variable]
-      }))
-    }
+    const variables: OFVariable[] = resolveOFNodeDefinition(nodeType).variables.getSelectableVariables(node)
 
     if (!variables.length) {
       return []

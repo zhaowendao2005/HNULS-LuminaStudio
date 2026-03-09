@@ -10,7 +10,6 @@ import type {
   OFAuthoringDefaultRecommendation,
   OFAISchemaBundle,
   OFAIDslWorkflow,
-  OFBlockEnum,
   OFEdge,
   OFIterationNodeData,
   OFNode,
@@ -18,10 +17,11 @@ import type {
   OFWorkflowAuthoringContract
 } from '@shared/Orchestraflow-types'
 import { OFVarType } from '@shared/Orchestraflow-types'
+import { listOFNodeDefinitions } from '@shared/Orchestraflow-types/node-definition-registry'
 import { compileAIDslToWorkflow } from './compiler'
 import { GENERATED_RUNNABLE_WORKFLOW_SCHEMA } from './generated-runnable-schema'
 import {
-  getOFRuntimeNodeDescriptors,
+  listOFAISchemaNodeSummaries,
   getOFWorkflowAuthoringContract,
   getOFWorkflowAuthoringDefaults
 } from './registry'
@@ -29,13 +29,7 @@ import { assertRunnableWorkflow } from './validator'
 
 export function buildOrchestraflowAISchemaBundle(): OFAISchemaBundle {
   const generatedAt = new Date().toISOString()
-  const nodes = getOFRuntimeNodeDescriptors().map((item) => ({
-    type: item.type,
-    category: item.category,
-    title: item.title,
-    summary: item.summary,
-    internal: item.internal
-  }))
+  const nodes = listOFAISchemaNodeSummaries()
   const authoringContract = getOFWorkflowAuthoringContract()
   const authoringDefaults = getOFWorkflowAuthoringDefaults()
   const example = buildCompactRunnableExampleWorkflow()
@@ -84,63 +78,18 @@ function buildPromptMarkdown(
   contract: OFWorkflowAuthoringContract,
   authoringDefaults: OFAuthoringDefaultRecommendation[]
 ): string {
+  const definitionMap = new Map(listOFNodeDefinitions().map((item) => [item.meta.type, item]))
   const startDefaultRecommendations = authoringDefaults.filter((item) =>
     item.path.startsWith('graph.nodes[start].data.input.variables')
   )
-  const nodeWarnings: Partial<Record<OFBlockEnum, string[]>> = {
-    start: [
-      '如果声明运行前需要填写的输入变量，优先补 `default`，让导入后的工作流可以直接运行。',
-      '`default` 是运行前预填值，不是 `value_selector`；两者不要混淆。',
-      '`array` / `object` 类型的 `default` 必须写成真实 JSON 值，不要写成字符串化 JSON。'
-    ],
-    llm: [
-      '`structured_output.enabled=false` 时不要再写 `structured_output.schema:null`。',
-      '`data.model.provider` 和 `data.model.name` 必须同时存在，不能留空对象。'
-    ],
-    ifelse: [
-      '仅当 `compare_source_mode=variable` 时才写 `compare_selector`，且 selector 必须非空。',
-      '不要为普通分支条件补空 `compare_selector: []` 占位。'
-    ],
-    iteration: [
-      '`iterator_selector` 必须非空；`output_selector` 可省略但不能写空数组。',
-      '不要手写伪造的 `start_node_id`、`iteration-start` 或 `subgraph.viewport`。'
-    ],
-    loop: [
-      '`loop_count`、`loop_variables`、`subgraph` 必须同时给全。',
-      '`loop_variables` 不能只有变量名，必须给出初始化值或值来源。',
-      '`result` 默认按聚合数组输出，不要把 `loop.output.variables[].type` 写成 `object`。',
-      '不要手写伪造的 `start_node_id`、`loop-start` 或 `subgraph.viewport`。'
-    ],
-    end: ['`output.variables[*].value_selector` 可省略时直接省略，不能写空数组。']
-  }
 
   return [
     '## 目标',
     '- 输出严格的 `OFRunnableWorkflow` JSON，不输出宽松编辑态结构。',
     '- 主体遵循 `authoring_contract`，完整结构参考 `schema` 字段。',
     '',
-    '## 生成禁令',
-    '- 可省略字段直接省略，不要用 `[]`、`null`、空对象做占位。',
-    '- 不要输出空 selector 数组；任何 selector 一旦出现就必须是至少 1 段的非空字符串数组。',
-    '- `compare_selector` 只在 `compare_source_mode=variable` 时出现，且必须非空。',
-    '- `structured_output.enabled=false` 时不要写 `structured_output.schema:null`。',
-    '- `loop` 必须同时给出 `loop_count`、`loop_variables`、`subgraph`；`loop_variables` 不能只有变量名。',
-    '- `loop.output.variables` 中的 `result` 默认写成聚合数组结果，不要写成 `object`。',
-    '- `iteration` / `loop` 的 `start_node_id`、内部 start 节点、`subgraph.viewport` 由系统维护，不要伪造。',
-    '',
     '## 全局规则',
-    '- 顶层固定字段：`id`、`name`、`author`、`createdAt`、`updatedAt`、`status`、`graph`。',
-    '- `status` 只能是：`draft`、`published`、`archived`。',
-    '- 根图禁止出现 `iteration-start` / `loop-start`。',
-    '- 所有边都必须显式写 `sourceHandle` 和 `targetHandle`。',
-    '- 非 `ifelse` 节点出边的 `sourceHandle` 固定为 `source`；所有 `targetHandle` 固定为 `target`。',
-    '- `ifelse` 出边的 `sourceHandle` 必须匹配 `case.handleId` 或 `elseCase.handleId`。',
-    '',
-    '## Selector 规范',
-    `- selector 语义：${contract.selector_contract.representation}。`,
-    '- `selector[0]` 是变量存储 key，本身允许包含点。',
-    '- 例如：`["input"]`、`["node_llm.llmoutput"]`、`["node_llm.structured_output", "reason"]`。',
-    '- selector 不能为空，且每一段都必须是非空字符串。',
+    ...renderWorkflowRuleLines(contract),
     '',
     '## 输入默认值建议',
     '- `graph.nodes[start].data.input.variables[*].default` 用于运行面板预填，不是编译器自动回填。',
@@ -154,19 +103,12 @@ function buildPromptMarkdown(
     '## 节点规则',
     ...contract.nodes
       .filter((item) => item.ai_exposed)
-      .map((item) => {
-        const required = item.author_required_fields.join('、') || '无'
-        const injected = item.compiler_injected_fields.join('、') || '无'
-        const outputs = item.produced_outputs.join('、') || '无'
-        const notes = item.notes.join('；') || '无'
-        const warnings = nodeWarnings[item.type]?.join('；') || '无'
-        return `- \`${item.type}\`：作者必填 ${required}；系统注入 ${injected}；输出 ${outputs}；禁止项 ${warnings}；说明 ${notes}`
-      }),
+      .flatMap((item) => renderNodeRuleLines(item, definitionMap.get(item.type))),
     '',
     '## 内部节点',
     ...contract.nodes
       .filter((item) => item.internal)
-      .map((item) => `- \`${item.type}\`：${item.notes.join('；')}`),
+      .flatMap((item) => renderNodeRuleLines(item, definitionMap.get(item.type))),
     '',
     '## 输出策略',
     '- `prompt_markdown` 只提供高密度 contract 摘要。',
@@ -187,11 +129,11 @@ function buildCompactRunnableExampleWorkflow(): OFRunnableWorkflow {
   )
 
   workflow.graph.nodes = workflow.graph.nodes.map((node) => {
-    if (node.data.type !== 'iteration') {
+    if (node.data.type !== 'iteration' && node.data.type !== 'loop') {
       return node
     }
 
-    const patchedNode = patchIterationNodeSelectors(node) as OFNode & { data: OFIterationNodeData }
+    const patchedNode = patchContainerSubgraphEdges(node) as OFNode & { data: OFIterationNodeData }
     const subgraphNodeMap = new Map<string, OFNode>(
       patchedNode.data.subgraph.nodes.map((item) => [item.id, item as OFNode])
     )
@@ -383,8 +325,18 @@ function omitField<T extends Record<string, any>, K extends keyof T>(value: T, k
   return rest as T
 }
 
-function patchIterationNodeSelectors(node: OFNode): OFNode {
-  if (node.data.type !== 'iteration') {
+function patchContainerSubgraphEdges(node: OFNode): OFNode {
+  if (node.data.type !== 'iteration' && node.data.type !== 'loop') {
+    return node
+  }
+
+  if (node.data.subgraph.edges.length > 0) {
+    return node
+  }
+
+  const startNodeId = node.data.start_node_id
+  const firstBusinessNode = node.data.subgraph.nodes.find((item) => item.id !== startNodeId)
+  if (!firstBusinessNode) {
     return node
   }
 
@@ -392,32 +344,21 @@ function patchIterationNodeSelectors(node: OFNode): OFNode {
     ...node,
     data: {
       ...node.data,
-      iterator_selector: ['items'],
-      output_selector: ['summarize_item.llmoutput'],
       subgraph: {
         ...node.data.subgraph,
-        nodes: node.data.subgraph.nodes.map((item) => {
-          if (item.data.type === 'llm') {
-            return {
-              ...item,
-              data: {
-                ...item.data,
-                output: {
-                  variables: [
-                    {
-                      variable: 'llmoutput',
-                      label: 'llmoutput',
-                      type: OFVarType.String,
-                      required: true,
-                      value_selector: ['summarize_item.llmoutput']
-                    }
-                  ]
-                }
-              }
-            }
-          }
-          return item
-        })
+        edges: [
+          normalizeEdge(
+            {
+              id: `edge_${startNodeId}_${firstBusinessNode.id}`,
+              source: startNodeId,
+              target: firstBusinessNode.id,
+              sourceHandle: 'source',
+              targetHandle: 'target'
+            },
+            new Map(node.data.subgraph.nodes.map((item) => [item.id, item as OFNode])),
+            { defaultSourceHandle: 'source', defaultTargetHandle: 'target' }
+          )
+        ]
       }
     }
   }
@@ -444,23 +385,93 @@ function normalizeEdge(
 }
 
 function buildAnnotatedWorkflowJsonc(example: OFRunnableWorkflow): string {
+  const definitionMap = new Map(listOFNodeDefinitions().map((item) => [item.meta.type, item]))
+  const contract = getOFWorkflowAuthoringContract()
+  const authoringDefaults = getOFWorkflowAuthoringDefaults()
   return [
     '// OrchestraFlow strict runnable workflow JSONC template',
-    '// Omit optional fields entirely; do not use [], null, or empty objects as placeholders.',
-    '// Start input variables should usually include `default` so the run panel can prefill runnable values.',
-    '// Any selector that appears must be a non-empty string array.',
-    '// `compare_selector` only appears when compare_source_mode=variable; never emit an empty array.',
-    '// `structured_output.enabled=false` means do not emit `schema:null`.',
-    '// Loop `result` should default to an aggregated array output, not `object`.',
-    '// Missing edge handles from legacy formats are not allowed.',
-    '// Root graph must not contain iteration-start / loop-start.',
-    '// selector rule: selector[0] is the variable-store key and may contain dots, e.g. ["summarize_item.llmoutput"].',
-    '// Edge rule: non-ifelse nodes use source -> target; ifelse edges must match case.handleId / elseCase.handleId.',
-    '// Container rule: keep exactly one internal start node, and every subgraph node must carry parentNode plus extent:"parent".',
-    '// Do not hand-author fake start_node_id / internal start nodes / subgraph.viewport for iteration or loop containers.',
-    '// Only // line comments are supported. /* */ is not supported.',
+    ...buildAnnotatedCommentLines(contract, authoringDefaults, definitionMap),
     JSON.stringify(example, null, 2)
   ].join('\n')
+}
+
+function renderWorkflowRuleLines(contract: OFWorkflowAuthoringContract): string[] {
+  return [
+    `- 顶层固定字段：${contract.global_fields.map((item) => `\`${item.path}\``).join('、')}。`,
+    ...contract.global_invariants.map((item) => `- ${item.summary}`),
+    `- selector 语义：${contract.selector_contract.representation}。`,
+    `- \`selector[0]\` 是变量存储 key（${contract.selector_contract.first_segment}），本身允许包含点。`,
+    `- selector 最少 ${contract.selector_contract.min_items} 段，且每段必须是非空字符串。`,
+    `- selector 示例：${contract.selector_contract.examples.map((item) => `\`${JSON.stringify(item)}\``).join('、')}。`,
+    '- 可省略字段直接省略，不要用 `[]`、`null`、空对象做占位。',
+    '- 不要输出空 selector 数组；任何 selector 一旦出现就必须是至少 1 段的非空字符串数组。',
+    `- 所有边都必须显式写 \`${contract.edge_contract.default_source_handle}\` / \`${contract.edge_contract.default_target_handle}\` handle。`,
+    `- 非 ifelse 节点默认 handle：source=\`${contract.edge_contract.default_source_handle}\`，target=\`${contract.edge_contract.default_target_handle}\`。`,
+    `- ifelse 出边规则：${contract.edge_contract.ifelse_source_handle_rule}。`
+  ]
+}
+
+function renderNodeRuleLines(
+  contractNode: OFWorkflowAuthoringContract['nodes'][number],
+  definition: (typeof listOFNodeDefinitions extends (...args: any[]) => infer R ? R : never)[number] | undefined
+): string[] {
+  const metadata = definition?.authoring
+  const lines = [
+    `- \`${contractNode.type}\`：作者必填 ${contractNode.author_required_fields.join('、') || '无'}；系统注入 ${contractNode.compiler_injected_fields.join('、') || '无'}；输出 ${contractNode.produced_outputs.join('、') || '无'}；说明 ${contractNode.notes.join('；') || '无'}`
+  ]
+
+  if (metadata?.system_managed_fields?.length) {
+    lines.push(`- \`${contractNode.type}\` system-managed：${metadata.system_managed_fields.join('、')}`)
+  }
+  if (metadata?.selector_policies?.length) {
+    lines.push(`- \`${contractNode.type}\` selector：${metadata.selector_policies.join('；')}`)
+  }
+  if (metadata?.output_policies?.length) {
+    lines.push(`- \`${contractNode.type}\` output：${metadata.output_policies.join('；')}`)
+  }
+  if (metadata?.omit_rules?.length) {
+    lines.push(`- \`${contractNode.type}\` omit：${metadata.omit_rules.join('；')}`)
+  }
+  if (metadata?.warnings_zh?.length) {
+    lines.push(`- \`${contractNode.type}\` warnings：${metadata.warnings_zh.join('；')}`)
+  }
+  if (metadata?.residual_notes_zh?.length) {
+    lines.push(`- \`${contractNode.type}\` notes：${metadata.residual_notes_zh.join('；')}`)
+  }
+
+  return lines
+}
+
+function buildAnnotatedCommentLines(
+  contract: OFWorkflowAuthoringContract,
+  defaults: OFAuthoringDefaultRecommendation[],
+  definitionMap: Map<string, ReturnType<typeof listOFNodeDefinitions>[number]>
+): string[] {
+  const managedFields = Array.from(
+    new Set(
+      Array.from(definitionMap.values()).flatMap((item) => item.authoring.system_managed_fields || [])
+    )
+  )
+  const omitRules = Array.from(
+    new Set(Array.from(definitionMap.values()).flatMap((item) => item.authoring.omit_rules || []))
+  )
+
+  return [
+    '// Omit optional fields entirely; do not use [], null, or empty objects as placeholders.',
+    '// Start input variables should usually include `default` so the run panel can prefill runnable values.',
+    `// selector rule: ${contract.selector_contract.representation}; first segment is ${contract.selector_contract.first_segment}.`,
+    `// selector examples: ${contract.selector_contract.examples.map((item) => JSON.stringify(item)).join(' | ')}.`,
+    ...contract.global_invariants.map((item) => `// invariant: ${item.summary}`),
+    `// edge rule: explicit handles required, target defaults to "${contract.edge_contract.default_target_handle}".`,
+    `// edge rule: ifelse sourceHandle must follow ${contract.edge_contract.ifelse_source_handle_rule}.`,
+    `// Edge rule: non-ifelse nodes use ${contract.edge_contract.default_source_handle} -> ${contract.edge_contract.default_target_handle}.`,
+    ...defaults.slice(0, 2).map((item) => `// default hint: ${item.path} => ${item.summary}`),
+    ...(managedFields.length
+      ? [`// system-managed fields: ${managedFields.join(', ')}.`]
+      : []),
+    ...omitRules.map((item) => `// omit rule: ${item}`),
+    '// Only // line comments are supported. /* */ is not supported.'
+  ]
 }
 
 function exampleDsl(): OFAIDslWorkflow {

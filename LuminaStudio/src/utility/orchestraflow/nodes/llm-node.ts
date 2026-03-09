@@ -7,7 +7,6 @@ import { z } from 'zod'
 import { BaseNode } from './base-node'
 import {
   OFBlockEnum,
-  buildLLMOutputVariables,
   OF_LLM_STRUCTURED_OUTPUT_NAME,
   normalizeOFVariableNamespace,
   type OFJsonSchemaProperty,
@@ -15,6 +14,7 @@ import {
   type OFModelCompletionParams,
   type OFStructuredJsonSchema
 } from '@shared/Orchestraflow-types'
+import { resolveOFNodeDefinition } from '@shared/Orchestraflow-types/node-definition-registry'
 import type { ExecutionContext, NodeResult } from './types'
 import { VariableStore } from '../services/variable-store'
 import { ChatOpenAI } from '@langchain/openai'
@@ -100,11 +100,18 @@ export class LLMNode extends BaseNode {
 
       const messages = this.buildMessages(nodeData, context)
       const namespace = normalizeOFVariableNamespace(nodeData.title, 'llm')
-      const outputVars = buildLLMOutputVariables(namespace, nodeData.structured_output)
+      const outputVars =
+        resolveOFNodeDefinition(OFBlockEnum.LLM).variables.buildRuntimeOutputVariables?.({
+          title: namespace,
+          structuredOutput: nodeData.structured_output
+        }) || []
       const legacyOutputVars =
         namespace === this.context.node.id
           ? []
-          : buildLLMOutputVariables(this.context.node.id, nodeData.structured_output)
+          : resolveOFNodeDefinition(OFBlockEnum.LLM).variables.buildRuntimeOutputVariables?.({
+              title: this.context.node.id,
+              structuredOutput: nodeData.structured_output
+            }) || []
 
       if (nodeData.structured_output?.enabled && nodeData.structured_output.schema) {
         const structuredRunner = this.model.withStructuredOutput(

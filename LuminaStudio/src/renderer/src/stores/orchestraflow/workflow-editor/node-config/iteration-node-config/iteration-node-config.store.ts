@@ -1,32 +1,59 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import {
-  buildIterationOutputVariables,
-  type OFIterationNodeConfig
+  OFBlockEnum,
+  type OFIterationNodeConfig,
+  type OFIterationNodeData,
+  type OFNode
 } from '@shared/Orchestraflow-types'
+import { resolveOFNodeDefinition } from '@shared/Orchestraflow-types/node-definition-registry'
 
-const DEFAULT_SUBGRAPH_VIEWPORT = { x: 0, y: 0, zoom: 1 }
+function createDefaultNodeData(nodeId: string, title: string): OFIterationNodeData {
+  return resolveOFNodeDefinition(OFBlockEnum.Iteration).editor.createDefaultData({
+    nodeId,
+    title
+  }) as OFIterationNodeData
+}
+
+function toIterationNodeConfig(nodeId: string, data: OFIterationNodeData): OFIterationNodeConfig {
+  return {
+    nodeId,
+    ...data
+  }
+}
 
 function createDefaultConfig(): OFIterationNodeConfig {
-  return {
-    nodeId: '',
-    title: '迭代',
-    desc: '',
-    iterator_selector: [],
-    output_selector: [],
-    branch_output_selectors: [],
-    start_node_id: '',
-    subgraph: {
-      nodes: [],
-      edges: [],
-      viewport: { ...DEFAULT_SUBGRAPH_VIEWPORT }
-    },
-    parallel_mode: 'sequential',
-    parallel_nums: 1,
-    error_handle_mode: 'terminated',
-    flatten_output: true,
-    output: { variables: buildIterationOutputVariables('迭代') }
-  }
+  return toIterationNodeConfig('', createDefaultNodeData('', '迭代'))
+}
+
+function normalizeConfig(nodeId: string, data: Partial<OFIterationNodeConfig>): OFIterationNodeConfig {
+  const defaultNodeData = createDefaultNodeData(nodeId, '迭代')
+  const normalizedData = resolveOFNodeDefinition(OFBlockEnum.Iteration).editor.normalizeData({
+    node: {
+      id: nodeId,
+      type: 'iteration',
+      position: { x: 0, y: 0 },
+      data: {
+        ...defaultNodeData,
+        ...data
+      }
+    } as OFNode,
+    helpers: {
+      normalizeNode(node) {
+        const definition = resolveOFNodeDefinition(node.data.type)
+        return {
+          ...node,
+          type: definition.meta.vueFlowType,
+          data: definition.editor.normalizeData({
+            node,
+            helpers: this
+          })
+        }
+      }
+    }
+  }) as OFIterationNodeData
+
+  return toIterationNodeConfig(nodeId, normalizedData)
 }
 
 export const useIterationNodeConfigStore = defineStore('of-iteration-node-config', () => {
@@ -35,18 +62,14 @@ export const useIterationNodeConfigStore = defineStore('of-iteration-node-config
 
   function loadConfig(nodeId: string, data: Partial<OFIterationNodeConfig>) {
     currentNodeId.value = nodeId
-    config.value = {
-      ...createDefaultConfig(),
-      ...data,
-      nodeId
-    }
+    config.value = normalizeConfig(nodeId, data)
   }
 
   function patchConfig(patch: Partial<OFIterationNodeConfig>) {
-    config.value = {
+    config.value = normalizeConfig(config.value.nodeId || '', {
       ...config.value,
       ...patch
-    }
+    })
   }
 
   function clear() {

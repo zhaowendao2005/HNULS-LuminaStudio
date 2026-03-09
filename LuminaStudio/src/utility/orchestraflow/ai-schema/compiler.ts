@@ -10,30 +10,19 @@ import type {
   OFAIDslNode,
   OFAIDslWorkflow,
   OFEdge,
-  OFIfElseCondition,
-  OFIterationBranchOutputSelector,
   OFIterationNodeData,
-  OFLLMNodeData,
   OFLoopVariableData,
   OFNode,
-  OFNodeOutput,
-  OFPromptItem,
-  OFStructuredJsonSchema,
-  OFVariable,
-  OFVariableAssignRule,
   OFWorkflow
 } from '@shared/Orchestraflow-types'
 import {
-  buildIterationInnerStartVariables,
-  buildIterationOutputVariables,
-  buildLLMOutputVariables,
-  buildLoopInnerStartVariables,
-  buildLoopOutputVariables,
-  buildVariableAssignOutputVariables,
   normalizeOFVariableNamespace,
   OFBlockEnum
 } from '@shared/Orchestraflow-types'
-import { getOFRuntimeNodeDescriptor } from './registry'
+import {
+  getOFDefaultNodeTitle
+} from '@shared/Orchestraflow-types/node-definition'
+import { resolveOFNodeDefinition } from '@shared/Orchestraflow-types/node-definition-registry'
 
 type CompileGraphContext = {
   parentNodeId?: string
@@ -96,151 +85,55 @@ function compileDslNode(
   }
 
   const compiledId = expectCompiledId(node.id, idMap)
-  const title = String(node.title || getOFRuntimeNodeDescriptor(node.type).title).trim()
+  const definition = resolveOFNodeDefinition(node.type)
+  const title = String(node.title || definition.meta.title || getOFDefaultNodeTitle(node.type)).trim()
   const desc = String(node.description || '').trim()
-  const shell = createNodeShell(compiledId, node.type, index, context.parentNodeId)
-
-  switch (node.type) {
-    case OFBlockEnum.Start:
-      return {
-        ...shell,
-        data: {
-          title,
-          desc,
-          type: OFBlockEnum.Start,
-          input: {
-            variables: compileVariables(node.config.input?.variables || [], idMap)
-          }
-        }
-      }
-    case OFBlockEnum.LLM: {
-      const structuredOutput = {
-        enabled: Boolean(node.config.structured_output?.enabled),
-        schema: (node.config.structured_output?.schema || null) as OFStructuredJsonSchema | null
-      }
-      return {
-        ...shell,
-        data: {
-          title,
-          desc,
-          type: OFBlockEnum.LLM,
-          model: node.config.model || { provider: '', name: '' },
-          prompt_template: (node.config.prompt_template || []) as OFPromptItem[],
-          context: compileNodeContext(node.config.context, idMap),
-          memory: node.config.memory,
-          vision: node.config.vision,
-          structured_output: structuredOutput,
-          output: {
-            variables: buildLLMOutputVariables(title, structuredOutput)
-          }
-        } as OFLLMNodeData
-      }
-    }
-    case OFBlockEnum.IfElse:
-      return {
-        ...shell,
-        data: {
-          title,
-          desc,
-          type: OFBlockEnum.IfElse,
-          cases: (node.config.cases || []).map((item: any) => ({
-            ...item,
-            conditions: compileConditions(item.conditions || [], idMap)
-          })),
-          elseCase: node.config.elseCase || {
-            handleId: 'else',
-            label: 'ELSE'
-          }
-        }
-      }
-    case OFBlockEnum.Iteration: {
-      if (!node.subgraph) throw new Error(`Iteration node "${node.id}" requires subgraph`)
-      const compiledSubgraph = compileContainerSubgraph(node, compiledId, title, OFBlockEnum.Iteration)
-      return {
-        ...shell,
-        data: {
-          title,
-          desc,
-          type: OFBlockEnum.Iteration,
-          width: 650,
-          height: 417,
-          iterator_selector: compileSelectorField(node.config.iterator_selector, idMap),
-          output_selector: compileSelectorField(node.config.output_selector, compiledSubgraph.idMap),
-          branch_output_selectors: compileIterationBranchOutputSelectors(
-            node.config.branch_output_selectors || [],
-            compiledSubgraph.idMap
-          ),
-          start_node_id: `${compiledId}-iteration-start`,
-          subgraph: compiledSubgraph.graph,
-          parallel_mode: node.config.parallel_mode || 'sequential',
-          parallel_nums: Number(node.config.parallel_nums || 1),
-          error_handle_mode: node.config.error_handle_mode || 'terminated',
-          flatten_output: node.config.flatten_output ?? true,
-          output: {
-            variables: buildIterationOutputVariables(title, compiledId)
-          }
-        } as OFIterationNodeData
-      }
-    }
-    case OFBlockEnum.Loop: {
-      if (!node.subgraph) throw new Error(`Loop node "${node.id}" requires subgraph`)
-      const loopVariables = compileLoopVariables(node.config.loop_variables || [], idMap)
-      const compiledSubgraph = compileContainerSubgraph(
-        node,
-        compiledId,
-        title,
-        OFBlockEnum.Loop,
+  const shell = createNodeShell(compiledId, definition.meta.vueFlowType, index, context.parentNodeId)
+  const helpers = {
+    compileVariables(source: unknown[]) {
+      return compileVariables(source, idMap)
+    },
+    compileLoopVariables(source: unknown[]) {
+      return compileLoopVariables(source, idMap)
+    },
+    compileConditions(source: unknown[]) {
+      return compileConditions(source, idMap)
+    },
+    compileIterationBranchOutputSelectors(source: unknown[]) {
+      return compileIterationBranchOutputSelectors(source, idMap)
+    },
+    compileNodeContext(value: OFAIDslNode['config']['context']) {
+      return compileNodeContext(value, idMap)
+    },
+    compileSelectorField(value: unknown) {
+      return compileSelectorField(value, idMap)
+    },
+    compileContainerSubgraph(
+      containerNode: OFAIDslNode,
+      containerCompiledId: string,
+      containerTitle: string,
+      type: OFBlockEnum.Iteration | OFBlockEnum.Loop,
+      loopVariables?: OFLoopVariableData[]
+    ) {
+      return compileContainerSubgraph(
+        containerNode,
+        containerCompiledId,
+        containerTitle,
+        type,
         loopVariables
       )
-      return {
-        ...shell,
-        data: {
-          title,
-          desc,
-          type: OFBlockEnum.Loop,
-          width: 650,
-          height: 417,
-          loop_count: Number(node.config.loop_count || 1),
-          loop_variables: loopVariables,
-          break_conditions: compileConditions(node.config.break_conditions || [], idMap),
-          logical_operator: node.config.logical_operator || 'and',
-          start_node_id: `${compiledId}-loop-start`,
-          subgraph: compiledSubgraph.graph,
-          output: {
-            variables: buildLoopOutputVariables(title, loopVariables, compiledId)
-          }
-        }
-      }
     }
-    case OFBlockEnum.VariableAssign: {
-      const rules = compileVariableAssignRules(node.config.rules || [], idMap)
-      return {
-        ...shell,
-        data: {
-          title,
-          desc,
-          type: OFBlockEnum.VariableAssign,
-          rules,
-          output: {
-            variables: buildVariableAssignOutputVariables(title, rules, compiledId)
-          }
-        }
-      }
-    }
-    case OFBlockEnum.End:
-      return {
-        ...shell,
-        data: {
-          title,
-          desc,
-          type: OFBlockEnum.End,
-          output: {
-            variables: compileVariables(node.config.output?.variables || [], idMap)
-          } as OFNodeOutput
-        }
-      }
-    default:
-      throw new Error(`Unsupported AI DSL node type: ${node.type}`)
+  }
+
+  return {
+    ...shell,
+    data: definition.compiler.compileData({
+      node,
+      compiledId,
+      title,
+      desc,
+      helpers
+    })
   }
 }
 
@@ -254,7 +147,6 @@ function compileContainerSubgraph(
   graph: OFIterationNodeData['subgraph']
   idMap: Map<string, string>
 } {
-  // 内部开始节点属于运行时不变量，不是可选的作者便利字段。
   const compiled = compileDslGraph(
     {
       nodes: node.subgraph?.nodes || [],
@@ -266,39 +158,58 @@ function compileContainerSubgraph(
       allowContainers: false
     }
   )
+  const internalStartType =
+    type === OFBlockEnum.Iteration ? OFBlockEnum.IterationStart : OFBlockEnum.LoopStart
+  const internalDefinition = resolveOFNodeDefinition(internalStartType)
+  const inputVariables =
+    internalStartType === OFBlockEnum.IterationStart
+      ? internalDefinition.variables.buildRuntimeInputVariables?.({
+          title,
+          nodeId: compiledId
+        }) || []
+      : internalDefinition.variables.buildRuntimeInputVariables?.({
+          title,
+          nodeId: compiledId,
+          loopVariables
+        }) || []
 
-  const internalStartNode: OFNode =
-    type === OFBlockEnum.Iteration
-      ? {
-          id: `${compiledId}-iteration-start`,
-          type: OFBlockEnum.IterationStart,
-          position: { x: 30, y: 40 },
-          parentNode: compiledId,
-          extent: 'parent',
-          data: {
-            title: `${title}_start`,
-            desc: '',
-            type: OFBlockEnum.IterationStart,
-            input: {
-              variables: buildIterationInnerStartVariables(title, compiledId)
-            }
+  const internalStartNode: OFNode = {
+    id: `${compiledId}-${internalDefinition.meta.vueFlowType}`,
+    type: internalDefinition.meta.vueFlowType,
+    position: { x: 30, y: 40 },
+    parentNode: compiledId,
+    extent: 'parent',
+    data: internalDefinition.editor.normalizeData({
+      node: {
+        id: `${compiledId}-${internalDefinition.meta.vueFlowType}`,
+        type: internalDefinition.meta.vueFlowType,
+        position: { x: 30, y: 40 },
+        parentNode: compiledId,
+        extent: 'parent',
+        data: {
+          title: internalDefinition.meta.title,
+          desc: internalDefinition.meta.title,
+          type: internalStartType,
+          input: {
+            variables: inputVariables
+          }
+        } as OFNode['data']
+      },
+      helpers: {
+        normalizeNode(node) {
+          const definition = resolveOFNodeDefinition(node.data.type)
+          return {
+            ...node,
+            type: definition.meta.vueFlowType,
+            data: definition.editor.normalizeData({
+              node,
+              helpers: this
+            })
           }
         }
-      : {
-          id: `${compiledId}-loop-start`,
-          type: OFBlockEnum.LoopStart,
-          position: { x: 30, y: 40 },
-          parentNode: compiledId,
-          extent: 'parent',
-          data: {
-            title: `${title}_start`,
-            desc: '',
-            type: OFBlockEnum.LoopStart,
-            input: {
-              variables: buildLoopInnerStartVariables(title, loopVariables, compiledId)
-            }
-          }
-        }
+      }
+    })
+  }
 
   const idMap = new Map<string, string>()
   node.subgraph?.nodes.forEach((child) => {

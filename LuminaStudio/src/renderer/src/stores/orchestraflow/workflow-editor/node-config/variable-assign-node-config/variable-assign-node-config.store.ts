@@ -2,10 +2,30 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import {
   OFVarType,
-  buildVariableAssignOutputVariables,
+  OFBlockEnum,
+  type OFNode,
+  type OFVariableAssignNodeData,
   type OFVariableAssignNodeConfig,
   type OFVariableAssignRule
 } from '@shared/Orchestraflow-types'
+import { resolveOFNodeDefinition } from '@shared/Orchestraflow-types/node-definition-registry'
+
+function createDefaultNodeData(nodeId: string, title: string): OFVariableAssignNodeData {
+  return resolveOFNodeDefinition(OFBlockEnum.VariableAssign).editor.createDefaultData({
+    nodeId,
+    title
+  }) as OFVariableAssignNodeData
+}
+
+function toVariableAssignNodeConfig(
+  nodeId: string,
+  data: OFVariableAssignNodeData
+): OFVariableAssignNodeConfig {
+  return {
+    nodeId,
+    ...data
+  }
+}
 
 function createDefaultRule(): OFVariableAssignRule {
   return {
@@ -24,13 +44,40 @@ function createDefaultRule(): OFVariableAssignRule {
 }
 
 function createDefaultConfig(): OFVariableAssignNodeConfig {
-  return {
-    nodeId: '',
-    title: '变量赋值',
-    desc: '',
-    rules: [createDefaultRule()],
-    output: { variables: [] }
-  }
+  return toVariableAssignNodeConfig('', createDefaultNodeData('', '变量赋值'))
+}
+
+function normalizeConfig(
+  nodeId: string,
+  data: Partial<OFVariableAssignNodeConfig>
+): OFVariableAssignNodeConfig {
+  const defaultNodeData = createDefaultNodeData(nodeId, '变量赋值')
+  const normalizedData = resolveOFNodeDefinition(OFBlockEnum.VariableAssign).editor.normalizeData({
+    node: {
+      id: nodeId,
+      type: 'variable-assign',
+      position: { x: 0, y: 0 },
+      data: {
+        ...defaultNodeData,
+        ...data
+      }
+    } as OFNode,
+    helpers: {
+      normalizeNode(node) {
+        const definition = resolveOFNodeDefinition(node.data.type)
+        return {
+          ...node,
+          type: definition.meta.vueFlowType,
+          data: definition.editor.normalizeData({
+            node,
+            helpers: this
+          })
+        }
+      }
+    }
+  }) as OFVariableAssignNodeData
+
+  return toVariableAssignNodeConfig(nodeId, normalizedData)
 }
 
 export const useVariableAssignNodeConfigStore = defineStore(
@@ -41,38 +88,17 @@ export const useVariableAssignNodeConfigStore = defineStore(
 
     function loadConfig(nodeId: string, data: Partial<OFVariableAssignNodeConfig>) {
       currentNodeId.value = nodeId
-      const nextConfig = {
-        ...createDefaultConfig(),
+      config.value = normalizeConfig(nodeId, {
         ...data,
-        nodeId
-      }
-      config.value = {
-        ...nextConfig,
-        output: {
-          variables: buildVariableAssignOutputVariables(
-            nextConfig.title,
-            nextConfig.rules || [],
-            nodeId
-          )
-        }
-      }
+        rules: data.rules?.length ? data.rules : createDefaultConfig().rules
+      })
     }
 
     function patchConfig(patch: Partial<OFVariableAssignNodeConfig>) {
-      const nextConfig = {
+      config.value = normalizeConfig(config.value.nodeId || '', {
         ...config.value,
         ...patch
-      }
-      config.value = {
-        ...nextConfig,
-        output: {
-          variables: buildVariableAssignOutputVariables(
-            nextConfig.title,
-            nextConfig.rules || [],
-            nextConfig.nodeId
-          )
-        }
-      }
+      })
     }
 
     function clear() {

@@ -7,26 +7,22 @@ import {
   OFControlMode,
   OFBlockEnum,
   OFNodeRunningStatus,
-  buildIterationInnerStartVariables,
-  buildLoopInnerStartVariables,
-  buildLLMOutputVariables,
-  buildIterationOutputVariables,
-  buildLoopOutputVariables,
-  buildVariableAssignOutputVariables,
   normalizeOFVariableNamespace
 } from '@shared/Orchestraflow-types'
+import {
+  getOFDefaultNodeTitle,
+  normalizeOFNodeTitle
+} from '@shared/Orchestraflow-types/node-definition'
+import { resolveOFNodeDefinition } from '@shared/Orchestraflow-types/node-definition-registry'
 import type {
   OFNode,
   OFEdge,
-  OFStartNodeData,
-  OFIterationStartNodeData,
   OFLoopStartNodeData,
   OFLLMNodeData,
   OFIterationNodeData,
   OFLoopNodeData,
   OFIfElseNodeData,
-  OFVariableAssignNodeData,
-  OFEndNodeData
+  OFVariableAssignNodeData
 } from '@shared/Orchestraflow-types'
 import type { NodeChange, EdgeChange } from '@vue-flow/core'
 import { WorkflowEditorDataSource } from './workflow-editor.datasource'
@@ -34,11 +30,8 @@ import { WorkflowEditorDataSource } from './workflow-editor.datasource'
 const datasource = WorkflowEditorDataSource
 const ITERATION_MIN_WIDTH = 560
 const ITERATION_MIN_HEIGHT = 360
-const ITERATION_DEFAULT_WIDTH = 650
-const ITERATION_DEFAULT_HEIGHT = 417
 const ITERATION_RESIZE_PADDING_X = 36
 const ITERATION_RESIZE_PADDING_Y = 36
-const DEFAULT_SUBGRAPH_VIEWPORT = { x: 0, y: 0, zoom: 1 }
 
 const NESTED_NODE_DEFAULT_SIZES: Record<string, { width: number; height: number }> = {
   'iteration-start': { width: 60, height: 60 },
@@ -52,104 +45,6 @@ const NESTED_NODE_DEFAULT_SIZES: Record<string, { width: number; height: number 
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-
-function getDefaultNodeTitle(type: OFBlockEnum): string {
-  switch (type) {
-    case OFBlockEnum.LLM:
-      return 'llm'
-    case OFBlockEnum.Iteration:
-      return '迭代'
-    case OFBlockEnum.IterationStart:
-      return '迭代开始'
-    case OFBlockEnum.IfElse:
-      return '条件分支'
-    case OFBlockEnum.Start:
-      return '开始'
-    case OFBlockEnum.VariableAssign:
-      return '变量赋值'
-    case OFBlockEnum.End:
-      return '结束'
-    default:
-      return 'node'
-  }
-}
-
-function normalizeNodeTitle(type: OFBlockEnum, raw: string | undefined): string {
-  const trimmed = String(raw || '').trim()
-  if (type === OFBlockEnum.LLM) {
-    return normalizeOFVariableNamespace(trimmed, 'llm')
-  }
-  if (type === OFBlockEnum.Loop) {
-    return trimmed || '循环'
-  }
-  if (type === OFBlockEnum.LoopStart) {
-    return trimmed || '循环开始'
-  }
-  return trimmed || getDefaultNodeTitle(type)
-}
-
-function createIterationStartNode(iterationNodeId: string, iterationTitle: string): OFNode {
-  return {
-    id: `${iterationNodeId}-iteration-start`,
-    type: 'iteration-start',
-    parentNode: iterationNodeId,
-    extent: 'parent',
-    position: { x: 24, y: 82 },
-    data: {
-      title: '迭代开始',
-      desc: '迭代开始',
-      type: OFBlockEnum.IterationStart,
-      input: {
-        variables: buildIterationInnerStartVariables(iterationTitle, iterationNodeId)
-      }
-    } as OFIterationStartNodeData
-  }
-}
-
-function createDefaultIterationSubgraph(
-  iterationNodeId: string,
-  iterationTitle: string
-): OFIterationNodeData['subgraph'] {
-  return {
-    nodes: [createIterationStartNode(iterationNodeId, iterationTitle)],
-    edges: [],
-    viewport: { ...DEFAULT_SUBGRAPH_VIEWPORT }
-  }
-}
-
-function createLoopStartNode(
-  loopNodeId: string,
-  loopTitle: string,
-  loopVariables: OFLoopNodeData['loop_variables']
-): OFNode {
-  return {
-    id: `${loopNodeId}-loop-start`,
-    type: 'loop-start',
-    parentNode: loopNodeId,
-    extent: 'parent',
-    position: { x: 24, y: 82 },
-    data: {
-      title: '循环开始',
-      desc: '循环开始',
-      type: OFBlockEnum.LoopStart,
-      input: {
-        variables: buildLoopInnerStartVariables(loopTitle, loopVariables, loopNodeId)
-      }
-    } as OFLoopStartNodeData
-  }
-}
-
-function createDefaultLoopSubgraph(
-  loopNodeId: string,
-  loopTitle: string,
-  loopVariables: OFLoopNodeData['loop_variables']
-): OFLoopNodeData['subgraph'] {
-  return {
-    nodes: [createLoopStartNode(loopNodeId, loopTitle, loopVariables)],
-    edges: [],
-    viewport: { ...DEFAULT_SUBGRAPH_VIEWPORT }
-  }
 }
 
 function dedupeNodes(sourceNodes: OFNode[]): OFNode[] {
@@ -185,298 +80,27 @@ function getNestedNodeFootprint(node: OFNode): { width: number; height: number }
   return NESTED_NODE_DEFAULT_SIZES[node.type] || { width: 240, height: 96 }
 }
 
-function buildCommonNodeShape<
-  T extends { title?: string; desc?: string; width?: number; height?: number }
->(raw: T, title: string, fallbackDesc = '') {
-  return {
-    title,
-    desc: raw.desc || fallbackDesc,
-    width: raw.width,
-    height: raw.height
+function createDefaultNodeData(type: OFBlockEnum, nodeId: string, title: string): OFNode['data'] {
+  const definition = resolveOFNodeDefinition(type)
+  if (!('createDefaultData' in definition.editor)) {
+    throw new Error(`Node type cannot be created directly from editor defaults: ${type}`)
   }
-}
 
-function normalizeIterationStartNode(
-  node: OFNode,
-  iterationNodeId: string,
-  iterationTitle: string
-): OFNode {
-  const data = node.data as Partial<OFIterationStartNodeData>
-
-  return {
-    ...node,
-    type: 'iteration-start',
-    parentNode: iterationNodeId,
-    extent: 'parent',
-    data: {
-      ...buildCommonNodeShape(data, '迭代开始', '迭代开始'),
-      type: OFBlockEnum.IterationStart,
-      input: {
-        variables: buildIterationInnerStartVariables(iterationTitle, iterationNodeId)
-      }
-    } as OFIterationStartNodeData
-  }
-}
-
-function normalizeIterationSubgraph(
-  iterationNodeId: string,
-  iterationTitle: string,
-  subgraph?: Partial<OFIterationNodeData['subgraph']> | null
-): OFIterationNodeData['subgraph'] {
-  const baseSubgraph =
-    subgraph?.nodes?.length || subgraph?.edges?.length
-      ? subgraph
-      : createDefaultIterationSubgraph(iterationNodeId, iterationTitle)
-
-  const normalizedNodes = (baseSubgraph.nodes || []).map((childNode) => {
-    const normalizedChildNode = {
-      ...cloneNode(childNode),
-      parentNode: childNode.parentNode || iterationNodeId,
-      extent: childNode.extent || 'parent'
-    } as OFNode
-
-    if (
-      normalizedChildNode.data.type === OFBlockEnum.IterationStart ||
-      normalizedChildNode.data.type === OFBlockEnum.Start
-    ) {
-      return normalizeIterationStartNode(normalizedChildNode, iterationNodeId, iterationTitle)
-    }
-
-    return normalizeNode(normalizedChildNode)
-  })
-
-  const startNode =
-    normalizedNodes.find((childNode) => childNode.data.type === OFBlockEnum.IterationStart) ||
-    createIterationStartNode(iterationNodeId, iterationTitle)
-
-  const nextNodes = normalizedNodes.some((childNode) => childNode.id === startNode.id)
-    ? normalizedNodes.map((childNode) =>
-        childNode.id === startNode.id
-          ? normalizeIterationStartNode(childNode, iterationNodeId, iterationTitle)
-          : childNode
-      )
-    : [startNode, ...normalizedNodes]
-
-  return {
-    nodes: nextNodes,
-    edges: (baseSubgraph.edges || []).map((edge) => cloneNode(edge)),
-    viewport: baseSubgraph.viewport || { ...DEFAULT_SUBGRAPH_VIEWPORT }
-  }
-}
-
-function normalizeLoopStartNode(
-  node: OFNode,
-  loopNodeId: string,
-  loopTitle: string,
-  loopVariables: OFLoopNodeData['loop_variables']
-): OFNode {
-  const data = node.data as Partial<OFLoopStartNodeData>
-
-  return {
-    ...node,
-    type: 'loop-start',
-    parentNode: loopNodeId,
-    extent: 'parent',
-    data: {
-      ...buildCommonNodeShape(data, '循环开始', '循环开始'),
-      type: OFBlockEnum.LoopStart,
-      input: {
-        variables: buildLoopInnerStartVariables(loopTitle, loopVariables, loopNodeId)
-      }
-    } as OFLoopStartNodeData
-  }
-}
-
-function normalizeLoopSubgraph(
-  loopNodeId: string,
-  loopTitle: string,
-  loopVariables: OFLoopNodeData['loop_variables'],
-  subgraph?: Partial<OFLoopNodeData['subgraph']> | null
-): OFLoopNodeData['subgraph'] {
-  const baseSubgraph =
-    subgraph?.nodes?.length || subgraph?.edges?.length
-      ? subgraph
-      : createDefaultLoopSubgraph(loopNodeId, loopTitle, loopVariables)
-
-  const normalizedNodes = (baseSubgraph.nodes || []).map((childNode) => {
-    const normalizedChildNode = {
-      ...cloneNode(childNode),
-      parentNode: childNode.parentNode || loopNodeId,
-      extent: childNode.extent || 'parent'
-    } as OFNode
-
-    if (
-      normalizedChildNode.data.type === OFBlockEnum.LoopStart ||
-      normalizedChildNode.data.type === OFBlockEnum.Start
-    ) {
-      return normalizeLoopStartNode(normalizedChildNode, loopNodeId, loopTitle, loopVariables)
-    }
-
-    return normalizeNode(normalizedChildNode)
-  })
-
-  const startNode =
-    normalizedNodes.find((childNode) => childNode.data.type === OFBlockEnum.LoopStart) ||
-    createLoopStartNode(loopNodeId, loopTitle, loopVariables)
-
-  const nextNodes = normalizedNodes.some((childNode) => childNode.id === startNode.id)
-    ? normalizedNodes.map((childNode) =>
-        childNode.id === startNode.id
-          ? normalizeLoopStartNode(childNode, loopNodeId, loopTitle, loopVariables)
-          : childNode
-      )
-    : [startNode, ...normalizedNodes]
-
-  return {
-    nodes: nextNodes,
-    edges: (baseSubgraph.edges || []).map((edge) => cloneNode(edge)),
-    viewport: baseSubgraph.viewport || { ...DEFAULT_SUBGRAPH_VIEWPORT }
-  }
+  return definition.editor.createDefaultData({ nodeId, title })
 }
 
 function normalizeNode(node: OFNode): OFNode {
-  if (node.data.type === OFBlockEnum.IterationStart) {
-    return normalizeIterationStartNode(
+  const definition = resolveOFNodeDefinition(node.data.type)
+  return {
+    ...node,
+    type: definition.meta.vueFlowType,
+    data: definition.editor.normalizeData({
       node,
-      node.parentNode || node.id,
-      node.parentNode || getDefaultNodeTitle(OFBlockEnum.Iteration)
-    )
+      helpers: {
+        normalizeNode
+      }
+    })
   }
-
-  if (node.data.type === OFBlockEnum.LoopStart) {
-    return normalizeLoopStartNode(
-      node,
-      node.parentNode || node.id,
-      normalizeNodeTitle(OFBlockEnum.Loop, node.parentNode || 'loop'),
-      []
-    )
-  }
-
-  if (node.data.type === OFBlockEnum.LLM) {
-    const data = node.data as Partial<OFLLMNodeData>
-    const title = normalizeNodeTitle(OFBlockEnum.LLM, data.title)
-    const structuredOutput = data.structured_output || {
-      enabled: false,
-      schema: null
-    }
-    return {
-      ...node,
-      data: {
-        ...buildCommonNodeShape(data, title),
-        type: OFBlockEnum.LLM,
-        model: data.model || {
-          provider: '',
-          name: '',
-          completion_params: {
-            temperature: 1,
-            top_p: 1
-          }
-        },
-        prompt_template: data.prompt_template || [],
-        context: data.context,
-        memory: data.memory,
-        vision: data.vision,
-        structured_output: structuredOutput,
-        output: {
-          variables: buildLLMOutputVariables(title, structuredOutput)
-        }
-      } as OFLLMNodeData
-    }
-  }
-
-  if (node.data.type === OFBlockEnum.Iteration) {
-    const data = node.data as Partial<OFIterationNodeData>
-    const title = normalizeNodeTitle(OFBlockEnum.Iteration, data.title)
-    const subgraph = normalizeIterationSubgraph(node.id, title, data.subgraph)
-    const startNode =
-      subgraph.nodes.find((childNode) => childNode.data.type === OFBlockEnum.IterationStart) ||
-      createIterationStartNode(node.id, title)
-
-    return {
-      ...node,
-      data: {
-        ...buildCommonNodeShape(data, title),
-        type: OFBlockEnum.Iteration,
-        width: data.width || ITERATION_DEFAULT_WIDTH,
-        height: data.height || ITERATION_DEFAULT_HEIGHT,
-        iterator_selector: data.iterator_selector || [],
-        output_selector: data.output_selector || [],
-        branch_output_selectors: data.branch_output_selectors || [],
-        start_node_id: startNode.id,
-        subgraph,
-        parallel_mode: data.parallel_mode || 'sequential',
-        parallel_nums: Math.max(1, Number(data.parallel_nums || 1)),
-        error_handle_mode: data.error_handle_mode || 'terminated',
-        flatten_output: data.flatten_output ?? true,
-        output: {
-          variables: buildIterationOutputVariables(title, node.id)
-        }
-      } as OFIterationNodeData
-    }
-  }
-
-  if (node.data.type === OFBlockEnum.Loop) {
-    const data = node.data as Partial<OFLoopNodeData>
-    const title = normalizeNodeTitle(OFBlockEnum.Loop, data.title)
-    const loopVariables = data.loop_variables || []
-    const subgraph = normalizeLoopSubgraph(node.id, title, loopVariables, data.subgraph)
-    const startNode =
-      subgraph.nodes.find((childNode) => childNode.data.type === OFBlockEnum.LoopStart) ||
-      createLoopStartNode(node.id, title, loopVariables)
-
-    return {
-      ...node,
-      data: {
-        ...buildCommonNodeShape(data, title),
-        type: OFBlockEnum.Loop,
-        width: data.width || ITERATION_DEFAULT_WIDTH,
-        height: data.height || ITERATION_DEFAULT_HEIGHT,
-        loop_count: Math.max(1, Number(data.loop_count || 10)),
-        loop_variables: loopVariables,
-        break_conditions: data.break_conditions || [],
-        logical_operator: data.logical_operator || 'and',
-        start_node_id: startNode.id,
-        subgraph,
-        output: {
-          variables: buildLoopOutputVariables(title, loopVariables, node.id)
-        }
-      } as OFLoopNodeData
-    }
-  }
-
-  if (node.data.type === OFBlockEnum.VariableAssign) {
-    const data = node.data as Partial<OFVariableAssignNodeData>
-    const title = normalizeNodeTitle(OFBlockEnum.VariableAssign, data.title)
-    return {
-      ...node,
-      data: {
-        ...buildCommonNodeShape(data, title),
-        type: OFBlockEnum.VariableAssign,
-        rules: data.rules || [],
-        output: {
-          variables: buildVariableAssignOutputVariables(title, data.rules || [], node.id)
-        }
-      } as OFVariableAssignNodeData
-    }
-  }
-
-  if (node.data.type === OFBlockEnum.IfElse) {
-    const data = node.data as Partial<OFIfElseNodeData>
-    return {
-      ...node,
-      data: {
-        ...buildCommonNodeShape(data, normalizeNodeTitle(OFBlockEnum.IfElse, data.title)),
-        type: OFBlockEnum.IfElse,
-        cases: data.cases || [],
-        elseCase: data.elseCase || {
-          handleId: 'else',
-          label: 'ELSE'
-        }
-      } as OFIfElseNodeData
-    }
-  }
-
-  return node
 }
 
 export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor', () => {
@@ -497,7 +121,7 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
     desiredTitle?: string,
     excludeNodeId?: string
   ): string {
-    const baseTitle = normalizeNodeTitle(type, desiredTitle)
+    const baseTitle = normalizeOFNodeTitle(type, desiredTitle)
     const existingTitles = new Set(
       nodes.value
         .filter((node) => node.id !== excludeNodeId)
@@ -656,16 +280,13 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
                 ? `${newNamespace}${rule.source_label.slice(oldNamespace.length)}`
                 : rule.source_label
         }))
-        return {
+        return normalizeNode({
           ...node,
           data: {
             ...data,
-            rules: nextRules,
-            output: {
-              variables: buildVariableAssignOutputVariables(data.title, nextRules, node.id)
-            }
+            rules: nextRules
           }
-        }
+        } as OFNode)
       }
 
       if (node.data.type === OFBlockEnum.IfElse) {
@@ -1315,171 +936,16 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
     const position = { x: 200 + Math.random() * 100, y: 200 + Math.random() * 100 }
     const title = getUniqueNodeTitle(
       type,
-      type === OFBlockEnum.Loop ? '循环' : getDefaultNodeTitle(type)
+      type === OFBlockEnum.Loop ? '循环' : getOFDefaultNodeTitle(type)
     )
-
-    let nodeData:
-      | OFStartNodeData
-      | OFLLMNodeData
-      | OFIterationNodeData
-      | OFLoopNodeData
-      | OFIfElseNodeData
-      | OFVariableAssignNodeData
-      | OFEndNodeData
-      | undefined
-
-    switch (type) {
-      case OFBlockEnum.Start:
-        nodeData = {
-          title,
-          desc: '',
-          type: OFBlockEnum.Start,
-          input: { variables: [] }
-        } as OFStartNodeData
-        break
-      case OFBlockEnum.LLM:
-        nodeData = {
-          title,
-          desc: '',
-          type: OFBlockEnum.LLM,
-          model: {
-            provider: '',
-            name: '',
-            completion_params: {
-              temperature: 1,
-              top_p: 1
-            }
-          },
-          prompt_template: [],
-          structured_output: {
-            enabled: false,
-            schema: null
-          },
-          output: { variables: buildLLMOutputVariables(title) }
-        } as OFLLMNodeData
-        break
-      case OFBlockEnum.Iteration:
-        nodeData = {
-          title,
-          desc: '',
-          type: OFBlockEnum.Iteration,
-          width: ITERATION_DEFAULT_WIDTH,
-          height: ITERATION_DEFAULT_HEIGHT,
-          iterator_selector: [],
-          output_selector: [],
-          branch_output_selectors: [],
-          start_node_id: `${id}-iteration-start`,
-          subgraph: createDefaultIterationSubgraph(id, title),
-          parallel_mode: 'sequential',
-          parallel_nums: 1,
-          error_handle_mode: 'terminated',
-          flatten_output: true,
-          output: { variables: buildIterationOutputVariables(title, id) }
-        } as OFIterationNodeData
-        break
-      case OFBlockEnum.Loop: {
-        const loopVariables: OFLoopNodeData['loop_variables'] = [
-          {
-            id: `loop_var_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-            variable: 'counter',
-            label: 'counter',
-            type: 'number' as OFLoopNodeData['loop_variables'][number]['type'],
-            value_type: 'constant',
-            value: 0
-          }
-        ]
-        nodeData = {
-          title,
-          desc: '',
-          type: OFBlockEnum.Loop,
-          width: ITERATION_DEFAULT_WIDTH,
-          height: ITERATION_DEFAULT_HEIGHT,
-          loop_count: 10,
-          loop_variables: loopVariables,
-          break_conditions: [],
-          logical_operator: 'and',
-          start_node_id: `${id}-loop-start`,
-          subgraph: createDefaultLoopSubgraph(id, title, loopVariables),
-          output: {
-            variables: buildLoopOutputVariables(title, loopVariables, id)
-          }
-        } as OFLoopNodeData
-        break
-      }
-      case OFBlockEnum.IfElse:
-        nodeData = {
-          title,
-          desc: '',
-          type: OFBlockEnum.IfElse,
-          cases: [
-            {
-              id: `case_if_${Date.now()}`,
-              kind: 'if',
-              label: 'IF',
-              handleId: 'if',
-              conditions: [
-                {
-                  id: `condition_${Date.now()}`,
-                  variable_selector: [],
-                  operator: 'is'
-                }
-              ]
-            }
-          ],
-          elseCase: {
-            handleId: 'else',
-            label: 'ELSE'
-          }
-        } as OFIfElseNodeData
-        break
-      case OFBlockEnum.VariableAssign:
-        nodeData = {
-          title,
-          desc: '',
-          type: OFBlockEnum.VariableAssign,
-          rules: [],
-          output: { variables: [] }
-        } as OFVariableAssignNodeData
-        break
-      case OFBlockEnum.End:
-        nodeData = {
-          title,
-          desc: '',
-          type: OFBlockEnum.End,
-          output: { variables: [] }
-        } as OFEndNodeData
-        break
-      default:
-        throw new Error(`Unsupported node type: ${type}`)
-    }
-
-    // 根据节点类型设置正确的 VueFlow 节点类型
-    let vueFlowType: string = 'llm'
-    switch (type) {
-      case OFBlockEnum.Start:
-        vueFlowType = 'start'
-        break
-      case OFBlockEnum.LLM:
-        vueFlowType = 'llm'
-        break
-      case OFBlockEnum.IfElse:
-        vueFlowType = 'ifelse'
-        break
-      case OFBlockEnum.VariableAssign:
-        vueFlowType = 'variable-assign'
-        break
-      case OFBlockEnum.Iteration:
-        vueFlowType = 'iteration'
-        break
-      case OFBlockEnum.Loop:
-        vueFlowType = 'loop'
-        break
-      case OFBlockEnum.End:
-        vueFlowType = 'end'
-        break
-    }
-
-    const newNode: OFNode = { id, type: vueFlowType, position, data: nodeData as OFNode['data'] }
+    const definition = resolveOFNodeDefinition(type)
+    const nodeData = createDefaultNodeData(type, id, title)
+    const newNode = normalizeNode({
+      id,
+      type: definition.meta.vueFlowType,
+      position,
+      data: nodeData as OFNode['data']
+    })
     const nextNodes = [...nodes.value, newNode]
     const nextEdges = [...edges.value]
 
@@ -1523,110 +989,6 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
       nextData = {
         ...nextData,
         title: uniqueTitle
-      }
-
-      if (currentNode.data.type === OFBlockEnum.LLM) {
-        const llmData = {
-          ...(currentNode.data as OFLLMNodeData),
-          ...nextData
-        } as OFLLMNodeData
-        nextData = {
-          ...nextData,
-          output: {
-            variables: buildLLMOutputVariables(uniqueTitle, llmData.structured_output)
-          }
-        }
-      }
-
-      if (currentNode.data.type === OFBlockEnum.VariableAssign) {
-        const variableAssignData = {
-          ...(currentNode.data as OFVariableAssignNodeData),
-          ...nextData
-        } as OFVariableAssignNodeData
-        nextData = {
-          ...nextData,
-          output: {
-            variables: buildVariableAssignOutputVariables(
-              uniqueTitle,
-              variableAssignData.rules || [],
-              nodeId
-            )
-          }
-        }
-      }
-    }
-
-    if (currentNode.data.type === OFBlockEnum.Iteration) {
-      const iterationData = {
-        ...(currentNode.data as OFIterationNodeData),
-        ...nextData
-      } as OFIterationNodeData
-      if (typeof nextData.title === 'string') {
-        nextData = {
-          ...nextData,
-          output: {
-            variables: buildIterationOutputVariables(iterationData.title, nodeId)
-          }
-        }
-      }
-    }
-
-    if (currentNode.data.type === OFBlockEnum.Loop) {
-      const loopData = {
-        ...(currentNode.data as OFLoopNodeData),
-        ...nextData
-      } as OFLoopNodeData
-      if (
-        typeof nextData.title === 'string' ||
-        Object.prototype.hasOwnProperty.call(nextData, 'loop_variables')
-      ) {
-        nextData = {
-          ...nextData,
-          subgraph: normalizeLoopSubgraph(
-            nodeId,
-            loopData.title,
-            loopData.loop_variables || [],
-            loopData.subgraph
-          ),
-          output: {
-            variables: buildLoopOutputVariables(
-              loopData.title,
-              loopData.loop_variables || [],
-              nodeId
-            )
-          }
-        }
-      }
-    }
-
-    const llmPatch = data as Partial<OFLLMNodeData>
-    const variableAssignPatch = data as Partial<OFVariableAssignNodeData>
-
-    if (currentNode.data.type === OFBlockEnum.LLM && llmPatch.structured_output) {
-      const llmData = currentNode.data as OFLLMNodeData
-      const nextTitle = String((nextData.title as string | undefined) || llmData.title || 'llm')
-      nextData = {
-        ...nextData,
-        output: {
-          variables: buildLLMOutputVariables(nextTitle, llmPatch.structured_output)
-        }
-      }
-    }
-
-    if (currentNode.data.type === OFBlockEnum.VariableAssign && variableAssignPatch.rules) {
-      const variableAssignData = currentNode.data as OFVariableAssignNodeData
-      const nextTitle = String(
-        (nextData.title as string | undefined) || variableAssignData.title || 'assign'
-      )
-      nextData = {
-        ...nextData,
-        output: {
-          variables: buildVariableAssignOutputVariables(
-            nextTitle,
-            variableAssignPatch.rules,
-            nodeId
-          )
-        }
       }
     }
 

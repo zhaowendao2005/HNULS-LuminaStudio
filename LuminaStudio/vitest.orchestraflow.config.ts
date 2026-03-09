@@ -4,7 +4,11 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   test: {
     environment: 'node',
-    include: ['src/utility/orchestraflow/**/*.test.ts']
+    include: [
+      'src/utility/orchestraflow/**/*.test.ts',
+      'src/Public/ShareTypes/Orchestraflow-types/**/*.test.ts',
+      'src/renderer/src/stores/orchestraflow/**/*.test.ts'
+    ]
   },
   resolve: {
     alias: {

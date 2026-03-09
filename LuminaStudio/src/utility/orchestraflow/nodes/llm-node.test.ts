@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import {
-  buildLLMOutputVariables,
-  OFBlockEnum,
-  OFVarType,
-  type OFNode
-} from '@shared/Orchestraflow-types'
+import { OFBlockEnum, OFVarType, type OFNode } from '@shared/Orchestraflow-types'
+import { resolveOFNodeDefinition } from '@shared/Orchestraflow-types/node-definition-registry'
 import { LLMNode } from './llm-node'
 import { VariableStore } from '../services/variable-store'
 
@@ -94,20 +90,24 @@ describe('LLMNode structured output schema', () => {
   })
 
   it('marks structured_output as array when schema root is array<object>', () => {
-    const variables = buildLLMOutputVariables('llm', {
-      enabled: true,
-      schema: {
-        type: 'array',
-        items: {
-          type: 'object',
-          properties: {
-            name: { type: 'string' }
-          },
-          required: ['name'],
-          additionalProperties: false
+    const variables =
+      resolveOFNodeDefinition(OFBlockEnum.LLM).variables.buildRuntimeOutputVariables?.({
+        title: 'llm',
+        structuredOutput: {
+          enabled: true,
+          schema: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                name: { type: 'string' }
+              },
+              required: ['name'],
+              additionalProperties: false
+            }
+          }
         }
-      }
-    })
+      }) || []
 
     const structuredOutput = variables.find((item) => item.variable === 'structured_output')
     expect(structuredOutput?.type).toBe(OFVarType.Array)

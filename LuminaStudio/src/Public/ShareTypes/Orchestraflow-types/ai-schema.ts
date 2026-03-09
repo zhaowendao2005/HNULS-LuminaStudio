@@ -1,4 +1,4 @@
-import type { OFBlockEnum } from './index'
+import type { OFBlockEnum } from './core-types'
 import type { OFRunnableWorkflow, OFWorkflowAuthoringContract } from './contract'
 
 /**
