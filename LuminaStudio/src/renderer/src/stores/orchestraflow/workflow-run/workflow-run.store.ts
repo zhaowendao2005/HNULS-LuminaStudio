@@ -3,7 +3,13 @@
  */
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { OFWorkflowRunResult, OFNodeTracing, OFInputVar } from '@shared/Orchestraflow-types'
+import type {
+  OFWorkflowRunResult,
+  OFNodeTracing,
+  OFInputVar,
+  OFJsonSchemaProperty,
+  OFStructuredJsonSchema
+} from '@shared/Orchestraflow-types'
 import {
   getOFTraceIdentity,
   OFWorkflowRunningStatus,
@@ -13,6 +19,56 @@ import {
 } from '@shared/Orchestraflow-types'
 import { WorkflowRunDataSource } from './workflow-run.datasource'
 import { useWorkflowEditorStore } from '../workflow-editor/workflow-editor.store'
+
+function cloneWorkflowValue<T>(value: T): T {
+  if (value === null || value === undefined) return value
+  try {
+    return structuredClone(value)
+  } catch {
+    return JSON.parse(JSON.stringify(value)) as T
+  }
+}
+
+function buildDefaultValueFromSchemaProperty(schema: OFJsonSchemaProperty): unknown {
+  if ('default' in schema && schema.default !== undefined) {
+    return cloneWorkflowValue(schema.default)
+  }
+
+  if (schema.type === 'object') {
+    const nextValue: Record<string, unknown> = {}
+    Object.entries(schema.properties || {}).forEach(([key, childSchema]) => {
+      const childDefault = buildDefaultValueFromSchemaProperty(childSchema)
+      if (childDefault !== undefined) {
+        nextValue[key] = childDefault
+      }
+    })
+    return nextValue
+  }
+
+  if (schema.type === 'array') {
+    return []
+  }
+
+  return undefined
+}
+
+export function buildWorkflowInputDefaultValue(inputVar: OFInputVar): unknown {
+  if (inputVar.default !== undefined) {
+    return cloneWorkflowValue(inputVar.default)
+  }
+
+  if (
+    (inputVar.type === OFVarType.Object || inputVar.type === OFVarType.Array) &&
+    inputVar.schema
+  ) {
+    return buildDefaultValueFromSchemaProperty(inputVar.schema as OFStructuredJsonSchema)
+  }
+
+  if (inputVar.type === OFVarType.Array) return []
+  if (inputVar.type === OFVarType.Object) return {}
+
+  return ''
+}
 
 export function parseWorkflowInputValue(inputVar: OFInputVar, rawValue: unknown) {
   if (inputVar.type === OFVarType.Array || inputVar.type === OFVarType.Object) {

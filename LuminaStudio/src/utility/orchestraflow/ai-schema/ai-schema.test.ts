@@ -16,6 +16,11 @@ describe('orchestraflow ai schema bundle', () => {
         (item) => item.path === 'graph.nodes[start].data.input.variables[*].default'
       )
     ).toBe(true)
+    expect(
+      bundle.authoring_defaults.some(
+        (item) => item.path === 'graph.nodes[start].data.input.variables[object].schema'
+      )
+    ).toBe(true)
     expect(bundle.nodes.some((item) => item.type === OFBlockEnum.Start && !item.internal)).toBe(
       true
     )
@@ -27,6 +32,7 @@ describe('orchestraflow ai schema bundle', () => {
     expect(bundle.prompt_markdown).toContain('不要输出空 selector 数组')
     expect(bundle.prompt_markdown).toContain('优先补 `default`，让导入后的工作流可以直接运行')
     expect(bundle.prompt_markdown).toContain('`default` 是运行前预填值，不是 `value_selector`')
+    expect(bundle.prompt_markdown).toContain('`object` / `array` 必须声明 `schema`')
     expect(bundle.prompt_markdown).toContain(
       '`structured_output.enabled=false` 时不要写 `structured_output.schema:null`'
     )
@@ -34,6 +40,9 @@ describe('orchestraflow ai schema bundle', () => {
     expect(bundle.prompt_markdown).not.toContain('```json')
     expect(bundle.annotated_workflow_jsonc).toContain(
       'include `default` so the run panel can prefill runnable values'
+    )
+    expect(bundle.annotated_workflow_jsonc).toContain(
+      'put defaults inside schema fields/items instead of on the variable'
     )
     expect(bundle.annotated_workflow_jsonc).toContain(
       'Edge rule: non-ifelse nodes use source -> target'
@@ -82,8 +91,15 @@ describe('orchestraflow ai schema bundle', () => {
         startNode.data.input.variables.every((item) => item.value_selector === undefined)
       ).toBe(true)
       expect(startNode.data.input.variables[0].default).toBe('batch')
-      expect(startNode.data.input.variables[1].default).toEqual(['sample-item-1', 'sample-item-2'])
-      expect(Array.isArray(startNode.data.input.variables[1].default)).toBe(true)
+      expect(startNode.data.input.variables[1]).not.toHaveProperty('default')
+      expect(startNode.data.input.variables[1].schema).toEqual({
+        type: 'array',
+        items: {
+          type: 'string',
+          description: '单个待处理条目',
+          default: 'sample-item-1'
+        }
+      })
     }
   })
 
@@ -106,5 +122,86 @@ describe('orchestraflow ai schema bundle', () => {
     expect(Object.keys(defs || {}).length).toBeGreaterThan(0)
     expect(positionSchemaRef).toMatch(/^#\/\$defs\//)
     expect(edgeSchema.required).toEqual(expect.arrayContaining(['sourceHandle', 'targetHandle']))
+  })
+
+  it('rejects structured variables without schema or with variable-level default', () => {
+    expect(() =>
+      parseRunnableWorkflowJsonc(`{
+        "id": "bad-workflow",
+        "name": "bad-workflow",
+        "author": "test",
+        "createdAt": 1,
+        "updatedAt": 1,
+        "status": "draft",
+        "graph": {
+          "nodes": [
+            {
+              "id": "start",
+              "type": "start",
+              "position": { "x": 0, "y": 0 },
+              "data": {
+                "title": "开始",
+                "desc": "",
+                "type": "start",
+                "input": {
+                  "variables": [
+                    {
+                      "variable": "payload",
+                      "label": "payload",
+                      "type": "object",
+                      "required": true,
+                      "default": {},
+                      "schema": {
+                        "type": "object",
+                        "properties": {},
+                        "required": [],
+                        "additionalProperties": false
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          ],
+          "edges": []
+        }
+      }`)
+    ).toThrow(/default 不允许直接写在 object 变量上/)
+
+    expect(() =>
+      parseRunnableWorkflowJsonc(`{
+        "id": "bad-workflow-2",
+        "name": "bad-workflow-2",
+        "author": "test",
+        "createdAt": 1,
+        "updatedAt": 1,
+        "status": "draft",
+        "graph": {
+          "nodes": [
+            {
+              "id": "start",
+              "type": "start",
+              "position": { "x": 0, "y": 0 },
+              "data": {
+                "title": "开始",
+                "desc": "",
+                "type": "start",
+                "input": {
+                  "variables": [
+                    {
+                      "variable": "items",
+                      "label": "items",
+                      "type": "array",
+                      "required": true
+                    }
+                  ]
+                }
+              }
+            }
+          ],
+          "edges": []
+        }
+      }`)
+    ).toThrow(/schema 必须是对象/)
   })
 })

@@ -42,6 +42,18 @@ const WORKFLOW_AUTHORING_CONTRACT_BASE: Omit<OFWorkflowAuthoringContract, 'nodes
       summary: '所有 selector 必须是至少 1 段的非空字符串数组。'
     },
     {
+      id: 'structured-vars-require-schema',
+      level: 'error',
+      scope: 'variable',
+      summary: '`object` / `array` 类型变量必须显式声明 `schema`。'
+    },
+    {
+      id: 'structured-vars-no-variable-default',
+      level: 'error',
+      scope: 'variable',
+      summary: '`object` / `array` 类型变量不要写变量级 `default`；默认值应落在 `schema` 内。'
+    },
+    {
       id: 'edge-explicit-handle',
       level: 'error',
       scope: 'edge',

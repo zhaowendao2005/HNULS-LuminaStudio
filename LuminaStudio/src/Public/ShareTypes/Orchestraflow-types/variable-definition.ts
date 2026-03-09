@@ -89,16 +89,42 @@ export const startInputVariableDefinition: OFVariableDefinition<void> = {
       summary: 'boolean 输入变量直接写 true/false。'
     },
     {
-      path: 'graph.nodes[start].data.input.variables[array].default',
+      path: 'graph.nodes[start].data.input.variables[array].schema',
       kind: 'example',
-      value: ['sample-item-1', 'sample-item-2'],
-      summary: 'array 输入变量写真实 JSON 数组，不要写成字符串化 JSON。'
+      value: {
+        type: 'array',
+        items: {
+          type: 'string',
+          description: '单个条目示例',
+          default: 'sample-item'
+        },
+        description: 'array 输入变量必须声明 items schema；如需默认值，优先写在 schema 中。'
+      },
+      summary: 'array 输入变量必须声明 schema，不要只写变量级 `default`。'
     },
     {
-      path: 'graph.nodes[start].data.input.variables[object].default',
+      path: 'graph.nodes[start].data.input.variables[object].schema',
       kind: 'example',
-      value: { topic: 'demo', priority: 1 },
-      summary: 'object 输入变量写真实 JSON 对象，不要写成字符串化 JSON。'
+      value: {
+        type: 'object',
+        properties: {
+          topic: {
+            type: 'string',
+            description: '主题',
+            default: 'demo'
+          },
+          priority: {
+            type: 'number',
+            description: '优先级',
+            default: 1
+          }
+        },
+        required: ['topic', 'priority'],
+        additionalProperties: false,
+        description: 'object 输入变量必须声明 properties schema；字段默认值写在 schema 内。'
+      },
+      summary:
+        'object 输入变量必须声明 schema，字段默认值写在 schema 内，不要只写变量级 `default`。'
     }
   ]
 }

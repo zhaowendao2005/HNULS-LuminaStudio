@@ -93,6 +93,9 @@ function buildPromptMarkdown(
     '',
     '## 输入默认值建议',
     '- `graph.nodes[start].data.input.variables[*].default` 用于运行面板预填，不是编译器自动回填。',
+    '- `string` / `number` / `boolean` 可以直接写变量级 `default`。',
+    '- `object` / `array` 必须声明 `schema`，不要只写变量级 `default`。',
+    '- `object` / `array` 的默认值应写在 `schema` 内部字段或数组 schema 中，不要挂在变量本身。',
     ...startDefaultRecommendations.map(
       (item) =>
         `- \`${item.path}\` (${item.kind})：${item.summary}${
@@ -474,6 +477,8 @@ function buildAnnotatedCommentLines(
   return [
     '// Omit optional fields entirely; do not use [], null, or empty objects as placeholders.',
     '// Start input variables should usually include `default` so the run panel can prefill runnable values.',
+    '// Only scalar start input variables should use variable-level `default`.',
+    '// `object` / `array` variables must declare `schema`; put defaults inside schema fields/items instead of on the variable.',
     `// selector rule: ${contract.selector_contract.representation}; first segment is ${contract.selector_contract.first_segment}.`,
     `// selector examples: ${contract.selector_contract.examples.map((item) => JSON.stringify(item)).join(' | ')}.`,
     ...contract.global_invariants.map((item) => `// invariant: ${item.summary}`),
@@ -515,7 +520,14 @@ function exampleDsl(): OFAIDslWorkflow {
                 label: 'items',
                 type: OFVarType.Array,
                 required: true,
-                default: ['sample-item-1', 'sample-item-2']
+                schema: {
+                  type: 'array',
+                  items: {
+                    type: 'string',
+                    description: '单个待处理条目',
+                    default: 'sample-item-1'
+                  }
+                }
               }
             ]
           }
@@ -609,7 +621,14 @@ function exampleDsl(): OFAIDslWorkflow {
                 variable: 'batch_result',
                 label: 'batch_result',
                 type: OFVarType.Array,
-                value_selector: ['iterate_items.result']
+                value_selector: ['iterate_items.result'],
+                schema: {
+                  type: 'array',
+                  items: {
+                    type: 'string',
+                    description: '批处理后的文本结果'
+                  }
+                }
               },
               {
                 variable: 'single_result',

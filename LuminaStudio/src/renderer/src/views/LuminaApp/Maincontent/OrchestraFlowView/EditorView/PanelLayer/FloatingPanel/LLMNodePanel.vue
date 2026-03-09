@@ -314,7 +314,7 @@ import type {
   OFStructuredJsonSchema,
   OFStructuredOutputConfig
 } from '@shared/Orchestraflow-types'
-import { llmOutputVariableDefinition } from '@shared/Orchestraflow-types/variable-definition'
+import { llmOutputVariableDefinition } from '@shared/Orchestraflow-types'
 import { useWorkflowEditorStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor.store'
 import { useWorkflowEditorUIStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor-ui.store'
 import { useVariableSelectorStore } from '@renderer/stores/orchestraflow/workflow-editor/variable-selector/variable-selector.store'

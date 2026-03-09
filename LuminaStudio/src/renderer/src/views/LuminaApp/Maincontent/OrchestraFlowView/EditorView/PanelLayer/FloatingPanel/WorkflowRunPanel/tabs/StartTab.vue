@@ -62,7 +62,10 @@
 
 <script setup lang="ts">
 import { computed, reactive, watch } from 'vue'
-import { useWorkflowRunStore } from '@renderer/stores/orchestraflow/workflow-run/workflow-run.store'
+import {
+  buildWorkflowInputDefaultValue,
+  useWorkflowRunStore
+} from '@renderer/stores/orchestraflow/workflow-run/workflow-run.store'
 import { useWorkflowEditorStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor.store'
 import { useWorkflowEditorUIStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor-ui.store'
 import type { OFInputVar } from '@shared/Orchestraflow-types'
@@ -108,13 +111,7 @@ watch(
 
     vars.forEach((item) => {
       if (formData[item.variable] !== undefined) return
-
-      if (item.default !== undefined) {
-        formData[item.variable] = cloneDefaultValue(item.default)
-        return
-      }
-
-      formData[item.variable] = getEmptyValue(item.type)
+      formData[item.variable] = buildWorkflowInputDefaultValue(item)
     })
   },
   { immediate: true }
@@ -136,22 +133,6 @@ function buildPlaceholder(inputVar: OFInputVar): string {
     return '请输入 JSON 对象，例如 {}'
   }
   return `请输入 ${inputVar.label || inputVar.variable}`
-}
-
-function cloneDefaultValue<T>(value: T): T {
-  if (value === null || value === undefined) return value
-  try {
-    return structuredClone(value)
-  } catch {
-    return JSON.parse(JSON.stringify(value)) as T
-  }
-}
-
-function getEmptyValue(type?: OFInputVar['type']) {
-  if (type === OFVarType.Array) return []
-  if (type === OFVarType.Object) return {}
-  if (type === OFVarType.Boolean) return ''
-  return ''
 }
 
 function handleFormUpdate(values: Record<string, any>) {

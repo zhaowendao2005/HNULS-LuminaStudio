@@ -219,12 +219,9 @@
 
                       <div class="of-branch-v7-result">
                         <span class="of-branch-v7-result-label">去</span>
-                        <button
-                          type="button"
-                          class="of-ref-trigger of-branch-target of-ref-trigger-empty"
-                        >
-                          <span class="of-ref-text">{{ item.label || '走分支' }}</span>
-                        </button>
+                        <span class="system-sm-medium text-gray-700">
+                          {{ getBranchTargetText(item.handleId) }}
+                        </span>
                       </div>
 
                       <span class="of-branch-actions">
@@ -272,12 +269,9 @@
                       </div>
                       <div class="of-branch-v7-result">
                         <span class="of-branch-v7-result-label">去</span>
-                        <button
-                          type="button"
-                          class="of-ref-trigger of-branch-target of-ref-trigger-empty"
-                        >
-                          <span class="of-ref-text">走默认分支</span>
-                        </button>
+                        <span class="system-sm-medium text-gray-700">
+                          {{ getBranchTargetText(nodeData?.elseCase.handleId) }}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -390,6 +384,23 @@ function patchNode(patch: Partial<OFIfElseNodeData>) {
 
 function patchCases(nextCases: OFIfElseNodeData['cases']) {
   patchNode({ cases: nextCases })
+}
+
+function getBranchTargetText(handleId?: string) {
+  if (!currentNode.value?.id || !handleId) {
+    return '未连接'
+  }
+
+  const matchedEdge = editorStore.edges.find(
+    (edge) => edge.source === currentNode.value?.id && edge.sourceHandle === handleId
+  )
+
+  if (!matchedEdge) {
+    return '未连接'
+  }
+
+  const targetNode = editorStore.findNodeById(matchedEdge.target)
+  return String(targetNode?.data?.title || matchedEdge.target).trim() || '未连接'
 }
 
 function createCondition(): OFIfElseCondition {

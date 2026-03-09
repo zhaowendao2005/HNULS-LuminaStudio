@@ -38,6 +38,78 @@ function assertStringArray(value: unknown, path: string): string[] {
   return value.map((item, index) => assertNonEmptyString(item, `${path}[${index}]`))
 }
 
+function assertAllowedScalarDefault(value: unknown, path: string): void {
+  if (
+    value !== null &&
+    typeof value !== 'string' &&
+    typeof value !== 'number' &&
+    typeof value !== 'boolean'
+  ) {
+    throw new Error(`${path} 只能是 string | number | boolean | null`)
+  }
+}
+
+function validateJsonSchemaProperty(value: unknown, path: string): void {
+  const schema = assertRecord(value, path)
+  const type = assertNonEmptyString(schema.type, `${path}.type`)
+
+  if (type === 'object') {
+    const properties = assertRecord(schema.properties, `${path}.properties`)
+    if (!Array.isArray(schema.required)) {
+      throw new Error(`${path}.required 必须是数组`)
+    }
+    if (schema.additionalProperties !== false) {
+      throw new Error(`${path}.additionalProperties 必须等于 false`)
+    }
+    Object.entries(properties).forEach(([key, child]) => {
+      validateJsonSchemaProperty(child, `${path}.properties.${key}`)
+    })
+    return
+  }
+
+  if (type === 'array') {
+    validateJsonSchemaProperty(schema.items, `${path}.items`)
+    return
+  }
+
+  if (!['string', 'number', 'boolean'].includes(type)) {
+    throw new Error(`${path}.type 仅支持 string | number | boolean | object | array`)
+  }
+
+  if ('default' in schema) {
+    assertAllowedScalarDefault(schema.default, `${path}.default`)
+  }
+}
+
+function validateStructuredVariable(item: Record<string, any>, path: string): void {
+  const type = item.type
+  if (type !== 'object' && type !== 'array') {
+    return
+  }
+
+  if ('default' in item) {
+    throw new Error(`${path}.default 不允许直接写在 ${type} 变量上，默认值应写入 schema`)
+  }
+
+  validateJsonSchemaProperty(item.schema, `${path}.schema`)
+
+  const schemaType = item.schema?.type
+  if (schemaType !== type) {
+    throw new Error(`${path}.schema.type 必须与变量 type=${type} 保持一致`)
+  }
+}
+
+function validateVariableList(items: unknown, path: string): void {
+  if (!Array.isArray(items)) {
+    return
+  }
+
+  items.forEach((item, index) => {
+    const variable = assertRecord(item, `${path}[${index}]`)
+    validateStructuredVariable(variable, `${path}[${index}]`)
+  })
+}
+
 function getNodeDisplayType(node: Record<string, any>, path: string): OFBlockEnum {
   const nodeType = assertNonEmptyString(node.type, `${path}.type`) as OFBlockEnum
   const data = assertRecord(node.data, `${path}.data`)
@@ -55,6 +127,7 @@ function validateSelectorFields(
 ): void {
   switch (nodeType) {
     case OFBlockEnum.Start:
+      validateVariableList(data.input?.variables, `${path}.input.variables`)
       ;(data.input?.variables || []).forEach((item: any, index: number) => {
         if (Array.isArray(item.value_selector) && item.value_selector.length > 0) {
           assertStringArray(item.value_selector, `${path}.input.variables[${index}].value_selector`)
@@ -94,6 +167,7 @@ function validateSelectorFields(
       })
       return
     case OFBlockEnum.Loop:
+      validateVariableList(data.loop_variables, `${path}.loop_variables`)
       ;(data.loop_variables || []).forEach((item: any, index: number) => {
         if (item.value_type === 'variable') {
           assertStringArray(item.value_selector, `${path}.loop_variables[${index}].value_selector`)
@@ -107,6 +181,7 @@ function validateSelectorFields(
       })
       return
     case OFBlockEnum.VariableAssign:
+      validateVariableList(data.rules, `${path}.rules`)
       ;(data.rules || []).forEach((rule: any, index: number) => {
         if (rule.source_mode === 'variable') {
           assertStringArray(rule.source_selector, `${path}.rules[${index}].source_selector`)
@@ -114,6 +189,7 @@ function validateSelectorFields(
       })
       return
     case OFBlockEnum.End:
+      validateVariableList(data.output?.variables, `${path}.output.variables`)
       ;(data.output?.variables || []).forEach((item: any, index: number) => {
         if (item.value_selector !== undefined) {
           assertStringArray(
