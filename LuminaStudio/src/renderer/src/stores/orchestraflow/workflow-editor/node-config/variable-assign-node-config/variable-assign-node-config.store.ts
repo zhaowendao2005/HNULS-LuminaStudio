@@ -7,9 +7,9 @@ import {
   type OFNode,
   type OFVariableAssignNodeData,
   type OFVariableAssignNodeConfig,
-  type OFVariableAssignRule
+  type OFVariableAssignRule,
+  resolveOFNodeDefinition
 } from '@shared/Orchestraflow-types'
-import { resolveOFNodeDefinition } from '@shared/Orchestraflow-types/node-definition-registry'
 
 function createDefaultNodeData(nodeId: string, title: string): OFVariableAssignNodeData {
   return (

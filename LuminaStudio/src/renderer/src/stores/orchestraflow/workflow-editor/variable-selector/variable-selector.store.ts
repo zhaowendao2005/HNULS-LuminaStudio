@@ -4,7 +4,6 @@
  */
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { resolveOFNodeDefinition } from '@shared/Orchestraflow-types/node-definition-registry'
 import { useWorkflowEditorStore } from '../workflow-editor.store'
 import type {
   OFAvailableVariable,
@@ -23,7 +22,8 @@ import {
   OFBlockEnum,
   OFVarType,
   OF_LOOP_COUNT_VARIABLE_NAME,
-  OF_LOOP_INDEX_VARIABLE_NAME
+  OF_LOOP_INDEX_VARIABLE_NAME,
+  resolveOFNodeDefinition
 } from '@shared/Orchestraflow-types'
 
 const SYSTEM_VARIABLES: Array<{

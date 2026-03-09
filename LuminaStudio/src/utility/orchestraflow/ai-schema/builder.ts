@@ -17,8 +17,7 @@ import type {
   OFRunnableWorkflow,
   OFWorkflowAuthoringContract
 } from '@shared/Orchestraflow-types'
-import { OFBlockEnum, OFVarType } from '@shared/Orchestraflow-types'
-import { listOFNodeDefinitions } from '@shared/Orchestraflow-types/node-definition-registry'
+import { listOFNodeDefinitions, OFBlockEnum, OFVarType } from '@shared/Orchestraflow-types'
 import { compileAIDslToWorkflow } from './compiler'
 import { GENERATED_RUNNABLE_WORKFLOW_SCHEMA } from './generated-runnable-schema'
 import {

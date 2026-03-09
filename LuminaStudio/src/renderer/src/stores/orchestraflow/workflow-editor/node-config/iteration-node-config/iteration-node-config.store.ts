@@ -5,9 +5,9 @@ import {
   type OFContainerNodeDefinition,
   type OFIterationNodeConfig,
   type OFIterationNodeData,
-  type OFNode
+  type OFNode,
+  resolveOFNodeDefinition
 } from '@shared/Orchestraflow-types'
-import { resolveOFNodeDefinition } from '@shared/Orchestraflow-types/node-definition-registry'
 
 function createDefaultNodeData(nodeId: string, title: string): OFIterationNodeData {
   return (

@@ -1,6 +1,5 @@
 import type { OFNode } from '@shared/Orchestraflow-types'
-import { OFBlockEnum } from '@shared/Orchestraflow-types'
-import { resolveOFNodeDefinition } from '@shared/Orchestraflow-types/node-definition-registry'
+import { OFBlockEnum, resolveOFNodeDefinition } from '@shared/Orchestraflow-types'
 import { BaseNode } from '../nodes/base-node'
 import { EndNode } from '../nodes/end-node'
 import { IfElseNode } from '../nodes/if-else-node'

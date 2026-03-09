@@ -9,6 +9,8 @@
   "scripts": {
     "format": "prettier --write .",
     "lint": "node scripts/run-with-logger.mjs eslint --cache .",
+    "lint:orchestraflow": "node scripts/run-with-logger.mjs eslint src/Public/ShareTypes/Orchestraflow-types src/utility/orchestraflow src/renderer/src/stores/orchestraflow",
+    "lint:orchestraflow:fix": "node scripts/run-with-logger.mjs eslint --fix src/Public/ShareTypes/Orchestraflow-types src/utility/orchestraflow src/renderer/src/stores/orchestraflow",
     "generate:orchestraflow-schema": "node scripts/generate-orchestraflow-runnable-schema.mjs",
     "test:orchestraflow": "vitest run --config vitest.orchestraflow.config.ts",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",

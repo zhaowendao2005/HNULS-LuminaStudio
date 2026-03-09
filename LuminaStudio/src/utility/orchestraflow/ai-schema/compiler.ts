@@ -19,9 +19,12 @@ import type {
   OFVariable,
   OFWorkflow
 } from '@shared/Orchestraflow-types'
-import { normalizeOFVariableNamespace, OFBlockEnum } from '@shared/Orchestraflow-types'
-import { getOFDefaultNodeTitle } from '@shared/Orchestraflow-types/node-definition'
-import { resolveOFNodeDefinition } from '@shared/Orchestraflow-types/node-definition-registry'
+import {
+  getOFDefaultNodeTitle,
+  normalizeOFVariableNamespace,
+  OFBlockEnum,
+  resolveOFNodeDefinition
+} from '@shared/Orchestraflow-types'
 
 type CompileGraphContext = {
   parentNodeId?: string

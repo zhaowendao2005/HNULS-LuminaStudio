@@ -9,12 +9,12 @@ import {
   OFBlockEnum,
   OF_LLM_STRUCTURED_OUTPUT_NAME,
   normalizeOFVariableNamespace,
+  resolveOFNodeDefinition,
   type OFJsonSchemaProperty,
   type OFLLMNodeData,
   type OFModelCompletionParams,
   type OFStructuredJsonSchema
 } from '@shared/Orchestraflow-types'
-import { resolveOFNodeDefinition } from '@shared/Orchestraflow-types/node-definition-registry'
 import type { ExecutionContext, NodeResult } from './types'
 import { VariableStore } from '../services/variable-store'
 import { ChatOpenAI } from '@langchain/openai'

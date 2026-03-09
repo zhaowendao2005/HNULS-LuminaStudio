@@ -5,6 +5,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: [
+      'scripts/eslint/**/*.test.ts',
       'src/utility/orchestraflow/**/*.test.ts',
       'src/Public/ShareTypes/Orchestraflow-types/**/*.test.ts',
       'src/renderer/src/stores/orchestraflow/**/*.test.ts'

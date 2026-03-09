@@ -8,9 +8,9 @@ import {
   type OFNode,
   type OFLoopNodeData,
   type OFLoopNodeConfig,
-  type OFLoopVariableData
+  type OFLoopVariableData,
+  resolveOFNodeDefinition
 } from '@shared/Orchestraflow-types'
-import { resolveOFNodeDefinition } from '@shared/Orchestraflow-types/node-definition-registry'
 
 function createDefaultNodeData(nodeId: string, title: string): OFLoopNodeData {
   return (

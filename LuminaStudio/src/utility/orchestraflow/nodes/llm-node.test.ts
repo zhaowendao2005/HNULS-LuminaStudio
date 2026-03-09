@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { OFBlockEnum, OFVarType, type OFNode } from '@shared/Orchestraflow-types'
-import { resolveOFNodeDefinition } from '@shared/Orchestraflow-types/node-definition-registry'
+import {
+  OFBlockEnum,
+  OFVarType,
+  resolveOFNodeDefinition,
+  type OFNode
+} from '@shared/Orchestraflow-types'
 import { LLMNode } from './llm-node'
 import { VariableStore } from '../services/variable-store'
 

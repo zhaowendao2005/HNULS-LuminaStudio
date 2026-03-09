@@ -3,6 +3,7 @@ import tseslint from '@electron-toolkit/eslint-config-ts'
 import eslintConfigPrettier from '@electron-toolkit/eslint-config-prettier'
 import eslintPluginVue from 'eslint-plugin-vue'
 import vueParser from 'vue-eslint-parser'
+import orchestraflowPlugin from './scripts/eslint/orchestraflow-plugin.mjs'
 
 export default defineConfig(
   { ignores: ['**/node_modules', '**/dist', '**/out'] },
@@ -73,6 +74,18 @@ export default defineConfig(
       '@typescript-eslint/no-unused-vars': 'off',
       'no-control-regex': 'off',
       'no-empty': 'off'
+    }
+  },
+  {
+    files: ['src/**/*.{ts,mts,tsx,vue,js,mjs}'],
+    plugins: {
+      orchestraflow: orchestraflowPlugin
+    },
+    rules: {
+      'orchestraflow/no-legacy-entrypoints': 'error',
+      'orchestraflow/prefer-shared-barrel-api': 'error',
+      'orchestraflow/no-business-branch-outside-definitions': 'error',
+      'orchestraflow/no-manual-derived-node-fields': 'error'
     }
   },
   {

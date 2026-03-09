@@ -3,8 +3,7 @@ import type {
   OFAuthoringDefaultRecommendation,
   OFWorkflowAuthoringContract
 } from '@shared/Orchestraflow-types'
-import { listOFNodeDefinitions } from '@shared/Orchestraflow-types/node-definition-registry'
-import { cloneOFAuthoringDefaults } from '@shared/Orchestraflow-types/variable-definition'
+import { cloneOFAuthoringDefaults, listOFNodeDefinitions } from '@shared/Orchestraflow-types'
 
 const WORKFLOW_AUTHORING_CONTRACT_BASE: Omit<OFWorkflowAuthoringContract, 'nodes'> = {
   version: '1.0',

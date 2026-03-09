@@ -7,13 +7,11 @@ import {
   OFControlMode,
   OFBlockEnum,
   OFNodeRunningStatus,
-  normalizeOFVariableNamespace
-} from '@shared/Orchestraflow-types'
-import {
   getOFDefaultNodeTitle,
-  normalizeOFNodeTitle
-} from '@shared/Orchestraflow-types/node-definition'
-import { resolveOFNodeDefinition } from '@shared/Orchestraflow-types/node-definition-registry'
+  normalizeOFNodeTitle,
+  normalizeOFVariableNamespace,
+  resolveOFNodeDefinition
+} from '@shared/Orchestraflow-types'
 import type {
   OFNode,
   OFEdge,
@@ -936,11 +934,8 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
   function addNode(type: OFBlockEnum): string {
     const id = `node_${type}_${Date.now()}`
     const position = { x: 200 + Math.random() * 100, y: 200 + Math.random() * 100 }
-    const title = getUniqueNodeTitle(
-      type,
-      type === OFBlockEnum.Loop ? '循环' : getOFDefaultNodeTitle(type)
-    )
     const definition = resolveOFNodeDefinition(type)
+    const title = getUniqueNodeTitle(type, getOFDefaultNodeTitle(type))
     const nodeData = createDefaultNodeData(type, id, title)
     const newNode = normalizeNode({
       id,
@@ -951,11 +946,8 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
     const nextNodes = [...nodes.value, newNode]
     const nextEdges = [...edges.value]
 
-    if (type === OFBlockEnum.Iteration || type === OFBlockEnum.Loop) {
-      const iterationSubgraph =
-        type === OFBlockEnum.Iteration
-          ? (nodeData as OFIterationNodeData).subgraph
-          : (nodeData as OFLoopNodeData).subgraph
+    if (definition.meta.kind === 'container' && 'subgraph' in nodeData) {
+      const iterationSubgraph = nodeData.subgraph
       iterationSubgraph.nodes.forEach((childNode) => {
         nextNodes.push(
           normalizeNode({
@@ -972,7 +964,7 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
 
     nodes.value = dedupeNodes(nextNodes)
     edges.value = dedupeEdges(nextEdges)
-    if (type === OFBlockEnum.Iteration || type === OFBlockEnum.Loop) {
+    if (definition.meta.kind === 'container') {
       syncIterationContainerSize(id)
     }
     scheduleSave()
