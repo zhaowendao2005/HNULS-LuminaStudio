@@ -109,7 +109,7 @@ export interface McpTraceEvent {
 }
 
 export interface McpConnectRequest {
-  presetId: string
+  preset: McpServerPreset
 }
 
 export interface McpCallToolRequest {

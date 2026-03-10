@@ -22,7 +22,7 @@
             <input
               v-model="searchKeyword"
               type="text"
-              placeholder="Search workflows..."
+              placeholder="搜索工作流..."
               class="w-full px-4 py-2 pl-10 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
               @input="handleSearch"
             />
@@ -49,8 +49,10 @@
         v-if="activeTab === 'all'"
         class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
       >
-        <CreateWorkflowCard @create="handleCreateWorkflow" />
-        <GenerateWorkflowCard @generate="handleCreateGenerationSession" />
+        <CreateWorkflowCard
+          @create="handleCreateWorkflow"
+          @generate="handleCreateGenerationSession"
+        />
         <WorkflowCard
           v-for="workflow in workflows"
           :key="workflow.id"
@@ -86,7 +88,6 @@ import { useWorkflowListStore } from '@renderer/stores/orchestraflow/workflow-li
 import { useWorkflowGenerationStore } from '@renderer/stores/orchestraflow/workflow-generation/workflow-generation.store'
 import CreateWorkflowCard from './CreateWorkflowCard.vue'
 import CreateWorkflowModal from './CreateWorkflowModal/index.vue'
-import GenerateWorkflowCard from './GenerateWorkflowCard.vue'
 import GenerationSessionCard from './GenerationSessionCard.vue'
 import WorkflowCard from './WorkflowCard.vue'
 
@@ -121,7 +122,7 @@ function handleCreateWorkflow() {
 
 async function handleCreateGenerationSession() {
   const session = await workflowGenerationStore.createSession({
-    workflow_name: `Generated Workflow ${workflowGenerationStore.sessions.length + 1}`,
+    workflow_name: `生成工作流 ${workflowGenerationStore.sessions.length + 1}`,
     prompt: ''
   })
   emit('open-generator', session.id)

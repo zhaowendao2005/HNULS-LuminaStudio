@@ -120,18 +120,14 @@ export class McpService {
     return this.config.presets
   }
 
-  async connect(presetId: string): Promise<McpSessionState> {
-    const preset = this.config.presets.find((item) => item.id === presetId)
-    if (!preset) {
-      throw new Error(`Preset not found: ${presetId}`)
-    }
-
+  async connect(preset: McpServerPreset): Promise<McpSessionState> {
+    const normalizedPreset = this.normalizePreset(preset)
     await this.disconnect()
     this.clearTraceBuffer()
 
-    const transport = this.createTransport(preset)
+    const transport = this.createTransport(normalizedPreset)
     const tracedTransport = new TracedTransport(transport, (direction, payload) => {
-      this.recordTrace(direction, preset.transport, payload)
+      this.recordTrace(direction, normalizedPreset.transport, payload)
     })
     const client = new Client(
       { name: 'LuminaStudio MCP Workbench', version: '1.0.0' },
@@ -158,8 +154,8 @@ export class McpService {
     this.transport = tracedTransport
     this.updateSessionState({
       connected: true,
-      presetId: preset.id,
-      transport: preset.transport,
+      presetId: normalizedPreset.id,
+      transport: normalizedPreset.transport,
       serverName: client.getServerVersion()?.name ?? null,
       serverVersion: client.getServerVersion()?.version ?? null,
       protocolVersion: null,
@@ -215,7 +211,11 @@ export class McpService {
 
   async listPrompts(): Promise<McpPromptSummary[]> {
     const client = this.requireClient()
-    const result = await client.listPrompts()
+    const result = await this.safeOptionalRequest(
+      () => client.listPrompts(),
+      this.sessionState.capabilities?.prompts ?? false,
+      'prompts/list'
+    )
     return (result.prompts ?? []).map((prompt) => ({
       name: prompt.name,
       description: prompt.description,
@@ -241,7 +241,11 @@ export class McpService {
 
   async listResources(): Promise<McpResourceSummary[]> {
     const client = this.requireClient()
-    const result = await client.listResources()
+    const result = await this.safeOptionalRequest(
+      () => client.listResources(),
+      this.sessionState.capabilities?.resources ?? false,
+      'resources/list'
+    )
     return (result.resources ?? []).map((resource) => ({
       uri: resource.uri,
       name: resource.name,
@@ -388,5 +392,46 @@ export class McpService {
       throw new Error('MCP session is not connected')
     }
     return this.client
+  }
+
+  private async safeOptionalRequest<TResult extends { prompts?: unknown[]; resources?: unknown[] }>(
+    request: () => Promise<TResult>,
+    capabilityEnabled: boolean,
+    methodName: 'prompts/list' | 'resources/list'
+  ): Promise<TResult> {
+    if (!capabilityEnabled) {
+      return this.createEmptyOptionalResult(methodName) as TResult
+    }
+
+    try {
+      return await request()
+    } catch (error) {
+      if (this.isMethodNotFoundError(error)) {
+        log.warn(`MCP server advertised unsupported optional method: ${methodName}`, {
+          error: error instanceof Error ? error.message : String(error)
+        })
+        return this.createEmptyOptionalResult(methodName) as TResult
+      }
+      throw error
+    }
+  }
+
+  private createEmptyOptionalResult(methodName: 'prompts/list' | 'resources/list'): {
+    prompts?: []
+    resources?: []
+  } {
+    if (methodName === 'prompts/list') {
+      return { prompts: [] }
+    }
+    return { resources: [] }
+  }
+
+  private isMethodNotFoundError(error: unknown): boolean {
+    if (!error || typeof error !== 'object') {
+      return false
+    }
+
+    const candidate = error as { code?: unknown }
+    return candidate.code === -32601
   }
 }

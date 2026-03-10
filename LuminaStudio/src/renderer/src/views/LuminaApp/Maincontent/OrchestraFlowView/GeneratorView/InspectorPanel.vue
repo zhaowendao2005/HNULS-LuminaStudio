@@ -2,19 +2,19 @@
   <section
     class="of-generator-inspector-panel rounded-3xl border border-slate-200 bg-white/90 p-4 shadow-sm"
   >
-    <h3 class="mb-3 text-sm font-semibold text-slate-900">Graph Summary</h3>
+    <h3 class="mb-3 text-sm font-semibold text-slate-900">图谱概览</h3>
     <dl class="grid grid-cols-2 gap-3 text-sm text-slate-700">
       <div class="rounded-2xl bg-slate-50 p-3">
-        <dt class="text-xs uppercase tracking-[0.14em] text-slate-500">Nodes</dt>
+        <dt class="text-xs uppercase tracking-[0.14em] text-slate-500">节点数</dt>
         <dd class="mt-1 text-lg font-semibold text-slate-900">{{ summary.node_count }}</dd>
       </div>
       <div class="rounded-2xl bg-slate-50 p-3">
-        <dt class="text-xs uppercase tracking-[0.14em] text-slate-500">Edges</dt>
+        <dt class="text-xs uppercase tracking-[0.14em] text-slate-500">连线数</dt>
         <dd class="mt-1 text-lg font-semibold text-slate-900">{{ summary.edge_count }}</dd>
       </div>
     </dl>
     <div class="mt-4 rounded-2xl bg-slate-50 p-3">
-      <div class="mb-2 text-xs uppercase tracking-[0.14em] text-slate-500">Namespaces</div>
+      <div class="mb-2 text-xs uppercase tracking-[0.14em] text-slate-500">命名空间</div>
       <div class="flex flex-wrap gap-2">
         <span
           v-for="item in summary.namespaces"

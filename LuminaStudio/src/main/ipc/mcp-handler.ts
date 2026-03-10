@@ -52,10 +52,10 @@ export class McpIPCHandler extends BaseIPCHandler {
     _event: unknown,
     request: McpConnectRequest
   ): Promise<{ success: true; data: unknown } | { success: false; error: string }> {
-    if (!request?.presetId) {
-      return { success: false, error: 'Missing presetId' }
+    if (!request?.preset || typeof request.preset !== 'object') {
+      return { success: false, error: 'Missing preset' }
     }
-    return { success: true, data: await this.mcpService.connect(request.presetId) }
+    return { success: true, data: await this.mcpService.connect(request.preset) }
   }
 
   async handleDisconnect(): Promise<{ success: true; data: unknown }> {

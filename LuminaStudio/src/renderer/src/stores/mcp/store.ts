@@ -106,7 +106,11 @@ export const useMcpStore = defineStore('mcp-workbench', () => {
     state.value.loading = true
     state.value.error = null
     try {
-      state.value.session = await McpDataSource.connect(presetId)
+      const preset = state.value.presets.find((item) => item.id === presetId)
+      if (!preset) {
+        throw new Error(`Preset not found: ${presetId}`)
+      }
+      state.value.session = await McpDataSource.connect(preset)
       state.value.activeStage = 'tools'
       state.value.traces = []
       await refreshWorkspaceData()
@@ -134,10 +138,20 @@ export const useMcpStore = defineStore('mcp-workbench', () => {
   }
 
   async function refreshWorkspaceData(): Promise<void> {
+    const toolsPromise = state.value.session.capabilities?.tools
+      ? McpDataSource.listTools()
+      : Promise.resolve([])
+    const promptsPromise = state.value.session.capabilities?.prompts
+      ? McpDataSource.listPrompts()
+      : Promise.resolve([])
+    const resourcesPromise = state.value.session.capabilities?.resources
+      ? McpDataSource.listResources()
+      : Promise.resolve([])
+
     const [tools, prompts, resources] = await Promise.all([
-      McpDataSource.listTools(),
-      McpDataSource.listPrompts(),
-      McpDataSource.listResources()
+      toolsPromise,
+      promptsPromise,
+      resourcesPromise
     ])
     state.value.tools = tools
     state.value.prompts = prompts

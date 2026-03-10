@@ -220,7 +220,7 @@
                       </button>
                       <button
                         class="rounded-lg px-2 py-1.5 text-xs font-medium text-rose-600"
-                        @click="store.deletePreset(preset.id)"
+                        @click="handleDeletePreset(preset.id)"
                       >
                         删除
                       </button>
@@ -290,12 +290,12 @@
             </div>
             <div class="w-[380px] shrink-0 bg-slate-50/70">
               <PanelHeader title="LLM 实际读取视角" />
-              <div class="space-y-4 overflow-auto p-4">
+              <div class="min-w-0 space-y-4 overflow-auto p-4">
                 <p class="text-xs leading-5 text-slate-500">
                   这是客户端基于 descriptor 与 schema 拼出的提示文本预览。
                 </p>
                 <pre
-                  class="rounded-xl bg-slate-900 p-4 text-xs leading-6 text-slate-200 shadow-inner"
+                  class="w-full overflow-x-auto whitespace-pre-wrap break-words rounded-xl bg-slate-900 p-4 text-xs leading-6 text-slate-200 shadow-inner"
                   >{{ toolPromptPreview }}</pre
                 >
                 <div class="border-l-2 border-amber-400 pl-3">
@@ -729,6 +729,17 @@ async function connectDraft(): Promise<void> {
   const preset = serializeDraft()
   await store.savePreset(preset)
   await store.connectPreset(preset.id)
+}
+
+async function handleDeletePreset(presetId: string): Promise<void> {
+  if (!window.confirm('确定删除这个 MCP 预设吗？此操作不可恢复。')) {
+    return
+  }
+
+  await store.deletePreset(presetId)
+  if (draft.id === presetId) {
+    resetDraft()
+  }
 }
 
 function serializeDraft(): McpServerPreset {

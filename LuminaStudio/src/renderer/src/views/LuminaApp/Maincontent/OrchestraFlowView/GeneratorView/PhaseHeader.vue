@@ -33,9 +33,9 @@ defineEmits<{
 }>()
 
 const phases: Array<{ key: OFGenerationPhase; label: string }> = [
-  { key: 'plan', label: 'Plan' },
-  { key: 'wire', label: 'Wire' },
-  { key: 'config', label: 'Config' },
-  { key: 'validate', label: 'Validate' }
+  { key: 'plan', label: '规划' },
+  { key: 'wire', label: '连线' },
+  { key: 'config', label: '配置' },
+  { key: 'validate', label: '校验' }
 ]
 </script>

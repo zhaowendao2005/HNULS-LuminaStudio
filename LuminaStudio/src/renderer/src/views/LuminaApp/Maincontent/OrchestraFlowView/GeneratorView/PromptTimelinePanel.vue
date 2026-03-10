@@ -3,25 +3,23 @@
     class="of-generator-prompt-panel rounded-3xl border border-slate-200 bg-white/90 p-4 shadow-sm"
   >
     <div class="mb-3 flex items-center justify-between">
-      <h3 class="text-sm font-semibold text-slate-900">Prompt</h3>
+      <h3 class="text-sm font-semibold text-slate-900">提示词</h3>
       <button
         type="button"
         class="rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white"
         @click="$emit('send')"
       >
-        Generate
+        生成
       </button>
     </div>
     <textarea
       :model-value="modelValue"
       class="min-h-[180px] w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-800 outline-none focus:border-emerald-300"
-      placeholder="Describe the workflow you want to generate..."
+      placeholder="描述你想生成的工作流..."
       @input="$emit('update:modelValue', ($event.target as HTMLTextAreaElement).value)"
     />
     <div class="mt-4">
-      <h4 class="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-        Checkpoints
-      </h4>
+      <h4 class="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">检查点</h4>
       <div class="space-y-2">
         <button
           v-for="checkpoint in checkpoints"

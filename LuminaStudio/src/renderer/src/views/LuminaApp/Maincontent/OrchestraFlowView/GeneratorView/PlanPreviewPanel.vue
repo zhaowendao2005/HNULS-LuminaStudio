@@ -2,7 +2,7 @@
   <section
     class="of-generator-plan-panel rounded-3xl border border-emerald-200 bg-emerald-50/70 p-4 shadow-sm"
   >
-    <h3 class="mb-3 text-sm font-semibold text-emerald-900">Plan Preview</h3>
+    <h3 class="mb-3 text-sm font-semibold text-emerald-900">规划预览</h3>
     <div class="space-y-3">
       <div
         v-for="item in items"

@@ -4,10 +4,10 @@
     @click="$emit('generate')"
   >
     <div class="p-5">
-      <div class="text-xs font-medium uppercase tracking-[0.16em] text-cyan-700">AI Generation</div>
-      <div class="mt-3 text-lg font-semibold text-slate-900">Describe and generate</div>
+      <div class="text-xs font-medium uppercase tracking-[0.16em] text-cyan-700">智能生成</div>
+      <div class="mt-3 text-lg font-semibold text-slate-900">描述需求并生成</div>
       <p class="mt-2 text-sm leading-6 text-slate-600">
-        Start with a prompt, preview the topology, validate, then confirm compile.
+        从提示词开始，预览拓扑、执行校验，然后确认编译。
       </p>
     </div>
   </div>

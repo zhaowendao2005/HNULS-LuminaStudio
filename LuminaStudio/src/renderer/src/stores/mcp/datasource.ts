@@ -10,6 +10,8 @@ import type {
   McpTraceEvent
 } from '@preload/types'
 
+const MCP_PRESETS_STORAGE_KEY = 'lumina:mcp-presets'
+
 function unwrap<T>(response: { success: boolean; data?: T; error?: string }): T {
   if (!response.success || response.data === undefined) {
     throw new Error(response.error || 'MCP request failed')
@@ -17,18 +19,48 @@ function unwrap<T>(response: { success: boolean; data?: T; error?: string }): T 
   return response.data
 }
 
+function readLocalPresets(): McpServerPreset[] {
+  const raw = window.localStorage.getItem(MCP_PRESETS_STORAGE_KEY)
+  if (!raw) {
+    return []
+  }
+
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? (parsed as McpServerPreset[]) : []
+  } catch {
+    return []
+  }
+}
+
+function writeLocalPresets(presets: McpServerPreset[]): void {
+  window.localStorage.setItem(MCP_PRESETS_STORAGE_KEY, JSON.stringify(presets))
+}
+
+function toSerializablePreset(preset: McpServerPreset): McpServerPreset {
+  return JSON.parse(JSON.stringify(preset)) as McpServerPreset
+}
+
 export const McpDataSource = {
   listPresets(): Promise<McpServerPreset[]> {
-    return window.api.mcp.listPresets().then(unwrap)
+    return Promise.resolve(readLocalPresets())
   },
   savePreset(preset: McpServerPreset): Promise<McpServerPreset[]> {
-    return window.api.mcp.savePreset(preset).then(unwrap)
+    const serializablePreset = toSerializablePreset(preset)
+    const next = readLocalPresets()
+      .filter((item) => item.id !== serializablePreset.id)
+      .concat(serializablePreset)
+      .sort((a, b) => a.name.localeCompare(b.name))
+    writeLocalPresets(next)
+    return Promise.resolve(next)
   },
   deletePreset(presetId: string): Promise<McpServerPreset[]> {
-    return window.api.mcp.deletePreset(presetId).then(unwrap)
+    const next = readLocalPresets().filter((item) => item.id !== presetId)
+    writeLocalPresets(next)
+    return Promise.resolve(next)
   },
-  connect(presetId: string): Promise<McpSessionState> {
-    return window.api.mcp.connect({ presetId }).then(unwrap)
+  connect(preset: McpServerPreset): Promise<McpSessionState> {
+    return window.api.mcp.connect({ preset: toSerializablePreset(preset) }).then(unwrap)
   },
   disconnect(): Promise<McpSessionState> {
     return window.api.mcp.disconnect().then(unwrap)
