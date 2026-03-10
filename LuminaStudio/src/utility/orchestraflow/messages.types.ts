@@ -10,7 +10,9 @@ import type {
   OFModelConfig,
   OFNodeTracing,
   OFWorkflowRunResult,
-  OFNodeDebugResult
+  OFNodeDebugResult,
+  OFGenerationPhase,
+  OFGenerationSession
 } from '@shared/Orchestraflow-types'
 
 // ==================== Config Types ====================
@@ -94,6 +96,21 @@ export type MainToOFMessage =
       scopePath?: string[]
       providerConfigs?: OFProviderConfigsMap
     }
+  | {
+      type: 'generation:send-prompt'
+      session: OFGenerationSession
+      prompt: string
+    }
+  | {
+      type: 'generation:advance-phase'
+      session: OFGenerationSession
+      phase: OFGenerationPhase
+    }
+  | {
+      type: 'generation:rollback-checkpoint'
+      session: OFGenerationSession
+      checkpointId: string
+    }
 
 // ==================== Utility -> Main ====================
 
@@ -111,3 +128,5 @@ export type OFToMainMessage =
   | { type: 'workflow:error'; runId: string; error: string }
   | { type: 'node:debug-result'; requestId: string; result: OFNodeDebugResult }
   | { type: 'node:debug-error'; requestId: string; error: string }
+  | { type: 'generation:session'; session: OFGenerationSession }
+  | { type: 'generation:error'; error: string }

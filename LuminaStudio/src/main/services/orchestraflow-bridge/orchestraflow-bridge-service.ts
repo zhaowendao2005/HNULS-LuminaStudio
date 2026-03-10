@@ -18,7 +18,9 @@ import type {
   OFWorkflow,
   OFWorkflowRunResult,
   OFNodeTracing,
-  OFNodeDebugResult
+  OFNodeDebugResult,
+  OFGenerationPhase,
+  OFGenerationSession
 } from '@shared/Orchestraflow-types'
 import type { OFToMainMessage } from '@utility/orchestraflow/messages.types'
 import type { MainToOFMessage } from '@utility/orchestraflow/messages.types'
@@ -38,6 +40,7 @@ export class OrchestraflowBridgeService {
 
   private pendingRuns: Map<string, PendingRequest<OFWorkflowRunResult>> = new Map()
   private pendingNodeDebugs: Map<string, PendingRequest<OFNodeDebugResult>> = new Map()
+  private pendingGenerationRequest: PendingRequest<OFGenerationSession> | null = null
   private progressCallbacks: Array<(runId: string, progress: OFNodeTracing) => void> = []
   private messageHandlers: Array<(msg: OFToMainMessage) => void> = []
 
@@ -195,6 +198,53 @@ export class OrchestraflowBridgeService {
     })
   }
 
+  async sendGenerationPrompt(
+    session: OFGenerationSession,
+    prompt: string,
+    timeoutMs = 30000
+  ): Promise<OFGenerationSession> {
+    return this.runGenerationRequest(
+      () => ({ type: 'generation:send-prompt', session, prompt }),
+      timeoutMs
+    )
+  }
+
+  async advanceGenerationPhase(
+    session: OFGenerationSession,
+    phase: OFGenerationPhase,
+    timeoutMs = 30000
+  ): Promise<OFGenerationSession> {
+    return this.runGenerationRequest(
+      () => ({ type: 'generation:advance-phase', session, phase }),
+      timeoutMs
+    )
+  }
+
+  async rollbackGenerationCheckpoint(
+    session: OFGenerationSession,
+    checkpointId: string,
+    timeoutMs = 30000
+  ): Promise<OFGenerationSession> {
+    return this.runGenerationRequest(
+      () => ({ type: 'generation:rollback-checkpoint', session, checkpointId }),
+      timeoutMs
+    )
+  }
+
+  private async runGenerationRequest(
+    buildMessage: () => MainToOFMessage,
+    timeoutMs: number
+  ): Promise<OFGenerationSession> {
+    return new Promise<OFGenerationSession>((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        this.pendingGenerationRequest = null
+        reject(new Error('generation request timeout'))
+      }, timeoutMs)
+      this.pendingGenerationRequest = { resolve, reject, timeoutId }
+      this.send(buildMessage())
+    })
+  }
+
   private send(msg: MainToOFMessage): void {
     if (!this.process) {
       throw new Error('Orchestraflow process not spawned')
@@ -305,6 +355,26 @@ export class OrchestraflowBridgeService {
         if (pending) {
           clearTimeout(pending.timeoutId)
           this.pendingNodeDebugs.delete(msg.requestId)
+          pending.reject(new Error(msg.error))
+        }
+        break
+      }
+
+      case 'generation:session': {
+        if (this.pendingGenerationRequest) {
+          clearTimeout(this.pendingGenerationRequest.timeoutId)
+          const pending = this.pendingGenerationRequest
+          this.pendingGenerationRequest = null
+          pending.resolve(msg.session)
+        }
+        break
+      }
+
+      case 'generation:error': {
+        if (this.pendingGenerationRequest) {
+          clearTimeout(this.pendingGenerationRequest.timeoutId)
+          const pending = this.pendingGenerationRequest
+          this.pendingGenerationRequest = null
           pending.reject(new Error(msg.error))
         }
         break

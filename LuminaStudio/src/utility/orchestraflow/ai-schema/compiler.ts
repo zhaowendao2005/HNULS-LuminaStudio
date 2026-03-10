@@ -116,7 +116,7 @@ function compileDslNode(
       return compileIterationBranchOutputSelectors(source, idMap)
     },
     compileNodeContext(value: OFAIDslNode['config']['context']) {
-      return compileNodeContext(value, idMap)
+      return compileNodeContext(value as OFLLMNodeData['context'], idMap)
     },
     compileSelectorField(value: unknown) {
       return compileSelectorField(value, idMap)

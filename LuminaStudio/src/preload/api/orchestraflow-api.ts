@@ -30,6 +30,50 @@ export const orchestraflowAPI: OFWorkflowAPI = {
     return ipcRenderer.invoke('orchestraflow:ai-schema-bundle')
   },
 
+  listGenerationSessions: () => {
+    return ipcRenderer.invoke('orchestraflow:generation-list')
+  },
+
+  getGenerationSession: (sessionId) => {
+    return ipcRenderer.invoke('orchestraflow:generation-get', sessionId)
+  },
+
+  createGenerationSession: (data) => {
+    return ipcRenderer.invoke('orchestraflow:generation-create', data)
+  },
+
+  sendGenerationPrompt: (sessionId, prompt) => {
+    return ipcRenderer.invoke('orchestraflow:generation-send-prompt', sessionId, prompt)
+  },
+
+  advanceGenerationPhase: (sessionId, phase) => {
+    return ipcRenderer.invoke('orchestraflow:generation-advance-phase', sessionId, phase)
+  },
+
+  rollbackGenerationCheckpoint: (sessionId, checkpointId) => {
+    return ipcRenderer.invoke(
+      'orchestraflow:generation-rollback-checkpoint',
+      sessionId,
+      checkpointId
+    )
+  },
+
+  updateGenerationPhaseModels: (sessionId, phaseModels) => {
+    return ipcRenderer.invoke(
+      'orchestraflow:generation-update-phase-models',
+      sessionId,
+      phaseModels
+    )
+  },
+
+  confirmGenerationSession: (sessionId) => {
+    return ipcRenderer.invoke('orchestraflow:generation-confirm', sessionId)
+  },
+
+  deleteGenerationSession: (sessionId) => {
+    return ipcRenderer.invoke('orchestraflow:generation-delete', sessionId)
+  },
+
   run: (workflowId, inputs) => {
     return ipcRenderer.invoke('orchestraflow:workflow-run', workflowId, inputs)
   },

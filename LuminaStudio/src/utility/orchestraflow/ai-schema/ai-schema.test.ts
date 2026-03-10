@@ -117,10 +117,11 @@ describe('orchestraflow ai schema bundle', () => {
 
   it('keeps generated schema strict around explicit edge handles and reuses defs', () => {
     const bundle = buildOrchestraflowAISchemaBundle()
-    const defs = bundle.schema.$defs
+    const schema = bundle.schema as Record<string, any>
+    const defs = schema.$defs
     const positionSchemaRef =
-      bundle.schema.properties?.graph?.properties?.nodes?.items?.properties?.position?.$ref
-    const edgeSchema = bundle.schema.properties?.graph?.properties?.edges?.items
+      schema.properties?.graph?.properties?.nodes?.items?.properties?.position?.$ref
+    const edgeSchema = schema.properties?.graph?.properties?.edges?.items
 
     expect(defs).toBeTruthy()
     expect(Object.keys(defs || {}).length).toBeGreaterThan(0)

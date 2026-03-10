@@ -31,10 +31,31 @@ export function evaluateCondition(
   variableStore: VariableStore,
   condition: OFIfElseCondition
 ): boolean {
-  const actual = variableStore.getByVariableRef(condition.variable_ref)
+  const actualRef =
+    condition.variable_ref ||
+    (condition.variable_selector?.length
+      ? {
+          selector: condition.variable_selector,
+          path: condition.variable_path,
+          label: condition.variable_label,
+          type: condition.variable_type
+        }
+      : undefined)
+  const compareRef =
+    condition.compare_ref ||
+    (condition.compare_selector?.length
+      ? {
+          selector: condition.compare_selector,
+          path: condition.compare_path,
+          label: condition.compare_label,
+          type: condition.compare_type
+        }
+      : undefined)
+
+  const actual = variableStore.getByVariableRef(actualRef)
   const expected =
     condition.compare_source_mode === 'variable'
-      ? variableStore.getByVariableRef(condition.compare_ref)
+      ? variableStore.getByVariableRef(compareRef)
       : condition.value
 
   switch (condition.operator) {

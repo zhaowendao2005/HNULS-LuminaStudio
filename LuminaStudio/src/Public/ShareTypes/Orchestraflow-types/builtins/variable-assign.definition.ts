@@ -32,7 +32,18 @@ export const variableAssignNodeDefinition =
       category: 'end',
       kind: 'standard',
       vueFlowType: 'variable-assign',
-      ai_exposed: true
+      ai_exposed: true,
+      output_namespace: {
+        strategy: 'stable-id',
+        default_prefix: 'assign',
+        system_managed: true
+      },
+      ports: [
+        { id: 'target', kind: 'control-in', label: 'In', stable: true },
+        { id: 'source', kind: 'control-out', label: 'Next', stable: true },
+        { id: 'output', kind: 'data-out', label: 'Assigned values', stable: true, multiple: true }
+      ],
+      sideEffects: ['variable-write']
     },
     authoring: {
       contract: {
@@ -111,25 +122,25 @@ export const variableAssignNodeDefinition =
     },
     compiler: {
       compileData({ node, title, desc, helpers, compiledId }) {
-        const rules = (node.config.rules || []).map(
-          (item: OFVariableAssignNodeData['rules'][number]) => ({
-            ...item,
-            source:
-              item.source?.mode === 'constant'
-                ? item.source
-                : {
-                    mode: 'variable',
-                    ref: {
-                      ...(item.source?.mode === 'variable' ? item.source.ref : {}),
-                      selector: helpers.compileSelectorField(
-                        item.source?.mode === 'variable'
-                          ? item.source.ref.selector
-                          : item.source_selector
-                      )
-                    }
+        const rules = (
+          (node.config.rules as OFVariableAssignNodeData['rules'] | undefined) || []
+        ).map((item: OFVariableAssignNodeData['rules'][number]) => ({
+          ...item,
+          source:
+            item.source?.mode === 'constant'
+              ? item.source
+              : {
+                  mode: 'variable' as const,
+                  ref: {
+                    ...(item.source?.mode === 'variable' ? item.source.ref : {}),
+                    selector: helpers.compileSelectorField(
+                      item.source?.mode === 'variable'
+                        ? item.source.ref.selector
+                        : item.source_selector
+                    )
                   }
-          })
-        )
+                }
+        })) as OFVariableAssignNodeData['rules']
         return {
           title,
           desc,

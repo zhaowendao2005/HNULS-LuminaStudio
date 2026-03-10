@@ -7,6 +7,7 @@ import { OrchestraflowWorkflowService } from '../services/orchestraflow/orchestr
 import { orchestraflowAISchemaService } from '../services/orchestraflow/orchestraflow-ai-schema-service'
 import { orchestraflowBridge } from '../services/orchestraflow-bridge'
 import { logger } from '../services/logger'
+import { OrchestraflowGenerationService } from '../services/orchestraflow-generation/orchestraflow-generation-service'
 import { ModelConfigService } from '../services/model-config'
 import type { OFNodeTracing, OFNodeDebugRunParams } from '@shared/Orchestraflow-types'
 import type { PersistedModelProviderConfig } from '../services/model-config'
@@ -16,7 +17,8 @@ const log = logger.scope('OrchestraflowIPCHandler')
 export class OrchestraflowIPCHandler {
   constructor(
     private readonly service: OrchestraflowWorkflowService,
-    private readonly modelConfigService: ModelConfigService
+    private readonly modelConfigService: ModelConfigService,
+    private readonly generationService: OrchestraflowGenerationService
   ) {
     this.register()
     this.registerProgressHandler()
@@ -95,6 +97,128 @@ export class OrchestraflowIPCHandler {
         return { success: true }
       } catch (e) {
         log.error('Failed to delete workflow', e)
+        return { success: false, error: String(e) }
+      }
+    })
+
+    // generation session list
+    ipcMain.handle('orchestraflow:generation-list', async () => {
+      try {
+        return { success: true, data: this.generationService.listGenerationSessions() }
+      } catch (e) {
+        log.error('Failed to list generation sessions', e)
+        return { success: false, error: String(e) }
+      }
+    })
+
+    ipcMain.handle('orchestraflow:generation-get', async (_event, sessionId) => {
+      try {
+        const session = this.generationService.getGenerationSession(String(sessionId))
+        if (!session) {
+          return { success: false, error: 'Generation session not found' }
+        }
+        return { success: true, data: session }
+      } catch (e) {
+        log.error('Failed to get generation session', e)
+        return { success: false, error: String(e) }
+      }
+    })
+
+    ipcMain.handle('orchestraflow:generation-create', async (_event, data) => {
+      try {
+        if (!data || typeof data.workflow_name !== 'string') {
+          return { success: false, error: 'Invalid generation session data' }
+        }
+        return {
+          success: true,
+          data: this.generationService.createGenerationSession(data)
+        }
+      } catch (e) {
+        log.error('Failed to create generation session', e)
+        return { success: false, error: String(e) }
+      }
+    })
+
+    ipcMain.handle('orchestraflow:generation-send-prompt', async (_event, sessionId, prompt) => {
+      try {
+        return {
+          success: true,
+          data: await this.generationService.sendGenerationPrompt(
+            String(sessionId),
+            String(prompt || '')
+          )
+        }
+      } catch (e) {
+        log.error('Failed to send generation prompt', e)
+        return { success: false, error: String(e) }
+      }
+    })
+
+    ipcMain.handle('orchestraflow:generation-advance-phase', async (_event, sessionId, phase) => {
+      try {
+        return {
+          success: true,
+          data: await this.generationService.advanceGenerationPhase(String(sessionId), phase)
+        }
+      } catch (e) {
+        log.error('Failed to advance generation phase', e)
+        return { success: false, error: String(e) }
+      }
+    })
+
+    ipcMain.handle(
+      'orchestraflow:generation-rollback-checkpoint',
+      async (_event, sessionId, checkpointId) => {
+        try {
+          return {
+            success: true,
+            data: await this.generationService.rollbackGenerationCheckpoint(
+              String(sessionId),
+              String(checkpointId)
+            )
+          }
+        } catch (e) {
+          log.error('Failed to rollback generation checkpoint', e)
+          return { success: false, error: String(e) }
+        }
+      }
+    )
+
+    ipcMain.handle(
+      'orchestraflow:generation-update-phase-models',
+      async (_event, sessionId, phaseModels) => {
+        try {
+          return {
+            success: true,
+            data: this.generationService.updateGenerationPhaseModels(String(sessionId), phaseModels)
+          }
+        } catch (e) {
+          log.error('Failed to update generation phase models', e)
+          return { success: false, error: String(e) }
+        }
+      }
+    )
+
+    ipcMain.handle('orchestraflow:generation-confirm', async (_event, sessionId) => {
+      try {
+        return {
+          success: true,
+          data: await this.generationService.confirmGenerationSession(String(sessionId))
+        }
+      } catch (e) {
+        log.error('Failed to confirm generation session', e)
+        return { success: false, error: String(e) }
+      }
+    })
+
+    ipcMain.handle('orchestraflow:generation-delete', async (_event, sessionId) => {
+      try {
+        return {
+          success: true,
+          data: this.generationService.deleteGenerationSession(String(sessionId))
+        }
+      } catch (e) {
+        log.error('Failed to delete generation session', e)
         return { success: false, error: String(e) }
       }
     })

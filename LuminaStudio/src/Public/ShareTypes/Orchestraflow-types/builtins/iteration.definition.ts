@@ -68,7 +68,25 @@ export const iterationNodeDefinition = defineContainerOFNodeDefinition<OFIterati
     category: 'logic',
     kind: 'container',
     vueFlowType: 'iteration',
-    ai_exposed: true
+    ai_exposed: true,
+    output_namespace: {
+      strategy: 'stable-id',
+      default_prefix: 'iteration',
+      system_managed: true
+    },
+    ports: [
+      { id: 'target', kind: 'control-in', label: 'In', stable: true },
+      { id: 'source', kind: 'control-out', label: 'Next', stable: true },
+      { id: 'result', kind: 'data-out', label: 'Result', stable: true }
+    ],
+    sideEffects: ['subgraph-run'],
+    container: {
+      injects_internal_start: true,
+      internal_start_type: OFBlockEnum.IterationStart,
+      manages_viewport: true,
+      manages_start_node_id: true,
+      allows_nested_containers: false
+    }
   },
   authoring: {
     contract: {
@@ -261,30 +279,44 @@ export const iterationNodeDefinition = defineContainerOFNodeDefinition<OFIterati
         height: DEFAULT_HEIGHT,
         iterator_ref: {
           selector: helpers.compileSelectorField(
-            node.config.iterator_ref?.selector || node.config.iterator_selector
+            ((node.config.iterator_ref as OFIterationNodeData['iterator_ref'] | undefined)
+              ?.selector || node.config.iterator_selector) as unknown
           )
         },
         iterator_selector: helpers.compileSelectorField(
-          node.config.iterator_ref?.selector || node.config.iterator_selector
+          ((node.config.iterator_ref as OFIterationNodeData['iterator_ref'] | undefined)
+            ?.selector || node.config.iterator_selector) as unknown
         ),
         output_ref: {
           selector: helpers.compileSelectorField(
-            node.config.output_ref?.selector || node.config.output_selector
+            ((node.config.output_ref as OFIterationNodeData['output_ref'] | undefined)?.selector ||
+              node.config.output_selector) as unknown
           )
         },
         output_selector: helpers.compileSelectorField(
-          node.config.output_ref?.selector || node.config.output_selector
+          ((node.config.output_ref as OFIterationNodeData['output_ref'] | undefined)?.selector ||
+            node.config.output_selector) as unknown
         ),
         branch_output_refs: helpers.compileIterationBranchOutputSelectors(
-          node.config.branch_output_selectors || []
+          ((node.config.branch_output_selectors as
+            | OFIterationNodeData['branch_output_selectors']
+            | undefined) || []) as unknown[]
         ),
-        branch_output_selectors: node.config.branch_output_selectors || [],
+        branch_output_selectors:
+          (node.config.branch_output_selectors as
+            | OFIterationNodeData['branch_output_selectors']
+            | undefined) || [],
         start_node_id: `${compiledId}-iteration-start`,
         subgraph: compiledSubgraph.graph,
-        parallel_mode: node.config.parallel_mode || 'sequential',
+        parallel_mode:
+          (node.config.parallel_mode as OFIterationNodeData['parallel_mode'] | undefined) ||
+          'sequential',
         parallel_nums: Number(node.config.parallel_nums || 1),
-        error_handle_mode: node.config.error_handle_mode || 'terminated',
-        flatten_output: node.config.flatten_output ?? true,
+        error_handle_mode:
+          (node.config.error_handle_mode as OFIterationNodeData['error_handle_mode'] | undefined) ||
+          'terminated',
+        flatten_output:
+          (node.config.flatten_output as OFIterationNodeData['flatten_output'] | undefined) ?? true,
         output: {
           variables: buildIterationOutputs(title, compiledId)
         }

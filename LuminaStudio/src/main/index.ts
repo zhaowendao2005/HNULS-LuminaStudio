@@ -20,6 +20,7 @@ import { UserSettingsIPCHandler } from './ipc/user-settings-handler'
 import { OrchestraflowWorkflowService } from './services/orchestraflow/orchestraflow-workflow-service'
 import { OrchestraflowIPCHandler } from './ipc/orchestraflow-handler'
 import { orchestraflowBridge } from './services/orchestraflow-bridge'
+import { OrchestraflowGenerationService } from './services/orchestraflow-generation/orchestraflow-generation-service'
 import { logger } from './services/logger'
 import { McpService } from './services/mcp'
 import { McpIPCHandler } from './ipc/mcp-handler'
@@ -118,7 +119,14 @@ app.whenReady().then(() => {
 
   // 初始化 OrchestraFlow Workflow Service 和 IPC Handler
   const orchestraflowWorkflowService = new OrchestraflowWorkflowService()
-  new OrchestraflowIPCHandler(orchestraflowWorkflowService, modelConfigService)
+  const orchestraflowGenerationService = new OrchestraflowGenerationService(
+    orchestraflowWorkflowService
+  )
+  new OrchestraflowIPCHandler(
+    orchestraflowWorkflowService,
+    modelConfigService,
+    orchestraflowGenerationService
+  )
 
   // 启动 OrchestraFlow Bridge（按需启动，延迟初始化）
   setTimeout(async () => {

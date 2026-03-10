@@ -20,7 +20,18 @@ export const ifElseNodeDefinition = defineStandardOFNodeDefinition<OFIfElseNodeD
     category: 'logic',
     kind: 'standard',
     vueFlowType: 'ifelse',
-    ai_exposed: true
+    ai_exposed: true,
+    output_namespace: {
+      strategy: 'stable-id',
+      default_prefix: 'ifelse',
+      system_managed: true
+    },
+    ports: [
+      { id: 'target', kind: 'control-in', label: 'In', stable: true },
+      { id: 'if', kind: 'control-out', label: 'If', stable: true, branch_key: 'if' },
+      { id: 'else', kind: 'control-out', label: 'Else', stable: true, branch_key: 'else' }
+    ],
+    sideEffects: ['branch-control']
   },
   authoring: {
     contract: {
@@ -134,10 +145,12 @@ export const ifElseNodeDefinition = defineStandardOFNodeDefinition<OFIfElseNodeD
         title,
         desc,
         type: OFBlockEnum.IfElse,
-        cases: (node.config.cases || []).map((item: OFIfElseNodeData['cases'][number]) => ({
-          ...item,
-          conditions: helpers.compileConditions(item.conditions || [])
-        })),
+        cases: ((node.config.cases as OFIfElseNodeData['cases'] | undefined) || []).map(
+          (item: OFIfElseNodeData['cases'][number]) => ({
+            ...item,
+            conditions: helpers.compileConditions(item.conditions || [])
+          })
+        ),
         elseCase: (node.config.elseCase as OFIfElseElseCase | undefined) || {
           handleId: 'else',
           label: 'ELSE'

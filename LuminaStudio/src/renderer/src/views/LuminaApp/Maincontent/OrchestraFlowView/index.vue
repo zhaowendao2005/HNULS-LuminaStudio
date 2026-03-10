@@ -1,9 +1,16 @@
 <template>
   <div class="of-main-view h-full w-full flex flex-col">
-    <!-- Grid 视图：工作流列表页 -->
-    <GridView v-if="viewMode === 'grid'" @open-workflow="handleOpenWorkflow" />
-
-    <!-- Editor 视图：工作流编辑器 -->
+    <GridView
+      v-if="viewMode === 'grid'"
+      @open-workflow="handleOpenWorkflow"
+      @open-generator="handleOpenGenerator"
+    />
+    <GeneratorView
+      v-else-if="viewMode === 'generator'"
+      :session-id="currentSessionId"
+      @back="handleBack"
+      @open-workflow="handleOpenWorkflow"
+    />
     <EditorView
       v-else-if="viewMode === 'editor'"
       :workflow-id="currentWorkflowId"
@@ -16,18 +23,27 @@
 import { ref } from 'vue'
 import GridView from './GridView/index.vue'
 import EditorView from './EditorView/index.vue'
+import GeneratorView from './GeneratorView/index.vue'
 
-// 视图模式：grid（列表）或 editor（编辑器）
-const viewMode = ref<'grid' | 'editor'>('grid')
+const viewMode = ref<'grid' | 'generator' | 'editor'>('grid')
 const currentWorkflowId = ref<string | null>(null)
+const currentSessionId = ref<string | null>(null)
 
 function handleOpenWorkflow(workflowId: string) {
   currentWorkflowId.value = workflowId
+  currentSessionId.value = null
   viewMode.value = 'editor'
+}
+
+function handleOpenGenerator(sessionId: string) {
+  currentSessionId.value = sessionId
+  currentWorkflowId.value = null
+  viewMode.value = 'generator'
 }
 
 function handleBack() {
   viewMode.value = 'grid'
   currentWorkflowId.value = null
+  currentSessionId.value = null
 }
 </script>

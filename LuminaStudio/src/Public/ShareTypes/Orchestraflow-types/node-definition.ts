@@ -16,6 +16,37 @@ import { OFBlockEnum, normalizeOFVariableNamespace } from './core-types'
 export type OFNodeDefinitionCategory = 'start' | 'llm' | 'logic' | 'end' | 'internal'
 export type OFNodeDefinitionKind = 'standard' | 'container' | 'internal-start'
 
+export type OFNodePortKind = 'data-in' | 'data-out' | 'control-in' | 'control-out'
+export type OFNodeSideEffect =
+  | 'model-call'
+  | 'variable-write'
+  | 'branch-control'
+  | 'subgraph-run'
+  | 'session-compile'
+
+export interface OFNodePortSpec {
+  id: string
+  kind: OFNodePortKind
+  label: string
+  stable: boolean
+  multiple?: boolean
+  branch_key?: string
+}
+
+export interface OFNodeOutputNamespacePolicy {
+  strategy: 'title' | 'stable-id' | 'system'
+  default_prefix: string
+  system_managed: boolean
+}
+
+export interface OFNodeContainerRule {
+  injects_internal_start: boolean
+  internal_start_type?: OFBlockEnum.IterationStart | OFBlockEnum.LoopStart
+  manages_viewport?: boolean
+  manages_start_node_id?: boolean
+  allows_nested_containers?: boolean
+}
+
 export interface OFNodeVariableBuildParams {
   nodeId?: string
   title: string
@@ -74,6 +105,10 @@ export interface OFNodeDefinitionMeta {
   vueFlowType: string
   internal?: boolean
   ai_exposed: boolean
+  output_namespace?: OFNodeOutputNamespacePolicy
+  ports?: OFNodePortSpec[]
+  sideEffects?: OFNodeSideEffect[]
+  container?: OFNodeContainerRule
 }
 
 export interface OFNodeAuthoringDefinition {

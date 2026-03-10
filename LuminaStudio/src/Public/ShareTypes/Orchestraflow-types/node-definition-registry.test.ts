@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
   OFBlockEnum,
-  OFVarType,
   type OFNode,
   type OFIfElseCondition,
   type OFIterationBranchOutputRef,

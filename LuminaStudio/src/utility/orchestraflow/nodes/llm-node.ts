@@ -423,7 +423,7 @@ export class LLMNode extends BaseNode {
     schema: OFStructuredJsonSchema
   ): Record<string, any> {
     const parsed = JSON.parse(content) as Record<string, any>
-    return this.buildZodSchema(schema).parse(parsed)
+    return this.buildZodSchema(schema).parse(parsed) as Record<string, any>
   }
 
   private applyOutputs(params: {

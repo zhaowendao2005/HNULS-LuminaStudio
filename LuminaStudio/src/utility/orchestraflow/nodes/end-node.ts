@@ -25,8 +25,18 @@ export class EndNode extends BaseNode {
     const outputConfig = nodeData.output
     if (outputConfig?.variables) {
       for (const v of outputConfig.variables) {
+        const fallbackRef = v.value_selector?.length
+          ? {
+              selector: v.value_selector,
+              path: v.value_path,
+              label: v.label,
+              type: v.type,
+              schema: v.schema,
+              item_schema: v.item_schema
+            }
+          : undefined
         const value =
-          this.variableStore.getByVariableRef(v.value_ref) ??
+          this.variableStore.getByVariableRef(v.value_ref || fallbackRef) ??
           this.variableStore.getBySelector([v.variable])
         outputs[v.variable] = value
       }

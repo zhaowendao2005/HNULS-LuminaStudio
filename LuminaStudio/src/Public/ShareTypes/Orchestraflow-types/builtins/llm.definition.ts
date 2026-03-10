@@ -41,7 +41,18 @@ export const llmNodeDefinition = defineStandardOFNodeDefinition<OFLLMNodeData>({
     category: 'llm',
     kind: 'standard',
     vueFlowType: 'llm',
-    ai_exposed: true
+    ai_exposed: true,
+    output_namespace: {
+      strategy: 'title',
+      default_prefix: 'llm',
+      system_managed: true
+    },
+    ports: [
+      { id: 'target', kind: 'control-in', label: 'In', stable: true },
+      { id: 'source', kind: 'control-out', label: 'Next', stable: true },
+      { id: 'output', kind: 'data-out', label: 'Model output', stable: true, multiple: true }
+    ],
+    sideEffects: ['model-call']
   },
   authoring: {
     contract: {
@@ -131,10 +142,12 @@ export const llmNodeDefinition = defineStandardOFNodeDefinition<OFLLMNodeData>({
   },
   compiler: {
     compileData({ node, title, desc, helpers }) {
+      const structuredOutputConfig =
+        (node.config.structured_output as OFStructuredOutputConfig | undefined) ||
+        createDefaultStructuredOutput()
       const structuredOutput: OFStructuredOutputConfig = {
-        enabled: Boolean(node.config.structured_output?.enabled),
-        schema:
-          (node.config.structured_output?.schema as OFStructuredOutputConfig['schema']) || null
+        enabled: Boolean(structuredOutputConfig.enabled),
+        schema: structuredOutputConfig.schema || null
       }
       return {
         title,
@@ -142,7 +155,7 @@ export const llmNodeDefinition = defineStandardOFNodeDefinition<OFLLMNodeData>({
         type: OFBlockEnum.LLM,
         model: (node.config.model as OFModelConfig | undefined) || createDefaultModel(),
         prompt_template: (node.config.prompt_template as OFLLMNodeData['prompt_template']) || [],
-        context: helpers.compileNodeContext(node.config.context),
+        context: helpers.compileNodeContext(node.config.context as OFLLMNodeData['context']),
         memory: node.config.memory as OFLLMNodeData['memory'],
         vision: node.config.vision as OFLLMNodeData['vision'],
         structured_output: structuredOutput,

@@ -153,7 +153,7 @@
                       @click="
                         patchRule(rule.id, {
                           source:
-                            rule.source?.mode === 'variable'
+                            rule.source_mode === 'variable'
                               ? ({
                                   mode: 'constant',
                                   constant_value: rule.constant_value

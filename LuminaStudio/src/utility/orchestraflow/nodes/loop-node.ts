@@ -104,18 +104,27 @@ export class LoopNode extends BaseNode {
     loopVariable: OFLoopVariableData,
     workingStore: VariableStore
   ): unknown {
-    if (loopVariable.value_type === 'constant') {
-      return loopVariable.value ?? null
+    const valueMode = loopVariable.value_source?.mode || loopVariable.value_type
+    if (valueMode === 'constant') {
+      const constantValue =
+        loopVariable.value_source?.mode === 'constant'
+          ? loopVariable.value_source.constant_value
+          : undefined
+      return loopVariable.value ?? constantValue ?? null
     }
 
-    if (
-      loopVariable.value_source?.mode !== 'variable' ||
-      !loopVariable.value_source.ref?.selector?.length
-    ) {
+    const sourceRef =
+      loopVariable.value_source?.mode === 'variable'
+        ? loopVariable.value_source.ref
+        : loopVariable.value_selector?.length
+          ? { selector: loopVariable.value_selector }
+          : undefined
+
+    if (valueMode !== 'variable' || !sourceRef?.selector?.length) {
       throw new Error(`循环变量 ${loopVariable.variable} 缺少 value_selector`)
     }
 
-    return workingStore.getByVariableRef(loopVariable.value_source.ref)
+    return workingStore.getByVariableRef(sourceRef)
   }
 
   private createChildStore(

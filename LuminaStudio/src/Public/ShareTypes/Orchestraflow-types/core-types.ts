@@ -89,6 +89,7 @@ export interface OFVariable {
   options?: string[]
   value_ref?: OFVariableRef
   value_selector?: string[]
+  value_path?: string
   schema?: OFStructuredJsonSchema | null
   item_schema?: OFJsonSchemaObject | null
 }
@@ -196,7 +197,7 @@ export type OFIfElseCompareSourceMode = 'constant' | 'variable'
 export interface OFIfElseCondition {
   id: string
   variable_ref?: OFVariableRef
-  variable_selector: string[]
+  variable_selector?: string[]
   variable_path?: string
   variable_label?: string
   variable_type?: OFVarType
@@ -328,6 +329,7 @@ export interface OFCommonNodeType {
   title: string
   desc: string
   type: OFBlockEnum
+  output_namespace?: string
   width?: number
   height?: number
   position?: XYPosition
@@ -622,7 +624,8 @@ export interface OFIterationNodeConfig {
 export interface OFIterationBranchOutputSelector {
   source_node_id: string
   source_handle_id: string
-  output_selector: string[]
+  output_selector?: string[]
+  output_ref?: OFVariableRef
 }
 
 export interface OFIterationBranchOutputRef {
@@ -671,4 +674,10 @@ export interface OFEndNodeConfig {
   title: string
   desc: string
   output: OFNodeOutput
+}
+
+export function buildOFStableOutputNamespace(nodeId: string, title?: string): string {
+  const normalizedTitle = normalizeOFVariableNamespace(title, '')
+  const normalizedNodeId = normalizeOFVariableNamespace(nodeId, 'node')
+  return normalizedTitle || normalizedNodeId
 }

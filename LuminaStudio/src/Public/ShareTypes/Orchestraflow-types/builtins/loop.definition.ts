@@ -78,7 +78,25 @@ export const loopNodeDefinition = defineContainerOFNodeDefinition<OFLoopNodeData
     category: 'logic',
     kind: 'container',
     vueFlowType: 'loop',
-    ai_exposed: true
+    ai_exposed: true,
+    output_namespace: {
+      strategy: 'stable-id',
+      default_prefix: 'loop',
+      system_managed: true
+    },
+    ports: [
+      { id: 'target', kind: 'control-in', label: 'In', stable: true },
+      { id: 'source', kind: 'control-out', label: 'Next', stable: true },
+      { id: 'result', kind: 'data-out', label: 'Result', stable: true }
+    ],
+    sideEffects: ['subgraph-run', 'variable-write'],
+    container: {
+      injects_internal_start: true,
+      internal_start_type: OFBlockEnum.LoopStart,
+      manages_viewport: true,
+      manages_start_node_id: true,
+      allows_nested_containers: false
+    }
   },
   authoring: {
     contract: {
@@ -261,7 +279,10 @@ export const loopNodeDefinition = defineContainerOFNodeDefinition<OFLoopNodeData
   },
   compiler: {
     compileData({ node, compiledId, title, desc, helpers }) {
-      const loopVariables = helpers.compileLoopVariables(node.config.loop_variables || [])
+      const loopVariables = helpers.compileLoopVariables(
+        ((node.config.loop_variables as OFLoopNodeData['loop_variables'] | undefined) ||
+          []) as unknown[]
+      )
       const compiledSubgraph = helpers.compileContainerSubgraph(
         node,
         compiledId,
@@ -277,7 +298,10 @@ export const loopNodeDefinition = defineContainerOFNodeDefinition<OFLoopNodeData
         height: DEFAULT_HEIGHT,
         loop_count: Number(node.config.loop_count || 1),
         loop_variables: loopVariables,
-        break_conditions: helpers.compileConditions(node.config.break_conditions || []),
+        break_conditions: helpers.compileConditions(
+          ((node.config.break_conditions as OFLoopNodeData['break_conditions'] | undefined) ||
+            []) as unknown[]
+        ),
         logical_operator:
           (node.config.logical_operator as OFLoopNodeData['logical_operator']) || 'and',
         start_node_id: `${compiledId}-loop-start`,

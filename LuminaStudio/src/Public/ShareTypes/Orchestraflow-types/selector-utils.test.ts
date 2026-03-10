@@ -3,7 +3,8 @@ import {
   collectOFSelectorVariableRoots,
   normalizeOFSelector,
   normalizeOFRunnableNodeSelectorData,
-  OFBlockEnum
+  OFBlockEnum,
+  type OFIfElseNodeData
 } from './index'
 
 describe('selector-utils', () => {
@@ -35,13 +36,15 @@ describe('selector-utils', () => {
 
     normalizeOFRunnableNodeSelectorData(OFBlockEnum.IfElse, data, ['content_package'])
 
-    expect(data.cases[0].conditions[0].variable_selector).toEqual([
+    const normalizedData = data as unknown as OFIfElseNodeData
+
+    expect(normalizedData.cases[0].conditions[0].variable_ref?.selector).toEqual([
       'content_package',
       'config',
       'process_mode'
     ])
-    expect(data.cases[0].conditions[0].compare_selector).toBeUndefined()
-    expect(data.cases[0].conditions[0].compare_source_mode).toBeUndefined()
+    expect(normalizedData.cases[0].conditions[0].compare_ref).toBeUndefined()
+    expect(normalizedData.cases[0].conditions[0].compare_source_mode).toBeUndefined()
   })
 
   it('collects selector roots from nested workflow nodes', () => {

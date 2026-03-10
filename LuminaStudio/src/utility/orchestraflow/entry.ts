@@ -5,6 +5,11 @@
  */
 import type { MainToOFMessage, OFToMainMessage } from './messages.types'
 import { WorkflowInstanceManager } from './manager/workflow-instance-manager'
+import {
+  advanceGenerationPhase,
+  rollbackGenerationSession,
+  sendGenerationPrompt
+} from './generation/phase-orchestrator'
 
 const parentPort = process.parentPort
 if (!parentPort) {
@@ -162,6 +167,45 @@ parentPort.on('message', async (event: { data: MainToOFMessage }) => {
             type: 'node:debug-error',
             requestId: msg.requestId,
             error: errorMsg
+          })
+        }
+        break
+      }
+
+      case 'generation:send-prompt': {
+        try {
+          const session = sendGenerationPrompt(msg.session, msg.prompt)
+          sendMessage({ type: 'generation:session', session })
+        } catch (err) {
+          sendMessage({
+            type: 'generation:error',
+            error: err instanceof Error ? err.message : String(err)
+          })
+        }
+        break
+      }
+
+      case 'generation:advance-phase': {
+        try {
+          const session = advanceGenerationPhase(msg.session, msg.phase)
+          sendMessage({ type: 'generation:session', session })
+        } catch (err) {
+          sendMessage({
+            type: 'generation:error',
+            error: err instanceof Error ? err.message : String(err)
+          })
+        }
+        break
+      }
+
+      case 'generation:rollback-checkpoint': {
+        try {
+          const session = rollbackGenerationSession(msg.session, msg.checkpointId)
+          sendMessage({ type: 'generation:session', session })
+        } catch (err) {
+          sendMessage({
+            type: 'generation:error',
+            error: err instanceof Error ? err.message : String(err)
           })
         }
         break

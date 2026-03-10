@@ -20,7 +20,17 @@ export const startNodeDefinition = defineStandardOFNodeDefinition<OFStartNodeDat
     category: 'start',
     kind: 'standard',
     vueFlowType: 'start',
-    ai_exposed: true
+    ai_exposed: true,
+    output_namespace: {
+      strategy: 'system',
+      default_prefix: 'start',
+      system_managed: true
+    },
+    ports: [
+      { id: 'source', kind: 'control-out', label: 'Next', stable: true },
+      { id: 'output', kind: 'data-out', label: 'Input variables', stable: true, multiple: true }
+    ],
+    sideEffects: []
   },
   authoring: {
     contract: {
@@ -99,7 +109,10 @@ export const startNodeDefinition = defineStandardOFNodeDefinition<OFStartNodeDat
         desc,
         type: OFBlockEnum.Start,
         input: {
-          variables: helpers.compileVariables(node.config.input?.variables || [])
+          variables: helpers.compileVariables(
+            ((node.config.input as OFStartNodeData['input'] | undefined)?.variables ||
+              []) as unknown[]
+          )
         }
       }
     }

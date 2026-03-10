@@ -4,7 +4,8 @@ import {
   OF_VARIABLE_ASSIGN_NODE_NAME,
   normalizeOFVariableNamespace,
   type OFVariableAssignNodeData,
-  type OFVariableAssignRule
+  type OFVariableAssignRule,
+  type OFVariableRef
 } from '@shared/Orchestraflow-types'
 import type { ExecutionContext, NodeResult } from './types'
 import { VariableStore } from '../services/variable-store'
@@ -38,14 +39,12 @@ export class VariableAssignNode extends BaseNode {
       const outputs: Record<string, unknown> = {}
 
       for (const rule of nodeData.rules) {
+        const sourceRef = this.resolveVariableSourceRef(rule)
         const sourceValue = this.resolveSourceValue(rule)
         const convertedValue = convertValue(sourceValue, {
           targetType: rule.target_type,
           targetVariable: rule.target_variable,
-          sourcePath:
-            rule.source?.mode === 'variable'
-              ? rule.source.ref.path || rule.source.ref.selector.join('.')
-              : undefined
+          sourcePath: sourceRef ? sourceRef.path || sourceRef.selector.join('.') : undefined
         })
 
         pendingWrites.push({
@@ -69,23 +68,48 @@ export class VariableAssignNode extends BaseNode {
     }
   }
 
-  private resolveSourceValue(rule: OFVariableAssignRule): unknown {
-    if (rule.source?.mode === 'constant') {
-      if (!Object.prototype.hasOwnProperty.call(rule.source, 'constant_value')) {
-        throw new Error(`Rule "${rule.target_variable}" is missing constant_value`)
-      }
-      return rule.source.constant_value
+  private resolveVariableSourceRef(rule: OFVariableAssignRule): OFVariableRef | undefined {
+    if (rule.source?.mode === 'variable') {
+      return rule.source.ref
     }
 
-    if (rule.source?.mode !== 'variable' || !rule.source.ref?.selector?.length) {
+    if (rule.source_selector?.length) {
+      return {
+        selector: rule.source_selector,
+        path: rule.source_path,
+        label: rule.source_label,
+        type: rule.source_type,
+        schema: rule.schema,
+        item_schema: rule.item_schema
+      }
+    }
+
+    return undefined
+  }
+
+  private resolveSourceValue(rule: OFVariableAssignRule): unknown {
+    const sourceMode = rule.source?.mode || rule.source_mode
+
+    if (sourceMode === 'constant') {
+      const constantValue =
+        rule.source?.mode === 'constant' ? rule.source.constant_value : rule.constant_value
+      if (
+        constantValue === undefined &&
+        !Object.prototype.hasOwnProperty.call(rule, 'constant_value')
+      ) {
+        throw new Error(`Rule "${rule.target_variable}" is missing constant_value`)
+      }
+      return constantValue
+    }
+
+    const sourceRef = this.resolveVariableSourceRef(rule)
+    if (sourceMode !== 'variable' || !sourceRef?.selector?.length) {
       throw new Error(`Rule "${rule.target_variable}" is missing source_selector`)
     }
 
-    const value = this.variableStore.getByVariableRef(rule.source.ref)
+    const value = this.variableStore.getByVariableRef(sourceRef)
     if (value === undefined) {
-      throw new Error(
-        `Variable "${rule.source.ref.path || rule.source.ref.selector.join('.')}" is undefined`
-      )
+      throw new Error(`Variable "${sourceRef.path || sourceRef.selector.join('.')}" is undefined`)
     }
     return value
   }
@@ -106,10 +130,13 @@ export class VariableAssignNode extends BaseNode {
       }
       seenVariables.add(variable)
 
-      if (rule.source?.mode === 'variable' && !rule.source.ref?.selector?.length) {
+      const sourceMode = rule.source?.mode || rule.source_mode
+      const sourceRef = this.resolveVariableSourceRef(rule)
+
+      if (sourceMode === 'variable' && !sourceRef?.selector?.length) {
         throw new Error(`Rule "${variable}" must select a source variable`)
       }
-      if (rule.source?.mode !== 'variable' && rule.source?.mode !== 'constant') {
+      if (sourceMode !== 'variable' && sourceMode !== 'constant') {
         throw new Error(`Rule "${variable}" has invalid source_mode`)
       }
     })

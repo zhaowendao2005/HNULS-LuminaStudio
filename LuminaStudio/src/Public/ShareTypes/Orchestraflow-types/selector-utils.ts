@@ -127,7 +127,10 @@ export function normalizeOFVariableRef(
           : undefined,
     type: (refRecord?.type ?? legacy.type) as OFVarType | undefined,
     schema: resolveStructuredSchema(refRecord?.schema ?? legacy.schema),
-    item_schema: refRecord?.item_schema ?? legacy.item_schema ?? null
+    item_schema: (refRecord?.item_schema ?? legacy.item_schema ?? null) as
+      | OFJsonSchemaObject
+      | null
+      | undefined
   }
 }
 
@@ -140,7 +143,7 @@ function resolveStructuredSchema(value: unknown): OFStructuredJsonSchema | null 
     Array.isArray(record.required) &&
     record.additionalProperties === false
   ) {
-    return record as OFJsonSchemaObject
+    return record as unknown as OFJsonSchemaObject
   }
   return null
 }
@@ -168,7 +171,14 @@ export function normalizeOFValueSource(
   if (mode === 'constant') {
     return {
       mode: 'constant',
-      constant_value: sourceRecord?.constant_value ?? legacy.constant_value
+      constant_value: (sourceRecord?.constant_value ?? legacy.constant_value) as
+        | string
+        | number
+        | boolean
+        | Record<string, unknown>
+        | unknown[]
+        | null
+        | undefined
     }
   }
 
@@ -464,7 +474,7 @@ export function normalizeOFRunnableNodeSelectorData(
     case OFBlockEnum.IfElse:
       for (const item of toCaseList(data.cases)) {
         for (const condition of toConditionList(item.conditions)) {
-          normalizeIfElseCondition(condition, variableRoots)
+          normalizeIfElseCondition(condition as unknown as MutableRecord, variableRoots)
         }
       }
       return
@@ -497,10 +507,12 @@ export function normalizeOFRunnableNodeSelectorData(
       data.branch_output_refs = (
         Array.isArray(data.branch_output_refs)
           ? data.branch_output_refs
-          : data.branch_output_selectors || []
+          : Array.isArray(data.branch_output_selectors)
+            ? data.branch_output_selectors
+            : []
       )
         .map((item: MutableRecord) => normalizeIterationBranchOutputRef(item, variableRoots))
-        .filter(Boolean)
+        .filter(Boolean) as OFIterationBranchOutputRef[]
 
       delete data.iterator_selector
       delete data.output_selector
@@ -510,7 +522,7 @@ export function normalizeOFRunnableNodeSelectorData(
         if (!child?.data || typeof child.data !== 'object') continue
         normalizeOFRunnableNodeSelectorData(
           child.data.type,
-          child.data as MutableRecord,
+          child.data as unknown as MutableRecord,
           variableRoots
         )
       }
@@ -541,14 +553,14 @@ export function normalizeOFRunnableNodeSelectorData(
       }
 
       for (const condition of toConditionList(data.break_conditions)) {
-        normalizeIfElseCondition(condition, variableRoots)
+        normalizeIfElseCondition(condition as unknown as MutableRecord, variableRoots)
       }
 
       for (const child of toNodeList(toRecord(data.subgraph)?.nodes)) {
         if (!child?.data || typeof child.data !== 'object') continue
         normalizeOFRunnableNodeSelectorData(
           child.data.type,
-          child.data as MutableRecord,
+          child.data as unknown as MutableRecord,
           variableRoots
         )
       }

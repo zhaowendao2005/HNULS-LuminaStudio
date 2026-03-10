@@ -20,7 +20,17 @@ export const endNodeDefinition = defineStandardOFNodeDefinition<OFEndNodeData>({
     category: 'end',
     kind: 'standard',
     vueFlowType: 'end',
-    ai_exposed: true
+    ai_exposed: true,
+    output_namespace: {
+      strategy: 'system',
+      default_prefix: 'end',
+      system_managed: true
+    },
+    ports: [
+      { id: 'target', kind: 'control-in', label: 'In', stable: true },
+      { id: 'output', kind: 'data-out', label: 'Workflow output', stable: true, multiple: true }
+    ],
+    sideEffects: []
   },
   authoring: {
     contract: {
@@ -94,7 +104,10 @@ export const endNodeDefinition = defineStandardOFNodeDefinition<OFEndNodeData>({
         desc,
         type: OFBlockEnum.End,
         output: {
-          variables: helpers.compileVariables(node.config.output?.variables || [])
+          variables: helpers.compileVariables(
+            ((node.config.output as OFEndNodeData['output'] | undefined)?.variables ||
+              []) as unknown[]
+          )
         }
       }
     }
