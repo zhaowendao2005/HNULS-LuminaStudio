@@ -8,9 +8,9 @@ import {
 
 describe('selector-utils', () => {
   it('splits malformed nested start-variable selectors while preserving namespaced store keys', () => {
-    expect(normalizeOFSelector(['content_package.config.process_mode'], ['content_package'])).toEqual(
-      ['content_package', 'config', 'process_mode']
-    )
+    expect(
+      normalizeOFSelector(['content_package.config.process_mode'], ['content_package'])
+    ).toEqual(['content_package', 'config', 'process_mode'])
     expect(normalizeOFSelector(['router.result'], ['content_package'])).toEqual(['router.result'])
   })
 
