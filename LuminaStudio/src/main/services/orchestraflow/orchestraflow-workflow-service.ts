@@ -1,17 +1,31 @@
 /**
  * OrchestraFlow Workflow Service
- * 工作流服务 - 负责工作流数据的持久化
+ * 工作流服务 - 负责工作流文件与 SQLite 索引
  */
 import { app } from 'electron'
 import { join } from 'path'
-import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, unlinkSync } from 'fs'
+import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync } from 'fs'
+import { randomUUID } from 'crypto'
+import type Database from 'better-sqlite3'
 import { logger } from '../logger'
+import { databaseManager } from '@main/services/database-sqlite'
 import type { OFWorkflow, OFWorkflowMeta } from '../../../Public/ShareTypes/Orchestraflow-types'
 import { parseJsonc } from './orchestraflow-workflow-json'
 
 const log = logger.scope('OrchestraflowWorkflowService')
 
-// 工作流存储目录
+interface WorkflowIndexRow {
+  workflow_id: string
+  name: string
+  description: string | null
+  author: string
+  status: string
+  node_count: number
+  json_path: string
+  created_at: number
+  updated_at: number
+}
+
 function getWorkflowDir(): string {
   const dir = join(app.getPath('userData'), 'UserData', 'Orchestraflow')
   if (!existsSync(dir)) {
@@ -20,128 +34,89 @@ function getWorkflowDir(): string {
   return dir
 }
 
-// 生成6位随机字符串
-function generateRandomSuffix(): string {
-  return Math.random().toString(36).substring(2, 8)
-}
-
-// 从文件名提取工作流ID
-function extractWorkflowId(filename: string): string {
-  return filename.replace('.json', '')
-}
-
-/**
- * 根据 workflowId 查找对应文件。
- *
- * 长期规则：
- * - 文件名仍然是首选索引，因为它成本最低。
- * - 但内容里的 workflow.id 才是最终业务标识，因此当文件名不一致时必须允许回查。
- */
-function findWorkflowFileById(workflowId: string): string | null {
-  const dir = getWorkflowDir()
-  const files = readdirSync(dir).filter((f) => f.endsWith('.json'))
-
-  const directMatch = files.find((file) => extractWorkflowId(file) === workflowId)
-  if (directMatch) {
-    return directMatch
-  }
-
-  for (const file of files) {
-    try {
-      const content = readFileSync(join(dir, file), 'utf-8')
-      const workflow = parseJsonc<Partial<OFWorkflow>>(content)
-      if (workflow.id === workflowId) {
-        return file
-      }
-    } catch (e) {
-      log.warn(`Failed to inspect workflow file while resolving id: ${file}`, {
-        error: e instanceof Error ? e.message : String(e)
-      })
-    }
-  }
-
-  return null
+function getWorkflowPath(workflowId: string): string {
+  return join(getWorkflowDir(), `${workflowId}.json`)
 }
 
 export class OrchestraflowWorkflowService {
-  /**
-   * 获取工作流列表
-   */
+  private readonly db: Database.Database
+
+  constructor() {
+    this.db = databaseManager.getDatabase('orchestraflow-runtime')
+  }
+
   async list(params?: {
     keyword?: string
     page?: number
     pageSize?: number
   }): Promise<{ workflows: OFWorkflowMeta[]; total: number }> {
-    const dir = getWorkflowDir()
-    const files = readdirSync(dir).filter((f) => f.endsWith('.json'))
-
-    const workflows: OFWorkflowMeta[] = []
-    for (const file of files) {
-      try {
-        const content = readFileSync(join(dir, file), 'utf-8')
-        const workflow = parseJsonc<OFWorkflow>(content)
-
-        // 关键词过滤
-        if (
-          params?.keyword &&
-          !workflow.name.toLowerCase().includes(params.keyword.toLowerCase())
-        ) {
-          continue
-        }
-
-        workflows.push({
-          id: workflow.id,
-          name: workflow.name,
-          description: workflow.description,
-          author: workflow.author,
-          createdAt: workflow.createdAt,
-          updatedAt: workflow.updatedAt,
-          status: workflow.status,
-          nodeCount: workflow.graph?.nodes?.length || 0
-        })
-      } catch (e) {
-        log.error(`Failed to read workflow file: ${file}`, e)
-      }
-    }
-
-    // 按更新时间倒序
-    workflows.sort((a, b) => b.updatedAt - a.updatedAt)
-
-    // 分页
     const page = params?.page || 1
     const pageSize = params?.pageSize || 20
-    const total = workflows.length
-    const paged = workflows.slice((page - 1) * pageSize, page * pageSize)
+    const keyword = params?.keyword?.trim().toLowerCase() || null
 
-    return { workflows: paged, total }
+    const countRow = keyword
+      ? (this.db
+          .prepare(
+            `SELECT COUNT(*) as count FROM of_workflow_index WHERE lower(name) LIKE ? OR lower(ifnull(description, '')) LIKE ?`
+          )
+          .get(`%${keyword}%`, `%${keyword}%`) as { count: number })
+      : (this.db.prepare('SELECT COUNT(*) as count FROM of_workflow_index').get() as {
+          count: number
+        })
+
+    const rows = keyword
+      ? (this.db
+          .prepare(
+            `
+            SELECT * FROM of_workflow_index
+            WHERE lower(name) LIKE ? OR lower(ifnull(description, '')) LIKE ?
+            ORDER BY updated_at DESC
+            LIMIT ? OFFSET ?
+          `
+          )
+          .all(
+            `%${keyword}%`,
+            `%${keyword}%`,
+            pageSize,
+            (page - 1) * pageSize
+          ) as WorkflowIndexRow[])
+      : (this.db
+          .prepare('SELECT * FROM of_workflow_index ORDER BY updated_at DESC LIMIT ? OFFSET ?')
+          .all(pageSize, (page - 1) * pageSize) as WorkflowIndexRow[])
+
+    return {
+      workflows: rows.map((row) => ({
+        id: row.workflow_id,
+        name: row.name,
+        description: row.description || undefined,
+        author: row.author,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        status: row.status as OFWorkflowMeta['status'],
+        nodeCount: row.node_count
+      })),
+      total: countRow.count
+    }
   }
 
-  /**
-   * 获取单个工作流
-   */
   async get(workflowId: string): Promise<OFWorkflow | null> {
-    const file = findWorkflowFileById(workflowId)
-    if (!file) {
-      return null
-    }
+    const row = this.db
+      .prepare('SELECT * FROM of_workflow_index WHERE workflow_id = ?')
+      .get(workflowId) as WorkflowIndexRow | undefined
+    if (!row) return null
 
     try {
-      const content = readFileSync(join(getWorkflowDir(), file), 'utf-8')
+      const content = readFileSync(row.json_path, 'utf-8')
       return parseJsonc<OFWorkflow>(content)
     } catch (e) {
-      log.error(`Failed to read workflow: ${file}`, e)
+      log.error(`Failed to read workflow file for indexed workflow: ${workflowId}`, e)
       return null
     }
   }
 
-  /**
-   * 创建工作流
-   */
   async create(data: { name: string; description?: string; author?: string }): Promise<OFWorkflow> {
     const now = Math.floor(Date.now() / 1000)
-    const randomSuffix = generateRandomSuffix()
-    const workflowId = `${data.name}-${randomSuffix}`
-
+    const workflowId = `wf_${randomUUID()}`
     const workflow: OFWorkflow = {
       id: workflowId,
       name: data.name,
@@ -153,17 +128,14 @@ export class OrchestraflowWorkflowService {
       graph: { nodes: [], edges: [] }
     }
 
-    const filename = `${workflowId}.json`
-    const filepath = join(getWorkflowDir(), filename)
-    writeFileSync(filepath, JSON.stringify(workflow, null, 2), 'utf-8')
+    const jsonPath = getWorkflowPath(workflowId)
+    writeFileSync(jsonPath, JSON.stringify(workflow, null, 2), 'utf-8')
+    this.upsertIndex(workflow, jsonPath)
 
     log.info(`Workflow created: ${workflowId}`)
     return workflow
   }
 
-  /**
-   * 更新工作流
-   */
   async update(workflowId: string, data: Partial<OFWorkflow>): Promise<OFWorkflow | null> {
     const existing = await this.get(workflowId)
     if (!existing) return null
@@ -171,31 +143,62 @@ export class OrchestraflowWorkflowService {
     const updated: OFWorkflow = {
       ...existing,
       ...data,
-      id: workflowId, // 保持ID不变
+      id: workflowId,
       updatedAt: Math.floor(Date.now() / 1000)
     }
 
-    const file = findWorkflowFileById(workflowId)
-    if (!file) return null
+    const row = this.db
+      .prepare('SELECT * FROM of_workflow_index WHERE workflow_id = ?')
+      .get(workflowId) as WorkflowIndexRow | undefined
+    const jsonPath = row?.json_path || getWorkflowPath(workflowId)
 
-    const filepath = join(getWorkflowDir(), file)
-    writeFileSync(filepath, JSON.stringify(updated, null, 2), 'utf-8')
+    writeFileSync(jsonPath, JSON.stringify(updated, null, 2), 'utf-8')
+    this.upsertIndex(updated, jsonPath)
     log.info(`Workflow updated: ${workflowId}`)
     return updated
   }
 
-  /**
-   * 删除工作流
-   */
   async delete(workflowId: string): Promise<boolean> {
-    const file = findWorkflowFileById(workflowId)
-    if (!file) return false
+    const row = this.db
+      .prepare('SELECT * FROM of_workflow_index WHERE workflow_id = ?')
+      .get(workflowId) as WorkflowIndexRow | undefined
+    if (!row) return false
 
-    const filepath = join(getWorkflowDir(), file)
-    unlinkSync(filepath)
+    if (existsSync(row.json_path)) {
+      unlinkSync(row.json_path)
+    }
+    this.db.prepare('DELETE FROM of_workflow_index WHERE workflow_id = ?').run(workflowId)
     log.info(`Workflow deleted: ${workflowId}`)
     return true
   }
-}
 
-export const orchestraflowWorkflowService = new OrchestraflowWorkflowService()
+  private upsertIndex(workflow: OFWorkflow, jsonPath: string): void {
+    this.db
+      .prepare(
+        `
+        INSERT OR REPLACE INTO of_workflow_index (
+          workflow_id,
+          name,
+          description,
+          author,
+          status,
+          node_count,
+          json_path,
+          created_at,
+          updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `
+      )
+      .run(
+        workflow.id,
+        workflow.name,
+        workflow.description || null,
+        workflow.author,
+        workflow.status,
+        workflow.graph?.nodes?.length || 0,
+        jsonPath,
+        workflow.createdAt,
+        workflow.updatedAt
+      )
+  }
+}

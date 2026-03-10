@@ -1,15 +1,5 @@
 import type { TableDefinition } from '../../types'
 
-/**
- * BaseConfig 数据库表结构定义
- *
- * 包含：
- * - _schema_version: 版本元数据表
- * - model_providers: 模型提供商表
- * - model_configs: 模型配置表
- * - app_settings: 应用设置表
- */
-
 export const SCHEMA_VERSION_TABLE: TableDefinition = {
   name: '_schema_version',
   createSQL: `
@@ -29,6 +19,7 @@ export const MODEL_PROVIDERS_TABLE: TableDefinition = {
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       protocol TEXT NOT NULL DEFAULT 'openai',
+      api_mode TEXT NOT NULL DEFAULT 'auto',
       enabled INTEGER NOT NULL DEFAULT 1,
       base_url TEXT NOT NULL,
       api_key TEXT NOT NULL,

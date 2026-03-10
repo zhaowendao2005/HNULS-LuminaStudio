@@ -37,14 +37,10 @@ export function applyPromptToGraphState(
   prompt: string,
   current?: OFGenerationGraphState
 ): OFGenerationGraphState {
-  const text = prompt.toLowerCase()
   const mutations: GenerationGraphMutation[] = []
   const start = createNode('gen-start', OFBlockEnum.Start, '开始', 80, 220)
-  const end = createNode('gen-end', OFBlockEnum.End, '结束', 860, 220)
-  const middleType =
-    text.includes('if') || text.includes('branch') ? OFBlockEnum.IfElse : OFBlockEnum.LLM
-  const middleTitle = middleType === OFBlockEnum.IfElse ? '条件分支' : '生成节点'
-  const middle = createNode('gen-middle', middleType, middleTitle, 460, 220)
+  const end = createNode('gen-end', OFBlockEnum.End, '结束', 1020, 220)
+  const segments = buildSegmentsFromPrompt(prompt)
 
   mutations.push({
     type: 'replace',
@@ -59,28 +55,79 @@ export function applyPromptToGraphState(
       } as OFGenerationGraphState)
   })
   mutations.push({ type: 'upsert-node', node: start })
-  mutations.push({ type: 'upsert-node', node: middle })
+  let previousNode = start
+
+  segments.forEach((segment, index) => {
+    const node = createNode(
+      `gen-node-${index + 1}`,
+      inferBlockType(segment),
+      segment.title,
+      300 + index * 220,
+      220 + (index % 2 === 0 ? 0 : 48)
+    )
+    mutations.push({ type: 'upsert-node', node })
+    mutations.push({
+      type: 'add-edge',
+      edge: {
+        id: `edge_${previousNode.id}_${node.id}`,
+        source: previousNode.id,
+        target: node.id,
+        sourceHandle: previousNode.type === OFBlockEnum.IfElse ? 'else' : 'source',
+        targetHandle: 'target'
+      }
+    })
+    previousNode = node
+  })
+
   mutations.push({ type: 'upsert-node', node: end })
   mutations.push({
     type: 'add-edge',
     edge: {
-      id: 'edge_start_middle',
-      source: start.id,
-      target: middle.id,
-      sourceHandle: 'source',
-      targetHandle: 'target'
-    }
-  })
-  mutations.push({
-    type: 'add-edge',
-    edge: {
-      id: 'edge_middle_end',
-      source: middle.id,
+      id: `edge_${previousNode.id}_${end.id}`,
+      source: previousNode.id,
       target: end.id,
-      sourceHandle: middleType === OFBlockEnum.IfElse ? 'else' : 'source',
+      sourceHandle: previousNode.type === OFBlockEnum.IfElse ? 'else' : 'source',
       targetHandle: 'target'
     }
   })
 
   return reduceGenerationGraphState(current, mutations)
+}
+
+function buildSegmentsFromPrompt(prompt: string): Array<{ title: string; raw: string }> {
+  const lines = prompt
+    .split(/\r?\n/)
+    .map((line) => line.replace(/^[-*\d.\s]+/, '').trim())
+    .filter(Boolean)
+
+  if (lines.length === 0) {
+    return [{ title: '生成节点', raw: prompt }]
+  }
+
+  return lines.slice(0, 6).map((line, index) => ({
+    title: line.length > 20 ? line.slice(0, 20) : line || `步骤 ${index + 1}`,
+    raw: line
+  }))
+}
+
+function inferBlockType(segment: { title: string; raw: string }): OFBlockEnum {
+  const text = `${segment.title} ${segment.raw}`.toLowerCase()
+  if (
+    text.includes('if') ||
+    text.includes('branch') ||
+    text.includes('条件') ||
+    text.includes('分支')
+  ) {
+    return OFBlockEnum.IfElse
+  }
+  if (text.includes('loop') || text.includes('循环')) {
+    return OFBlockEnum.Loop
+  }
+  if (text.includes('iterate') || text.includes('迭代')) {
+    return OFBlockEnum.Iteration
+  }
+  if (text.includes('assign') || text.includes('变量') || text.includes('输出')) {
+    return OFBlockEnum.VariableAssign
+  }
+  return OFBlockEnum.LLM
 }

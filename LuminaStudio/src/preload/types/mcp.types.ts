@@ -1,4 +1,5 @@
 import type { ApiResponse } from './base.types'
+import type { AiChatStreamEvent } from './ai-chat.types'
 
 export type McpTransportType = 'stdio' | 'streamable-http'
 
@@ -30,8 +31,10 @@ export interface McpCapabilitiesSummary {
 }
 
 export interface McpSessionState {
+  sessionId: string
   connected: boolean
   presetId: string | null
+  presetName?: string | null
   transport: McpTransportType | null
   serverName: string | null
   serverVersion: string | null
@@ -102,6 +105,7 @@ export interface McpSessionEvent {
 
 export interface McpTraceEvent {
   id: string
+  sessionId: string
   direction: 'outgoing' | 'incoming'
   timestamp: string
   transport: McpTransportType | null
@@ -112,33 +116,70 @@ export interface McpConnectRequest {
   preset: McpServerPreset
 }
 
-export interface McpCallToolRequest {
+export interface McpDisconnectRequest {
+  sessionId?: string
+}
+
+export interface McpSessionScopedRequest {
+  sessionId: string
+}
+
+export interface McpCallToolRequest extends McpSessionScopedRequest {
   name: string
   arguments?: Record<string, unknown>
 }
 
-export interface McpGetPromptRequest {
+export interface McpGetPromptRequest extends McpSessionScopedRequest {
   name: string
   arguments?: Record<string, string>
 }
 
-export interface McpReadResourceRequest {
+export interface McpReadResourceRequest extends McpSessionScopedRequest {
   uri: string
 }
+
+export interface McpChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export interface McpChatStartRequest {
+  requestId?: string
+  providerId: string
+  modelId: string
+  enableThinking?: boolean
+  mcpEnabled: boolean
+  sessionIds: string[]
+  messages: McpChatMessage[]
+}
+
+export interface McpChatStartResponse {
+  requestId: string
+}
+
+export interface McpChatAbortRequest {
+  requestId: string
+}
+
+export type McpChatStreamEvent = AiChatStreamEvent
 
 export interface McpAPI {
   listPresets: () => Promise<ApiResponse<McpServerPreset[]>>
   savePreset: (preset: McpServerPreset) => Promise<ApiResponse<McpServerPreset[]>>
   deletePreset: (presetId: string) => Promise<ApiResponse<McpServerPreset[]>>
   connect: (request: McpConnectRequest) => Promise<ApiResponse<McpSessionState>>
-  disconnect: () => Promise<ApiResponse<McpSessionState>>
-  getSessionState: () => Promise<ApiResponse<McpSessionState>>
-  listTools: () => Promise<ApiResponse<McpToolSummary[]>>
+  disconnect: (request?: McpDisconnectRequest) => Promise<ApiResponse<McpSessionState | null>>
+  getSessionState: (request?: McpDisconnectRequest) => Promise<ApiResponse<McpSessionState | null>>
+  listSessionStates: () => Promise<ApiResponse<McpSessionState[]>>
+  listTools: (request: McpSessionScopedRequest) => Promise<ApiResponse<McpToolSummary[]>>
   callTool: (request: McpCallToolRequest) => Promise<ApiResponse<McpToolCallResult>>
-  listPrompts: () => Promise<ApiResponse<McpPromptSummary[]>>
+  listPrompts: (request: McpSessionScopedRequest) => Promise<ApiResponse<McpPromptSummary[]>>
   getPrompt: (request: McpGetPromptRequest) => Promise<ApiResponse<McpPromptRenderResult>>
-  listResources: () => Promise<ApiResponse<McpResourceSummary[]>>
+  listResources: (request: McpSessionScopedRequest) => Promise<ApiResponse<McpResourceSummary[]>>
   readResource: (request: McpReadResourceRequest) => Promise<ApiResponse<McpResourceReadResult>>
+  startChat: (request: McpChatStartRequest) => Promise<ApiResponse<McpChatStartResponse>>
+  abortChat: (request: McpChatAbortRequest) => Promise<ApiResponse<void>>
   onSessionEvent: (handler: (event: McpSessionEvent) => void) => () => void
   onTrace: (handler: (event: McpTraceEvent) => void) => () => void
+  onChatStream: (handler: (event: McpChatStreamEvent) => void) => () => void
 }

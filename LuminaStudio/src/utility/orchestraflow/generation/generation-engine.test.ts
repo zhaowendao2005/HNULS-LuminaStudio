@@ -7,8 +7,8 @@ import {
 import { parseGenerationDsl } from './dsl-parser'
 
 describe('generation engine', () => {
-  it('creates a session and starter topology from prompt', () => {
-    const session = sendGenerationPrompt(
+  it('creates a session and starter topology from prompt', async () => {
+    const session = await sendGenerationPrompt(
       createGenerationSession({ id: 'session-1', workflow_name: 'demo' }),
       'build a branching workflow'
     )
@@ -28,10 +28,10 @@ set model`)
     expect(blocks[0].kind).toBe('WIRE_BATCH')
   })
 
-  it('advances validate phase into waiting-confirm when valid', () => {
+  it('advances validate phase into waiting-confirm when valid', async () => {
     let session = createGenerationSession({ id: 'session-2', workflow_name: 'demo' })
-    session = sendGenerationPrompt(session, 'simple flow')
-    session = advanceGenerationPhase(session, 'validate')
+    session = await sendGenerationPrompt(session, 'simple flow')
+    session = await advanceGenerationPhase(session, 'validate')
 
     expect(['waiting-confirm', 'failed']).toContain(session.status)
   })

@@ -9,6 +9,7 @@
       v-else-if="viewMode === 'generator'"
       :session-id="currentSessionId"
       @back="handleBack"
+      @switch-session="handleOpenGenerator"
       @open-workflow="handleOpenWorkflow"
     />
     <EditorView

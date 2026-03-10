@@ -121,8 +121,14 @@ function handleCreateWorkflow() {
 }
 
 async function handleCreateGenerationSession() {
+  const timestamp = new Date().toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
   const session = await workflowGenerationStore.createSession({
-    workflow_name: `生成工作流 ${workflowGenerationStore.sessions.length + 1}`,
+    workflow_name: `未命名生成会话 ${timestamp}`,
     prompt: ''
   })
   emit('open-generator', session.id)

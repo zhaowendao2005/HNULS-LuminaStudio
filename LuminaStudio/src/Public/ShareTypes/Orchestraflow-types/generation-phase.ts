@@ -1,4 +1,10 @@
 import type { OFModelConfig } from './core-types'
+import {
+  getOFDefaultGenerationAgentConfigs,
+  OF_GENERATION_AGENT_PHASE_COMPAT,
+  type OFGenerationAgentId,
+  type OFGenerationAgentRuntimeConfig
+} from './generation-agent'
 
 export type OFGenerationPhase = 'plan' | 'wire' | 'config' | 'validate'
 export type OFGenerationPhaseStatus =
@@ -35,13 +41,12 @@ export function getOFDefaultGenerationPhaseModels(): Record<
   OFGenerationPhase,
   OFGenerationPhaseModelConfig
 > {
-  const defaults: Record<OFGenerationPhase, OFGenerationPhaseModelConfig> = {
+  return {
     plan: { phase: 'plan', enabled: true, temperature: 0.2 },
     wire: { phase: 'wire', enabled: true, temperature: 0.1 },
     config: { phase: 'config', enabled: true, temperature: 0.1 },
     validate: { phase: 'validate', enabled: true, temperature: 0 }
   }
-  return defaults
 }
 
 export function normalizeOFGenerationPhaseModels(
@@ -69,5 +74,57 @@ export function normalizeOFGenerationPhaseModels(
         'fallback_model' in value ? value.fallback_model : defaults[phase].fallback_model
     }
   }
+  return next
+}
+
+export function normalizeOFGenerationAgentConfigs(
+  source?: Partial<Record<OFGenerationAgentId, Partial<OFGenerationAgentRuntimeConfig>>>,
+  legacyPhaseModels?: Partial<
+    Record<OFGenerationPhase, OFGenerationPhaseModelConfig | OFModelConfig>
+  >
+): Record<OFGenerationAgentId, OFGenerationAgentRuntimeConfig> {
+  const compatPhaseModels = normalizeOFGenerationPhaseModels(legacyPhaseModels)
+  const defaults = getOFDefaultGenerationAgentConfigs(compatPhaseModels)
+  if (!source) return defaults
+
+  return {
+    draft_chat: {
+      ...defaults.draft_chat,
+      ...source.draft_chat,
+      agent_id: 'draft_chat'
+    },
+    plan_panel: {
+      ...defaults.plan_panel,
+      ...source.plan_panel,
+      agent_id: 'plan_panel'
+    },
+    topology_graph: {
+      ...defaults.topology_graph,
+      ...source.topology_graph,
+      agent_id: 'topology_graph'
+    }
+  }
+}
+
+export function mapAgentConfigsToLegacyPhaseModels(
+  agentConfigs?: Partial<Record<OFGenerationAgentId, Partial<OFGenerationAgentRuntimeConfig>>>
+): Record<OFGenerationPhase, OFGenerationPhaseModelConfig> {
+  const normalizedAgents = normalizeOFGenerationAgentConfigs(agentConfigs)
+  const defaults = getOFDefaultGenerationPhaseModels()
+  const next = { ...defaults }
+
+  for (const phase of Object.keys(next) as OFGenerationPhase[]) {
+    const agentId = OF_GENERATION_AGENT_PHASE_COMPAT[phase]
+    const agentConfig = normalizedAgents[agentId]
+    next[phase] = {
+      ...next[phase],
+      phase,
+      provider: agentConfig.provider,
+      model: agentConfig.model,
+      temperature: agentConfig.temperature,
+      enabled: agentConfig.enabled
+    }
+  }
+
   return next
 }

@@ -1,4 +1,5 @@
 import type {
+  McpChatStartResponse,
   McpPromptRenderResult,
   McpPromptSummary,
   McpResourceReadResult,
@@ -7,16 +8,17 @@ import type {
   McpSessionState,
   McpToolCallResult,
   McpToolSummary,
-  McpTraceEvent
+  McpTraceEvent,
+  McpChatStreamEvent
 } from '@preload/types'
 
 const MCP_PRESETS_STORAGE_KEY = 'lumina:mcp-presets'
 
 function unwrap<T>(response: { success: boolean; data?: T; error?: string }): T {
-  if (!response.success || response.data === undefined) {
+  if (!response.success) {
     throw new Error(response.error || 'MCP request failed')
   }
-  return response.data
+  return response.data as T
 }
 
 function readLocalPresets(): McpServerPreset[] {
@@ -62,34 +64,61 @@ export const McpDataSource = {
   connect(preset: McpServerPreset): Promise<McpSessionState> {
     return window.api.mcp.connect({ preset: toSerializablePreset(preset) }).then(unwrap)
   },
-  disconnect(): Promise<McpSessionState> {
-    return window.api.mcp.disconnect().then(unwrap)
+  disconnect(sessionId?: string): Promise<McpSessionState | null> {
+    return window.api.mcp.disconnect({ sessionId }).then(unwrap)
   },
-  getSessionState(): Promise<McpSessionState> {
-    return window.api.mcp.getSessionState().then(unwrap)
+  getSessionState(sessionId?: string): Promise<McpSessionState | null> {
+    return window.api.mcp.getSessionState({ sessionId }).then(unwrap)
   },
-  listTools(): Promise<McpToolSummary[]> {
-    return window.api.mcp.listTools().then(unwrap)
+  listSessionStates(): Promise<McpSessionState[]> {
+    return window.api.mcp.listSessionStates().then(unwrap)
   },
-  callTool(name: string, args?: Record<string, unknown>): Promise<McpToolCallResult> {
-    return window.api.mcp.callTool({ name, arguments: args }).then(unwrap)
+  listTools(sessionId: string): Promise<McpToolSummary[]> {
+    return window.api.mcp.listTools({ sessionId }).then(unwrap)
   },
-  listPrompts(): Promise<McpPromptSummary[]> {
-    return window.api.mcp.listPrompts().then(unwrap)
+  callTool(
+    sessionId: string,
+    name: string,
+    args?: Record<string, unknown>
+  ): Promise<McpToolCallResult> {
+    return window.api.mcp.callTool({ sessionId, name, arguments: args }).then(unwrap)
   },
-  getPrompt(name: string, args?: Record<string, string>): Promise<McpPromptRenderResult> {
-    return window.api.mcp.getPrompt({ name, arguments: args }).then(unwrap)
+  listPrompts(sessionId: string): Promise<McpPromptSummary[]> {
+    return window.api.mcp.listPrompts({ sessionId }).then(unwrap)
   },
-  listResources(): Promise<McpResourceSummary[]> {
-    return window.api.mcp.listResources().then(unwrap)
+  getPrompt(
+    sessionId: string,
+    name: string,
+    args?: Record<string, string>
+  ): Promise<McpPromptRenderResult> {
+    return window.api.mcp.getPrompt({ sessionId, name, arguments: args }).then(unwrap)
   },
-  readResource(uri: string): Promise<McpResourceReadResult> {
-    return window.api.mcp.readResource({ uri }).then(unwrap)
+  listResources(sessionId: string): Promise<McpResourceSummary[]> {
+    return window.api.mcp.listResources({ sessionId }).then(unwrap)
   },
-  onSessionEvent(handler: (state: McpSessionState) => void): () => void {
+  readResource(sessionId: string, uri: string): Promise<McpResourceReadResult> {
+    return window.api.mcp.readResource({ sessionId, uri }).then(unwrap)
+  },
+  startChat(request: {
+    providerId: string
+    modelId: string
+    enableThinking?: boolean
+    mcpEnabled: boolean
+    sessionIds: string[]
+    messages: Array<{ role: 'user' | 'assistant'; content: string }>
+  }): Promise<McpChatStartResponse> {
+    return window.api.mcp.startChat(request).then(unwrap)
+  },
+  abortChat(requestId: string): Promise<void> {
+    return window.api.mcp.abortChat({ requestId }).then(unwrap)
+  },
+  onSessionEvent(handler: (session: McpSessionState) => void): () => void {
     return window.api.mcp.onSessionEvent((event) => handler(event.state))
   },
   onTrace(handler: (event: McpTraceEvent) => void): () => void {
     return window.api.mcp.onTrace(handler)
+  },
+  onChatStream(handler: (event: McpChatStreamEvent) => void): () => void {
+    return window.api.mcp.onChatStream(handler)
   }
 }

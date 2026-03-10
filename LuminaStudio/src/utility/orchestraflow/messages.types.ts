@@ -1,7 +1,5 @@
 /**
  * OrchestraFlow IPC 消息类型定义
- *
- * 定义 Main 进程 ↔ UtilityProcess(orchestraflow) 之间的消息协议
  */
 
 import type {
@@ -12,30 +10,28 @@ import type {
   OFWorkflowRunResult,
   OFNodeDebugResult,
   OFGenerationPhase,
-  OFGenerationSession
+  OFGenerationSession,
+  OFGenerationAgentId,
+  OFGenerationAgentEvent,
+  OFGenerationAgentRuntimeConfig
 } from '@shared/Orchestraflow-types'
-
-// ==================== Config Types ====================
 
 export interface OFProcessConfig {
   knowledgeApiUrl?: string
   modelConfigs?: Record<string, OFModelConfig>
 }
 
-// ==================== Provider Config Types ====================
-
 export interface OFProviderConfig {
   id: string
   name: string
   baseUrl: string
   apiKey: string
+  apiMode?: 'auto' | 'responses' | 'chat-completions'
   enabled: boolean
   defaultHeaders?: Record<string, string>
 }
 
 export type OFProviderConfigsMap = Record<string, OFProviderConfig>
-
-// ==================== Workflow Run Types ====================
 
 export interface OFWorkflowRunRequest {
   runId: string
@@ -53,8 +49,6 @@ export interface OFNodeDebugRunRequest {
   providerConfigs?: OFProviderConfigsMap
 }
 
-// ==================== Node Execution Types ====================
-
 export interface OFNodeExecutionInput {
   nodeId: string
   graph?: OFWorkflowGraph
@@ -65,8 +59,6 @@ export interface OFNodeExecutionOutput {
   nodeId: string
   outputs: Record<string, unknown>
 }
-
-// ==================== Main -> Utility ====================
 
 export type MainToOFMessage =
   | {
@@ -100,19 +92,51 @@ export type MainToOFMessage =
       type: 'generation:send-prompt'
       session: OFGenerationSession
       prompt: string
+      providerConfigs?: OFProviderConfigsMap
     }
   | {
       type: 'generation:advance-phase'
       session: OFGenerationSession
       phase: OFGenerationPhase
+      providerConfigs?: OFProviderConfigsMap
     }
   | {
       type: 'generation:rollback-checkpoint'
       session: OFGenerationSession
       checkpointId: string
+      providerConfigs?: OFProviderConfigsMap
     }
-
-// ==================== Utility -> Main ====================
+  | {
+      type: 'generation:send-agent-message'
+      session: OFGenerationSession
+      agentId: OFGenerationAgentId
+      input: string
+      requestId: string
+      providerConfigs?: OFProviderConfigsMap
+    }
+  | {
+      type: 'generation:resolve-approval'
+      session: OFGenerationSession
+      approvalId: string
+      decision: 'approved' | 'rejected'
+      note?: string
+      requestId: string
+      providerConfigs?: OFProviderConfigsMap
+    }
+  | {
+      type: 'generation:run-stage'
+      session: OFGenerationSession
+      stage: 'draft' | 'plan' | 'topology' | 'validation'
+      requestId: string
+      providerConfigs?: OFProviderConfigsMap
+    }
+  | {
+      type: 'generation:update-agent-config'
+      session: OFGenerationSession
+      agentId: OFGenerationAgentId
+      patch: Partial<OFGenerationAgentRuntimeConfig>
+      providerConfigs?: OFProviderConfigsMap
+    }
 
 export type OFToMainMessage =
   | { type: 'process:ready' }
@@ -129,4 +153,5 @@ export type OFToMainMessage =
   | { type: 'node:debug-result'; requestId: string; result: OFNodeDebugResult }
   | { type: 'node:debug-error'; requestId: string; error: string }
   | { type: 'generation:session'; session: OFGenerationSession }
-  | { type: 'generation:error'; error: string }
+  | { type: 'generation:error'; error: string; requestId?: string }
+  | { type: 'generation:agent-event'; event: OFGenerationAgentEvent }

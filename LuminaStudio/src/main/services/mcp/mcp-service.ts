@@ -1,14 +1,17 @@
-import { app } from 'electron'
-import fs from 'fs'
-import path from 'path'
 import { randomUUID } from 'crypto'
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
+import { dynamicTool, extractReasoningMiddleware, streamText, wrapLanguageModel } from 'ai'
+import type { LanguageModel } from 'ai'
+import type { WebContents } from 'electron'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
 import type { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js'
 import type {
+  AiChatStreamEvent,
   McpCapabilitiesSummary,
+  McpChatMessage,
   McpPromptRenderResult,
   McpPromptSummary,
   McpResourceReadResult,
@@ -20,21 +23,25 @@ import type {
   McpToolSummary,
   McpTraceEvent
 } from '@preload/types'
+import type { LangchainClientToolCallPayload } from '@shared/langchain-client.types'
+import type { ModelConfigService } from '../model-config'
 import { logger } from '../logger'
 
 const log = logger.scope('McpService')
 const TRACE_LIMIT = 200
 
-interface McpPersistedConfig {
-  version: number
-  updatedAt: string
-  presets: McpServerPreset[]
+interface SessionRecord {
+  preset: McpServerPreset
+  client: Client
+  transport: Transport
+  state: McpSessionState
+  traces: McpTraceEvent[]
 }
 
-const DEFAULT_CONFIG: McpPersistedConfig = {
-  version: 1,
-  updatedAt: new Date().toISOString(),
-  presets: []
+interface ChatRecord {
+  sender: WebContents
+  requestId: string
+  abortController: AbortController
 }
 
 class TracedTransport implements Transport {
@@ -69,24 +76,13 @@ class TracedTransport implements Transport {
 }
 
 export class McpService {
-  private readonly configPath: string
-  private config: McpPersistedConfig = DEFAULT_CONFIG
-  private client: Client | null = null
-  private transport: Transport | null = null
-  private sessionState: McpSessionState = this.createEmptySessionState()
+  private readonly sessions = new Map<string, SessionRecord>()
+  private activeSessionId: string | null = null
   private readonly sessionListeners = new Set<(event: McpSessionEvent) => void>()
   private readonly traceListeners = new Set<(event: McpTraceEvent) => void>()
-  private readonly traceBuffer: McpTraceEvent[] = []
+  private readonly chatRequests = new Map<string, ChatRecord>()
 
-  constructor() {
-    const userDataPath = app.getPath('userData')
-    const dataDir = path.join(userDataPath, 'databases')
-    this.configPath = path.join(dataDir, 'mcp.json')
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true })
-    }
-    this.loadConfig()
-  }
+  constructor(private readonly modelConfigService: ModelConfigService) {}
 
   onSessionEvent(listener: (event: McpSessionEvent) => void): () => void {
     this.sessionListeners.add(listener)
@@ -99,35 +95,23 @@ export class McpService {
   }
 
   async listPresets(): Promise<McpServerPreset[]> {
-    return this.config.presets
+    return []
   }
 
-  async savePreset(preset: McpServerPreset): Promise<McpServerPreset[]> {
-    const sanitized = this.normalizePreset(preset)
-    const next = this.config.presets.filter((item) => item.id !== sanitized.id)
-    next.push(sanitized)
-    this.config.presets = next.sort((a, b) => a.name.localeCompare(b.name))
-    this.saveConfig()
-    return this.config.presets
+  async savePreset(_preset: McpServerPreset): Promise<McpServerPreset[]> {
+    return []
   }
 
-  async deletePreset(presetId: string): Promise<McpServerPreset[]> {
-    if (this.sessionState.presetId === presetId) {
-      await this.disconnect()
-    }
-    this.config.presets = this.config.presets.filter((item) => item.id !== presetId)
-    this.saveConfig()
-    return this.config.presets
+  async deletePreset(_presetId: string): Promise<McpServerPreset[]> {
+    return []
   }
 
   async connect(preset: McpServerPreset): Promise<McpSessionState> {
     const normalizedPreset = this.normalizePreset(preset)
-    await this.disconnect()
-    this.clearTraceBuffer()
-
+    const sessionId = randomUUID()
     const transport = this.createTransport(normalizedPreset)
     const tracedTransport = new TracedTransport(transport, (direction, payload) => {
-      this.recordTrace(direction, normalizedPreset.transport, payload)
+      this.recordTrace(sessionId, direction, normalizedPreset.transport, payload)
     })
     const client = new Client(
       { name: 'LuminaStudio MCP Workbench', version: '1.0.0' },
@@ -140,22 +124,38 @@ export class McpService {
       }
     )
 
+    const baseState: McpSessionState = {
+      sessionId,
+      connected: false,
+      presetId: normalizedPreset.id,
+      presetName: normalizedPreset.name,
+      transport: normalizedPreset.transport,
+      serverName: null,
+      serverVersion: null,
+      protocolVersion: null,
+      capabilities: null
+    }
+
     tracedTransport.onerror = (error) => {
-      log.error('MCP transport error', error)
-      this.updateSessionState({ connected: false, error: error.message })
+      log.error('MCP transport error', error, { sessionId })
+      this.updateSessionState(sessionId, { connected: false, error: error.message })
     }
     tracedTransport.onclose = () => {
-      this.updateSessionState({ connected: false })
+      this.updateSessionState(sessionId, { connected: false })
     }
+
+    this.sessions.set(sessionId, {
+      preset: normalizedPreset,
+      client,
+      transport: tracedTransport,
+      state: baseState,
+      traces: []
+    })
 
     await client.connect(tracedTransport)
 
-    this.client = client
-    this.transport = tracedTransport
-    this.updateSessionState({
+    const state = this.updateSessionState(sessionId, {
       connected: true,
-      presetId: normalizedPreset.id,
-      transport: normalizedPreset.transport,
       serverName: client.getServerVersion()?.name ?? null,
       serverVersion: client.getServerVersion()?.version ?? null,
       protocolVersion: null,
@@ -163,34 +163,49 @@ export class McpService {
       instructions: client.getInstructions(),
       error: undefined
     })
-
-    return this.sessionState
+    this.activeSessionId = sessionId
+    return state
   }
 
-  async disconnect(): Promise<McpSessionState> {
-    if (this.transport) {
-      try {
-        await this.transport.close()
-      } catch (error) {
-        log.warn('MCP transport close failed', {
-          error: error instanceof Error ? error.message : String(error)
-        })
-      }
+  async disconnect(sessionId?: string): Promise<McpSessionState | null> {
+    const targetId = sessionId ?? this.activeSessionId
+    if (!targetId) {
+      return null
     }
-    this.transport = null
-    this.client = null
-    this.updateSessionState(this.createEmptySessionState())
-    this.clearTraceBuffer()
-    return this.sessionState
+    const record = this.sessions.get(targetId)
+    if (!record) {
+      return null
+    }
+    try {
+      await record.transport.close()
+    } catch (error) {
+      log.warn('MCP transport close failed', {
+        sessionId: targetId,
+        error: error instanceof Error ? error.message : String(error)
+      })
+    }
+    this.sessions.delete(targetId)
+    if (this.activeSessionId === targetId) {
+      this.activeSessionId = this.sessions.keys().next().value ?? null
+    }
+    const state = { ...record.state, connected: false }
+    this.emitSessionEvent(state)
+    return state
   }
 
-  async getSessionState(): Promise<McpSessionState> {
-    return this.sessionState
+  async getSessionState(sessionId?: string): Promise<McpSessionState | null> {
+    const targetId = sessionId ?? this.activeSessionId
+    if (!targetId) return null
+    return this.sessions.get(targetId)?.state ?? null
   }
 
-  async listTools(): Promise<McpToolSummary[]> {
-    const client = this.requireClient()
-    const result = await client.listTools()
+  async listSessionStates(): Promise<McpSessionState[]> {
+    return Array.from(this.sessions.values()).map((item) => item.state)
+  }
+
+  async listTools(sessionId: string): Promise<McpToolSummary[]> {
+    const record = this.requireSession(sessionId)
+    const result = await record.client.listTools()
     return (result.tools ?? []).map((tool) => ({
       name: tool.name,
       description: tool.description,
@@ -199,9 +214,13 @@ export class McpService {
     }))
   }
 
-  async callTool(name: string, args?: Record<string, unknown>): Promise<McpToolCallResult> {
-    const client = this.requireClient()
-    const result = await client.callTool({ name, arguments: args })
+  async callTool(
+    sessionId: string,
+    name: string,
+    args?: Record<string, unknown>
+  ): Promise<McpToolCallResult> {
+    const record = this.requireSession(sessionId)
+    const result = await record.client.callTool({ name, arguments: args })
     return {
       content: Array.isArray(result.content) ? result.content : [],
       structuredContent: (result as { structuredContent?: unknown }).structuredContent,
@@ -209,11 +228,11 @@ export class McpService {
     }
   }
 
-  async listPrompts(): Promise<McpPromptSummary[]> {
-    const client = this.requireClient()
+  async listPrompts(sessionId: string): Promise<McpPromptSummary[]> {
+    const record = this.requireSession(sessionId)
     const result = await this.safeOptionalRequest(
-      () => client.listPrompts(),
-      this.sessionState.capabilities?.prompts ?? false,
+      () => record.client.listPrompts(),
+      record.state.capabilities?.prompts ?? false,
       'prompts/list'
     )
     return (result.prompts ?? []).map((prompt) => ({
@@ -227,9 +246,13 @@ export class McpService {
     }))
   }
 
-  async getPrompt(name: string, args?: Record<string, string>): Promise<McpPromptRenderResult> {
-    const client = this.requireClient()
-    const result = await client.getPrompt({ name, arguments: args })
+  async getPrompt(
+    sessionId: string,
+    name: string,
+    args?: Record<string, string>
+  ): Promise<McpPromptRenderResult> {
+    const record = this.requireSession(sessionId)
+    const result = await record.client.getPrompt({ name, arguments: args })
     return {
       description: result.description,
       messages: result.messages.map((message) => ({
@@ -239,11 +262,11 @@ export class McpService {
     }
   }
 
-  async listResources(): Promise<McpResourceSummary[]> {
-    const client = this.requireClient()
+  async listResources(sessionId: string): Promise<McpResourceSummary[]> {
+    const record = this.requireSession(sessionId)
     const result = await this.safeOptionalRequest(
-      () => client.listResources(),
-      this.sessionState.capabilities?.resources ?? false,
+      () => record.client.listResources(),
+      record.state.capabilities?.resources ?? false,
       'resources/list'
     )
     return (result.resources ?? []).map((resource) => ({
@@ -254,9 +277,9 @@ export class McpService {
     }))
   }
 
-  async readResource(uri: string): Promise<McpResourceReadResult> {
-    const client = this.requireClient()
-    const result = await client.readResource({ uri })
+  async readResource(sessionId: string, uri: string): Promise<McpResourceReadResult> {
+    const record = this.requireSession(sessionId)
+    const result = await record.client.readResource({ uri })
     return {
       contents: result.contents.map((content) => ({
         uri: content.uri,
@@ -267,30 +290,293 @@ export class McpService {
     }
   }
 
-  private loadConfig(): void {
+  async startChat(
+    sender: WebContents,
+    payload: {
+      requestId?: string
+      providerId: string
+      modelId: string
+      enableThinking?: boolean
+      mcpEnabled: boolean
+      sessionIds: string[]
+      messages: McpChatMessage[]
+    }
+  ): Promise<{ requestId: string }> {
+    const requestId = payload.requestId ?? randomUUID()
+    const model = await this.buildModel(
+      payload.providerId,
+      payload.modelId,
+      payload.enableThinking ?? false
+    )
+    const abortController = new AbortController()
+    this.chatRequests.set(requestId, { sender, requestId, abortController })
+
+    this.sendChatEvent(sender, {
+      type: 'stream-start',
+      requestId,
+      conversationId: requestId,
+      providerId: payload.providerId,
+      modelId: payload.modelId,
+      startedAt: new Date().toISOString()
+    })
+
+    const tools = payload.mcpEnabled
+      ? await this.buildChatTools(sender, requestId, payload.sessionIds)
+      : undefined
+
+    this.runChatStream(sender, requestId, model, payload.messages, abortController, tools).catch(
+      (error) => {
+        log.error('MCP chat stream failed', error, { requestId })
+        this.sendChatEvent(sender, {
+          type: 'error',
+          requestId,
+          message: error instanceof Error ? error.message : String(error)
+        })
+        this.sendChatEvent(sender, {
+          type: 'finish',
+          requestId,
+          finishReason: 'error'
+        })
+        this.chatRequests.delete(requestId)
+      }
+    )
+
+    return { requestId }
+  }
+
+  async abortChat(requestId: string): Promise<void> {
+    const record = this.chatRequests.get(requestId)
+    if (!record) return
+    record.abortController.abort()
+  }
+
+  private async runChatStream(
+    sender: WebContents,
+    requestId: string,
+    model: LanguageModel,
+    messages: McpChatMessage[],
+    abortController: AbortController,
+    tools?: Record<string, ReturnType<typeof dynamicTool>>
+  ): Promise<void> {
     try {
-      if (!fs.existsSync(this.configPath)) {
-        this.saveConfig()
-        return
+      const result = streamText({
+        model,
+        messages,
+        abortSignal: abortController.signal,
+        tools
+      })
+
+      for await (const part of result.fullStream as AsyncIterable<Record<string, unknown>>) {
+        switch (part.type) {
+          case 'text-delta': {
+            this.sendChatEvent(sender, {
+              type: 'text-delta',
+              requestId,
+              delta: this.extractDelta(part)
+            })
+            break
+          }
+          case 'reasoning-start': {
+            this.sendChatEvent(sender, {
+              type: 'reasoning-start',
+              requestId,
+              id: part.id ?? 'reasoning-block'
+            })
+            break
+          }
+          case 'reasoning-delta': {
+            this.sendChatEvent(sender, {
+              type: 'reasoning-delta',
+              requestId,
+              id: part.id ?? 'reasoning-block',
+              delta: this.extractDelta(part)
+            })
+            break
+          }
+          case 'reasoning-end': {
+            this.sendChatEvent(sender, {
+              type: 'reasoning-end',
+              requestId,
+              id: part.id ?? 'reasoning-block'
+            })
+            break
+          }
+          case 'tool-call': {
+            const payload: LangchainClientToolCallPayload = {
+              toolCallId: part.toolCallId,
+              toolName: part.toolName,
+              toolArgs: part.input
+            }
+            this.sendChatEvent(sender, {
+              type: 'tool-call',
+              requestId,
+              payload
+            })
+            break
+          }
+          case 'tool-result': {
+            this.sendChatEvent(sender, {
+              type: 'tool-result',
+              requestId,
+              payload: {
+                toolCallId: part.toolCallId,
+                toolName: part.toolName,
+                result: this.normalizeToolOutput(part.output)
+              }
+            })
+            break
+          }
+          case 'error': {
+            this.sendChatEvent(sender, {
+              type: 'error',
+              requestId,
+              message: part.error?.message ?? 'Unknown error'
+            })
+            break
+          }
+          default:
+            break
+        }
       }
-      const raw = fs.readFileSync(this.configPath, 'utf-8')
-      this.config = {
-        ...DEFAULT_CONFIG,
-        ...(JSON.parse(raw) as Partial<McpPersistedConfig>)
+
+      const usage = (await result.usage) as {
+        promptTokens?: number
+        inputTokens?: number
+        completionTokens?: number
+        outputTokens?: number
+        totalTokens?: number
       }
-      this.config.presets = (this.config.presets ?? []).map((preset) =>
-        this.normalizePreset(preset)
-      )
+      const finishReason = await result.finishReason
+      this.sendChatEvent(sender, {
+        type: 'finish',
+        requestId,
+        finishReason: finishReason === 'stop' ? 'stop' : 'error',
+        usage: usage
+          ? {
+              inputTokens: usage.promptTokens ?? usage.inputTokens ?? 0,
+              outputTokens: usage.completionTokens ?? usage.outputTokens ?? 0,
+              totalTokens: usage.totalTokens ?? 0
+            }
+          : undefined
+      })
     } catch (error) {
-      log.error('Failed to load MCP config', error)
-      this.config = DEFAULT_CONFIG
-      this.saveConfig()
+      const err = error as { name?: string; message?: string; stack?: string }
+      if (err.name === 'AbortError') {
+        this.sendChatEvent(sender, {
+          type: 'finish',
+          requestId,
+          finishReason: 'aborted'
+        })
+      } else {
+        this.sendChatEvent(sender, {
+          type: 'error',
+          requestId,
+          message: err.message ?? 'Unknown error',
+          stack: err.stack
+        })
+        this.sendChatEvent(sender, {
+          type: 'finish',
+          requestId,
+          finishReason: 'error'
+        })
+      }
+    } finally {
+      this.chatRequests.delete(requestId)
     }
   }
 
-  private saveConfig(): void {
-    this.config.updatedAt = new Date().toISOString()
-    fs.writeFileSync(this.configPath, JSON.stringify(this.config, null, 2), 'utf-8')
+  private async buildChatTools(
+    sender: WebContents,
+    requestId: string,
+    sessionIds: string[]
+  ): Promise<Record<string, ReturnType<typeof dynamicTool>>> {
+    const entries = await Promise.all(
+      sessionIds.map(async (sessionId) => {
+        const record = this.requireSession(sessionId)
+        const tools = await this.listTools(sessionId)
+        return tools.map((tool) => {
+          const prefixedName = `${this.slug(record.state.presetName || sessionId)}__${tool.name}`
+          return [
+            prefixedName,
+            dynamicTool({
+              description:
+                tool.description || `${record.state.presetName || sessionId} / ${tool.name}`,
+              inputSchema: tool.inputSchema ?? { type: 'object', properties: {} },
+              execute: async (input) => {
+                const payload: LangchainClientToolCallPayload = {
+                  toolCallId: randomUUID(),
+                  toolName: prefixedName,
+                  toolArgs: input
+                }
+                this.sendChatEvent(sender, {
+                  type: 'tool-call',
+                  requestId,
+                  payload
+                })
+                const result = await this.callTool(
+                  sessionId,
+                  tool.name,
+                  input as Record<string, unknown>
+                )
+                const normalized = {
+                  content: result.content,
+                  structuredContent: result.structuredContent,
+                  isError: result.isError,
+                  sessionId,
+                  sessionName: record.state.presetName,
+                  originalToolName: tool.name
+                }
+                this.sendChatEvent(sender, {
+                  type: 'tool-result',
+                  requestId,
+                  payload: {
+                    toolCallId: payload.toolCallId,
+                    toolName: prefixedName,
+                    result: normalized
+                  }
+                })
+                return normalized
+              }
+            })
+          ] as const
+        })
+      })
+    )
+
+    return Object.fromEntries(entries.flat())
+  }
+
+  private async buildModel(
+    providerId: string,
+    modelId: string,
+    enableThinking: boolean
+  ): Promise<LanguageModel> {
+    const config = await this.modelConfigService.getConfig()
+    const provider = config.providers.find((item) => item.id === providerId)
+    if (!provider) {
+      throw new Error(`Provider not found: ${providerId}`)
+    }
+    const baseURL = this.normalizeBaseURL(provider.baseUrl)
+    const providerInstance = createOpenAICompatible({
+      name: providerId,
+      baseURL,
+      apiKey: provider.apiKey,
+      headers: provider.defaultHeaders,
+      includeUsage: true
+    })
+    let model = providerInstance.chatModel(modelId)
+    if (enableThinking) {
+      model = wrapLanguageModel({
+        model,
+        middleware: extractReasoningMiddleware({ tagName: 'think', startWithReasoning: true })
+      })
+    }
+    return model
+  }
+
+  private normalizeBaseURL(baseUrl: string): string {
+    const url = baseUrl.trim().replace(/\/$/, '')
+    return url.endsWith('/v1') ? url : `${url}/v1`
   }
 
   private normalizePreset(preset: McpServerPreset): McpServerPreset {
@@ -332,18 +618,6 @@ export class McpService {
     })
   }
 
-  private createEmptySessionState(): McpSessionState {
-    return {
-      connected: false,
-      presetId: null,
-      transport: null,
-      serverName: null,
-      serverVersion: null,
-      protocolVersion: null,
-      capabilities: null
-    }
-  }
-
   private mapCapabilities(
     capabilities: ReturnType<Client['getServerCapabilities']>
   ): McpCapabilitiesSummary {
@@ -355,43 +629,55 @@ export class McpService {
     }
   }
 
-  private updateSessionState(patch: Partial<McpSessionState>): void {
-    this.sessionState = {
-      ...this.sessionState,
-      ...patch
+  private updateSessionState(sessionId: string, patch: Partial<McpSessionState>): McpSessionState {
+    const record = this.requireSession(sessionId)
+    record.state = {
+      ...record.state,
+      ...patch,
+      sessionId
     }
-    const event: McpSessionEvent = { type: 'session-state', state: this.sessionState }
+    this.emitSessionEvent(record.state)
+    return record.state
+  }
+
+  private emitSessionEvent(state: McpSessionState): void {
+    const event: McpSessionEvent = { type: 'session-state', state }
     this.sessionListeners.forEach((listener) => listener(event))
   }
 
   private recordTrace(
+    sessionId: string,
     direction: 'outgoing' | 'incoming',
     transport: McpSessionState['transport'],
     payload: unknown
   ): void {
+    const record = this.sessions.get(sessionId)
+    if (!record) return
     const event: McpTraceEvent = {
       id: randomUUID(),
+      sessionId,
       direction,
       timestamp: new Date().toISOString(),
       transport,
       payload
     }
-    this.traceBuffer.push(event)
-    if (this.traceBuffer.length > TRACE_LIMIT) {
-      this.traceBuffer.shift()
+    record.traces.push(event)
+    if (record.traces.length > TRACE_LIMIT) {
+      record.traces.shift()
     }
     this.traceListeners.forEach((listener) => listener(event))
   }
 
-  private clearTraceBuffer(): void {
-    this.traceBuffer.length = 0
-  }
-
-  private requireClient(): Client {
-    if (!this.client) {
+  private requireSession(sessionId?: string): SessionRecord {
+    const targetId = sessionId ?? this.activeSessionId
+    if (!targetId) {
       throw new Error('MCP session is not connected')
     }
-    return this.client
+    const record = this.sessions.get(targetId)
+    if (!record) {
+      throw new Error(`MCP session not found: ${targetId}`)
+    }
+    return record
   }
 
   private async safeOptionalRequest<TResult extends { prompts?: unknown[]; resources?: unknown[] }>(
@@ -433,5 +719,35 @@ export class McpService {
 
     const candidate = error as { code?: unknown }
     return candidate.code === -32601
+  }
+
+  private sendChatEvent(sender: WebContents, event: AiChatStreamEvent): void {
+    sender.send('mcp:chat-stream', event)
+  }
+
+  private extractDelta(part: { delta?: string; text?: string; textDelta?: string }): string {
+    return part.delta ?? part.text ?? part.textDelta ?? ''
+  }
+
+  private normalizeToolOutput(output: unknown): unknown {
+    if (
+      output &&
+      typeof output === 'object' &&
+      'type' in output &&
+      (output as { type?: string }).type === 'text' &&
+      'value' in output
+    ) {
+      return (output as { value: unknown }).value
+    }
+    return output
+  }
+
+  private slug(value: string): string {
+    return (
+      value
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '') || 'mcp'
+    )
   }
 }

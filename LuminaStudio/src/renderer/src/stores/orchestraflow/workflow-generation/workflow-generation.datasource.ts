@@ -1,7 +1,10 @@
 import type {
   OFGenerationPhase,
   OFGenerationPhaseModelConfig,
-  OFGenerationSession
+  OFGenerationSession,
+  OFGenerationAgentId,
+  OFGenerationAgentRuntimeConfig,
+  OFGenerationAgentEvent
 } from '@shared/Orchestraflow-types'
 
 export class WorkflowGenerationDatasource {
@@ -35,6 +38,41 @@ export class WorkflowGenerationDatasource {
     return res.data
   }
 
+  async sendAgentMessage(
+    sessionId: string,
+    agentId: OFGenerationAgentId,
+    input: string
+  ): Promise<OFGenerationSession> {
+    const res = await window.api.orchestraflow.sendGenerationAgentMessage(sessionId, agentId, input)
+    if (!res.success || !res.data) throw new Error(res.error || 'Failed to send agent message')
+    return res.data
+  }
+
+  async resolveApproval(
+    sessionId: string,
+    approvalId: string,
+    decision: 'approved' | 'rejected',
+    note?: string
+  ): Promise<OFGenerationSession> {
+    const res = await window.api.orchestraflow.resolveGenerationApproval(
+      sessionId,
+      approvalId,
+      decision,
+      note
+    )
+    if (!res.success || !res.data) throw new Error(res.error || 'Failed to resolve approval')
+    return res.data
+  }
+
+  async runStage(
+    sessionId: string,
+    stage: 'draft' | 'plan' | 'topology' | 'validation'
+  ): Promise<OFGenerationSession> {
+    const res = await window.api.orchestraflow.runGenerationStage(sessionId, stage)
+    if (!res.success || !res.data) throw new Error(res.error || 'Failed to run generation stage')
+    return res.data
+  }
+
   async advancePhase(sessionId: string, phase: OFGenerationPhase): Promise<OFGenerationSession> {
     const res = await window.api.orchestraflow.advanceGenerationPhase(sessionId, phase)
     if (!res.success || !res.data) throw new Error(res.error || 'Failed to advance phase')
@@ -56,6 +94,20 @@ export class WorkflowGenerationDatasource {
     return res.data
   }
 
+  async updateAgentConfig(
+    sessionId: string,
+    agentId: OFGenerationAgentId,
+    patch: Partial<OFGenerationAgentRuntimeConfig>
+  ): Promise<OFGenerationSession> {
+    const res = await window.api.orchestraflow.updateGenerationAgentConfig(
+      sessionId,
+      agentId,
+      patch
+    )
+    if (!res.success || !res.data) throw new Error(res.error || 'Failed to update agent config')
+    return res.data
+  }
+
   async confirmSession(
     sessionId: string
   ): Promise<{ session: OFGenerationSession; workflowId: string }> {
@@ -68,5 +120,9 @@ export class WorkflowGenerationDatasource {
   async deleteSession(sessionId: string): Promise<void> {
     const res = await window.api.orchestraflow.deleteGenerationSession(sessionId)
     if (!res.success) throw new Error(res.error || 'Failed to delete generation session')
+  }
+
+  onAgentEvent(callback: (event: OFGenerationAgentEvent) => void): () => void {
+    return window.api.orchestraflow.onGenerationAgentEvent(callback)
   }
 }

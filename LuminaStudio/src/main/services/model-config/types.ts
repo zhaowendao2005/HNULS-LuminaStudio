@@ -1,16 +1,12 @@
 /**
  * Model Config Service 内部类型定义
- *
- * 注意：跨进程类型定义在 @preload/types 中
  */
 
-/**
- * 数据库中的 model_providers 表行
- */
 export interface ModelProviderRow {
   id: string
   name: string
   protocol: string
+  api_mode: string | null
   enabled: number
   base_url: string
   api_key: string
@@ -20,9 +16,6 @@ export interface ModelProviderRow {
   updated_at: string
 }
 
-/**
- * 数据库中的 model_configs 表行
- */
 export interface ModelConfigRow {
   id: string
   provider_id: string
@@ -33,9 +26,6 @@ export interface ModelConfigRow {
   updated_at: string
 }
 
-/**
- * 数据库中的 app_settings 表行
- */
 export interface AppSettingRow {
   key: string
   value: string

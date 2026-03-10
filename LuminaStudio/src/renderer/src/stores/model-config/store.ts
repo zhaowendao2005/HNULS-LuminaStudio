@@ -6,7 +6,8 @@ import type {
   RemoteModelGroups,
   NewProviderForm,
   NewModelForm,
-  ProviderIcon
+  ProviderIcon,
+  ProviderApiMode
 } from './types'
 
 /**
@@ -207,6 +208,7 @@ export const useModelConfigStore = defineStore('model-config', () => {
     const newProvider: ModelProvider = {
       id: `provider-${Date.now()}`,
       type: newProviderForm.value.type,
+      apiMode: 'auto',
       name: newProviderForm.value.name || 'New Provider',
       apiKey: '',
       baseUrl: '',
@@ -325,6 +327,19 @@ export const useModelConfigStore = defineStore('model-config', () => {
     await autoSave()
   }
 
+  async function updateProviderApiMode(
+    providerId: string,
+    apiMode: ProviderApiMode
+  ): Promise<void> {
+    providers.value = providers.value.map((p) => {
+      if (p.id === providerId) {
+        return { ...p, apiMode }
+      }
+      return p
+    })
+    await autoSave()
+  }
+
   return {
     // 状态
     providers,
@@ -353,6 +368,7 @@ export const useModelConfigStore = defineStore('model-config', () => {
     fetchProviders,
     selectProvider,
     updateProviderApiKey,
-    updateProviderBaseUrl
+    updateProviderBaseUrl,
+    updateProviderApiMode
   }
 })

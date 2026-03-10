@@ -1,13 +1,8 @@
 /**
  * OrchestraFlow (OF) 跨进程类型定义
- * 统一从 Public/ShareTypes/Orchestraflow-types 导出
  */
 export * from '@shared/Orchestraflow-types'
 
-/**
- * OrchestraFlow API Types
- * 工作流系统 IPC 接口类型定义
- */
 import type {
   OFAISchemaBundle,
   OFWorkflow,
@@ -18,7 +13,10 @@ import type {
   OFNodeDebugResult,
   OFGenerationPhase,
   OFGenerationPhaseModelConfig,
-  OFGenerationSession
+  OFGenerationSession,
+  OFGenerationAgentId,
+  OFGenerationAgentRuntimeConfig,
+  OFGenerationAgentEvent
 } from '@shared/Orchestraflow-types'
 
 export interface OFWorkflowAPI {
@@ -28,11 +26,7 @@ export interface OFWorkflowAPI {
     error?: string
   }>
 
-  get(workflowId: string): Promise<{
-    success: boolean
-    data?: OFWorkflow
-    error?: string
-  }>
+  get(workflowId: string): Promise<{ success: boolean; data?: OFWorkflow; error?: string }>
 
   create(data: {
     name: string
@@ -40,126 +34,87 @@ export interface OFWorkflowAPI {
     author: string
     icon?: string
     iconBackground?: string
-  }): Promise<{
-    success: boolean
-    data?: OFWorkflow
-    error?: string
-  }>
+  }): Promise<{ success: boolean; data?: OFWorkflow; error?: string }>
 
   update(
     workflowId: string,
     data: Partial<OFWorkflow>
-  ): Promise<{
-    success: boolean
-    data?: OFWorkflow
-    error?: string
-  }>
+  ): Promise<{ success: boolean; data?: OFWorkflow; error?: string }>
 
-  delete(workflowId: string): Promise<{
-    success: boolean
-    error?: string
-  }>
+  delete(workflowId: string): Promise<{ success: boolean; error?: string }>
 
-  listGenerationSessions(): Promise<{
-    success: boolean
-    data?: OFGenerationSession[]
-    error?: string
-  }>
-
+  listGenerationSessions(): Promise<{ success: boolean; data?: OFGenerationSession[]; error?: string }>
   getGenerationSession(sessionId: string): Promise<{
     success: boolean
     data?: OFGenerationSession
     error?: string
   }>
-
   createGenerationSession(data: {
     workflow_name: string
     description?: string
     prompt?: string
-  }): Promise<{
+  }): Promise<{ success: boolean; data?: OFGenerationSession; error?: string }>
+  sendGenerationPrompt(sessionId: string, prompt: string): Promise<{
     success: boolean
     data?: OFGenerationSession
     error?: string
   }>
-
-  sendGenerationPrompt(
+  sendGenerationAgentMessage(
     sessionId: string,
-    prompt: string
-  ): Promise<{
-    success: boolean
-    data?: OFGenerationSession
-    error?: string
-  }>
-
-  advanceGenerationPhase(
+    agentId: OFGenerationAgentId,
+    input: string
+  ): Promise<{ success: boolean; data?: OFGenerationSession; error?: string }>
+  resolveGenerationApproval(
     sessionId: string,
-    phase: OFGenerationPhase
-  ): Promise<{
-    success: boolean
-    data?: OFGenerationSession
-    error?: string
-  }>
-
-  rollbackGenerationCheckpoint(
+    approvalId: string,
+    decision: 'approved' | 'rejected',
+    note?: string
+  ): Promise<{ success: boolean; data?: OFGenerationSession; error?: string }>
+  runGenerationStage(
     sessionId: string,
-    checkpointId: string
-  ): Promise<{
+    stage: 'draft' | 'plan' | 'topology' | 'validation'
+  ): Promise<{ success: boolean; data?: OFGenerationSession; error?: string }>
+  advanceGenerationPhase(sessionId: string, phase: OFGenerationPhase): Promise<{
     success: boolean
     data?: OFGenerationSession
     error?: string
   }>
-
+  rollbackGenerationCheckpoint(sessionId: string, checkpointId: string): Promise<{
+    success: boolean
+    data?: OFGenerationSession
+    error?: string
+  }>
   updateGenerationPhaseModels(
     sessionId: string,
     phaseModels: Record<OFGenerationPhase, OFGenerationPhaseModelConfig>
-  ): Promise<{
-    success: boolean
-    data?: OFGenerationSession
-    error?: string
-  }>
-
+  ): Promise<{ success: boolean; data?: OFGenerationSession; error?: string }>
+  updateGenerationAgentConfig(
+    sessionId: string,
+    agentId: OFGenerationAgentId,
+    patch: Partial<OFGenerationAgentRuntimeConfig>
+  ): Promise<{ success: boolean; data?: OFGenerationSession; error?: string }>
   confirmGenerationSession(sessionId: string): Promise<{
     success: boolean
     data?: { session: OFGenerationSession; workflowId: string }
     error?: string
   }>
-
   deleteGenerationSession(sessionId: string): Promise<{
     success: boolean
     data?: boolean
     error?: string
   }>
+  onGenerationAgentEvent(callback: (event: OFGenerationAgentEvent) => void): () => void
 
-  /**
-   * 导出给 AI 使用的可运行 OrchestraFlow 工作流 bundle。
-   * 该 bundle 的目标是让 AI 直接生成可写入工作流目录的最终 JSON，
-   * 而不是再经过额外编译步骤的中间格式。
-   */
-  getAISchemaBundle(): Promise<{
-    success: boolean
-    data?: OFAISchemaBundle
-    error?: string
-  }>
-
+  getAISchemaBundle(): Promise<{ success: boolean; data?: OFAISchemaBundle; error?: string }>
   run(
     workflowId: string,
     inputs?: Record<string, unknown>
-  ): Promise<{
-    success: boolean
-    data?: OFWorkflowRunResult
-    error?: string
-  }>
-
+  ): Promise<{ success: boolean; data?: OFWorkflowRunResult; error?: string }>
   runNodeDebug(params: OFNodeDebugRunParams): Promise<{
     success: boolean
     data?: OFNodeDebugResult
     error?: string
   }>
-
-  stop(runId: string): Promise<{
-    success: boolean
-    error?: string
-  }>
-
+  stop(runId: string): Promise<{ success: boolean; error?: string }>
   onProgress(callback: (runId: string, progress: OFNodeTracing) => void): () => void
 }

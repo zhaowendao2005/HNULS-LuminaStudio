@@ -1,13 +1,5 @@
 /**
- * ======================================================================
  * OrchestraFlow Bridge Service
- * ======================================================================
- *
- * 职责：
- * - 管理 orchestraflow Utility 子进程的生命周期
- * - 处理主进程与 Utility 进程之间的 IPC 消息
- * - 提供工作流运行/停止接口
- * - 转发进度事件
  */
 import { utilityProcess } from 'electron'
 import type { UtilityProcess } from 'electron'
@@ -20,10 +12,12 @@ import type {
   OFNodeTracing,
   OFNodeDebugResult,
   OFGenerationPhase,
-  OFGenerationSession
+  OFGenerationSession,
+  OFGenerationAgentId,
+  OFGenerationAgentEvent,
+  OFGenerationAgentRuntimeConfig
 } from '@shared/Orchestraflow-types'
-import type { OFToMainMessage } from '@utility/orchestraflow/messages.types'
-import type { MainToOFMessage } from '@utility/orchestraflow/messages.types'
+import type { OFToMainMessage, MainToOFMessage } from '@utility/orchestraflow/messages.types'
 
 const log = logger.scope('OrchestraflowBridge')
 
@@ -43,6 +37,7 @@ export class OrchestraflowBridgeService {
   private pendingGenerationRequest: PendingRequest<OFGenerationSession> | null = null
   private progressCallbacks: Array<(runId: string, progress: OFNodeTracing) => void> = []
   private messageHandlers: Array<(msg: OFToMainMessage) => void> = []
+  private generationEventHandlers: Array<(event: OFGenerationAgentEvent) => void> = []
 
   onProgress(callback: (runId: string, progress: OFNodeTracing) => void): () => void {
     this.progressCallbacks.push(callback)
@@ -60,6 +55,14 @@ export class OrchestraflowBridgeService {
     }
   }
 
+  onGenerationEvent(handler: (event: OFGenerationAgentEvent) => void): () => void {
+    this.generationEventHandlers.push(handler)
+    return () => {
+      const idx = this.generationEventHandlers.indexOf(handler)
+      if (idx >= 0) this.generationEventHandlers.splice(idx, 1)
+    }
+  }
+
   async spawn(): Promise<void> {
     if (this.process) {
       log.info('Process already spawned')
@@ -72,7 +75,6 @@ export class OrchestraflowBridgeService {
 
     const modulePath = path.join(__dirname, 'utility/orchestraflow.js')
     log.info('Spawning utility process', { modulePath })
-
     this.process = utilityProcess.fork(modulePath)
 
     this.process.on('message', (msg: OFToMainMessage) => {
@@ -95,15 +97,14 @@ export class OrchestraflowBridgeService {
     this.process = null
     this.pendingRuns.clear()
     this.pendingNodeDebugs.clear()
+    this.pendingGenerationRequest = null
     this.progressCallbacks = []
     this.messageHandlers = []
+    this.generationEventHandlers = []
   }
 
   init(): void {
-    this.send({
-      type: 'process:init',
-      config: {}
-    })
+    this.send({ type: 'process:init', config: {} })
     log.info('Sent process:init')
   }
 
@@ -125,26 +126,14 @@ export class OrchestraflowBridgeService {
     timeoutMs = 1800000
   ): Promise<OFWorkflowRunResult> {
     const runId = randomUUID()
-
-    log.info('Running workflow', { runId, workflowId })
-
     const requestPromise = new Promise<OFWorkflowRunResult>((resolve, reject) => {
       const timeoutId = setTimeout(() => {
         this.pendingRuns.delete(runId)
         reject(new Error('workflow:run timeout'))
       }, timeoutMs)
-
       this.pendingRuns.set(runId, { resolve, reject, timeoutId })
-
-      this.send({
-        type: 'workflow:run',
-        runId,
-        workflow,
-        inputs,
-        providerConfigs
-      })
+      this.send({ type: 'workflow:run', runId, workflow, inputs, providerConfigs })
     })
-
     return requestPromise
   }
 
@@ -167,15 +156,12 @@ export class OrchestraflowBridgeService {
     timeoutMs = 600000
   ): Promise<OFNodeDebugResult> {
     const requestId = randomUUID()
-
     const requestPromise = new Promise<OFNodeDebugResult>((resolve, reject) => {
       const timeoutId = setTimeout(() => {
         this.pendingNodeDebugs.delete(requestId)
         reject(new Error('node:debug-run timeout'))
       }, timeoutMs)
-
       this.pendingNodeDebugs.set(requestId, { resolve, reject, timeoutId })
-
       this.send({
         type: 'node:debug-run',
         requestId,
@@ -186,25 +172,122 @@ export class OrchestraflowBridgeService {
         providerConfigs
       })
     })
-
     return requestPromise
   }
 
   stopWorkflow(runId: string): void {
-    log.info('Stopping workflow', { runId })
-    this.send({
-      type: 'workflow:stop',
-      runId
-    })
+    this.send({ type: 'workflow:stop', runId })
   }
 
   async sendGenerationPrompt(
     session: OFGenerationSession,
     prompt: string,
+    providerConfigs?: Record<
+      string,
+      {
+        id: string
+        name: string
+        baseUrl: string
+        apiKey: string
+        apiMode?: 'auto' | 'responses' | 'chat-completions'
+        enabled: boolean
+        defaultHeaders?: Record<string, string>
+      }
+    >,
     timeoutMs = 30000
   ): Promise<OFGenerationSession> {
     return this.runGenerationRequest(
-      () => ({ type: 'generation:send-prompt', session, prompt }),
+      () => ({ type: 'generation:send-prompt', session, prompt, providerConfigs }),
+      timeoutMs
+    )
+  }
+
+  async sendGenerationAgentMessage(
+    session: OFGenerationSession,
+    agentId: OFGenerationAgentId,
+    input: string,
+    providerConfigs?: Record<
+      string,
+      {
+        id: string
+        name: string
+        baseUrl: string
+        apiKey: string
+        apiMode?: 'auto' | 'responses' | 'chat-completions'
+        enabled: boolean
+        defaultHeaders?: Record<string, string>
+      }
+    >,
+    timeoutMs = 30000
+  ): Promise<OFGenerationSession> {
+    const requestId = randomUUID()
+    return this.runGenerationRequest(
+      () => ({
+        type: 'generation:send-agent-message',
+        session,
+        agentId,
+        input,
+        requestId,
+        providerConfigs
+      }),
+      timeoutMs
+    )
+  }
+
+  async resolveGenerationApproval(
+    session: OFGenerationSession,
+    approvalId: string,
+    decision: 'approved' | 'rejected',
+    note?: string,
+    providerConfigs?: Record<
+      string,
+      {
+        id: string
+        name: string
+        baseUrl: string
+        apiKey: string
+        apiMode?: 'auto' | 'responses' | 'chat-completions'
+        enabled: boolean
+        defaultHeaders?: Record<string, string>
+      }
+    >,
+    timeoutMs = 30000
+  ): Promise<OFGenerationSession> {
+    const requestId = randomUUID()
+    return this.runGenerationRequest(
+      () => ({
+        type: 'generation:resolve-approval',
+        session,
+        approvalId,
+        decision,
+        note,
+        requestId,
+        providerConfigs
+      }),
+      timeoutMs
+    )
+  }
+
+  async runGenerationStage(
+    session: OFGenerationSession,
+    stage: 'draft' | 'plan' | 'topology' | 'validation',
+    providerConfigs?: Record<
+      string,
+      {
+        id: string
+        name: string
+        baseUrl: string
+        apiKey: string
+        apiMode?: 'auto' | 'responses' | 'chat-completions'
+        enabled: boolean
+        defaultHeaders?: Record<string, string>
+      }
+    >,
+    timeoutMs = 30000
+  ): Promise<OFGenerationSession> {
+    const requestId = randomUUID()
+    return this.runGenerationRequest(
+      () => ({ type: 'generation:run-stage', session, stage, requestId, providerConfigs }),
       timeoutMs
     )
   }
@@ -212,10 +295,22 @@ export class OrchestraflowBridgeService {
   async advanceGenerationPhase(
     session: OFGenerationSession,
     phase: OFGenerationPhase,
+    providerConfigs?: Record<
+      string,
+      {
+        id: string
+        name: string
+        baseUrl: string
+        apiKey: string
+        apiMode?: 'auto' | 'responses' | 'chat-completions'
+        enabled: boolean
+        defaultHeaders?: Record<string, string>
+      }
+    >,
     timeoutMs = 30000
   ): Promise<OFGenerationSession> {
     return this.runGenerationRequest(
-      () => ({ type: 'generation:advance-phase', session, phase }),
+      () => ({ type: 'generation:advance-phase', session, phase, providerConfigs }),
       timeoutMs
     )
   }
@@ -223,10 +318,46 @@ export class OrchestraflowBridgeService {
   async rollbackGenerationCheckpoint(
     session: OFGenerationSession,
     checkpointId: string,
+    providerConfigs?: Record<
+      string,
+      {
+        id: string
+        name: string
+        baseUrl: string
+        apiKey: string
+        apiMode?: 'auto' | 'responses' | 'chat-completions'
+        enabled: boolean
+        defaultHeaders?: Record<string, string>
+      }
+    >,
     timeoutMs = 30000
   ): Promise<OFGenerationSession> {
     return this.runGenerationRequest(
-      () => ({ type: 'generation:rollback-checkpoint', session, checkpointId }),
+      () => ({ type: 'generation:rollback-checkpoint', session, checkpointId, providerConfigs }),
+      timeoutMs
+    )
+  }
+
+  async updateGenerationAgentConfig(
+    session: OFGenerationSession,
+    agentId: OFGenerationAgentId,
+    patch: Partial<OFGenerationAgentRuntimeConfig>,
+    providerConfigs?: Record<
+      string,
+      {
+        id: string
+        name: string
+        baseUrl: string
+        apiKey: string
+        apiMode?: 'auto' | 'responses' | 'chat-completions'
+        enabled: boolean
+        defaultHeaders?: Record<string, string>
+      }
+    >,
+    timeoutMs = 30000
+  ): Promise<OFGenerationSession> {
+    return this.runGenerationRequest(
+      () => ({ type: 'generation:update-agent-config', session, agentId, patch, providerConfigs }),
       timeoutMs
     )
   }
@@ -246,14 +377,11 @@ export class OrchestraflowBridgeService {
   }
 
   private send(msg: MainToOFMessage): void {
-    if (!this.process) {
-      throw new Error('Orchestraflow process not spawned')
-    }
+    if (!this.process) throw new Error('Orchestraflow process not spawned')
     this.process.postMessage(msg)
   }
 
   private handleMessage(msg: OFToMainMessage): void {
-    // Notify external subscribers first
     for (const handler of this.messageHandlers) {
       try {
         handler(msg)
@@ -266,16 +394,10 @@ export class OrchestraflowBridgeService {
       case 'process:ready':
         this.readyResolve?.()
         break
-
       case 'process:error':
-        log.error('Utility process error', undefined, {
-          message: msg.message,
-          details: msg.details
-        })
+        log.error('Utility process error', undefined, { message: msg.message, details: msg.details })
         break
-
       case 'process:log': {
-        // 转发 utility 进程的日志到主进程 logger
         const logMsg = `[OF] ${msg.message}`
         switch (msg.level) {
           case 'error':
@@ -295,13 +417,7 @@ export class OrchestraflowBridgeService {
         }
         break
       }
-
-      case 'workflow:progress': {
-        log.info('Workflow progress', {
-          runId: msg.runId,
-          nodeId: msg.progress.nodeId,
-          status: msg.progress.status
-        })
+      case 'workflow:progress':
         for (const callback of this.progressCallbacks) {
           try {
             callback(msg.runId, msg.progress)
@@ -310,8 +426,6 @@ export class OrchestraflowBridgeService {
           }
         }
         break
-      }
-
       case 'workflow:result': {
         const pending = this.pendingRuns.get(msg.runId)
         if (pending) {
@@ -319,13 +433,8 @@ export class OrchestraflowBridgeService {
           this.pendingRuns.delete(msg.runId)
           pending.resolve(msg.result)
         }
-        log.info('Workflow result', {
-          runId: msg.runId,
-          status: msg.result.status
-        })
         break
       }
-
       case 'workflow:error': {
         const pending = this.pendingRuns.get(msg.runId)
         if (pending) {
@@ -333,13 +442,8 @@ export class OrchestraflowBridgeService {
           this.pendingRuns.delete(msg.runId)
           pending.reject(new Error(msg.error))
         }
-        log.error('Workflow error', undefined, {
-          runId: msg.runId,
-          error: msg.error
-        })
         break
       }
-
       case 'node:debug-result': {
         const pending = this.pendingNodeDebugs.get(msg.requestId)
         if (pending) {
@@ -349,7 +453,6 @@ export class OrchestraflowBridgeService {
         }
         break
       }
-
       case 'node:debug-error': {
         const pending = this.pendingNodeDebugs.get(msg.requestId)
         if (pending) {
@@ -359,7 +462,15 @@ export class OrchestraflowBridgeService {
         }
         break
       }
-
+      case 'generation:agent-event':
+        for (const handler of this.generationEventHandlers) {
+          try {
+            handler(msg.event)
+          } catch (err) {
+            log.error('Generation event handler error', err)
+          }
+        }
+        break
       case 'generation:session': {
         if (this.pendingGenerationRequest) {
           clearTimeout(this.pendingGenerationRequest.timeoutId)
@@ -369,7 +480,6 @@ export class OrchestraflowBridgeService {
         }
         break
       }
-
       case 'generation:error': {
         if (this.pendingGenerationRequest) {
           clearTimeout(this.pendingGenerationRequest.timeoutId)
@@ -379,7 +489,6 @@ export class OrchestraflowBridgeService {
         }
         break
       }
-
       default:
         log.warn('Unknown message from utility process', { type: (msg as { type?: string }).type })
     }

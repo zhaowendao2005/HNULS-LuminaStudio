@@ -144,16 +144,16 @@
                 <div class="flex items-center gap-3">
                   <span
                     class="inline-flex items-center gap-2 text-xs font-semibold"
-                    :class="store.state.session.connected ? 'text-emerald-600' : 'text-slate-400'"
+                    :class="store.activeSession?.connected ? 'text-emerald-600' : 'text-slate-400'"
                   >
                     <span
                       class="h-2 w-2 rounded-full"
-                      :class="store.state.session.connected ? 'bg-emerald-500' : 'bg-slate-300'"
+                      :class="store.activeSession?.connected ? 'bg-emerald-500' : 'bg-slate-300'"
                     />
-                    {{ store.state.session.connected ? '已连接' : '未连接' }}
+                    {{ store.activeSession?.connected ? '已连接' : '未连接' }}
                   </span>
                   <button
-                    v-if="store.state.session.connected"
+                    v-if="store.activeSession?.connected"
                     class="text-xs font-medium text-rose-600"
                     @click="store.disconnect"
                   >
@@ -162,32 +162,73 @@
                 </div>
               </div>
               <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <InfoCard label="Server" :value="store.state.session.serverName || '未连接'" />
-                <InfoCard label="Version" :value="store.state.session.serverVersion || '-'" mono />
-                <InfoCard label="Transport" :value="store.state.session.transport || '-'" mono />
+                <InfoCard label="Server" :value="store.activeSession?.serverName || '未连接'" />
+                <InfoCard label="Version" :value="store.activeSession?.serverVersion || '-'" mono />
+                <InfoCard label="Transport" :value="store.activeSession?.transport || '-'" mono />
                 <InfoCard
                   label="Protocol"
-                  :value="store.state.session.protocolVersion || '-'"
+                  :value="store.activeSession?.protocolVersion || '-'"
                   mono
                 />
               </div>
               <div class="mt-6 grid gap-3 md:grid-cols-2">
                 <CapabilityRow
                   label="Tools"
-                  :active="Boolean(store.state.session.capabilities?.tools)"
+                  :active="Boolean(store.activeSession?.capabilities?.tools)"
                 />
                 <CapabilityRow
                   label="Prompts"
-                  :active="Boolean(store.state.session.capabilities?.prompts)"
+                  :active="Boolean(store.activeSession?.capabilities?.prompts)"
                 />
                 <CapabilityRow
                   label="Resources"
-                  :active="Boolean(store.state.session.capabilities?.resources)"
+                  :active="Boolean(store.activeSession?.capabilities?.resources)"
                 />
                 <CapabilityRow
                   label="Logging"
-                  :active="Boolean(store.state.session.capabilities?.logging)"
+                  :active="Boolean(store.activeSession?.capabilities?.logging)"
                 />
+              </div>
+              <div class="mt-6">
+                <h3 class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                  已连接 Sessions
+                </h3>
+                <div class="mt-3 space-y-2">
+                  <div
+                    v-for="session in store.connectedSessions"
+                    :key="session.sessionId"
+                    class="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-3"
+                  >
+                    <div class="min-w-0">
+                      <div class="truncate text-sm font-semibold text-slate-900">
+                        {{ session.presetName || session.sessionId }}
+                      </div>
+                      <div class="truncate text-xs text-slate-500">
+                        {{ session.serverName || '未握手' }} · {{ session.transport }}
+                      </div>
+                    </div>
+                    <div class="flex gap-2">
+                      <button
+                        class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600"
+                        @click="store.setActiveSession(session.sessionId)"
+                      >
+                        查看
+                      </button>
+                      <button
+                        class="rounded-lg px-2 py-1.5 text-xs font-medium text-rose-600"
+                        @click="store.disconnect(session.sessionId)"
+                      >
+                        断开
+                      </button>
+                    </div>
+                  </div>
+                  <div
+                    v-if="store.connectedSessions.length === 0"
+                    class="rounded-xl border border-dashed border-slate-200 px-3 py-4 text-xs text-slate-400"
+                  >
+                    暂无已连接 session，先从下方预设里发起连接。
+                  </div>
+                </div>
               </div>
               <div class="mt-6">
                 <h3 class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
@@ -484,6 +525,8 @@
           </div>
         </section>
 
+        <McpChatStage v-else-if="store.state.activeStage === 'chat-test'" />
+
         <section v-else class="flex min-h-0 flex-1 overflow-hidden bg-white">
           <div class="w-1/2 min-w-0 border-r border-slate-200 p-4">
             <div class="mb-4 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
@@ -605,6 +648,7 @@ import PanelHeader from './components/PanelHeader.vue'
 import InspectorTabs from './components/InspectorTabs.vue'
 import InfoCard from './components/InfoCard.vue'
 import CapabilityRow from './components/CapabilityRow.vue'
+import McpChatStage from './components/McpChatStage.vue'
 
 const store = useMcpStore()
 function makeId(): string {
@@ -616,7 +660,8 @@ const tabs = [
   { id: 'tools', num: '②', label: '工具清单 & Schema' },
   { id: 'prompts', num: '③', label: 'Prompts & 上下文' },
   { id: 'resources', num: '④', label: 'Resources & 数据' },
-  { id: 'execute', num: '⑤', label: '工具执行 & 响应' }
+  { id: 'execute', num: '⑤', label: '工具执行 & 响应' },
+  { id: 'chat-test', num: '⑥', label: '聊天联调测试' }
 ] as const
 
 const draft = reactive<McpPresetDraft>({ ...store.defaultStdioDraft })
@@ -801,8 +846,8 @@ async function executeTool(): Promise<void> {
 }
 
 function tabStatusClass(tabId: string): string {
-  if (tabId === 'connect') return store.state.session.connected ? 'bg-emerald-500' : 'bg-slate-300'
-  if (!store.state.session.connected) return 'bg-slate-200'
+  if (tabId === 'connect') return store.activeSession?.connected ? 'bg-emerald-500' : 'bg-slate-300'
+  if (!store.activeSession?.connected) return 'bg-slate-200'
   return 'bg-emerald-500'
 }
 </script>

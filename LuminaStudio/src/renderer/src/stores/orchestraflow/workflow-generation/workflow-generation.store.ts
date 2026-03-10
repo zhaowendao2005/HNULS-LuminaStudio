@@ -3,7 +3,10 @@ import { computed, ref } from 'vue'
 import type {
   OFGenerationPhase,
   OFGenerationPhaseModelConfig,
-  OFGenerationSession
+  OFGenerationSession,
+  OFGenerationAgentId,
+  OFGenerationAgentRuntimeConfig,
+  OFGenerationAgentEvent
 } from '@shared/Orchestraflow-types'
 import { WorkflowGenerationDatasource } from './workflow-generation.datasource'
 
@@ -14,6 +17,8 @@ export const useWorkflowGenerationStore = defineStore('orchestraflow-workflow-ge
   const currentSession = ref<OFGenerationSession | null>(null)
   const loading = ref(false)
   const saving = ref(false)
+  const agentEvents = ref<OFGenerationAgentEvent[]>([])
+  let disposeAgentEvents: (() => void) | null = null
 
   const sessionCards = computed(() => sessions.value)
 
@@ -24,6 +29,13 @@ export const useWorkflowGenerationStore = defineStore('orchestraflow-workflow-ge
     } finally {
       loading.value = false
     }
+  }
+
+  function ensureAgentEventBridge() {
+    if (disposeAgentEvents) return
+    disposeAgentEvents = datasource.onAgentEvent((event) => {
+      agentEvents.value = [event, ...agentEvents.value].slice(0, 40)
+    })
   }
 
   async function loadSession(sessionId: string) {
@@ -56,6 +68,55 @@ export const useWorkflowGenerationStore = defineStore('orchestraflow-workflow-ge
     saving.value = true
     try {
       currentSession.value = await datasource.sendPrompt(currentSession.value.id, prompt)
+      await fetchSessions()
+      return currentSession.value
+    } finally {
+      saving.value = false
+    }
+  }
+
+  async function sendAgentMessage(agentId: OFGenerationAgentId, input: string) {
+    if (!currentSession.value) throw new Error('No active generation session')
+    saving.value = true
+    try {
+      currentSession.value = await datasource.sendAgentMessage(
+        currentSession.value.id,
+        agentId,
+        input
+      )
+      await fetchSessions()
+      return currentSession.value
+    } finally {
+      saving.value = false
+    }
+  }
+
+  async function resolveApproval(
+    approvalId: string,
+    decision: 'approved' | 'rejected',
+    note?: string
+  ) {
+    if (!currentSession.value) throw new Error('No active generation session')
+    saving.value = true
+    try {
+      currentSession.value = await datasource.resolveApproval(
+        currentSession.value.id,
+        approvalId,
+        decision,
+        note
+      )
+      await fetchSessions()
+      return currentSession.value
+    } finally {
+      saving.value = false
+    }
+  }
+
+  async function runStage(stage: 'draft' | 'plan' | 'topology' | 'validation') {
+    if (!currentSession.value) throw new Error('No active generation session')
+    saving.value = true
+    try {
+      currentSession.value = await datasource.runStage(currentSession.value.id, stage)
       await fetchSessions()
       return currentSession.value
     } finally {
@@ -107,6 +168,25 @@ export const useWorkflowGenerationStore = defineStore('orchestraflow-workflow-ge
     }
   }
 
+  async function updateAgentConfig(
+    agentId: OFGenerationAgentId,
+    patch: Partial<OFGenerationAgentRuntimeConfig>
+  ) {
+    if (!currentSession.value) throw new Error('No active generation session')
+    saving.value = true
+    try {
+      currentSession.value = await datasource.updateAgentConfig(
+        currentSession.value.id,
+        agentId,
+        patch
+      )
+      await fetchSessions()
+      return currentSession.value
+    } finally {
+      saving.value = false
+    }
+  }
+
   async function confirmSession() {
     if (!currentSession.value) throw new Error('No active generation session')
     saving.value = true
@@ -131,14 +211,20 @@ export const useWorkflowGenerationStore = defineStore('orchestraflow-workflow-ge
     currentSession,
     loading,
     saving,
+    agentEvents,
     sessionCards,
+    ensureAgentEventBridge,
     fetchSessions,
     loadSession,
     createSession,
     sendPrompt,
+    sendAgentMessage,
+    resolveApproval,
+    runStage,
     advancePhase,
     rollbackCheckpoint,
     updatePhaseModels,
+    updateAgentConfig,
     confirmSession,
     deleteSession
   }

@@ -114,13 +114,14 @@ app.whenReady().then(() => {
   new UserSettingsIPCHandler(userSettingsService)
 
   // 初始化 MCP Service 和 IPC Handler
-  const mcpService = new McpService()
+  const mcpService = new McpService(modelConfigService)
   new McpIPCHandler(mcpService)
 
   // 初始化 OrchestraFlow Workflow Service 和 IPC Handler
   const orchestraflowWorkflowService = new OrchestraflowWorkflowService()
   const orchestraflowGenerationService = new OrchestraflowGenerationService(
-    orchestraflowWorkflowService
+    orchestraflowWorkflowService,
+    modelConfigService
   )
   new OrchestraflowIPCHandler(
     orchestraflowWorkflowService,

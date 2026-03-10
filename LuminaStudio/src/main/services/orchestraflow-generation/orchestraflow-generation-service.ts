@@ -1,17 +1,26 @@
-import type { OFGenerationPhase, OFGenerationSession } from '@shared/Orchestraflow-types'
+import type {
+  OFGenerationPhase,
+  OFGenerationSession,
+  OFGenerationAgentId,
+  OFGenerationAgentRuntimeConfig
+} from '@shared/Orchestraflow-types'
 import { GenerationSessionRepository } from './generation-session-repository'
 import { GenerationSessionService } from './generation-session-service'
 import { GenerationCompileService } from './generation-compile-service'
 import { OrchestraflowWorkflowService } from '@main/services/orchestraflow/orchestraflow-workflow-service'
+import type { ModelConfigService } from '@main/services/model-config'
 
 export class OrchestraflowGenerationService {
   readonly repository: GenerationSessionRepository
   readonly sessionService: GenerationSessionService
   readonly compileService: GenerationCompileService
 
-  constructor(workflowService: OrchestraflowWorkflowService) {
+  constructor(
+    workflowService: OrchestraflowWorkflowService,
+    modelConfigService: ModelConfigService
+  ) {
     this.repository = new GenerationSessionRepository()
-    this.sessionService = new GenerationSessionService(this.repository)
+    this.sessionService = new GenerationSessionService(this.repository, modelConfigService)
     this.compileService = new GenerationCompileService(workflowService)
   }
 
@@ -35,6 +44,30 @@ export class OrchestraflowGenerationService {
     return this.sessionService.sendGenerationPrompt(id, prompt)
   }
 
+  async sendGenerationAgentMessage(
+    id: string,
+    agentId: OFGenerationAgentId,
+    input: string
+  ): Promise<OFGenerationSession> {
+    return this.sessionService.sendGenerationAgentMessage(id, agentId, input)
+  }
+
+  async resolveGenerationApproval(
+    id: string,
+    approvalId: string,
+    decision: 'approved' | 'rejected',
+    note?: string
+  ): Promise<OFGenerationSession> {
+    return this.sessionService.resolveGenerationApproval(id, approvalId, decision, note)
+  }
+
+  async runGenerationStage(
+    id: string,
+    stage: 'draft' | 'plan' | 'topology' | 'validation'
+  ): Promise<OFGenerationSession> {
+    return this.sessionService.runGenerationStage(id, stage)
+  }
+
   async advanceGenerationPhase(id: string, phase: OFGenerationPhase): Promise<OFGenerationSession> {
     return this.sessionService.advanceGenerationPhase(id, phase)
   }
@@ -51,6 +84,14 @@ export class OrchestraflowGenerationService {
     phaseModels: OFGenerationSession['phase_models']
   ): OFGenerationSession {
     return this.sessionService.updateGenerationPhaseModels(id, phaseModels)
+  }
+
+  updateGenerationAgentConfig(
+    id: string,
+    agentId: OFGenerationAgentId,
+    patch: Partial<OFGenerationAgentRuntimeConfig>
+  ): OFGenerationSession {
+    return this.sessionService.updateGenerationAgentConfig(id, agentId, patch)
   }
 
   async confirmGenerationSession(
