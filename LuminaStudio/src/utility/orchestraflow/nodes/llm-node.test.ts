@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   OFBlockEnum,
   OFVarType,
@@ -7,8 +7,9 @@ import {
 } from '@shared/Orchestraflow-types'
 import { LLMNode } from './llm-node'
 import { VariableStore } from '../services/variable-store'
+import type { ExecutionContext } from './types'
 
-function createLLMNode(): LLMNode {
+function createLLMNode(mode?: 'chat-completions' | 'responses'): LLMNode {
   const node: OFNode = {
     id: 'llm-1',
     type: 'default',
@@ -19,7 +20,8 @@ function createLLMNode(): LLMNode {
       desc: '',
       model: {
         provider: 'openai',
-        name: 'gpt-test'
+        name: 'gpt-test',
+        mode
       },
       prompt_template: [],
       structured_output: {
@@ -34,6 +36,36 @@ function createLLMNode(): LLMNode {
 
   return new LLMNode(node, new VariableStore())
 }
+
+function createExecutionContext(node: OFNode): ExecutionContext {
+  return {
+    runId: 'run-1',
+    node,
+    graph: { nodes: [node], edges: [] },
+    inputs: { input: 'fallback input' },
+    variables: {},
+    scopePath: [],
+    traceKey: 'trace-1',
+    providerConfigs: {
+      openai: {
+        id: 'openai',
+        name: 'OpenAI',
+        baseUrl: 'https://api.openai.com',
+        apiKey: 'sk-test',
+        enabled: true,
+        defaultHeaders: {
+          'OpenAI-Beta': 'responses'
+        }
+      }
+    },
+    executeGraph: async () => ({ status: 'failed', error: 'not implemented' }),
+    isStopped: () => false
+  }
+}
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 describe('LLMNode structured output schema', () => {
   it('supports object structured output schemas', () => {
@@ -103,5 +135,105 @@ describe('LLMNode structured output schema', () => {
 
     const structuredOutput = variables.find((item) => item.variable === 'structured_output')
     expect(structuredOutput?.type).toBe(OFVarType.Object)
+  })
+
+  it('uses OpenAI responses mode for plain text requests', async () => {
+    const node = createLLMNode('responses')
+    const nodeData = ((node as any).context.node as OFNode).data
+    nodeData.prompt_template = [
+      { id: 'system-1', role: 'system', text: 'You are concise.' },
+      { id: 'user-1', role: 'user', text: 'Hello Lumina' }
+    ]
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        id: 'resp_1',
+        model: 'gpt-test',
+        status: 'completed',
+        output_text: 'Hello Lumina',
+        usage: {
+          input_tokens: 12,
+          output_tokens: 4,
+          total_tokens: 16
+        }
+      })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await node.execute(createExecutionContext((node as any).context.node as OFNode))
+
+    expect(fetchMock).toHaveBeenCalledOnce()
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe('https://api.openai.com/v1/responses')
+    expect(init.method).toBe('POST')
+    expect(init.headers).toMatchObject({
+      Authorization: 'Bearer sk-test',
+      'Content-Type': 'application/json',
+      'OpenAI-Beta': 'responses'
+    })
+
+    const body = JSON.parse(String(init.body))
+    expect(body.instructions).toBe('You are concise.')
+    expect(body.input).toEqual([
+      {
+        role: 'user',
+        content: [{ type: 'input_text', text: 'Hello Lumina' }]
+      }
+    ])
+    expect(result.outputs.llmoutput).toBe('Hello Lumina')
+    expect(result.outputs.usage_metadata).toEqual({
+      input_tokens: 12,
+      output_tokens: 4,
+      total_tokens: 16
+    })
+  })
+
+  it('parses structured output from OpenAI responses mode', async () => {
+    const node = createLLMNode('responses')
+    const runtimeNode = (node as any).context.node as OFNode
+    runtimeNode.data.prompt_template = [{ id: 'user-1', role: 'user', text: 'Return JSON' }]
+    runtimeNode.data.structured_output = {
+      enabled: true,
+      schema: {
+        type: 'object',
+        properties: {
+          answer: { type: 'string' },
+          score: { type: 'number' }
+        },
+        required: ['answer'],
+        additionalProperties: false
+      }
+    }
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        id: 'resp_2',
+        model: 'gpt-test',
+        status: 'completed',
+        output_text: '{"answer":"ok","score":0.9}',
+        usage: {
+          input_tokens: 18,
+          output_tokens: 6,
+          total_tokens: 24
+        }
+      })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await node.execute(createExecutionContext(runtimeNode))
+
+    const [, init] = fetchMock.mock.calls[0]
+    const body = JSON.parse(String(init.body))
+    expect(body.text).toMatchObject({
+      format: {
+        type: 'json_schema',
+        name: 'structured_output',
+        strict: true
+      }
+    })
+    expect(result.outputs.structured_output).toEqual({ answer: 'ok', score: 0.9 })
+    expect(result.outputs.llmoutput).toBe('{"answer":"ok","score":0.9}')
   })
 })

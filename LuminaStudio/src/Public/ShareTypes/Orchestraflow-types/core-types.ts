@@ -291,10 +291,12 @@ export interface OFModelCompletionParams {
   frequency_penalty?: number
 }
 
+export type OFModelRequestMode = 'chat-completions' | 'responses'
+
 export interface OFModelConfig {
   provider: string
   name: string
-  mode?: string
+  mode?: OFModelRequestMode
   completion_params?: OFModelCompletionParams
 }
 

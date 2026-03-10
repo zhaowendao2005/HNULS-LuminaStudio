@@ -13,6 +13,7 @@ import {
   type OFJsonSchemaProperty,
   type OFLLMNodeData,
   type OFModelCompletionParams,
+  type OFModelRequestMode,
   type OFStructuredJsonSchema
 } from '@shared/Orchestraflow-types'
 import type { ExecutionContext, NodeResult } from './types'
@@ -24,6 +25,19 @@ import { normalizeOpenAICompatibleBaseUrl } from '@utility/langchain-client/mode
 type StructuredResult = {
   raw: AIMessage
   parsed: Record<string, any>
+}
+
+type LLMMessage = {
+  role: 'system' | 'user' | 'assistant'
+  content: string
+}
+
+type ResponsesApiOutput = {
+  raw: Record<string, any>
+  content: string
+  parsed?: Record<string, any>
+  responseMetadata?: Record<string, any>
+  usageMetadata?: Record<string, any>
 }
 
 export class LLMNode extends BaseNode {
@@ -67,37 +81,6 @@ export class LLMNode extends BaseNode {
       }
 
       const completionParams = this.normalizeCompletionParams(nodeData.model.completion_params)
-      const modelKwargs: Record<string, any> = {}
-      if (completionParams.top_k !== undefined) {
-        modelKwargs.top_k = completionParams.top_k
-      }
-
-      const modelOptions: Record<string, any> = {
-        model: nodeData.model.name,
-        temperature: completionParams.temperature,
-        topP: completionParams.top_p,
-        maxTokens: completionParams.max_tokens,
-        presencePenalty: completionParams.presence_penalty,
-        frequencyPenalty: completionParams.frequency_penalty,
-        modelKwargs: Object.keys(modelKwargs).length > 0 ? modelKwargs : undefined
-      }
-
-      Object.keys(modelOptions).forEach((key) => {
-        if (modelOptions[key] === undefined) {
-          delete modelOptions[key]
-        }
-      })
-
-      const normalizedBaseUrl = normalizeOpenAICompatibleBaseUrl(baseUrl)
-      this.model = new ChatOpenAI({
-        ...modelOptions,
-        apiKey,
-        configuration: {
-          baseURL: normalizedBaseUrl,
-          defaultHeaders: providerConfig?.defaultHeaders
-        }
-      })
-
       const messages = this.buildMessages(nodeData, context)
       const namespace = normalizeOFVariableNamespace(nodeData.title, 'llm')
       const outputVars =
@@ -113,7 +96,45 @@ export class LLMNode extends BaseNode {
               structuredOutput: nodeData.structured_output
             }) || []
 
-      if (nodeData.structured_output?.enabled && nodeData.structured_output.schema) {
+      const isStructuredOutputEnabled =
+        Boolean(nodeData.structured_output?.enabled) && Boolean(nodeData.structured_output?.schema)
+      const requestMode = this.resolveRequestMode(nodeData.model.mode)
+
+      if (requestMode === 'responses') {
+        const response = await this.invokeResponsesApi({
+          model: nodeData.model.name,
+          apiKey,
+          baseUrl,
+          headers: providerConfig?.defaultHeaders,
+          messages,
+          completionParams,
+          structuredOutput: isStructuredOutputEnabled ? nodeData.structured_output.schema : null
+        })
+
+        this.applyOutputs({
+          outputVars,
+          legacyOutputVars,
+          outputs,
+          content: response.content,
+          structuredValue: response.parsed
+        })
+        outputs.raw = response.raw
+        outputs.response_metadata = response.responseMetadata
+        outputs.usage_metadata = response.usageMetadata
+        return { outputs }
+      }
+
+      this.model = this.createChatModel({
+        model: nodeData.model.name,
+        apiKey,
+        baseUrl,
+        headers: providerConfig?.defaultHeaders,
+        completionParams
+      })
+
+      const langchainMessages = this.toLangchainMessages(messages)
+
+      if (isStructuredOutputEnabled && nodeData.structured_output.schema) {
         const structuredRunner = this.model.withStructuredOutput(
           this.buildZodSchema(nodeData.structured_output.schema),
           {
@@ -122,22 +143,16 @@ export class LLMNode extends BaseNode {
           }
         )
 
-        const result = (await structuredRunner.invoke(messages)) as StructuredResult
+        const result = (await structuredRunner.invoke(langchainMessages)) as StructuredResult
         const rawContent = this.stringifyMessageContent(result.raw?.content)
 
-        for (const output of outputVars) {
-          const storeKey = output.value_selector?.[0] || output.variable
-          const value =
-            output.variable === OF_LLM_STRUCTURED_OUTPUT_NAME ? result.parsed : rawContent
-          this.setOutput(storeKey, value)
-          outputs[output.variable] = value
-        }
-        for (const output of legacyOutputVars) {
-          const storeKey = output.value_selector?.[0] || output.variable
-          const value =
-            output.variable === OF_LLM_STRUCTURED_OUTPUT_NAME ? result.parsed : rawContent
-          this.setOutput(storeKey, value)
-        }
+        this.applyOutputs({
+          outputVars,
+          legacyOutputVars,
+          outputs,
+          content: rawContent,
+          structuredValue: result.parsed
+        })
 
         outputs.raw = result.raw
         outputs.response_metadata = (result.raw as any)?.response_metadata
@@ -145,18 +160,15 @@ export class LLMNode extends BaseNode {
         return { outputs }
       }
 
-      const response = await this.model.invoke(messages)
+      const response = await this.model.invoke(langchainMessages)
       const content = this.stringifyMessageContent(response.content)
 
-      for (const output of outputVars) {
-        const storeKey = output.value_selector?.[0] || output.variable
-        this.setOutput(storeKey, content)
-        outputs[output.variable] = content
-      }
-      for (const output of legacyOutputVars) {
-        const storeKey = output.value_selector?.[0] || output.variable
-        this.setOutput(storeKey, content)
-      }
+      this.applyOutputs({
+        outputVars,
+        legacyOutputVars,
+        outputs,
+        content
+      })
 
       outputs.raw = response
       outputs.response_metadata = (response as any)?.response_metadata
@@ -172,29 +184,42 @@ export class LLMNode extends BaseNode {
   }
 
   private buildMessages(nodeData: OFLLMNodeData, context: ExecutionContext) {
-    const messages: Array<SystemMessage | HumanMessage | AIMessage> = []
+    const messages: LLMMessage[] = []
 
     if (nodeData.prompt_template) {
       for (const item of nodeData.prompt_template) {
-        if (item.role === 'system') {
-          messages.push(new SystemMessage(item.text))
-        } else if (item.role === 'assistant') {
-          messages.push(new AIMessage(item.text))
-        } else {
-          messages.push(new HumanMessage(this.replaceVariables(item.text)))
-        }
+        const text = item.role === 'user' ? this.replaceVariables(item.text) : item.text
+        messages.push({
+          role: item.role,
+          content: text
+        })
       }
     }
 
-    if (messages.length === 0 || messages.every((message) => message._getType() === 'system')) {
+    if (messages.length === 0 || messages.every((message) => message.role === 'system')) {
       const inputKeys = Object.keys(context.inputs)
       if (inputKeys.length > 0) {
         const firstInput = context.inputs[inputKeys[0]]
-        messages.push(new HumanMessage(String(firstInput || '')))
+        messages.push({
+          role: 'user',
+          content: String(firstInput || '')
+        })
       }
     }
 
     return messages
+  }
+
+  private toLangchainMessages(messages: LLMMessage[]) {
+    return messages.map((message) => {
+      if (message.role === 'system') {
+        return new SystemMessage(message.content)
+      }
+      if (message.role === 'assistant') {
+        return new AIMessage(message.content)
+      }
+      return new HumanMessage(message.content)
+    })
   }
 
   /**
@@ -234,6 +259,197 @@ export class LLMNode extends BaseNode {
 
   private buildZodSchema(schema: OFStructuredJsonSchema) {
     return this.buildSchemaNode(schema)
+  }
+
+  private resolveRequestMode(mode?: OFModelRequestMode): OFModelRequestMode {
+    return mode === 'responses' ? 'responses' : 'chat-completions'
+  }
+
+  private createChatModel(params: {
+    model: string
+    apiKey: string
+    baseUrl: string
+    headers?: Record<string, string>
+    completionParams: OFModelCompletionParams
+  }): ChatOpenAI {
+    const modelKwargs: Record<string, any> = {}
+    if (params.completionParams.top_k !== undefined) {
+      modelKwargs.top_k = params.completionParams.top_k
+    }
+
+    const modelOptions: Record<string, any> = {
+      model: params.model,
+      temperature: params.completionParams.temperature,
+      topP: params.completionParams.top_p,
+      maxTokens: params.completionParams.max_tokens,
+      presencePenalty: params.completionParams.presence_penalty,
+      frequencyPenalty: params.completionParams.frequency_penalty,
+      modelKwargs: Object.keys(modelKwargs).length > 0 ? modelKwargs : undefined
+    }
+
+    Object.keys(modelOptions).forEach((key) => {
+      if (modelOptions[key] === undefined) {
+        delete modelOptions[key]
+      }
+    })
+
+    return new ChatOpenAI({
+      ...modelOptions,
+      apiKey: params.apiKey,
+      configuration: {
+        baseURL: normalizeOpenAICompatibleBaseUrl(params.baseUrl),
+        defaultHeaders: params.headers
+      }
+    })
+  }
+
+  private async invokeResponsesApi(params: {
+    model: string
+    apiKey: string
+    baseUrl: string
+    headers?: Record<string, string>
+    messages: LLMMessage[]
+    completionParams: OFModelCompletionParams
+    structuredOutput: OFStructuredJsonSchema | null
+  }): Promise<ResponsesApiOutput> {
+    const normalizedBaseUrl = normalizeOpenAICompatibleBaseUrl(params.baseUrl)
+    const instructions = params.messages
+      .filter((message) => message.role === 'system')
+      .map((message) => message.content.trim())
+      .filter(Boolean)
+      .join('\n\n')
+
+    const input = params.messages
+      .filter((message) => message.role !== 'system')
+      .map((message) => ({
+        role: message.role,
+        content: [
+          {
+            type: 'input_text',
+            text: message.content
+          }
+        ]
+      }))
+
+    const requestBody: Record<string, any> = {
+      model: params.model,
+      input,
+      instructions: instructions || undefined,
+      temperature: params.completionParams.temperature,
+      top_p: params.completionParams.top_p,
+      max_output_tokens: params.completionParams.max_tokens,
+      presence_penalty: params.completionParams.presence_penalty,
+      frequency_penalty: params.completionParams.frequency_penalty
+    }
+
+    if (params.structuredOutput) {
+      requestBody.text = {
+        format: {
+          type: 'json_schema',
+          name: OF_LLM_STRUCTURED_OUTPUT_NAME,
+          strict: true,
+          schema: params.structuredOutput
+        }
+      }
+    }
+
+    Object.keys(requestBody).forEach((key) => {
+      if (requestBody[key] === undefined) {
+        delete requestBody[key]
+      }
+    })
+
+    const response = await fetch(`${normalizedBaseUrl}/responses`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${params.apiKey}`,
+        ...params.headers
+      },
+      body: JSON.stringify(requestBody)
+    })
+
+    const payload = (await response.json()) as Record<string, any>
+    if (!response.ok) {
+      const errorMessage =
+        (payload.error as { message?: string } | undefined)?.message ||
+        `Responses API request failed with status ${response.status}`
+      throw new Error(errorMessage)
+    }
+
+    const content = this.extractResponsesOutputText(payload)
+    const parsed = params.structuredOutput
+      ? this.parseStructuredResponsesOutput(content, params.structuredOutput)
+      : undefined
+
+    return {
+      raw: payload,
+      content,
+      parsed,
+      responseMetadata: {
+        id: payload.id,
+        model: payload.model,
+        status: payload.status,
+        incomplete_details: payload.incomplete_details,
+        output_count: Array.isArray(payload.output) ? payload.output.length : 0
+      },
+      usageMetadata: payload.usage
+    }
+  }
+
+  private extractResponsesOutputText(payload: Record<string, any>): string {
+    if (typeof payload.output_text === 'string' && payload.output_text.length > 0) {
+      return payload.output_text
+    }
+
+    const messageTexts: string[] = []
+    const outputs = Array.isArray(payload.output) ? payload.output : []
+    for (const item of outputs) {
+      if (item?.type !== 'message' || !Array.isArray(item.content)) {
+        continue
+      }
+      for (const contentItem of item.content) {
+        if (typeof contentItem?.text === 'string' && contentItem.text.length > 0) {
+          messageTexts.push(contentItem.text)
+        }
+      }
+    }
+
+    return messageTexts.join('\n').trim()
+  }
+
+  private parseStructuredResponsesOutput(
+    content: string,
+    schema: OFStructuredJsonSchema
+  ): Record<string, any> {
+    const parsed = JSON.parse(content) as Record<string, any>
+    return this.buildZodSchema(schema).parse(parsed)
+  }
+
+  private applyOutputs(params: {
+    outputVars: Array<{ variable: string; value_selector?: string[] }>
+    legacyOutputVars: Array<{ variable: string; value_selector?: string[] }>
+    outputs: Record<string, any>
+    content: string
+    structuredValue?: Record<string, any>
+  }) {
+    for (const output of params.outputVars) {
+      const storeKey = output.value_selector?.[0] || output.variable
+      const value =
+        output.variable === OF_LLM_STRUCTURED_OUTPUT_NAME
+          ? (params.structuredValue ?? null)
+          : params.content
+      this.setOutput(storeKey, value)
+      params.outputs[output.variable] = value
+    }
+    for (const output of params.legacyOutputVars) {
+      const storeKey = output.value_selector?.[0] || output.variable
+      const value =
+        output.variable === OF_LLM_STRUCTURED_OUTPUT_NAME
+          ? (params.structuredValue ?? null)
+          : params.content
+      this.setOutput(storeKey, value)
+    }
   }
 
   private buildSchemaNode(schema: OFJsonSchemaProperty): z.ZodTypeAny {
