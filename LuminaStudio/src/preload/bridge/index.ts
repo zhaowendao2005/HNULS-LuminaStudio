@@ -12,6 +12,7 @@ import { knowledgeDatabaseAPI } from '../api/knowledge-database-api'
 import { rerankModelAPI } from '../api/rerank-model-api'
 import { userSettingsAPI } from '../api/user-settings-api'
 import { orchestraflowAPI } from '../api/orchestraflow-api'
+import { mcpAPI } from '../api/mcp-api'
 
 const api = {
   utils: utilsAPI,
@@ -21,7 +22,8 @@ const api = {
   knowledgeDatabase: knowledgeDatabaseAPI,
   rerankModel: rerankModelAPI,
   userSettings: userSettingsAPI,
-  orchestraflow: orchestraflowAPI
+  orchestraflow: orchestraflowAPI,
+  mcp: mcpAPI
 }
 
 contextBridge.exposeInMainWorld('api', api)

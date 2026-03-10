@@ -36,5 +36,6 @@
       "filePath": ".agent\\skills",
       "group": "Default"
     }
-  ]
+  ],
+  "kiroAgent.configureMCP": "Disabled"
 }

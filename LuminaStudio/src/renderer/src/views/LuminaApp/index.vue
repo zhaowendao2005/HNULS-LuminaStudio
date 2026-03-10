@@ -8,7 +8,7 @@
       <div class="flex flex-1 h-[calc(100vh-32px)] w-full">
         <Sidebar :active-tab="activeTab" @change-tab="activeTab = $event" />
         <div class="flex-1 flex flex-col min-h-0 overflow-hidden relative">
-          <TopBar :active-tab="activeTab" />
+          <TopBar :active-tab="activeTabLabelMap[activeTab] || activeTab" />
           <main
             :class="[
               'flex-1 min-h-0 overflow-y-auto overflow-x-hidden relative',
@@ -18,6 +18,7 @@
             <DashboardView v-if="activeTab === 'dashboard'" />
             <NormalChat v-else-if="activeTab === 'normal-chat'" />
             <OrchestraFlowView v-else-if="activeTab === 'orchestraflow'" />
+            <McpWorkbenchView v-else-if="activeTab === 'mcp-workbench'" />
             <UserSettingView v-else-if="activeTab === 'settings'" />
             <DashboardView v-else />
           </main>
@@ -42,9 +43,17 @@ import DashboardView from './Maincontent/DashboardView/index.vue'
 import NormalChat from './Maincontent/NormalChat/index.vue'
 import OrchestraFlowView from './Maincontent/OrchestraFlowView/index.vue'
 import UserSettingView from './Maincontent/UserSettingView/index.vue'
+import McpWorkbenchView from './Maincontent/McpWorkbenchView/index.vue'
 
 const hasStarted = ref(false)
 const activeTab = ref('dashboard')
+const activeTabLabelMap: Record<string, string> = {
+  dashboard: 'dashboard',
+  'normal-chat': 'normal chat',
+  orchestraflow: 'orchestraflow',
+  'mcp-workbench': 'mcp workbench',
+  settings: 'settings'
+}
 </script>
 
 <style scoped>
