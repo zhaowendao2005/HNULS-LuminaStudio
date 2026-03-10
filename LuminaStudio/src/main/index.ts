@@ -21,6 +21,8 @@ import { OrchestraflowWorkflowService } from './services/orchestraflow/orchestra
 import { OrchestraflowIPCHandler } from './ipc/orchestraflow-handler'
 import { orchestraflowBridge } from './services/orchestraflow-bridge'
 import { logger } from './services/logger'
+import { McpService } from './services/mcp'
+import { McpIPCHandler } from './ipc/mcp-handler'
 
 const log = logger.scope('Main')
 
@@ -109,6 +111,10 @@ app.whenReady().then(() => {
   const userSettingsService = new UserSettingsService()
   userSettingsService.initialize()
   new UserSettingsIPCHandler(userSettingsService)
+
+  // 初始化 MCP Service 和 IPC Handler
+  const mcpService = new McpService()
+  new McpIPCHandler(mcpService)
 
   // 初始化 OrchestraFlow Workflow Service 和 IPC Handler
   const orchestraflowWorkflowService = new OrchestraflowWorkflowService()

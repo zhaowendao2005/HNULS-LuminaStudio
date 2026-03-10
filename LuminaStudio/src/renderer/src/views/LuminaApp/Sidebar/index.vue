@@ -19,6 +19,11 @@
         :active="activeTab === 'orchestraflow'"
         @click="$emit('change-tab', 'orchestraflow')"
       />
+      <SidebarItem
+        icon="network"
+        :active="activeTab === 'mcp-workbench'"
+        @click="$emit('change-tab', 'mcp-workbench')"
+      />
     </div>
 
     <!-- Bottom -->
