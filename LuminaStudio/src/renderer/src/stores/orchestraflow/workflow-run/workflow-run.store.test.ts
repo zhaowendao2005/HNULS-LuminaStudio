@@ -71,15 +71,12 @@ describe('buildWorkflowInputDefaultValue', () => {
           seo_settings: {
             type: 'object',
             properties: {
-              keywords: {
-                type: 'array',
-                items: {
-                  type: 'string',
-                  default: 'LLM Workflow'
-                }
+              keyword_label: {
+                type: 'string',
+                default: 'LLM Workflow'
               }
             },
-            required: ['keywords'],
+            required: ['keyword_label'],
             additionalProperties: false
           }
         },
@@ -94,25 +91,42 @@ describe('buildWorkflowInputDefaultValue', () => {
         published: false
       },
       seo_settings: {
-        keywords: []
+        keyword_label: 'LLM Workflow'
       }
     })
   })
 
-  it('prefers explicit variable-level default over schema-derived values', () => {
+  it('prefers explicit variable-level default for array values', () => {
     const inputVar: OFInputVar = {
       variable: 'items',
       type: OFVarType.Array,
-      default: ['preset'],
-      schema: {
-        type: 'array',
-        items: {
-          type: 'string',
-          default: 'ignored'
-        }
-      }
+      default: ['preset']
     }
 
     expect(buildWorkflowInputDefaultValue(inputVar)).toEqual(['preset'])
+  })
+
+  it('uses raw array default values directly', () => {
+    const inputVar: OFInputVar = {
+      variable: 'task_list',
+      type: OFVarType.Array,
+      default: [
+        {
+          task_name: '初始化任务',
+          params: {
+            retry: true
+          }
+        }
+      ]
+    }
+
+    expect(buildWorkflowInputDefaultValue(inputVar)).toEqual([
+      {
+        task_name: '初始化任务',
+        params: {
+          retry: true
+        }
+      }
+    ])
   })
 })

@@ -6,6 +6,10 @@ import {
 import type { OFIfElseNodeData } from '../core-types'
 import { OFBlockEnum } from '../core-types'
 import { omitOFField } from './helpers'
+import {
+  collectOFSelectorVariableRoots,
+  normalizeOFRunnableNodeSelectorData
+} from '../selector-utils'
 
 export const ifElseNodeDefinition = defineStandardOFNodeDefinition<OFIfElseNodeData>({
   meta: {
@@ -102,14 +106,24 @@ export const ifElseNodeDefinition = defineStandardOFNodeDefinition<OFIfElseNodeD
     },
     normalizeData({ node }) {
       const data = node.data as Partial<OFIfElseNodeData>
-      return {
-        ...buildOFCommonNodeShape(data, normalizeOFNodeTitle(OFBlockEnum.IfElse, data.title)),
-        type: OFBlockEnum.IfElse,
+      const normalized = {
+        ...data,
         cases: data.cases || [],
         elseCase: data.elseCase || {
           handleId: 'else',
           label: 'ELSE'
         }
+      } as OFIfElseNodeData
+      normalizeOFRunnableNodeSelectorData(
+        OFBlockEnum.IfElse,
+        normalized as unknown as Record<string, any>,
+        collectOFSelectorVariableRoots([node])
+      )
+      return {
+        ...buildOFCommonNodeShape(data, normalizeOFNodeTitle(OFBlockEnum.IfElse, data.title)),
+        type: OFBlockEnum.IfElse,
+        cases: normalized.cases,
+        elseCase: normalized.elseCase
       }
     }
   },

@@ -23,6 +23,8 @@ import {
   OFVarType,
   OF_LOOP_COUNT_VARIABLE_NAME,
   OF_LOOP_INDEX_VARIABLE_NAME,
+  getOFPathFromRef,
+  getOFSelectorFromRef,
   resolveOFNodeDefinition
 } from '@shared/Orchestraflow-types'
 
@@ -69,8 +71,6 @@ function getSchemaNodeType(schema: OFJsonSchemaProperty): OFVarType {
       return OFVarType.Boolean
     case 'number':
       return OFVarType.Number
-    case 'array':
-      return OFVarType.Array
     case 'object':
       return OFVarType.Object
     case 'string':
@@ -83,7 +83,7 @@ function toStructuredSchema(
   schema: OFJsonSchemaProperty | null | undefined
 ): OFAvailableVariable['schema'] {
   if (!schema) return null
-  return schema.type === 'object' || schema.type === 'array' ? schema : null
+  return schema.type === 'object' ? schema : null
 }
 
 function buildSchemaChildren(
@@ -113,29 +113,6 @@ function buildSchemaChildren(
         children
       }
     })
-  }
-
-  if (schema.type === 'array') {
-    const itemSelector = [...selector, '0']
-    const itemSchema = schema.items
-    const children = buildSchemaChildren(base, itemSchema, itemSelector)
-    return [
-      {
-        id: `${base.id}:${itemSelector.join('.')}`,
-        variable: '0',
-        path: selectorToPath(itemSelector),
-        label: '[0]',
-        nodeId: base.nodeId,
-        nodeType: base.nodeType,
-        nodeTitle: base.nodeTitle,
-        valueSelector: itemSelector,
-        type: getSchemaNodeType(itemSchema),
-        schema: toStructuredSchema(itemSchema),
-        selectable: true,
-        expandable: children.length > 0,
-        children
-      }
-    ]
   }
 
   return []
@@ -198,18 +175,20 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
     }
 
     const items = variables.map((variable) => {
-      const selector = variable.value_selector?.length
-        ? variable.value_selector
-        : [variable.variable]
+      const selector = getOFSelectorFromRef(variable.value_ref) || []
+      const fallbackSelector = selector.length ? selector : [variable.variable]
+      const path = variable.value_ref
+        ? getOFPathFromRef(variable.value_ref)
+        : selectorToPath(fallbackSelector)
       const base: OFAvailableVariable = {
-        id: `${nodeId}:${selectorToPath(selector)}`,
+        id: `${nodeId}:${path}`,
         variable: variable.variable,
-        path: selectorToPath(selector),
+        path,
         label: variable.label || variable.variable,
         nodeId,
         nodeType,
         nodeTitle,
-        valueSelector: selector,
+        valueSelector: fallbackSelector,
         type: variable.type,
         schema: variable.schema,
         selectable: true,
@@ -217,7 +196,7 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
         children: []
       }
       const schema = variable.schema || null
-      const children = buildSchemaChildren(base, schema, selector)
+      const children = buildSchemaChildren(base, schema, fallbackSelector)
       return {
         ...base,
         children,

@@ -7,6 +7,10 @@ import { ensureOFSelectableVariables, startInputVariableDefinition } from '../va
 import type { OFStartNodeData } from '../core-types'
 import { OFBlockEnum } from '../core-types'
 import { omitOFEmptySelector } from './helpers'
+import {
+  collectOFSelectorVariableRoots,
+  normalizeOFRunnableNodeSelectorData
+} from '../selector-utils'
 
 export const startNodeDefinition = defineStandardOFNodeDefinition<OFStartNodeData>({
   meta: {
@@ -72,10 +76,19 @@ export const startNodeDefinition = defineStandardOFNodeDefinition<OFStartNodeDat
     },
     normalizeData({ node }) {
       const data = node.data as Partial<OFStartNodeData>
+      const normalized = {
+        ...data,
+        input: data.input || { variables: [] }
+      } as OFStartNodeData
+      normalizeOFRunnableNodeSelectorData(
+        OFBlockEnum.Start,
+        normalized as unknown as Record<string, any>,
+        collectOFSelectorVariableRoots([node])
+      )
       return {
         ...buildOFCommonNodeShape(data, normalizeOFNodeTitle(OFBlockEnum.Start, data.title)),
         type: OFBlockEnum.Start,
-        input: data.input || { variables: [] }
+        input: normalized.input
       }
     }
   },

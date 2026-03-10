@@ -246,10 +246,6 @@ export class LLMNode extends BaseNode {
         const result = z.number()
         return schema.description ? result.describe(schema.description) : result
       }
-      case 'array': {
-        const result = z.array(this.buildSchemaNode(schema.items))
-        return schema.description ? result.describe(schema.description) : result
-      }
       case 'object': {
         const shape: Record<string, z.ZodTypeAny> = {}
         const requiredSet = new Set(schema.required || [])

@@ -108,11 +108,14 @@ export class LoopNode extends BaseNode {
       return loopVariable.value ?? null
     }
 
-    if (!loopVariable.value_selector?.length) {
+    if (
+      loopVariable.value_source?.mode !== 'variable' ||
+      !loopVariable.value_source.ref?.selector?.length
+    ) {
       throw new Error(`循环变量 ${loopVariable.variable} 缺少 value_selector`)
     }
 
-    return workingStore.getBySelector(loopVariable.value_selector)
+    return workingStore.getByVariableRef(loopVariable.value_source.ref)
   }
 
   private createChildStore(

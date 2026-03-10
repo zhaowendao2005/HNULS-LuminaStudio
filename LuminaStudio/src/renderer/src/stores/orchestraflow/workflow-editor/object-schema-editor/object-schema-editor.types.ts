@@ -5,7 +5,7 @@ import type {
   OFStructuredJsonSchema
 } from '@shared/Orchestraflow-types'
 
-export type OFSchemaRootType = 'object' | 'array<object>'
+export type OFSchemaRootType = 'object'
 
 export interface OFSchemaFieldDraft {
   id: string
@@ -32,19 +32,14 @@ export function isVisualSchemaSupported(
   schema: OFStructuredJsonSchema | null | undefined
 ): boolean {
   if (!schema) return true
-
-  const objectSchema = schema.type === 'array' ? schema.items : schema
-  if (objectSchema.type !== 'object') return false
-
-  return Object.values(objectSchema.properties || {}).every((item) => isPrimitiveSchemaNode(item))
+  return Object.values(schema.properties || {}).every((item) => isPrimitiveSchemaNode(item))
 }
 
 export function schemaToFieldDrafts(
   schema: OFStructuredJsonSchema | null | undefined
 ): OFSchemaFieldDraft[] {
   if (!schema) return []
-  const objectSchema = schema.type === 'array' ? schema.items : schema
-  if (objectSchema.type !== 'object') return []
+  const objectSchema = schema
   const required = new Set(objectSchema.required || [])
   return Object.entries(objectSchema.properties || {}).map(([name, value], index) => ({
     id: `schema_field_${index}_${name}`,
@@ -56,9 +51,9 @@ export function schemaToFieldDrafts(
 }
 
 export function resolveSchemaRootType(
-  schema: OFStructuredJsonSchema | null | undefined
+  _schema: OFStructuredJsonSchema | null | undefined
 ): OFSchemaRootType {
-  return schema?.type === 'array' ? 'array<object>' : 'object'
+  return 'object'
 }
 
 export function fieldsToSchemaObject(fields: OFSchemaFieldDraft[]): OFJsonSchemaObject {
@@ -81,12 +76,6 @@ export function fieldsToSchema(
   fields: OFSchemaFieldDraft[],
   rootType: OFSchemaRootType
 ): OFStructuredJsonSchema {
-  const objectSchema = fieldsToSchemaObject(fields)
-  if (rootType === 'array<object>') {
-    return {
-      type: 'array',
-      items: objectSchema
-    }
-  }
-  return objectSchema
+  void rootType
+  return fieldsToSchemaObject(fields)
 }

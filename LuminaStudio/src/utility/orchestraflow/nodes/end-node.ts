@@ -25,9 +25,9 @@ export class EndNode extends BaseNode {
     const outputConfig = nodeData.output
     if (outputConfig?.variables) {
       for (const v of outputConfig.variables) {
-        // 使用 value_selector 获取变量值
-        const selector = v.value_selector?.length ? v.value_selector : [v.variable]
-        const value = this.variableStore.getBySelector(selector)
+        const value =
+          this.variableStore.getByVariableRef(v.value_ref) ??
+          this.variableStore.getBySelector([v.variable])
         outputs[v.variable] = value
       }
     }

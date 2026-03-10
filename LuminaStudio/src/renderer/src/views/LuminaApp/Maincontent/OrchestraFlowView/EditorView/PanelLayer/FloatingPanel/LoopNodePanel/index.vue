@@ -161,7 +161,8 @@ import {
   OFBlockEnum,
   OFVarType as OFVarTypeEnum,
   OF_LOOP_COUNT_VARIABLE_NAME,
-  OF_LOOP_INDEX_VARIABLE_NAME
+  OF_LOOP_INDEX_VARIABLE_NAME,
+  getOFSelectorFromRef
 } from '@shared/Orchestraflow-types'
 import { useWorkflowEditorUIStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor-ui.store'
 import { useWorkflowEditorStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor.store'
@@ -193,7 +194,7 @@ const debugMode = ref(false)
 const activeLoopVariableId = ref<string | null>(null)
 const activeConditionId = ref<string | null>(null)
 const activeConditionSide = ref<'left' | 'right' | null>(null)
-const activeSchemaTarget = ref<{ variableId: string; mode: 'object' | 'array-item' } | null>(null)
+const activeSchemaTarget = ref<{ variableId: string; mode: 'object' } | null>(null)
 
 const typeOptions: WhiteSelectOption[] = [
   { label: 'string', value: OFVarTypeEnum.String },
@@ -244,11 +245,12 @@ const debugFields = computed<NodeDebugField[]>(() => {
   }
 
   loopVariables.value.forEach((item) => {
-    if (item.value_type === 'variable') collect(item.value_selector, item.type)
+    if (item.value_source?.mode === 'variable') collect(item.value_source.ref.selector, item.type)
   })
   breakConditions.value.forEach((item) => {
-    collect(item.variable_selector, item.variable_type)
-    if (item.compare_source_mode === 'variable') collect(item.compare_selector, item.compare_type)
+    collect(item.variable_ref?.selector, item.variable_type)
+    if (item.compare_source_mode === 'variable')
+      collect(item.compare_ref?.selector, item.compare_type)
   })
   return [...fields.values()]
 })
@@ -405,31 +407,19 @@ function openConditionRightSelector(conditionId: string, event: MouseEvent) {
   )
 }
 
-function openLoopVariableSchema(variableId: string, mode: 'object' | 'array-item') {
+function openLoopVariableSchema(variableId: string, mode: 'object') {
   if (!currentNode.value) return
   const item = loopVariables.value.find((entry) => (entry.id || entry.variable) === variableId)
   if (!item) return
   activeSchemaTarget.value = { variableId, mode }
-  objectSchemaEditorStore.open(
-    currentNode.value.id,
-    mode === 'array-item' ? item.item_schema || null : item.schema || null
-  )
+  objectSchemaEditorStore.open(currentNode.value.id, item.schema || null)
 }
 
 function handleSchemaSave(schema: OFStructuredJsonSchema) {
   if (!activeSchemaTarget.value) return
-  if (activeSchemaTarget.value.mode === 'array-item') {
-    const itemSchema = schema.type === 'array' ? schema.items : schema
-    patchLoopVariable(activeSchemaTarget.value.variableId, {
-      item_type: OFVarTypeEnum.Object,
-      item_schema: itemSchema.type === 'object' ? itemSchema : null,
-      schema
-    })
-  } else {
-    patchLoopVariable(activeSchemaTarget.value.variableId, {
-      schema
-    })
-  }
+  patchLoopVariable(activeSchemaTarget.value.variableId, {
+    schema
+  })
   activeSchemaTarget.value = null
 }
 
@@ -439,8 +429,17 @@ function handleVariableSelect(event: Event) {
 
   if (detail.targetType === 'loop-variable-init' && activeLoopVariableId.value) {
     patchLoopVariable(activeLoopVariableId.value, {
-      value_type: 'variable',
-      value_selector: detail.variable.valueSelector || []
+      value_source: {
+        mode: 'variable',
+        ref: {
+          selector: detail.variable.valueSelector || [],
+          path: detail.variable.path,
+          label: detail.variable.label,
+          type: detail.variable.type,
+          schema: detail.variable.schema || null
+        }
+      },
+      value_type: 'variable'
     })
     activeLoopVariableId.value = null
     return
@@ -452,17 +451,25 @@ function handleVariableSelect(event: Event) {
   ) {
     if (activeConditionSide.value === 'left') {
       patchBreakCondition(activeConditionId.value, {
-        variable_selector: detail.variable.valueSelector || [],
-        variable_path: detail.variable.path,
-        variable_label: detail.variable.label,
+        variable_ref: {
+          selector: detail.variable.valueSelector || [],
+          path: detail.variable.path,
+          label: detail.variable.label,
+          type: detail.variable.type,
+          schema: detail.variable.schema || null
+        },
         variable_type: detail.variable.type
       })
     } else {
       patchBreakCondition(activeConditionId.value, {
         compare_source_mode: 'variable',
-        compare_selector: detail.variable.valueSelector || [],
-        compare_path: detail.variable.path,
-        compare_label: detail.variable.label,
+        compare_ref: {
+          selector: detail.variable.valueSelector || [],
+          path: detail.variable.path,
+          label: detail.variable.label,
+          type: detail.variable.type,
+          schema: detail.variable.schema || null
+        },
         compare_type: detail.variable.type
       })
     }

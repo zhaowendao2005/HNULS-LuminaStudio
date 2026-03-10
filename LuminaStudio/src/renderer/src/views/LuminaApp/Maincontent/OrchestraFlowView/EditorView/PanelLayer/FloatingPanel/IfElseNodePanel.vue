@@ -116,7 +116,7 @@
                         </span>
                         <span class="of-branch-v7-token">(</span>
                         <VariablePillButton
-                          :text="condition.variable_path || ''"
+                          :text="getOFPathFromRef(condition.variable_ref)"
                           placeholder="选择变量"
                           tooltip-max-width="520px"
                           @click="handleConditionVariableClick(item.id, condition.id, $event)"
@@ -300,6 +300,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import {
   OFVarType,
+  getOFPathFromRef,
   type OFIfElseCondition,
   type OFIfElseNodeData
 } from '@shared/Orchestraflow-types'
@@ -406,7 +407,10 @@ function getBranchTargetText(handleId?: string) {
 function createCondition(): OFIfElseCondition {
   return {
     id: `condition_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-    variable_selector: [],
+    variable_ref: {
+      selector: [],
+      path: ''
+    },
     operator: 'is',
     value: '',
     value_type: OFVarType.String
@@ -637,9 +641,13 @@ function handleVariableSelect(event: Event) {
   }
 
   updateCondition(activeConditionTarget.value.caseId, activeConditionTarget.value.conditionId, {
-    variable_selector: detail.variable.valueSelector,
-    variable_path: detail.variable.path,
-    variable_label: detail.variable.path,
+    variable_ref: {
+      selector: detail.variable.valueSelector,
+      path: detail.variable.path,
+      label: detail.variable.path,
+      type: detail.variable.type,
+      schema: detail.variable.schema || null
+    },
     variable_type: detail.variable.type,
     value_type:
       detail.variable.type === OFVarType.Boolean

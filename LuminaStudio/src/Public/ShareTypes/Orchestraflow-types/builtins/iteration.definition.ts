@@ -11,6 +11,10 @@ import {
 import type { OFIterationNodeData, OFIterationStartNodeData, OFNode } from '../core-types'
 import { OFBlockEnum } from '../core-types'
 import { omitOFNullSchemaFields } from './helpers'
+import {
+  collectOFSelectorVariableRoots,
+  normalizeOFRunnableNodeSelectorData
+} from '../selector-utils'
 
 const DEFAULT_SUBGRAPH_VIEWPORT = { x: 0, y: 0, zoom: 1 }
 const DEFAULT_WIDTH = 650
@@ -206,15 +210,26 @@ export const iterationNodeDefinition = defineContainerOFNodeDefinition<OFIterati
         viewport: baseSubgraph.viewport || { ...DEFAULT_SUBGRAPH_VIEWPORT }
       }
 
+      const normalized = {
+        ...data,
+        subgraph,
+        start_node_id: startNode.id
+      } as OFIterationNodeData
+      normalizeOFRunnableNodeSelectorData(
+        OFBlockEnum.Iteration,
+        normalized as unknown as Record<string, any>,
+        collectOFSelectorVariableRoots([node])
+      )
+
       return {
         ...buildOFCommonNodeShape(data, title),
         type: OFBlockEnum.Iteration,
         width: data.width || DEFAULT_WIDTH,
         height: data.height || DEFAULT_HEIGHT,
-        iterator_selector: data.iterator_selector || [],
-        output_selector: data.output_selector || [],
-        branch_output_selectors: data.branch_output_selectors || [],
-        start_node_id: startNode.id,
+        iterator_ref: normalized.iterator_ref,
+        output_ref: normalized.output_ref,
+        branch_output_refs: normalized.branch_output_refs || [],
+        start_node_id: normalized.start_node_id,
         subgraph,
         parallel_mode: data.parallel_mode || 'sequential',
         parallel_nums: Math.max(1, Number(data.parallel_nums || 1)),
@@ -240,9 +255,17 @@ export const iterationNodeDefinition = defineContainerOFNodeDefinition<OFIterati
         type: OFBlockEnum.Iteration,
         width: DEFAULT_WIDTH,
         height: DEFAULT_HEIGHT,
-        iterator_selector: helpers.compileSelectorField(node.config.iterator_selector),
-        output_selector: helpers.compileSelectorField(node.config.output_selector),
-        branch_output_selectors: helpers.compileIterationBranchOutputSelectors(
+        iterator_ref: {
+          selector: helpers.compileSelectorField(
+            node.config.iterator_ref?.selector || node.config.iterator_selector
+          )
+        },
+        output_ref: {
+          selector: helpers.compileSelectorField(
+            node.config.output_ref?.selector || node.config.output_selector
+          )
+        },
+        branch_output_refs: helpers.compileIterationBranchOutputSelectors(
           node.config.branch_output_selectors || []
         ),
         start_node_id: `${compiledId}-iteration-start`,

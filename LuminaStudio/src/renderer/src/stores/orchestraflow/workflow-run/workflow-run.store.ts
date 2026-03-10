@@ -3,14 +3,9 @@
  */
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type {
-  OFWorkflowRunResult,
-  OFNodeTracing,
-  OFInputVar,
-  OFJsonSchemaProperty,
-  OFStructuredJsonSchema
-} from '@shared/Orchestraflow-types'
+import type { OFWorkflowRunResult, OFNodeTracing, OFInputVar } from '@shared/Orchestraflow-types'
 import {
+  buildOFInputDefaultValue,
   getOFTraceIdentity,
   OFWorkflowRunningStatus,
   OFNodeRunningStatus,
@@ -29,44 +24,11 @@ function cloneWorkflowValue<T>(value: T): T {
   }
 }
 
-function buildDefaultValueFromSchemaProperty(schema: OFJsonSchemaProperty): unknown {
-  if ('default' in schema && schema.default !== undefined) {
-    return cloneWorkflowValue(schema.default)
-  }
-
-  if (schema.type === 'object') {
-    const nextValue: Record<string, unknown> = {}
-    Object.entries(schema.properties || {}).forEach(([key, childSchema]) => {
-      const childDefault = buildDefaultValueFromSchemaProperty(childSchema)
-      if (childDefault !== undefined) {
-        nextValue[key] = childDefault
-      }
-    })
-    return nextValue
-  }
-
-  if (schema.type === 'array') {
-    return []
-  }
-
-  return undefined
-}
-
 export function buildWorkflowInputDefaultValue(inputVar: OFInputVar): unknown {
-  if (inputVar.default !== undefined) {
-    return cloneWorkflowValue(inputVar.default)
+  const sharedDefault = buildOFInputDefaultValue(inputVar)
+  if (sharedDefault !== undefined) {
+    return cloneWorkflowValue(sharedDefault)
   }
-
-  if (
-    (inputVar.type === OFVarType.Object || inputVar.type === OFVarType.Array) &&
-    inputVar.schema
-  ) {
-    return buildDefaultValueFromSchemaProperty(inputVar.schema as OFStructuredJsonSchema)
-  }
-
-  if (inputVar.type === OFVarType.Array) return []
-  if (inputVar.type === OFVarType.Object) return {}
-
   return ''
 }
 

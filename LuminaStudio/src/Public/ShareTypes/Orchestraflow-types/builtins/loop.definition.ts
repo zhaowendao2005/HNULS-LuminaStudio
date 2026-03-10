@@ -11,6 +11,10 @@ import {
 import type { OFLoopNodeData, OFLoopStartNodeData, OFNode } from '../core-types'
 import { OFBlockEnum, OFVarType } from '../core-types'
 import { omitOFEmptySelector, omitOFNullSchemaFields } from './helpers'
+import {
+  collectOFSelectorVariableRoots,
+  normalizeOFRunnableNodeSelectorData
+} from '../selector-utils'
 
 const DEFAULT_SUBGRAPH_VIEWPORT = { x: 0, y: 0, zoom: 1 }
 const DEFAULT_WIDTH = 650
@@ -225,16 +229,29 @@ export const loopNodeDefinition = defineContainerOFNodeDefinition<OFLoopNodeData
         viewport: baseSubgraph.viewport || { ...DEFAULT_SUBGRAPH_VIEWPORT }
       }
 
+      const normalized = {
+        ...data,
+        loop_variables: loopVariables,
+        break_conditions: data.break_conditions || [],
+        subgraph,
+        start_node_id: startNode.id
+      } as OFLoopNodeData
+      normalizeOFRunnableNodeSelectorData(
+        OFBlockEnum.Loop,
+        normalized as unknown as Record<string, any>,
+        collectOFSelectorVariableRoots([node])
+      )
+
       return {
         ...buildOFCommonNodeShape(data, title),
         type: OFBlockEnum.Loop,
         width: data.width || DEFAULT_WIDTH,
         height: data.height || DEFAULT_HEIGHT,
         loop_count: Math.max(1, Number(data.loop_count || 10)),
-        loop_variables: loopVariables,
-        break_conditions: data.break_conditions || [],
+        loop_variables: normalized.loop_variables,
+        break_conditions: normalized.break_conditions || [],
         logical_operator: data.logical_operator || 'and',
-        start_node_id: startNode.id,
+        start_node_id: normalized.start_node_id,
         subgraph,
         output: {
           variables: buildLoopOutputs(title, loopVariables, node.id)

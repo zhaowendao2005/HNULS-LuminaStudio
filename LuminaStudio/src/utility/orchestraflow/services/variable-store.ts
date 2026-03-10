@@ -1,3 +1,5 @@
+import type { OFSelectorRef, OFValueSource, OFVariableRef } from '@shared/Orchestraflow-types'
+
 /**
  * VariableStore - 节点间变量传递存储
  *
@@ -64,6 +66,19 @@ export class VariableStore {
       result = result[selector[i]]
     }
     return result
+  }
+
+  getBySelectorRef(ref?: OFSelectorRef | null): any {
+    return ref?.selector?.length ? this.getBySelector(ref.selector) : undefined
+  }
+
+  getByVariableRef(ref?: OFVariableRef | null): any {
+    return this.getBySelectorRef(ref)
+  }
+
+  getByValueSource(source?: OFValueSource | null): any {
+    if (!source) return undefined
+    return source.mode === 'constant' ? source.constant_value : this.getByVariableRef(source.ref)
   }
 
   /**

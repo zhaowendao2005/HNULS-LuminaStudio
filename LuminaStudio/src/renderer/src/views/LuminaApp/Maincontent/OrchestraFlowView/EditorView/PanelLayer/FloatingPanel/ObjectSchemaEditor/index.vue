@@ -2,7 +2,7 @@
   <CenteredDialog
     :model-value="store.visible"
     title="结构化输出 Schema"
-    subtitle="配置 structured_output 的 object 或 array<object> Schema"
+    subtitle="配置 structured_output 的 object Schema"
     :close-on-mask="true"
     max-width="1100px"
     @update:model-value="handleVisibleChange"
@@ -71,33 +71,7 @@
           </button>
         </div>
 
-        <div class="flex items-center gap-2 text-xs">
-          <span class="text-gray-500">Root</span>
-          <button
-            type="button"
-            class="rounded-md px-2.5 py-1 transition-colors"
-            :class="
-              store.rootType === 'object'
-                ? 'bg-indigo-50 text-indigo-700'
-                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-            "
-            @click="store.setRootType('object')"
-          >
-            object
-          </button>
-          <button
-            type="button"
-            class="rounded-md px-2.5 py-1 transition-colors"
-            :class="
-              store.rootType === 'array<object>'
-                ? 'bg-indigo-50 text-indigo-700'
-                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-            "
-            @click="store.setRootType('array<object>')"
-          >
-            array&lt;object&gt;
-          </button>
-        </div>
+        <div class="rounded-md bg-indigo-50 px-2.5 py-1 text-xs text-indigo-700">object</div>
       </div>
 
       <div
@@ -118,8 +92,7 @@
         v-if="visualTabDisabled"
         class="mx-5 mt-4 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-700"
       >
-        当前 Schema 含嵌套 object/array。可视化编辑器只适合简单一层字段；复杂结构请直接编辑 JSON
-        Schema。
+        当前 Schema 含嵌套 object。可视化编辑器只适合简单一层字段；复杂结构请直接编辑 JSON Schema。
       </div>
 
       <div class="flex-1 overflow-auto bg-slate-50/50 p-5">
@@ -335,10 +308,7 @@ const parsedJsonSchema = computed(() => {
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
       return null
     }
-    if (parsed.type !== 'object' && parsed.type !== 'array') {
-      return null
-    }
-    return parsed
+    return parsed.type === 'object' ? parsed : null
   } catch {
     return null
   }
@@ -350,10 +320,10 @@ const jsonError = computed(() => {
   try {
     const parsed = JSON.parse(jsonDraft.value)
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      return 'JSON Schema 根节点必须是 object 或 array'
+      return 'JSON Schema 根节点必须是 object'
     }
-    if (parsed.type !== 'object' && parsed.type !== 'array') {
-      return 'JSON Schema 根节点必须声明 type 为 object 或 array'
+    if (parsed.type !== 'object') {
+      return 'JSON Schema 根节点必须声明 type 为 object'
     }
     return ''
   } catch (error) {

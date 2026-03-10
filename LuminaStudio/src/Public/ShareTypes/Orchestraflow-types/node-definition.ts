@@ -2,7 +2,7 @@ import type { OFAIDslNode, OFAuthoringDefaultRecommendation } from './ai-schema'
 import type { OFNodeAuthoringContract } from './contract'
 import type {
   OFIfElseCondition,
-  OFIterationBranchOutputSelector,
+  OFIterationBranchOutputRef,
   OFIterationNodeData,
   OFLLMNodeData,
   OFLoopVariableData,
@@ -28,7 +28,7 @@ export interface OFNodeCompilerHelpers {
   compileVariables(source: unknown[]): OFVariable[]
   compileLoopVariables(source: unknown[]): OFLoopVariableData[]
   compileConditions(source: unknown[]): OFIfElseCondition[]
-  compileIterationBranchOutputSelectors(source: unknown[]): OFIterationBranchOutputSelector[]
+  compileIterationBranchOutputSelectors(source: unknown[]): OFIterationBranchOutputRef[]
   compileNodeContext(value: OFLLMNodeData['context']): OFLLMNodeData['context']
   compileSelectorField(value: unknown): string[]
   compileContainerSubgraph(

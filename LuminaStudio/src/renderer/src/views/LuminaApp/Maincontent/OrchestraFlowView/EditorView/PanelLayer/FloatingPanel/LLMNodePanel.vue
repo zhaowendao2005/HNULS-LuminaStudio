@@ -307,8 +307,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type {
-  OFJsonSchemaObject,
-  OFJsonSchemaProperty,
   OFLLMNodeData,
   OFPromptItem,
   OFStructuredJsonSchema,
@@ -350,10 +348,6 @@ const promptRoleOptions = [
 ] as const
 const promptEditorRefs = new Map<string, { getCursorPosition: () => number }>()
 const activePromptTarget = ref<{ promptId: string; cursorPosition: number } | null>(null)
-
-function isObjectSchema(schema: OFJsonSchemaProperty): schema is OFJsonSchemaObject {
-  return schema.type === 'object'
-}
 
 const currentNode = computed(() => {
   if (!uiStore.selectedNodeId) return null
@@ -450,10 +444,8 @@ const structuredOutputVariable = computed(
 const structuredSchemaFields = computed(() => {
   const schema = structuredSchema.value
   if (!schema) return []
-  const objectSchema = schema.type === 'array' ? schema.items : schema
-  if (!isObjectSchema(objectSchema)) return []
-  const requiredSet = new Set(objectSchema.required || [])
-  return Object.entries(objectSchema.properties || {}).map(([name, item]) => ({
+  const requiredSet = new Set(schema.required || [])
+  return Object.entries(schema.properties || {}).map(([name, item]) => ({
     name,
     type: item.type,
     required: requiredSet.has(name)

@@ -42,6 +42,11 @@ function assertStringArray(value: unknown, path: string): string[] {
   return value.map((item, index) => assertNonEmptyString(item, `${path}[${index}]`))
 }
 
+function assertSelectorRef(value: unknown, path: string): void {
+  const ref = assertRecord(value, path)
+  assertStringArray(ref.selector, `${path}.selector`)
+}
+
 function assertAllowedScalarDefault(value: unknown, path: string): void {
   if (
     value !== null &&
@@ -71,13 +76,8 @@ function validateJsonSchemaProperty(value: unknown, path: string): void {
     return
   }
 
-  if (type === 'array') {
-    validateJsonSchemaProperty(schema.items, `${path}.items`)
-    return
-  }
-
   if (!['string', 'number', 'boolean'].includes(type)) {
-    throw new Error(`${path}.type 仅支持 string | number | boolean | object | array`)
+    throw new Error(`${path}.type 仅支持 string | number | boolean | object`)
   }
 
   if ('default' in schema) {
@@ -87,19 +87,31 @@ function validateJsonSchemaProperty(value: unknown, path: string): void {
 
 function validateStructuredVariable(item: Record<string, any>, path: string): void {
   const type = item.type
-  if (type !== 'object' && type !== 'array') {
+  if (type === 'array') {
+    if ('schema' in item && item.schema !== undefined) {
+      throw new Error(
+        `${path}.schema 已不再支持。array 默认值必须直接写成 JSON 数组，系统不再理解数组内部 schema。`
+      )
+    }
+    if ('default' in item && item.default !== undefined && !Array.isArray(item.default)) {
+      throw new Error(`${path}.default 必须是 JSON 数组`)
+    }
     return
   }
 
-  if ('default' in item) {
-    throw new Error(`${path}.default 不允许直接写在 ${type} 变量上，默认值应写入 schema`)
+  if (type !== 'object') {
+    return
+  }
+
+  if ('default' in item && item.default !== undefined) {
+    throw new Error(`${path}.default 不允许直接写在 object 变量上，默认值应写入 schema`)
   }
 
   validateJsonSchemaProperty(item.schema, `${path}.schema`)
 
   const schemaType = item.schema?.type
-  if (schemaType !== type) {
-    throw new Error(`${path}.schema.type 必须与变量 type=${type} 保持一致`)
+  if (schemaType !== 'object') {
+    throw new Error(`${path}.schema.type 必须与变量 type=object 保持一致`)
   }
 }
 
@@ -133,73 +145,67 @@ function validateSelectorFields(
     case OFBlockEnum.Start:
       validateVariableList(data.input?.variables, `${path}.input.variables`)
       ;(data.input?.variables || []).forEach((item: any, index: number) => {
-        if (Array.isArray(item.value_selector) && item.value_selector.length > 0) {
-          assertStringArray(item.value_selector, `${path}.input.variables[${index}].value_selector`)
+        if (item.value_ref) {
+          assertSelectorRef(item.value_ref, `${path}.input.variables[${index}].value_ref`)
         }
       })
       return
     case OFBlockEnum.IfElse:
       ;(data.cases || []).forEach((item: OFIfElseCase, index: number) => {
         ;(item.conditions || []).forEach((condition: any, conditionIndex: number) => {
-          assertStringArray(
-            condition.variable_selector,
-            `${path}.cases[${index}].conditions[${conditionIndex}].variable_selector`
+          assertSelectorRef(
+            condition.variable_ref,
+            `${path}.cases[${index}].conditions[${conditionIndex}].variable_ref`
           )
           if (condition.compare_source_mode === 'variable') {
-            assertStringArray(
-              condition.compare_selector,
-              `${path}.cases[${index}].conditions[${conditionIndex}].compare_selector`
+            assertSelectorRef(
+              condition.compare_ref,
+              `${path}.cases[${index}].conditions[${conditionIndex}].compare_ref`
             )
           }
         })
       })
       return
     case OFBlockEnum.Iteration:
-      assertStringArray(data.iterator_selector, `${path}.iterator_selector`)
-      if (Array.isArray(data.output_selector) && data.output_selector.length > 0) {
-        assertStringArray(data.output_selector, `${path}.output_selector`)
+      assertSelectorRef(data.iterator_ref, `${path}.iterator_ref`)
+      if (data.output_ref) {
+        assertSelectorRef(data.output_ref, `${path}.output_ref`)
       }
-      ;(data.branch_output_selectors || []).forEach((item: any, index: number) => {
+      ;(data.branch_output_refs || []).forEach((item: any, index: number) => {
         assertNonEmptyString(
           item.source_handle_id,
-          `${path}.branch_output_selectors[${index}].source_handle_id`
+          `${path}.branch_output_refs[${index}].source_handle_id`
         )
-        assertStringArray(
-          item.output_selector,
-          `${path}.branch_output_selectors[${index}].output_selector`
-        )
+        assertSelectorRef(item.output_ref, `${path}.branch_output_refs[${index}].output_ref`)
       })
       return
     case OFBlockEnum.Loop:
       validateVariableList(data.loop_variables, `${path}.loop_variables`)
       ;(data.loop_variables || []).forEach((item: any, index: number) => {
-        if (item.value_type === 'variable') {
-          assertStringArray(item.value_selector, `${path}.loop_variables[${index}].value_selector`)
+        if (item.value_source?.mode === 'variable') {
+          assertSelectorRef(
+            item.value_source.ref,
+            `${path}.loop_variables[${index}].value_source.ref`
+          )
         }
       })
       ;(data.break_conditions || []).forEach((condition: any, index: number) => {
-        assertStringArray(
-          condition.variable_selector,
-          `${path}.break_conditions[${index}].variable_selector`
-        )
+        assertSelectorRef(condition.variable_ref, `${path}.break_conditions[${index}].variable_ref`)
       })
       return
     case OFBlockEnum.VariableAssign:
       validateVariableList(data.rules, `${path}.rules`)
       ;(data.rules || []).forEach((rule: any, index: number) => {
-        if (rule.source_mode === 'variable') {
-          assertStringArray(rule.source_selector, `${path}.rules[${index}].source_selector`)
+        if (rule.source?.mode === 'variable') {
+          assertSelectorRef(rule.source.ref, `${path}.rules[${index}].source.ref`)
         }
       })
       return
     case OFBlockEnum.End:
       validateVariableList(data.output?.variables, `${path}.output.variables`)
       ;(data.output?.variables || []).forEach((item: any, index: number) => {
-        if (item.value_selector !== undefined) {
-          assertStringArray(
-            item.value_selector,
-            `${path}.output.variables[${index}].value_selector`
-          )
+        if (item.value_ref !== undefined) {
+          assertSelectorRef(item.value_ref, `${path}.output.variables[${index}].value_ref`)
         }
       })
       return

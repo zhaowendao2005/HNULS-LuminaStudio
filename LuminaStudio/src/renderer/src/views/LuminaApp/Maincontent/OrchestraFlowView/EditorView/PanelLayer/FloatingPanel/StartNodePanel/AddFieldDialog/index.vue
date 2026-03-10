@@ -82,7 +82,7 @@
         />
       </div>
 
-      <div v-else-if="isJsonType" class="space-y-3">
+      <div v-else-if="selectedType === OFVarType.Object" class="space-y-3">
         <div class="space-y-1">
           <div class="flex items-center justify-between">
             <div class="font-semibold leading-8 text-gray-600">JSON Schema</div>
@@ -103,8 +103,21 @@
           <div
             class="rounded-lg border border-emerald-100 bg-emerald-50/60 px-3 py-2 text-xs text-emerald-700"
           >
-            默认值请在 Schema 编辑器内部配置。
+            `object` 默认值请在 Schema 编辑器内部配置。
           </div>
+        </div>
+      </div>
+
+      <div v-else-if="selectedType === OFVarType.Array" class="space-y-1">
+        <div class="font-semibold leading-8 text-gray-600">默认值 JSON</div>
+        <textarea
+          v-model="arrayDefaultValue"
+          rows="5"
+          class="w-full appearance-none rounded-lg border border-transparent bg-gray-50 px-3 py-2 font-mono text-gray-800 outline-none transition-all placeholder:text-gray-400 hover:border-emerald-200 hover:bg-emerald-50/20 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10"
+          placeholder='请输入 JSON 数组，例如 [{"task_name":"初始化任务"}]'
+        />
+        <div class="rounded-lg border border-sky-100 bg-sky-50/60 px-3 py-2 text-xs text-sky-700">
+          `array` 现在是原始 JSON 数组值，不支持内部 Schema，也不提供字段级引用。
         </div>
       </div>
 
@@ -175,7 +188,7 @@
   <StartNodeSchemaEditor
     v-model="schemaEditorVisible"
     :schema="currentSchema"
-    :root-type="schemaEditorRootType"
+    root-type="object"
     @save="handleSchemaSave"
   />
 </template>
@@ -189,8 +202,6 @@ import WhiteSelect, {
 import StartNodeSchemaEditor from '../StartNodeSchemaEditor/index.vue'
 import type { OFStructuredJsonSchema, OFVariable } from '@shared/Orchestraflow-types'
 import { OFVarType } from '@shared/Orchestraflow-types'
-import type { OFSchemaRootType } from '@renderer/stores/orchestraflow/workflow-editor/object-schema-editor/object-schema-editor.types'
-
 const fieldTypeOptions: WhiteSelectOption[] = [
   { label: 'string', value: OFVarType.String },
   { label: 'number', value: OFVarType.Number },
@@ -231,19 +242,14 @@ const selectedType = ref<OFVarType>(OFVarType.String)
 const textDefaultValue = ref('')
 const numberDefaultValue = ref('')
 const booleanDefaultValue = ref<boolean>(true)
+const arrayDefaultValue = ref('')
 const currentSchema = ref<OFStructuredJsonSchema | null>(null)
 const errorMessage = ref('')
 const schemaEditorVisible = ref(false)
 
 const dialogTitle = computed(() => (props.initialField ? '编辑变量' : '添加变量'))
-const isJsonType = computed(
-  () => selectedType.value === OFVarType.Object || selectedType.value === OFVarType.Array
-)
-const schemaEditorRootType = computed<OFSchemaRootType>(() =>
-  selectedType.value === OFVarType.Array ? 'array<object>' : 'object'
-)
 const schemaSummary = computed(() => {
-  if (!currentSchema.value) return '必须先配置 Schema，object/array 字段才允许保存。'
+  if (!currentSchema.value) return '必须先配置 Schema，object 字段才允许保存。'
   return JSON.stringify(currentSchema.value, null, 2)
 })
 
@@ -289,6 +295,10 @@ function hydrateFormFromInitialField() {
       ? String(field.default)
       : ''
   booleanDefaultValue.value = typeof field?.default === 'boolean' ? field.default : true
+  arrayDefaultValue.value =
+    field?.type === OFVarType.Array && Array.isArray(field.default)
+      ? JSON.stringify(field.default, null, 2)
+      : ''
 }
 
 function resetForm() {
@@ -302,6 +312,7 @@ function resetForm() {
   textDefaultValue.value = ''
   numberDefaultValue.value = ''
   booleanDefaultValue.value = true
+  arrayDefaultValue.value = ''
   currentSchema.value = null
   errorMessage.value = ''
   schemaEditorVisible.value = false
@@ -311,15 +322,10 @@ function handleTypeChange(value: string | number | null) {
   const previousType = selectedType.value
   selectedType.value = String(value || OFVarType.String) as OFVarType
   errorMessage.value = ''
-  if (!isJsonType.value) {
+  if (selectedType.value !== OFVarType.Object) {
     currentSchema.value = null
-    return
   }
-
-  if (
-    (previousType === OFVarType.Array && selectedType.value === OFVarType.Object) ||
-    (previousType === OFVarType.Object && selectedType.value === OFVarType.Array)
-  ) {
+  if (previousType !== selectedType.value) {
     currentSchema.value = null
   }
 }
@@ -342,8 +348,8 @@ function confirm() {
     errorMessage.value = '变量名称不能为空'
     return
   }
-  if (isJsonType.value && !currentSchema.value) {
-    errorMessage.value = 'object / array 类型必须先配置 Schema'
+  if (selectedType.value === OFVarType.Object && !currentSchema.value) {
+    errorMessage.value = 'object 类型必须先配置 Schema'
     return
   }
 
@@ -355,7 +361,7 @@ function confirm() {
       required: form.value.required,
       description: form.value.description.trim() || undefined,
       defaultValue: buildDefaultValue(),
-      schema: isJsonType.value ? currentSchema.value : null
+      schema: selectedType.value === OFVarType.Object ? currentSchema.value : null
     })
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '默认值格式无效'
@@ -373,11 +379,21 @@ function buildDefaultValue() {
     case OFVarType.Boolean:
       return booleanDefaultValue.value
     case OFVarType.Object:
-    case OFVarType.Array:
       return currentSchema.value?.default
+    case OFVarType.Array:
+      if (!arrayDefaultValue.value.trim()) return undefined
+      return parseArrayDefaultValue()
     case OFVarType.String:
     default:
       return textDefaultValue.value || undefined
   }
+}
+
+function parseArrayDefaultValue() {
+  const parsed = JSON.parse(arrayDefaultValue.value)
+  if (!Array.isArray(parsed)) {
+    throw new Error('array 默认值必须是 JSON 数组')
+  }
+  return parsed
 }
 </script>

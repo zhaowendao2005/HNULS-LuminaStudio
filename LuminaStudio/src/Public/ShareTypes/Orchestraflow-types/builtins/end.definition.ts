@@ -7,6 +7,10 @@ import { ensureOFSelectableVariables } from '../variable-definition'
 import type { OFEndNodeData } from '../core-types'
 import { OFBlockEnum } from '../core-types'
 import { omitOFEmptySelector, omitOFNullSchemaFields } from './helpers'
+import {
+  collectOFSelectorVariableRoots,
+  normalizeOFRunnableNodeSelectorData
+} from '../selector-utils'
 
 export const endNodeDefinition = defineStandardOFNodeDefinition<OFEndNodeData>({
   meta: {
@@ -67,10 +71,19 @@ export const endNodeDefinition = defineStandardOFNodeDefinition<OFEndNodeData>({
     },
     normalizeData({ node }) {
       const data = node.data as Partial<OFEndNodeData>
+      const normalized = {
+        ...data,
+        output: data.output || { variables: [] }
+      } as OFEndNodeData
+      normalizeOFRunnableNodeSelectorData(
+        OFBlockEnum.End,
+        normalized as unknown as Record<string, any>,
+        collectOFSelectorVariableRoots([node])
+      )
       return {
         ...buildOFCommonNodeShape(data, normalizeOFNodeTitle(OFBlockEnum.End, data.title)),
         type: OFBlockEnum.End,
-        output: data.output || { variables: [] }
+        output: normalized.output
       }
     }
   },

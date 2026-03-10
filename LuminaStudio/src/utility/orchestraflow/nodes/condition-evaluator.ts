@@ -31,10 +31,10 @@ export function evaluateCondition(
   variableStore: VariableStore,
   condition: OFIfElseCondition
 ): boolean {
-  const actual = variableStore.getBySelector(condition.variable_selector || [])
+  const actual = variableStore.getByVariableRef(condition.variable_ref)
   const expected =
     condition.compare_source_mode === 'variable'
-      ? variableStore.getBySelector(condition.compare_selector || [])
+      ? variableStore.getByVariableRef(condition.compare_ref)
       : condition.value
 
   switch (condition.operator) {

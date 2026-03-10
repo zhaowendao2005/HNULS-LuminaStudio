@@ -10,6 +10,10 @@ import {
   getOFDefaultNodeTitle,
   normalizeOFNodeTitle,
   normalizeOFVariableNamespace,
+  replaceOFValueSourceNamespace,
+  replaceOFValueSourceRoot,
+  replaceOFVariableRefNamespace,
+  replaceOFVariableRefRoot,
   resolveOFNodeDefinition
 } from '@shared/Orchestraflow-types'
 import type {
@@ -144,22 +148,6 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
     return candidate
   }
 
-  function replaceNamespace(
-    selector: string[] | undefined,
-    oldNamespace: string,
-    newNamespace: string
-  ): string[] {
-    if (!selector?.length) return selector || []
-    return selector.map((segment, index) => {
-      if (index !== 0) return segment
-      if (segment === oldNamespace) return newNamespace
-      if (segment.startsWith(`${oldNamespace}.`)) {
-        return `${newNamespace}${segment.slice(oldNamespace.length)}`
-      }
-      return segment
-    })
-  }
-
   function replacePromptNamespace(
     text: string,
     oldNamespace: string,
@@ -167,30 +155,6 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
   ): string {
     const pattern = new RegExp(`(\\{\\{\\s*)${escapeRegExp(oldNamespace)}(?=\\.)`, 'g')
     return text.replace(pattern, `$1${newNamespace}`)
-  }
-
-  function replaceSelectorRoot(
-    selector: string[] | undefined,
-    oldRoot: string,
-    newRoot: string
-  ): string[] {
-    if (!selector?.length) return selector || []
-    return selector.map((segment, index) =>
-      index === 0 && segment === oldRoot ? newRoot : segment
-    )
-  }
-
-  function replacePathRoot(
-    path: string | undefined,
-    oldRoot: string,
-    newRoot: string
-  ): string | undefined {
-    if (!path) return path
-    if (path === oldRoot) return newRoot
-    if (path.startsWith(`${oldRoot}.`)) {
-      return `${newRoot}${path.slice(oldRoot.length)}`
-    }
-    return path
   }
 
   function syncNodeNamespaceReferences(
@@ -225,11 +189,19 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
           ...node,
           data: {
             ...data,
-            iterator_selector: replaceNamespace(data.iterator_selector, oldNamespace, newNamespace),
-            output_selector: replaceNamespace(data.output_selector, oldNamespace, newNamespace),
-            branch_output_selectors: (data.branch_output_selectors || []).map((item) => ({
+            iterator_ref: replaceOFVariableRefNamespace(
+              data.iterator_ref,
+              oldNamespace,
+              newNamespace
+            ),
+            output_ref: replaceOFVariableRefNamespace(data.output_ref, oldNamespace, newNamespace),
+            branch_output_refs: (data.branch_output_refs || []).map((item) => ({
               ...item,
-              output_selector: replaceNamespace(item.output_selector, oldNamespace, newNamespace)
+              output_ref: replaceOFVariableRefNamespace(
+                item.output_ref,
+                oldNamespace,
+                newNamespace
+              )!
             }))
           }
         }
@@ -243,18 +215,16 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
             ...data,
             break_conditions: (data.break_conditions || []).map((condition) => ({
               ...condition,
-              variable_selector: replaceNamespace(
-                condition.variable_selector,
+              variable_ref: replaceOFVariableRefNamespace(
+                condition.variable_ref,
                 oldNamespace,
                 newNamespace
               ),
-              variable_path: replacePathRoot(condition.variable_path, oldNamespace, newNamespace),
-              compare_selector: replaceNamespace(
-                condition.compare_selector,
+              compare_ref: replaceOFVariableRefNamespace(
+                condition.compare_ref,
                 oldNamespace,
                 newNamespace
-              ),
-              compare_path: replacePathRoot(condition.compare_path, oldNamespace, newNamespace)
+              )
             }))
           }
         }
@@ -264,19 +234,7 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
         const data = node.data as OFVariableAssignNodeData
         const nextRules = (data.rules || []).map((rule) => ({
           ...rule,
-          source_selector: replaceNamespace(rule.source_selector, oldNamespace, newNamespace),
-          source_path:
-            rule.source_path === oldNamespace
-              ? newNamespace
-              : rule.source_path?.startsWith(`${oldNamespace}.`)
-                ? `${newNamespace}${rule.source_path.slice(oldNamespace.length)}`
-                : rule.source_path,
-          source_label:
-            rule.source_label === oldNamespace
-              ? newNamespace
-              : rule.source_label?.startsWith(`${oldNamespace}.`)
-                ? `${newNamespace}${rule.source_label.slice(oldNamespace.length)}`
-                : rule.source_label
+          source: replaceOFValueSourceNamespace(rule.source, oldNamespace, newNamespace)
         }))
         return normalizeNode({
           ...node,
@@ -297,18 +255,16 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
               ...item,
               conditions: (item.conditions || []).map((condition) => ({
                 ...condition,
-                variable_selector: replaceNamespace(
-                  condition.variable_selector,
+                variable_ref: replaceOFVariableRefNamespace(
+                  condition.variable_ref,
                   oldNamespace,
                   newNamespace
                 ),
-                variable_path: replacePathRoot(condition.variable_path, oldNamespace, newNamespace),
-                compare_selector: replaceNamespace(
-                  condition.compare_selector,
+                compare_ref: replaceOFVariableRefNamespace(
+                  condition.compare_ref,
                   oldNamespace,
                   newNamespace
-                ),
-                compare_path: replacePathRoot(condition.compare_path, oldNamespace, newNamespace)
+                )
               }))
             }))
           }
@@ -366,7 +322,7 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
                   ...item,
                   variable: item.variable === oldVariable ? newVariable : item.variable,
                   label: item.label === oldVariable ? newVariable : item.label,
-                  value_selector: replaceSelectorRoot(item.value_selector, oldVariable, newVariable)
+                  value_ref: replaceOFVariableRefRoot(item.value_ref, oldVariable, newVariable)
                 }))
               }
             } as OFLoopStartNodeData
@@ -381,18 +337,16 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
               ...data,
               break_conditions: (data.break_conditions || []).map((condition) => ({
                 ...condition,
-                variable_selector: replaceSelectorRoot(
-                  condition.variable_selector,
+                variable_ref: replaceOFVariableRefRoot(
+                  condition.variable_ref,
                   oldVariable,
                   newVariable
                 ),
-                variable_path: replacePathRoot(condition.variable_path, oldVariable, newVariable),
-                compare_selector: replaceSelectorRoot(
-                  condition.compare_selector,
+                compare_ref: replaceOFVariableRefRoot(
+                  condition.compare_ref,
                   oldVariable,
                   newVariable
-                ),
-                compare_path: replacePathRoot(condition.compare_path, oldVariable, newVariable)
+                )
               }))
             } as OFLoopNodeData
           }
@@ -408,18 +362,16 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
                 ...item,
                 conditions: (item.conditions || []).map((condition) => ({
                   ...condition,
-                  variable_selector: replaceSelectorRoot(
-                    condition.variable_selector,
+                  variable_ref: replaceOFVariableRefRoot(
+                    condition.variable_ref,
                     oldVariable,
                     newVariable
                   ),
-                  variable_path: replacePathRoot(condition.variable_path, oldVariable, newVariable),
-                  compare_selector: replaceSelectorRoot(
-                    condition.compare_selector,
+                  compare_ref: replaceOFVariableRefRoot(
+                    condition.compare_ref,
                     oldVariable,
                     newVariable
-                  ),
-                  compare_path: replacePathRoot(condition.compare_path, oldVariable, newVariable)
+                  )
                 }))
               }))
             } as OFIfElseNodeData
@@ -434,13 +386,7 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
               ...data,
               rules: (data.rules || []).map((rule) => ({
                 ...rule,
-                source_selector: replaceSelectorRoot(
-                  rule.source_selector,
-                  oldVariable,
-                  newVariable
-                ),
-                source_path: replacePathRoot(rule.source_path, oldVariable, newVariable),
-                source_label: replacePathRoot(rule.source_label, oldVariable, newVariable)
+                source: replaceOFValueSourceRoot(rule.source, oldVariable, newVariable)
               }))
             } as OFVariableAssignNodeData
           }

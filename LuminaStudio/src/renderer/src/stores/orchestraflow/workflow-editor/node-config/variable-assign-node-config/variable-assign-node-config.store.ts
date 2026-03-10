@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import {
   OFVarType,
   OFBlockEnum,
+  type OFValueSource,
   type OFStandardNodeDefinition,
   type OFNode,
   type OFVariableAssignNodeData,
@@ -35,10 +36,15 @@ function toVariableAssignNodeConfig(
 function createDefaultRule(): OFVariableAssignRule {
   return {
     id: `assign_rule_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    source: {
+      mode: 'variable',
+      ref: {
+        selector: [],
+        path: '',
+        type: OFVarType.String
+      }
+    } as OFValueSource,
     source_mode: 'variable',
-    source_selector: [],
-    source_path: '',
-    source_label: '',
     source_type: OFVarType.String,
     constant_value: '',
     target_variable: '',

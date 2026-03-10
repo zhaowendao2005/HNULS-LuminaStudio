@@ -53,7 +53,7 @@ export enum OFVarType {
 
 // ===== 结构化输出 / Schema =====
 export type OFStructuredFieldType = 'string' | 'number' | 'boolean'
-export type OFStructuredSchemaNodeType = OFStructuredFieldType | 'object' | 'array'
+export type OFStructuredSchemaNodeType = OFStructuredFieldType | 'object'
 
 export interface OFJsonSchemaField {
   type: OFStructuredFieldType
@@ -70,15 +70,8 @@ export interface OFJsonSchemaObject {
   default?: Record<string, unknown> | null
 }
 
-export interface OFJsonSchemaArray {
-  type: 'array'
-  items: OFJsonSchemaProperty
-  description?: string
-  default?: unknown[] | null
-}
-
-export type OFJsonSchemaProperty = OFJsonSchemaField | OFJsonSchemaObject | OFJsonSchemaArray
-export type OFStructuredJsonSchema = OFJsonSchemaObject | OFJsonSchemaArray
+export type OFJsonSchemaProperty = OFJsonSchemaField | OFJsonSchemaObject
+export type OFStructuredJsonSchema = OFJsonSchemaObject
 
 export interface OFStructuredOutputConfig {
   enabled: boolean
@@ -94,6 +87,7 @@ export interface OFVariable {
   required?: boolean
   default?: string | number | boolean | Record<string, unknown> | unknown[] | null
   options?: string[]
+  value_ref?: OFVariableRef
   value_selector?: string[]
   schema?: OFStructuredJsonSchema | null
   item_schema?: OFJsonSchemaObject | null
@@ -137,8 +131,31 @@ export function normalizeOFVariableNamespace(
 // ===== 条件分支 =====
 export type OFVariableAssignSourceMode = 'variable' | 'constant'
 
+export interface OFSelectorRef {
+  selector: string[]
+  path?: string
+}
+
+export interface OFVariableRef extends OFSelectorRef {
+  label?: string
+  type?: OFVarType
+  schema?: OFStructuredJsonSchema | null
+  item_schema?: OFJsonSchemaObject | null
+}
+
+export type OFValueSource =
+  | {
+      mode: 'constant'
+      constant_value?: string | number | boolean | Record<string, unknown> | unknown[] | null
+    }
+  | {
+      mode: 'variable'
+      ref: OFVariableRef
+    }
+
 export interface OFVariableAssignRule {
   id: string
+  source?: OFValueSource
   source_mode: OFVariableAssignSourceMode
   source_selector?: string[]
   source_path?: string
@@ -178,6 +195,7 @@ export type OFIfElseCompareSourceMode = 'constant' | 'variable'
 
 export interface OFIfElseCondition {
   id: string
+  variable_ref?: OFVariableRef
   variable_selector: string[]
   variable_path?: string
   variable_label?: string
@@ -186,6 +204,7 @@ export interface OFIfElseCondition {
   value?: string | number | boolean | null
   value_type?: OFVarType.String | OFVarType.Number | OFVarType.Boolean
   compare_source_mode?: OFIfElseCompareSourceMode
+  compare_ref?: OFVariableRef
   compare_selector?: string[]
   compare_path?: string
   compare_label?: string
@@ -365,8 +384,11 @@ export type OFLoopVariableValueType = 'constant' | 'variable'
 
 export type OFIterationNodeData = OFCommonNodeType & {
   type: OFBlockEnum.Iteration
+  iterator_ref?: OFVariableRef
   iterator_selector: string[]
+  output_ref?: OFVariableRef
   output_selector: string[]
+  branch_output_refs?: OFIterationBranchOutputRef[]
   branch_output_selectors?: OFIterationBranchOutputSelector[]
   start_node_id: string
   subgraph: OFSubWorkflowGraph
@@ -390,6 +412,7 @@ export interface OFLoopVariableData {
   item_type?: OFVarType
   description?: string
   required?: boolean
+  value_source?: OFValueSource
   value_type: OFLoopVariableValueType
   value?: string | number | boolean | Record<string, unknown> | unknown[] | null
   value_selector?: string[]
@@ -598,6 +621,12 @@ export interface OFIterationBranchOutputSelector {
   source_node_id: string
   source_handle_id: string
   output_selector: string[]
+}
+
+export interface OFIterationBranchOutputRef {
+  source_node_id: string
+  source_handle_id: string
+  output_ref: OFVariableRef
 }
 
 export interface OFIterationStartNodeConfig {

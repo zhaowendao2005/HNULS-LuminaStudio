@@ -2,7 +2,7 @@
   <CenteredDialog
     :model-value="modelValue"
     title="开始节点 Schema"
-    subtitle="默认值跟随 Schema 一起配置，支持对象嵌套对象"
+    subtitle="默认值跟随 Schema 一起配置，仅支持 object 嵌套 object"
     :close-on-mask="true"
     max-width="1180px"
     @update:model-value="handleVisibleChange"
@@ -186,9 +186,7 @@ const parsedJsonSchema = computed(() => {
   try {
     const parsed = JSON.parse(jsonDraft.value || '{}') as OFStructuredJsonSchema
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null
-    if (props.rootType === 'object' && parsed.type !== 'object') return null
-    if (props.rootType === 'array<object>' && parsed.type !== 'array') return null
-    return parsed
+    return parsed.type === 'object' ? parsed : null
   } catch {
     return null
   }
@@ -238,9 +236,8 @@ function createField(type: StartSchemaDraftType = 'string'): StartSchemaDraftFie
     type,
     required: true,
     description: '',
-    default:
-      type === 'object' ? {} : type === 'array' ? [] : type === 'boolean' ? false : undefined,
-    children: type === 'object' || type === 'array' ? [] : undefined
+    default: type === 'object' ? {} : type === 'boolean' ? false : undefined,
+    children: type === 'object' ? [] : undefined
   }
 }
 
@@ -249,8 +246,6 @@ function schemaNodeToField(
   schema: OFJsonSchemaProperty,
   required: boolean
 ): StartSchemaDraftField {
-  const arrayItemSchema =
-    schema.type === 'array' && isObjectSchema(schema.items) ? schema.items : null
   return {
     id: `start_schema_field_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
     name,
@@ -262,15 +257,7 @@ function schemaNodeToField(
       ? Object.entries(schema.properties || {}).map(([childName, childSchema]) =>
           schemaNodeToField(childName, childSchema, new Set(schema.required || []).has(childName))
         )
-      : arrayItemSchema
-        ? Object.entries(arrayItemSchema.properties || {}).map(([childName, childSchema]) =>
-            schemaNodeToField(
-              childName,
-              childSchema,
-              new Set(arrayItemSchema.required || []).has(childName)
-            )
-          )
-        : []
+      : []
   }
 }
 
@@ -282,13 +269,6 @@ function schemaToFields(
   if (rootType === 'object' && schema.type === 'object') {
     const requiredSet = new Set(schema.required || [])
     return Object.entries(schema.properties || {}).map(([name, value]) =>
-      schemaNodeToField(name, value, requiredSet.has(name))
-    )
-  }
-  if (rootType === 'array<object>' && schema.type === 'array' && schema.items.type === 'object') {
-    const itemSchema = schema.items
-    const requiredSet = new Set(itemSchema.required || [])
-    return Object.entries(itemSchema.properties || {}).map(([name, value]) =>
       schemaNodeToField(name, value, requiredSet.has(name))
     )
   }
@@ -312,25 +292,6 @@ function fieldToSchemaNode(field: StartSchemaDraftField): OFJsonSchemaProperty {
         field.default && typeof field.default === 'object' && !Array.isArray(field.default)
           ? field.default
           : undefined
-    }
-  }
-
-  if (field.type === 'array') {
-    const itemObject: OFJsonSchemaObject = {
-      type: 'object' as const,
-      properties: Object.fromEntries(
-        (field.children || []).map((child) => [child.name.trim(), fieldToSchemaNode(child)])
-      ),
-      required: (field.children || [])
-        .filter((child) => child.required)
-        .map((child) => child.name.trim()),
-      additionalProperties: false
-    }
-    return {
-      type: 'array',
-      items: itemObject,
-      description: field.description?.trim() || undefined,
-      default: Array.isArray(field.default) ? field.default : undefined
     }
   }
 
@@ -358,13 +319,7 @@ function fieldsToSchema(
     additionalProperties: false
   }
 
-  if (rootType === 'array<object>') {
-    return {
-      type: 'array',
-      items: objectSchema
-    }
-  }
-
+  void rootType
   return objectSchema
 }
 
@@ -375,7 +330,7 @@ function validateField(field: StartSchemaDraftField, path = field.name || '未�
     errors.push('字段名不能为空')
   }
 
-  if ((field.type === 'object' || field.type === 'array') && !(field.children || []).length) {
+  if (field.type === 'object' && !(field.children || []).length) {
     errors.push(`"${path}" 需要至少一个子字段`)
   }
 

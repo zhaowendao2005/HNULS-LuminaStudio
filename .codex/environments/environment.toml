@@ -3,7 +3,7 @@ version = 1
 name = "HNULS-LuminaStudio"
 
 [setup]
-script = ""
+script = "cd LuminaStudio;pnpm install"
 
 [[actions]]
 name = "dev调试"

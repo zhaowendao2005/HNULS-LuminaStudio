@@ -62,7 +62,7 @@
           <div class="of-condition-line">
             <span>当</span>
             <VariablePillButton
-              :text="item.variable_path || ''"
+              :text="getOFPathFromRef(item.variable_ref)"
               placeholder="选择左值变量"
               :button-class="theme.controlFocusClass"
               tooltip-max-width="520px"
@@ -124,10 +124,10 @@
                       (item.compare_source_mode || 'constant') === 'variable'
                         ? 'constant'
                         : 'variable',
-                    compare_selector:
+                    compare_ref:
                       (item.compare_source_mode || 'constant') === 'variable'
-                        ? []
-                        : item.compare_selector
+                        ? undefined
+                        : item.compare_ref
                   })
                 "
               >
@@ -140,23 +140,25 @@
               <span>右值引用</span>
               <div class="of-declare-text-input-wrapper min-w-[12rem] flex-1">
                 <button
-                  v-if="item.compare_path"
+                  v-if="getOFPathFromRef(item.compare_ref)"
                   type="button"
                   class="of-declare-text-var-pill"
                   @click="emit('open-right-selector', item.id, $event)"
                 >
-                  {{ item.compare_path }}
+                  {{ getOFPathFromRef(item.compare_ref) }}
                 </button>
                 <input
                   v-else
-                  :value="item.compare_path || ''"
+                  :value="getOFPathFromRef(item.compare_ref)"
                   class="of-declare-text-input"
                   :class="theme.controlFocusClass"
                   placeholder="输入路径或选择变量"
                   @input="
                     emit('patch', item.id, {
-                      compare_path: ($event.target as HTMLInputElement).value,
-                      compare_selector: parseSelector(($event.target as HTMLInputElement).value)
+                      compare_ref: {
+                        selector: parseSelector(($event.target as HTMLInputElement).value),
+                        path: ($event.target as HTMLInputElement).value
+                      }
                     })
                   "
                 />
@@ -253,7 +255,7 @@ import type {
   OFIfElseConditionOperator,
   OFIfElseLogicalOperator
 } from '@shared/Orchestraflow-types'
-import { OFVarType as OFVarTypeEnum } from '@shared/Orchestraflow-types'
+import { getOFPathFromRef, OFVarType as OFVarTypeEnum } from '@shared/Orchestraflow-types'
 import type { WhiteSelectOption } from '@renderer/views/LuminaApp/Maincontent/NormalChat/components/WhiteSelect.vue'
 import VariablePillButton from '../../components/VariablePillButton.vue'
 import type { OFPanelTheme } from '../../panel-theme'

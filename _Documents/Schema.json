@@ -1,0 +1,819 @@
+# OrchestraFlow Runnable Workflow Contract
+
+## 目标
+- 输出严格的 `OFRunnableWorkflow` JSON，不输出宽松编辑态结构。
+- 主体遵循 `authoring_contract`，完整结构参考 `schema` 字段。
+
+## 全局规则
+- 顶层固定字段：`id`、`name`、`author`、`createdAt`、`updatedAt`、`status`、`graph.nodes`、`graph.edges`。
+- 所有 selector 必须是至少 1 段的非空字符串数组。
+- `object` / `array` 类型变量必须显式声明 `schema`。
+- `object` / `array` 类型变量不要写变量级 `default`；默认值应落在 `schema` 内。
+- 根图和子图边都必须显式写 sourceHandle / targetHandle。
+- 根图禁止出现 iteration-start 或 loop-start。
+- selector 语义：store-key-array。
+- `selector[0]` 是变量存储 key（store-key），本身允许包含点。
+- selector 最少 1 段，且每段必须是非空字符串。
+- selector 示例：`["input"]`、`["content_package","config","process_mode"]`、`["node_llm.llmoutput"]`、`["node_llm.structured_output","reason"]`。
+- 开始节点 object 输入的嵌套字段必须写成分段 selector，例如 `["content_package","config","process_mode"]`。
+- 不要把开始节点 object 输入的完整点路径塞进 selector[0]，例如不要写成 `["content_package.config.process_mode"]`。
+- 可省略字段直接省略，不要用 `[]`、`null`、空对象做占位。
+- 不要输出空 selector 数组；任何 selector 一旦出现就必须是至少 1 段的非空字符串数组。
+- 所有边都必须显式写 `source` / `target` handle。
+- 非 ifelse 节点默认 handle：source=`source`，target=`target`。
+- ifelse 出边规则：case.handleId-or-elseCase.handleId。
+
+## 输入默认值建议
+- `graph.nodes[start].data.input.variables[*].default` 用于运行面板预填，不是编译器自动回填。
+- `string` / `number` / `boolean` 可以直接写变量级 `default`。
+- `object` / `array` 必须声明 `schema`，不要只写变量级 `default`。
+- `object` / `array` 的默认值应写在 `schema` 内部字段或数组 schema 中，不要挂在变量本身。
+- `graph.nodes[start].data.input.variables[*].default` (recommended)：为开始节点输入变量补 default，可让导入后的工作流直接运行，再由用户微调。；省略条件：该输入变量仅应由用户在每次运行前手动输入，且不应预填。；示例值：`"example text"`
+- `graph.nodes[start].data.input.variables[string].default` (example)：string 输入变量使用非空短字符串作为可运行示例值。；示例值：`"batch"`
+- `graph.nodes[start].data.input.variables[number].default` (example)：number 输入变量使用真实数字，避免写成字符串。；示例值：`3`
+- `graph.nodes[start].data.input.variables[boolean].default` (example)：boolean 输入变量直接写 true/false。；示例值：`false`
+- `graph.nodes[start].data.input.variables[array].schema` (example)：array 输入变量必须声明 schema，不要只写变量级 `default`。；示例值：`{"type":"array","items":{"type":"string","description":"单个条目示例","default":"sample-item"},"description":"array 输入变量必须声明 items schema；如需默认值，优先写在 schema 中。"}`
+- `graph.nodes[start].data.input.variables[object].schema` (example)：object 输入变量必须声明 schema，字段默认值写在 schema 内，不要只写变量级 `default`。；示例值：`{"type":"object","properties":{"topic":{"type":"string","description":"主题","default":"demo"},"priority":{"type":"number","description":"优先级","default":1}},"required":["topic","priority"],"additionalProperties":false,"description":"object 输入变量必须声明 properties schema；字段默认值写在 schema 内。"}`
+
+## 节点规则
+- `start`：作者必填 data.input.variables；系统注入 无；输出 input.variables[*].variable；说明 开始节点把输入变量原样写入变量存储。
+- `start` omit：可省略时不要输出空 `value_selector: []`。
+- `start` warnings：如果声明运行前需要填写的输入变量，优先补 `default`，让导入后的工作流可以直接运行。；`default` 是运行前预填值，不是 `value_selector`；两者不要混淆。；`array` / `object` 类型的 `default` 必须写成真实 JSON 值，不要写成字符串化 JSON。
+- `start` notes：开始节点输入变量会直接暴露给 run panel 作为预填输入。
+- `llm`：作者必填 data.model.provider、data.model.name、data.structured_output.enabled；系统注入 data.output.variables；输出 llmoutput、structured_output(enabled=true)；说明 LLM 节点输出变量由系统按节点命名空间自动派生。
+- `llm` system-managed：data.output.variables
+- `llm` output：输出变量按节点命名空间自动派生。
+- `llm` omit：`structured_output.enabled=false` 时省略 `structured_output.schema`。
+- `llm` warnings：`structured_output.enabled=false` 时不要写 `structured_output.schema:null`。；`data.model.provider` 和 `data.model.name` 必须同时存在，不能留空对象。
+- `ifelse`：作者必填 data.cases、data.elseCase；系统注入 无；输出 matchedHandleId、matchedLabel、caseEvaluations；说明 IfElse 节点通过 control.selectedSourceHandleIds 驱动后续边选择。
+- `ifelse` selector：每个 condition 的左值必须使用 `variable_selector`，且必须是至少 1 段的非空字符串数组。；`variable_path` 仅作为由 `variable_selector` 派生的展示文本。；开始节点 object 输入字段应使用分段 selector，而不是把整个点路径塞进 selector[0]。
+- `ifelse` omit：仅在 `compare_source_mode=variable` 时输出 `compare_selector`。
+- `ifelse` warnings：每个 condition 都必须始终提供左值 `variable_selector`；`compare_selector` 绝不能替代它。；`variable_path` / `compare_path` 只是 selector 的可读路径文本，不能替代真正的 selector。；开始节点 object 输入的嵌套字段请写成分段 selector，例如 `["content_package","config","process_mode"]`，不要写成 `["content_package.config.process_mode"]`。；仅当 `compare_source_mode=variable` 时才写 `compare_selector`，且 selector 必须非空。；不要为普通分支条件补空 `compare_selector: []` 占位。
+- `iteration`：作者必填 data.iterator_selector、data.subgraph、data.output_selector；系统注入 data.start_node_id、data.subgraph.viewport、data.subgraph.nodes[iteration-start]、data.output.variables；输出 result；说明 子图边必须显式填写 handle。；迭代输出由系统按 result 变量派生。
+- `iteration` system-managed：data.start_node_id、data.subgraph.viewport、data.subgraph.nodes[iteration-start]、data.output.variables
+- `iteration` selector：`iterator_selector` 必须非空。；`output_selector` 可省略，但出现时不能是空数组。
+- `iteration` output：迭代输出由系统派生 `result`。
+- `iteration` omit：不要手写内部 start 节点或容器 viewport。
+- `iteration` warnings：`iterator_selector` 必须非空；`output_selector` 可省略但不能写空数组。；不要手写伪造的 `start_node_id`、`iteration-start` 或 `subgraph.viewport`。
+- `loop`：作者必填 data.loop_count、data.loop_variables、data.subgraph；系统注入 data.start_node_id、data.subgraph.viewport、data.subgraph.nodes[loop-start]、data.output.variables；输出 result、loop_variables[*].variable；说明 循环输出由系统统一汇总为 result 和循环变量命名空间。
+- `loop` system-managed：data.start_node_id、data.subgraph.viewport、data.subgraph.nodes[loop-start]、data.output.variables
+- `loop` selector：`loop_variables[*].value_selector` 仅在 `value_type=variable` 时出现。
+- `loop` output：循环输出由系统聚合为 `result` 和循环变量命名空间。
+- `loop` omit：不要手写内部 start 节点或容器 viewport。
+- `loop` warnings：`loop_count`、`loop_variables`、`subgraph` 必须同时给全。；`loop_variables` 不能只有变量名，必须给出初始化值或值来源。；`result` 默认按聚合数组输出，不要把 `loop.output.variables[].type` 写成 `object`。；不要手写伪造的 `start_node_id`、`loop-start` 或 `subgraph.viewport`。
+- `variable-assign`：作者必填 data.rules；系统注入 data.output.variables；输出 rules[*].target_variable；说明 变量赋值节点输出变量由规则目标变量自动派生。
+- `variable-assign` system-managed：data.output.variables
+- `variable-assign` selector：`rules[*].source_selector` 仅在 `source_mode=variable` 时出现。
+- `variable-assign` output：输出变量按 `target_variable` 自动派生。
+- `variable-assign` omit：`source_mode=constant` 时省略 `source_selector`。
+- `end`：作者必填 data.output.variables；系统注入 无；输出 data.output.variables[*].variable；说明 结束节点通过 value_selector 从变量存储中提取最终输出。
+- `end` selector：结束节点输出通过 `value_selector` 从变量存储读取。
+- `end` omit：可省略时不要输出空 `value_selector: []`。
+- `end` warnings：`output.variables[*].value_selector` 可省略时直接省略，不能写空数组。
+
+## 内部节点
+- `iteration-start`：作者必填 无；系统注入 data.input.variables、parentNode、extent；输出 item、index、length；说明 内部开始节点由编译器/系统维护，作者不应手写。
+- `loop-start`：作者必填 无；系统注入 data.input.variables、parentNode、extent；输出 loop_variables[*].variable、index、loop_count；说明 内部开始节点由编译器/系统维护，作者不应手写。
+
+## 输出策略
+- `prompt_markdown` 只提供高密度 contract 摘要。
+- `annotated_workflow_jsonc` 提供最小注释模板。
+- `schema` 提供完整结构参考。
+
+## Annotated JSONC Template
+```jsonc
+// OrchestraFlow strict runnable workflow JSONC template
+// Omit optional fields entirely; do not use [], null, or empty objects as placeholders.
+// Start input variables should usually include `default` so the run panel can prefill runnable values.
+// Only scalar start input variables should use variable-level `default`.
+// `object` / `array` variables must declare `schema`; put defaults inside schema fields/items instead of on the variable.
+// selector rule: store-key-array; first segment is store-key.
+// selector examples: ["input"] | ["content_package","config","process_mode"] | ["node_llm.llmoutput"] | ["node_llm.structured_output","reason"].
+// start object field selectors must be segmented arrays, for example ["content_package","config","process_mode"].
+// never collapse a start object field path into selector[0] like ["content_package.config.process_mode"].
+// invariant: 所有 selector 必须是至少 1 段的非空字符串数组。
+// invariant: `object` / `array` 类型变量必须显式声明 `schema`。
+// invariant: `object` / `array` 类型变量不要写变量级 `default`；默认值应落在 `schema` 内。
+// invariant: 根图和子图边都必须显式写 sourceHandle / targetHandle。
+// invariant: 根图禁止出现 iteration-start 或 loop-start。
+// edge rule: explicit handles required, target defaults to "target".
+// edge rule: ifelse sourceHandle must follow case.handleId-or-elseCase.handleId.
+// Edge rule: non-ifelse nodes use source -> target.
+// default hint: graph.nodes[start].data.input.variables[*].default => 为开始节点输入变量补 default，可让导入后的工作流直接运行，再由用户微调。
+// default hint: graph.nodes[start].data.input.variables[string].default => string 输入变量使用非空短字符串作为可运行示例值。
+// system-managed fields: data.output.variables, data.start_node_id, data.subgraph.viewport, data.subgraph.nodes[iteration-start], data.subgraph.nodes[loop-start].
+// omit rule: 可省略时不要输出空 `value_selector: []`。
+// omit rule: `structured_output.enabled=false` 时省略 `structured_output.schema`。
+// omit rule: 仅在 `compare_source_mode=variable` 时输出 `compare_selector`。
+// omit rule: 不要手写内部 start 节点或容器 viewport。
+// omit rule: `source_mode=constant` 时省略 `source_selector`。
+// Only // line comments are supported. /* */ is not supported.
+{
+  "id": "compact_router_demo",
+  "name": "compact_router_demo",
+  "description": "Start -> IfElse -> Iteration / VariableAssign -> End",
+  "author": "schema-exporter",
+  "createdAt": 1773069959,
+  "updatedAt": 1773069959,
+  "status": "draft",
+  "graph": {
+    "nodes": [
+      {
+        "id": "start",
+        "type": "start",
+        "position": {
+          "x": 80,
+          "y": 180
+        },
+        "data": {
+          "title": "start",
+          "desc": "",
+          "type": "start",
+          "input": {
+            "variables": [
+              {
+                "variable": "mode",
+                "label": "mode",
+                "type": "string",
+                "required": true,
+                "default": "batch"
+              },
+              {
+                "variable": "items",
+                "label": "items",
+                "type": "array",
+                "required": true,
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "description": "单个待处理条目",
+                    "default": "sample-item-1"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "branch",
+        "type": "ifelse",
+        "position": {
+          "x": 380,
+          "y": 300
+        },
+        "data": {
+          "title": "branch",
+          "desc": "",
+          "type": "ifelse",
+          "cases": [
+            {
+              "id": "case_batch",
+              "kind": "if",
+              "label": "batch",
+              "handleId": "batch_handle",
+              "conditions": [
+                {
+                  "id": "cond_batch",
+                  "variable_selector": [
+                    "mode"
+                  ],
+                  "operator": "is",
+                  "value": "batch",
+                  "value_type": "string",
+                  "variable_path": "mode"
+                }
+              ]
+            }
+          ],
+          "elseCase": {
+            "handleId": "else_handle",
+            "label": "else"
+          }
+        }
+      },
+      {
+        "id": "iterate_items",
+        "type": "iteration",
+        "position": {
+          "x": 680,
+          "y": 420
+        },
+        "data": {
+          "title": "iterate_items",
+          "desc": "",
+          "type": "iteration",
+          "width": 650,
+          "height": 417,
+          "iterator_selector": [
+            "items"
+          ],
+          "output_selector": [
+            "summarize_item.llmoutput"
+          ],
+          "branch_output_selectors": [],
+          "start_node_id": "iterate_items-iteration-start",
+          "subgraph": {
+            "nodes": [
+              {
+                "id": "iterate_items-iteration-start",
+                "type": "iteration-start",
+                "position": {
+                  "x": 30,
+                  "y": 40
+                },
+                "parentNode": "iterate_items",
+                "extent": "parent",
+                "data": {
+                  "title": "迭代开始",
+                  "desc": "迭代开始",
+                  "type": "iteration-start",
+                  "input": {
+                    "variables": [
+                      {
+                        "variable": "item",
+                        "label": "item",
+                        "type": "array",
+                        "required": true,
+                        "value_selector": [
+                          "iterate_items.item"
+                        ]
+                      },
+                      {
+                        "variable": "index",
+                        "label": "index",
+                        "type": "number",
+                        "required": true,
+                        "value_selector": [
+                          "iterate_items.index"
+                        ]
+                      },
+                      {
+                        "variable": "length",
+                        "label": "length",
+                        "type": "number",
+                        "required": true,
+                        "value_selector": [
+                          "iterate_items.length"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "id": "iterate_items__summarize_item",
+                "type": "llm",
+                "position": {
+                  "x": 40,
+                  "y": 60
+                },
+                "parentNode": "iterate_items",
+                "extent": "parent",
+                "data": {
+                  "title": "summarize_item",
+                  "desc": "",
+                  "type": "llm",
+                  "model": {
+                    "provider": "openai",
+                    "name": "gpt-4o-mini"
+                  },
+                  "prompt_template": [
+                    {
+                      "id": "prompt_item",
+                      "role": "user",
+                      "text": "请总结当前 item：{{iterate_items.item}}"
+                    }
+                  ],
+                  "structured_output": {
+                    "enabled": false
+                  },
+                  "output": {
+                    "variables": [
+                      {
+                        "variable": "llmoutput",
+                        "label": "llmoutput",
+                        "type": "string",
+                        "required": true,
+                        "value_selector": [
+                          "summarize_item.llmoutput"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            ],
+            "edges": [
+              {
+                "id": "edge_iterate_items-iteration-start_iterate_items__summarize_item",
+                "source": "iterate_items-iteration-start",
+                "target": "iterate_items__summarize_item",
+                "sourceHandle": "source",
+                "targetHandle": "target"
+              }
+            ],
+            "viewport": {
+              "x": 0,
+              "y": 0,
+              "zoom": 1
+            }
+          },
+          "parallel_mode": "sequential",
+          "parallel_nums": 1,
+          "error_handle_mode": "terminated",
+          "flatten_output": true,
+          "output": {
+            "variables": [
+              {
+                "variable": "result",
+                "label": "result",
+                "type": "array",
+                "required": true,
+                "value_selector": [
+                  "iterate_items.result"
+                ]
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "fallback_assign",
+        "type": "variable-assign",
+        "position": {
+          "x": 980,
+          "y": 180
+        },
+        "data": {
+          "title": "fallback_assign",
+          "desc": "",
+          "type": "variable-assign",
+          "rules": [
+            {
+              "id": "assign_mode",
+              "source_mode": "variable",
+              "source_selector": [
+                "mode"
+              ],
+              "source_path": "mode",
+              "target_variable": "single_result",
+              "target_label": "single_result",
+              "target_type": "string"
+            }
+          ],
+          "output": {
+            "variables": [
+              {
+                "variable": "single_result",
+                "label": "single_result",
+                "type": "string",
+                "required": true,
+                "value_selector": [
+                  "fallback_assign.single_result"
+                ]
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "end",
+        "type": "end",
+        "position": {
+          "x": 1280,
+          "y": 300
+        },
+        "data": {
+          "title": "end",
+          "desc": "",
+          "type": "end",
+          "output": {
+            "variables": [
+              {
+                "variable": "batch_result",
+                "label": "batch_result",
+                "type": "array",
+                "value_selector": [
+                  "iterate_items.result"
+                ],
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "description": "批处理后的文本结果"
+                  }
+                }
+              },
+              {
+                "variable": "single_result",
+                "label": "single_result",
+                "type": "string",
+                "value_selector": [
+                  "fallback_assign.single_result"
+                ]
+              }
+            ]
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "edge_start_branch_0",
+        "source": "start",
+        "target": "branch",
+        "sourceHandle": "source",
+        "targetHandle": "target"
+      },
+      {
+        "id": "edge_branch_iterate_items_1",
+        "source": "branch",
+        "target": "iterate_items",
+        "sourceHandle": "batch_handle",
+        "targetHandle": "target"
+      },
+      {
+        "id": "edge_branch_fallback_assign_2",
+        "source": "branch",
+        "target": "fallback_assign",
+        "sourceHandle": "else_handle",
+        "targetHandle": "target"
+      },
+      {
+        "id": "edge_iterate_items_end_3",
+        "source": "iterate_items",
+        "target": "end",
+        "sourceHandle": "source",
+        "targetHandle": "target"
+      },
+      {
+        "id": "edge_fallback_assign_end_4",
+        "source": "fallback_assign",
+        "target": "end",
+        "sourceHandle": "source",
+        "targetHandle": "target"
+      }
+    ]
+  }
+}
+```
+
+## Compact Runnable Example
+```json
+{
+  "id": "compact_router_demo",
+  "name": "compact_router_demo",
+  "description": "Start -> IfElse -> Iteration / VariableAssign -> End",
+  "author": "schema-exporter",
+  "createdAt": 1773069959,
+  "updatedAt": 1773069959,
+  "status": "draft",
+  "graph": {
+    "nodes": [
+      {
+        "id": "start",
+        "type": "start",
+        "position": {
+          "x": 80,
+          "y": 180
+        },
+        "data": {
+          "title": "start",
+          "desc": "",
+          "type": "start",
+          "input": {
+            "variables": [
+              {
+                "variable": "mode",
+                "label": "mode",
+                "type": "string",
+                "required": true,
+                "default": "batch"
+              },
+              {
+                "variable": "items",
+                "label": "items",
+                "type": "array",
+                "required": true,
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "description": "单个待处理条目",
+                    "default": "sample-item-1"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "branch",
+        "type": "ifelse",
+        "position": {
+          "x": 380,
+          "y": 300
+        },
+        "data": {
+          "title": "branch",
+          "desc": "",
+          "type": "ifelse",
+          "cases": [
+            {
+              "id": "case_batch",
+              "kind": "if",
+              "label": "batch",
+              "handleId": "batch_handle",
+              "conditions": [
+                {
+                  "id": "cond_batch",
+                  "variable_selector": [
+                    "mode"
+                  ],
+                  "operator": "is",
+                  "value": "batch",
+                  "value_type": "string",
+                  "variable_path": "mode"
+                }
+              ]
+            }
+          ],
+          "elseCase": {
+            "handleId": "else_handle",
+            "label": "else"
+          }
+        }
+      },
+      {
+        "id": "iterate_items",
+        "type": "iteration",
+        "position": {
+          "x": 680,
+          "y": 420
+        },
+        "data": {
+          "title": "iterate_items",
+          "desc": "",
+          "type": "iteration",
+          "width": 650,
+          "height": 417,
+          "iterator_selector": [
+            "items"
+          ],
+          "output_selector": [
+            "summarize_item.llmoutput"
+          ],
+          "branch_output_selectors": [],
+          "start_node_id": "iterate_items-iteration-start",
+          "subgraph": {
+            "nodes": [
+              {
+                "id": "iterate_items-iteration-start",
+                "type": "iteration-start",
+                "position": {
+                  "x": 30,
+                  "y": 40
+                },
+                "parentNode": "iterate_items",
+                "extent": "parent",
+                "data": {
+                  "title": "迭代开始",
+                  "desc": "迭代开始",
+                  "type": "iteration-start",
+                  "input": {
+                    "variables": [
+                      {
+                        "variable": "item",
+                        "label": "item",
+                        "type": "array",
+                        "required": true,
+                        "value_selector": [
+                          "iterate_items.item"
+                        ]
+                      },
+                      {
+                        "variable": "index",
+                        "label": "index",
+                        "type": "number",
+                        "required": true,
+                        "value_selector": [
+                          "iterate_items.index"
+                        ]
+                      },
+                      {
+                        "variable": "length",
+                        "label": "length",
+                        "type": "number",
+                        "required": true,
+                        "value_selector": [
+                          "iterate_items.length"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "id": "iterate_items__summarize_item",
+                "type": "llm",
+                "position": {
+                  "x": 40,
+                  "y": 60
+                },
+                "parentNode": "iterate_items",
+                "extent": "parent",
+                "data": {
+                  "title": "summarize_item",
+                  "desc": "",
+                  "type": "llm",
+                  "model": {
+                    "provider": "openai",
+                    "name": "gpt-4o-mini"
+                  },
+                  "prompt_template": [
+                    {
+                      "id": "prompt_item",
+                      "role": "user",
+                      "text": "请总结当前 item：{{iterate_items.item}}"
+                    }
+                  ],
+                  "structured_output": {
+                    "enabled": false
+                  },
+                  "output": {
+                    "variables": [
+                      {
+                        "variable": "llmoutput",
+                        "label": "llmoutput",
+                        "type": "string",
+                        "required": true,
+                        "value_selector": [
+                          "summarize_item.llmoutput"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            ],
+            "edges": [
+              {
+                "id": "edge_iterate_items-iteration-start_iterate_items__summarize_item",
+                "source": "iterate_items-iteration-start",
+                "target": "iterate_items__summarize_item",
+                "sourceHandle": "source",
+                "targetHandle": "target"
+              }
+            ],
+            "viewport": {
+              "x": 0,
+              "y": 0,
+              "zoom": 1
+            }
+          },
+          "parallel_mode": "sequential",
+          "parallel_nums": 1,
+          "error_handle_mode": "terminated",
+          "flatten_output": true,
+          "output": {
+            "variables": [
+              {
+                "variable": "result",
+                "label": "result",
+                "type": "array",
+                "required": true,
+                "value_selector": [
+                  "iterate_items.result"
+                ]
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "fallback_assign",
+        "type": "variable-assign",
+        "position": {
+          "x": 980,
+          "y": 180
+        },
+        "data": {
+          "title": "fallback_assign",
+          "desc": "",
+          "type": "variable-assign",
+          "rules": [
+            {
+              "id": "assign_mode",
+              "source_mode": "variable",
+              "source_selector": [
+                "mode"
+              ],
+              "source_path": "mode",
+              "target_variable": "single_result",
+              "target_label": "single_result",
+              "target_type": "string"
+            }
+          ],
+          "output": {
+            "variables": [
+              {
+                "variable": "single_result",
+                "label": "single_result",
+                "type": "string",
+                "required": true,
+                "value_selector": [
+                  "fallback_assign.single_result"
+                ]
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "end",
+        "type": "end",
+        "position": {
+          "x": 1280,
+          "y": 300
+        },
+        "data": {
+          "title": "end",
+          "desc": "",
+          "type": "end",
+          "output": {
+            "variables": [
+              {
+                "variable": "batch_result",
+                "label": "batch_result",
+                "type": "array",
+                "value_selector": [
+                  "iterate_items.result"
+                ],
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "description": "批处理后的文本结果"
+                  }
+                }
+              },
+              {
+                "variable": "single_result",
+                "label": "single_result",
+                "type": "string",
+                "value_selector": [
+                  "fallback_assign.single_result"
+                ]
+              }
+            ]
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "edge_start_branch_0",
+        "source": "start",
+        "target": "branch",
+        "sourceHandle": "source",
+        "targetHandle": "target"
+      },
+      {
+        "id": "edge_branch_iterate_items_1",
+        "source": "branch",
+        "target": "iterate_items",
+        "sourceHandle": "batch_handle",
+        "targetHandle": "target"
+      },
+      {
+        "id": "edge_branch_fallback_assign_2",
+        "source": "branch",
+        "target": "fallback_assign",
+        "sourceHandle": "else_handle",
+        "targetHandle": "target"
+      },
+      {
+        "id": "edge_iterate_items_end_3",
+        "source": "iterate_items",
+        "target": "end",
+        "sourceHandle": "source",
+        "targetHandle": "target"
+      },
+      {
+        "id": "edge_fallback_assign_end_4",
+        "source": "fallback_assign",
+        "target": "end",
+        "sourceHandle": "source",
+        "targetHandle": "target"
+      }
+    ]
+  }
+}
+```
+
+## Schema Access
+- Use `bundle.schema` for the full generated schema; the main prompt intentionally stays compact.
+- Use `bundle.authoring_defaults` for recommendation metadata about runnable start-input defaults.

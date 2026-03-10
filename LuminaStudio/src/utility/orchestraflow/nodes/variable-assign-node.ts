@@ -42,7 +42,10 @@ export class VariableAssignNode extends BaseNode {
         const convertedValue = convertValue(sourceValue, {
           targetType: rule.target_type,
           targetVariable: rule.target_variable,
-          sourcePath: rule.source_path
+          sourcePath:
+            rule.source?.mode === 'variable'
+              ? rule.source.ref.path || rule.source.ref.selector.join('.')
+              : undefined
         })
 
         pendingWrites.push({
@@ -67,21 +70,21 @@ export class VariableAssignNode extends BaseNode {
   }
 
   private resolveSourceValue(rule: OFVariableAssignRule): unknown {
-    if (rule.source_mode === 'constant') {
-      if (!Object.prototype.hasOwnProperty.call(rule, 'constant_value')) {
+    if (rule.source?.mode === 'constant') {
+      if (!Object.prototype.hasOwnProperty.call(rule.source, 'constant_value')) {
         throw new Error(`Rule "${rule.target_variable}" is missing constant_value`)
       }
-      return rule.constant_value
+      return rule.source.constant_value
     }
 
-    if (!rule.source_selector?.length) {
+    if (rule.source?.mode !== 'variable' || !rule.source.ref?.selector?.length) {
       throw new Error(`Rule "${rule.target_variable}" is missing source_selector`)
     }
 
-    const value = this.getVariable(rule.source_selector)
+    const value = this.variableStore.getByVariableRef(rule.source.ref)
     if (value === undefined) {
       throw new Error(
-        `Variable "${rule.source_path || rule.source_selector.join('.')}" is undefined`
+        `Variable "${rule.source.ref.path || rule.source.ref.selector.join('.')}" is undefined`
       )
     }
     return value
@@ -103,10 +106,10 @@ export class VariableAssignNode extends BaseNode {
       }
       seenVariables.add(variable)
 
-      if (rule.source_mode === 'variable' && !rule.source_selector?.length) {
+      if (rule.source?.mode === 'variable' && !rule.source.ref?.selector?.length) {
         throw new Error(`Rule "${variable}" must select a source variable`)
       }
-      if (rule.source_mode !== 'variable' && rule.source_mode !== 'constant') {
+      if (rule.source?.mode !== 'variable' && rule.source?.mode !== 'constant') {
         throw new Error(`Rule "${variable}" has invalid source_mode`)
       }
     })

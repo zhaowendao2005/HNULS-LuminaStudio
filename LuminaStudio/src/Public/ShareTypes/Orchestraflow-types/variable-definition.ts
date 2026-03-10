@@ -54,7 +54,25 @@ export function ensureOFSelectableVariables(variables: OFVariable[]): OFVariable
   return cloneOFVariables(
     variables.map((item) => ({
       ...item,
-      value_selector: item.value_selector?.length ? item.value_selector : [item.variable]
+      value_ref:
+        item.value_ref ||
+        (item.value_selector?.length
+          ? {
+              selector: item.value_selector,
+              path: item.value_selector.join('.'),
+              label: item.label || item.variable,
+              type: item.type,
+              schema: item.schema || null,
+              item_schema: item.item_schema || null
+            }
+          : {
+              selector: [item.variable],
+              path: item.variable,
+              label: item.label || item.variable,
+              type: item.type,
+              schema: item.schema || null,
+              item_schema: item.item_schema || null
+            })
     }))
   )
 }
@@ -89,18 +107,10 @@ export const startInputVariableDefinition: OFVariableDefinition<void> = {
       summary: 'boolean 输入变量直接写 true/false。'
     },
     {
-      path: 'graph.nodes[start].data.input.variables[array].schema',
+      path: 'graph.nodes[start].data.input.variables[array].default',
       kind: 'example',
-      value: {
-        type: 'array',
-        items: {
-          type: 'string',
-          description: '单个条目示例',
-          default: 'sample-item'
-        },
-        description: 'array 输入变量必须声明 items schema；如需默认值，优先写在 schema 中。'
-      },
-      summary: 'array 输入变量必须声明 schema，不要只写变量级 `default`。'
+      value: ['sample-item'],
+      summary: 'array 输入变量直接写真实 JSON 数组默认值；系统不再支持数组 schema。'
     },
     {
       path: 'graph.nodes[start].data.input.variables[object].schema',
@@ -142,7 +152,12 @@ export const llmOutputVariableDefinition: OFVariableDefinition<{
         label: OF_LLM_TEXT_OUTPUT_NAME,
         type: OFVarType.String,
         required: true,
-        value_selector: [`${normalizedNamespace}.${OF_LLM_TEXT_OUTPUT_NAME}`]
+        value_ref: {
+          selector: [`${normalizedNamespace}.${OF_LLM_TEXT_OUTPUT_NAME}`],
+          path: `${normalizedNamespace}.${OF_LLM_TEXT_OUTPUT_NAME}`,
+          label: OF_LLM_TEXT_OUTPUT_NAME,
+          type: OFVarType.String
+        }
       }
     ]
 
@@ -150,9 +165,15 @@ export const llmOutputVariableDefinition: OFVariableDefinition<{
       variables.push({
         variable: OF_LLM_STRUCTURED_OUTPUT_NAME,
         label: OF_LLM_STRUCTURED_OUTPUT_NAME,
-        type: structuredOutput.schema.type === 'array' ? OFVarType.Array : OFVarType.Object,
+        type: OFVarType.Object,
         required: true,
-        value_selector: [`${normalizedNamespace}.${OF_LLM_STRUCTURED_OUTPUT_NAME}`],
+        value_ref: {
+          selector: [`${normalizedNamespace}.${OF_LLM_STRUCTURED_OUTPUT_NAME}`],
+          path: `${normalizedNamespace}.${OF_LLM_STRUCTURED_OUTPUT_NAME}`,
+          label: OF_LLM_STRUCTURED_OUTPUT_NAME,
+          type: OFVarType.Object,
+          schema: structuredOutput.schema
+        },
         schema: structuredOutput.schema
       })
     }
@@ -174,21 +195,36 @@ export const iterationInnerStartVariableDefinition: OFVariableDefinition<{
         label: OF_ITERATION_ITEM_VARIABLE_NAME,
         type: OFVarType.Array,
         required: true,
-        value_selector: [`${resolvedNamespace}.${OF_ITERATION_ITEM_VARIABLE_NAME}`]
+        value_ref: {
+          selector: [`${resolvedNamespace}.${OF_ITERATION_ITEM_VARIABLE_NAME}`],
+          path: `${resolvedNamespace}.${OF_ITERATION_ITEM_VARIABLE_NAME}`,
+          label: OF_ITERATION_ITEM_VARIABLE_NAME,
+          type: OFVarType.Array
+        }
       },
       {
         variable: OF_ITERATION_INDEX_VARIABLE_NAME,
         label: OF_ITERATION_INDEX_VARIABLE_NAME,
         type: OFVarType.Number,
         required: true,
-        value_selector: [`${resolvedNamespace}.${OF_ITERATION_INDEX_VARIABLE_NAME}`]
+        value_ref: {
+          selector: [`${resolvedNamespace}.${OF_ITERATION_INDEX_VARIABLE_NAME}`],
+          path: `${resolvedNamespace}.${OF_ITERATION_INDEX_VARIABLE_NAME}`,
+          label: OF_ITERATION_INDEX_VARIABLE_NAME,
+          type: OFVarType.Number
+        }
       },
       {
         variable: OF_ITERATION_LENGTH_VARIABLE_NAME,
         label: OF_ITERATION_LENGTH_VARIABLE_NAME,
         type: OFVarType.Number,
         required: true,
-        value_selector: [`${resolvedNamespace}.${OF_ITERATION_LENGTH_VARIABLE_NAME}`]
+        value_ref: {
+          selector: [`${resolvedNamespace}.${OF_ITERATION_LENGTH_VARIABLE_NAME}`],
+          path: `${resolvedNamespace}.${OF_ITERATION_LENGTH_VARIABLE_NAME}`,
+          label: OF_ITERATION_LENGTH_VARIABLE_NAME,
+          type: OFVarType.Number
+        }
       }
     ]
   }
@@ -207,7 +243,12 @@ export const iterationOutputVariableDefinition: OFVariableDefinition<{
         label: OF_ITERATION_RESULT_VARIABLE_NAME,
         type: OFVarType.Array,
         required: true,
-        value_selector: [`${resolvedNamespace}.${OF_ITERATION_RESULT_VARIABLE_NAME}`]
+        value_ref: {
+          selector: [`${resolvedNamespace}.${OF_ITERATION_RESULT_VARIABLE_NAME}`],
+          path: `${resolvedNamespace}.${OF_ITERATION_RESULT_VARIABLE_NAME}`,
+          label: OF_ITERATION_RESULT_VARIABLE_NAME,
+          type: OFVarType.Array
+        }
       }
     ]
   }
@@ -229,7 +270,14 @@ export const loopInnerStartVariableDefinition: OFVariableDefinition<{
         item_type: item.item_type,
         description: item.description,
         required: item.required,
-        value_selector: [item.variable],
+        value_ref: {
+          selector: [item.variable],
+          path: item.variable,
+          label: item.label || item.variable,
+          type: item.type,
+          schema: item.schema || null,
+          item_schema: item.item_schema || null
+        },
         schema: item.schema || null,
         item_schema: item.item_schema || null
       })),
@@ -238,14 +286,24 @@ export const loopInnerStartVariableDefinition: OFVariableDefinition<{
         label: OF_LOOP_INDEX_VARIABLE_NAME,
         type: OFVarType.Number,
         required: true,
-        value_selector: [`${resolvedNamespace}.${OF_LOOP_INDEX_VARIABLE_NAME}`]
+        value_ref: {
+          selector: [`${resolvedNamespace}.${OF_LOOP_INDEX_VARIABLE_NAME}`],
+          path: `${resolvedNamespace}.${OF_LOOP_INDEX_VARIABLE_NAME}`,
+          label: OF_LOOP_INDEX_VARIABLE_NAME,
+          type: OFVarType.Number
+        }
       },
       {
         variable: OF_LOOP_COUNT_VARIABLE_NAME,
         label: OF_LOOP_COUNT_VARIABLE_NAME,
         type: OFVarType.Number,
         required: true,
-        value_selector: [`${resolvedNamespace}.${OF_LOOP_COUNT_VARIABLE_NAME}`]
+        value_ref: {
+          selector: [`${resolvedNamespace}.${OF_LOOP_COUNT_VARIABLE_NAME}`],
+          path: `${resolvedNamespace}.${OF_LOOP_COUNT_VARIABLE_NAME}`,
+          label: OF_LOOP_COUNT_VARIABLE_NAME,
+          type: OFVarType.Number
+        }
       }
     ]
   }
@@ -265,7 +323,12 @@ export const loopOutputVariableDefinition: OFVariableDefinition<{
         label: OF_LOOP_RESULT_VARIABLE_NAME,
         type: OFVarType.Object,
         required: true,
-        value_selector: [`${resolvedNamespace}.${OF_LOOP_RESULT_VARIABLE_NAME}`]
+        value_ref: {
+          selector: [`${resolvedNamespace}.${OF_LOOP_RESULT_VARIABLE_NAME}`],
+          path: `${resolvedNamespace}.${OF_LOOP_RESULT_VARIABLE_NAME}`,
+          label: OF_LOOP_RESULT_VARIABLE_NAME,
+          type: OFVarType.Object
+        }
       },
       ...loopVariables.map((item) => ({
         variable: item.variable,
@@ -274,7 +337,14 @@ export const loopOutputVariableDefinition: OFVariableDefinition<{
         item_type: item.item_type,
         description: item.description,
         required: item.required,
-        value_selector: [`${resolvedNamespace}.${item.variable}`],
+        value_ref: {
+          selector: [`${resolvedNamespace}.${item.variable}`],
+          path: `${resolvedNamespace}.${item.variable}`,
+          label: item.label || item.variable,
+          type: item.type,
+          schema: item.schema || null,
+          item_schema: item.item_schema || null
+        },
         schema: item.schema || null,
         item_schema: item.item_schema || null
       }))
@@ -303,7 +373,14 @@ export const variableAssignOutputVariableDefinition: OFVariableDefinition<{
         item_type: rule.item_type,
         description: rule.description,
         required: true,
-        value_selector: [`${resolvedNamespace}.${variable}`],
+        value_ref: {
+          selector: [`${resolvedNamespace}.${variable}`],
+          path: `${resolvedNamespace}.${variable}`,
+          label: String(rule.target_label || variable).trim() || variable,
+          type: rule.target_type,
+          schema: rule.schema ?? null,
+          item_schema: rule.item_schema ?? null
+        },
         schema: rule.schema ?? null,
         item_schema: rule.item_schema ?? null
       })

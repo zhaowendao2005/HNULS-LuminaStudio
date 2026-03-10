@@ -48,11 +48,11 @@
             <button
               type="button"
               class="of-ref-trigger"
-              :class="{ 'of-ref-trigger-empty': !formatSelector(item.value_selector) }"
+              :class="{ 'of-ref-trigger-empty': !getValuePath(item) }"
               @click="emit('open-selector', item.id || item.variable, $event)"
             >
               <span class="of-ref-text">
-                {{ formatSelector(item.value_selector) || '点击选择变量' }}
+                {{ getValuePath(item) || '点击选择变量' }}
               </span>
             </button>
           </template>
@@ -113,7 +113,10 @@
             @click="
               patch(item, {
                 value_type: item.value_type === 'variable' ? 'constant' : 'variable',
-                value_selector: item.value_type === 'variable' ? [] : item.value_selector
+                value_source:
+                  item.value_type === 'variable'
+                    ? ({ mode: 'constant', constant_value: item.value } as OFValueSource)
+                    : ({ mode: 'variable', ref: { selector: [], path: '' } } as OFValueSource)
               })
             "
           >
@@ -122,19 +125,8 @@
         </div>
 
         <div v-if="item.type === OFVarTypeEnum.Array" class="of-declare-loop-line">
-          <span class="of-declare-loop-label">数组元素</span>
-          <button type="button" class="of-declare-choice" @click="cycleItemType(item)">
-            {{ item.item_type || OFVarTypeEnum.String }}
-          </button>
-          <span class="of-declare-meta">(点击文字切换)</span>
-          <button
-            v-if="item.item_type === OFVarTypeEnum.Object"
-            type="button"
-            class="of-declare-action"
-            @click="emit('schema', item.id || item.variable, 'array-item')"
-          >
-            配置 Schema
-          </button>
+          <span class="of-declare-loop-label">数组说明</span>
+          <span class="of-declare-meta">作为原始 JSON 数组值使用，不支持内部 Schema。</span>
         </div>
 
         <div v-else-if="item.type === OFVarTypeEnum.Object" class="of-declare-loop-line">
@@ -152,13 +144,19 @@
         <div v-if="item.value_type === 'variable'" class="of-declare-loop-line">
           <span class="of-declare-loop-label">引用路径</span>
           <input
-            :value="formatSelector(item.value_selector)"
+            :value="getValuePath(item)"
             class="of-declare-inline-input of-declare-inline-input-mono w-56"
             :class="theme.controlFocusClass"
             placeholder=".field / .0.name"
             @input="
               patch(item, {
-                value_selector: parseSelector(($event.target as HTMLInputElement).value)
+                value_source: {
+                  mode: 'variable',
+                  ref: {
+                    selector: parseSelector(($event.target as HTMLInputElement).value),
+                    path: ($event.target as HTMLInputElement).value
+                  }
+                } as OFValueSource
               })
             "
           />
@@ -169,8 +167,8 @@
 </template>
 
 <script setup lang="ts">
-import type { OFLoopVariableData, OFVarType } from '@shared/Orchestraflow-types'
-import { OFVarType as OFVarTypeEnum } from '@shared/Orchestraflow-types'
+import type { OFLoopVariableData, OFValueSource, OFVarType } from '@shared/Orchestraflow-types'
+import { getOFValueSourcePath, OFVarType as OFVarTypeEnum } from '@shared/Orchestraflow-types'
 import type { OFPanelTheme } from '../../panel-theme'
 
 const props = defineProps<{
@@ -184,7 +182,7 @@ const emit = defineEmits<{
   remove: [id: string]
   patch: [id: string, patch: Partial<OFLoopVariableData>]
   'open-selector': [id: string, event: MouseEvent]
-  schema: [id: string, mode: 'object' | 'array-item']
+  schema: [id: string, mode: 'object']
 }>()
 
 function patch(item: OFLoopVariableData, patchValue: Partial<OFLoopVariableData>) {
@@ -200,17 +198,12 @@ function cycleType(item: OFLoopVariableData) {
   })
 }
 
-function cycleItemType(item: OFLoopVariableData) {
-  const current = String(item.item_type || OFVarTypeEnum.String)
-  const currentIndex = props.typeOptions.findIndex((option) => String(option.value) === current)
-  const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % props.typeOptions.length : 0
-  patch(item, {
-    item_type: String(props.typeOptions[nextIndex]?.value || OFVarTypeEnum.String) as OFVarType
-  })
-}
-
 function formatSelector(selector?: string[]) {
   return selector?.length ? selector.join('.') : ''
+}
+
+function getValuePath(item: OFLoopVariableData): string {
+  return getOFValueSourcePath(item.value_source)
 }
 
 function parseSelector(value: string): string[] {

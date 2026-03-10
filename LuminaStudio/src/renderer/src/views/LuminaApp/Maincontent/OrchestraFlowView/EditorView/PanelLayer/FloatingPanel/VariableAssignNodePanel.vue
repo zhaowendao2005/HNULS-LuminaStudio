@@ -106,17 +106,17 @@
                 <div class="of-declare-text-left">
                   <template v-if="rule.source_mode === 'variable'">
                     <CapsuleTooltip
-                      :text="`点击选择上游节点输出${rule.source_path ? '\n完整路径：' + rule.source_path : ''}`"
+                      :text="`点击选择上游节点输出${getSourcePath(rule) ? '\n完整路径：' + getSourcePath(rule) : ''}`"
                       placement="top"
                       :allow-newline="true"
                     >
                       <button
                         type="button"
                         class="of-declare-text-var-pill"
-                        :class="{ 'of-declare-text-var-pill-empty': !rule.source_path }"
+                        :class="{ 'of-declare-text-var-pill-empty': !getSourcePath(rule) }"
                         @click="openRuleSelector(rule.id, $event)"
                       >
-                        {{ rule.source_path || '请选择源' }}
+                        {{ getSourcePath(rule) || '请选择源' }}
                       </button>
                     </CapsuleTooltip>
                   </template>
@@ -133,6 +133,10 @@
                         placeholder="输入常量"
                         @input="
                           patchRule(rule.id, {
+                            source: {
+                              mode: 'constant',
+                              constant_value: ($event.target as HTMLInputElement).value
+                            } as OFValueSource,
                             constant_value: ($event.target as HTMLInputElement).value
                           })
                         "
@@ -148,6 +152,23 @@
                       class="of-declare-text-mode"
                       @click="
                         patchRule(rule.id, {
+                          source:
+                            rule.source?.mode === 'variable'
+                              ? ({
+                                  mode: 'constant',
+                                  constant_value: rule.constant_value
+                                } as OFValueSource)
+                              : ({
+                                  mode: 'variable',
+                                  ref:
+                                    rule.source?.mode === 'variable'
+                                      ? rule.source.ref
+                                      : {
+                                          selector: [],
+                                          path: '',
+                                          type: rule.source_type
+                                        }
+                                } as OFValueSource),
                           source_mode: rule.source_mode === 'variable' ? 'constant' : 'variable'
                         })
                       "
@@ -269,22 +290,8 @@
                 </span>
               </div>
 
-              <div
-                v-if="rule.target_type === OFVarTypeEnum.Array && rule.item_type"
-                class="of-state-hint"
-              >
-                数组元素类型：
-                <button type="button" class="of-declare-choice" @click="cycleRuleItemType(rule)">
-                  {{ rule.item_type }}
-                </button>
-                <button
-                  v-if="rule.item_type === OFVarTypeEnum.Object"
-                  type="button"
-                  class="of-declare-action"
-                  @click="openSchemaEditor(rule.id)"
-                >
-                  配置 Schema
-                </button>
+              <div v-if="rule.target_type === OFVarTypeEnum.Array" class="of-state-hint">
+                `array` 作为原始 JSON 数组值传递；不支持数组内部 Schema 或字段级引用。
               </div>
 
               <div v-else-if="rule.target_type === OFVarTypeEnum.Object" class="of-state-hint">
@@ -351,14 +358,18 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type {
-  OFJsonSchemaObject,
-  OFJsonSchemaProperty,
   OFStructuredJsonSchema,
   OFVarType,
+  OFValueSource,
   OFVariableAssignNodeData,
   OFVariableAssignRule
 } from '@shared/Orchestraflow-types'
-import { OFBlockEnum, OFVarType as OFVarTypeEnum } from '@shared/Orchestraflow-types'
+import {
+  OFBlockEnum,
+  OFVarType as OFVarTypeEnum,
+  getOFValueSourcePath,
+  getOFValueSourceSelector
+} from '@shared/Orchestraflow-types'
 import { useWorkflowEditorUIStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor-ui.store'
 import { useWorkflowEditorStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor.store'
 import { useVariableSelectorStore } from '@renderer/stores/orchestraflow/workflow-editor/variable-selector/variable-selector.store'
@@ -385,23 +396,12 @@ const debugMode = ref(false)
 const activeRuleId = ref<string | null>(null)
 const activeSchemaRuleId = ref<string | null>(null)
 
-function isObjectSchema(schema: OFJsonSchemaProperty): schema is OFJsonSchemaObject {
-  return schema.type === 'object'
-}
-
 const targetTypeOptions = [
   { label: 'string', value: OFVarTypeEnum.String },
   { label: 'number', value: OFVarTypeEnum.Number },
   { label: 'boolean', value: OFVarTypeEnum.Boolean },
   { label: 'object', value: OFVarTypeEnum.Object },
   { label: 'array', value: OFVarTypeEnum.Array }
-]
-
-const arrayItemTypeOptions = [
-  { label: 'string', value: OFVarTypeEnum.String },
-  { label: 'number', value: OFVarTypeEnum.Number },
-  { label: 'boolean', value: OFVarTypeEnum.Boolean },
-  { label: 'object', value: OFVarTypeEnum.Object }
 ]
 
 const currentNode = computed(() => {
@@ -428,13 +428,14 @@ const debugFields = computed<NodeDebugField[]>(() => {
   const fieldMap = new Map<string, NodeDebugField>()
 
   for (const rule of rules.value) {
-    if (rule.source_mode !== 'variable' || !rule.source_selector?.length) continue
-    const rootKey = rule.source_selector[0]
+    const selector = getOFValueSourceSelector(rule.source)
+    if (rule.source?.mode !== 'variable' || !selector.length) continue
+    const rootKey = selector[0]
     if (!rootKey || fieldMap.has(rootKey)) continue
 
     let fieldType = rule.source_type || OFVarTypeEnum.String
-    if (rule.source_selector.length > 1) {
-      fieldType = /^\d+$/.test(rule.source_selector[1]) ? OFVarTypeEnum.Array : OFVarTypeEnum.Object
+    if (selector.length > 1) {
+      fieldType = /^\d+$/.test(selector[1]) ? OFVarTypeEnum.Array : OFVarTypeEnum.Object
     }
 
     fieldMap.set(rootKey, {
@@ -491,6 +492,10 @@ function patchRule(ruleId: string, patch: Partial<OFVariableAssignRule>) {
   patchNode({ rules: nextRules })
 }
 
+function getSourcePath(rule: OFVariableAssignRule): string {
+  return getOFValueSourcePath(rule.source)
+}
+
 function addRule() {
   const nextRules = [...rules.value, configStore.createDefaultRule()]
   patchNode({ rules: nextRules })
@@ -543,8 +548,6 @@ function handleTargetTypeChange(ruleId: string, targetType: OFVarType) {
   if (targetType !== OFVarTypeEnum.Array) {
     patch.item_type = undefined
     patch.item_schema = null
-  } else if (!rules.value.find((rule) => rule.id === ruleId)?.item_type) {
-    patch.item_type = OFVarTypeEnum.String
   }
 
   if (targetType !== OFVarTypeEnum.Object) {
@@ -558,13 +561,6 @@ function cycleRuleTargetType(rule: OFVariableAssignRule) {
   const currentIndex = targetTypeOptions.findIndex((item) => item.value === rule.target_type)
   const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % targetTypeOptions.length : 0
   handleTargetTypeChange(rule.id, targetTypeOptions[nextIndex].value as OFVarType)
-}
-
-function cycleRuleItemType(rule: OFVariableAssignRule) {
-  const currentValue = rule.item_type || OFVarTypeEnum.String
-  const currentIndex = arrayItemTypeOptions.findIndex((item) => item.value === currentValue)
-  const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % arrayItemTypeOptions.length : 0
-  patchRule(rule.id, { item_type: arrayItemTypeOptions[nextIndex].value as OFVarType })
 }
 
 function getConstantDisplayValue(rule: OFVariableAssignRule): string {
@@ -591,7 +587,7 @@ function openSchemaEditor(ruleId: string) {
 
 function getSchemaSummary(rule: OFVariableAssignRule) {
   if (!rule.schema) return '未配置 schema'
-  return rule.schema.type === 'array' ? 'array<object>' : 'object'
+  return 'object'
 }
 
 function handleSchemaSave(schema: OFStructuredJsonSchema) {
@@ -599,25 +595,9 @@ function handleSchemaSave(schema: OFStructuredJsonSchema) {
   const activeRule = rules.value.find((item) => item.id === activeSchemaRuleId.value)
   if (!activeRule) return
 
-  if (activeRule.target_type === OFVarTypeEnum.Array) {
-    patchRule(activeSchemaRuleId.value, {
-      item_type: OFVarTypeEnum.Object,
-      item_schema:
-        schema.type === 'array'
-          ? isObjectSchema(schema.items)
-            ? schema.items
-            : null
-          : isObjectSchema(schema)
-            ? schema
-            : null,
-      schema
-    })
-  } else {
-    patchRule(activeSchemaRuleId.value, {
-      schema:
-        schema.type === 'array' ? (isObjectSchema(schema.items) ? schema.items : null) : schema
-    })
-  }
+  patchRule(activeSchemaRuleId.value, {
+    schema
+  })
 }
 
 function handleVariableSelect(event: Event) {
@@ -628,10 +608,17 @@ function handleVariableSelect(event: Event) {
 
   if (detail.targetType === 'variable-assign-source') {
     patchRule(activeRuleId.value, {
+      source: {
+        mode: 'variable',
+        ref: {
+          selector: detail.variable.valueSelector || [],
+          path: detail.variable.path,
+          label: detail.variable.label,
+          type: detail.variable.type,
+          schema: detail.variable.schema || null
+        }
+      } as OFValueSource,
       source_mode: 'variable',
-      source_selector: detail.variable.valueSelector || [],
-      source_path: detail.variable.path,
-      source_label: detail.variable.label,
       source_type: detail.variable.type
     })
     activeRuleId.value = null
@@ -644,7 +631,6 @@ function handleVariableSelect(event: Event) {
       target_variable: rootVariable,
       target_label: detail.variable.label || rootVariable,
       target_type: (detail.variable.type as OFVarType | undefined) || OFVarTypeEnum.String,
-      item_type: detail.variable.type === OFVarTypeEnum.Array ? detail.variable.type : undefined,
       schema: detail.variable.schema || null
     })
   }

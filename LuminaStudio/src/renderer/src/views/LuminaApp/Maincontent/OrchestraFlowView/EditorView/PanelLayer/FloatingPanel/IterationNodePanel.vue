@@ -333,12 +333,13 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type {
   OFIterationErrorHandleMode,
+  OFIterationBranchOutputRef,
   OFIterationBranchOutputSelector,
   OFIfElseNodeData,
   OFIterationNodeData,
   OFVarType
 } from '@shared/Orchestraflow-types'
-import { OFBlockEnum } from '@shared/Orchestraflow-types'
+import { OFBlockEnum, getOFPathFromRef } from '@shared/Orchestraflow-types'
 import { useWorkflowEditorUIStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor-ui.store'
 import { useWorkflowEditorStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor.store'
 import { useVariableSelectorStore } from '@renderer/stores/orchestraflow/workflow-editor/variable-selector/variable-selector.store'
@@ -384,10 +385,8 @@ const descModel = computed({
   set: (value: string) => patchNode({ desc: value })
 })
 
-const iteratorSelectorDisplayText = computed(() =>
-  formatSelector(nodeData.value?.iterator_selector)
-)
-const outputSelectorDisplayText = computed(() => formatSelector(nodeData.value?.output_selector))
+const iteratorSelectorDisplayText = computed(() => getOFPathFromRef(nodeData.value?.iterator_ref))
+const outputSelectorDisplayText = computed(() => getOFPathFromRef(nodeData.value?.output_ref))
 const outputPreviewVariables = computed(() => nodeData.value?.output?.variables || [])
 const outputNamespaceLabel = computed(() => nodeData.value?.title || 'iteration')
 const branchOutputTargets = computed(() => {
@@ -439,7 +438,7 @@ const errorHandleModeModel = computed<OFIterationErrorHandleMode>({
 })
 
 const debugFields = computed<NodeDebugField[]>(() => {
-  const selector = nodeData.value?.iterator_selector || []
+  const selector = nodeData.value?.iterator_ref?.selector || []
   if (!selector.length) {
     return []
   }
@@ -559,7 +558,7 @@ function getBranchSelectorDisplayText(branchTarget: {
       item.source_node_id === branchTarget.sourceNodeId &&
       item.source_handle_id === branchTarget.sourceHandleId
   )
-  return formatSelector(matchedSelector?.output_selector)
+  return matchedSelector?.output_ref ? getOFPathFromRef(matchedSelector.output_ref) : ''
 }
 
 function patchBranchOutputSelector(
@@ -572,10 +571,13 @@ function patchBranchOutputSelector(
   const existingIndex = nextSelectors.findIndex(
     (item) => item.source_node_id === sourceNodeId && item.source_handle_id === sourceHandleId
   )
-  const nextItem: OFIterationBranchOutputSelector = {
+  const nextItem: OFIterationBranchOutputRef = {
     source_node_id: sourceNodeId,
     source_handle_id: sourceHandleId,
-    output_selector: outputSelector
+    output_ref: {
+      selector: outputSelector,
+      path: outputSelector.join('.')
+    }
   }
 
   if (existingIndex >= 0) {
@@ -611,7 +613,15 @@ function handleVariableSelect(event: Event) {
   if (detail?.nodeId !== uiStore.selectedNodeId) return
 
   if (detail.targetType === 'iteration-input') {
-    patchNode({ iterator_selector: detail.variable.valueSelector || [] })
+    patchNode({
+      iterator_ref: {
+        selector: detail.variable.valueSelector || [],
+        path: detail.variable.path,
+        label: detail.variable.label,
+        type: detail.variable.type,
+        schema: detail.variable.schema || null
+      }
+    })
     return
   }
 
@@ -625,7 +635,15 @@ function handleVariableSelect(event: Event) {
       return
     }
 
-    patchNode({ output_selector: detail.variable.valueSelector || [] })
+    patchNode({
+      output_ref: {
+        selector: detail.variable.valueSelector || [],
+        path: detail.variable.path,
+        label: detail.variable.label,
+        type: detail.variable.type,
+        schema: detail.variable.schema || null
+      }
+    })
   }
 }
 

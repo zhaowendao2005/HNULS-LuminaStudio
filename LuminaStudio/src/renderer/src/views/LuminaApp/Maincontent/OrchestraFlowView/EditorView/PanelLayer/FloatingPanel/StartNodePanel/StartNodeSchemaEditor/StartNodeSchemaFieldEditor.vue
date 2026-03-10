@@ -87,15 +87,15 @@
           />
 
           <div
-            v-if="field.type === 'object' || field.type === 'array'"
+            v-if="field.type === 'object'"
             class="text-[10px] uppercase tracking-[0.12em]"
             :class="levelTone.labelClass"
           >
-            {{ field.type === 'array' ? '类型: {}[]' : '类型: {}' }}
+            类型: {}
           </div>
         </div>
 
-        <div v-if="field.type === 'object' || field.type === 'array'" class="mt-1.5 pl-3">
+        <div v-if="field.type === 'object'" class="mt-1.5 pl-3">
           <div class="space-y-0">
             <StartNodeSchemaFieldEditor
               v-for="child in nestedFields"
@@ -138,7 +138,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-export type StartSchemaDraftType = 'string' | 'number' | 'boolean' | 'object' | 'array'
+export type StartSchemaDraftType = 'string' | 'number' | 'boolean' | 'object'
 
 export interface StartSchemaDraftField {
   id: string
@@ -146,7 +146,7 @@ export interface StartSchemaDraftField {
   type: StartSchemaDraftType
   required: boolean
   description?: string
-  default?: string | number | boolean | Record<string, any> | any[] | null
+  default?: string | number | boolean | Record<string, any> | null
   children?: StartSchemaDraftField[]
 }
 
@@ -164,8 +164,7 @@ const typeOptions = [
   { label: 'string', value: 'string' },
   { label: 'number', value: 'number' },
   { label: 'boolean', value: 'boolean' },
-  { label: 'object', value: 'object' },
-  { label: 'array', value: 'array' }
+  { label: 'object', value: 'object' }
 ]
 
 const nestedFields = computed(() => props.field.children || [])
@@ -207,8 +206,8 @@ function createField(type: StartSchemaDraftType = 'string'): StartSchemaDraftFie
     type,
     required: true,
     description: '',
-    default: type === 'object' ? {} : type === 'array' ? [] : undefined,
-    children: type === 'object' || type === 'array' ? [] : undefined
+    default: type === 'object' ? {} : undefined,
+    children: type === 'object' ? [] : undefined
   }
 }
 
@@ -220,15 +219,8 @@ function handleTypeChange(value: string | number | null) {
   const nextType = String(value || 'string') as StartSchemaDraftType
   emitPatch({
     type: nextType,
-    default:
-      nextType === 'object'
-        ? {}
-        : nextType === 'array'
-          ? []
-          : nextType === 'boolean'
-            ? false
-            : undefined,
-    children: nextType === 'object' || nextType === 'array' ? props.field.children || [] : undefined
+    default: nextType === 'object' ? {} : nextType === 'boolean' ? false : undefined,
+    children: nextType === 'object' ? props.field.children || [] : undefined
   })
 }
 
@@ -237,9 +229,7 @@ function typeTextClass(type: StartSchemaDraftType) {
   if (type === 'string') return active ? 'text-sky-700' : 'text-gray-400 hover:text-sky-600'
   if (type === 'number') return active ? 'text-violet-700' : 'text-gray-400 hover:text-violet-600'
   if (type === 'boolean') return active ? 'text-rose-700' : 'text-gray-400 hover:text-rose-600'
-  if (type === 'object')
-    return active ? levelTone.value.labelClass : 'text-gray-400 hover:text-emerald-600'
-  return active ? 'text-cyan-700' : 'text-gray-400 hover:text-cyan-600'
+  return active ? levelTone.value.labelClass : 'text-gray-400 hover:text-emerald-600'
 }
 
 function handleNumberDefaultInput(event: Event) {

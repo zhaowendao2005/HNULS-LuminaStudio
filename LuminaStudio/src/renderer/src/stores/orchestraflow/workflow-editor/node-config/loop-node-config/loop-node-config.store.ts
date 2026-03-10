@@ -5,6 +5,7 @@ import {
   OFBlockEnum,
   type OFContainerNodeDefinition,
   type OFIfElseCondition,
+  type OFValueSource,
   type OFNode,
   type OFLoopNodeData,
   type OFLoopNodeConfig,
@@ -34,6 +35,10 @@ function createDefaultLoopVariable(): OFLoopVariableData {
     variable: 'counter',
     label: '',
     type: OFVarType.Number,
+    value_source: {
+      mode: 'constant',
+      constant_value: 0
+    } as OFValueSource,
     value_type: 'constant',
     value: 0
   }
@@ -55,9 +60,12 @@ function createUniqueLoopVariableName(existingVariables: OFLoopVariableData[]): 
 function createDefaultCondition(): OFIfElseCondition {
   return {
     id: `loop_condition_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-    variable_selector: [],
-    variable_path: '',
-    variable_label: '',
+    variable_ref: {
+      selector: [],
+      path: '',
+      label: '',
+      type: OFVarType.Number
+    },
     variable_type: OFVarType.Number,
     operator: 'gte',
     compare_source_mode: 'constant',

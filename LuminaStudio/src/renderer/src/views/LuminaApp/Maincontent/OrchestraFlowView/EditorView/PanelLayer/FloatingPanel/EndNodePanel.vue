@@ -226,7 +226,7 @@
                   </span>
                 </div>
                 <div class="mt-1 text-xs text-gray-400">
-                  {{ output.value_selector?.join('.') || '未绑定变量路径' }}
+                  {{ getOFPathFromRef(output.value_ref) || '未绑定变量路径' }}
                 </div>
               </div>
               <button
@@ -299,7 +299,8 @@ import { useNodeDebugStore } from '@renderer/stores/orchestraflow/node-debug/nod
 import NodeDebugForm from './NodeDebug/NodeDebugForm.vue'
 import NodeDebugLastRun from './NodeDebug/NodeDebugLastRun.vue'
 import CapsuleTooltip from './components/CapsuleTooltip.vue'
-import type { OFEndNodeData, OFVarType } from '@shared/Orchestraflow-types'
+import type { OFEndNodeData, OFVariableRef, OFVarType } from '@shared/Orchestraflow-types'
+import { getOFPathFromRef } from '@shared/Orchestraflow-types'
 import type { NodeDebugField } from './NodeDebug/NodeDebugForm.vue'
 import { OF_PANEL_THEME } from './panel-theme'
 
@@ -331,7 +332,7 @@ const localOutputs = computed({
   set(
     newOutputs: Array<{
       variable: string
-      value_selector?: string[]
+      value_ref?: OFVariableRef
       type?: OFVarType
       label?: string
     }>
@@ -346,7 +347,7 @@ const localOutputs = computed({
 const debugFields = computed<NodeDebugField[]>(() => {
   const fieldMap = new Map<string, NodeDebugField>()
   for (const output of localOutputs.value) {
-    const selector = output.value_selector || []
+    const selector = output.value_ref?.selector || []
     if (selector.length === 0) continue
     const key = selector[0]
     if (!key || fieldMap.has(key)) continue
@@ -392,7 +393,10 @@ function addOutput() {
     ...localOutputs.value,
     {
       variable: '',
-      value_selector: [],
+      value_ref: {
+        selector: [],
+        path: ''
+      },
       type: 'string' as OFVarType
     }
   ]
@@ -488,7 +492,13 @@ function handleVariableSelect(event: CustomEvent) {
     {
       variable: varName,
       label: variable.label || varName,
-      value_selector: variable.valueSelector,
+      value_ref: {
+        selector: variable.valueSelector,
+        path: variable.path,
+        label: variable.label || varName,
+        type: variable.type as OFVarType | undefined,
+        schema: variable.schema || null
+      },
       type: variable.type as OFVarType | undefined,
       schema: variable.schema || null
     }

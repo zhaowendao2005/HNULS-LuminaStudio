@@ -11,8 +11,8 @@ import type {
   OFAIDslWorkflow,
   OFEdge,
   OFIfElseCondition,
+  OFIterationBranchOutputRef,
   OFIterationNodeData,
-  OFIterationBranchOutputSelector,
   OFLLMNodeData,
   OFLoopVariableData,
   OFNode,
@@ -280,9 +280,23 @@ function expectCompiledId(nodeId: string, idMap: Map<string, string>): string {
 function compileVariables(source: unknown[], idMap: Map<string, string>): OFVariable[] {
   return source.map((item) => {
     const variable = item as OFVariable
+    const selector = compileSelectorField(
+      variable.value_ref?.selector ?? variable.value_selector,
+      idMap
+    )
     return {
       ...variable,
-      value_selector: compileSelectorField(variable.value_selector, idMap)
+      value_ref: selector.length
+        ? {
+            ...(variable.value_ref || {}),
+            selector,
+            path: variable.value_ref?.path || selector.join('.'),
+            label: variable.value_ref?.label || variable.label || variable.variable,
+            type: variable.value_ref?.type || variable.type,
+            schema: variable.value_ref?.schema ?? variable.schema ?? null,
+            item_schema: variable.value_ref?.item_schema ?? variable.item_schema ?? null
+          }
+        : undefined
     }
   })
 }
@@ -290,9 +304,37 @@ function compileVariables(source: unknown[], idMap: Map<string, string>): OFVari
 function compileLoopVariables(source: unknown[], idMap: Map<string, string>): OFLoopVariableData[] {
   return source.map((item) => {
     const variable = item as OFLoopVariableData
+    const selector = compileSelectorField(
+      variable.value_source?.mode === 'variable'
+        ? variable.value_source.ref.selector
+        : variable.value_selector,
+      idMap
+    )
     return {
       ...variable,
-      value_selector: compileSelectorField(variable.value_selector, idMap)
+      value_source:
+        variable.value_source?.mode === 'constant'
+          ? variable.value_source
+          : selector.length
+            ? {
+                mode: 'variable',
+                ref: {
+                  ...(variable.value_source?.mode === 'variable' ? variable.value_source.ref : {}),
+                  selector,
+                  path:
+                    (variable.value_source?.mode === 'variable'
+                      ? variable.value_source.ref.path
+                      : undefined) || selector.join('.'),
+                  label: variable.label || variable.variable,
+                  type: variable.type,
+                  schema: variable.schema ?? null,
+                  item_schema: variable.item_schema ?? null
+                }
+              }
+            : {
+                mode: 'constant',
+                constant_value: variable.value
+              }
     }
   })
 }
@@ -300,10 +342,33 @@ function compileLoopVariables(source: unknown[], idMap: Map<string, string>): OF
 function compileConditions(source: unknown[], idMap: Map<string, string>): OFIfElseCondition[] {
   return source.map((item) => {
     const condition = item as OFIfElseCondition
+    const variableSelector = compileSelectorField(
+      condition.variable_ref?.selector ?? condition.variable_selector,
+      idMap
+    )
+    const compareSelector = compileSelectorField(
+      condition.compare_ref?.selector ?? condition.compare_selector,
+      idMap
+    )
     return {
       ...condition,
-      variable_selector: compileSelectorField(condition.variable_selector, idMap),
-      compare_selector: compileSelectorField(condition.compare_selector, idMap)
+      variable_ref: {
+        ...(condition.variable_ref || {}),
+        selector: variableSelector,
+        path: condition.variable_ref?.path || variableSelector.join('.'),
+        label: condition.variable_ref?.label,
+        type: condition.variable_ref?.type || condition.variable_type
+      },
+      compare_ref:
+        condition.compare_source_mode === 'variable' && compareSelector.length
+          ? {
+              ...(condition.compare_ref || {}),
+              selector: compareSelector,
+              path: condition.compare_ref?.path || compareSelector.join('.'),
+              label: condition.compare_ref?.label,
+              type: condition.compare_ref?.type || condition.compare_type
+            }
+          : undefined
     }
   })
 }
@@ -311,13 +376,24 @@ function compileConditions(source: unknown[], idMap: Map<string, string>): OFIfE
 function compileIterationBranchOutputSelectors(
   source: unknown[],
   idMap: Map<string, string>
-): OFIterationBranchOutputSelector[] {
+): OFIterationBranchOutputRef[] {
   return source.map((item) => {
     const selector = item as OFIterationBranchOutputSelector
     return {
       source_node_id: rewriteSelectorRoot(selector.source_node_id, idMap),
       source_handle_id: selector.source_handle_id,
-      output_selector: compileSelectorField(selector.output_selector, idMap)
+      output_ref: {
+        ...(selector.output_ref || {}),
+        selector: compileSelectorField(
+          selector.output_ref?.selector ?? selector.output_selector,
+          idMap
+        ),
+        path:
+          selector.output_ref?.path ||
+          selectorToPath(
+            compileSelectorField(selector.output_ref?.selector ?? selector.output_selector, idMap)
+          )
+      }
     }
   })
 }
@@ -351,6 +427,10 @@ function compileSelectorField(value: unknown, idMap: Map<string, string>): strin
   }
 
   return []
+}
+
+function selectorToPath(selector: string[]): string {
+  return selector.join('.')
 }
 
 function rewriteSelectorRoot(root: string, idMap: Map<string, string>): string {

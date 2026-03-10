@@ -36,26 +36,23 @@ function createLLMNode(): LLMNode {
 }
 
 describe('LLMNode structured output schema', () => {
-  it('supports array<object> structured output schemas', () => {
+  it('supports object structured output schemas', () => {
     const node = createLLMNode()
     const schema = (node as any).buildZodSchema({
-      type: 'array',
-      items: {
-        type: 'object',
-        properties: {
-          title: { type: 'string' },
-          score: { type: 'number' }
-        },
-        required: ['title'],
-        additionalProperties: false
-      }
+      type: 'object',
+      properties: {
+        title: { type: 'string' },
+        score: { type: 'number' }
+      },
+      required: ['title'],
+      additionalProperties: false
     })
 
-    expect(schema.parse([{ title: 'alpha', score: 1 }])).toEqual([{ title: 'alpha', score: 1 }])
-    expect(() => schema.parse([{ score: 1 }])).toThrow()
+    expect(schema.parse({ title: 'alpha', score: 1 })).toEqual({ title: 'alpha', score: 1 })
+    expect(() => schema.parse({ score: 1 })).toThrow()
   })
 
-  it('supports nested object and array schemas', () => {
+  it('supports nested object schemas', () => {
     const node = createLLMNode()
     const schema = (node as any).buildZodSchema({
       type: 'object',
@@ -63,11 +60,7 @@ describe('LLMNode structured output schema', () => {
         profile: {
           type: 'object',
           properties: {
-            name: { type: 'string' },
-            tags: {
-              type: 'array',
-              items: { type: 'string' }
-            }
+            name: { type: 'string' }
           },
           required: ['name'],
           additionalProperties: false
@@ -80,40 +73,35 @@ describe('LLMNode structured output schema', () => {
     expect(
       schema.parse({
         profile: {
-          name: 'Lumina',
-          tags: ['alpha', 'beta']
+          name: 'Lumina'
         }
       })
     ).toEqual({
       profile: {
-        name: 'Lumina',
-        tags: ['alpha', 'beta']
+        name: 'Lumina'
       }
     })
-    expect(() => schema.parse({ profile: { tags: ['alpha'] } })).toThrow()
+    expect(() => schema.parse({ profile: {} })).toThrow()
   })
 
-  it('marks structured_output as array when schema root is array<object>', () => {
+  it('marks structured_output as object when schema root is object', () => {
     const variables =
       resolveOFNodeDefinition(OFBlockEnum.LLM).variables.buildRuntimeOutputVariables?.({
         title: 'llm',
         structuredOutput: {
           enabled: true,
           schema: {
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                name: { type: 'string' }
-              },
-              required: ['name'],
-              additionalProperties: false
-            }
+            type: 'object',
+            properties: {
+              name: { type: 'string' }
+            },
+            required: ['name'],
+            additionalProperties: false
           }
         }
       }) || []
 
     const structuredOutput = variables.find((item) => item.variable === 'structured_output')
-    expect(structuredOutput?.type).toBe(OFVarType.Array)
+    expect(structuredOutput?.type).toBe(OFVarType.Object)
   })
 })

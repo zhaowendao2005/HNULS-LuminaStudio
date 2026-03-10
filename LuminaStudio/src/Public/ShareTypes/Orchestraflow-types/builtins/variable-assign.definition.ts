@@ -10,6 +10,10 @@ import {
 import type { OFVariableAssignNodeData } from '../core-types'
 import { OFBlockEnum } from '../core-types'
 import { omitOFEmptySelector, omitOFNullSchemaFields } from './helpers'
+import {
+  collectOFSelectorVariableRoots,
+  normalizeOFRunnableNodeSelectorData
+} from '../selector-utils'
 
 function buildOutputs(title: string, rules: OFVariableAssignNodeData['rules'], nodeId: string) {
   return variableAssignOutputVariableDefinition.build({
@@ -86,12 +90,21 @@ export const variableAssignNodeDefinition =
       normalizeData({ node }) {
         const data = node.data as Partial<OFVariableAssignNodeData>
         const title = normalizeOFNodeTitle(OFBlockEnum.VariableAssign, data.title)
+        const normalized = {
+          ...data,
+          rules: data.rules || []
+        } as OFVariableAssignNodeData
+        normalizeOFRunnableNodeSelectorData(
+          OFBlockEnum.VariableAssign,
+          normalized as unknown as Record<string, any>,
+          collectOFSelectorVariableRoots([node])
+        )
         return {
           ...buildOFCommonNodeShape(data, title),
           type: OFBlockEnum.VariableAssign,
-          rules: data.rules || [],
+          rules: normalized.rules,
           output: {
-            variables: buildOutputs(title, data.rules || [], node.id)
+            variables: buildOutputs(title, normalized.rules || [], node.id)
           }
         }
       }
@@ -101,7 +114,20 @@ export const variableAssignNodeDefinition =
         const rules = (node.config.rules || []).map(
           (item: OFVariableAssignNodeData['rules'][number]) => ({
             ...item,
-            source_selector: helpers.compileSelectorField(item.source_selector)
+            source:
+              item.source?.mode === 'constant'
+                ? item.source
+                : {
+                    mode: 'variable',
+                    ref: {
+                      ...(item.source?.mode === 'variable' ? item.source.ref : {}),
+                      selector: helpers.compileSelectorField(
+                        item.source?.mode === 'variable'
+                          ? item.source.ref.selector
+                          : item.source_selector
+                      )
+                    }
+                  }
           })
         )
         return {
