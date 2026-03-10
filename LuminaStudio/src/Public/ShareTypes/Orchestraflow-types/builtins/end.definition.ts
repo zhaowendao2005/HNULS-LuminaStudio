@@ -77,7 +77,7 @@ export const endNodeDefinition = defineStandardOFNodeDefinition<OFEndNodeData>({
       } as OFEndNodeData
       normalizeOFRunnableNodeSelectorData(
         OFBlockEnum.End,
-        normalized as unknown as Record<string, any>,
+        normalized as unknown as Record<string, unknown>,
         collectOFSelectorVariableRoots([node])
       )
       return {

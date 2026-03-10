@@ -13,6 +13,7 @@ import { OFBlockEnum } from '../core-types'
 import { omitOFNullSchemaFields } from './helpers'
 import {
   collectOFSelectorVariableRoots,
+  getOFSelectorFromRef,
   normalizeOFRunnableNodeSelectorData
 } from '../selector-utils'
 
@@ -217,7 +218,7 @@ export const iterationNodeDefinition = defineContainerOFNodeDefinition<OFIterati
       } as OFIterationNodeData
       normalizeOFRunnableNodeSelectorData(
         OFBlockEnum.Iteration,
-        normalized as unknown as Record<string, any>,
+        normalized as unknown as Record<string, unknown>,
         collectOFSelectorVariableRoots([node])
       )
 
@@ -227,8 +228,11 @@ export const iterationNodeDefinition = defineContainerOFNodeDefinition<OFIterati
         width: data.width || DEFAULT_WIDTH,
         height: data.height || DEFAULT_HEIGHT,
         iterator_ref: normalized.iterator_ref,
+        iterator_selector: getOFSelectorFromRef(normalized.iterator_ref),
         output_ref: normalized.output_ref,
+        output_selector: getOFSelectorFromRef(normalized.output_ref),
         branch_output_refs: normalized.branch_output_refs || [],
+        branch_output_selectors: data.branch_output_selectors || [],
         start_node_id: normalized.start_node_id,
         subgraph,
         parallel_mode: data.parallel_mode || 'sequential',
@@ -260,14 +264,21 @@ export const iterationNodeDefinition = defineContainerOFNodeDefinition<OFIterati
             node.config.iterator_ref?.selector || node.config.iterator_selector
           )
         },
+        iterator_selector: helpers.compileSelectorField(
+          node.config.iterator_ref?.selector || node.config.iterator_selector
+        ),
         output_ref: {
           selector: helpers.compileSelectorField(
             node.config.output_ref?.selector || node.config.output_selector
           )
         },
+        output_selector: helpers.compileSelectorField(
+          node.config.output_ref?.selector || node.config.output_selector
+        ),
         branch_output_refs: helpers.compileIterationBranchOutputSelectors(
           node.config.branch_output_selectors || []
         ),
+        branch_output_selectors: node.config.branch_output_selectors || [],
         start_node_id: `${compiledId}-iteration-start`,
         subgraph: compiledSubgraph.graph,
         parallel_mode: node.config.parallel_mode || 'sequential',

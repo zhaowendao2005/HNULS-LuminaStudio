@@ -161,8 +161,7 @@ import {
   OFBlockEnum,
   OFVarType as OFVarTypeEnum,
   OF_LOOP_COUNT_VARIABLE_NAME,
-  OF_LOOP_INDEX_VARIABLE_NAME,
-  getOFSelectorFromRef
+  OF_LOOP_INDEX_VARIABLE_NAME
 } from '@shared/Orchestraflow-types'
 import { useWorkflowEditorUIStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor-ui.store'
 import { useWorkflowEditorStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor.store'

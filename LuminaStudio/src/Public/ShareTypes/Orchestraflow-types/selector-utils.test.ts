@@ -15,7 +15,7 @@ describe('selector-utils', () => {
   })
 
   it('repairs legacy ifelse compare_selector misuse', () => {
-    const data: Record<string, any> = {
+    const data: Record<string, unknown> = {
       type: OFBlockEnum.IfElse,
       cases: [
         {

@@ -198,10 +198,6 @@ function cycleType(item: OFLoopVariableData) {
   })
 }
 
-function formatSelector(selector?: string[]) {
-  return selector?.length ? selector.join('.') : ''
-}
-
 function getValuePath(item: OFLoopVariableData): string {
   return getOFValueSourcePath(item.value_source)
 }

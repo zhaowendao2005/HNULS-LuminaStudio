@@ -4,7 +4,7 @@ import {
   normalizeOFNodeTitle
 } from '../node-definition'
 import { ensureOFSelectableVariables, llmOutputVariableDefinition } from '../variable-definition'
-import type { OFLLMNodeData } from '../core-types'
+import type { OFLLMNodeData, OFModelConfig, OFStructuredOutputConfig } from '../core-types'
 import { OFBlockEnum } from '../core-types'
 import { omitOFField, omitOFNullSchemaFields } from './helpers'
 
@@ -13,6 +13,24 @@ function buildOutputs(title: string, structuredOutput?: OFLLMNodeData['structure
     namespace: title,
     structuredOutput: structuredOutput ?? undefined
   })
+}
+
+function createDefaultModel(): OFModelConfig {
+  return {
+    provider: '',
+    name: '',
+    completion_params: {
+      temperature: 1,
+      top_p: 1
+    }
+  }
+}
+
+function createDefaultStructuredOutput(): OFStructuredOutputConfig {
+  return {
+    enabled: false,
+    schema: null
+  }
 }
 
 export const llmNodeDefinition = defineStandardOFNodeDefinition<OFLLMNodeData>({
@@ -79,22 +97,12 @@ export const llmNodeDefinition = defineStandardOFNodeDefinition<OFLLMNodeData>({
   },
   editor: {
     createDefaultData({ title }) {
-      const structured_output = {
-        enabled: false,
-        schema: null
-      }
+      const structured_output = createDefaultStructuredOutput()
       return {
         title,
         desc: '',
         type: OFBlockEnum.LLM,
-        model: {
-          provider: '',
-          name: '',
-          completion_params: {
-            temperature: 1,
-            top_p: 1
-          }
-        },
+        model: createDefaultModel(),
         prompt_template: [],
         structured_output,
         output: {
@@ -105,21 +113,11 @@ export const llmNodeDefinition = defineStandardOFNodeDefinition<OFLLMNodeData>({
     normalizeData({ node }) {
       const data = node.data as Partial<OFLLMNodeData>
       const title = normalizeOFNodeTitle(OFBlockEnum.LLM, data.title)
-      const structured_output = data.structured_output || {
-        enabled: false,
-        schema: null
-      }
+      const structured_output = data.structured_output || createDefaultStructuredOutput()
       return {
         ...buildOFCommonNodeShape(data, title),
         type: OFBlockEnum.LLM,
-        model: data.model || {
-          provider: '',
-          name: '',
-          completion_params: {
-            temperature: 1,
-            top_p: 1
-          }
-        },
+        model: data.model || createDefaultModel(),
         prompt_template: data.prompt_template || [],
         context: data.context,
         memory: data.memory,
@@ -133,19 +131,20 @@ export const llmNodeDefinition = defineStandardOFNodeDefinition<OFLLMNodeData>({
   },
   compiler: {
     compileData({ node, title, desc, helpers }) {
-      const structuredOutput = {
+      const structuredOutput: OFStructuredOutputConfig = {
         enabled: Boolean(node.config.structured_output?.enabled),
-        schema: node.config.structured_output?.schema || null
+        schema:
+          (node.config.structured_output?.schema as OFStructuredOutputConfig['schema']) || null
       }
       return {
         title,
         desc,
         type: OFBlockEnum.LLM,
-        model: node.config.model || { provider: '', name: '' },
-        prompt_template: node.config.prompt_template || [],
+        model: (node.config.model as OFModelConfig | undefined) || createDefaultModel(),
+        prompt_template: (node.config.prompt_template as OFLLMNodeData['prompt_template']) || [],
         context: helpers.compileNodeContext(node.config.context),
-        memory: node.config.memory,
-        vision: node.config.vision,
+        memory: node.config.memory as OFLLMNodeData['memory'],
+        vision: node.config.vision as OFLLMNodeData['vision'],
         structured_output: structuredOutput,
         output: {
           variables: buildOutputs(title, structuredOutput)

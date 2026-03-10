@@ -96,7 +96,7 @@ export const variableAssignNodeDefinition =
         } as OFVariableAssignNodeData
         normalizeOFRunnableNodeSelectorData(
           OFBlockEnum.VariableAssign,
-          normalized as unknown as Record<string, any>,
+          normalized as unknown as Record<string, unknown>,
           collectOFSelectorVariableRoots([node])
         )
         return {

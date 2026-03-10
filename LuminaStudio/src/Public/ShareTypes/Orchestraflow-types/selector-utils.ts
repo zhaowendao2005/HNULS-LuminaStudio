@@ -1,5 +1,11 @@
 import {
   OFBlockEnum,
+  type OFIfElseCase,
+  type OFIfElseCondition,
+  type OFJsonSchemaObject,
+  type OFLoopVariableData,
+  type OFNode,
+  type OFVariable,
   type OFIterationBranchOutputRef,
   type OFSelectorRef,
   type OFStructuredJsonSchema,
@@ -9,6 +15,32 @@ import {
 } from './core-types'
 
 type MutableRecord = Record<string, unknown>
+
+function toRecord(value: unknown): MutableRecord | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as MutableRecord)
+    : null
+}
+
+function toVariableList(value: unknown): OFVariable[] {
+  return Array.isArray(value) ? (value as OFVariable[]) : []
+}
+
+function toLoopVariableList(value: unknown): OFLoopVariableData[] {
+  return Array.isArray(value) ? (value as OFLoopVariableData[]) : []
+}
+
+function toConditionList(value: unknown): OFIfElseCondition[] {
+  return Array.isArray(value) ? (value as OFIfElseCondition[]) : []
+}
+
+function toCaseList(value: unknown): OFIfElseCase[] {
+  return Array.isArray(value) ? (value as OFIfElseCase[]) : []
+}
+
+function toNodeList(value: unknown): OFNode[] {
+  return Array.isArray(value) ? (value as OFNode[]) : []
+}
 
 function toNonEmptySegments(value: unknown): string[] {
   if (!Array.isArray(value)) return []
@@ -94,10 +126,23 @@ export function normalizeOFVariableRef(
           ? legacy.label
           : undefined,
     type: (refRecord?.type ?? legacy.type) as OFVarType | undefined,
-    schema:
-      ((refRecord?.schema ?? legacy.schema) as OFStructuredJsonSchema | null | undefined) ?? null,
+    schema: resolveStructuredSchema(refRecord?.schema ?? legacy.schema),
     item_schema: refRecord?.item_schema ?? legacy.item_schema ?? null
   }
+}
+
+function resolveStructuredSchema(value: unknown): OFStructuredJsonSchema | null {
+  const record = toRecord(value)
+  if (
+    record &&
+    record.type === 'object' &&
+    typeof record.properties === 'object' &&
+    Array.isArray(record.required) &&
+    record.additionalProperties === false
+  ) {
+    return record as OFJsonSchemaObject
+  }
+  return null
 }
 
 export function normalizeOFValueSource(
@@ -353,12 +398,12 @@ export function collectOFSelectorVariableRoots(nodes: unknown[]): string[] {
   function visitNode(node: unknown): void {
     if (!node || typeof node !== 'object') return
     const record = node as MutableRecord
-    const data =
-      record.data && typeof record.data === 'object' ? (record.data as MutableRecord) : null
+    const data = toRecord(record.data)
     if (!data) return
 
     if (data.type === OFBlockEnum.Start) {
-      for (const variable of data.input?.variables || []) {
+      const input = toRecord(data.input)
+      for (const variable of toVariableList(input?.variables)) {
         if (typeof variable?.variable === 'string' && variable.variable.trim()) {
           roots.add(variable.variable.trim())
         }
@@ -366,7 +411,7 @@ export function collectOFSelectorVariableRoots(nodes: unknown[]): string[] {
     }
 
     if (data.type === OFBlockEnum.Loop) {
-      for (const variable of data.loop_variables || []) {
+      for (const variable of toLoopVariableList(data.loop_variables)) {
         if (typeof variable?.variable === 'string' && variable.variable.trim()) {
           roots.add(variable.variable.trim())
         }
@@ -374,7 +419,8 @@ export function collectOFSelectorVariableRoots(nodes: unknown[]): string[] {
     }
 
     if (data.type === OFBlockEnum.Iteration || data.type === OFBlockEnum.Loop) {
-      for (const child of data.subgraph?.nodes || []) {
+      const subgraph = toRecord(data.subgraph)
+      for (const child of toNodeList(subgraph?.nodes)) {
         visitNode(child)
       }
     }
@@ -394,7 +440,7 @@ export function normalizeOFRunnableNodeSelectorData(
 ): void {
   switch (nodeType) {
     case OFBlockEnum.Start:
-      for (const variable of data.input?.variables || []) {
+      for (const variable of toVariableList(toRecord(data.input)?.variables)) {
         const valueRef = normalizeOFVariableRef(
           variable?.value_ref,
           {
@@ -416,8 +462,8 @@ export function normalizeOFRunnableNodeSelectorData(
       return
 
     case OFBlockEnum.IfElse:
-      for (const item of data.cases || []) {
-        for (const condition of item.conditions || []) {
+      for (const item of toCaseList(data.cases)) {
+        for (const condition of toConditionList(item.conditions)) {
           normalizeIfElseCondition(condition, variableRoots)
         }
       }
@@ -448,7 +494,11 @@ export function normalizeOFRunnableNodeSelectorData(
       )
       if (outputRef) data.output_ref = outputRef
 
-      data.branch_output_refs = (data.branch_output_refs || data.branch_output_selectors || [])
+      data.branch_output_refs = (
+        Array.isArray(data.branch_output_refs)
+          ? data.branch_output_refs
+          : data.branch_output_selectors || []
+      )
         .map((item: MutableRecord) => normalizeIterationBranchOutputRef(item, variableRoots))
         .filter(Boolean)
 
@@ -456,15 +506,19 @@ export function normalizeOFRunnableNodeSelectorData(
       delete data.output_selector
       delete data.branch_output_selectors
 
-      for (const child of data.subgraph?.nodes || []) {
+      for (const child of toNodeList(toRecord(data.subgraph)?.nodes)) {
         if (!child?.data || typeof child.data !== 'object') continue
-        normalizeOFRunnableNodeSelectorData(child.data.type, child.data, variableRoots)
+        normalizeOFRunnableNodeSelectorData(
+          child.data.type,
+          child.data as MutableRecord,
+          variableRoots
+        )
       }
       return
     }
 
     case OFBlockEnum.Loop:
-      for (const variable of data.loop_variables || []) {
+      for (const variable of toLoopVariableList(data.loop_variables)) {
         const valueSource = normalizeOFValueSource(
           variable?.value_source,
           {
@@ -486,18 +540,22 @@ export function normalizeOFRunnableNodeSelectorData(
         delete variable.value_selector
       }
 
-      for (const condition of data.break_conditions || []) {
+      for (const condition of toConditionList(data.break_conditions)) {
         normalizeIfElseCondition(condition, variableRoots)
       }
 
-      for (const child of data.subgraph?.nodes || []) {
+      for (const child of toNodeList(toRecord(data.subgraph)?.nodes)) {
         if (!child?.data || typeof child.data !== 'object') continue
-        normalizeOFRunnableNodeSelectorData(child.data.type, child.data, variableRoots)
+        normalizeOFRunnableNodeSelectorData(
+          child.data.type,
+          child.data as MutableRecord,
+          variableRoots
+        )
       }
       return
 
     case OFBlockEnum.VariableAssign:
-      for (const rule of data.rules || []) {
+      for (const rule of Array.isArray(data.rules) ? data.rules : []) {
         const source = normalizeOFValueSource(
           rule?.source,
           {
@@ -528,7 +586,7 @@ export function normalizeOFRunnableNodeSelectorData(
       return
 
     case OFBlockEnum.End:
-      for (const variable of data.output?.variables || []) {
+      for (const variable of toVariableList(toRecord(data.output)?.variables)) {
         const valueRef = normalizeOFVariableRef(
           variable?.value_ref,
           {

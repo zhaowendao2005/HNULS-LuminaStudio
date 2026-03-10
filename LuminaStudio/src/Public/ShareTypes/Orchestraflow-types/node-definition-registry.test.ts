@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
   OFBlockEnum,
+  OFVarType,
   type OFNode,
+  type OFIfElseCondition,
+  type OFIterationBranchOutputRef,
+  type OFLoopVariableData,
+  type OFVariable,
   defineContainerOFNodeDefinition,
   defineInternalStartOFNodeDefinition,
   defineStandardOFNodeDefinition,
@@ -14,18 +19,18 @@ import {
 
 const compilerHelpers = {
   compileVariables(source: unknown[]) {
-    return source as unknown[]
+    return source as OFVariable[]
   },
   compileLoopVariables(source: unknown[]) {
-    return source as unknown[]
+    return source as OFLoopVariableData[]
   },
   compileConditions(source: unknown[]) {
-    return source as unknown[]
+    return source as OFIfElseCondition[]
   },
   compileIterationBranchOutputSelectors(source: unknown[]) {
-    return source as unknown[]
+    return source as OFIterationBranchOutputRef[]
   },
-  compileNodeContext(value: unknown) {
+  compileNodeContext(value: { enabled: boolean; variable_selector?: string[] } | undefined) {
     return value
   },
   compileSelectorField(value: unknown) {
@@ -85,7 +90,7 @@ function createNode(type: OFBlockEnum, id = `node-${type}`, title?: string): OFN
   }
 }
 
-function createDslNode(type: OFBlockEnum): Record<string, unknown> {
+function createDslNode(type: OFBlockEnum) {
   switch (type) {
     case OFBlockEnum.Start:
       return { id: 'start', type, config: { input: { variables: [] } } }

@@ -29,7 +29,7 @@ export interface OFFieldContract {
 export interface OFInvariantContract {
   id: string
   level: 'error'
-  scope: 'workflow' | 'node' | 'subgraph' | 'edge' | 'selector'
+  scope: 'workflow' | 'node' | 'subgraph' | 'edge' | 'selector' | 'variable'
   summary: string
 }
 

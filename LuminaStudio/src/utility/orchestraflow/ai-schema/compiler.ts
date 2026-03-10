@@ -11,6 +11,7 @@ import type {
   OFAIDslWorkflow,
   OFEdge,
   OFIfElseCondition,
+  OFIterationBranchOutputSelector,
   OFIterationBranchOutputRef,
   OFIterationNodeData,
   OFLLMNodeData,
@@ -403,9 +404,10 @@ function compileNodeContext(
   idMap: Map<string, string>
 ): OFLLMNodeData['context'] {
   if (!value) return value
+  const variableSelector = compileSelectorField(value.variable_selector, idMap)
   return {
     ...value,
-    variable_selector: compileSelectorField(value.variable_selector, idMap)
+    variable_selector: variableSelector.length ? variableSelector : undefined
   }
 }
 

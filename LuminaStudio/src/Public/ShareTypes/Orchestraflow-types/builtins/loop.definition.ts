@@ -238,7 +238,7 @@ export const loopNodeDefinition = defineContainerOFNodeDefinition<OFLoopNodeData
       } as OFLoopNodeData
       normalizeOFRunnableNodeSelectorData(
         OFBlockEnum.Loop,
-        normalized as unknown as Record<string, any>,
+        normalized as unknown as Record<string, unknown>,
         collectOFSelectorVariableRoots([node])
       )
 
@@ -250,7 +250,7 @@ export const loopNodeDefinition = defineContainerOFNodeDefinition<OFLoopNodeData
         loop_count: Math.max(1, Number(data.loop_count || 10)),
         loop_variables: normalized.loop_variables,
         break_conditions: normalized.break_conditions || [],
-        logical_operator: data.logical_operator || 'and',
+        logical_operator: normalized.logical_operator || 'and',
         start_node_id: normalized.start_node_id,
         subgraph,
         output: {
@@ -278,7 +278,8 @@ export const loopNodeDefinition = defineContainerOFNodeDefinition<OFLoopNodeData
         loop_count: Number(node.config.loop_count || 1),
         loop_variables: loopVariables,
         break_conditions: helpers.compileConditions(node.config.break_conditions || []),
-        logical_operator: node.config.logical_operator || 'and',
+        logical_operator:
+          (node.config.logical_operator as OFLoopNodeData['logical_operator']) || 'and',
         start_node_id: `${compiledId}-loop-start`,
         subgraph: compiledSubgraph.graph,
         output: {

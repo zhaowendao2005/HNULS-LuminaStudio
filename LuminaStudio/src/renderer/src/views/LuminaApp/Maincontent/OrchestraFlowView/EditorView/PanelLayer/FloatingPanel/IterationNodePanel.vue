@@ -334,7 +334,6 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type {
   OFIterationErrorHandleMode,
   OFIterationBranchOutputRef,
-  OFIterationBranchOutputSelector,
   OFIfElseNodeData,
   OFIterationNodeData,
   OFVarType
@@ -543,10 +542,6 @@ function openBranchOutputVariableSelector(
       branchSourceHandleId: branchTarget.sourceHandleId
     }
   )
-}
-
-function formatSelector(selector?: string[]) {
-  return selector?.length ? selector.join('.') : ''
 }
 
 function getBranchSelectorDisplayText(branchTarget: {

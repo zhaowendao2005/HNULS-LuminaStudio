@@ -82,7 +82,7 @@ export const startNodeDefinition = defineStandardOFNodeDefinition<OFStartNodeDat
       } as OFStartNodeData
       normalizeOFRunnableNodeSelectorData(
         OFBlockEnum.Start,
-        normalized as unknown as Record<string, any>,
+        normalized as unknown as Record<string, unknown>,
         collectOFSelectorVariableRoots([node])
       )
       return {

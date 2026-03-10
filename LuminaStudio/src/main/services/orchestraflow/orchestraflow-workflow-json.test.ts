@@ -242,7 +242,12 @@ describe('orchestraflow workflow jsonc helpers', () => {
 
     const parsed = parseRunnableWorkflowJsonc(source)
     const branch = parsed.graph.nodes.find((node) => node.id === 'branch')
-    const condition = (branch?.data as any).cases[0].conditions[0]
+    const condition = (branch?.data as { cases: Array<{ conditions: unknown[] }> }).cases[0]
+      .conditions[0] as {
+      variable_selector?: string[]
+      compare_selector?: string[]
+      compare_source_mode?: string
+    }
 
     expect(condition.variable_selector).toEqual(['content_package', 'config', 'process_mode'])
     expect(condition.compare_selector).toBeUndefined()

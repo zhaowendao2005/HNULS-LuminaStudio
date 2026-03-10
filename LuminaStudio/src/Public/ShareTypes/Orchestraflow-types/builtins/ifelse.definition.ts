@@ -10,6 +10,7 @@ import {
   collectOFSelectorVariableRoots,
   normalizeOFRunnableNodeSelectorData
 } from '../selector-utils'
+import type { OFIfElseElseCase } from '../core-types'
 
 export const ifElseNodeDefinition = defineStandardOFNodeDefinition<OFIfElseNodeData>({
   meta: {
@@ -116,7 +117,7 @@ export const ifElseNodeDefinition = defineStandardOFNodeDefinition<OFIfElseNodeD
       } as OFIfElseNodeData
       normalizeOFRunnableNodeSelectorData(
         OFBlockEnum.IfElse,
-        normalized as unknown as Record<string, any>,
+        normalized as unknown as Record<string, unknown>,
         collectOFSelectorVariableRoots([node])
       )
       return {
@@ -137,7 +138,7 @@ export const ifElseNodeDefinition = defineStandardOFNodeDefinition<OFIfElseNodeD
           ...item,
           conditions: helpers.compileConditions(item.conditions || [])
         })),
-        elseCase: node.config.elseCase || {
+        elseCase: (node.config.elseCase as OFIfElseElseCase | undefined) || {
           handleId: 'else',
           label: 'ELSE'
         }
