@@ -59,6 +59,9 @@ importers:
       langchain:
         specifier: ^1.2.18
         version: 1.2.18(@langchain/core@1.1.19(@opentelemetry/api@1.9.0)(openai@6.18.0(zod@4.3.6)))(@opentelemetry/api@1.9.0)(openai@6.18.0(zod@4.3.6))(zod-to-json-schema@3.25.1(zod@4.3.6))
+      lucide-vue-next:
+        specifier: ^0.577.0
+        version: 0.577.0(vue@3.5.27(typescript@5.9.3))
       markdown-it:
         specifier: ^14.1.0
         version: 14.1.0
@@ -2708,6 +2711,11 @@ packages:
   lru-cache@6.0.0:
     resolution: {integrity: sha512-Jo6dJ04CmSjuznwJSS3pUeWmd/H0ffTlkXXgwZi+eq1UCmqQwCh+eLsYOYCwY991i2Fah4h1BEMCx4qThGbsiA==}
     engines: {node: '>=10'}
+
+  lucide-vue-next@0.577.0:
+    resolution: {integrity: sha512-py05bAfv9SHVJqscbiOnjcnLlEmOffA58a+7XhZuFxrs6txe1E8VoR1ngWGTYO+9aVKABAz8l3ee3PqiQN9QPA==}
+    peerDependencies:
+      vue: '>=3.0.1'
 
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
@@ -6554,6 +6562,10 @@ snapshots:
   lru-cache@6.0.0:
     dependencies:
       yallist: 4.0.0
+
+  lucide-vue-next@0.577.0(vue@3.5.27(typescript@5.9.3)):
+    dependencies:
+      vue: 3.5.27(typescript@5.9.3)
 
   magic-string@0.30.21:
     dependencies:

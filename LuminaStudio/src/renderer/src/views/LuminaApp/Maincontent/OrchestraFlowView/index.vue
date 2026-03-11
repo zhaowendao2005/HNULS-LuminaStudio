@@ -1,9 +1,13 @@
 <template>
-  <div class="of-main-view h-full w-full flex flex-col">
-    <!-- Grid 视图：工作流列表页 -->
-    <GridView v-if="viewMode === 'grid'" @open-workflow="handleOpenWorkflow" />
+  <div class="of-main-view flex h-full w-full flex-col">
+    <GridView
+      v-if="viewMode === 'grid'"
+      @open-workflow="handleOpenWorkflow"
+      @open-generate="handleOpenGenerate"
+    />
 
-    <!-- Editor 视图：工作流编辑器 -->
+    <GenerateView v-else-if="viewMode === 'generate'" />
+
     <EditorView
       v-else-if="viewMode === 'editor'"
       :workflow-id="currentWorkflowId"
@@ -13,21 +17,46 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import GridView from './GridView/index.vue'
 import EditorView from './EditorView/index.vue'
+import GenerateView from './GenerateView/index.vue'
 
-// 视图模式：grid（列表）或 editor（编辑器）
-const viewMode = ref<'grid' | 'editor'>('grid')
+const props = withDefaults(
+  defineProps<{
+    resetToken?: number
+  }>(),
+  {
+    resetToken: 0
+  }
+)
+
+const viewMode = ref<'grid' | 'generate' | 'editor'>('grid')
 const currentWorkflowId = ref<string | null>(null)
+
+function resetToGrid() {
+  viewMode.value = 'grid'
+  currentWorkflowId.value = null
+}
 
 function handleOpenWorkflow(workflowId: string) {
   currentWorkflowId.value = workflowId
   viewMode.value = 'editor'
 }
 
-function handleBack() {
-  viewMode.value = 'grid'
+function handleOpenGenerate() {
   currentWorkflowId.value = null
+  viewMode.value = 'generate'
 }
+
+function handleBack() {
+  resetToGrid()
+}
+
+watch(
+  () => props.resetToken,
+  () => {
+    resetToGrid()
+  }
+)
 </script>

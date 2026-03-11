@@ -51,6 +51,7 @@
     "electron-log": "^5.4.3",
     "electron-updater": "^6.3.9",
     "langchain": "^1.2.18",
+    "lucide-vue-next": "^0.577.0",
     "markdown-it": "^14.1.0",
     "pinia": "^3.0.4",
     "pinia-plugin-persistedstate": "^4.7.1",
