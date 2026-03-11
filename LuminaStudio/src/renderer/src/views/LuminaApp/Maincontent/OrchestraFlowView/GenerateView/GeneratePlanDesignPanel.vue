@@ -14,14 +14,27 @@
         <div
           class="flex h-12 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4"
         >
-          <div class="flex items-center gap-2">
-            <GitBranch :size="16" class="text-gray-400" />
-            <h3 class="text-[13px] font-semibold text-gray-800">{{ panelTitle }}</h3>
-            <span class="ml-2 rounded bg-cyan-50 px-1.5 py-0.5 text-[10px] text-cyan-600">
+          <div class="flex min-w-0 items-center gap-2 overflow-hidden">
+            <GitBranch :size="16" class="shrink-0 text-gray-400" />
+            <h3 class="truncate text-[13px] font-semibold text-gray-800">{{ panelTitle }}</h3>
+            <span class="truncate rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">
               {{ session.title }}
             </span>
           </div>
-          <div class="flex items-center gap-1">
+          <div class="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              :title="autoApproved ? '关闭自动批准' : '开启自动批准'"
+              :class="[
+                'rounded border px-2 py-1 text-[10px] font-semibold transition-colors',
+                autoApproved
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                  : 'border-violet-200 bg-violet-50 text-violet-700'
+              ]"
+              @click="$emit('toggle-auto-approved')"
+            >
+              Auto Approved
+            </button>
             <button
               type="button"
               :title="isFullscreen ? '退出全屏' : '全屏'"
@@ -34,7 +47,7 @@
             <div class="mx-1 h-3 w-px bg-gray-200"></div>
             <button
               type="button"
-              class="rounded p-1.5 text-gray-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
+              class="rounded p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
               @click="$emit('close')"
             >
               <X :size="16" />
@@ -52,16 +65,31 @@
             <div
               class="flex items-center justify-between border-b border-gray-100 bg-gray-50/50 px-3 py-2"
             >
-              <div class="flex items-center gap-2">
-                <FileText :size="14" class="text-gray-400" />
-                <span class="text-xs font-semibold text-gray-700">{{ document.fileName }}</span>
-                <span class="ml-1 text-[10px] text-gray-400">● 已自动合并最新修改</span>
+              <div class="flex min-w-0 items-center gap-2 overflow-hidden">
+                <FileText :size="14" class="shrink-0 text-gray-400" />
+                <span class="truncate text-xs font-semibold text-gray-700">
+                  {{ document.fileName }}
+                </span>
+                <span class="truncate text-[10px] text-gray-400">
+                  {{ autoApproved ? '● 已自动合并最新修改' : '● 等待确认当前 diff' }}
+                </span>
               </div>
-              <span
-                class="rounded bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700"
-              >
-                Auto Approved
-              </span>
+              <div v-if="!autoApproved" class="flex shrink-0 gap-2">
+                <button
+                  type="button"
+                  class="text-[11px] text-gray-500 hover:text-gray-800"
+                  @click="$emit('reset-pending')"
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  class="rounded-sm border border-gray-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-gray-700 hover:bg-gray-50"
+                  @click="$emit('apply-pending')"
+                >
+                  确认
+                </button>
+              </div>
             </div>
 
             <div class="flex-1 overflow-y-auto bg-[#fafafa]">
@@ -113,7 +141,7 @@
                 class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-gray-500"
               >
                 <RefreshCw :size="12" />
-                Auto Copilot
+                Copilot
               </span>
             </div>
 
@@ -169,7 +197,7 @@
                 />
                 <button
                   type="button"
-                  class="p-1 text-gray-400 transition-colors hover:text-violet-600 disabled:cursor-not-allowed disabled:text-gray-300"
+                  class="p-1 text-gray-400 transition-colors hover:text-gray-700 disabled:cursor-not-allowed disabled:text-gray-300"
                   :disabled="!copilotInput.trim()"
                   @click="$emit('send-copilot-message')"
                 >
@@ -209,9 +237,11 @@ const props = defineProps<{
 }>()
 
 defineEmits<{
+  (e: 'toggle-auto-approved'): void
   (e: 'toggle-fullscreen'): void
   (e: 'close'): void
-
+  (e: 'reset-pending'): void
+  (e: 'apply-pending'): void
   (e: 'update:copilot-input', value: string): void
   (e: 'send-copilot-message'): void
 }>()
@@ -220,14 +250,16 @@ const document = computed<SessionDocumentState>(() => {
   return props.mode === 'analysis' ? props.session.plan : props.session.design
 })
 
+const autoApproved = computed(() => document.value.autoApproved)
+
 const panelTitle = computed(() => {
   return props.mode === 'analysis' ? '需求分析 Copilot 面板' : '规划设计 Copilot 面板'
 })
 
 const helperText = computed(() => {
   return props.mode === 'analysis'
-    ? '前面的需求分析现在也支持自动批准的 diff 回显，生成后会直接自动合并。'
-    : '这里会根据你的设计要求生成正文修改建议，并自动合并到设计文档，同时保留 diff 回显。'
+    ? '这里会生成需求分析的 diff 回显；开启 Auto Approved 时自动合并，关闭后需要手动确认。'
+    : '这里会生成规划设计的 diff 回显；开启 Auto Approved 时自动合并，关闭后需要手动确认。'
 })
 
 const inputPlaceholder = computed(() => {

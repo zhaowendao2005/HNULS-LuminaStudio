@@ -33,6 +33,8 @@ export type SessionDocumentState = {
   diffLines: DiffLine[]
   agentMessages: CopilotMessage[]
   appliedTweaks: string[]
+  autoApproved: boolean
+  pendingContent: string | null
 }
 
 export type SessionPlanState = SessionDocumentState & {

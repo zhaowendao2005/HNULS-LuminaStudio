@@ -1,28 +1,30 @@
 <template>
   <div class="of-generate-analysis mx-auto flex h-full max-w-4xl flex-col">
     <div class="border-b border-gray-100 px-6 py-4">
-      <div class="flex items-center justify-between gap-4">
-        <div>
-          <div class="text-[13px] font-semibold text-gray-800">{{ session.title }}</div>
-          <div class="mt-1 text-xs text-gray-500">{{ session.summary }}</div>
+      <div class="flex items-center justify-between gap-4 overflow-hidden">
+        <div class="min-w-0 overflow-hidden">
+          <div class="truncate text-[13px] font-semibold text-gray-800">{{ session.title }}</div>
+          <div class="mt-1 truncate text-xs text-gray-500">{{ session.summary }}</div>
         </div>
-        <div class="flex items-center gap-2">
+        <div class="flex shrink-0 items-center gap-2">
           <span class="rounded bg-gray-100 px-2 py-1 text-[10px] text-gray-500">
             当前阶段：{{ currentSessionStageLabel }}
           </span>
           <button
             type="button"
-            class="rounded border border-violet-200 bg-violet-50 px-2.5 py-1 text-[11px] text-violet-700 transition-colors hover:bg-violet-100"
+            title="打开 copilot"
+            class="flex h-8 w-8 items-center justify-center rounded border border-gray-200 bg-white text-gray-500 transition-colors hover:text-gray-800"
             @click="$emit('open-copilot')"
           >
-            Auto Copilot
+            <MessageSquare :size="15" />
           </button>
           <button
             type="button"
-            class="rounded border border-gray-200 px-2.5 py-1 text-[11px] text-gray-500 transition-colors hover:border-cyan-200 hover:text-cyan-600"
+            title="切换会话"
+            class="flex h-8 w-8 items-center justify-center rounded border border-gray-200 bg-white text-gray-500 transition-colors hover:text-gray-800"
             @click="$emit('open-sessions')"
           >
-            切换会话
+            <FolderKanban :size="15" />
           </button>
         </div>
       </div>
@@ -83,10 +85,10 @@
               </button>
               <button
                 type="button"
-                class="rounded-sm bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-700 transition-colors hover:bg-violet-100"
+                class="rounded-sm bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-200"
                 @click="$emit('open-copilot')"
               >
-                自动协同修改
+                打开 copilot
               </button>
             </div>
           </div>
@@ -133,7 +135,15 @@
 </template>
 
 <script setup lang="ts">
-import { Activity, Bot, Check, Send, UserCircle } from 'lucide-vue-next'
+import {
+  Activity,
+  Bot,
+  Check,
+  FolderKanban,
+  MessageSquare,
+  Send,
+  UserCircle
+} from 'lucide-vue-next'
 import type { SessionItem } from './generate-view.types'
 
 defineProps<{
