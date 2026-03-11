@@ -78,7 +78,13 @@ export const iterationNodeDefinition = defineContainerOFNodeDefinition<OFIterati
   },
   spec: {
     ports: [
-      createOFPortSpec({ id: 'target', label: '进入', direction: 'input', channel: 'control', required: true }),
+      createOFPortSpec({
+        id: 'target',
+        label: '进入',
+        direction: 'input',
+        channel: 'control',
+        required: true
+      }),
       createOFPortSpec({ id: 'source', label: '继续', direction: 'output', channel: 'control' }),
       createOFPortSpec({ id: 'result', label: '结果', direction: 'output', channel: 'data' })
     ],

@@ -10,7 +10,10 @@ import type { OFLLMNodeData, OFModelConfig, OFStructuredOutputConfig } from '../
 import { OFBlockEnum } from '../core-types'
 import { omitOFField, omitOFNullSchemaFields } from './helpers'
 
-function buildOutputs(namespace: string, structuredOutput?: OFLLMNodeData['structured_output'] | null) {
+function buildOutputs(
+  namespace: string,
+  structuredOutput?: OFLLMNodeData['structured_output'] | null
+) {
   return llmOutputVariableDefinition.build({
     namespace,
     structuredOutput: structuredOutput ?? undefined
@@ -47,10 +50,26 @@ export const llmNodeDefinition = defineStandardOFNodeDefinition<OFLLMNodeData>({
   },
   spec: {
     ports: [
-      createOFPortSpec({ id: 'target', label: '进入', direction: 'input', channel: 'control', required: true }),
+      createOFPortSpec({
+        id: 'target',
+        label: '进入',
+        direction: 'input',
+        channel: 'control',
+        required: true
+      }),
       createOFPortSpec({ id: 'source', label: '继续', direction: 'output', channel: 'control' }),
-      createOFPortSpec({ id: 'llmoutput', label: '文本输出', direction: 'output', channel: 'data' }),
-      createOFPortSpec({ id: 'structured_output', label: '结构化输出', direction: 'output', channel: 'data' })
+      createOFPortSpec({
+        id: 'llmoutput',
+        label: '文本输出',
+        direction: 'output',
+        channel: 'data'
+      }),
+      createOFPortSpec({
+        id: 'structured_output',
+        label: '结构化输出',
+        direction: 'output',
+        channel: 'data'
+      })
     ],
     system_managed_fields: ['data.output.variables'],
     side_effects: [{ id: 'invoke-model', summary: '调用模型并把结果写入当前节点输出命名空间。' }],

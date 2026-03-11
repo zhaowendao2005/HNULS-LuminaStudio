@@ -25,7 +25,13 @@ export const ifElseNodeDefinition = defineStandardOFNodeDefinition<OFIfElseNodeD
   },
   spec: {
     ports: [
-      createOFPortSpec({ id: 'target', label: '进入', direction: 'input', channel: 'control', required: true }),
+      createOFPortSpec({
+        id: 'target',
+        label: '进入',
+        direction: 'input',
+        channel: 'control',
+        required: true
+      }),
       createOFPortSpec({ id: 'if', label: 'IF', direction: 'output', channel: 'control' }),
       createOFPortSpec({ id: 'else', label: 'ELSE', direction: 'output', channel: 'control' })
     ],

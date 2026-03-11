@@ -69,11 +69,7 @@ describe('variable-selector.store', () => {
 
     const paths = selectorStore.availableVariables.map((item) => item.path)
     expect(paths).toEqual(
-      expect.arrayContaining([
-        'topic',
-        `${llmId}.llmoutput`,
-        `${llmId}.structured_output`
-      ])
+      expect.arrayContaining(['topic', `${llmId}.llmoutput`, `${llmId}.structured_output`])
     )
 
     vi.runOnlyPendingTimers()

@@ -38,12 +38,25 @@ export const variableAssignNodeDefinition =
     },
     spec: {
       ports: [
-        createOFPortSpec({ id: 'target', label: '进入', direction: 'input', channel: 'control', required: true }),
+        createOFPortSpec({
+          id: 'target',
+          label: '进入',
+          direction: 'input',
+          channel: 'control',
+          required: true
+        }),
         createOFPortSpec({ id: 'source', label: '继续', direction: 'output', channel: 'control' }),
-        createOFPortSpec({ id: 'assigned', label: '赋值结果', direction: 'output', channel: 'data' })
+        createOFPortSpec({
+          id: 'assigned',
+          label: '赋值结果',
+          direction: 'output',
+          channel: 'data'
+        })
       ],
       system_managed_fields: ['data.output.variables'],
-      side_effects: [{ id: 'assign-variables', summary: '把常量或变量引用写入当前节点输出命名空间。' }],
+      side_effects: [
+        { id: 'assign-variables', summary: '把常量或变量引用写入当前节点输出命名空间。' }
+      ],
       output_namespace: {
         source: 'system-stable',
         editable: true,

@@ -24,7 +24,9 @@ export const startNodeDefinition = defineStandardOFNodeDefinition<OFStartNodeDat
     ai_exposed: true
   },
   spec: {
-    ports: [createOFPortSpec({ id: 'source', label: '继续', direction: 'output', channel: 'control' })],
+    ports: [
+      createOFPortSpec({ id: 'source', label: '继续', direction: 'output', channel: 'control' })
+    ],
     side_effects: [{ id: 'publish-start-inputs', summary: '把开始节点输入变量写入变量存储。' }],
     output_namespace: {
       source: 'none',

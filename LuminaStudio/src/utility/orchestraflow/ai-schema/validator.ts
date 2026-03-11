@@ -223,14 +223,8 @@ function validateEdgeHandles(
 ): OFRunnableEdge {
   const source = assertNonEmptyString(edge.source, `${edgePath}.source`)
   assertNonEmptyString(edge.target, `${edgePath}.target`)
-  const sourceHandle = assertNonEmptyString(
-    getOFEdgeSourcePortId(edge),
-    `${edgePath}.sourceHandle`
-  )
-  const targetHandle = assertNonEmptyString(
-    getOFEdgeTargetPortId(edge),
-    `${edgePath}.targetHandle`
-  )
+  const sourceHandle = assertNonEmptyString(getOFEdgeSourcePortId(edge), `${edgePath}.sourceHandle`)
+  const targetHandle = assertNonEmptyString(getOFEdgeTargetPortId(edge), `${edgePath}.targetHandle`)
 
   const sourceNode = nodeMap.get(source)
   const sourceType = sourceNode

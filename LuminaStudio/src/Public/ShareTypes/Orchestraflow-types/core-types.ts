@@ -498,11 +498,15 @@ export type OFEdge = {
   data?: OFCommonEdgeType
 }
 
-export function getOFEdgeSourcePortId(edge: Pick<OFEdge, 'source_port_id' | 'sourceHandle'>): string {
+export function getOFEdgeSourcePortId(
+  edge: Pick<OFEdge, 'source_port_id' | 'sourceHandle'>
+): string {
   return edge.source_port_id || edge.sourceHandle || 'source'
 }
 
-export function getOFEdgeTargetPortId(edge: Pick<OFEdge, 'target_port_id' | 'targetHandle'>): string {
+export function getOFEdgeTargetPortId(
+  edge: Pick<OFEdge, 'target_port_id' | 'targetHandle'>
+): string {
   return edge.target_port_id || edge.targetHandle || 'target'
 }
 

@@ -25,10 +25,18 @@ export const endNodeDefinition = defineStandardOFNodeDefinition<OFEndNodeData>({
   },
   spec: {
     ports: [
-      createOFPortSpec({ id: 'target', label: '进入', direction: 'input', channel: 'control', required: true }),
+      createOFPortSpec({
+        id: 'target',
+        label: '进入',
+        direction: 'input',
+        channel: 'control',
+        required: true
+      }),
       createOFPortSpec({ id: 'result', label: '最终输出', direction: 'output', channel: 'data' })
     ],
-    side_effects: [{ id: 'materialize-final-output', summary: '从变量存储读取 selector 并生成最终输出。' }],
+    side_effects: [
+      { id: 'materialize-final-output', summary: '从变量存储读取 selector 并生成最终输出。' }
+    ],
     output_namespace: {
       source: 'none',
       editable: false,

@@ -37,13 +37,39 @@ export const iterationStartNodeDefinition =
     },
     spec: {
       ports: [
-        createOFPortSpec({ id: 'source', label: '继续', direction: 'output', channel: 'control', internal: true }),
-        createOFPortSpec({ id: 'item', label: '当前项', direction: 'output', channel: 'data', internal: true }),
-        createOFPortSpec({ id: 'index', label: '索引', direction: 'output', channel: 'data', internal: true }),
-        createOFPortSpec({ id: 'length', label: '长度', direction: 'output', channel: 'data', internal: true })
+        createOFPortSpec({
+          id: 'source',
+          label: '继续',
+          direction: 'output',
+          channel: 'control',
+          internal: true
+        }),
+        createOFPortSpec({
+          id: 'item',
+          label: '当前项',
+          direction: 'output',
+          channel: 'data',
+          internal: true
+        }),
+        createOFPortSpec({
+          id: 'index',
+          label: '索引',
+          direction: 'output',
+          channel: 'data',
+          internal: true
+        }),
+        createOFPortSpec({
+          id: 'length',
+          label: '长度',
+          direction: 'output',
+          channel: 'data',
+          internal: true
+        })
       ],
       system_managed_fields: ['data.input.variables', 'parentNode', 'extent'],
-      side_effects: [{ id: 'publish-iteration-frame', summary: '向子图发布 item / index / length 变量。' }],
+      side_effects: [
+        { id: 'publish-iteration-frame', summary: '向子图发布 item / index / length 变量。' }
+      ],
       output_namespace: {
         source: 'none',
         editable: false,

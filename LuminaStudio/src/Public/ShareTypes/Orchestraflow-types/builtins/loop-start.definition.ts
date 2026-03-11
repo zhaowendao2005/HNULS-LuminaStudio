@@ -37,13 +37,39 @@ export const loopStartNodeDefinition = defineInternalStartOFNodeDefinition<OFLoo
   },
   spec: {
     ports: [
-      createOFPortSpec({ id: 'source', label: '继续', direction: 'output', channel: 'control', internal: true }),
-      createOFPortSpec({ id: 'loop_variables', label: '循环变量', direction: 'output', channel: 'data', internal: true }),
-      createOFPortSpec({ id: 'index', label: '索引', direction: 'output', channel: 'data', internal: true }),
-      createOFPortSpec({ id: 'loop_count', label: '次数', direction: 'output', channel: 'data', internal: true })
+      createOFPortSpec({
+        id: 'source',
+        label: '继续',
+        direction: 'output',
+        channel: 'control',
+        internal: true
+      }),
+      createOFPortSpec({
+        id: 'loop_variables',
+        label: '循环变量',
+        direction: 'output',
+        channel: 'data',
+        internal: true
+      }),
+      createOFPortSpec({
+        id: 'index',
+        label: '索引',
+        direction: 'output',
+        channel: 'data',
+        internal: true
+      }),
+      createOFPortSpec({
+        id: 'loop_count',
+        label: '次数',
+        direction: 'output',
+        channel: 'data',
+        internal: true
+      })
     ],
     system_managed_fields: ['data.input.variables', 'parentNode', 'extent'],
-    side_effects: [{ id: 'publish-loop-frame', summary: '向子图发布 loop 变量、index 和 loop_count。' }],
+    side_effects: [
+      { id: 'publish-loop-frame', summary: '向子图发布 loop 变量、index 和 loop_count。' }
+    ],
     output_namespace: {
       source: 'none',
       editable: false,
