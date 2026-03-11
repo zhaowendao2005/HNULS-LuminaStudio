@@ -3,181 +3,17 @@
     class="of-generate-view of-generate-shell h-full w-full overflow-hidden bg-gray-50 text-gray-800"
   >
     <div class="flex h-full w-full flex-col overflow-hidden font-sans">
-      <header class="h-12 shrink-0 border-b border-gray-200 bg-white px-4">
-        <div class="flex h-full items-center justify-between">
-          <div class="flex items-center gap-4">
-            <button
-              class="rounded p-1 text-gray-500 transition-colors hover:bg-gray-100"
-              @click="isLeftSidebarCollapsed = !isLeftSidebarCollapsed"
-            >
-              <Menu :size="18" />
-            </button>
-            <div class="flex items-center gap-2">
-              <div class="flex h-6 w-6 items-center justify-center rounded bg-gray-800">
-                <span class="text-xs font-bold text-white">L</span>
-              </div>
-              <span class="text-sm font-semibold tracking-wide text-gray-800">LuminaStudio</span>
-            </div>
-          </div>
-
-          <div class="flex items-center gap-2">
-            <button class="rounded p-1.5 text-gray-500 transition-colors hover:bg-gray-100">
-              <Search :size="16" />
-            </button>
-            <button
-              class="relative rounded p-1.5 text-gray-500 transition-colors hover:bg-gray-100"
-            >
-              <Bell :size="16" />
-              <span class="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-rose-500"></span>
-            </button>
-            <button class="rounded p-1.5 text-gray-500 transition-colors hover:bg-gray-100">
-              <User :size="16" />
-            </button>
-          </div>
-        </div>
-      </header>
+      <GenerateHeader @toggle-sidebar="isLeftSidebarCollapsed = !isLeftSidebarCollapsed" />
 
       <div class="relative flex flex-1 overflow-hidden">
-        <aside
-          :class="[
-            'z-10 flex shrink-0 flex-col border-r border-gray-200 bg-white transition-all duration-300 ease-in-out',
-            isLeftSidebarCollapsed ? 'w-14' : 'w-56'
-          ]"
-        >
-          <div class="flex-1 overflow-y-auto py-3">
-            <div class="mb-5">
-              <div
-                v-if="!isLeftSidebarCollapsed"
-                class="mb-1.5 px-4 text-[10px] font-semibold uppercase tracking-wider text-gray-400"
-              >
-                基础功能
-              </div>
-              <nav class="flex flex-col gap-0.5 px-2">
-                <button
-                  v-for="item in basicMenus"
-                  :key="item.value"
-                  :title="isLeftSidebarCollapsed ? item.label : undefined"
-                  :class="[
-                    'group relative flex w-full items-center gap-2 px-2 py-1.5 transition-colors',
-                    isLeftSidebarCollapsed ? 'justify-center' : 'justify-start',
-                    activeMenu === item.value
-                      ? 'text-gray-900'
-                      : 'text-gray-500 hover:bg-gray-50/50 hover:text-gray-800'
-                  ]"
-                  @click="activeMenu = item.value"
-                >
-                  <span
-                    v-if="activeMenu === item.value"
-                    class="absolute bottom-1 left-0 top-1 w-0.5 rounded-r-sm bg-gray-800"
-                  ></span>
-                  <component
-                    :is="item.icon"
-                    :size="16"
-                    :class="
-                      activeMenu === item.value
-                        ? 'text-gray-800'
-                        : 'text-gray-400 group-hover:text-gray-600'
-                    "
-                  />
-                  <span
-                    v-if="!isLeftSidebarCollapsed"
-                    class="whitespace-nowrap text-[12px] font-medium"
-                  >
-                    {{ item.label }}
-                  </span>
-                </button>
-              </nav>
-            </div>
-
-            <div class="mb-5">
-              <div
-                v-if="!isLeftSidebarCollapsed"
-                class="mb-1.5 px-4 text-[10px] font-semibold uppercase tracking-wider text-gray-400"
-              >
-                工作流生成
-              </div>
-              <nav class="flex flex-col gap-0.5 px-2">
-                <button
-                  v-for="item in workflowMenus"
-                  :key="item.value"
-                  :title="isLeftSidebarCollapsed ? item.label : undefined"
-                  :class="[
-                    'group relative flex w-full items-center gap-2 px-2 py-1.5 transition-colors',
-                    isLeftSidebarCollapsed ? 'justify-center' : 'justify-start',
-                    activeMenu === item.value
-                      ? 'text-gray-900'
-                      : 'text-gray-500 hover:bg-gray-50/50 hover:text-gray-800'
-                  ]"
-                  @click="activeMenu = item.value"
-                >
-                  <span
-                    v-if="activeMenu === item.value"
-                    class="absolute bottom-1 left-0 top-1 w-0.5 rounded-r-sm bg-gray-800"
-                  ></span>
-                  <component
-                    :is="item.icon"
-                    :size="16"
-                    :class="
-                      activeMenu === item.value
-                        ? 'text-gray-800'
-                        : 'text-gray-400 group-hover:text-gray-600'
-                    "
-                  />
-                  <span
-                    v-if="!isLeftSidebarCollapsed"
-                    class="whitespace-nowrap text-[12px] font-medium"
-                  >
-                    {{ item.label }}
-                  </span>
-                </button>
-              </nav>
-            </div>
-
-            <div>
-              <div
-                v-if="!isLeftSidebarCollapsed"
-                class="mb-1.5 px-4 text-[10px] font-semibold uppercase tracking-wider text-gray-400"
-              >
-                配置
-              </div>
-              <nav class="flex flex-col gap-0.5 px-2">
-                <button
-                  v-for="item in configMenus"
-                  :key="item.value"
-                  :title="isLeftSidebarCollapsed ? item.label : undefined"
-                  :class="[
-                    'group relative flex w-full items-center gap-2 px-2 py-1.5 transition-colors',
-                    isLeftSidebarCollapsed ? 'justify-center' : 'justify-start',
-                    activeMenu === item.value
-                      ? 'text-gray-900'
-                      : 'text-gray-500 hover:bg-gray-50/50 hover:text-gray-800'
-                  ]"
-                  @click="activeMenu = item.value"
-                >
-                  <span
-                    v-if="activeMenu === item.value"
-                    class="absolute bottom-1 left-0 top-1 w-0.5 rounded-r-sm bg-gray-800"
-                  ></span>
-                  <component
-                    :is="item.icon"
-                    :size="16"
-                    :class="
-                      activeMenu === item.value
-                        ? 'text-gray-800'
-                        : 'text-gray-400 group-hover:text-gray-600'
-                    "
-                  />
-                  <span
-                    v-if="!isLeftSidebarCollapsed"
-                    class="whitespace-nowrap text-[12px] font-medium"
-                  >
-                    {{ item.label }}
-                  </span>
-                </button>
-              </nav>
-            </div>
-          </div>
-        </aside>
+        <GenerateSidebar
+          :collapsed="isLeftSidebarCollapsed"
+          :active-menu="activeMenu"
+          :basic-menus="basicMenus"
+          :workflow-menus="workflowMenus"
+          :config-menus="configMenus"
+          @change-menu="activeMenu = $event"
+        />
 
         <main class="relative flex flex-1 overflow-hidden bg-white">
           <div
@@ -186,478 +22,136 @@
               isRightPanelFullscreen ? 'hidden' : 'block'
             ]"
           >
-            <div v-if="activeMenu === 'dashboard'" class="mx-auto max-w-5xl space-y-6 p-6">
-              <h2 class="mb-4 text-sm font-semibold text-gray-800">系统概览 Dashboard</h2>
+            <GenerateDashboardPanel
+              v-if="activeMenu === 'dashboard'"
+              :sessions-count="sessions.length"
+              :planned-sessions-count="plannedSessionsCount"
+              :current-session-stage-label="currentSessionStageLabel"
+              :dashboard-stage-cards="dashboardStageCards"
+            />
 
-              <div class="grid grid-cols-3 gap-4">
-                <div class="group relative overflow-hidden border border-gray-100 p-4">
-                  <div class="mb-1 text-xs text-gray-500">活跃会话数</div>
-                  <div class="text-2xl font-bold text-gray-800">1,284</div>
-                  <div
-                    class="absolute bottom-0 left-0 h-1 w-1/3 bg-emerald-500 transition-all group-hover:w-full"
-                  ></div>
-                </div>
-                <div class="group relative overflow-hidden border border-gray-100 p-4">
-                  <div class="mb-1 text-xs text-gray-500">已落成设计</div>
-                  <div class="text-2xl font-bold text-gray-800">856</div>
-                  <div
-                    class="absolute bottom-0 left-0 h-1 w-2/3 bg-cyan-500 transition-all group-hover:w-full"
-                  ></div>
-                </div>
-                <div class="group relative overflow-hidden border border-gray-100 p-4">
-                  <div class="mb-1 text-xs text-gray-500">系统负载</div>
-                  <div class="text-2xl font-bold text-gray-800">42%</div>
-                  <div
-                    class="absolute bottom-0 left-0 h-1 w-1/2 bg-violet-500 transition-all group-hover:w-full"
-                  ></div>
-                </div>
-              </div>
+            <GenerateSessionsPanel
+              v-else-if="activeMenu === 'sessions'"
+              :sessions="sessions"
+              :selected-session-id="selectedSessionId"
+              :stage-order="stageOrder"
+              :get-stage-label="getStageLabel"
+              :get-session-stage-dot-class="getSessionStageDotClass"
+              @open-create-session="openCreateSessionModal"
+              @select-session="handleSelectSession($event, 'sessions')"
+            />
 
-              <div class="mt-6 border border-gray-100 p-5">
-                <div class="mb-6 flex items-center justify-between">
-                  <h3 class="text-[13px] font-semibold text-gray-800">请求流量趋势</h3>
-                  <div class="flex gap-2">
-                    <span class="flex items-center gap-1 text-[10px] uppercase text-gray-500">
-                      <span class="h-2 w-2 rounded-full bg-cyan-500"></span>
-                      读请求
-                    </span>
-                    <span class="flex items-center gap-1 text-[10px] uppercase text-gray-500">
-                      <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
-                      写请求
-                    </span>
-                  </div>
-                </div>
-                <div class="relative h-48 w-full">
-                  <div class="absolute inset-0 flex flex-col justify-between">
-                    <div
-                      v-for="line in 5"
-                      :key="line"
-                      class="h-0 w-full border-b border-gray-50"
-                    ></div>
-                  </div>
-                  <svg
-                    class="absolute inset-0 h-full w-full"
-                    preserveAspectRatio="none"
-                    viewBox="0 0 100 100"
-                  >
-                    <path
-                      d="M0,80 Q10,70 20,85 T40,60 T60,50 T80,70 T100,30 L100,100 L0,100 Z"
-                      fill="url(#cyanGrad)"
-                      opacity="0.1"
-                    />
-                    <path
-                      d="M0,80 Q10,70 20,85 T40,60 T60,50 T80,70 T100,30"
-                      fill="none"
-                      stroke="#06b6d4"
-                      stroke-width="1.5"
-                    />
-                    <path
-                      d="M0,90 Q15,95 30,80 T50,85 T70,60 T90,75 T100,50 L100,100 L0,100 Z"
-                      fill="url(#emeraldGrad)"
-                      opacity="0.1"
-                    />
-                    <path
-                      d="M0,90 Q15,95 30,80 T50,85 T70,60 T90,75 T100,50"
-                      fill="none"
-                      stroke="#10b981"
-                      stroke-width="1.5"
-                    />
-                    <defs>
-                      <linearGradient id="cyanGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stop-color="#06b6d4" stop-opacity="1" />
-                        <stop offset="100%" stop-color="#06b6d4" stop-opacity="0" />
-                      </linearGradient>
-                      <linearGradient id="emeraldGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stop-color="#10b981" stop-opacity="1" />
-                        <stop offset="100%" stop-color="#10b981" stop-opacity="0" />
-                      </linearGradient>
-                    </defs>
-                  </svg>
-                </div>
-              </div>
-            </div>
-
-            <div v-else-if="activeMenu === 'sessions'" class="mx-auto max-w-4xl py-6">
-              <div class="mb-4 flex items-center justify-between px-6">
-                <h2 class="text-sm font-semibold text-gray-800">会话管理</h2>
-                <span
-                  class="cursor-pointer rounded bg-cyan-50 px-2 py-1 text-xs text-cyan-600 hover:bg-cyan-100"
-                >
-                  + 新建会话
-                </span>
-              </div>
-
-              <div class="flex flex-col">
-                <div
-                  v-for="session in sessions"
-                  :key="session.id"
-                  class="group flex cursor-pointer items-center justify-between border-b border-gray-100 px-6 py-3 transition-colors hover:bg-gray-50/50"
-                >
-                  <div class="flex items-center gap-3">
-                    <span
-                      :class="['h-2 w-2 rounded-full shadow-sm', getStatusColor(session.status)]"
-                    ></span>
-                    <span
-                      class="text-[13px] font-semibold text-gray-800 transition-colors group-hover:text-cyan-600"
-                    >
-                      {{ session.title }}
-                    </span>
-                  </div>
-                  <div class="text-xs text-gray-400">{{ session.time }}</div>
-                </div>
-              </div>
-            </div>
-
-            <div
+            <GenerateAnalysisPanel
               v-else-if="activeMenu === 'analysis'"
-              class="mx-auto flex h-full max-w-4xl flex-col"
-            >
-              <div class="flex-1 space-y-6 overflow-y-auto px-6 py-4">
-                <div class="flex gap-4">
-                  <div
-                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100"
-                  >
-                    <UserCircle :size="18" class="text-gray-500" />
-                  </div>
-                  <div class="space-y-1.5 pt-1.5">
-                    <div class="text-xs font-semibold text-gray-800">User</div>
-                    <div class="text-[13px] leading-relaxed text-gray-800">
-                      我需要你帮我分析一下“后台权限管理模块”的需求。要求支持
-                      RBAC，并且前端要有可视化的角色配置面板。
-                    </div>
-                  </div>
-                </div>
+              :session="currentSession"
+              :current-session-stage-label="currentSessionStageLabel"
+              :analysis-input="analysisInput"
+              :is-analysis-streaming="isAnalysisStreaming"
+              @open-sessions="activeMenu = 'sessions'"
+              @open-copilot="openCopilotPanel('analysis')"
+              @enter-design="enterDesignView"
+              @update:analysis-input="analysisInput = $event"
+              @send-analysis="handleSendAnalysis"
+            />
 
-                <div class="flex gap-4">
-                  <div
-                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-cyan-100 bg-cyan-50"
-                  >
-                    <Bot :size="18" class="text-cyan-600" />
-                  </div>
-                  <div class="w-full space-y-1.5 pt-1.5">
-                    <div class="text-xs font-semibold text-gray-800">Lumina Agent</div>
-                    <div class="text-[13px] leading-relaxed text-gray-800">
-                      已收到需求。基于
-                      RBAC（基于角色的访问控制）模型，我们需要以下几个核心实体：用户(User)、角色(Role)、权限(Permission)。
-                      <br />
-                      前端可视化面板需要支持角色树的勾选分配。我将为您生成一份执行计划。
-                    </div>
-                  </div>
-                </div>
+            <GenerateDesignPanel
+              v-else-if="activeMenu === 'design'"
+              :session="currentSession"
+              :design-content="currentSession.design.content"
+              @update:design-content="handleUpdateDesignContent"
+              @open-copilot="openCopilotPanel('design')"
+            />
 
-                <div class="mt-2 flex gap-4">
-                  <div
-                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-emerald-100 bg-emerald-50"
-                  >
-                    <Activity :size="18" class="text-emerald-600" />
-                  </div>
-                  <div class="w-full">
-                    <div class="group relative border-l-2 border-emerald-500 bg-gray-50/50 p-4">
-                      <div
-                        class="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-emerald-600"
-                      >
-                        <Check :size="12" />
-                        计划生成完毕
-                      </div>
-
-                      <div class="mb-4 space-y-3">
-                        <div>
-                          <div class="mb-0.5 text-xs text-gray-500">需求摘要</div>
-                          <div class="text-[13px] font-semibold text-gray-800">
-                            实现完整的 RBAC 鉴权体系与前端管理 UI
-                          </div>
-                        </div>
-                        <div>
-                          <div class="mb-0.5 text-xs text-gray-500">执行步骤</div>
-                          <ol class="list-decimal space-y-1 pl-4 text-[13px] text-gray-800">
-                            <li>
-                              设计数据库表结构 (User, Role, Permission, User_Role, Role_Permission)
-                            </li>
-                            <li>编写后端鉴权中间件及 CRUD 接口</li>
-                            <li>实现前端 "角色管理" 可视化配置面板</li>
-                            <li>集成前后端鉴权链路测试</li>
-                          </ol>
-                        </div>
-                      </div>
-
-                      <div class="flex gap-2 border-t border-gray-200 pt-3">
-                        <button
-                          class="flex items-center gap-1 rounded-sm bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
-                          @click="activeRightPanel = 'planDesign'"
-                        >
-                          批准并进入设计
-                        </button>
-                        <button
-                          class="rounded-sm px-3 py-1.5 text-xs font-semibold text-gray-500 transition-colors hover:bg-rose-50 hover:text-rose-600"
-                        >
-                          不批准
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="shrink-0 border-t border-gray-100 bg-white p-4">
-                <div
-                  class="relative flex items-center rounded-md border border-gray-200 bg-gray-50 px-3 py-2 transition-all focus-within:border-cyan-400 focus-within:ring-1 focus-within:ring-cyan-400"
-                >
-                  <input
-                    v-model="analysisInput"
-                    type="text"
-                    placeholder="输入补充需求或修改意见..."
-                    class="flex-1 border-none bg-transparent text-[13px] text-gray-800 placeholder-gray-400 focus:outline-none"
-                  />
-                  <button class="p-1.5 text-gray-400 transition-colors hover:text-cyan-600">
-                    <Send :size="16" />
-                  </button>
-                </div>
-              </div>
+            <div v-else class="p-6 text-[13px] text-gray-500">
+              {{ activeMenu }} 模块开发中，当前选中会话：{{ currentSession.title }}。
             </div>
-
-            <div v-else class="p-6 text-[13px] text-gray-500">{{ activeMenu }} 模块开发中...</div>
           </div>
 
-          <div
-            :class="[
-              'of-generate-right-panel flex shrink-0 flex-col border-l border-gray-200 bg-white transition-all duration-300 ease-in-out',
-              activeRightPanel !== null
-                ? isRightPanelFullscreen
-                  ? 'absolute inset-0 z-20 w-full'
-                  : 'relative w-1/2'
-                : 'w-0 overflow-hidden border-l-0 opacity-0'
-            ]"
-          >
-            <template v-if="activeRightPanel === 'planDesign'">
-              <div class="z-20 flex h-full flex-col bg-white shadow-[-4px_0_24px_rgba(0,0,0,0.03)]">
-                <div
-                  class="flex h-12 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4"
-                >
-                  <div class="flex items-center gap-2">
-                    <GitBranch :size="16" class="text-gray-400" />
-                    <h3 class="text-[13px] font-semibold text-gray-800">计划设计面板</h3>
-                    <span class="ml-2 rounded bg-cyan-50 px-1.5 py-0.5 text-[10px] text-cyan-600">
-                      交互中
-                    </span>
-                  </div>
-                  <div class="flex items-center gap-1">
-                    <button
-                      :title="isRightPanelFullscreen ? '退出全屏' : '全屏'"
-                      class="rounded p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
-                      @click="isRightPanelFullscreen = !isRightPanelFullscreen"
-                    >
-                      <Minimize2 v-if="isRightPanelFullscreen" :size="14" />
-                      <Maximize2 v-else :size="14" />
-                    </button>
-                    <div class="mx-1 h-3 w-px bg-gray-200"></div>
-                    <button
-                      class="rounded p-1.5 text-gray-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
-                      @click="closeRightPanel"
-                    >
-                      <X :size="16" />
-                    </button>
-                  </div>
-                </div>
-
-                <div
-                  :class="[
-                    'flex flex-1 overflow-hidden',
-                    isRightPanelFullscreen ? 'flex-row' : 'flex-col'
-                  ]"
-                >
-                  <div
-                    :class="[
-                      'flex flex-col bg-white',
-                      isRightPanelFullscreen
-                        ? 'w-1/2 border-r border-gray-200'
-                        : 'h-1/2 border-b border-gray-200'
-                    ]"
-                  >
-                    <div
-                      class="flex items-center justify-between border-b border-gray-100 bg-gray-50/50 px-3 py-2"
-                    >
-                      <div class="flex items-center gap-2">
-                        <FileText :size="14" class="text-gray-400" />
-                        <span class="text-xs font-semibold text-gray-700">execution_plan.md</span>
-                        <span class="ml-1 text-[10px] text-gray-400">● 包含未保存的更改</span>
-                      </div>
-                      <div class="flex gap-2">
-                        <button class="text-[11px] text-gray-500 hover:text-gray-800">取消</button>
-                        <button
-                          class="rounded-sm border border-emerald-100/50 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-600 hover:text-emerald-700"
-                        >
-                          确认合并
-                        </button>
-                      </div>
-                    </div>
-
-                    <div class="flex-1 overflow-y-auto bg-[#fafafa]">
-                      <div class="min-w-max pb-4 font-mono text-[12px] leading-[22px]">
-                        <div
-                          v-for="(line, index) in diffLines"
-                          :key="`${line.type}-${index}`"
-                          :class="[
-                            'group flex',
-                            line.type === 'added'
-                              ? 'bg-emerald-50/60'
-                              : line.type === 'removed'
-                                ? 'bg-rose-50/60'
-                                : 'hover:bg-gray-100/50'
-                          ]"
-                        >
-                          <div
-                            :class="[
-                              'w-10 shrink-0 select-none border-r pr-3 text-right',
-                              line.type === 'added'
-                                ? 'border-emerald-200/50 bg-emerald-100/30 text-emerald-400'
-                                : line.type === 'removed'
-                                  ? 'border-rose-200/50 bg-rose-100/30 text-rose-400'
-                                  : 'border-gray-100 bg-gray-50/50 text-gray-300 group-hover:border-gray-200 group-hover:bg-gray-100/80'
-                            ]"
-                          >
-                            {{ line.num ?? '\u00A0' }}
-                          </div>
-                          <div
-                            :class="[
-                              'whitespace-pre pl-4',
-                              line.type === 'added'
-                                ? 'text-emerald-800'
-                                : line.type === 'removed'
-                                  ? 'text-rose-700/80 line-through decoration-rose-400/50'
-                                  : 'text-gray-700'
-                            ]"
-                          >
-                            {{ line.text }}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div
-                    :class="['flex flex-col bg-white', isRightPanelFullscreen ? 'w-1/2' : 'h-1/2']"
-                  >
-                    <div class="border-b border-gray-100 bg-gray-50/80 px-4 py-2">
-                      <span
-                        class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-gray-500"
-                      >
-                        <RefreshCw :size="12" />
-                        计划修改 Agent
-                      </span>
-                    </div>
-
-                    <div class="flex-1 space-y-4 overflow-y-auto p-4">
-                      <div class="text-center text-xs text-gray-400">
-                        您可以直接指示我修改上方计划
-                      </div>
-
-                      <div class="flex gap-3">
-                        <div
-                          class="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-gray-100"
-                        >
-                          <UserCircle :size="14" class="text-gray-500" />
-                        </div>
-                        <div
-                          class="rounded-bl-md rounded-r-md bg-gray-50 p-2 text-[13px] text-gray-800"
-                        >
-                          第二步先弄个Mock，前端早点介入，另外需要提前加一个前端权限指令。
-                        </div>
-                      </div>
-
-                      <div class="flex gap-3">
-                        <div
-                          class="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm border border-violet-100 bg-violet-50"
-                        >
-                          <Bot :size="14" class="text-violet-600" />
-                        </div>
-                        <div class="text-[13px] text-gray-800">
-                          没问题，我已经修改了计划：
-                          <br />
-                          1. 将第二步修改为优先提供 Mock。
-                          <br />
-                          2. 插入了新的步骤：开发前端
-                          <code class="rounded bg-gray-100 px-1 py-0.5 text-[11px] text-rose-500">
-                            v-permission
-                          </code>
-                          指令。
-                          <br />
-                          <span class="mt-2 block text-xs text-violet-600">
-                            请在上方 Diff 视图中查看并确认合并。
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div class="border-t border-gray-100 p-3">
-                      <div
-                        class="relative flex items-center border border-gray-200 bg-gray-50 px-2 py-1.5 transition-all focus-within:border-violet-400 focus-within:ring-1 focus-within:ring-violet-400"
-                      >
-                        <input
-                          v-model="planAgentInput"
-                          type="text"
-                          placeholder="要求 Agent 调整细节..."
-                          class="flex-1 border-none bg-transparent text-xs text-gray-800 placeholder-gray-400 focus:outline-none"
-                        />
-                        <button class="p-1 text-gray-400 transition-colors hover:text-violet-600">
-                          <Send :size="14" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </template>
-          </div>
+          <GeneratePlanDesignPanel
+            :visible="activeRightPanel !== null"
+            :is-fullscreen="isRightPanelFullscreen"
+            :mode="activeRightPanel || 'analysis'"
+            :session="currentSession"
+            :copilot-input="copilotInput"
+            @toggle-fullscreen="isRightPanelFullscreen = !isRightPanelFullscreen"
+            @close="closeRightPanel"
+            @update:copilot-input="copilotInput = $event"
+            @send-copilot-message="handleSendCopilotMessage"
+          />
         </main>
       </div>
     </div>
+
+    <GenerateCreateSessionDialog
+      :visible="showCreateSessionModal"
+      :model-value="newSessionName"
+      @update:model-value="newSessionName = $event"
+      @close="closeCreateSessionModal"
+      @confirm="handleCreateSession"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import {
   Activity,
-  Bell,
-  Bot,
-  Check,
   CheckCircle,
-  FileText,
   GitBranch,
   LayoutTemplate,
-  Maximize2,
-  Menu,
   MessageSquare,
-  Minimize2,
-  RefreshCw,
-  Search,
-  Send,
-  Settings,
-  User,
-  UserCircle,
-  X
+  Settings
 } from 'lucide-vue-next'
+import GenerateAnalysisPanel from './GenerateAnalysisPanel.vue'
+import GenerateCreateSessionDialog from './GenerateCreateSessionDialog.vue'
+import GenerateDashboardPanel from './GenerateDashboardPanel.vue'
+import GenerateDesignPanel from './GenerateDesignPanel.vue'
+import GenerateHeader from './GenerateHeader.vue'
+import GeneratePlanDesignPanel from './GeneratePlanDesignPanel.vue'
+import GenerateSessionsPanel from './GenerateSessionsPanel.vue'
+import GenerateSidebar from './GenerateSidebar.vue'
+import type {
+  CopilotMode,
+  DashboardStageCard,
+  DiffLine,
+  MenuItem,
+  MenuValue,
+  RightPanel,
+  SessionDesignState,
+  SessionDocumentState,
+  SessionItem,
+  SessionPlanState,
+  StageKey,
+  StageMeta
+} from './generate-view.types'
 
-type MenuValue = 'dashboard' | 'sessions' | 'analysis' | 'design' | 'verify' | 'settings'
-type SessionStatus = 'active' | 'planning' | 'completed'
-type RightPanel = 'planDesign' | null
-type DiffLine = {
-  num: number | null
-  type: 'context' | 'removed' | 'added'
-  text: string
-}
+const stageOrder: StageKey[] = ['analysis', 'design', 'verify', 'workflow']
 
-type SessionItem = {
-  id: string
-  title: string
-  status: SessionStatus
-  time: string
-}
-
-type MenuItem = {
-  value: MenuValue
-  label: string
-  icon: any
+const stageMeta: Record<StageKey, StageMeta> = {
+  analysis: {
+    label: '未完成需求分析',
+    color: 'bg-cyan-500',
+    activeDot: 'h-3.5 w-3.5 bg-cyan-500 shadow-[0_0_0_2px_rgba(6,182,212,0.12)]',
+    idleDot: 'h-2 w-2 bg-cyan-200'
+  },
+  design: {
+    label: '未完成设计',
+    color: 'bg-emerald-500',
+    activeDot: 'h-3.5 w-3.5 bg-emerald-500 shadow-[0_0_0_2px_rgba(16,185,129,0.12)]',
+    idleDot: 'h-2 w-2 bg-emerald-200'
+  },
+  verify: {
+    label: '未完成校验',
+    color: 'bg-violet-500',
+    activeDot: 'h-3.5 w-3.5 bg-violet-500 shadow-[0_0_0_2px_rgba(139,92,246,0.12)]',
+    idleDot: 'h-2 w-2 bg-violet-200'
+  },
+  workflow: {
+    label: '未生成工作流',
+    color: 'bg-amber-500',
+    activeDot: 'h-3.5 w-3.5 bg-amber-500 shadow-[0_0_0_2px_rgba(245,158,11,0.12)]',
+    idleDot: 'h-2 w-2 bg-amber-200'
+  }
 }
 
 const isLeftSidebarCollapsed = ref(false)
@@ -665,7 +159,10 @@ const activeMenu = ref<MenuValue>('analysis')
 const activeRightPanel = ref<RightPanel>(null)
 const isRightPanelFullscreen = ref(false)
 const analysisInput = ref('')
-const planAgentInput = ref('')
+const copilotInput = ref('')
+const isAnalysisStreaming = ref(false)
+const showCreateSessionModal = ref(false)
+const newSessionName = ref('')
 
 const basicMenus: MenuItem[] = [
   { value: 'dashboard', label: 'Dashboard', icon: Activity },
@@ -674,49 +171,483 @@ const basicMenus: MenuItem[] = [
 
 const workflowMenus: MenuItem[] = [
   { value: 'analysis', label: '需求分析与计划', icon: GitBranch },
-  { value: 'design', label: '设计落成', icon: LayoutTemplate },
+  { value: 'design', label: '规划设计', icon: LayoutTemplate },
   { value: 'verify', label: '校验', icon: CheckCircle }
 ]
 
 const configMenus: MenuItem[] = [{ value: 'settings', label: '全局配置', icon: Settings }]
 
-const sessions: SessionItem[] = [
-  { id: '1', title: '电商平台重构计划与分析', status: 'active', time: '10 分钟前' },
-  { id: '2', title: '后台权限管理模块设计', status: 'planning', time: '2 小时前' },
-  { id: '3', title: '用户中心 API 校验流', status: 'completed', time: '昨天' },
-  { id: '4', title: '数据看板图表组件抽取', status: 'active', time: '2 天前' }
-]
+const sessions = ref<SessionItem[]>([
+  createSession('后台权限管理模块', {
+    time: '2 小时前',
+    summary: '支持 RBAC、角色可视化配置与权限指令预留。'
+  }),
+  createSession('电商平台重构计划', {
+    time: '10 分钟前',
+    summary: '分析商品、订单、营销模块的拆分节奏。',
+    currentStage: 'design'
+  }),
+  createSession('用户中心 API 校验流', {
+    time: '昨天',
+    summary: '补齐 schema 校验与错误态回放。',
+    currentStage: 'verify'
+  }),
+  createSession('数据看板图表工作流', {
+    time: '2 天前',
+    summary: '梳理图表查询、转换和工作流编排。',
+    currentStage: 'workflow'
+  })
+])
 
-const diffLines: DiffLine[] = [
-  { num: 1, type: 'context', text: '# 核心执行计划：后台权限管理' },
-  { num: 2, type: 'context', text: '' },
-  { num: 3, type: 'context', text: '## 阶段 1：基础架构' },
-  { num: 4, type: 'context', text: '- [x] 设计数据库表结构 (User, Role, Permission)' },
-  { num: null, type: 'removed', text: '- [ ] 编写后端鉴权中间件及 CRUD 接口' },
-  { num: 5, type: 'added', text: '+ [ ] 编写后端鉴权中间件及 CRUD 接口' },
-  { num: 6, type: 'added', text: '+     > 注意: 优先提供 Mock 数据，便于前端尽早联调' },
-  { num: 7, type: 'added', text: '+ [ ] 开发前端 `v-permission` 细粒度权限指令' },
-  { num: 8, type: 'context', text: '- [ ] 实现前端 "角色管理" 可视化配置面板' },
-  { num: 9, type: 'context', text: '- [ ] 集成前后端鉴权链路测试' },
-  { num: 10, type: 'context', text: '' }
-]
+const selectedSessionId = ref(sessions.value[0]?.id ?? '')
 
-function closeRightPanel() {
+const plannedSessionsCount = computed(
+  () => sessions.value.filter((session) => session.planGenerated).length
+)
+const currentSession = computed(
+  () =>
+    sessions.value.find((session) => session.id === selectedSessionId.value) ?? sessions.value[0]
+)
+const currentSessionStageLabel = computed(() => getStageLabel(currentSession.value.currentStage))
+const dashboardStageCards = computed<DashboardStageCard[]>(() => {
+  return stageOrder.map((stage) => ({
+    stage,
+    label: getStageLabel(stage),
+    count: sessions.value.filter((session) => session.currentStage === stage).length,
+    color: stageMeta[stage].color
+  }))
+})
+
+function createSession(
+  title: string,
+  options?: { time?: string; summary?: string; currentStage?: StageKey }
+): SessionItem {
+  return {
+    id: `session-${Math.random().toString(36).slice(2, 10)}`,
+    title,
+    currentStage: options?.currentStage ?? 'analysis',
+    time: options?.time ?? '刚刚',
+    summary: options?.summary ?? '等待补充更多上下文后生成计划。',
+    analysisTurnCount: 0,
+    planGenerated: false,
+    messages: [],
+    plan: createPlanState(title),
+    design: createDesignState(title)
+  }
+}
+
+function createBaseDocumentState(
+  title: string,
+  fileName: string,
+  summary: string,
+  content: string
+): SessionDocumentState {
+  return {
+    title,
+    fileName,
+    summary,
+    content,
+    diffLines: buildTextDiffLines(content),
+    agentMessages: [
+      {
+        id: createId('copilot'),
+        role: 'assistant',
+        content: `我已经进入 ${title} 的 Auto Copilot 面板。你可以直接提要求，我会生成 diff 回显并自动合并最新修改。`
+      }
+    ],
+    appliedTweaks: []
+  }
+}
+
+function createPlanState(title: string): SessionPlanState {
+  const steps = buildPlanSteps([])
+  const content = buildPlanMarkdown(title, steps)
+  const baseState = createBaseDocumentState(
+    '需求分析',
+    'requirement_analysis.md',
+    `围绕「${title}」建立从需求分析到工作流落地的执行方案。`,
+    content
+  )
+
+  return {
+    ...baseState,
+    steps,
+    diffLines: buildTextDiffLines(content)
+  }
+}
+
+function createDesignState(title: string): SessionDesignState {
+  const content = buildDesignMarkdown(title, [])
+  return createBaseDocumentState(
+    '规划设计',
+    'planning_design.md',
+    `为「${title}」整理模块结构、交互流、数据流与后续校验入口。`,
+    content
+  )
+}
+
+function buildPlanSteps(tweaks: string[]): string[] {
+  const steps = [
+    '梳理核心角色、权限边界与业务约束，输出需求分析结论',
+    '设计页面信息架构与关键交互流，补齐字段与状态说明',
+    '整理校验策略、异常场景与联调检查项',
+    '将需求、设计与校验结果收敛为可生成工作流的节点方案'
+  ]
+
+  if (tweaks.includes('mock')) {
+    steps.splice(1, 0, '先提供可联调的前端 Mock 数据与状态流，保证页面能提前验证')
+  }
+  if (tweaks.includes('permission')) {
+    steps.splice(2, 0, '补充前端 v-permission 指令与角色显隐规则，提前验证权限语义')
+  }
+  if (tweaks.includes('verify-first')) {
+    steps.push('增加阶段性校验清单，确保设计变更后能立即回归验证')
+  }
+
+  return steps
+}
+
+function buildPlanMarkdown(sessionTitle: string, steps: string[]): string {
+  return [
+    `# ${sessionTitle} 需求分析`,
+    '',
+    '## 需求摘要',
+    `- 目标：围绕 ${sessionTitle} 输出可落地的需求分析与执行计划`,
+    '- 当前交互：支持 Auto Copilot 协同修改，生成 diff 回显后自动合并',
+    '',
+    '## 执行步骤',
+    ...steps.map((step, index) => `${index + 1}. ${step}`)
+  ].join('\n')
+}
+
+function buildDesignMarkdown(sessionTitle: string, tweaks: string[]): string {
+  const sections = [
+    '# 规划设计文档',
+    '',
+    `## 项目对象`,
+    `${sessionTitle}`,
+    '',
+    '## 模块结构',
+    '- 主工作区：文本编辑器承载设计正文',
+    '- 右侧 Copilot：负责解释修改意图并生成 diff',
+    '- 自动批准：生成 diff 回显后直接合并正文，不需要二次确认',
+    '',
+    '## 交互流程',
+    '1. 用户直接编辑正文或提出设计要求',
+    '2. Auto Copilot 产出结构化修改建议',
+    '3. 生成 diff 回显并自动合并到正文',
+    '',
+    '## 数据与状态',
+    '- 当前仍为本地 mock 状态',
+    '- 后续可平滑接入真实 session / store / IPC'
+  ]
+
+  if (tweaks.includes('module-breakdown')) {
+    sections.push(
+      '',
+      '## 模块拆分补充',
+      '- 补充子模块职责与依赖边界',
+      '- 明确组件树与文档结构的映射关系'
+    )
+  }
+  if (tweaks.includes('dataflow')) {
+    sections.push('', '## 数据流补充', '- 列出输入来源、文档变更、diff 暂存、确认合并四段状态流')
+  }
+  if (tweaks.includes('timeline')) {
+    sections.push('', '## 时序补充', '- 增加 Auto Copilot 生成 diff 到确认合并的时序说明')
+  }
+
+  return sections.join('\n')
+}
+
+function buildTextDiffLines(content: string): DiffLine[] {
+  return content.split('\n').map((line, index) => ({
+    num: index + 1,
+    type: 'context',
+    text: line
+  }))
+}
+
+function buildModifiedDiffLines(previousContent: string, nextContent: string): DiffLine[] {
+  const previousLines = previousContent.split('\n')
+  const nextLines = nextContent.split('\n')
+  const maxLength = Math.max(previousLines.length, nextLines.length)
+  const lines: DiffLine[] = []
+  let lineNumber = 1
+
+  for (let index = 0; index < maxLength; index += 1) {
+    const previousLine = previousLines[index]
+    const nextLine = nextLines[index]
+
+    if (previousLine === nextLine && nextLine !== undefined) {
+      lines.push({ num: lineNumber, type: 'context', text: nextLine })
+      lineNumber += 1
+      continue
+    }
+
+    if (previousLine !== undefined) {
+      lines.push({ num: null, type: 'removed', text: previousLine })
+    }
+
+    if (nextLine !== undefined) {
+      lines.push({ num: lineNumber, type: 'added', text: nextLine })
+      lineNumber += 1
+    }
+  }
+
+  return lines
+}
+
+function createId(prefix: string): string {
+  return `${prefix}-${Math.random().toString(36).slice(2, 10)}`
+}
+
+function getStageLabel(stage: StageKey): string {
+  return stageMeta[stage].label
+}
+
+function getSessionStageDotClass(currentStage: StageKey, stage: StageKey): string {
+  return [
+    'rounded-full transition-all duration-200',
+    currentStage === stage ? stageMeta[stage].activeDot : stageMeta[stage].idleDot
+  ].join(' ')
+}
+
+function updateCurrentSession(mutator: (session: SessionItem) => void): void {
+  const target = sessions.value.find((session) => session.id === selectedSessionId.value)
+  if (!target) return
+  mutator(target)
+}
+
+function getActiveDocument(session: SessionItem, mode: CopilotMode): SessionDocumentState {
+  return mode === 'analysis' ? session.plan : session.design
+}
+
+function handleSelectSession(sessionId: string, nextMenu: MenuValue = 'analysis'): void {
+  selectedSessionId.value = sessionId
+  activeMenu.value = nextMenu
+}
+
+async function streamAssistantMessage(content: string, afterStream?: () => void): Promise<void> {
+  updateCurrentSession((session) => {
+    session.messages.push({
+      id: createId('analysis-message'),
+      role: 'assistant',
+      kind: 'text',
+      content: '',
+      streaming: true
+    })
+  })
+
+  for (const char of content) {
+    await wait(18)
+    updateCurrentSession((session) => {
+      const message = session.messages[session.messages.length - 1]
+      if (message && message.role === 'assistant') message.content += char
+    })
+  }
+
+  updateCurrentSession((session) => {
+    const message = session.messages[session.messages.length - 1]
+    if (message && message.role === 'assistant') message.streaming = false
+  })
+
+  afterStream?.()
+}
+
+async function handleSendAnalysis(): Promise<void> {
+  const content = analysisInput.value.trim()
+  if (!content || isAnalysisStreaming.value) return
+
+  analysisInput.value = ''
+  updateCurrentSession((session) => {
+    session.messages.push({ id: createId('analysis-message'), role: 'user', kind: 'text', content })
+    session.analysisTurnCount += 1
+    session.time = '刚刚'
+  })
+
+  const turnCount = currentSession.value.analysisTurnCount
+  isAnalysisStreaming.value = true
+
+  if (turnCount === 1) {
+    await streamAssistantMessage(
+      '收到，我会先从业务目标、角色边界和关键页面入口三个方向拆解需求，再决定后续分析重点。'
+    )
+  } else if (turnCount === 2) {
+    await streamAssistantMessage(
+      '我已经补齐第一轮分析：当前最关键的是把角色、权限点、页面操作链路说清楚。再补一次，我就开始生成执行计划。'
+    )
+  } else {
+    await streamAssistantMessage(
+      '上下文已经足够，我现在开始整理需求摘要、执行步骤和后续设计落点，并生成一份可继续编辑的计划。',
+      () => {
+        updateCurrentSession((session) => {
+          session.planGenerated = true
+          session.summary =
+            '计划已生成，需求分析与规划设计都支持 Auto Copilot 自动合并与 diff 回显。'
+          session.messages.push({
+            id: createId('analysis-message'),
+            role: 'system',
+            kind: 'plan-card',
+            content: 'plan-generated'
+          })
+          session.plan.content = buildPlanMarkdown(session.title, session.plan.steps)
+          session.plan.diffLines = buildTextDiffLines(session.plan.content)
+        })
+      }
+    )
+  }
+
+  isAnalysisStreaming.value = false
+}
+
+function openCopilotPanel(mode: CopilotMode): void {
+  activeRightPanel.value = mode
+  if (mode === 'analysis') {
+    updateCurrentSession((session) => {
+      session.currentStage = 'analysis'
+      session.summary = '需求分析已进入自动协同修改状态，右侧会展示 diff 回显并自动合并。'
+    })
+  }
+}
+
+function enterDesignView(): void {
+  updateCurrentSession((session) => {
+    session.currentStage = 'design'
+    session.summary =
+      '已进入规划设计阶段，主区可编辑正文，右侧可通过 Auto Copilot 生成 diff 回显并自动合并。'
+  })
+  activeMenu.value = 'design'
+  openCopilotPanel('design')
+}
+
+function closeRightPanel(): void {
   activeRightPanel.value = null
   isRightPanelFullscreen.value = false
 }
 
-function getStatusColor(status: SessionStatus) {
-  switch (status) {
-    case 'active':
-      return 'bg-cyan-500'
-    case 'planning':
-      return 'bg-amber-500'
-    case 'completed':
-      return 'bg-emerald-500'
-    default:
-      return 'bg-gray-300'
+function openCreateSessionModal(): void {
+  newSessionName.value = ''
+  showCreateSessionModal.value = true
+}
+
+function closeCreateSessionModal(): void {
+  showCreateSessionModal.value = false
+}
+
+function handleCreateSession(): void {
+  const title = newSessionName.value.trim()
+  if (!title) return
+
+  const session = createSession(title, {
+    time: '刚刚',
+    summary: '新会话已创建，等待第一轮需求输入。'
+  })
+  sessions.value.unshift(session)
+  selectedSessionId.value = session.id
+  activeMenu.value = 'analysis'
+  showCreateSessionModal.value = false
+}
+
+function handleUpdateDesignContent(value: string): void {
+  updateCurrentSession((session) => {
+    session.design.content = value
+    session.design.summary =
+      '设计正文已手动编辑，可以继续用右侧 Auto Copilot 生成 diff 回显并自动合并。'
+    session.time = '刚刚'
+  })
+}
+function handleSendCopilotMessage(): void {
+  const content = copilotInput.value.trim()
+  if (!content || !activeRightPanel.value) return
+
+  const mode = activeRightPanel.value
+  copilotInput.value = ''
+
+  updateCurrentSession((session) => {
+    const document = getActiveDocument(session, mode)
+    document.agentMessages.push({ id: createId('copilot'), role: 'user', content })
+  })
+
+  const tweaks = inferTweaksFromPrompt(content, mode)
+
+  updateCurrentSession((session) => {
+    const document = getActiveDocument(session, mode)
+    const nextTweaks = Array.from(new Set([...document.appliedTweaks, ...tweaks]))
+    document.appliedTweaks = nextTweaks
+
+    let nextContent = document.content
+    if (mode === 'analysis') {
+      session.plan.steps = buildPlanSteps(nextTweaks)
+      nextContent = buildPlanMarkdown(session.title, session.plan.steps)
+      session.plan.summary = `围绕「${session.title}」的需求分析已根据对话追加 ${nextTweaks.length} 条偏好，并自动合并最新修改。`
+    } else {
+      nextContent = buildDesignMarkdown(session.title, nextTweaks)
+      session.design.summary = `规划设计已根据对话生成 ${nextTweaks.length} 轮结构化修改建议，并自动合并最新修改。`
+    }
+
+    document.agentMessages.push({
+      id: createId('copilot'),
+      role: 'function',
+      content: `update_${mode}_document({ tweaks: [${nextTweaks.map((item) => `'${item}'`).join(', ')}] })`
+    })
+    document.agentMessages.push({
+      id: createId('copilot'),
+      role: 'assistant',
+      content: buildCopilotReply(nextTweaks, mode)
+    })
+    document.diffLines = buildModifiedDiffLines(document.content, nextContent)
+    document.content = nextContent
+    session.summary = mode === 'analysis' ? session.plan.summary : session.design.summary
+    session.time = '刚刚'
+
+    if (mode === 'analysis') {
+      session.currentStage = 'design'
+    } else {
+      session.currentStage = 'verify'
+    }
+  })
+}
+
+function inferTweaksFromPrompt(prompt: string, mode: CopilotMode): string[] {
+  const tweaks: string[] = []
+  const normalized = prompt.toLowerCase()
+
+  if (mode === 'analysis') {
+    if (normalized.includes('mock')) tweaks.push('mock')
+    if (prompt.includes('权限') || normalized.includes('permission')) tweaks.push('permission')
+    if (prompt.includes('校验') || prompt.includes('验证') || normalized.includes('verify'))
+      tweaks.push('verify-first')
+  } else {
+    if (prompt.includes('模块') || prompt.includes('拆')) tweaks.push('module-breakdown')
+    if (prompt.includes('数据流') || prompt.includes('状态流')) tweaks.push('dataflow')
+    if (prompt.includes('时序') || prompt.includes('流程')) tweaks.push('timeline')
   }
+
+  if (tweaks.length === 0) tweaks.push(mode === 'analysis' ? 'mock' : 'module-breakdown')
+  return tweaks
+}
+
+function buildCopilotReply(tweaks: string[], mode: CopilotMode): string {
+  const parts: string[] = []
+
+  if (mode === 'analysis') {
+    if (tweaks.includes('mock')) parts.push('已把前端 Mock 前移。')
+    if (tweaks.includes('permission')) parts.push('已补充权限语义与指令约束。')
+    if (tweaks.includes('verify-first')) parts.push('已增加阶段性校验清单。')
+  } else {
+    if (tweaks.includes('module-breakdown')) parts.push('已补充模块拆分与职责边界。')
+    if (tweaks.includes('dataflow')) parts.push('已补充数据流与状态流说明。')
+    if (tweaks.includes('timeline')) parts.push('已补充时序化设计描述。')
+  }
+
+  return `${parts.join('')} 我已经自动合并修改，你可以直接查看右侧 diff 回显。`
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms)
+  })
 }
 </script>
 
