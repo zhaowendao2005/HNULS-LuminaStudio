@@ -59,7 +59,6 @@ const props = defineProps<{
   modelConfigLabel: string
   analysisConfig: {
     discussionMemory: number
-    preplanMemory: number
     copilotMemory: number
   }
   designConfig: {
@@ -76,7 +75,6 @@ const emit = defineEmits<{
   (e: 'close'): void
   (e: 'change-tab', value: StageKey): void
   (e: 'update:analysis-discussion-memory', value: number): void
-  (e: 'update:analysis-preplan-memory', value: number): void
   (e: 'update:analysis-copilot-memory', value: number): void
   (e: 'update:design-memory', value: number): void
   (e: 'update:design-copilot-memory', value: number): void
@@ -107,7 +105,6 @@ const panelListeners = computed(() => {
     return {
       'update:discussion-memory': (value: number) =>
         emit('update:analysis-discussion-memory', value),
-      'update:preplan-memory': (value: number) => emit('update:analysis-preplan-memory', value),
       'update:copilot-memory': (value: number) => emit('update:analysis-copilot-memory', value)
     }
   }

@@ -119,7 +119,6 @@
       @close="showConfigDrawer = false"
       @change-tab="configDrawerTab = $event"
       @update:analysis-discussion-memory="analysisConfig.discussionMemory = $event"
-      @update:analysis-preplan-memory="analysisConfig.preplanMemory = $event"
       @update:analysis-copilot-memory="analysisConfig.copilotMemory = $event"
       @update:design-memory="designConfig.designMemory = $event"
       @update:design-copilot-memory="designConfig.copilotMemory = $event"
@@ -221,7 +220,6 @@ const modelConfigStore = useModelConfigStore()
 
 const analysisConfig = reactive({
   discussionMemory: 6,
-  preplanMemory: 4,
   copilotMemory: 5,
   providerId: null as string | null,
   modelId: null as string | null
@@ -323,7 +321,7 @@ const currentModelLabel = computed(() => {
 
 const modelConfigLabel = computed(() => {
   if (configDrawerTab.value === 'analysis') {
-    return `${analysisConfig.modelId || '未选择模型'} / 需求讨论 ${analysisConfig.discussionMemory} / 预计划 ${analysisConfig.preplanMemory} / copilot ${analysisConfig.copilotMemory}`
+    return `${analysisConfig.modelId || '未选择模型'} / 需求讨论 ${analysisConfig.discussionMemory} / copilot ${analysisConfig.copilotMemory}`
   }
   if (configDrawerTab.value === 'design') {
     return `${designConfig.modelId || '未选择模型'} / 设计正文 ${designConfig.designMemory} / copilot ${designConfig.copilotMemory}`
