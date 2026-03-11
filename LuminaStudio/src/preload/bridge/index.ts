@@ -12,6 +12,7 @@ import { knowledgeDatabaseAPI } from '../api/knowledge-database-api'
 import { rerankModelAPI } from '../api/rerank-model-api'
 import { userSettingsAPI } from '../api/user-settings-api'
 import { orchestraflowAPI } from '../api/orchestraflow-api'
+import { orchestflowGenerationEditorAPI } from '../api/orchestflow-generation-editor-api'
 import { mcpAPI } from '../api/mcp-api'
 
 const api = {
@@ -23,6 +24,7 @@ const api = {
   rerankModel: rerankModelAPI,
   userSettings: userSettingsAPI,
   orchestraflow: orchestraflowAPI,
+  orchestflowGenerationEditor: orchestflowGenerationEditorAPI,
   mcp: mcpAPI
 }
 

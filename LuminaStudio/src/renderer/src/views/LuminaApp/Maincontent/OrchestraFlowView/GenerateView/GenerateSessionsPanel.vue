@@ -32,7 +32,7 @@
           <div class="text-xs leading-5 text-gray-500">{{ session.summary }}</div>
         </div>
         <div class="flex shrink-0 flex-col items-end gap-3">
-          <div class="text-xs text-gray-400">{{ session.time }}</div>
+          <div class="text-xs text-gray-400">{{ formatTime(session.updatedAt) }}</div>
           <div class="flex items-center gap-1.5">
             <span
               v-for="stage in stageOrder"
@@ -47,10 +47,11 @@
 </template>
 
 <script setup lang="ts">
-import type { SessionItem, StageKey } from './generate-view.types'
+import type { GenerateSessionViewModel } from '@renderer/stores/orchestraflow/generation-editor.types'
+import type { StageKey } from './generate-view.types'
 
 defineProps<{
-  sessions: SessionItem[]
+  sessions: GenerateSessionViewModel[]
   selectedSessionId: string
   stageOrder: StageKey[]
   getStageLabel: (stage: StageKey) => string
@@ -61,4 +62,15 @@ defineEmits<{
   (e: 'open-create-session'): void
   (e: 'select-session', sessionId: string): void
 }>()
+
+function formatTime(value: string): string {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
 </script>

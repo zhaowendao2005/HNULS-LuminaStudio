@@ -3,8 +3,8 @@
     <div class="border-b border-gray-100 px-6 py-4">
       <div class="flex items-center justify-between gap-4 overflow-hidden">
         <div class="min-w-0 overflow-hidden">
-          <div class="truncate text-[13px] font-semibold text-gray-800">{{ session.title }}</div>
-          <div class="mt-1 truncate text-xs text-gray-500">{{ session.summary }}</div>
+          <div class="truncate text-[13px] font-semibold text-gray-800">{{ sessionTitle }}</div>
+          <div class="mt-1 truncate text-xs text-gray-500">{{ sessionSummary }}</div>
         </div>
         <div class="flex shrink-0 items-center gap-2">
           <span class="rounded bg-gray-100 px-2 py-1 text-[10px] text-gray-500">
@@ -31,7 +31,7 @@
     </div>
 
     <div class="flex-1 space-y-6 overflow-y-auto px-6 py-4">
-      <div v-for="message in session.messages" :key="message.id" class="flex gap-4">
+      <div v-for="message in messages" :key="message.id" class="flex gap-4">
         <div
           v-if="message.role === 'user'"
           class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100"
@@ -39,72 +39,47 @@
           <UserCircle :size="18" class="text-gray-500" />
         </div>
         <div
-          v-else-if="message.role === 'assistant'"
+          v-else
           class="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-cyan-100 bg-cyan-50"
         >
           <Bot :size="18" class="text-cyan-600" />
         </div>
-        <div
-          v-else
-          class="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-emerald-100 bg-emerald-50"
-        >
-          <Activity :size="18" class="text-emerald-600" />
-        </div>
 
-        <div v-if="message.kind === 'plan-card'" class="w-full">
-          <div class="group relative border-l-2 border-emerald-500 bg-gray-50/50 p-4">
-            <div
-              class="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-emerald-600"
-            >
-              <Check :size="12" />
-              计划生成完毕
-            </div>
-
-            <div class="mb-4 space-y-3">
-              <div>
-                <div class="mb-0.5 text-xs text-gray-500">需求摘要</div>
-                <div class="text-[13px] font-semibold text-gray-800">
-                  {{ session.plan.summary }}
-                </div>
-              </div>
-              <div>
-                <div class="mb-0.5 text-xs text-gray-500">执行步骤</div>
-                <ol class="list-decimal space-y-1 pl-4 text-[13px] text-gray-800">
-                  <li v-for="step in session.plan.steps" :key="step">{{ step }}</li>
-                </ol>
-              </div>
-            </div>
-
-            <div class="flex gap-2 border-t border-gray-200 pt-3">
-              <button
-                type="button"
-                class="flex items-center gap-1 rounded-sm bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
-                @click="$emit('enter-design')"
-              >
-                进入规划设计页
-              </button>
-              <button
-                type="button"
-                class="rounded-sm bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-200"
-                @click="$emit('open-copilot')"
-              >
-                打开 copilot
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div v-else class="w-full space-y-1.5 pt-1.5">
+        <div class="w-full space-y-1.5 pt-1.5">
           <div class="text-xs font-semibold text-gray-800">
             {{ message.role === 'user' ? 'User' : 'Lumina Agent' }}
           </div>
           <div class="text-[13px] leading-relaxed text-gray-800">
             {{ message.content }}
             <span
-              v-if="message.streaming"
+              v-if="message.status === 'streaming'"
               class="ml-1 inline-block h-3 w-1 animate-pulse bg-cyan-500 align-middle"
             ></span>
           </div>
+          <div v-if="message.error" class="text-[11px] text-rose-500">{{ message.error }}</div>
+        </div>
+      </div>
+
+      <div class="rounded border border-dashed border-gray-200 bg-gray-50/60 px-4 py-3">
+        <div class="text-xs font-semibold text-gray-600">需求分析文档</div>
+        <div class="mt-2 whitespace-pre-wrap text-[12px] leading-6 text-gray-700">
+          {{ analysisDocumentContent }}
+        </div>
+        <div class="mt-3 flex gap-2">
+          <button
+            type="button"
+            class="rounded-sm bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
+            @click="$emit('enter-design')"
+          >
+            进入规划设计页
+          </button>
+          <button
+            type="button"
+            class="rounded-sm bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-200"
+            @click="$emit('open-copilot')"
+          >
+            打开 copilot
+          </button>
         </div>
       </div>
     </div>
@@ -116,7 +91,7 @@
         <input
           :model-value="analysisInput"
           type="text"
-          placeholder="输入补充需求或修改意见...第三次对话会触发计划生成"
+          placeholder="输入补充需求或修改意见..."
           class="flex-1 border-none bg-transparent text-[13px] text-gray-800 placeholder-gray-400 focus:outline-none"
           @input="$emit('update:analysis-input', ($event.target as HTMLInputElement).value)"
           @keydown.enter="$emit('send-analysis')"
@@ -135,20 +110,15 @@
 </template>
 
 <script setup lang="ts">
-import {
-  Activity,
-  Bot,
-  Check,
-  FolderKanban,
-  MessageSquare,
-  Send,
-  UserCircle
-} from 'lucide-vue-next'
-import type { SessionItem } from './generate-view.types'
+import { Bot, FolderKanban, MessageSquare, Send, UserCircle } from 'lucide-vue-next'
+import type { GenerationMessage } from '@preload/types'
 
 defineProps<{
-  session: SessionItem
+  sessionTitle: string
+  sessionSummary: string
   currentSessionStageLabel: string
+  analysisDocumentContent: string
+  messages: GenerationMessage[]
   analysisInput: string
   isAnalysisStreaming: boolean
 }>()

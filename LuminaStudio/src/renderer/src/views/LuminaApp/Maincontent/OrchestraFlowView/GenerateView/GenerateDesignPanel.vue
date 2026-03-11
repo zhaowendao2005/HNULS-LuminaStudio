@@ -5,12 +5,12 @@
         <div class="min-w-0 overflow-hidden">
           <div class="text-[13px] font-semibold text-gray-800">规划设计页</div>
           <div class="mt-1 truncate text-xs leading-5 text-gray-500">
-            当前会话：{{ session.title }}，主内容为设计文档编辑器。
+            当前会话：{{ sessionTitle }}，主内容为设计文档编辑器。
           </div>
         </div>
         <div class="flex shrink-0 items-center gap-2">
           <span class="rounded bg-gray-100 px-2 py-1 text-[10px] text-gray-500">
-            {{ session.design.fileName }}
+            {{ fileName }}
           </span>
           <button
             type="button"
@@ -43,7 +43,7 @@
                 设计正文
               </div>
               <div class="mt-1 text-[11px] text-gray-400">
-                可以先手改正文，再交给右侧 copilot 继续处理。
+                文本编辑内容会直接持久化到 orchestflow-generation-editor.db。
               </div>
             </div>
             <button
@@ -71,11 +71,11 @@
 
 <script setup lang="ts">
 import { FolderKanban, MessageSquare } from 'lucide-vue-next'
-import type { SessionItem } from './generate-view.types'
 
 defineProps<{
-  session: SessionItem
+  sessionTitle: string
   designContent: string
+  fileName: string
 }>()
 
 defineEmits<{

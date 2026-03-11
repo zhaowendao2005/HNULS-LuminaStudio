@@ -9,7 +9,7 @@
         : 'w-0 overflow-hidden border-l-0 opacity-0'
     ]"
   >
-    <template v-if="visible">
+    <template v-if="visible && document">
       <div class="z-20 flex h-full flex-col bg-white shadow-[-4px_0_24px_rgba(0,0,0,0.03)]">
         <div
           class="flex h-12 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4"
@@ -18,7 +18,7 @@
             <GitBranch :size="16" class="shrink-0 text-gray-400" />
             <h3 class="truncate text-[13px] font-semibold text-gray-800">{{ panelTitle }}</h3>
             <span class="truncate rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">
-              {{ session.title }}
+              {{ sessionTitle }}
             </span>
           </div>
           <div class="flex shrink-0 items-center gap-1">
@@ -70,67 +70,13 @@
                 <span class="truncate text-xs font-semibold text-gray-700">
                   {{ document.fileName }}
                 </span>
-                <span class="truncate text-[10px] text-gray-400">
-                  {{ autoApproved ? '● 已自动合并最新修改' : '● 等待确认当前 diff' }}
-                </span>
-              </div>
-              <div v-if="!autoApproved" class="flex shrink-0 gap-2">
-                <button
-                  type="button"
-                  class="text-[11px] text-gray-500 hover:text-gray-800"
-                  @click="$emit('reset-pending')"
-                >
-                  取消
-                </button>
-                <button
-                  type="button"
-                  class="rounded-sm border border-gray-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-gray-700 hover:bg-gray-50"
-                  @click="$emit('apply-pending')"
-                >
-                  确认
-                </button>
+                <span class="truncate text-[10px] text-gray-400">● 文档正文实时持久化</span>
               </div>
             </div>
 
-            <div class="flex-1 overflow-y-auto bg-[#fafafa]">
-              <div class="min-w-max pb-4 font-mono text-[12px] leading-[22px]">
-                <div
-                  v-for="(line, index) in document.diffLines"
-                  :key="`${line.type}-${index}`"
-                  :class="[
-                    'group flex',
-                    line.type === 'added'
-                      ? 'bg-emerald-50/60'
-                      : line.type === 'removed'
-                        ? 'bg-rose-50/60'
-                        : 'hover:bg-gray-100/50'
-                  ]"
-                >
-                  <div
-                    :class="[
-                      'w-10 shrink-0 select-none border-r pr-3 text-right',
-                      line.type === 'added'
-                        ? 'border-emerald-200/50 bg-emerald-100/30 text-emerald-400'
-                        : line.type === 'removed'
-                          ? 'border-rose-200/50 bg-rose-100/30 text-rose-400'
-                          : 'border-gray-100 bg-gray-50/50 text-gray-300 group-hover:border-gray-200 group-hover:bg-gray-100/80'
-                    ]"
-                  >
-                    {{ line.num ?? '\u00A0' }}
-                  </div>
-                  <div
-                    :class="[
-                      'whitespace-pre pl-4',
-                      line.type === 'added'
-                        ? 'text-emerald-800'
-                        : line.type === 'removed'
-                          ? 'text-rose-700/80 line-through decoration-rose-400/50'
-                          : 'text-gray-700'
-                    ]"
-                  >
-                    {{ line.text }}
-                  </div>
-                </div>
+            <div class="flex-1 overflow-y-auto bg-[#fafafa] px-4 py-4">
+              <div class="whitespace-pre-wrap font-mono text-[12px] leading-[22px] text-gray-700">
+                {{ document.content }}
               </div>
             </div>
           </div>
@@ -148,7 +94,7 @@
             <div class="flex-1 space-y-4 overflow-y-auto p-4">
               <div class="text-center text-xs text-gray-400">{{ helperText }}</div>
 
-              <div v-for="message in document.agentMessages" :key="message.id" class="flex gap-3">
+              <div v-for="message in messages" :key="message.id" class="flex gap-3">
                 <div
                   v-if="message.role === 'user'"
                   class="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-gray-100"
@@ -156,29 +102,26 @@
                   <UserCircle :size="14" class="text-gray-500" />
                 </div>
                 <div
-                  v-else-if="message.role === 'assistant'"
+                  v-else
                   class="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm border border-violet-100 bg-violet-50"
                 >
                   <Bot :size="14" class="text-violet-600" />
                 </div>
-                <div
-                  v-else
-                  class="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm border border-amber-100 bg-amber-50"
-                >
-                  <Sparkles :size="14" class="text-amber-600" />
-                </div>
 
                 <div
                   :class="[
-                    'text-[13px] text-gray-800',
-                    message.role === 'user'
-                      ? 'rounded-bl-md rounded-r-md bg-gray-50 p-2'
-                      : message.role === 'function'
-                        ? 'w-full rounded-md border border-amber-100 bg-amber-50/70 p-2 font-mono text-[12px] text-amber-700'
-                        : ''
+                    'w-full rounded-md text-[13px] text-gray-800',
+                    message.role === 'user' ? 'rounded-bl-md rounded-r-md bg-gray-50 p-2' : 'p-0.5'
                   ]"
                 >
                   {{ message.content }}
+                  <span
+                    v-if="message.status === 'streaming'"
+                    class="ml-1 inline-block h-3 w-1 animate-pulse bg-violet-500 align-middle"
+                  ></span>
+                  <div v-if="message.error" class="mt-1 text-[11px] text-rose-500">
+                    {{ message.error }}
+                  </div>
                 </div>
               </div>
             </div>
@@ -198,7 +141,7 @@
                 <button
                   type="button"
                   class="p-1 text-gray-400 transition-colors hover:text-gray-700 disabled:cursor-not-allowed disabled:text-gray-300"
-                  :disabled="!copilotInput.trim()"
+                  :disabled="!copilotInput.trim() || isStreaming"
                   @click="$emit('send-copilot-message')"
                 >
                   <Send :size="14" />
@@ -222,49 +165,51 @@ import {
   Minimize2,
   RefreshCw,
   Send,
-  Sparkles,
   UserCircle,
   X
 } from 'lucide-vue-next'
-import type { CopilotMode, SessionDocumentState, SessionItem } from './generate-view.types'
+import type { GenerationDocument, GenerationMessage } from '@preload/types'
+import type { CopilotMode } from './generate-view.types'
 
 const props = defineProps<{
   visible: boolean
   isFullscreen: boolean
   mode: CopilotMode
-  session: SessionItem
+  sessionTitle: string
+  document: GenerationDocument | null
+  messages: GenerationMessage[]
+  autoApproved: boolean
   copilotInput: string
+  isStreaming: boolean
 }>()
 
 defineEmits<{
   (e: 'toggle-auto-approved'): void
   (e: 'toggle-fullscreen'): void
   (e: 'close'): void
-  (e: 'reset-pending'): void
-  (e: 'apply-pending'): void
   (e: 'update:copilot-input', value: string): void
   (e: 'send-copilot-message'): void
 }>()
 
-const document = computed<SessionDocumentState>(() => {
-  return props.mode === 'analysis' ? props.session.plan : props.session.design
-})
-
-const autoApproved = computed(() => document.value.autoApproved)
-
 const panelTitle = computed(() => {
-  return props.mode === 'analysis' ? '需求分析 Copilot 面板' : '规划设计 Copilot 面板'
+  if (props.mode === 'analysis') return '需求分析 Copilot 面板'
+  if (props.mode === 'design') return '规划设计 Copilot 面板'
+  return '校验 Copilot 面板'
 })
 
 const helperText = computed(() => {
-  return props.mode === 'analysis'
-    ? '这里会生成需求分析的 diff 回显；开启 Auto Approved 时自动合并，关闭后需要手动确认。'
-    : '这里会生成规划设计的 diff 回显；开启 Auto Approved 时自动合并，关闭后需要手动确认。'
+  if (props.mode === 'analysis') {
+    return '这里是 analysis copilot 对话，目标是验证 AI 对话和数据库持久化链路。'
+  }
+  if (props.mode === 'design') {
+    return '这里是 design copilot 对话，当前只做真实聊天，不做 diff 自动合并。'
+  }
+  return '这里是 verify copilot 对话，已独立于 design mode。'
 })
 
 const inputPlaceholder = computed(() => {
-  return props.mode === 'analysis'
-    ? '补充需求分析要求，比如：强调权限边界、补一个接口清单'
-    : '补充设计要求，比如：补时序、拆模块、增加数据流说明'
+  if (props.mode === 'analysis') return '补充需求分析要求...'
+  if (props.mode === 'design') return '补充设计要求...'
+  return '补充校验要求...'
 })
 </script>
