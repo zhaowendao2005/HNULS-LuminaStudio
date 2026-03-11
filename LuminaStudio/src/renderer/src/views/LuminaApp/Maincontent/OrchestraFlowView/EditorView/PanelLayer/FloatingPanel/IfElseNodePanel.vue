@@ -84,6 +84,18 @@
         <div class="of-doc-kicker">分支逻辑配置</div>
         <div class="of-doc-divider"></div>
 
+        <section class="of-doc-section">
+          <MechanismHintCard
+            title="机制说明"
+            description="IfElse 面板现在直接读取 selector / edge mechanism，统一展示分支条件和连线规则。"
+            :primary-rules="ifElseSelectorMechanism.hardRules.slice(0, 2)"
+            :secondary-rules="ifElseEdgeMechanism.hardRules"
+            :example="ifElseSelectorMechanism.examples[0]"
+          />
+        </section>
+
+        <div class="of-doc-divider"></div>
+
         <div class="of-branch-stack">
           <div v-for="item in cases" :key="item.id" class="of-branch-case of-branch-case-v7">
             <div class="of-branch-v7-tree">
@@ -301,6 +313,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import {
   OFVarType,
   getOFPathFromRef,
+  resolveOFMechanismDefinition,
   type OFIfElseCondition,
   type OFIfElseNodeData
 } from '@shared/Orchestraflow-types'
@@ -310,6 +323,7 @@ import { useVariableSelectorStore } from '@renderer/stores/orchestraflow/workflo
 import { useNodeDebugStore } from '@renderer/stores/orchestraflow/node-debug/node-debug.store'
 import NodeDebugLastRun from './NodeDebug/NodeDebugLastRun.vue'
 import CapsuleTooltip from './components/CapsuleTooltip.vue'
+import MechanismHintCard from './components/MechanismHintCard.vue'
 import VariablePillButton from './components/VariablePillButton.vue'
 import { OF_PANEL_THEME } from './panel-theme'
 
@@ -328,6 +342,8 @@ const activeChoicePopup = ref<{
 const popupPosition = ref<Record<string, { top: number; left: number }>>({})
 const operatorTriggerRefs = ref<HTMLElement[]>([])
 const theme = OF_PANEL_THEME.ifelse
+const ifElseSelectorMechanismDefinition = resolveOFMechanismDefinition('selector-ref')
+const ifElseEdgeMechanismDefinition = resolveOFMechanismDefinition('edge-handle')
 
 const currentNode = computed(() => {
   if (!uiStore.selectedNodeId) return null
@@ -340,6 +356,16 @@ const nodeDebugResult = computed(() => {
   const nodeId = uiStore.selectedNodeId
   return nodeId ? nodeDebugStore.getLastRun(nodeId) : undefined
 })
+
+const ifElseSelectorMechanism = computed(() => ({
+  hardRules: [...ifElseSelectorMechanismDefinition.hard_rules],
+  examples: ifElseSelectorMechanismDefinition.examples.map((item) => `${item.label}：${item.value}`)
+}))
+
+const ifElseEdgeMechanism = computed(() => ({
+  hardRules: [...ifElseEdgeMechanismDefinition.hard_rules],
+  failureModes: [...ifElseEdgeMechanismDefinition.failure_modes]
+}))
 
 const titleModel = computed({
   get: () => nodeData.value?.title || '条件分支',

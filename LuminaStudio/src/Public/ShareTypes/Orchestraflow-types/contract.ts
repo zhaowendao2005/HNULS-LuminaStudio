@@ -15,7 +15,9 @@ import type {
   OFWorkflow,
   OFWorkflowGraph
 } from './core-types'
-import { OFBlockEnum } from './core-types'
+import type { OFBlockEnum } from './core-types'
+import { listOFMechanismDefinitions, resolveOFMechanismDefinition } from './mechanisms'
+import { listOFNodeDefinitions } from './node-definition-registry'
 
 export type OFFieldSource = 'author' | 'compiler' | 'runtime'
 
@@ -63,9 +65,9 @@ export interface OFNodeAuthoringContract {
 }
 
 export interface OFWorkflowAuthoringContract {
-  version: '1.0'
-  format: 'orchestraflow-runnable-workflow'
-  root_type: 'OFRunnableWorkflow'
+  version: '2.0'
+  format: 'orchestraflow-blueprint-workflow'
+  root_type: 'OFBlueprintWorkflow'
   selector_contract: OFSelectorContract
   edge_contract: OFEdgeContract
   global_fields: OFFieldContract[]
@@ -146,4 +148,47 @@ export type OFRunnableWorkflowGraph = Omit<OFWorkflowGraph, 'nodes' | 'edges'> &
 
 export type OFRunnableWorkflow = Omit<OFWorkflow, 'graph'> & {
   graph: OFRunnableWorkflowGraph
+}
+
+function cloneFieldContract(field: OFFieldContract): OFFieldContract {
+  return { ...field }
+}
+
+function cloneInvariantContract(invariant: OFInvariantContract): OFInvariantContract {
+  return { ...invariant }
+}
+
+export function buildOFWorkflowAuthoringContract(): OFWorkflowAuthoringContract {
+  const syntaxMechanism = resolveOFMechanismDefinition('blueprint-syntax')
+  const selectorMechanism = resolveOFMechanismDefinition('selector-ref')
+  const edgeMechanism = resolveOFMechanismDefinition('edge-handle')
+
+  return {
+    version: '2.0',
+    format: 'orchestraflow-blueprint-workflow',
+    root_type: 'OFBlueprintWorkflow',
+    selector_contract: {
+      ...(selectorMechanism.selector_contract as OFSelectorContract)
+    },
+    edge_contract: {
+      ...(edgeMechanism.edge_contract as OFEdgeContract)
+    },
+    global_fields: (syntaxMechanism.global_fields || []).map(cloneFieldContract),
+    global_invariants: listOFMechanismDefinitions().flatMap((mechanism) =>
+      (mechanism.global_invariants || []).map(cloneInvariantContract)
+    ),
+    nodes: listOFNodeDefinitions().map((definition) => ({
+      ...definition.authoring.contract,
+      author_required_fields: [...definition.authoring.contract.author_required_fields],
+      compiler_injected_fields: [...definition.authoring.contract.compiler_injected_fields],
+      runtime_invariants:
+        definition.authoring.contract.runtime_invariants.map(cloneInvariantContract),
+      produced_outputs: [...definition.authoring.contract.produced_outputs],
+      notes: [...definition.authoring.contract.notes]
+    }))
+  }
+}
+
+export function getOFWorkflowAuthoringContract(): OFWorkflowAuthoringContract {
+  return buildOFWorkflowAuthoringContract()
 }

@@ -10,6 +10,31 @@ describe('variable-selector.store', () => {
     setActivePinia(createPinia())
   })
 
+  it('exposes selector mechanism guidance for the current target type', () => {
+    const editorStore = useWorkflowEditorStore()
+    const selectorStore = useVariableSelectorStore()
+
+    const startId = editorStore.addNode(OFBlockEnum.Start)
+    const iterationId = editorStore.addNode(OFBlockEnum.Iteration)
+    editorStore.setEdges([
+      {
+        id: 'edge_start_iteration',
+        source: startId,
+        target: iterationId,
+        sourceHandle: 'source',
+        targetHandle: 'target'
+      }
+    ])
+
+    selectorStore.openSelector(iterationId, 'iteration-input')
+
+    expect(selectorStore.selectorMechanismGuidance.title).toBe('Selector / Ref 语义')
+    expect(selectorStore.selectorMechanismGuidance.contextNotes).toEqual(
+      expect.arrayContaining(['这里必须选择数组变量，供 iteration 逐项展开。'])
+    )
+    expect(selectorStore.selectorMechanismGuidance.hardRules.length).toBeGreaterThan(0)
+  })
+
   it('derives visible upstream variables from node definitions', () => {
     const editorStore = useWorkflowEditorStore()
     const selectorStore = useVariableSelectorStore()

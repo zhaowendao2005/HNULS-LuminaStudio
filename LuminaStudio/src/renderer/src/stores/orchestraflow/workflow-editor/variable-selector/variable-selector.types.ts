@@ -3,6 +3,7 @@
  */
 
 import type { OFBlockEnum, OFStructuredJsonSchema, OFVarType } from '@shared/Orchestraflow-types'
+import type { OFMechanismUiHint } from '../workflow-editor.types'
 
 export type VariableSelectorTargetType =
   | 'prompt'
@@ -40,6 +41,10 @@ export interface OFAvailableVariableGroup {
   nodeType?: OFBlockEnum
   isSystem?: boolean
   items: OFAvailableVariable[]
+}
+
+export interface OFVariableSelectorMechanismGuidance extends OFMechanismUiHint {
+  targetType: VariableSelectorTargetType
 }
 
 export interface VariableSelectorState {

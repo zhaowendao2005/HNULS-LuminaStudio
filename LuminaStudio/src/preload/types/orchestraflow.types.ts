@@ -9,7 +9,6 @@ export * from '@shared/Orchestraflow-types'
  * 工作流系统 IPC 接口类型定义
  */
 import type {
-  OFAISchemaBundle,
   OFWorkflow,
   OFWorkflowMeta,
   OFWorkflowRunResult,
@@ -54,17 +53,6 @@ export interface OFWorkflowAPI {
 
   delete(workflowId: string): Promise<{
     success: boolean
-    error?: string
-  }>
-
-  /**
-   * 导出给 AI 使用的可运行 OrchestraFlow 工作流 bundle。
-   * 该 bundle 的目标是让 AI 直接生成可写入工作流目录的最终 JSON，
-   * 而不是再经过额外编译步骤的中间格式。
-   */
-  getAISchemaBundle(): Promise<{
-    success: boolean
-    data?: OFAISchemaBundle
     error?: string
   }>
 

@@ -93,6 +93,14 @@
         class="of-panel-shell-body-inner of-doc-block"
       >
         <section class="of-doc-section">
+          <MechanismHintCard
+            title="机制说明"
+            description="变量赋值面板直接读取 selector / variable mechanism，统一说明来源引用和目标变量规则。"
+            :primary-rules="variableAssignSelectorMechanism.hardRules.slice(0, 2)"
+            :secondary-rules="variableAssignVariableMechanism.hardRules"
+            :warning="variableAssignVariableMechanism.failureModes[0]"
+          />
+
           <div class="flex items-center justify-between">
             <div class="of-doc-title-strong">赋值规则</div>
             <button type="button" class="of-state-inline-action" @click="addRule">添加规则</button>
@@ -368,7 +376,8 @@ import {
   OFBlockEnum,
   OFVarType as OFVarTypeEnum,
   getOFValueSourcePath,
-  getOFValueSourceSelector
+  getOFValueSourceSelector,
+  resolveOFMechanismDefinition
 } from '@shared/Orchestraflow-types'
 import { useWorkflowEditorUIStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor-ui.store'
 import { useWorkflowEditorStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor.store'
@@ -380,6 +389,7 @@ import type { NodeDebugField } from './NodeDebug/NodeDebugForm.vue'
 import NodeDebugForm from './NodeDebug/NodeDebugForm.vue'
 import NodeDebugLastRun from './NodeDebug/NodeDebugLastRun.vue'
 import CapsuleTooltip from './components/CapsuleTooltip.vue'
+import MechanismHintCard from './components/MechanismHintCard.vue'
 import ObjectSchemaEditor from './ObjectSchemaEditor/index.vue'
 import { OF_PANEL_THEME } from './panel-theme'
 
@@ -390,6 +400,8 @@ const nodeDebugStore = useNodeDebugStore()
 const objectSchemaEditorStore = useObjectSchemaEditorStore()
 const configStore = useVariableAssignNodeConfigStore()
 const theme = OF_PANEL_THEME.variableAssign
+const variableAssignSelectorMechanismDefinition = resolveOFMechanismDefinition('selector-ref')
+const variableAssignVariableMechanismDefinition = resolveOFMechanismDefinition('variables')
 
 const activeTab = ref<'settings' | 'lastRun'>('settings')
 const debugMode = ref(false)
@@ -413,6 +425,18 @@ const nodeData = computed(() => currentNode.value?.data as OFVariableAssignNodeD
 const rules = computed(() => nodeData.value?.rules || [])
 const outputPreviewVariables = computed(() => nodeData.value?.output?.variables || [])
 const outputNamespaceLabel = computed(() => nodeData.value?.title || 'assign')
+
+const variableAssignSelectorMechanism = computed(() => ({
+  hardRules: [...variableAssignSelectorMechanismDefinition.hard_rules],
+  examples: variableAssignSelectorMechanismDefinition.examples.map(
+    (item) => `${item.label}：${item.value}`
+  )
+}))
+
+const variableAssignVariableMechanism = computed(() => ({
+  hardRules: [...variableAssignVariableMechanismDefinition.hard_rules],
+  failureModes: [...variableAssignVariableMechanismDefinition.failure_modes]
+}))
 
 const titleModel = computed({
   get: () => nodeData.value?.title || '变量赋值',

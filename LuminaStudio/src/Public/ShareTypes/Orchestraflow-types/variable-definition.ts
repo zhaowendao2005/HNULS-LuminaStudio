@@ -1,4 +1,4 @@
-import type { OFAuthoringDefaultRecommendation } from './ai-schema'
+import type { OFAuthoringDefaultRecommendation } from './blueprint'
 import type {
   OFJsonSchemaObject,
   OFLoopVariableData,

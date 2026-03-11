@@ -1,10 +1,12 @@
 import {
   OFBlockEnum,
+  resolveOFMechanismDefinition,
   type OFEdge,
   type OFIterationNodeData,
   type OFLoopNodeData,
   type OFNode
 } from '@shared/Orchestraflow-types'
+import type { OFContainerDropGuard, OFMechanismUiHint } from '../workflow-editor.types'
 import {
   getNestedNodeFootprint,
   ITERATION_MIN_HEIGHT,
@@ -34,7 +36,90 @@ interface WorkflowEditorContainerDeps extends WorkflowEditorGraphContext {
   ) => OFNode[]
 }
 
+const containerMechanismDefinition = resolveOFMechanismDefinition('container')
+
 export function createWorkflowEditorContainerModule(deps: WorkflowEditorContainerDeps) {
+  function getContainerMechanismHints(nodeId?: string | null): OFMechanismUiHint {
+    const contextNotes: string[] = [
+      '容器节点的内部 start、start_node_id、viewport 都是系统托管字段。',
+      '拖拽节点进入容器前，编辑器会先做容器守卫检查。'
+    ]
+    const targetNode = nodeId ? deps.findNodeById(nodeId) : null
+    if (targetNode?.data.type === OFBlockEnum.Iteration) {
+      contextNotes.push('当前面板是 Iteration：输入必须来自数组变量。')
+    }
+    if (targetNode?.data.type === OFBlockEnum.Loop) {
+      contextNotes.push('当前面板是 Loop：局部变量和 break 条件都受子图容器规则约束。')
+    }
+    return {
+      id: containerMechanismDefinition.id,
+      title: containerMechanismDefinition.title,
+      summary: containerMechanismDefinition.summary,
+      hardRules: [...containerMechanismDefinition.hard_rules],
+      examples: containerMechanismDefinition.examples.map((item) => `${item.label}：${item.value}`),
+      failureModes: [...containerMechanismDefinition.failure_modes],
+      contextNotes
+    }
+  }
+
+  function getMoveNodeIntoContainerGuard(
+    nodeId: string,
+    iterationNodeId: string
+  ): OFContainerDropGuard {
+    const movingNode = deps.findNodeById(nodeId)
+    const targetIteration = deps.findNodeById(iterationNodeId)
+    if (
+      !movingNode ||
+      !targetIteration ||
+      (targetIteration.data.type !== OFBlockEnum.Iteration &&
+        targetIteration.data.type !== OFBlockEnum.Loop)
+    ) {
+      return { allowed: false, reason: '目标不是合法的容器节点。' }
+    }
+    if (nodeId === iterationNodeId) {
+      return { allowed: false, reason: '节点不能拖入自己。' }
+    }
+    if (
+      movingNode.data.type === OFBlockEnum.Start ||
+      movingNode.data.type === OFBlockEnum.IterationStart ||
+      movingNode.data.type === OFBlockEnum.LoopStart ||
+      movingNode.data.type === OFBlockEnum.End
+    ) {
+      return {
+        allowed: false,
+        reason: '开始 / 结束 / 内部 start 节点不能拖入容器。'
+      }
+    }
+    if (
+      movingNode.data.type === OFBlockEnum.Iteration ||
+      movingNode.data.type === OFBlockEnum.Loop
+    ) {
+      return {
+        allowed: false,
+        reason: containerMechanismDefinition.failure_modes[1] || '子图内禁止继续嵌套容器。'
+      }
+    }
+
+    const hasConnectedEdges = deps
+      .getEdges()
+      .some((edge) => edge.source === nodeId || edge.target === nodeId)
+    if (hasConnectedEdges) {
+      return {
+        allowed: false,
+        reason: '已连接边的节点不能直接拖入容器，否则会破坏当前图结构。'
+      }
+    }
+
+    const parentIterationId = deps.findParentIterationNodeId(nodeId)
+    if (parentIterationId) {
+      return {
+        allowed: false,
+        reason: '已经在容器内的节点不能再次拖入其它容器。'
+      }
+    }
+
+    return { allowed: true, reason: null }
+  }
   function syncIterationContainerSize(iterationNodeId: string) {
     const iterationNode = deps.findNodeById(iterationNodeId)
     if (
@@ -140,33 +225,11 @@ export function createWorkflowEditorContainerModule(deps: WorkflowEditorContaine
     iterationNodeId: string,
     dropPosition: { x: number; y: number }
   ) {
+    const guard = getMoveNodeIntoContainerGuard(nodeId, iterationNodeId)
+    if (!guard.allowed) return
+
     const movingNode = deps.findNodeById(nodeId)
-    const targetIteration = deps.findNodeById(iterationNodeId)
-    if (
-      !movingNode ||
-      !targetIteration ||
-      (targetIteration.data.type !== OFBlockEnum.Iteration &&
-        targetIteration.data.type !== OFBlockEnum.Loop)
-    ) {
-      return
-    }
-    if (nodeId === iterationNodeId) return
-    if (
-      movingNode.data.type === OFBlockEnum.Start ||
-      movingNode.data.type === OFBlockEnum.IterationStart ||
-      movingNode.data.type === OFBlockEnum.LoopStart ||
-      movingNode.data.type === OFBlockEnum.End
-    ) {
-      return
-    }
-
-    const hasConnectedEdges = deps
-      .getEdges()
-      .some((edge) => edge.source === nodeId || edge.target === nodeId)
-    if (hasConnectedEdges) return
-
-    const parentIterationId = deps.findParentIterationNodeId(nodeId)
-    if (parentIterationId) return
+    if (!movingNode) return
 
     const detachedNode = normalizeNode({
       ...movingNode,
@@ -189,6 +252,8 @@ export function createWorkflowEditorContainerModule(deps: WorkflowEditorContaine
     updateIterationViewport,
     updateIterationChildPosition,
     addIterationEdge,
-    moveNodeIntoIterationNode
+    moveNodeIntoIterationNode,
+    getContainerMechanismHints,
+    getMoveNodeIntoContainerGuard
   }
 }

@@ -283,6 +283,16 @@
         </section>
 
         <section class="of-doc-section">
+          <MechanismHintCard
+            title="容器规则说明"
+            description="这些说明直接来自共享 container mechanism，不再由面板手写一份。"
+            :primary-rules="containerMechanismHints.hardRules"
+            :notes="containerMechanismHints.contextNotes"
+            :warning="containerMechanismHints.failureModes[0]"
+          />
+        </section>
+
+        <section class="of-doc-section">
           <div class="flex items-center justify-between">
             <div>
               <div class="of-doc-title-strong">输出预览</div>
@@ -348,6 +358,7 @@ import type { NodeDebugField } from './NodeDebug/NodeDebugForm.vue'
 import NodeDebugForm from './NodeDebug/NodeDebugForm.vue'
 import NodeDebugLastRun from './NodeDebug/NodeDebugLastRun.vue'
 import CapsuleTooltip from './components/CapsuleTooltip.vue'
+import MechanismHintCard from './components/MechanismHintCard.vue'
 import { OF_PANEL_THEME } from './panel-theme'
 import ToggleSwitch from '../Components/ToggleSwitch/index.vue'
 
@@ -388,6 +399,9 @@ const iteratorSelectorDisplayText = computed(() => getOFPathFromRef(nodeData.val
 const outputSelectorDisplayText = computed(() => getOFPathFromRef(nodeData.value?.output_ref))
 const outputPreviewVariables = computed(() => nodeData.value?.output?.variables || [])
 const outputNamespaceLabel = computed(() => nodeData.value?.title || 'iteration')
+const containerMechanismHints = computed(() =>
+  editorStore.getContainerMechanismHints(uiStore.selectedNodeId)
+)
 const branchOutputTargets = computed(() => {
   const subgraphNodes = nodeData.value?.subgraph?.nodes || []
   return subgraphNodes

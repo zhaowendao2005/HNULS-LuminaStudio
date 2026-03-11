@@ -14,7 +14,10 @@ const SHARED_INTERNAL_IMPORTS = new Set([
   '@shared/Orchestraflow-types/core-types',
   '@shared/Orchestraflow-types/node-definition',
   '@shared/Orchestraflow-types/variable-definition',
-  '@shared/Orchestraflow-types/node-definition-registry'
+  '@shared/Orchestraflow-types/node-definition-registry',
+  '@shared/Orchestraflow-types/mechanisms',
+  '@shared/Orchestraflow-types/blueprint',
+  '@shared/Orchestraflow-types/agent-context'
 ])
 
 const BUSINESS_BRANCH_TARGETS = new Set([
@@ -22,8 +25,7 @@ const BUSINESS_BRANCH_TARGETS = new Set([
   '/src/renderer/src/stores/orchestraflow/workflow-editor/modules/workflow-editor.actions.ts',
   '/src/renderer/src/stores/orchestraflow/workflow-editor/modules/workflow-editor.container.ts',
   '/src/renderer/src/stores/orchestraflow/workflow-editor/modules/workflow-editor.graph.ts',
-  '/src/renderer/src/stores/orchestraflow/workflow-editor/variable-selector/variable-selector.store.ts',
-  '/src/utility/orchestraflow/ai-schema/builder.ts'
+  '/src/renderer/src/stores/orchestraflow/workflow-editor/variable-selector/variable-selector.store.ts'
 ])
 
 const BUSINESS_BRANCH_ALLOWED_FUNCTIONS = new Map([
@@ -51,9 +53,16 @@ const BUSINESS_BRANCH_ALLOWED_FUNCTIONS = new Map([
   [
     '/src/renderer/src/stores/orchestraflow/workflow-editor/variable-selector/variable-selector.store.ts',
     new Set(['buildLoopLocalVariableGroup'])
-  ],
-  ['/src/utility/orchestraflow/ai-schema/builder.ts', new Set(['patchContainerSubgraphEdges'])]
+  ]
 ])
+
+const LEGACY_AI_SCHEMA_IMPORT_PATTERNS = [
+  '/src/utility/orchestraflow/ai-schema/',
+  '/src/main/services/orchestraflow/orchestraflow-ai-schema-service',
+  'orchestraflow:ai-schema-bundle'
+]
+
+const AGENT_PROMPT_IDENTIFIERS = new Set(['prompt_markdown', 'bundled_markdown'])
 
 function normalizeFilename(filename) {
   return String(filename || '').replace(/\\/g, '/')
@@ -77,11 +86,26 @@ function isAllowedManualDerivedFile(filename) {
   const normalized = normalizeFilename(filename)
   return (
     normalized.includes('/src/Public/ShareTypes/Orchestraflow-types/builtins/') ||
-    normalized.endsWith('/src/utility/orchestraflow/ai-schema/compiler.ts') ||
-    normalized.endsWith('/src/utility/orchestraflow/ai-schema/runtime-binding-registry.ts') ||
-    normalized.endsWith('/src/utility/orchestraflow/ai-schema/generated-runnable-schema.ts') ||
+    normalized.endsWith('/src/Public/ShareTypes/Orchestraflow-types/blueprint/compiler.ts') ||
+    normalized.endsWith('/src/utility/orchestraflow/runtime-binding-registry.ts') ||
     normalized.endsWith('.test.ts') ||
     normalized.endsWith('.mock.ts')
+  )
+}
+
+function isAllowedAgentPromptFile(filename) {
+  const normalized = normalizeFilename(filename)
+  return normalized.includes('/src/Public/ShareTypes/Orchestraflow-types/agent-context/')
+}
+
+function isMechanismDefinitionFile(filename) {
+  const normalized = normalizeFilename(filename)
+  return normalized.includes('/src/Public/ShareTypes/Orchestraflow-types/mechanisms/')
+}
+
+function isContractAggregatorFile(filename) {
+  return normalizeFilename(filename).endsWith(
+    '/src/Public/ShareTypes/Orchestraflow-types/contract.ts'
   )
 }
 
@@ -310,6 +334,115 @@ function createNoManualDerivedNodeFieldsRule() {
   }
 }
 
+function createNoAISchemaProductImportsRule() {
+  return {
+    meta: {
+      type: 'problem',
+      docs: {
+        description: 'Disallow legacy ai-schema product chain imports or IPC endpoints.'
+      },
+      schema: [],
+      messages: {
+        legacy:
+          'Legacy ai-schema product chain is removed. Use shared blueprint/mechanism/agent-context APIs instead.'
+      }
+    },
+    create(context) {
+      return {
+        ImportDeclaration(node) {
+          const source = String(node.source.value || '')
+          if (
+            LEGACY_AI_SCHEMA_IMPORT_PATTERNS.some((pattern) => source.includes(pattern)) ||
+            source.includes('ai-schema')
+          ) {
+            context.report({ node: node.source, messageId: 'legacy' })
+          }
+        },
+        Literal(node) {
+          if (typeof node.value !== 'string') return
+          if (
+            LEGACY_AI_SCHEMA_IMPORT_PATTERNS.some((pattern) => node.value.includes(pattern)) ||
+            node.value.includes('ai-schema')
+          ) {
+            context.report({ node, messageId: 'legacy' })
+          }
+        }
+      }
+    }
+  }
+}
+
+function createNoMechanismContractLiteralsRule() {
+  return {
+    meta: {
+      type: 'problem',
+      docs: {
+        description:
+          'Force selector/edge/container global contract literals to live in mechanism definitions.'
+      },
+      schema: [],
+      messages: {
+        mechanism:
+          'Selector/edge/container global contract literals must live in mechanism definitions, not in this file.'
+      }
+    },
+    create(context) {
+      if (
+        isMechanismDefinitionFile(context.filename) ||
+        isContractAggregatorFile(context.filename)
+      ) {
+        return {}
+      }
+      return {
+        Property(node) {
+          const keyName = getPropertyName(node.key)
+          if (
+            ['selector_contract', 'edge_contract', 'global_invariants', 'global_fields'].includes(
+              keyName
+            )
+          ) {
+            context.report({ node, messageId: 'mechanism' })
+          }
+        }
+      }
+    }
+  }
+}
+
+function createNoDirectAgentPromptAssemblyRule() {
+  return {
+    meta: {
+      type: 'problem',
+      docs: {
+        description: 'Disallow direct agent prompt bundle fields outside agent-context renderers.'
+      },
+      schema: [],
+      messages: {
+        prompt:
+          'Agent prompt text must be rendered from agent-context renderers instead of being assembled here.'
+      }
+    },
+    create(context) {
+      if (isAllowedAgentPromptFile(context.filename)) {
+        return {}
+      }
+      return {
+        Identifier(node) {
+          if (AGENT_PROMPT_IDENTIFIERS.has(node.name)) {
+            context.report({ node, messageId: 'prompt' })
+          }
+        },
+        Literal(node) {
+          if (typeof node.value !== 'string') return
+          if (AGENT_PROMPT_IDENTIFIERS.has(node.value)) {
+            context.report({ node, messageId: 'prompt' })
+          }
+        }
+      }
+    }
+  }
+}
+
 export default {
   meta: {
     name: 'orchestraflow'
@@ -318,6 +451,9 @@ export default {
     'no-legacy-entrypoints': createNoLegacyEntrypointsRule(),
     'prefer-shared-barrel-api': createPreferSharedBarrelApiRule(),
     'no-business-branch-outside-definitions': createNoBusinessBranchOutsideDefinitionsRule(),
-    'no-manual-derived-node-fields': createNoManualDerivedNodeFieldsRule()
+    'no-manual-derived-node-fields': createNoManualDerivedNodeFieldsRule(),
+    'no-ai-schema-product-imports': createNoAISchemaProductImportsRule(),
+    'no-mechanism-contract-literals': createNoMechanismContractLiteralsRule(),
+    'no-direct-agent-prompt-assembly': createNoDirectAgentPromptAssemblyRule()
   }
 }

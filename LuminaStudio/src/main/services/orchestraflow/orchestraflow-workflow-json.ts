@@ -1,5 +1,5 @@
 import type { OFRunnableWorkflow } from '@shared/Orchestraflow-types'
-import { assertRunnableWorkflow } from '../../../utility/orchestraflow/ai-schema/validator'
+import { assertOFRunnableWorkflow } from '@shared/Orchestraflow-types'
 
 /**
  * OrchestraFlow 工作流 JSON/JSONC 解析辅助。
@@ -66,5 +66,5 @@ export function parseJsonc<T>(content: string): T {
 }
 
 export function parseRunnableWorkflowJsonc(content: string): OFRunnableWorkflow {
-  return assertRunnableWorkflow(parseJsonc<unknown>(content))
+  return assertOFRunnableWorkflow(parseJsonc<unknown>(content))
 }

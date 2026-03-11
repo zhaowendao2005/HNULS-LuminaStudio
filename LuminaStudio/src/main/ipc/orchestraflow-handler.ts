@@ -4,7 +4,6 @@
  */
 import { ipcMain, BrowserWindow } from 'electron'
 import { OrchestraflowWorkflowService } from '../services/orchestraflow/orchestraflow-workflow-service'
-import { orchestraflowAISchemaService } from '../services/orchestraflow/orchestraflow-ai-schema-service'
 import { orchestraflowBridge } from '../services/orchestraflow-bridge'
 import { logger } from '../services/logger'
 import { ModelConfigService } from '../services/model-config'
@@ -95,17 +94,6 @@ export class OrchestraflowIPCHandler {
         return { success: true }
       } catch (e) {
         log.error('Failed to delete workflow', e)
-        return { success: false, error: String(e) }
-      }
-    })
-
-    // 导出 AI Schema bundle
-    ipcMain.handle('orchestraflow:ai-schema-bundle', async () => {
-      try {
-        const bundle = orchestraflowAISchemaService.getBundle()
-        return { success: true, data: bundle }
-      } catch (e) {
-        log.error('Failed to build AI schema bundle', e)
         return { success: false, error: String(e) }
       }
     })

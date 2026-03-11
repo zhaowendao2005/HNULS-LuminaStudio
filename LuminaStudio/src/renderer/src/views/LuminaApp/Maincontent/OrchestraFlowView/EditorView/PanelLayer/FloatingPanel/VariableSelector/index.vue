@@ -30,6 +30,16 @@
           </div>
 
           <div class="max-h-[72vh] overflow-y-auto py-2">
+            <div class="mx-2 mb-2">
+              <MechanismHintCard
+                :title="`${store.selectorMechanismGuidance.title} / ${store.selectorMechanismGuidance.targetType}`"
+                :description="store.selectorMechanismGuidance.summary"
+                :primary-rules="store.selectorMechanismGuidance.hardRules.slice(0, 2)"
+                :notes="store.selectorMechanismGuidance.contextNotes"
+                :example="store.selectorMechanismGuidance.examples[0]"
+                :warning="store.selectorMechanismGuidance.failureModes[0]"
+              />
+            </div>
             <div v-if="rows.length === 0" class="px-4 py-8 text-center text-sm text-gray-400">
               暂无可用变量
             </div>
@@ -125,6 +135,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useVariableSelectorStore } from '@renderer/stores/orchestraflow/workflow-editor/variable-selector/variable-selector.store'
 import type { OFAvailableVariable } from '@renderer/stores/orchestraflow/workflow-editor/variable-selector/variable-selector.types'
+import MechanismHintCard from '../components/MechanismHintCard.vue'
 
 type SelectorRow =
   | {

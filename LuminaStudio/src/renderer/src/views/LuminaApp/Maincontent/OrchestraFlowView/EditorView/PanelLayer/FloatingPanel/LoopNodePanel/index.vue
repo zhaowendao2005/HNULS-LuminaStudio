@@ -125,6 +125,18 @@
           @update:model-value="patchNode({ loop_count: $event })"
         />
 
+        <div class="of-doc-divider"></div>
+
+        <section class="of-doc-section">
+          <MechanismHintCard
+            title="容器规则说明"
+            description="Loop 面板直接读取共享 container mechanism，统一说明子图限制与系统托管字段。"
+            :primary-rules="containerMechanismHints.hardRules"
+            :notes="containerMechanismHints.contextNotes"
+            :warning="containerMechanismHints.failureModes[0]"
+          />
+        </section>
+
         <ObjectSchemaEditor @save="handleSchemaSave" />
       </div>
 
@@ -174,6 +186,7 @@ import type { NodeDebugField } from '../NodeDebug/NodeDebugForm.vue'
 import NodeDebugForm from '../NodeDebug/NodeDebugForm.vue'
 import NodeDebugLastRun from '../NodeDebug/NodeDebugLastRun.vue'
 import CapsuleTooltip from '../components/CapsuleTooltip.vue'
+import MechanismHintCard from '../components/MechanismHintCard.vue'
 import ObjectSchemaEditor from '../ObjectSchemaEditor/index.vue'
 import { OF_PANEL_THEME } from '../panel-theme'
 import LoopVariableSection from './components/LoopVariableSection.vue'
@@ -213,6 +226,9 @@ const loopVariables = computed(() => nodeData.value?.loop_variables || [])
 const breakConditions = computed(() => nodeData.value?.break_conditions || [])
 const logicalOperator = computed(() => nodeData.value?.logical_operator || 'and')
 const loopCount = computed(() => Math.max(1, Number(nodeData.value?.loop_count || 1)))
+const containerMechanismHints = computed(() =>
+  editorStore.getContainerMechanismHints(uiStore.selectedNodeId)
+)
 
 const titleModel = computed({
   get: () => nodeData.value?.title || '循环',

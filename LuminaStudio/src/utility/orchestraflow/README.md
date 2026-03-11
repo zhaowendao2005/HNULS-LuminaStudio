@@ -5,9 +5,9 @@ This directory contains the Utility Process runtime for OrchestraFlow. It is the
 ## What Owns What
 
 - `src/Public/ShareTypes/Orchestraflow-types/`
-  - Single shared authority for runnable types, node definitions, variable definitions, authoring metadata, and the built-in definition registry.
+  - Single shared authority for runnable types, node definitions, mechanism definitions, Blueprint DSL, agent context packs, and the built-in registries.
 - `src/utility/orchestraflow/`
-  - Runtime execution, AI schema export, compiler helpers, node implementations, and variable storage.
+  - Runtime execution, node implementations, runtime bindings, and variable storage.
 - `src/renderer/src/stores/orchestraflow/`
   - Editor state, normalization, node config stores, and variable selection UI.
 
@@ -22,10 +22,11 @@ The important architectural shift is that OrchestraFlow is now definition/regist
 1. `src/Public/ShareTypes/Orchestraflow-types/index.ts`
 2. `src/Public/ShareTypes/Orchestraflow-types/node-definition.ts`
 3. `src/Public/ShareTypes/Orchestraflow-types/node-definition-registry.ts`
-4. `src/utility/orchestraflow/ai-schema/builder.ts`
-5. `src/utility/orchestraflow/ai-schema/compiler.ts`
-6. `src/utility/orchestraflow/nodes/node-factory.ts`
-7. `src/utility/orchestraflow/services/variable-store.ts`
+4. `src/Public/ShareTypes/Orchestraflow-types/mechanisms/index.ts`
+5. `src/Public/ShareTypes/Orchestraflow-types/blueprint/index.ts`
+6. `src/Public/ShareTypes/Orchestraflow-types/agent-context/index.ts`
+7. `src/utility/orchestraflow/nodes/node-factory.ts`
+8. `src/utility/orchestraflow/services/variable-store.ts`
 
 ## Main Runtime Files
 
@@ -43,8 +44,8 @@ The important architectural shift is that OrchestraFlow is now definition/regist
   - Resolves runtime node implementations. This should stay aligned with the shared node definition registry.
 - `nodes/*.ts`
   - Concrete runtime behavior for each node type.
-- `ai-schema/builder.ts`
-  - Exports the AI-facing runnable workflow bundle from shared schema + definition metadata.
+- `runtime-binding-registry.ts`
+  - Runtime node binding registry; keeps utility execution aligned with shared node definitions.
 
 ## Cross-Layer Entry Points
 

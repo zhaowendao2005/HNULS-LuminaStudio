@@ -2,7 +2,7 @@
  * OrchestraFlow 工作流编辑器 Store
  */
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { OFControlMode, type OFEdge, type OFNode } from '@shared/Orchestraflow-types'
 import { normalizeNode } from './modules/workflow-editor.shared'
 import { createWorkflowEditorGraphModule } from './modules/workflow-editor.graph'
@@ -112,6 +112,12 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
     viewport.value = { x, y, zoom }
   }
 
+  // 这里把 container mechanism 暴露给 renderer 层，
+  // 让面板和画布都能直接读取“规则说明”和“失败原因”，而不是只依赖隐式行为。
+  const containerMechanismHints = computed(() =>
+    containerModule.getContainerMechanismHints(selectedNodeId.value)
+  )
+
   return {
     nodes,
     edges,
@@ -120,6 +126,7 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
     controlMode,
     viewport,
     currentWorkflowId,
+    containerMechanismHints,
     loadWorkflow: persistenceModule.loadWorkflow,
     saveWorkflow: persistenceModule.saveWorkflow,
     setNodes,
@@ -143,6 +150,8 @@ export const useWorkflowEditorStore = defineStore('orchestraflow-workflow-editor
     updateIterationChildPosition: containerModule.updateIterationChildPosition,
     addIterationEdge: containerModule.addIterationEdge,
     moveNodeIntoIterationNode: containerModule.moveNodeIntoIterationNode,
+    getMoveNodeIntoContainerGuard: containerModule.getMoveNodeIntoContainerGuard,
+    getContainerMechanismHints: containerModule.getContainerMechanismHints,
     unloadWorkflow: persistenceModule.unloadWorkflow,
     updateNodePosition: actionsModule.updateNodePosition,
     applyNodeChanges: actionsModule.applyNodeChanges,

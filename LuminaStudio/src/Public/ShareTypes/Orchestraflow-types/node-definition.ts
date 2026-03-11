@@ -1,4 +1,4 @@
-import type { OFAIDslNode, OFAuthoringDefaultRecommendation } from './ai-schema'
+import type { OFAuthoringDefaultRecommendation, OFBlueprintNode } from './blueprint'
 import type { OFNodeAuthoringContract } from './contract'
 import type {
   OFIfElseCondition,
@@ -32,7 +32,7 @@ export interface OFNodeCompilerHelpers {
   compileNodeContext(value: OFLLMNodeData['context']): OFLLMNodeData['context']
   compileSelectorField(value: unknown): string[]
   compileContainerSubgraph(
-    node: OFAIDslNode,
+    node: OFBlueprintNode,
     compiledId: string,
     title: string,
     type: OFBlockEnum.Iteration | OFBlockEnum.Loop,
@@ -44,7 +44,7 @@ export interface OFNodeCompilerHelpers {
 }
 
 export interface OFNodeCompilerParams {
-  node: OFAIDslNode
+  node: OFBlueprintNode
   compiledId: string
   title: string
   desc: string
@@ -76,6 +76,14 @@ export interface OFNodeDefinitionMeta {
   ai_exposed: boolean
 }
 
+export interface OFNodeAgentDefinition {
+  capability_summary: string
+  boundaries_zh: string[]
+  input_dependencies: string[]
+  output_artifacts: string[]
+  composition_hints: string[]
+}
+
 export type OFPortDirection = 'input' | 'output'
 export type OFPortChannel = 'control' | 'data'
 
@@ -95,7 +103,6 @@ export interface OFNodeSideEffectSpec {
 }
 
 export interface OFOutputNamespaceSpec {
-  // 这里先把“当前真实来源”描述清楚，后续再把 title-driven 迁到稳定 namespace。
   source: 'title-derived' | 'system-stable' | 'none'
   editable?: boolean
   summary: string
@@ -112,7 +119,6 @@ export interface OFContainerSpec {
 }
 
 export interface OFNodeSpec {
-  // 这是新的结构真相层：以后凡是节点结构、端口、命名空间、容器约束，都先看这里。
   ports: OFPortSpec[]
   system_managed_fields?: string[]
   side_effects?: OFNodeSideEffectSpec[]
@@ -147,6 +153,7 @@ export interface OFNodeVariablesDefinition {
 
 export interface OFStandardNodeDefinition<TData extends OFNode['data'] = OFNode['data']> {
   meta: OFNodeDefinitionMeta & { kind: 'standard' }
+  agent?: OFNodeAgentDefinition
   spec: OFNodeSpec
   authoring: OFNodeAuthoringDefinition
   prompt?: OFNodePromptDefinition
@@ -162,6 +169,7 @@ export interface OFStandardNodeDefinition<TData extends OFNode['data'] = OFNode[
 
 export interface OFContainerNodeDefinition<TData extends OFNode['data'] = OFNode['data']> {
   meta: OFNodeDefinitionMeta & { kind: 'container' }
+  agent?: OFNodeAgentDefinition
   spec: OFNodeSpec
   authoring: OFNodeAuthoringDefinition
   prompt?: OFNodePromptDefinition
@@ -177,6 +185,7 @@ export interface OFContainerNodeDefinition<TData extends OFNode['data'] = OFNode
 
 export interface OFInternalStartNodeDefinition<TData extends OFNode['data'] = OFNode['data']> {
   meta: OFNodeDefinitionMeta & { kind: 'internal-start'; internal: true; ai_exposed: false }
+  agent?: OFNodeAgentDefinition
   spec: OFNodeSpec
   authoring: OFNodeAuthoringDefinition
   prompt?: OFNodePromptDefinition
@@ -222,11 +231,6 @@ export function resolveOFNodeOutputNamespace(
     fallback: string
   }
 ): string | undefined {
-  // 这里统一节点输出命名空间的生成策略：
-  // - none: 该节点不产生独立输出命名空间
-  // - current: 已有值时优先保留，避免改造时把旧引用打断
-  // - system-stable: 新节点默认基于 nodeId/fallback 生成稳定命名空间
-  // - title-derived: 仅对仍未迁移的旧兼容节点保留
   if (definition.spec.output_namespace.source === 'none') {
     return undefined
   }

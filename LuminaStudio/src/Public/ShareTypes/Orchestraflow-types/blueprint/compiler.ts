@@ -1,14 +1,5 @@
-/**
- * DSL 编译器：把内部辅助 DSL 编译成当前持久化 OFWorkflow graph。
- * 由 compiler 负责内部开始节点注入和派生 output 生成，避免作者侧重复维护。
- *
- * 长期规则：
- * - 归一化和自动生成的运行时字段应收敛在这里，避免作者侧契约无限膨胀。
- */
+import type { OFBlueprintEdge, OFBlueprintNode, OFBlueprintWorkflow } from './types'
 import type {
-  OFAIDslEdge,
-  OFAIDslNode,
-  OFAIDslWorkflow,
   OFEdge,
   OFIfElseCondition,
   OFIterationBranchOutputSelector,
@@ -19,13 +10,11 @@ import type {
   OFNode,
   OFVariable,
   OFWorkflow
-} from '@shared/Orchestraflow-types'
-import {
-  getOFDefaultNodeTitle,
-  normalizeOFVariableNamespace,
-  OFBlockEnum,
-  resolveOFNodeDefinition
-} from '@shared/Orchestraflow-types'
+} from '../core-types'
+import type { OFRunnableWorkflow } from '../contract'
+import { OFBlockEnum, normalizeOFVariableNamespace } from '../core-types'
+import { resolveOFNodeDefinition } from '../node-definition-registry'
+import { getOFDefaultNodeTitle } from '../node-definition'
 
 type CompileGraphContext = {
   parentNodeId?: string
@@ -33,52 +22,51 @@ type CompileGraphContext = {
   allowContainers: boolean
 }
 
-export function compileAIDslToWorkflow(dsl: OFAIDslWorkflow): OFWorkflow {
-  if (dsl.version !== '1.0') {
-    throw new Error(`Unsupported AI DSL version: ${dsl.version}`)
+export function compileOFBlueprintToRunnable(blueprint: OFBlueprintWorkflow): OFRunnableWorkflow {
+  if (blueprint.version !== '2.0') {
+    throw new Error(`Unsupported Blueprint version: ${blueprint.version}`)
   }
 
-  const graph = compileDslGraph(
+  const graph = compileBlueprintGraph(
     {
-      nodes: dsl.nodes,
-      edges: dsl.edges
+      nodes: blueprint.nodes,
+      edges: blueprint.edges
     },
     { allowContainers: true }
   )
 
   const now = Math.floor(Date.now() / 1000)
-  const workflowId = normalizeOFVariableNamespace(dsl.workflow.name || 'workflow', 'workflow')
+  const workflowId = normalizeOFVariableNamespace(blueprint.workflow.name || 'workflow', 'workflow')
 
   return {
     id: workflowId,
-    name: dsl.workflow.name,
-    description: dsl.workflow.description,
-    author: dsl.workflow.author || 'AI DSL',
+    name: blueprint.workflow.name,
+    description: blueprint.workflow.description,
+    author: blueprint.workflow.author || 'Blueprint Compiler',
     createdAt: now,
     updatedAt: now,
     status: 'draft',
     graph
-  }
+  } as OFRunnableWorkflow
 }
 
-function compileDslGraph(
-  graph: Pick<OFAIDslWorkflow, 'nodes' | 'edges'>,
+function compileBlueprintGraph(
+  graph: Pick<OFBlueprintWorkflow, 'nodes' | 'edges'>,
   context: CompileGraphContext
 ): OFWorkflow['graph'] {
-  // 容器子图递归编译，并使用自己的 id 命名空间，避免父子图节点冲突。
   const idMap = new Map<string, string>()
   graph.nodes.forEach((node) => {
     idMap.set(node.id, buildCompiledNodeId(node.id, context.prefix))
   })
 
   return {
-    nodes: graph.nodes.map((node, index) => compileDslNode(node, index, idMap, context)),
-    edges: graph.edges.map((edge, index) => compileDslEdge(edge, index, idMap))
+    nodes: graph.nodes.map((node, index) => compileBlueprintNode(node, index, idMap, context)),
+    edges: graph.edges.map((edge, index) => compileBlueprintEdge(edge, index, idMap))
   }
 }
 
-function compileDslNode(
-  node: OFAIDslNode,
+function compileBlueprintNode(
+  node: OFBlueprintNode,
   index: number,
   idMap: Map<string, string>,
   context: CompileGraphContext
@@ -90,7 +78,7 @@ function compileDslNode(
   const compiledId = expectCompiledId(node.id, idMap)
   const definition = resolveOFNodeDefinition(node.type)
   if (!('compiler' in definition)) {
-    throw new Error(`Node type does not support AI DSL compilation: ${node.type}`)
+    throw new Error(`Node type does not support Blueprint compilation: ${node.type}`)
   }
   const title = String(
     node.title || definition.meta.title || getOFDefaultNodeTitle(node.type)
@@ -115,14 +103,14 @@ function compileDslNode(
     compileIterationBranchOutputSelectors(source: unknown[]) {
       return compileIterationBranchOutputSelectors(source, idMap)
     },
-    compileNodeContext(value: OFAIDslNode['config']['context']) {
+    compileNodeContext(value: OFLLMNodeData['context']) {
       return compileNodeContext(value, idMap)
     },
     compileSelectorField(value: unknown) {
       return compileSelectorField(value, idMap)
     },
     compileContainerSubgraph(
-      containerNode: OFAIDslNode,
+      containerNode: OFBlueprintNode,
       containerCompiledId: string,
       containerTitle: string,
       type: OFBlockEnum.Iteration | OFBlockEnum.Loop,
@@ -151,7 +139,7 @@ function compileDslNode(
 }
 
 function compileContainerSubgraph(
-  node: OFAIDslNode,
+  node: OFBlueprintNode,
   compiledId: string,
   title: string,
   type: OFBlockEnum.Iteration | OFBlockEnum.Loop,
@@ -160,7 +148,7 @@ function compileContainerSubgraph(
   graph: OFIterationNodeData['subgraph']
   idMap: Map<string, string>
 } {
-  const compiled = compileDslGraph(
+  const compiled = compileBlueprintGraph(
     {
       nodes: node.subgraph?.nodes || [],
       edges: node.subgraph?.edges || []
@@ -186,15 +174,16 @@ function compileContainerSubgraph(
           loopVariables
         }) || []
 
+  const internalStartNodeId = `${compiledId}-${internalDefinition.meta.vueFlowType}`
   const internalStartNode: OFNode = {
-    id: `${compiledId}-${internalDefinition.meta.vueFlowType}`,
+    id: internalStartNodeId,
     type: internalDefinition.meta.vueFlowType,
     position: { x: 30, y: 40 },
     parentNode: compiledId,
     extent: 'parent',
     data: internalDefinition.editor.normalizeData({
       node: {
-        id: `${compiledId}-${internalDefinition.meta.vueFlowType}`,
+        id: internalStartNodeId,
         type: internalDefinition.meta.vueFlowType,
         position: { x: 30, y: 40 },
         parentNode: compiledId,
@@ -209,13 +198,13 @@ function compileContainerSubgraph(
         } as OFNode['data']
       },
       helpers: {
-        normalizeNode(node) {
-          const definition = resolveOFNodeDefinition(node.data.type)
+        normalizeNode(nodeValue) {
+          const nodeDefinition = resolveOFNodeDefinition(nodeValue.data.type)
           return {
-            ...node,
-            type: definition.meta.vueFlowType,
-            data: definition.editor.normalizeData({
-              node,
+            ...nodeValue,
+            type: nodeDefinition.meta.vueFlowType,
+            data: nodeDefinition.editor.normalizeData({
+              node: nodeValue,
               helpers: this
             })
           }
@@ -239,11 +228,15 @@ function compileContainerSubgraph(
   }
 }
 
-function compileDslEdge(edge: OFAIDslEdge, index: number, idMap: Map<string, string>): OFEdge {
+function compileBlueprintEdge(
+  edge: OFBlueprintEdge,
+  index: number,
+  idMap: Map<string, string>
+): OFEdge {
   const source = expectCompiledId(edge.from.node, idMap)
   const target = expectCompiledId(edge.to.node, idMap)
   return {
-    id: `edge_${source}_${target}_${index}`,
+    id: edge.id || `edge_${source}_${target}_${index}`,
     source,
     target,
     source_port_id: edge.from.handle || null,
@@ -270,13 +263,13 @@ function createNodeShell(id: string, type: string, index: number, parentNodeId?:
 
 function buildCompiledNodeId(rawId: string, prefix?: string): string {
   const base = String(rawId || '').trim()
-  if (!base) throw new Error('AI DSL node id cannot be empty')
+  if (!base) throw new Error('Blueprint node id cannot be empty')
   return prefix ? `${prefix}__${base}` : base
 }
 
 function expectCompiledId(nodeId: string, idMap: Map<string, string>): string {
   const resolved = idMap.get(nodeId)
-  if (!resolved) throw new Error(`Unknown node id: ${nodeId}`)
+  if (!resolved) throw new Error(`Unknown Blueprint node id: ${nodeId}`)
   return resolved
 }
 
@@ -393,9 +386,10 @@ function compileIterationBranchOutputSelectors(
         ),
         path:
           selector.output_ref?.path ||
-          selectorToPath(
-            compileSelectorField(selector.output_ref?.selector ?? selector.output_selector, idMap)
-          )
+          compileSelectorField(
+            selector.output_ref?.selector ?? selector.output_selector,
+            idMap
+          ).join('.')
       }
     }
   })
@@ -414,7 +408,6 @@ function compileNodeContext(
 }
 
 function compileSelectorField(value: unknown, idMap: Map<string, string>): string[] {
-  // 运行时 selector 的真实格式是路径数组；字符串形式只是一种作者输入便利。
   if (Array.isArray(value)) {
     return value.length
       ? [rewriteSelectorRoot(String(value[0]), idMap), ...value.slice(1).map(String)]
@@ -431,10 +424,6 @@ function compileSelectorField(value: unknown, idMap: Map<string, string>): strin
   }
 
   return []
-}
-
-function selectorToPath(selector: string[]): string {
-  return selector.join('.')
 }
 
 function rewriteSelectorRoot(root: string, idMap: Map<string, string>): string {

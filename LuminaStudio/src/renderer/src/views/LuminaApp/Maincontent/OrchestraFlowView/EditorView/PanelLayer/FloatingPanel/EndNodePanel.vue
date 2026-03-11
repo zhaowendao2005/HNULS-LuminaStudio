@@ -150,6 +150,15 @@
       <!-- 设置 Tab -->
       <div v-if="activeTab === 'settings' && !debugMode" class="of-panel-shell-body-inner">
         <section class="of-panel-section">
+          <div class="mb-3">
+            <MechanismHintCard
+              title="机制说明"
+              description="End 面板直接读取 selector / variable mechanism，统一说明输出引用和字段约束。"
+              :primary-rules="endSelectorMechanism.hardRules.slice(0, 2)"
+              :warning="endVariableMechanism.failureModes[1]"
+            />
+          </div>
+
           <div class="flex items-center justify-between">
             <div class="system-sm-semibold-uppercase text-gray-700">
               输出变量
@@ -299,8 +308,9 @@ import { useNodeDebugStore } from '@renderer/stores/orchestraflow/node-debug/nod
 import NodeDebugForm from './NodeDebug/NodeDebugForm.vue'
 import NodeDebugLastRun from './NodeDebug/NodeDebugLastRun.vue'
 import CapsuleTooltip from './components/CapsuleTooltip.vue'
+import MechanismHintCard from './components/MechanismHintCard.vue'
 import type { OFEndNodeData, OFVariableRef, OFVarType } from '@shared/Orchestraflow-types'
-import { getOFPathFromRef } from '@shared/Orchestraflow-types'
+import { getOFPathFromRef, resolveOFMechanismDefinition } from '@shared/Orchestraflow-types'
 import type { NodeDebugField } from './NodeDebug/NodeDebugForm.vue'
 import { OF_PANEL_THEME } from './panel-theme'
 
@@ -315,6 +325,18 @@ const localDesc = ref('')
 const activeTab = ref<'settings' | 'lastRun'>('settings')
 const debugMode = ref(false)
 const theme = OF_PANEL_THEME.end
+const endSelectorMechanismDefinition = resolveOFMechanismDefinition('selector-ref')
+const endVariableMechanismDefinition = resolveOFMechanismDefinition('variables')
+
+const endSelectorMechanism = computed(() => ({
+  hardRules: [...endSelectorMechanismDefinition.hard_rules],
+  examples: endSelectorMechanismDefinition.examples.map((item) => `${item.label}：${item.value}`)
+}))
+
+const endVariableMechanism = computed(() => ({
+  hardRules: [...endVariableMechanismDefinition.hard_rules],
+  failureModes: [...endVariableMechanismDefinition.failure_modes]
+}))
 
 // 获取当前选中的节点
 const currentNode = computed(() => {

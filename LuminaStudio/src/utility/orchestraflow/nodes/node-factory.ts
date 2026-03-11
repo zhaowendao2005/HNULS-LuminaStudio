@@ -1,6 +1,6 @@
 import type { OFNode } from '@shared/Orchestraflow-types'
 import { VariableStore } from '../services/variable-store'
-import { createRuntimeNodeFromDefinition } from '../ai-schema'
+import { createRuntimeNodeFromDefinition } from '../runtime-binding-registry'
 
 export class NodeFactory {
   static createNode(node: OFNode, variableStore: VariableStore) {

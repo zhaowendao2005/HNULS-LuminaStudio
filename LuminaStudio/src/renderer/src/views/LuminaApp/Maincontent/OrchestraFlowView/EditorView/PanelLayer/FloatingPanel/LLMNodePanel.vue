@@ -98,6 +98,18 @@
         class="of-panel-shell-body-inner of-doc-block"
       >
         <section class="of-doc-section">
+          <MechanismHintCard
+            title="机制说明"
+            description="LLM 面板直接读取 selector / variable mechanism，统一说明 Prompt 插值与结构化输出约束。"
+            :primary-rules="llmSelectorMechanism.hardRules.slice(0, 2)"
+            :secondary-rules="llmVariableMechanism.hardRules"
+            :example="llmSelectorMechanism.examples[0]"
+          />
+        </section>
+
+        <div class="of-doc-divider"></div>
+
+        <section class="of-doc-section">
           <div class="of-doc-title-row">
             <div class="of-doc-title-strong">模型配置</div>
             <CapsuleTooltip
@@ -312,7 +324,10 @@ import type {
   OFStructuredJsonSchema,
   OFStructuredOutputConfig
 } from '@shared/Orchestraflow-types'
-import { llmOutputVariableDefinition } from '@shared/Orchestraflow-types'
+import {
+  llmOutputVariableDefinition,
+  resolveOFMechanismDefinition
+} from '@shared/Orchestraflow-types'
 import { useWorkflowEditorStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor.store'
 import { useWorkflowEditorUIStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor-ui.store'
 import { useVariableSelectorStore } from '@renderer/stores/orchestraflow/workflow-editor/variable-selector/variable-selector.store'
@@ -325,6 +340,7 @@ import NodeDebugForm from './NodeDebug/NodeDebugForm.vue'
 import NodeDebugLastRun from './NodeDebug/NodeDebugLastRun.vue'
 import ObjectSchemaEditor from './ObjectSchemaEditor/index.vue'
 import CapsuleTooltip from './components/CapsuleTooltip.vue'
+import MechanismHintCard from './components/MechanismHintCard.vue'
 import ModelSelector from '@renderer/components/ModelSelector/index.vue'
 import type { Model, ModelProvider } from '@renderer/stores/model-config/types'
 import { OF_PANEL_THEME } from './panel-theme'
@@ -341,6 +357,8 @@ const activeTab = ref<'settings' | 'lastRun'>('settings')
 const debugMode = ref(false)
 const modelSelectorVisible = ref(false)
 const theme = OF_PANEL_THEME.llm
+const llmSelectorMechanismDefinition = resolveOFMechanismDefinition('selector-ref')
+const llmVariableMechanismDefinition = resolveOFMechanismDefinition('variables')
 const promptRoleOptions = [
   { label: 'SYSTEM', value: 'system' },
   { label: 'USER', value: 'user' },
@@ -356,6 +374,16 @@ const currentNode = computed(() => {
 
 const nodeData = computed(() => currentNode.value?.data as OFLLMNodeData | undefined)
 const providers = computed(() => modelConfigStore.providers)
+
+const llmSelectorMechanism = computed(() => ({
+  hardRules: [...llmSelectorMechanismDefinition.hard_rules],
+  examples: llmSelectorMechanismDefinition.examples.map((item) => `${item.label}：${item.value}`)
+}))
+
+const llmVariableMechanism = computed(() => ({
+  hardRules: [...llmVariableMechanismDefinition.hard_rules],
+  failureModes: [...llmVariableMechanismDefinition.failure_modes]
+}))
 
 const titleModel = computed({
   get: () => nodeData.value?.title || 'LLM',

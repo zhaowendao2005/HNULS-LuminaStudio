@@ -1,5 +1,11 @@
 <template>
   <div class="of-editor-canvas-layer absolute inset-0">
+    <div
+      v-if="dropGuardMessage"
+      class="absolute left-1/2 top-4 z-30 -translate-x-1/2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800 shadow-sm"
+    >
+      {{ dropGuardMessage }}
+    </div>
     <VueFlow
       :nodes="store.nodes"
       :edges="store.edges"
@@ -60,7 +66,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, watch } from 'vue'
+import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { VueFlow, useVueFlow, type Node } from '@vue-flow/core'
 import type { NodeChange, EdgeChange } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
@@ -96,6 +102,19 @@ const props = defineProps<{
 const store = useWorkflowEditorStore()
 const uiStore = useWorkflowEditorUIStore()
 const modelConfigStore = useModelConfigStore()
+const dropGuardMessage = ref('')
+let dropGuardTimer: ReturnType<typeof setTimeout> | null = null
+
+function showDropGuardMessage(message: string) {
+  dropGuardMessage.value = message
+  if (dropGuardTimer) {
+    clearTimeout(dropGuardTimer)
+  }
+  dropGuardTimer = setTimeout(() => {
+    dropGuardMessage.value = ''
+    dropGuardTimer = null
+  }, 2400)
+}
 
 async function loadWorkflowSafely(workflowId: string | null) {
   if (!workflowId) {
@@ -271,6 +290,15 @@ function handleNodeDragStop(event: { node: Node }) {
     })
 
     if (dropTarget) {
+      const guard = store.getMoveNodeIntoContainerGuard(node.id, dropTarget.id)
+      if (!guard.allowed) {
+        if (guard.reason) {
+          showDropGuardMessage(guard.reason)
+        }
+        store.updateNodePosition(node.id, node.position)
+        return
+      }
+
       store.moveNodeIntoIterationNode(node.id, dropTarget.id, {
         x: node.position.x - dropTarget.position.x - 16,
         y: node.position.y - dropTarget.position.y - 56
@@ -373,6 +401,9 @@ onMounted(async () => {
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleDeleteKeydown)
+  if (dropGuardTimer) {
+    clearTimeout(dropGuardTimer)
+  }
 })
 </script>
 

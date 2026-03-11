@@ -8,6 +8,7 @@ import { useWorkflowEditorStore } from '../workflow-editor.store'
 import type {
   OFAvailableVariable,
   OFAvailableVariableGroup,
+  OFVariableSelectorMechanismGuidance,
   VariableSelectorTargetType
 } from './variable-selector.types'
 import type {
@@ -26,8 +27,11 @@ import {
   getOFEdgeSourcePortId,
   getOFPathFromRef,
   getOFSelectorFromRef,
+  resolveOFMechanismDefinition,
   resolveOFNodeDefinition
 } from '@shared/Orchestraflow-types'
+
+const selectorMechanismDefinition = resolveOFMechanismDefinition('selector-ref')
 
 const SYSTEM_VARIABLES: Array<{
   variable: string
@@ -150,6 +154,8 @@ function filterVariable(
 }
 
 export const useVariableSelectorStore = defineStore('orchestraflow-variable-selector', () => {
+  // 这里显式消费 selector mechanism，避免变量选择器只“偷偷”依赖 helper。
+  // 后续 UI 文案、错误提示、示例说明都从共享 mechanism 真相层读取。
   const visible = ref(false)
   const targetNodeId = ref<string | null>(null)
   const targetType = ref<VariableSelectorTargetType>('prompt')
@@ -319,6 +325,34 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
 
     return nodes.filter((node) => upstreamIds.has(node.id))
   }
+
+  const selectorMechanismGuidance = computed<OFVariableSelectorMechanismGuidance>(() => {
+    const contextNotesByTarget: Record<VariableSelectorTargetType, string[]> = {
+      prompt: ['Prompt 场景通常读取开始节点输入或上游节点输出。'],
+      output: ['输出变量应尽量选择稳定的上游字段，避免引用临时中间值。'],
+      condition: ['条件判断左值建议优先选择单值字段，减少歧义。'],
+      'iteration-input': ['这里必须选择数组变量，供 iteration 逐项展开。'],
+      'iteration-output': [
+        '这里应选择 iteration 子图内部可达的业务输出，不要手写内部 start 字段。'
+      ],
+      'variable-assign-source': ['变量赋值来源可以是上游变量或结构化字段。'],
+      'variable-assign-target': ['目标变量名建议稳定，便于后续 selector 复用。'],
+      'loop-variable-init': ['Loop 局部变量可引用上游值，也可改回常量初始化。'],
+      'loop-condition-left': ['左值通常使用 loop 局部变量或上游输出。'],
+      'loop-condition-right': ['右值若切到变量模式，建议引用与左值同类型字段。']
+    }
+
+    return {
+      id: selectorMechanismDefinition.id,
+      targetType: targetType.value,
+      title: selectorMechanismDefinition.title,
+      summary: selectorMechanismDefinition.summary,
+      hardRules: [...selectorMechanismDefinition.hard_rules],
+      examples: selectorMechanismDefinition.examples.map((item) => `${item.label}：${item.value}`),
+      failureModes: [...selectorMechanismDefinition.failure_modes],
+      contextNotes: contextNotesByTarget[targetType.value] || []
+    }
+  })
 
   const availableGroups = computed<OFAvailableVariableGroup[]>(() => {
     if (!targetNodeId.value) return []
@@ -519,6 +553,7 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
     anchorPoint,
     availableGroups,
     availableVariables,
+    selectorMechanismGuidance,
     openSelector,
     closeSelector,
     setSearchKeyword,

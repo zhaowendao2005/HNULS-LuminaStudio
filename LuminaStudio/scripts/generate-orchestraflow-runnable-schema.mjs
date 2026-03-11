@@ -6,7 +6,7 @@ const projectRoot = process.cwd()
 const entryFile = path.resolve(projectRoot, 'src/Public/ShareTypes/Orchestraflow-types/index.ts')
 const outputFile = path.resolve(
   projectRoot,
-  'src/utility/orchestraflow/ai-schema/generated-runnable-schema.ts'
+  'src/Public/ShareTypes/Orchestraflow-types/blueprint/generated-runnable-schema.ts'
 )
 const targetSymbolName = 'OFRunnableWorkflow'
 

@@ -21,7 +21,8 @@ const tester = new RuleTester({
 tester.run('orchestraflow/no-legacy-entrypoints', plugin.rules['no-legacy-entrypoints'], {
   valid: [
     {
-      filename: '/repo/LuminaStudio/src/utility/orchestraflow/ai-schema/compiler.ts',
+      filename:
+        '/repo/LuminaStudio/src/Public/ShareTypes/Orchestraflow-types/blueprint/compiler.ts',
       code: `import { resolveOFNodeDefinition } from '@shared/Orchestraflow-types'; resolveOFNodeDefinition(type)`
     }
   ],
@@ -30,11 +31,6 @@ tester.run('orchestraflow/no-legacy-entrypoints', plugin.rules['no-legacy-entryp
       filename: '/repo/LuminaStudio/src/utility/orchestraflow/nodes/llm-node.ts',
       code: `import { buildLLMOutputVariables } from '@shared/Orchestraflow-types'; buildLLMOutputVariables('llm')`,
       errors: [{ messageId: 'forbidden' }, { messageId: 'forbidden' }]
-    },
-    {
-      filename: '/repo/LuminaStudio/src/utility/orchestraflow/ai-schema/builder.ts',
-      code: `getOFRuntimeNodeDescriptors()`,
-      errors: [{ messageId: 'forbidden' }]
     }
   ]
 })
@@ -42,7 +38,8 @@ tester.run('orchestraflow/no-legacy-entrypoints', plugin.rules['no-legacy-entryp
 tester.run('orchestraflow/prefer-shared-barrel-api', plugin.rules['prefer-shared-barrel-api'], {
   valid: [
     {
-      filename: '/repo/LuminaStudio/src/utility/orchestraflow/ai-schema/compiler.ts',
+      filename:
+        '/repo/LuminaStudio/src/Public/ShareTypes/Orchestraflow-types/blueprint/compiler.ts',
       code: `import { resolveOFNodeDefinition } from '@shared/Orchestraflow-types'`
     },
     {
@@ -51,11 +48,6 @@ tester.run('orchestraflow/prefer-shared-barrel-api', plugin.rules['prefer-shared
     }
   ],
   invalid: [
-    {
-      filename: '/repo/LuminaStudio/src/utility/orchestraflow/ai-schema/compiler.ts',
-      code: `import { resolveOFNodeDefinition } from '@shared/Orchestraflow-types/node-definition-registry'`,
-      errors: [{ messageId: 'barrel' }]
-    },
     {
       filename:
         '/repo/LuminaStudio/src/renderer/src/stores/orchestraflow/workflow-editor/workflow-editor.store.ts',
@@ -87,11 +79,6 @@ tester.run(
           '/repo/LuminaStudio/src/renderer/src/stores/orchestraflow/workflow-editor/workflow-editor.store.ts',
         code: `function bad(type) { if (type === OFBlockEnum.LLM) return 1 }`,
         errors: [{ messageId: 'branch' }]
-      },
-      {
-        filename: '/repo/LuminaStudio/src/utility/orchestraflow/ai-schema/builder.ts',
-        code: `const result = nodeType === OFBlockEnum.Loop ? 'loop' : 'other'`,
-        errors: [{ messageId: 'branch' }]
       }
     ]
   }
@@ -108,12 +95,9 @@ tester.run(
         code: `const node = { start_node_id: 'x', type: 'iteration-start' }`
       },
       {
-        filename: '/repo/LuminaStudio/src/utility/orchestraflow/ai-schema/compiler.ts',
+        filename:
+          '/repo/LuminaStudio/src/Public/ShareTypes/Orchestraflow-types/blueprint/compiler.ts',
         code: `const node = { start_node_id: 'x', type: 'loop-start' }`
-      },
-      {
-        filename: '/repo/LuminaStudio/src/utility/orchestraflow/ai-schema/builder.ts',
-        code: `const node = { output: { variables: [] } }`
       }
     ],
     invalid: [
@@ -122,12 +106,80 @@ tester.run(
           '/repo/LuminaStudio/src/renderer/src/stores/orchestraflow/workflow-editor/workflow-editor.store.ts',
         code: `const node = { start_node_id: 'child-start' }`,
         errors: [{ messageId: 'derived' }]
+      }
+    ]
+  }
+)
+
+tester.run(
+  'orchestraflow/no-ai-schema-product-imports',
+  plugin.rules['no-ai-schema-product-imports'],
+  {
+    valid: [
+      {
+        filename:
+          '/repo/LuminaStudio/src/Public/ShareTypes/Orchestraflow-types/blueprint/compiler.ts',
+        code: `import { compileOFBlueprintToRunnable } from '@shared/Orchestraflow-types'`
+      }
+    ],
+    invalid: [
+      {
+        filename: '/repo/LuminaStudio/src/main/ipc/orchestraflow-handler.ts',
+        code: `ipcMain.handle('orchestraflow:ai-schema-bundle', () => {})`,
+        errors: [{ messageId: 'legacy' }]
       },
+      {
+        filename: '/repo/LuminaStudio/src/main/services/orchestraflow/service.ts',
+        code: `import { buildOrchestraflowAISchemaBundle } from '@utility/orchestraflow/ai-schema'`,
+        errors: [{ messageId: 'legacy' }, { messageId: 'legacy' }]
+      }
+    ]
+  }
+)
+
+tester.run(
+  'orchestraflow/no-mechanism-contract-literals',
+  plugin.rules['no-mechanism-contract-literals'],
+  {
+    valid: [
+      {
+        filename:
+          '/repo/LuminaStudio/src/Public/ShareTypes/Orchestraflow-types/mechanisms/definitions.ts',
+        code: `const x = { selector_contract: {}, edge_contract: {} }`
+      },
+      {
+        filename: '/repo/LuminaStudio/src/Public/ShareTypes/Orchestraflow-types/contract.ts',
+        code: `const x = { selector_contract: {}, edge_contract: {}, global_invariants: [] }`
+      }
+    ],
+    invalid: [
       {
         filename:
           '/repo/LuminaStudio/src/renderer/src/stores/orchestraflow/workflow-editor/workflow-editor.store.ts',
-        code: `const node = { type: 'iteration-start' }`,
-        errors: [{ messageId: 'derived' }]
+        code: `const x = { selector_contract: {}, edge_contract: {} }`,
+        errors: [{ messageId: 'mechanism' }, { messageId: 'mechanism' }]
+      }
+    ]
+  }
+)
+
+tester.run(
+  'orchestraflow/no-direct-agent-prompt-assembly',
+  plugin.rules['no-direct-agent-prompt-assembly'],
+  {
+    valid: [
+      {
+        filename:
+          '/repo/LuminaStudio/src/Public/ShareTypes/Orchestraflow-types/agent-context/renderer.ts',
+        code: `const bundled_markdown = 'ok'; const prompt_markdown = 'ok'`
+      }
+    ],
+    invalid: [
+      {
+        filename:
+          '/repo/LuminaStudio/src/renderer/src/views/LuminaApp/Maincontent/OrchestraFlowView/index.vue',
+        code: `const bundled_markdown = 'bad'`,
+        errors: [{ messageId: 'prompt' }]
       }
     ]
   }

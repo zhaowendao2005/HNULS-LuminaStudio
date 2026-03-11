@@ -30,6 +30,21 @@ export type {
   OFCommonEdgeType
 }
 
+export interface OFMechanismUiHint {
+  id: string
+  title: string
+  summary: string
+  hardRules: string[]
+  examples: string[]
+  failureModes: string[]
+  contextNotes: string[]
+}
+
+export interface OFContainerDropGuard {
+  allowed: boolean
+  reason: string | null
+}
+
 export interface WorkflowEditorState {
   nodes: OFNode[]
   edges: OFEdge[]

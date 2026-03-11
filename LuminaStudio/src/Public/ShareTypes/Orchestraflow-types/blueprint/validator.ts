@@ -3,20 +3,19 @@ import type {
   OFRunnableEdge,
   OFRunnableSubgraphNode,
   OFRunnableWorkflow
-} from '../../../Public/ShareTypes/Orchestraflow-types'
+} from '../contract'
+import type { OFBlueprintNode, OFBlueprintValidationResult, OFBlueprintWorkflow } from './types'
+import { OFBlockEnum, getOFEdgeSourcePortId, getOFEdgeTargetPortId } from '../core-types'
 import {
   collectOFSelectorVariableRoots,
-  getOFEdgeSourcePortId,
-  getOFEdgeTargetPortId,
-  normalizeOFRunnableNodeSelectorData,
-  OFBlockEnum
-} from '../../../Public/ShareTypes/Orchestraflow-types'
+  normalizeOFRunnableNodeSelectorData
+} from '../selector-utils'
 
-function isRecord(value: unknown): value is Record<string, any> {
+function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-function assertRecord(value: unknown, path: string): Record<string, any> {
+function assertRecord(value: unknown, path: string): Record<string, unknown> {
   if (!isRecord(value)) {
     throw new Error(`${path} 必须是对象`)
   }
@@ -87,7 +86,7 @@ function validateJsonSchemaProperty(value: unknown, path: string): void {
   }
 }
 
-function validateStructuredVariable(item: Record<string, any>, path: string): void {
+function validateStructuredVariable(item: Record<string, unknown>, path: string): void {
   const type = item.type
   if (type === 'array') {
     if ('schema' in item && item.schema !== undefined) {
@@ -128,7 +127,7 @@ function validateVariableList(items: unknown, path: string): void {
   })
 }
 
-function getNodeDisplayType(node: Record<string, any>, path: string): OFBlockEnum {
+function getNodeDisplayType(node: Record<string, unknown>, path: string): OFBlockEnum {
   const nodeType = assertNonEmptyString(node.type, `${path}.type`) as OFBlockEnum
   const data = assertRecord(node.data, `${path}.data`)
   const dataType = assertNonEmptyString(data.type, `${path}.data.type`)
@@ -140,13 +139,13 @@ function getNodeDisplayType(node: Record<string, any>, path: string): OFBlockEnu
 
 function validateSelectorFields(
   nodeType: OFBlockEnum,
-  data: Record<string, any>,
+  data: Record<string, unknown>,
   path: string
 ): void {
   switch (nodeType) {
     case OFBlockEnum.Start:
       validateVariableList(data.input?.variables, `${path}.input.variables`)
-      ;(data.input?.variables || []).forEach((item: any, index: number) => {
+      ;(data.input?.variables || []).forEach((item: Record<string, unknown>, index: number) => {
         if (item.value_ref) {
           assertSelectorRef(item.value_ref, `${path}.input.variables[${index}].value_ref`)
         }
@@ -154,18 +153,20 @@ function validateSelectorFields(
       return
     case OFBlockEnum.IfElse:
       ;(data.cases || []).forEach((item: OFIfElseCase, index: number) => {
-        ;(item.conditions || []).forEach((condition: any, conditionIndex: number) => {
-          assertSelectorRef(
-            condition.variable_ref,
-            `${path}.cases[${index}].conditions[${conditionIndex}].variable_ref`
-          )
-          if (condition.compare_source_mode === 'variable') {
+        ;(item.conditions || []).forEach(
+          (condition: Record<string, unknown>, conditionIndex: number) => {
             assertSelectorRef(
-              condition.compare_ref,
-              `${path}.cases[${index}].conditions[${conditionIndex}].compare_ref`
+              condition.variable_ref,
+              `${path}.cases[${index}].conditions[${conditionIndex}].variable_ref`
             )
+            if (condition.compare_source_mode === 'variable') {
+              assertSelectorRef(
+                condition.compare_ref,
+                `${path}.cases[${index}].conditions[${conditionIndex}].compare_ref`
+              )
+            }
           }
-        })
+        )
       })
       return
     case OFBlockEnum.Iteration:
@@ -173,7 +174,7 @@ function validateSelectorFields(
       if (data.output_ref) {
         assertSelectorRef(data.output_ref, `${path}.output_ref`)
       }
-      ;(data.branch_output_refs || []).forEach((item: any, index: number) => {
+      ;(data.branch_output_refs || []).forEach((item: Record<string, unknown>, index: number) => {
         assertNonEmptyString(
           item.source_handle_id,
           `${path}.branch_output_refs[${index}].source_handle_id`
@@ -183,7 +184,7 @@ function validateSelectorFields(
       return
     case OFBlockEnum.Loop:
       validateVariableList(data.loop_variables, `${path}.loop_variables`)
-      ;(data.loop_variables || []).forEach((item: any, index: number) => {
+      ;(data.loop_variables || []).forEach((item: Record<string, unknown>, index: number) => {
         if (item.value_source?.mode === 'variable') {
           assertSelectorRef(
             item.value_source.ref,
@@ -191,13 +192,18 @@ function validateSelectorFields(
           )
         }
       })
-      ;(data.break_conditions || []).forEach((condition: any, index: number) => {
-        assertSelectorRef(condition.variable_ref, `${path}.break_conditions[${index}].variable_ref`)
-      })
+      ;(data.break_conditions || []).forEach(
+        (condition: Record<string, unknown>, index: number) => {
+          assertSelectorRef(
+            condition.variable_ref,
+            `${path}.break_conditions[${index}].variable_ref`
+          )
+        }
+      )
       return
     case OFBlockEnum.VariableAssign:
       validateVariableList(data.rules, `${path}.rules`)
-      ;(data.rules || []).forEach((rule: any, index: number) => {
+      ;(data.rules || []).forEach((rule: Record<string, unknown>, index: number) => {
         if (rule.source?.mode === 'variable') {
           assertSelectorRef(rule.source.ref, `${path}.rules[${index}].source.ref`)
         }
@@ -205,7 +211,7 @@ function validateSelectorFields(
       return
     case OFBlockEnum.End:
       validateVariableList(data.output?.variables, `${path}.output.variables`)
-      ;(data.output?.variables || []).forEach((item: any, index: number) => {
+      ;(data.output?.variables || []).forEach((item: Record<string, unknown>, index: number) => {
         if (item.value_ref !== undefined) {
           assertSelectorRef(item.value_ref, `${path}.output.variables[${index}].value_ref`)
         }
@@ -217,9 +223,9 @@ function validateSelectorFields(
 }
 
 function validateEdgeHandles(
-  edge: Record<string, any>,
+  edge: Record<string, unknown>,
   edgePath: string,
-  nodeMap: Map<string, Record<string, any>>
+  nodeMap: Map<string, Record<string, unknown>>
 ): OFRunnableEdge {
   const source = assertNonEmptyString(edge.source, `${edgePath}.source`)
   assertNonEmptyString(edge.target, `${edgePath}.target`)
@@ -253,7 +259,7 @@ function validateSubgraph(
   parentNodeId: string,
   expectedStartType: OFBlockEnum.IterationStart | OFBlockEnum.LoopStart,
   startNodeId: string,
-  graph: Record<string, any>,
+  graph: Record<string, unknown>,
   path: string
 ): void {
   const nodes = Array.isArray(graph.nodes) ? graph.nodes : []
@@ -263,7 +269,7 @@ function validateSubgraph(
   assertNumber(viewport.y, `${path}.viewport.y`)
   assertNumber(viewport.zoom, `${path}.viewport.zoom`)
 
-  const nodeMap = new Map<string, Record<string, any>>()
+  const nodeMap = new Map<string, Record<string, unknown>>()
   const startNodes: OFRunnableSubgraphNode[] = []
 
   nodes.forEach((node, index) => {
@@ -308,7 +314,7 @@ function validateSubgraph(
   )
 }
 
-export function assertRunnableWorkflow(value: unknown): OFRunnableWorkflow {
+export function assertOFRunnableWorkflow(value: unknown): OFRunnableWorkflow {
   const workflow = assertRecord(value, 'workflow')
   assertNonEmptyString(workflow.id, 'workflow.id')
   assertNonEmptyString(workflow.name, 'workflow.name')
@@ -327,7 +333,7 @@ export function assertRunnableWorkflow(value: unknown): OFRunnableWorkflow {
   }
 
   const selectorVariableRoots = collectOFSelectorVariableRoots(nodes)
-  const nodeMap = new Map<string, Record<string, any>>()
+  const nodeMap = new Map<string, Record<string, unknown>>()
   nodes.forEach((node, index) => {
     const path = `workflow.graph.nodes[${index}]`
     const record = assertRecord(node, path)
@@ -367,4 +373,147 @@ export function assertRunnableWorkflow(value: unknown): OFRunnableWorkflow {
   )
 
   return workflow as OFRunnableWorkflow
+}
+
+export function validateOFRunnableWorkflow(value: unknown): OFRunnableWorkflow {
+  return assertOFRunnableWorkflow(value)
+}
+
+function validateBlueprintNode(
+  node: OFBlueprintNode,
+  path: string,
+  issues: OFBlueprintValidationResult['issues'],
+  allowContainers: boolean
+): void {
+  if (!node.id.trim()) {
+    issues.push({ level: 'error', path: `${path}.id`, message: '节点 id 不能为空' })
+  }
+  if (!allowContainers && (node.type === OFBlockEnum.Iteration || node.type === OFBlockEnum.Loop)) {
+    issues.push({
+      level: 'error',
+      path: `${path}.type`,
+      message: '子图内禁止继续嵌套 iteration 或 loop'
+    })
+  }
+  if (node.subgraph) {
+    validateOFBlueprintSubgraph(node.subgraph, `${path}.subgraph`, issues, false)
+  }
+}
+
+function validateOFBlueprintSubgraph(
+  subgraph: NonNullable<OFBlueprintNode['subgraph']>,
+  path: string,
+  issues: OFBlueprintValidationResult['issues'],
+  allowContainers: boolean
+): void {
+  const ids = new Set<string>()
+  subgraph.nodes.forEach((node, index) => {
+    if (ids.has(node.id)) {
+      issues.push({
+        level: 'error',
+        path: `${path}.nodes[${index}].id`,
+        message: '子图节点 id 不能重复'
+      })
+    }
+    ids.add(node.id)
+    validateBlueprintNode(node, `${path}.nodes[${index}]`, issues, allowContainers)
+  })
+  subgraph.edges.forEach((edge, index) => {
+    if (!edge.from.handle || !edge.to.handle) {
+      issues.push({
+        level: 'error',
+        path: `${path}.edges[${index}]`,
+        message: 'Blueprint edge 必须显式声明 from.handle 与 to.handle'
+      })
+    }
+    if (!ids.has(edge.from.node) || !ids.has(edge.to.node)) {
+      issues.push({
+        level: 'error',
+        path: `${path}.edges[${index}]`,
+        message: 'Blueprint edge 引用了不存在的子图节点'
+      })
+    }
+  })
+}
+
+export function validateOFBlueprint(value: unknown): OFBlueprintValidationResult {
+  const issues: OFBlueprintValidationResult['issues'] = []
+  if (!isRecord(value)) {
+    return {
+      valid: false,
+      issues: [{ level: 'error', path: 'workflow', message: 'Blueprint 必须是对象' }]
+    }
+  }
+
+  if (value.version !== '2.0') {
+    issues.push({ level: 'error', path: 'version', message: 'Blueprint version 必须等于 2.0' })
+  }
+  if (
+    !isRecord(value.workflow) ||
+    typeof value.workflow.name !== 'string' ||
+    !value.workflow.name.trim()
+  ) {
+    issues.push({
+      level: 'error',
+      path: 'workflow.name',
+      message: 'workflow.name 必须是非空字符串'
+    })
+  }
+  if (!Array.isArray(value.nodes) || value.nodes.length === 0) {
+    issues.push({ level: 'error', path: 'nodes', message: 'Blueprint nodes 不能为空' })
+  }
+  if (!Array.isArray(value.edges)) {
+    issues.push({ level: 'error', path: 'edges', message: 'Blueprint edges 必须是数组' })
+  }
+
+  const ids = new Set<string>()
+  ;(value.nodes || []).forEach((node, index) => {
+    if (!isRecord(node)) {
+      issues.push({ level: 'error', path: `nodes[${index}]`, message: '节点必须是对象' })
+      return
+    }
+    const nodeId = typeof node.id === 'string' ? node.id : ''
+    if (ids.has(nodeId)) {
+      issues.push({ level: 'error', path: `nodes[${index}].id`, message: '根图节点 id 不能重复' })
+    }
+    ids.add(nodeId)
+    validateBlueprintNode(node as OFBlueprintNode, `nodes[${index}]`, issues, true)
+  })
+  ;(value.edges || []).forEach((edge, index) => {
+    if (!isRecord(edge)) {
+      issues.push({ level: 'error', path: `edges[${index}]`, message: '连线必须是对象' })
+      return
+    }
+    if (!edge.from || !edge.to) {
+      issues.push({ level: 'error', path: `edges[${index}]`, message: '连线必须包含 from / to' })
+      return
+    }
+    if (!edge.from.handle || !edge.to.handle) {
+      issues.push({
+        level: 'error',
+        path: `edges[${index}]`,
+        message: 'Blueprint edge 必须显式声明 from.handle 与 to.handle'
+      })
+    }
+    if (!ids.has(edge.from.node) || !ids.has(edge.to.node)) {
+      issues.push({
+        level: 'error',
+        path: `edges[${index}]`,
+        message: 'Blueprint edge 引用了不存在的根图节点'
+      })
+    }
+  })
+
+  return {
+    valid: issues.length === 0,
+    issues
+  }
+}
+
+export function assertOFBlueprint(value: unknown): OFBlueprintWorkflow {
+  const result = validateOFBlueprint(value)
+  if (!result.valid) {
+    throw new Error(result.issues.map((issue) => `${issue.path}: ${issue.message}`).join('\n'))
+  }
+  return value as OFBlueprintWorkflow
 }

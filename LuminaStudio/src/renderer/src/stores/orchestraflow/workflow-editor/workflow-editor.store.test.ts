@@ -32,6 +32,20 @@ describe('workflow-editor.store', () => {
     vi.runOnlyPendingTimers()
   })
 
+  it('exposes container mechanism hints and drop guards from the shared registry', () => {
+    const store = useWorkflowEditorStore()
+    const iterationNodeId = store.addNode(OFBlockEnum.Iteration)
+    const startNodeId = store.addNode(OFBlockEnum.Start)
+
+    const mechanismHints = store.getContainerMechanismHints(iterationNodeId)
+    expect(mechanismHints.title).toBe('Container 子图规则')
+    expect(mechanismHints.hardRules.length).toBeGreaterThan(0)
+
+    const startGuard = store.getMoveNodeIntoContainerGuard(startNodeId, iterationNodeId)
+    expect(startGuard.allowed).toBe(false)
+    expect(startGuard.reason).toContain('开始')
+  })
+
   it('setNodes normalizes node data through definitions', () => {
     const store = useWorkflowEditorStore()
     const rawNode: OFNode = {

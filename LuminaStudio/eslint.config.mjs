@@ -85,7 +85,10 @@ export default defineConfig(
       'orchestraflow/no-legacy-entrypoints': 'error',
       'orchestraflow/prefer-shared-barrel-api': 'error',
       'orchestraflow/no-business-branch-outside-definitions': 'error',
-      'orchestraflow/no-manual-derived-node-fields': 'error'
+      'orchestraflow/no-manual-derived-node-fields': 'error',
+      'orchestraflow/no-ai-schema-product-imports': 'error',
+      'orchestraflow/no-mechanism-contract-literals': 'error',
+      'orchestraflow/no-direct-agent-prompt-assembly': 'error'
     }
   },
   {
