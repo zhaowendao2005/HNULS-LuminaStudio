@@ -4,7 +4,7 @@ import {
   OF_LOOP_COUNT_VARIABLE_NAME,
   OF_LOOP_RESULT_VARIABLE_NAME,
   OF_LOOP_INDEX_VARIABLE_NAME,
-  normalizeOFVariableNamespace,
+  getOFNodeOutputNamespace,
   OFBlockEnum,
   type OFIfElseCondition,
   type OFLoopNodeData,
@@ -27,7 +27,7 @@ export class LoopNode extends BaseNode {
     const nodeData = this.getNodeData() as OFLoopNodeData
     this.validateConfig(nodeData)
 
-    const normalizedTitle = normalizeOFVariableNamespace(nodeData.title, context.node.id)
+    const normalizedTitle = getOFNodeOutputNamespace(nodeData, context.node.id)
     const inLoopId = `${context.runId}:${context.node.id}:${randomUUID()}`
     const scopePath = [...context.scopePath, context.node.id]
     const workingStore = this.variableStore.fork()

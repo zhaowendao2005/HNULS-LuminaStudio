@@ -23,6 +23,7 @@ import {
   OFVarType,
   OF_LOOP_COUNT_VARIABLE_NAME,
   OF_LOOP_INDEX_VARIABLE_NAME,
+  getOFEdgeSourcePortId,
   getOFPathFromRef,
   getOFSelectorFromRef,
   resolveOFNodeDefinition
@@ -346,7 +347,7 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
                 .filter(
                   (edge) =>
                     edge.source === targetBranchSourceNodeId.value &&
-                    (edge.sourceHandle || 'source') === targetBranchSourceHandleId.value
+                    getOFEdgeSourcePortId(edge) === targetBranchSourceHandleId.value
                 )
                 .map((edge) => edge.target)
               const reachableNodeIds = new Set<string>()

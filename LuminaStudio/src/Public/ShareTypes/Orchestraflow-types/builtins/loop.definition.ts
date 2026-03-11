@@ -1,7 +1,9 @@
 import {
   buildOFCommonNodeShape,
+  createOFPortSpec,
   defineContainerOFNodeDefinition,
-  normalizeOFNodeTitle
+  normalizeOFNodeTitle,
+  resolveOFNodeOutputNamespace
 } from '../node-definition'
 import {
   ensureOFSelectableVariables,
@@ -21,12 +23,12 @@ const DEFAULT_WIDTH = 650
 const DEFAULT_HEIGHT = 417
 
 function buildLoopOutputs(
-  title: string,
+  namespace: string,
   loopVariables: OFLoopNodeData['loop_variables'],
   nodeId: string
 ) {
   return loopOutputVariableDefinition.build({
-    namespace: title,
+    namespace,
     loopVariables,
     fallbackNodeId: nodeId
   })
@@ -49,7 +51,11 @@ function createLoopStartNode(
       type: OFBlockEnum.LoopStart,
       input: {
         variables: loopInnerStartVariableDefinition.build({
-          namespace: loopTitle,
+          namespace:
+            resolveOFNodeOutputNamespace(loopNodeDefinition, {
+              title: loopTitle,
+              fallback: loopNodeId
+            }) || loopNodeId,
           loopVariables,
           fallbackNodeId: loopNodeId
         })
@@ -79,6 +85,30 @@ export const loopNodeDefinition = defineContainerOFNodeDefinition<OFLoopNodeData
     kind: 'container',
     vueFlowType: 'loop',
     ai_exposed: true
+  },
+  spec: {
+    ports: [
+      createOFPortSpec({ id: 'target', label: '进入', direction: 'input', channel: 'control', required: true }),
+      createOFPortSpec({ id: 'source', label: '继续', direction: 'output', channel: 'control' }),
+      createOFPortSpec({ id: 'result', label: '结果', direction: 'output', channel: 'data' })
+    ],
+    system_managed_fields: [
+      'data.start_node_id',
+      'data.subgraph.viewport',
+      'data.subgraph.nodes[loop-start]',
+      'data.output.variables'
+    ],
+    side_effects: [{ id: 'spawn-loop-subgraph', summary: '按循环次数执行子图并聚合循环输出。' }],
+    output_namespace: {
+      source: 'system-stable',
+      editable: true,
+      summary: '循环输出使用稳定命名空间；旧工作流会沿用已有值，新节点默认按 nodeId 生成。'
+    },
+    container: {
+      internal_start_node_type: OFBlockEnum.LoopStart,
+      managed_subgraph: true,
+      default_viewport: { ...DEFAULT_SUBGRAPH_VIEWPORT }
+    }
   },
   authoring: {
     contract: {
@@ -120,12 +150,6 @@ export const loopNodeDefinition = defineContainerOFNodeDefinition<OFLoopNodeData
       '`loop_variables` 不能只有变量名，必须给出初始化值或值来源。',
       '`result` 默认按聚合数组输出，不要把 `loop.output.variables[].type` 写成 `object`。',
       '不要手写伪造的 `start_node_id`、`loop-start` 或 `subgraph.viewport`。'
-    ],
-    system_managed_fields: [
-      'data.start_node_id',
-      'data.subgraph.viewport',
-      'data.subgraph.nodes[loop-start]',
-      'data.output.variables'
     ],
     selector_policies: ['`loop_variables[*].value_selector` 仅在 `value_type=variable` 时出现。'],
     output_policies: ['循环输出由系统聚合为 `result` 和循环变量命名空间。'],
@@ -170,10 +194,17 @@ export const loopNodeDefinition = defineContainerOFNodeDefinition<OFLoopNodeData
           value: 0
         }
       ]
+      const outputNamespace =
+        resolveOFNodeOutputNamespace(loopNodeDefinition, {
+          nodeId,
+          title,
+          fallback: 'loop'
+        }) || 'loop'
       return {
         title,
         desc: '',
         type: OFBlockEnum.Loop,
+        output_namespace: outputNamespace,
         width: DEFAULT_WIDTH,
         height: DEFAULT_HEIGHT,
         loop_count: 10,
@@ -183,7 +214,7 @@ export const loopNodeDefinition = defineContainerOFNodeDefinition<OFLoopNodeData
         start_node_id: `${nodeId}-loop-start`,
         subgraph: createDefaultLoopSubgraph(nodeId, title, loopVariables),
         output: {
-          variables: buildLoopOutputs(title, loopVariables, nodeId)
+          variables: buildLoopOutputs(outputNamespace, loopVariables, nodeId)
         }
       }
     },
@@ -236,6 +267,13 @@ export const loopNodeDefinition = defineContainerOFNodeDefinition<OFLoopNodeData
         subgraph,
         start_node_id: startNode.id
       } as OFLoopNodeData
+      const outputNamespace =
+        resolveOFNodeOutputNamespace(loopNodeDefinition, {
+          current: data.output_namespace,
+          nodeId: node.id,
+          title,
+          fallback: 'loop'
+        }) || 'loop'
       normalizeOFRunnableNodeSelectorData(
         OFBlockEnum.Loop,
         normalized as unknown as Record<string, unknown>,
@@ -245,6 +283,7 @@ export const loopNodeDefinition = defineContainerOFNodeDefinition<OFLoopNodeData
       return {
         ...buildOFCommonNodeShape(data, title),
         type: OFBlockEnum.Loop,
+        output_namespace: outputNamespace,
         width: data.width || DEFAULT_WIDTH,
         height: data.height || DEFAULT_HEIGHT,
         loop_count: Math.max(1, Number(data.loop_count || 10)),
@@ -254,7 +293,7 @@ export const loopNodeDefinition = defineContainerOFNodeDefinition<OFLoopNodeData
         start_node_id: normalized.start_node_id,
         subgraph,
         output: {
-          variables: buildLoopOutputs(title, loopVariables, node.id)
+          variables: buildLoopOutputs(outputNamespace, loopVariables, node.id)
         }
       }
     }
@@ -273,6 +312,12 @@ export const loopNodeDefinition = defineContainerOFNodeDefinition<OFLoopNodeData
         title,
         desc,
         type: OFBlockEnum.Loop,
+        output_namespace:
+          resolveOFNodeOutputNamespace(loopNodeDefinition, {
+            nodeId: compiledId,
+            title,
+            fallback: 'loop'
+          }) || 'loop',
         width: DEFAULT_WIDTH,
         height: DEFAULT_HEIGHT,
         loop_count: Number(node.config.loop_count || 1),
@@ -283,7 +328,15 @@ export const loopNodeDefinition = defineContainerOFNodeDefinition<OFLoopNodeData
         start_node_id: `${compiledId}-loop-start`,
         subgraph: compiledSubgraph.graph,
         output: {
-          variables: buildLoopOutputs(title, loopVariables, compiledId)
+          variables: buildLoopOutputs(
+            resolveOFNodeOutputNamespace(loopNodeDefinition, {
+              nodeId: compiledId,
+              title,
+              fallback: 'loop'
+            }) || 'loop',
+            loopVariables,
+            compiledId
+          )
         }
       }
     }

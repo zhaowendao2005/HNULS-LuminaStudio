@@ -1,5 +1,6 @@
 import {
   buildOFCommonNodeShape,
+  createOFPortSpec,
   defineStandardOFNodeDefinition,
   normalizeOFNodeTitle
 } from '../node-definition'
@@ -21,6 +22,15 @@ export const startNodeDefinition = defineStandardOFNodeDefinition<OFStartNodeDat
     kind: 'standard',
     vueFlowType: 'start',
     ai_exposed: true
+  },
+  spec: {
+    ports: [createOFPortSpec({ id: 'source', label: '继续', direction: 'output', channel: 'control' })],
+    side_effects: [{ id: 'publish-start-inputs', summary: '把开始节点输入变量写入变量存储。' }],
+    output_namespace: {
+      source: 'none',
+      editable: false,
+      summary: '开始节点不产生独立命名空间，只发布工作流输入变量。'
+    }
   },
   authoring: {
     contract: {

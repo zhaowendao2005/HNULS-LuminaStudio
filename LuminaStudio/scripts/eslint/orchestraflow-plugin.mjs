@@ -19,6 +19,9 @@ const SHARED_INTERNAL_IMPORTS = new Set([
 
 const BUSINESS_BRANCH_TARGETS = new Set([
   '/src/renderer/src/stores/orchestraflow/workflow-editor/workflow-editor.store.ts',
+  '/src/renderer/src/stores/orchestraflow/workflow-editor/modules/workflow-editor.actions.ts',
+  '/src/renderer/src/stores/orchestraflow/workflow-editor/modules/workflow-editor.container.ts',
+  '/src/renderer/src/stores/orchestraflow/workflow-editor/modules/workflow-editor.graph.ts',
   '/src/renderer/src/stores/orchestraflow/workflow-editor/variable-selector/variable-selector.store.ts',
   '/src/utility/orchestraflow/ai-schema/builder.ts'
 ])
@@ -26,20 +29,24 @@ const BUSINESS_BRANCH_TARGETS = new Set([
 const BUSINESS_BRANCH_ALLOWED_FUNCTIONS = new Map([
   [
     '/src/renderer/src/stores/orchestraflow/workflow-editor/workflow-editor.store.ts',
+    new Set(['syncNodeNamespaceReferences'])
+  ],
+  [
+    '/src/renderer/src/stores/orchestraflow/workflow-editor/modules/workflow-editor.actions.ts',
+    new Set(['syncLoopVariableReferences', 'updateNode'])
+  ],
+  [
+    '/src/renderer/src/stores/orchestraflow/workflow-editor/modules/workflow-editor.graph.ts',
     new Set([
-      'syncNodeNamespaceReferences',
-      'syncLoopVariableReferences',
-      'loadWorkflow',
-      'saveWorkflow',
       'findParentIterationNodeId',
       'isIterationLocalStart',
-      'syncIterationContainerSize',
       'syncIterationSubgraphSnapshot',
-      'syncExpandedSubgraphChildren',
-      'updateIterationViewport',
-      'moveNodeIntoIterationNode',
-      'updateNode'
+      'syncExpandedSubgraphChildren'
     ])
+  ],
+  [
+    '/src/renderer/src/stores/orchestraflow/workflow-editor/modules/workflow-editor.container.ts',
+    new Set(['syncIterationContainerSize', 'updateIterationViewport', 'moveNodeIntoIterationNode'])
   ],
   [
     '/src/renderer/src/stores/orchestraflow/workflow-editor/variable-selector/variable-selector.store.ts',

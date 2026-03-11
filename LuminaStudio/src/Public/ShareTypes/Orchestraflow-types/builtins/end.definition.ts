@@ -1,5 +1,6 @@
 import {
   buildOFCommonNodeShape,
+  createOFPortSpec,
   defineStandardOFNodeDefinition,
   normalizeOFNodeTitle
 } from '../node-definition'
@@ -21,6 +22,18 @@ export const endNodeDefinition = defineStandardOFNodeDefinition<OFEndNodeData>({
     kind: 'standard',
     vueFlowType: 'end',
     ai_exposed: true
+  },
+  spec: {
+    ports: [
+      createOFPortSpec({ id: 'target', label: '进入', direction: 'input', channel: 'control', required: true }),
+      createOFPortSpec({ id: 'result', label: '最终输出', direction: 'output', channel: 'data' })
+    ],
+    side_effects: [{ id: 'materialize-final-output', summary: '从变量存储读取 selector 并生成最终输出。' }],
+    output_namespace: {
+      source: 'none',
+      editable: false,
+      summary: '结束节点不创建独立输出命名空间，只消费上游变量形成最终结果。'
+    }
   },
   authoring: {
     contract: {

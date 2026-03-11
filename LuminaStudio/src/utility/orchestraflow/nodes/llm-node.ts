@@ -8,7 +8,7 @@ import { BaseNode } from './base-node'
 import {
   OFBlockEnum,
   OF_LLM_STRUCTURED_OUTPUT_NAME,
-  normalizeOFVariableNamespace,
+  getOFNodeOutputNamespace,
   resolveOFNodeDefinition,
   type OFJsonSchemaProperty,
   type OFLLMNodeData,
@@ -82,7 +82,7 @@ export class LLMNode extends BaseNode {
 
       const completionParams = this.normalizeCompletionParams(nodeData.model.completion_params)
       const messages = this.buildMessages(nodeData, context)
-      const namespace = normalizeOFVariableNamespace(nodeData.title, 'llm')
+      const namespace = getOFNodeOutputNamespace(nodeData, context.node.id || 'llm')
       const outputVars =
         resolveOFNodeDefinition(OFBlockEnum.LLM).variables.buildRuntimeOutputVariables?.({
           title: namespace,

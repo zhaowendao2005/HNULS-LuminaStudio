@@ -1,4 +1,9 @@
-import { buildOFCommonNodeShape, defineInternalStartOFNodeDefinition } from '../node-definition'
+import {
+  buildOFCommonNodeShape,
+  createOFPortSpec,
+  defineInternalStartOFNodeDefinition,
+  resolveOFNodeOutputNamespace
+} from '../node-definition'
 import {
   ensureOFSelectableVariables,
   loopInnerStartVariableDefinition
@@ -8,8 +13,12 @@ import { OFBlockEnum } from '../core-types'
 import { omitOFEmptySelector, omitOFNullSchemaFields } from './helpers'
 
 function buildInputs(title: string, loopVariables: OFLoopVariableData[], nodeId: string) {
+  const namespace = resolveOFNodeOutputNamespace(loopStartNodeDefinition, {
+    title,
+    fallback: nodeId || 'loop'
+  })
   return loopInnerStartVariableDefinition.build({
-    namespace: title,
+    namespace: namespace || nodeId || 'loop',
     loopVariables,
     fallbackNodeId: nodeId
   })
@@ -25,6 +34,21 @@ export const loopStartNodeDefinition = defineInternalStartOFNodeDefinition<OFLoo
     vueFlowType: 'loop-start',
     internal: true,
     ai_exposed: false
+  },
+  spec: {
+    ports: [
+      createOFPortSpec({ id: 'source', label: '继续', direction: 'output', channel: 'control', internal: true }),
+      createOFPortSpec({ id: 'loop_variables', label: '循环变量', direction: 'output', channel: 'data', internal: true }),
+      createOFPortSpec({ id: 'index', label: '索引', direction: 'output', channel: 'data', internal: true }),
+      createOFPortSpec({ id: 'loop_count', label: '次数', direction: 'output', channel: 'data', internal: true })
+    ],
+    system_managed_fields: ['data.input.variables', 'parentNode', 'extent'],
+    side_effects: [{ id: 'publish-loop-frame', summary: '向子图发布 loop 变量、index 和 loop_count。' }],
+    output_namespace: {
+      source: 'none',
+      editable: false,
+      summary: '内部 start 节点只发布循环帧变量，不暴露独立命名空间。'
+    }
   },
   authoring: {
     contract: {

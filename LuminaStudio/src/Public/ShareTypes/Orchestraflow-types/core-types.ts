@@ -128,6 +128,20 @@ export function normalizeOFVariableNamespace(
   return normalized || fallback
 }
 
+export function getOFNodeOutputNamespace(
+  node: {
+    output_namespace?: string
+    title?: string
+    type?: OFBlockEnum
+  },
+  fallback = 'node'
+): string {
+  // 统一从这里读取节点输出命名空间：
+  // 1. 新结构优先读 output_namespace
+  // 2. 老数据没有时，临时回退到 title，保证旧工作流还能被安全迁移
+  return normalizeOFVariableNamespace(node.output_namespace || node.title, fallback)
+}
+
 // ===== 条件分支 =====
 export type OFVariableAssignSourceMode = 'variable' | 'constant'
 
@@ -328,6 +342,7 @@ export interface OFCommonNodeType {
   title: string
   desc: string
   type: OFBlockEnum
+  output_namespace?: string
   width?: number
   height?: number
   position?: XYPosition
@@ -474,11 +489,21 @@ export type OFEdge = {
   id: string
   source: string
   target: string
+  source_port_id?: string | null
+  target_port_id?: string | null
   sourceHandle?: string | null
   targetHandle?: string | null
   class?: string
   zIndex?: number
   data?: OFCommonEdgeType
+}
+
+export function getOFEdgeSourcePortId(edge: Pick<OFEdge, 'source_port_id' | 'sourceHandle'>): string {
+  return edge.source_port_id || edge.sourceHandle || 'source'
+}
+
+export function getOFEdgeTargetPortId(edge: Pick<OFEdge, 'target_port_id' | 'targetHandle'>): string {
+  return edge.target_port_id || edge.targetHandle || 'target'
 }
 
 export interface OFNodeExecutionMetadata {

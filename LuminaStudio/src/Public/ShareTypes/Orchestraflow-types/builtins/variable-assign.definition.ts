@@ -1,23 +1,25 @@
 import {
   buildOFCommonNodeShape,
+  createOFPortSpec,
   defineStandardOFNodeDefinition,
-  normalizeOFNodeTitle
+  normalizeOFNodeTitle,
+  resolveOFNodeOutputNamespace
 } from '../node-definition'
 import {
   ensureOFSelectableVariables,
   variableAssignOutputVariableDefinition
 } from '../variable-definition'
 import type { OFVariableAssignNodeData } from '../core-types'
-import { OFBlockEnum } from '../core-types'
+import { OF_VARIABLE_ASSIGN_NODE_NAME, OFBlockEnum } from '../core-types'
 import { omitOFEmptySelector, omitOFNullSchemaFields } from './helpers'
 import {
   collectOFSelectorVariableRoots,
   normalizeOFRunnableNodeSelectorData
 } from '../selector-utils'
 
-function buildOutputs(title: string, rules: OFVariableAssignNodeData['rules'], nodeId: string) {
+function buildOutputs(namespace: string, rules: OFVariableAssignNodeData['rules'], nodeId: string) {
   return variableAssignOutputVariableDefinition.build({
-    namespace: title,
+    namespace,
     rules,
     fallbackNodeId: nodeId
   })
@@ -34,6 +36,20 @@ export const variableAssignNodeDefinition =
       vueFlowType: 'variable-assign',
       ai_exposed: true
     },
+    spec: {
+      ports: [
+        createOFPortSpec({ id: 'target', label: '进入', direction: 'input', channel: 'control', required: true }),
+        createOFPortSpec({ id: 'source', label: '继续', direction: 'output', channel: 'control' }),
+        createOFPortSpec({ id: 'assigned', label: '赋值结果', direction: 'output', channel: 'data' })
+      ],
+      system_managed_fields: ['data.output.variables'],
+      side_effects: [{ id: 'assign-variables', summary: '把常量或变量引用写入当前节点输出命名空间。' }],
+      output_namespace: {
+        source: 'system-stable',
+        editable: true,
+        summary: '赋值节点输出使用稳定命名空间；旧工作流会沿用已有值，新节点默认按 nodeId 生成。'
+      }
+    },
     authoring: {
       contract: {
         type: OFBlockEnum.VariableAssign,
@@ -45,7 +61,6 @@ export const variableAssignNodeDefinition =
         produced_outputs: ['rules[*].target_variable'],
         notes: ['变量赋值节点输出变量由规则目标变量自动派生。']
       },
-      system_managed_fields: ['data.output.variables'],
       selector_policies: ['`rules[*].source_selector` 仅在 `source_mode=variable` 时出现。'],
       output_policies: ['输出变量按 `target_variable` 自动派生。'],
       omit_rules: ['`source_mode=constant` 时省略 `source_selector`。']
@@ -78,11 +93,17 @@ export const variableAssignNodeDefinition =
       }
     },
     editor: {
-      createDefaultData({ title }) {
+      createDefaultData({ nodeId, title }) {
+        const outputNamespace =
+          resolveOFNodeOutputNamespace(variableAssignNodeDefinition, {
+            nodeId,
+            fallback: OF_VARIABLE_ASSIGN_NODE_NAME
+          }) || OF_VARIABLE_ASSIGN_NODE_NAME
         return {
           title,
           desc: '',
           type: OFBlockEnum.VariableAssign,
+          output_namespace: outputNamespace,
           rules: [],
           output: { variables: [] }
         }
@@ -94,6 +115,13 @@ export const variableAssignNodeDefinition =
           ...data,
           rules: data.rules || []
         } as OFVariableAssignNodeData
+        const outputNamespace =
+          resolveOFNodeOutputNamespace(variableAssignNodeDefinition, {
+            current: data.output_namespace,
+            nodeId: node.id,
+            title,
+            fallback: OF_VARIABLE_ASSIGN_NODE_NAME
+          }) || OF_VARIABLE_ASSIGN_NODE_NAME
         normalizeOFRunnableNodeSelectorData(
           OFBlockEnum.VariableAssign,
           normalized as unknown as Record<string, unknown>,
@@ -102,9 +130,10 @@ export const variableAssignNodeDefinition =
         return {
           ...buildOFCommonNodeShape(data, title),
           type: OFBlockEnum.VariableAssign,
+          output_namespace: outputNamespace,
           rules: normalized.rules,
           output: {
-            variables: buildOutputs(title, normalized.rules || [], node.id)
+            variables: buildOutputs(outputNamespace, normalized.rules || [], node.id)
           }
         }
       }
@@ -134,9 +163,23 @@ export const variableAssignNodeDefinition =
           title,
           desc,
           type: OFBlockEnum.VariableAssign,
+          output_namespace:
+            resolveOFNodeOutputNamespace(variableAssignNodeDefinition, {
+              nodeId: compiledId,
+              title,
+              fallback: OF_VARIABLE_ASSIGN_NODE_NAME
+            }) || OF_VARIABLE_ASSIGN_NODE_NAME,
           rules,
           output: {
-            variables: buildOutputs(title, rules, compiledId)
+            variables: buildOutputs(
+              resolveOFNodeOutputNamespace(variableAssignNodeDefinition, {
+                nodeId: compiledId,
+                title,
+                fallback: OF_VARIABLE_ASSIGN_NODE_NAME
+              }) || OF_VARIABLE_ASSIGN_NODE_NAME,
+              rules,
+              compiledId
+            )
           }
         }
       }

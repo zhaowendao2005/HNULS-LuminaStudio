@@ -169,6 +169,10 @@ describe('OrchestraFlow node definitions', () => {
         OFBlockEnum.End
       ])
     )
+    definitions.forEach((definition) => {
+      expect(Array.isArray(definition.spec.ports)).toBe(true)
+      expect(definition.spec.output_namespace).toBeDefined()
+    })
   })
 
   it('keeps editor and variable capabilities available for every definition', () => {

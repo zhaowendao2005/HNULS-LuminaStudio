@@ -17,7 +17,13 @@ import type {
   OFRunnableWorkflow,
   OFWorkflowAuthoringContract
 } from '@shared/Orchestraflow-types'
-import { listOFNodeDefinitions, OFBlockEnum, OFVarType } from '@shared/Orchestraflow-types'
+import {
+  getOFEdgeSourcePortId,
+  getOFEdgeTargetPortId,
+  listOFNodeDefinitions,
+  OFBlockEnum,
+  OFVarType
+} from '@shared/Orchestraflow-types'
 import { compileAIDslToWorkflow } from './compiler'
 import { GENERATED_RUNNABLE_WORKFLOW_SCHEMA } from './generated-runnable-schema'
 import {
@@ -391,10 +397,15 @@ function normalizeEdge(
     throw new Error(`IfElse edge must declare sourceHandle: ${edge.id}`)
   }
 
+  const sourcePortId = getOFEdgeSourcePortId(edge)
+  const targetPortId = getOFEdgeTargetPortId(edge)
+
   return {
     ...edge,
-    sourceHandle: edge.sourceHandle || params.defaultSourceHandle || 'source',
-    targetHandle: edge.targetHandle || params.defaultTargetHandle
+    source_port_id: sourcePortId || params.defaultSourceHandle || 'source',
+    target_port_id: targetPortId || params.defaultTargetHandle,
+    sourceHandle: sourcePortId || params.defaultSourceHandle || 'source',
+    targetHandle: targetPortId || params.defaultTargetHandle
   }
 }
 
@@ -440,6 +451,10 @@ function renderNodeRuleLines(
     lines.push(
       `- \`${contractNode.type}\` system-managed：${metadata.system_managed_fields.join('、')}`
     )
+  } else if (definition?.spec.system_managed_fields?.length) {
+    lines.push(
+      `- \`${contractNode.type}\` system-managed：${definition.spec.system_managed_fields.join('、')}`
+    )
   }
   if (metadata?.selector_policies?.length) {
     lines.push(`- \`${contractNode.type}\` selector：${metadata.selector_policies.join('；')}`)
@@ -468,7 +483,8 @@ function buildAnnotatedCommentLines(
   const managedFields = Array.from(
     new Set(
       Array.from(definitionMap.values()).flatMap(
-        (item) => item.authoring.system_managed_fields || []
+        // 结构真相统一从 definition.spec 读取，避免继续回退到 authoring。
+        (item) => item.spec.system_managed_fields || []
       )
     )
   )

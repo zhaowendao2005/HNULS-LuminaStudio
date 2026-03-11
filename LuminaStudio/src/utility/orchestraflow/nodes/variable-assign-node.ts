@@ -2,7 +2,7 @@ import { BaseNode } from './base-node'
 import {
   OFBlockEnum,
   OF_VARIABLE_ASSIGN_NODE_NAME,
-  normalizeOFVariableNamespace,
+  getOFNodeOutputNamespace,
   type OFVariableAssignNodeData,
   type OFVariableAssignRule
 } from '@shared/Orchestraflow-types'
@@ -30,10 +30,7 @@ export class VariableAssignNode extends BaseNode {
       const nodeData = this.getNodeData() as OFVariableAssignNodeData
       this.validateConfig(nodeData)
 
-      const normalizedTitle = normalizeOFVariableNamespace(
-        nodeData.title,
-        OF_VARIABLE_ASSIGN_NODE_NAME
-      )
+      const normalizedTitle = getOFNodeOutputNamespace(nodeData, OF_VARIABLE_ASSIGN_NODE_NAME)
       const pendingWrites: PendingWrite[] = []
       const outputs: Record<string, unknown> = {}
 

@@ -1,5 +1,6 @@
 import {
   buildOFCommonNodeShape,
+  createOFPortSpec,
   defineStandardOFNodeDefinition,
   normalizeOFNodeTitle
 } from '../node-definition'
@@ -21,6 +22,19 @@ export const ifElseNodeDefinition = defineStandardOFNodeDefinition<OFIfElseNodeD
     kind: 'standard',
     vueFlowType: 'ifelse',
     ai_exposed: true
+  },
+  spec: {
+    ports: [
+      createOFPortSpec({ id: 'target', label: '进入', direction: 'input', channel: 'control', required: true }),
+      createOFPortSpec({ id: 'if', label: 'IF', direction: 'output', channel: 'control' }),
+      createOFPortSpec({ id: 'else', label: 'ELSE', direction: 'output', channel: 'control' })
+    ],
+    side_effects: [{ id: 'select-branch-handle', summary: '根据条件计算命中的分支 handle。' }],
+    output_namespace: {
+      source: 'none',
+      editable: false,
+      summary: '条件分支节点本身不产生稳定数据命名空间，只决定控制流走向。'
+    }
   },
   authoring: {
     contract: {

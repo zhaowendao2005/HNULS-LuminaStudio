@@ -29,7 +29,10 @@ function createLoopGraph(): { nodes: OFNode[]; edges: any[] } {
             variables: [
               {
                 variable: 'counter',
-                value_selector: ['counter']
+                value_ref: {
+                  selector: ['counter'],
+                  path: 'counter'
+                }
               }
             ]
           }
@@ -107,7 +110,13 @@ describe('LoopNode', () => {
           variable: 'counter',
           type: OFVarType.Number,
           value_type: 'variable',
-          value_selector: ['seed']
+          value_source: {
+            mode: 'variable',
+            ref: {
+              selector: ['seed'],
+              path: 'seed'
+            }
+          }
         }
       ]
     })
@@ -175,7 +184,11 @@ describe('LoopNode', () => {
       break_conditions: [
         {
           id: 'break-1',
-          variable_selector: ['counter'],
+          variable_ref: {
+            selector: ['counter'],
+            path: 'counter',
+            type: OFVarType.Number
+          },
           variable_type: OFVarType.Number,
           operator: 'gte',
           value: 2

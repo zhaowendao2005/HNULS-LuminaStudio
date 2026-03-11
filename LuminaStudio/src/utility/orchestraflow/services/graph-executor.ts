@@ -4,7 +4,12 @@ import type {
   OFNodeExecutionMetadata,
   OFNodeTracing
 } from '@shared/Orchestraflow-types'
-import { buildOFNodeTraceKey, OFBlockEnum, OFNodeRunningStatus } from '@shared/Orchestraflow-types'
+import {
+  buildOFNodeTraceKey,
+  getOFEdgeSourcePortId,
+  OFBlockEnum,
+  OFNodeRunningStatus
+} from '@shared/Orchestraflow-types'
 import { executeNode } from './executor'
 import type {
   BranchSelection,
@@ -246,7 +251,7 @@ export class GraphExecutor {
     if (!selectedSourceHandleIds || selectedSourceHandleIds.length === 0) {
       return true
     }
-    const handleId = edge.sourceHandle || 'source'
+    const handleId = getOFEdgeSourcePortId(edge)
     return selectedSourceHandleIds.includes(handleId)
   }
 

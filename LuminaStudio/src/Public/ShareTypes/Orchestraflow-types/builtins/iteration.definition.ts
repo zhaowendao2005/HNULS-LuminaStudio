@@ -1,7 +1,9 @@
 import {
   buildOFCommonNodeShape,
+  createOFPortSpec,
   defineContainerOFNodeDefinition,
-  normalizeOFNodeTitle
+  normalizeOFNodeTitle,
+  resolveOFNodeOutputNamespace
 } from '../node-definition'
 import {
   ensureOFSelectableVariables,
@@ -21,9 +23,9 @@ const DEFAULT_SUBGRAPH_VIEWPORT = { x: 0, y: 0, zoom: 1 }
 const DEFAULT_WIDTH = 650
 const DEFAULT_HEIGHT = 417
 
-function buildIterationOutputs(title: string, nodeId: string) {
+function buildIterationOutputs(namespace: string, nodeId: string) {
   return iterationOutputVariableDefinition.build({
-    namespace: title,
+    namespace,
     fallbackNodeId: nodeId
   })
 }
@@ -41,7 +43,11 @@ function createIterationStartNode(iterationNodeId: string, iterationTitle: strin
       type: OFBlockEnum.IterationStart,
       input: {
         variables: iterationInnerStartVariableDefinition.build({
-          namespace: iterationTitle,
+          namespace:
+            resolveOFNodeOutputNamespace(iterationNodeDefinition, {
+              title: iterationTitle,
+              fallback: iterationNodeId
+            }) || iterationNodeId,
           fallbackNodeId: iterationNodeId
         })
       }
@@ -69,6 +75,32 @@ export const iterationNodeDefinition = defineContainerOFNodeDefinition<OFIterati
     kind: 'container',
     vueFlowType: 'iteration',
     ai_exposed: true
+  },
+  spec: {
+    ports: [
+      createOFPortSpec({ id: 'target', label: '进入', direction: 'input', channel: 'control', required: true }),
+      createOFPortSpec({ id: 'source', label: '继续', direction: 'output', channel: 'control' }),
+      createOFPortSpec({ id: 'result', label: '结果', direction: 'output', channel: 'data' })
+    ],
+    system_managed_fields: [
+      'data.start_node_id',
+      'data.subgraph.viewport',
+      'data.subgraph.nodes[iteration-start]',
+      'data.output.variables'
+    ],
+    side_effects: [
+      { id: 'spawn-iteration-subgraph', summary: '逐项执行子图，并聚合 result 输出。' }
+    ],
+    output_namespace: {
+      source: 'system-stable',
+      editable: true,
+      summary: '迭代输出使用稳定命名空间；旧工作流会沿用已有值，新节点默认按 nodeId 生成。'
+    },
+    container: {
+      internal_start_node_type: OFBlockEnum.IterationStart,
+      managed_subgraph: true,
+      default_viewport: { ...DEFAULT_SUBGRAPH_VIEWPORT }
+    }
   },
   authoring: {
     contract: {
@@ -108,12 +140,6 @@ export const iterationNodeDefinition = defineContainerOFNodeDefinition<OFIterati
     warnings_zh: [
       '`iterator_selector` 必须非空；`output_selector` 可省略但不能写空数组。',
       '不要手写伪造的 `start_node_id`、`iteration-start` 或 `subgraph.viewport`。'
-    ],
-    system_managed_fields: [
-      'data.start_node_id',
-      'data.subgraph.viewport',
-      'data.subgraph.nodes[iteration-start]',
-      'data.output.variables'
     ],
     selector_policies: [
       '`iterator_selector` 必须非空。',
@@ -156,6 +182,12 @@ export const iterationNodeDefinition = defineContainerOFNodeDefinition<OFIterati
         title,
         desc: '',
         type: OFBlockEnum.Iteration,
+        output_namespace:
+          resolveOFNodeOutputNamespace(iterationNodeDefinition, {
+            nodeId,
+            title,
+            fallback: 'iteration'
+          }) || 'iteration',
         width: DEFAULT_WIDTH,
         height: DEFAULT_HEIGHT,
         iterator_selector: [],
@@ -168,7 +200,14 @@ export const iterationNodeDefinition = defineContainerOFNodeDefinition<OFIterati
         error_handle_mode: 'terminated',
         flatten_output: true,
         output: {
-          variables: buildIterationOutputs(title, nodeId)
+          variables: buildIterationOutputs(
+            resolveOFNodeOutputNamespace(iterationNodeDefinition, {
+              nodeId,
+              title,
+              fallback: 'iteration'
+            }) || 'iteration',
+            nodeId
+          )
         }
       }
     },
@@ -216,6 +255,13 @@ export const iterationNodeDefinition = defineContainerOFNodeDefinition<OFIterati
         subgraph,
         start_node_id: startNode.id
       } as OFIterationNodeData
+      const outputNamespace =
+        resolveOFNodeOutputNamespace(iterationNodeDefinition, {
+          current: data.output_namespace,
+          nodeId: node.id,
+          title,
+          fallback: 'iteration'
+        }) || 'iteration'
       normalizeOFRunnableNodeSelectorData(
         OFBlockEnum.Iteration,
         normalized as unknown as Record<string, unknown>,
@@ -225,6 +271,7 @@ export const iterationNodeDefinition = defineContainerOFNodeDefinition<OFIterati
       return {
         ...buildOFCommonNodeShape(data, title),
         type: OFBlockEnum.Iteration,
+        output_namespace: outputNamespace,
         width: data.width || DEFAULT_WIDTH,
         height: data.height || DEFAULT_HEIGHT,
         iterator_ref: normalized.iterator_ref,
@@ -240,7 +287,7 @@ export const iterationNodeDefinition = defineContainerOFNodeDefinition<OFIterati
         error_handle_mode: data.error_handle_mode || 'terminated',
         flatten_output: data.flatten_output ?? true,
         output: {
-          variables: buildIterationOutputs(title, node.id)
+          variables: buildIterationOutputs(outputNamespace, node.id)
         }
       }
     }
@@ -257,6 +304,12 @@ export const iterationNodeDefinition = defineContainerOFNodeDefinition<OFIterati
         title,
         desc,
         type: OFBlockEnum.Iteration,
+        output_namespace:
+          resolveOFNodeOutputNamespace(iterationNodeDefinition, {
+            nodeId: compiledId,
+            title,
+            fallback: 'iteration'
+          }) || 'iteration',
         width: DEFAULT_WIDTH,
         height: DEFAULT_HEIGHT,
         iterator_ref: {
@@ -286,7 +339,14 @@ export const iterationNodeDefinition = defineContainerOFNodeDefinition<OFIterati
         error_handle_mode: node.config.error_handle_mode || 'terminated',
         flatten_output: node.config.flatten_output ?? true,
         output: {
-          variables: buildIterationOutputs(title, compiledId)
+          variables: buildIterationOutputs(
+            resolveOFNodeOutputNamespace(iterationNodeDefinition, {
+              nodeId: compiledId,
+              title,
+              fallback: 'iteration'
+            }) || 'iteration',
+            compiledId
+          )
         }
       }
     }

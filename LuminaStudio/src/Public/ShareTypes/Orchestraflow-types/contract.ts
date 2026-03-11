@@ -73,7 +73,12 @@ export interface OFWorkflowAuthoringContract {
   nodes: OFNodeAuthoringContract[]
 }
 
-export type OFRunnableEdge = Omit<OFEdge, 'sourceHandle' | 'targetHandle'> & {
+export type OFRunnableEdge = Omit<
+  OFEdge,
+  'sourceHandle' | 'targetHandle' | 'source_port_id' | 'target_port_id'
+> & {
+  source_port_id: string
+  target_port_id: string
   sourceHandle: string
   targetHandle: string
 }

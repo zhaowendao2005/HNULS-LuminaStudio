@@ -65,7 +65,10 @@ function createWorkflow(): OFWorkflow {
         variables: [
           {
             variable: 'result',
-            value_selector: ['loop.item']
+            value_ref: {
+              selector: ['loop.item'],
+              path: 'loop.item'
+            }
           }
         ]
       }
@@ -144,7 +147,10 @@ function createWorkflow(): OFWorkflow {
         variables: [
           {
             variable: 'result',
-            value_selector: ['iter1.result']
+            value_ref: {
+              selector: ['iter1.result'],
+              path: 'iter1.result'
+            }
           }
         ]
       }
@@ -192,7 +198,10 @@ function createLoopWorkflow(): OFWorkflow {
         variables: [
           {
             variable: 'counter',
-            value_selector: ['counter']
+            value_ref: {
+              selector: ['counter'],
+              path: 'counter'
+            }
           }
         ]
       }
@@ -233,7 +242,13 @@ function createLoopWorkflow(): OFWorkflow {
           variable: 'counter',
           type: 'number',
           value_type: 'variable',
-          value_selector: ['seed']
+          value_source: {
+            mode: 'variable',
+            ref: {
+              selector: ['seed'],
+              path: 'seed'
+            }
+          }
         }
       ],
       break_conditions: [],
@@ -267,7 +282,10 @@ function createLoopWorkflow(): OFWorkflow {
         variables: [
           {
             variable: 'result',
-            value_selector: ['loop1.result']
+            value_ref: {
+              selector: ['loop1.result'],
+              path: 'loop1.result'
+            }
           }
         ]
       }
@@ -327,10 +345,14 @@ function createVariableAssignDebugWorkflow(): OFWorkflow {
       rules: [
         {
           id: 'rule-1',
+          source: {
+            mode: 'variable',
+            ref: {
+              selector: ['profile', 'stats', 'score'],
+              path: 'profile.stats.score'
+            }
+          },
           source_mode: 'variable',
-          source_selector: ['profile', 'stats', 'score'],
-          source_path: 'profile.stats.score',
-          source_type: 'number',
           target_variable: 'score_text',
           target_type: 'string'
         }
@@ -353,7 +375,10 @@ function createVariableAssignDebugWorkflow(): OFWorkflow {
         variables: [
           {
             variable: 'result',
-            value_selector: ['assign.score_text']
+            value_ref: {
+              selector: ['assign.score_text'],
+              path: 'assign.score_text'
+            }
           }
         ]
       }

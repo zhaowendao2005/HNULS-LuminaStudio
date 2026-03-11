@@ -246,6 +246,8 @@ function compileDslEdge(edge: OFAIDslEdge, index: number, idMap: Map<string, str
     id: `edge_${source}_${target}_${index}`,
     source,
     target,
+    source_port_id: edge.from.handle || null,
+    target_port_id: edge.to.handle || null,
     sourceHandle: edge.from.handle || null,
     targetHandle: edge.to.handle || null
   }

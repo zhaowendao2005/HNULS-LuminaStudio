@@ -71,8 +71,8 @@ describe('variable-selector.store', () => {
     expect(paths).toEqual(
       expect.arrayContaining([
         'topic',
-        'summarize_item.llmoutput',
-        'summarize_item.structured_output'
+        `${llmId}.llmoutput`,
+        `${llmId}.structured_output`
       ])
     )
 

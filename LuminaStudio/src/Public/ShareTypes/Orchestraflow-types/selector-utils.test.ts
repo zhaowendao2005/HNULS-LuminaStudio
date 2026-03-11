@@ -35,13 +35,12 @@ describe('selector-utils', () => {
 
     normalizeOFRunnableNodeSelectorData(OFBlockEnum.IfElse, data, ['content_package'])
 
-    expect(data.cases[0].conditions[0].variable_selector).toEqual([
+    expect(data.cases[0].conditions[0].variable_ref.selector).toEqual([
       'content_package',
       'config',
       'process_mode'
     ])
-    expect(data.cases[0].conditions[0].compare_selector).toBeUndefined()
-    expect(data.cases[0].conditions[0].compare_source_mode).toBeUndefined()
+    expect(data.cases[0].conditions[0].compare_ref).toBeUndefined()
   })
 
   it('collects selector roots from nested workflow nodes', () => {

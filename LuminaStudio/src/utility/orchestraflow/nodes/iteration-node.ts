@@ -5,7 +5,7 @@ import {
   OF_ITERATION_ITEM_VARIABLE_NAME,
   OF_ITERATION_LENGTH_VARIABLE_NAME,
   OF_ITERATION_RESULT_VARIABLE_NAME,
-  normalizeOFVariableNamespace,
+  getOFNodeOutputNamespace,
   OFBlockEnum,
   type OFIterationNodeData
 } from '@shared/Orchestraflow-types'
@@ -39,7 +39,7 @@ export class IterationNode extends BaseNode {
       }
     }
 
-    const normalizedTitle = normalizeOFVariableNamespace(nodeData.title, context.node.id)
+    const normalizedTitle = getOFNodeOutputNamespace(nodeData, context.node.id)
     const inIterationId = `${context.runId}:${context.node.id}:${randomUUID()}`
     const scopePath = [...context.scopePath, context.node.id]
     const results = this.createInitialResults(items.length)

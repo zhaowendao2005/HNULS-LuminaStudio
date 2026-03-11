@@ -16,10 +16,15 @@ function createVariableAssignNode(overrides: Record<string, any> = {}): OFNode {
       rules: [
         {
           id: 'rule-1',
+          source: {
+            mode: 'variable',
+            ref: {
+              selector: ['profile', 'stats', 'score'],
+              path: 'profile.stats.score',
+              type: OFVarType.Number
+            }
+          },
           source_mode: 'variable',
-          source_selector: ['profile', 'stats', 'score'],
-          source_path: 'profile.stats.score',
-          source_type: OFVarType.Number,
           target_variable: 'score_text',
           target_type: OFVarType.String
         }
@@ -76,15 +81,21 @@ describe('VariableAssignNode', () => {
       rules: [
         {
           id: 'rule-1',
+          source: {
+            mode: 'constant',
+            constant_value: '{"name":"Lumina"}'
+          },
           source_mode: 'constant',
-          constant_value: '{"name":"Lumina"}',
           target_variable: 'payload',
           target_type: OFVarType.Object
         },
         {
           id: 'rule-2',
+          source: {
+            mode: 'constant',
+            constant_value: '[1,2,3]'
+          },
           source_mode: 'constant',
-          constant_value: '[1,2,3]',
           target_variable: 'items',
           target_type: OFVarType.Array
         }
@@ -113,17 +124,25 @@ describe('VariableAssignNode', () => {
       rules: [
         {
           id: 'rule-1',
+          source: {
+            mode: 'variable',
+            ref: {
+              selector: ['profile', 'stats', 'score'],
+              path: 'profile.stats.score',
+              type: OFVarType.Number
+            }
+          },
           source_mode: 'variable',
-          source_selector: ['profile', 'stats', 'score'],
-          source_path: 'profile.stats.score',
-          source_type: OFVarType.Number,
           target_variable: 'score_text',
           target_type: OFVarType.String
         },
         {
           id: 'rule-2',
+          source: {
+            mode: 'constant',
+            constant_value: 'not-a-number'
+          },
           source_mode: 'constant',
-          constant_value: 'not-a-number',
           target_variable: 'broken_number',
           target_type: OFVarType.Number
         }
