@@ -105,29 +105,30 @@ export class OrchestflowGenerationEditorService {
         `INSERT INTO generation_documents (session_id, document_key, title, file_name, summary, content)
          VALUES (?, ?, ?, ?, ?, ?)`
       )
+      // 新建会话时只创建文档壳子，不再偷偷塞默认正文，避免用户误以为这些内容来自真实分析结果。
       insertDocument.run(
         sessionId,
         'analysis',
         DEFAULT_DOCUMENTS.analysis.title,
         DEFAULT_DOCUMENTS.analysis.fileName,
-        `围绕「${title}」建立需求分析结论。`,
-        this.buildDefaultAnalysisContent(title)
+        '',
+        ''
       )
       insertDocument.run(
         sessionId,
         'design',
         DEFAULT_DOCUMENTS.design.title,
         DEFAULT_DOCUMENTS.design.fileName,
-        `为「${title}」整理模块结构、数据流与交付路径。`,
-        this.buildDefaultDesignContent(title)
+        '',
+        ''
       )
       insertDocument.run(
         sessionId,
         'verify',
         DEFAULT_DOCUMENTS.verify.title,
         DEFAULT_DOCUMENTS.verify.fileName,
-        `为「${title}」整理校验清单。`,
-        this.buildDefaultVerifyContent(title)
+        '',
+        ''
       )
     })
 
@@ -533,44 +534,5 @@ export class OrchestflowGenerationEditorService {
       createdAt: row.created_at,
       updatedAt: row.updated_at
     }
-  }
-
-  private buildDefaultAnalysisContent(title: string): string {
-    return [
-      `# ${title} 需求分析`,
-      '',
-      '## 需求摘要',
-      `- 目标：围绕 ${title} 先完成需求澄清与范围收敛`,
-      '',
-      '## 待补充',
-      '- 核心角色',
-      '- 关键操作链路',
-      '- 风险与边界'
-    ].join('\n')
-  }
-
-  private buildDefaultDesignContent(title: string): string {
-    return [
-      '# 规划设计文档',
-      '',
-      '## 项目对象',
-      title,
-      '',
-      '## 模块结构',
-      '- 待补充模块划分',
-      '',
-      '## 数据流',
-      '- 待补充数据输入/输出'
-    ].join('\n')
-  }
-
-  private buildDefaultVerifyContent(title: string): string {
-    return [
-      `# ${title} 校验清单`,
-      '',
-      '1. 核对需求分析与设计结论是否一致',
-      '2. 核对设计中的模块边界与数据流',
-      '3. 确认最终交付前的回归检查项'
-    ].join('\n')
   }
 }

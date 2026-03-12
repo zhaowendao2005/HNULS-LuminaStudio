@@ -60,27 +60,21 @@
         </div>
       </div>
 
-      <div class="rounded border border-dashed border-gray-200 bg-gray-50/60 px-4 py-3">
-        <div class="text-xs font-semibold text-gray-600">需求分析文档</div>
-        <div class="mt-2 whitespace-pre-wrap text-[12px] leading-6 text-gray-700">
-          {{ analysisDocumentContent }}
-        </div>
-        <div class="mt-3 flex gap-2">
-          <button
-            type="button"
-            class="rounded-sm bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
-            @click="$emit('enter-design')"
-          >
-            进入规划设计页
-          </button>
-          <button
-            type="button"
-            class="rounded-sm bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-200"
-            @click="$emit('open-copilot')"
-          >
-            打开 copilot
-          </button>
-        </div>
+      <div class="flex gap-2">
+        <button
+          type="button"
+          class="rounded-sm bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
+          @click="$emit('enter-design')"
+        >
+          进入规划设计页
+        </button>
+        <button
+          type="button"
+          class="rounded-sm bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-200"
+          @click="$emit('open-copilot')"
+        >
+          打开 copilot
+        </button>
       </div>
     </div>
 
@@ -117,7 +111,7 @@ defineProps<{
   sessionTitle: string
   sessionSummary: string
   currentSessionStageLabel: string
-  analysisDocumentContent: string
+
   messages: GenerationMessage[]
   analysisInput: string
   isAnalysisStreaming: boolean

@@ -53,7 +53,6 @@
               :session-title="generationStore.currentSession.title"
               :session-summary="generationStore.currentSession.summary"
               :current-session-stage-label="currentSessionStageLabel"
-              :analysis-document-content="generationStore.currentSession.documents.analysis.content"
               :messages="generationStore.analysisMessages"
               :analysis-input="generationStore.analysisInput"
               :is-analysis-streaming="generationStore.isAnalysisStreaming"

@@ -155,8 +155,7 @@ export const useOrchestflowGenerationEditorStore = defineStore(
           selectedSessionId.value = created.id
         } else {
           selectedSessionId.value = rows[0].id
-          const detail = await OrchestflowGenerationEditorDataSource.getSessionDetail(rows[0].id)
-          upsertSessionDetail(detail)
+          await refreshSessionDetail(rows[0].id)
         }
       } finally {
         loading.value = false
@@ -169,24 +168,40 @@ export const useOrchestflowGenerationEditorStore = defineStore(
         if (!detail) return
 
         if (event.type === 'stream-start') {
+          // 这里要把“前端本地占位消息”和“数据库真实消息”对齐，否则后续 delta 会找不到目标消息。
+          const target = findStreamMessage(
+            detail,
+            event.channelKey,
+            event.requestId,
+            event.messageId
+          )
+          if (target) {
+            target.id = event.messageId
+            target.requestId = event.requestId
+            target.status = 'streaming'
+          }
           streamMessageIdByRequest.value[event.requestId] = event.messageId
           activeRequestIdByChannel.value[event.channelKey] = event.requestId
           return
         }
 
-        const channelMessages = detail.messagesByChannel[event.channelKey]
-        const target = channelMessages.find((item) => item.id === event.messageId)
+        const target = findStreamMessage(detail, event.channelKey, event.requestId, event.messageId)
         if (!target) return
 
         if (event.type === 'text-delta') {
           target.content += event.delta
           target.status = 'streaming'
+          target.requestId = event.requestId
           return
         }
 
         if (event.type === 'error') {
           target.error = event.message
           target.status = 'error'
+          target.requestId = event.requestId
+          delete activeRequestIdByChannel.value[event.channelKey]
+          delete streamMessageIdByRequest.value[event.requestId]
+          void refreshSessionDetail(event.sessionId)
           return
         }
 
@@ -197,8 +212,11 @@ export const useOrchestflowGenerationEditorStore = defineStore(
               : event.finishReason === 'aborted'
                 ? 'aborted'
                 : 'error'
+          target.requestId = event.requestId
           target.usageJson = event.usageJson ?? null
           delete activeRequestIdByChannel.value[event.channelKey]
+          delete streamMessageIdByRequest.value[event.requestId]
+          void refreshSessionDetail(event.sessionId)
         }
       })
     }
@@ -208,10 +226,7 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       activeMenu.value = resolveMenuByStage(
         sessions.value.find((item) => item.id === sessionId)?.currentStage || 'analysis'
       )
-      if (!sessionDetails.value[sessionId]) {
-        const detail = await OrchestflowGenerationEditorDataSource.getSessionDetail(sessionId)
-        upsertSessionDetail(detail)
-      }
+      await refreshSessionDetail(sessionId)
     }
 
     async function createSession(): Promise<void> {
@@ -280,11 +295,12 @@ export const useOrchestflowGenerationEditorStore = defineStore(
     }
 
     async function sendAnalysisMessage(): Promise<void> {
-      if (
-        !currentSession.value ||
-        !currentStageConfig.value?.providerId ||
-        !currentStageConfig.value.modelId
-      ) {
+      if (!currentSession.value) {
+        return
+      }
+      if (!currentStageConfig.value?.providerId || !currentStageConfig.value.modelId) {
+        // 没选模型时不要静默失败，直接拉起模型选择器，避免用户以为“发送按钮坏了”。
+        showModelSelector.value = true
         return
       }
       const content = analysisInput.value.trim()
@@ -300,7 +316,11 @@ export const useOrchestflowGenerationEditorStore = defineStore(
     async function sendCopilotMessage(): Promise<void> {
       if (!currentSession.value || !activeRightPanel.value) return
       const config = currentSession.value.stageConfigs[activeRightPanel.value]
-      if (!config.providerId || !config.modelId) return
+      if (!config.providerId || !config.modelId) {
+        // copilot 侧同样处理成显式引导，避免输入后点击发送没有任何反应。
+        showModelSelector.value = true
+        return
+      }
       const content = copilotInput.value.trim()
       if (!content) return
       copilotInput.value = ''
@@ -357,6 +377,12 @@ export const useOrchestflowGenerationEditorStore = defineStore(
         modelId: config.modelId!,
         content
       })
+
+      // 先把 requestId 绑到本地占位 assistant 上，哪怕 stream-start 先/后到，都能继续命中同一条消息。
+      const target = messages.find((item) => item.id === assistantId)
+      if (target) {
+        target.requestId = result.requestId
+      }
       streamMessageIdByRequest.value[result.requestId] = assistantId
     }
 
@@ -433,6 +459,27 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       if (stage === 'design') return 'rounded-full h-2 w-2 bg-emerald-200'
       if (stage === 'verify') return 'rounded-full h-2 w-2 bg-violet-200'
       return 'rounded-full h-2 w-2 bg-amber-200'
+    }
+
+    async function refreshSessionDetail(sessionId: string): Promise<void> {
+      const detail = await OrchestflowGenerationEditorDataSource.getSessionDetail(sessionId)
+      upsertSessionDetail(detail)
+    }
+
+    function findStreamMessage(
+      detail: GenerateSessionDetailViewModel,
+      channelKey: GenerationChannelKey,
+      requestId: string,
+      messageId: string
+    ): GenerationMessage | undefined {
+      const channelMessages = detail.messagesByChannel[channelKey]
+      const mappedId = streamMessageIdByRequest.value[requestId]
+      return channelMessages.find(
+        (item) =>
+          item.id === messageId ||
+          item.id === mappedId ||
+          (item.requestId === requestId && item.role === 'assistant')
+      )
     }
 
     function upsertSessionDetail(detail: any): void {
