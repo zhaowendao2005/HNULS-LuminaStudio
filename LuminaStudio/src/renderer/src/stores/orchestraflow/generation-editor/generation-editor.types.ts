@@ -175,17 +175,42 @@ export function parsePlanningMarkdownSections(
     return {}
   }
 
-  const sectionRegex = /^##\s+(.+?)\s*$([\s\S]*?)(?=^##\s+|^#\s+|$)/gm
   const sections: Record<string, GeneratePlanningMarkdownSection> = {}
+  const lines = markdown.split('\n')
+  let currentTitle: string | null = null
+  let currentContentLines: string[] = []
 
-  for (const match of markdown.matchAll(sectionRegex)) {
-    const title = match[1].trim()
-    const content = match[2].trim()
-    sections[title] = {
-      title,
-      content
+  function flushCurrentSection(): void {
+    if (!currentTitle) {
+      return
+    }
+    sections[currentTitle] = {
+      title: currentTitle,
+      content: currentContentLines.join('\n').trim()
     }
   }
+
+  for (const line of lines) {
+    if (line.startsWith('# ')) {
+      flushCurrentSection()
+      currentTitle = null
+      currentContentLines = []
+      continue
+    }
+
+    if (line.startsWith('## ')) {
+      flushCurrentSection()
+      currentTitle = line.slice(3).trim()
+      currentContentLines = []
+      continue
+    }
+
+    if (currentTitle) {
+      currentContentLines.push(line)
+    }
+  }
+
+  flushCurrentSection()
 
   return sections
 }

@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { getGenerationPlanningBlock } from './generation-editor.types'
+import {
+  getGenerationPlanningBlock,
+  parsePlanningMarkdownSections
+} from './generation-editor.types'
 
 describe('generation-editor.types', () => {
   it('does not expose planning block when meta mode is continue', () => {
@@ -45,5 +48,20 @@ describe('generation-editor.types', () => {
 
     expect(block?.status).toBe('ready')
     expect(block?.trigger).toBe('explicit')
+  })
+
+  it('parses markdown subsection bodies under fixed titles', () => {
+    const sections = parsePlanningMarkdownSections(`# 需求分析
+## 摘要
+- 第一条
+- 第二条
+
+## 目标
+- 目标一
+`)
+
+    expect(sections['摘要']?.content).toContain('第一条')
+    expect(sections['摘要']?.content).toContain('第二条')
+    expect(sections['目标']?.content).toContain('目标一')
   })
 })

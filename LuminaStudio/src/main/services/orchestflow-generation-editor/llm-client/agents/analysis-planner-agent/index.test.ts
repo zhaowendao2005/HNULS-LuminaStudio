@@ -63,4 +63,27 @@ planningStatus: ready
     expect(progress.shouldShowPlanningBlock).toBe(true)
     expect(progress.activeSection).toBeTruthy()
   })
+
+  it('keeps root markdown body when planning payload contains full sections', () => {
+    const progress = buildPlanningProgressState(`
+mode: planning
+trigger: auto
+planningStatus: draft
+---
+# 需求分析
+## 摘要
+- 用户希望获得一个尽可能详细的工作流规划方案。
+
+## 目标
+- 产出一份结构完整的 handoff。
+
+# 设计交接
+## 候选节点
+- start：接收输入
+`)
+
+    expect(progress.analysisMarkdown).toContain('## 摘要')
+    expect(progress.analysisMarkdown).toContain('工作流规划方案')
+    expect(progress.designMarkdown).toContain('## 候选节点')
+  })
 })

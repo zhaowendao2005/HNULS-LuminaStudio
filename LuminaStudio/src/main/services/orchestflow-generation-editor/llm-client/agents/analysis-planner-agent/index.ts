@@ -723,10 +723,24 @@ function extractRootMarkdownSection(payloadBody: string, title: string): string 
   if (!payloadBody.trim()) {
     return ''
   }
-  const escapedTitle = escapeForRegex(title)
-  const regex = new RegExp(`^#\\s+${escapedTitle}\\s*$([\\s\\S]*?)(?=^#\\s+|$)`, 'm')
-  const match = payloadBody.match(regex)
-  return match ? `# ${title}\n${match[1].trim()}`.trim() : ''
+
+  const lines = payloadBody.split('\n')
+  const header = `# ${title}`
+  const startIndex = lines.findIndex((line) => line.trim() === header)
+  if (startIndex < 0) {
+    return ''
+  }
+
+  const contentLines: string[] = [header]
+  for (let index = startIndex + 1; index < lines.length; index += 1) {
+    const currentLine = lines[index]
+    if (currentLine.startsWith('# ')) {
+      break
+    }
+    contentLines.push(currentLine)
+  }
+
+  return contentLines.join('\n').trim()
 }
 
 function hasMarkdownSubsection(markdown: string, title: string): boolean {
@@ -738,13 +752,36 @@ function hasMarkdownSubsection(markdown: string, title: string): boolean {
 }
 
 function extractAssistantSummary(analysisMarkdown: string): string {
-  const match = analysisMarkdown.match(/^##\s+摘要\s*$([\s\S]*?)(?=^##\s+|^#\s+|$)/m)
-  const content = match?.[1]?.trim() || ''
+  const content = extractMarkdownSubsectionContent(analysisMarkdown, '摘要')
   return content
     .split('\n')
     .map((line) => line.trim().replace(/^-\s*/, ''))
     .filter(Boolean)
     .join(' ')
+}
+
+function extractMarkdownSubsectionContent(markdown: string, title: string): string {
+  if (!markdown.trim()) {
+    return ''
+  }
+
+  const lines = markdown.split('\n')
+  const header = `## ${title}`
+  const startIndex = lines.findIndex((line) => line.trim() === header)
+  if (startIndex < 0) {
+    return ''
+  }
+
+  const contentLines: string[] = []
+  for (let index = startIndex + 1; index < lines.length; index += 1) {
+    const currentLine = lines[index]
+    if (currentLine.startsWith('## ') || currentLine.startsWith('# ')) {
+      break
+    }
+    contentLines.push(currentLine)
+  }
+
+  return contentLines.join('\n').trim()
 }
 
 function escapeForRegex(text: string): string {
