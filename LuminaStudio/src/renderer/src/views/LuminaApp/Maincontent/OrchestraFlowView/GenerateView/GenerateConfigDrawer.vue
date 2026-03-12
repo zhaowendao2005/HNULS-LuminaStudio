@@ -48,14 +48,14 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { X } from 'lucide-vue-next'
+import type { GenerationStageKey } from '@preload/types'
 import GenerateAnalysisConfigPanel from './GenerateAnalysisConfigPanel.vue'
 import GenerateDesignConfigPanel from './GenerateDesignConfigPanel.vue'
 import GenerateVerifyConfigPanel from './GenerateVerifyConfigPanel.vue'
-import type { StageKey } from './generate-view.types'
 
 const props = defineProps<{
   visible: boolean
-  activeTab: StageKey
+  activeTab: GenerationStageKey
   modelConfigLabel: string
   analysisConfig: {
     discussionMemory: number
@@ -73,7 +73,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'close'): void
-  (e: 'change-tab', value: StageKey): void
+  (e: 'change-tab', value: GenerationStageKey): void
   (e: 'update:analysis-discussion-memory', value: number): void
   (e: 'update:analysis-copilot-memory', value: number): void
   (e: 'update:design-memory', value: number): void
@@ -86,7 +86,7 @@ const tabs = [
   { value: 'analysis', label: '需求分析' },
   { value: 'design', label: '规划设计' },
   { value: 'verify', label: '校验' }
-] satisfies Array<{ value: StageKey; label: string }>
+] satisfies Array<{ value: GenerationStageKey; label: string }>
 
 const panelComponent = computed(() => {
   if (props.activeTab === 'analysis') return GenerateAnalysisConfigPanel

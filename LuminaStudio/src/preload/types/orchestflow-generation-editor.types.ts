@@ -1,4 +1,10 @@
-import type { OFRequirementDocument } from '@shared/Orchestraflow-types'
+import type {
+  OFPlanningCommandMode,
+  OFPlanningDocument as OFSharedPlanningDocument,
+  OFPlanningEditCommand,
+  OFPlanningSectionKey,
+  OFRequirementDocument
+} from '@shared/Orchestraflow-types'
 import type { ApiResponse } from './base.types'
 import type { ModelProviderProtocol } from './model-config.types'
 
@@ -14,19 +20,8 @@ export type GenerationMessageStatus = 'streaming' | 'final' | 'aborted' | 'error
 export type GenerationSdkVendor = 'openai' | 'anthropic' | 'google'
 export type GenerationAnalysisAgentMode = 'continue' | 'planning'
 export type GenerationAnalysisPlanningStatus = 'draft' | 'ready'
-export type GenerationPlanningStreamSectionKey =
-  | 'analysis-summary'
-  | 'analysis-goals'
-  | 'analysis-success-criteria'
-  | 'analysis-constraints'
-  | 'analysis-prohibitions'
-  | 'analysis-missing-info'
-  | 'analysis-readiness-signals'
-  | 'design-candidate-nodes'
-  | 'design-input-requirements'
-  | 'design-output-requirements'
-  | 'design-confirmation-questions'
-  | 'design-blueprint-requirements'
+export type GenerationPlanningStreamSectionKey = OFPlanningSectionKey
+export type GenerationCopilotEditStatus = 'noop' | 'pending' | 'applied' | 'rejected' | 'failed'
 
 export interface GenerationStageConfig {
   stageKey: GenerationStageKey
@@ -36,6 +31,7 @@ export interface GenerationStageConfig {
   memoryRounds: number
   copilotMemoryRounds: number
   autoApproved: boolean
+  activePlanningDocumentId: string | null
 }
 
 export interface GenerationDocument {
@@ -44,6 +40,18 @@ export interface GenerationDocument {
   fileName: string
   summary: string
   content: string
+}
+
+export interface GenerationPlanningDocument extends OFSharedPlanningDocument {
+  id: string
+  sessionId: string
+  stageKey: GenerationStageKey
+  sourceMessageId: string
+  title: string
+  sourceMarkdown: string
+  content: string
+  createdAt: string
+  updatedAt: string
 }
 
 export interface GenerationPlanningBlockStreamingState {
@@ -64,6 +72,7 @@ export interface GenerationPlanningBlockPayload {
   status: GenerationAnalysisPlanningStatus
   analysisMarkdown: string
   designMarkdown: string
+  documentId?: string | null
   streamingState?: GenerationPlanningBlockStreamingState
   /**
    * 向后兼容旧消息：历史 metaJson 里还是 requirementDocument 结构。
@@ -72,12 +81,24 @@ export interface GenerationPlanningBlockPayload {
   requirementDocument?: OFRequirementDocument
 }
 
+export interface GenerationCopilotEditBlockPayload {
+  kind: 'planning-edit'
+  documentId: string
+  mode: OFPlanningCommandMode
+  commandDsl: string
+  commands: OFPlanningEditCommand[]
+  status: GenerationCopilotEditStatus
+  affectedSectionKeys: OFPlanningSectionKey[]
+  errorMessage?: string | null
+}
+
 export interface GenerationMessageMetaPayload {
   vendor?: GenerationSdkVendor
   protocol?: ModelProviderProtocol
   agentId?: string
   mode?: GenerationAnalysisAgentMode
   planningBlock?: GenerationPlanningBlockPayload | null
+  copilotEditBlock?: GenerationCopilotEditBlockPayload | null
 }
 
 export interface GenerationMessage {
@@ -113,6 +134,7 @@ export interface GenerationSessionSummary {
 export interface GenerationSessionDetail extends GenerationSessionSummary {
   stageConfigs: GenerationStageConfig[]
   documents: GenerationDocument[]
+  planningDocuments: GenerationPlanningDocument[]
   messages: GenerationMessage[]
 }
 
@@ -136,6 +158,32 @@ export interface GenerationSaveStageConfigRequest {
 export interface GenerationSaveDocumentRequest {
   sessionId: string
   document: GenerationDocument
+}
+
+export interface GenerationSavePlanningDocumentRequest {
+  sessionId: string
+  document: GenerationPlanningDocument
+}
+
+export interface GenerationSelectPlanningDocumentRequest {
+  sessionId: string
+  stageKey: GenerationStageKey
+  documentId: string
+}
+
+export interface GenerationCreatePlanningDocumentFromMessageRequest {
+  sessionId: string
+  messageId: string
+}
+
+export interface GenerationApplyPlanningCommandProposalRequest {
+  sessionId: string
+  messageId: string
+}
+
+export interface GenerationRejectPlanningCommandProposalRequest {
+  sessionId: string
+  messageId: string
 }
 
 export interface GenerationListMessagesRequest {
@@ -224,6 +272,21 @@ export interface OrchestrflowGenerationEditorAPI {
     request: GenerationSaveStageConfigRequest
   ) => Promise<ApiResponse<GenerationStageConfig>>
   saveDocument: (request: GenerationSaveDocumentRequest) => Promise<ApiResponse<GenerationDocument>>
+  savePlanningDocument: (
+    request: GenerationSavePlanningDocumentRequest
+  ) => Promise<ApiResponse<GenerationPlanningDocument>>
+  selectPlanningDocument: (
+    request: GenerationSelectPlanningDocumentRequest
+  ) => Promise<ApiResponse<GenerationStageConfig>>
+  getOrCreatePlanningDocumentFromMessage: (
+    request: GenerationCreatePlanningDocumentFromMessageRequest
+  ) => Promise<ApiResponse<GenerationPlanningDocument>>
+  applyPlanningCommandProposal: (
+    request: GenerationApplyPlanningCommandProposalRequest
+  ) => Promise<ApiResponse<GenerationPlanningDocument>>
+  rejectPlanningCommandProposal: (
+    request: GenerationRejectPlanningCommandProposalRequest
+  ) => Promise<ApiResponse<GenerationMessage>>
   listMessages: (
     request: GenerationListMessagesRequest
   ) => Promise<ApiResponse<GenerationMessage[]>>

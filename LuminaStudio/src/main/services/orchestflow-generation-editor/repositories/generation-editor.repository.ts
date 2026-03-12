@@ -1,12 +1,27 @@
 import type Database from 'better-sqlite3'
 import { randomUUID } from 'crypto'
+import {
+  applyOFPlanningEditCommands,
+  buildOFPlanningMarkdown,
+  createEmptyOFPlanningDocument,
+  parseOFPlanningMarkdown,
+  type OFPlanningDocument
+} from '@shared/Orchestraflow-types'
 import type {
+  GenerationApplyPlanningCommandProposalRequest,
+  GenerationCreatePlanningDocumentFromMessageRequest,
   GenerationCreateSessionRequest,
   GenerationDocument,
   GenerationGlobalSettings,
   GenerationListMessagesRequest,
+  GenerationMessage,
+  GenerationMessageMetaPayload,
+  GenerationPlanningDocument,
+  GenerationRejectPlanningCommandProposalRequest,
   GenerationSaveDocumentRequest,
+  GenerationSavePlanningDocumentRequest,
   GenerationSaveStageConfigRequest,
+  GenerationSelectPlanningDocumentRequest,
   GenerationSessionDetail,
   GenerationStageConfig,
   GenerationStageKey,
@@ -17,6 +32,7 @@ import {
   mapDocument,
   mapGlobalSettings,
   mapMessage,
+  mapPlanningDocument,
   mapSessionSummary,
   mapStageConfig
 } from '../mappers/generation-editor.mappers'
@@ -24,6 +40,7 @@ import type {
   GenerationDocumentRow,
   GenerationGlobalSettingsRow,
   GenerationMessageRow,
+  GenerationPlanningDocumentRow,
   GenerationSessionRow,
   GenerationStageConfigRow
 } from '../types/database.types'
@@ -31,16 +48,16 @@ import type {
 /**
  * repository 层专门负责 Generate Editor 的 SQLite 访问。
  *
- * 这样 service 层就不需要再直接维护 SQL 细节，后面如果表结构继续长大，
- * 也可以在这里继续细拆成 session / message / document 等更小的 repo。
+ * 这里把 planning 共享工作稿也一起纳入 repository，
+ * 避免 service 层再重复维护 SQL 与 JSON meta 细节。
  */
 export class GenerationEditorRepository {
   constructor(private readonly db: Database.Database) {}
 
   getGlobalSettings(): GenerationGlobalSettings {
-    const row = this.db
-      .prepare('SELECT * FROM generation_global_settings WHERE id = 1')
-      .get() as GenerationGlobalSettingsRow | undefined
+    const row = this.db.prepare('SELECT * FROM generation_global_settings WHERE id = 1').get() as
+      | GenerationGlobalSettingsRow
+      | undefined
 
     if (!row) {
       this.db
@@ -97,9 +114,18 @@ export class GenerationEditorRepository {
 
       const insertConfig = this.db.prepare(
         `INSERT INTO generation_stage_configs (
-          session_id, stage_key, provider_id, model_id, sdk_vendor, memory_rounds, copilot_memory_rounds, auto_approved
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+          session_id,
+          stage_key,
+          provider_id,
+          model_id,
+          sdk_vendor,
+          memory_rounds,
+          copilot_memory_rounds,
+          auto_approved,
+          active_planning_document_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
+
       ;(['analysis', 'design', 'verify'] as GenerationStageKey[]).forEach((stageKey) => {
         const config = DEFAULT_STAGE_CONFIGS[stageKey]
         insertConfig.run(
@@ -110,7 +136,8 @@ export class GenerationEditorRepository {
           null,
           config.memoryRounds,
           config.copilotMemoryRounds,
-          config.autoApproved ? 1 : 0
+          config.autoApproved ? 1 : 0,
+          config.activePlanningDocumentId
         )
       })
 
@@ -118,7 +145,6 @@ export class GenerationEditorRepository {
         `INSERT INTO generation_documents (session_id, document_key, title, file_name, summary, content)
          VALUES (?, ?, ?, ?, ?, ?)`
       )
-      // 新建会话时只创建文档壳子，不再偷偷塞默认正文，避免用户误以为这些内容来自真实分析结果。
       insertDocument.run(
         sessionId,
         'analysis',
@@ -152,6 +178,9 @@ export class GenerationEditorRepository {
   deleteSession(sessionId: string): void {
     const transaction = this.db.transaction(() => {
       this.db.prepare('DELETE FROM generation_messages WHERE session_id = ?').run(sessionId)
+      this.db
+        .prepare('DELETE FROM generation_planning_documents WHERE session_id = ?')
+        .run(sessionId)
       this.db.prepare('DELETE FROM generation_documents WHERE session_id = ?').run(sessionId)
       this.db.prepare('DELETE FROM generation_stage_configs WHERE session_id = ?').run(sessionId)
       this.db.prepare('DELETE FROM generation_sessions WHERE id = ?').run(sessionId)
@@ -172,6 +201,11 @@ export class GenerationEditorRepository {
     const documentRows = this.db
       .prepare('SELECT * FROM generation_documents WHERE session_id = ? ORDER BY document_key ASC')
       .all(sessionId) as GenerationDocumentRow[]
+    const planningDocumentRows = this.db
+      .prepare(
+        'SELECT * FROM generation_planning_documents WHERE session_id = ? ORDER BY updated_at DESC'
+      )
+      .all(sessionId) as GenerationPlanningDocumentRow[]
     const messageRows = this.db
       .prepare('SELECT * FROM generation_messages WHERE session_id = ? ORDER BY created_at ASC')
       .all(sessionId) as GenerationMessageRow[]
@@ -180,6 +214,7 @@ export class GenerationEditorRepository {
       ...mapSessionSummary(sessionRow),
       stageConfigs: stageConfigRows.map(mapStageConfig),
       documents: documentRows.map(mapDocument),
+      planningDocuments: planningDocumentRows.map(mapPlanningDocument),
       messages: messageRows.map(mapMessage)
     }
   }
@@ -218,8 +253,17 @@ export class GenerationEditorRepository {
     this.db
       .prepare(
         `INSERT INTO generation_stage_configs (
-          session_id, stage_key, provider_id, model_id, sdk_vendor, memory_rounds, copilot_memory_rounds, auto_approved, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+          session_id,
+          stage_key,
+          provider_id,
+          model_id,
+          sdk_vendor,
+          memory_rounds,
+          copilot_memory_rounds,
+          auto_approved,
+          active_planning_document_id,
+          updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
         ON CONFLICT(session_id, stage_key) DO UPDATE SET
           provider_id = excluded.provider_id,
           model_id = excluded.model_id,
@@ -227,6 +271,7 @@ export class GenerationEditorRepository {
           memory_rounds = excluded.memory_rounds,
           copilot_memory_rounds = excluded.copilot_memory_rounds,
           auto_approved = excluded.auto_approved,
+          active_planning_document_id = excluded.active_planning_document_id,
           updated_at = datetime('now')`
       )
       .run(
@@ -237,13 +282,23 @@ export class GenerationEditorRepository {
         request.config.sdkVendor,
         request.config.memoryRounds,
         request.config.copilotMemoryRounds,
-        request.config.autoApproved ? 1 : 0
+        request.config.autoApproved ? 1 : 0,
+        request.config.activePlanningDocumentId
       )
 
     this.touchSession(request.sessionId)
+    return this.getStageConfig(request.sessionId, request.config.stageKey)
+  }
+
+  getStageConfig(sessionId: string, stageKey: GenerationStageKey): GenerationStageConfig {
     const row = this.db
       .prepare('SELECT * FROM generation_stage_configs WHERE session_id = ? AND stage_key = ?')
-      .get(request.sessionId, request.config.stageKey) as GenerationStageConfigRow
+      .get(sessionId, stageKey) as GenerationStageConfigRow | undefined
+
+    if (!row) {
+      throw new Error(`Stage config not found: ${sessionId}/${stageKey}`)
+    }
+
     return mapStageConfig(row)
   }
 
@@ -275,6 +330,188 @@ export class GenerationEditorRepository {
     return mapDocument(row)
   }
 
+  savePlanningDocument(request: GenerationSavePlanningDocumentRequest): GenerationPlanningDocument {
+    this.db
+      .prepare(
+        `INSERT INTO generation_planning_documents (
+          id,
+          session_id,
+          stage_key,
+          source_message_id,
+          title,
+          source_markdown,
+          content,
+          updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        ON CONFLICT(id) DO UPDATE SET
+          title = excluded.title,
+          source_markdown = excluded.source_markdown,
+          content = excluded.content,
+          updated_at = datetime('now')`
+      )
+      .run(
+        request.document.id,
+        request.sessionId,
+        request.document.stageKey,
+        request.document.sourceMessageId,
+        request.document.title,
+        request.document.sourceMarkdown,
+        request.document.content
+      )
+
+    this.touchSession(request.sessionId)
+    return this.getPlanningDocumentById(request.document.id)
+  }
+
+  selectPlanningDocument(request: GenerationSelectPlanningDocumentRequest): GenerationStageConfig {
+    this.db
+      .prepare(
+        `UPDATE generation_stage_configs
+         SET active_planning_document_id = ?, updated_at = datetime('now')
+         WHERE session_id = ? AND stage_key = ?`
+      )
+      .run(request.documentId, request.sessionId, request.stageKey)
+
+    this.touchSession(request.sessionId)
+    return this.getStageConfig(request.sessionId, request.stageKey)
+  }
+
+  getPlanningDocumentById(documentId: string): GenerationPlanningDocument {
+    const row = this.db
+      .prepare('SELECT * FROM generation_planning_documents WHERE id = ?')
+      .get(documentId) as GenerationPlanningDocumentRow | undefined
+
+    if (!row) {
+      throw new Error(`Planning document not found: ${documentId}`)
+    }
+
+    return mapPlanningDocument(row)
+  }
+
+  getOrCreatePlanningDocumentFromMessage(
+    request: GenerationCreatePlanningDocumentFromMessageRequest
+  ): GenerationPlanningDocument {
+    const existing = this.db
+      .prepare(
+        'SELECT * FROM generation_planning_documents WHERE session_id = ? AND source_message_id = ?'
+      )
+      .get(request.sessionId, request.messageId) as GenerationPlanningDocumentRow | undefined
+
+    if (existing) {
+      this.selectPlanningDocument({
+        sessionId: request.sessionId,
+        stageKey: existing.stage_key,
+        documentId: existing.id
+      })
+      this.attachPlanningDocumentIdToMessage(existing.source_message_id, existing.id)
+      return mapPlanningDocument(existing)
+    }
+
+    const message = this.getMessageById(request.messageId)
+    if (!message || message.session_id !== request.sessionId) {
+      throw new Error(`Planning source message not found: ${request.messageId}`)
+    }
+
+    const planningState = extractPlanningDocumentSource(message)
+    const documentId = randomUUID()
+    const title = `需求分析工作稿-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}`
+
+    this.db
+      .prepare(
+        `INSERT INTO generation_planning_documents (
+          id,
+          session_id,
+          stage_key,
+          source_message_id,
+          title,
+          source_markdown,
+          content
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(
+        documentId,
+        request.sessionId,
+        'analysis',
+        request.messageId,
+        title,
+        planningState.markdown,
+        planningState.markdown
+      )
+
+    this.attachPlanningDocumentIdToMessage(request.messageId, documentId)
+    this.selectPlanningDocument({
+      sessionId: request.sessionId,
+      stageKey: 'analysis',
+      documentId
+    })
+
+    return this.getPlanningDocumentById(documentId)
+  }
+
+  applyPlanningCommandProposal(
+    request: GenerationApplyPlanningCommandProposalRequest
+  ): GenerationPlanningDocument {
+    const message = this.getMessageById(request.messageId)
+    if (!message || message.session_id !== request.sessionId) {
+      throw new Error(`Planning proposal message not found: ${request.messageId}`)
+    }
+
+    const meta = parseMessageMeta(message.meta_json)
+    const editBlock = meta.copilotEditBlock
+    if (!editBlock || editBlock.kind !== 'planning-edit') {
+      throw new Error('Planning proposal meta missing')
+    }
+
+    const currentDocument = this.getPlanningDocumentById(editBlock.documentId)
+    const sourceDocument = parseOFPlanningMarkdown(currentDocument.sourceMarkdown).document
+    const nextSharedDocument = applyOFPlanningEditCommands(
+      { sections: { ...currentDocument.sections } },
+      editBlock.commands,
+      {
+        sourceDocument
+      }
+    )
+    const nextMarkdown = buildOFPlanningMarkdown(nextSharedDocument)
+
+    const savedDocument = this.savePlanningDocument({
+      sessionId: request.sessionId,
+      document: {
+        ...currentDocument,
+        sections: nextSharedDocument.sections,
+        content: nextMarkdown
+      }
+    })
+
+    meta.copilotEditBlock = {
+      ...editBlock,
+      status: 'applied',
+      errorMessage: null
+    }
+    this.updateMessageMeta(request.messageId, JSON.stringify(meta))
+    return savedDocument
+  }
+
+  rejectPlanningCommandProposal(
+    request: GenerationRejectPlanningCommandProposalRequest
+  ): GenerationMessage {
+    const message = this.getMessageById(request.messageId)
+    if (!message || message.session_id !== request.sessionId) {
+      throw new Error(`Planning proposal message not found: ${request.messageId}`)
+    }
+
+    const meta = parseMessageMeta(message.meta_json)
+    if (meta.copilotEditBlock) {
+      meta.copilotEditBlock = {
+        ...meta.copilotEditBlock,
+        status: 'rejected',
+        errorMessage: null
+      }
+      this.updateMessageMeta(request.messageId, JSON.stringify(meta))
+    }
+
+    return mapMessage(this.getRequiredMessageById(request.messageId))
+  }
+
   listMessages(request: GenerationListMessagesRequest) {
     const rows = this.db
       .prepare(
@@ -284,6 +521,12 @@ export class GenerationEditorRepository {
       )
       .all(request.sessionId, request.channelKey) as GenerationMessageRow[]
     return rows.map(mapMessage)
+  }
+
+  getMessageById(messageId: string): GenerationMessageRow | undefined {
+    return this.db.prepare('SELECT * FROM generation_messages WHERE id = ?').get(messageId) as
+      | GenerationMessageRow
+      | undefined
   }
 
   insertMessage(row: Omit<GenerationMessageRow, 'created_at' | 'updated_at'>): void {
@@ -371,4 +614,114 @@ export class GenerationEditorRepository {
       .prepare(`UPDATE generation_sessions SET updated_at = datetime('now') WHERE id = ?`)
       .run(sessionId)
   }
+
+  private attachPlanningDocumentIdToMessage(messageId: string, documentId: string): void {
+    const message = this.getRequiredMessageById(messageId)
+    const meta = parseMessageMeta(message.meta_json)
+    if (!meta.planningBlock) {
+      return
+    }
+
+    meta.planningBlock = {
+      ...meta.planningBlock,
+      documentId
+    }
+    this.updateMessageMeta(messageId, JSON.stringify(meta))
+  }
+
+  private getRequiredMessageById(messageId: string): GenerationMessageRow {
+    const row = this.getMessageById(messageId)
+    if (!row) {
+      throw new Error(`Message not found: ${messageId}`)
+    }
+    return row
+  }
+}
+
+function parseMessageMeta(metaJson: string | null): GenerationMessageMetaPayload {
+  if (!metaJson) {
+    return {}
+  }
+
+  try {
+    return JSON.parse(metaJson) as GenerationMessageMetaPayload
+  } catch {
+    return {}
+  }
+}
+
+function extractPlanningDocumentSource(message: GenerationMessageRow): {
+  markdown: string
+  document: OFPlanningDocument
+} {
+  const meta = parseMessageMeta(message.meta_json)
+  const planningBlock = meta.planningBlock
+  if (!planningBlock) {
+    throw new Error('Planning block payload missing on source message')
+  }
+
+  if (planningBlock.analysisMarkdown || planningBlock.designMarkdown) {
+    const markdown =
+      `${planningBlock.analysisMarkdown.trim()}\n\n${planningBlock.designMarkdown.trim()}`.trim()
+    const parsed = parseOFPlanningMarkdown(markdown)
+    return {
+      markdown,
+      document: parsed.document
+    }
+  }
+
+  if (planningBlock.requirementDocument) {
+    const legacyDocument: OFPlanningDocument = createEmptyOFPlanningDocument()
+    legacyDocument.sections['analysis-summary'] =
+      '- 旧消息迁移：该规划块来自 v1 requirementDocument 结构。'
+    legacyDocument.sections['analysis-goals'] = toMarkdownContent(
+      planningBlock.requirementDocument.goals
+    )
+    legacyDocument.sections['analysis-success-criteria'] = toMarkdownContent(
+      planningBlock.requirementDocument.success_criteria
+    )
+    legacyDocument.sections['analysis-constraints'] = toMarkdownContent(
+      planningBlock.requirementDocument.constraints
+    )
+    legacyDocument.sections['analysis-prohibitions'] = toMarkdownContent(
+      planningBlock.requirementDocument.prohibitions
+    )
+    legacyDocument.sections['analysis-missing-info'] = '- 暂无'
+    legacyDocument.sections['analysis-readiness-signals'] = '- 暂无'
+    legacyDocument.sections['design-candidate-nodes'] = toMarkdownContent(
+      planningBlock.requirementDocument.candidate_nodes.map(
+        (item) => `${item.type}：${item.reason}`
+      )
+    )
+    legacyDocument.sections['design-input-requirements'] = toMarkdownContent(
+      planningBlock.requirementDocument.input_requirements
+    )
+    legacyDocument.sections['design-output-requirements'] = toMarkdownContent(
+      planningBlock.requirementDocument.output_requirements
+    )
+    legacyDocument.sections['design-confirmation-questions'] = toMarkdownContent(
+      planningBlock.requirementDocument.human_confirmation_questions
+    )
+    legacyDocument.sections['design-blueprint-requirements'] = toMarkdownContent(
+      planningBlock.requirementDocument.blueprint_requirements
+    )
+    return {
+      markdown: buildOFPlanningMarkdown(legacyDocument),
+      document: legacyDocument
+    }
+  }
+
+  const emptyDocument = createEmptyOFPlanningDocument()
+  const markdown = buildOFPlanningMarkdown(emptyDocument)
+  return {
+    markdown,
+    document: emptyDocument
+  }
+}
+
+function toMarkdownContent(items: string[]): string {
+  if (!items.length) {
+    return '- 暂无'
+  }
+  return items.map((item) => `- ${item}`).join('\n')
 }

@@ -1,5 +1,12 @@
+import type { DashboardStageCard } from '@renderer/views/LuminaApp/Maincontent/OrchestraFlowView/GenerateView/generate-view.types'
+
 export const WorkspaceDashboardDataSourceMock = {
-  buildStageCards(counts: { analysis: number; design: number; verify: number; workflow: number }) {
+  buildStageCards(counts: {
+    analysis: number
+    design: number
+    verify: number
+    workflow: number
+  }): DashboardStageCard[] {
     return [
       {
         stage: 'analysis',

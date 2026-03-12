@@ -315,7 +315,7 @@ async function streamOpenAIChatCompletions(params: StreamChatParams): Promise<St
       params.onTextDelta(delta)
     }
     if (chunk.usage) {
-      usage = chunk.usage as Record<string, unknown>
+      usage = chunk.usage as unknown as Record<string, unknown>
     }
   }
 
@@ -351,7 +351,7 @@ async function streamOpenAIResponses(params: StreamChatParams): Promise<StreamCh
       params.onTextDelta(event.delta)
     }
     if (event.type === 'response.completed' && event.response?.usage) {
-      usage = event.response.usage as Record<string, unknown>
+      usage = event.response.usage as unknown as Record<string, unknown>
     }
   }
 
@@ -366,9 +366,12 @@ async function streamAnthropicChat(params: StreamChatParams): Promise<StreamChat
 
   const systemMessages = params.messages.filter((message) => message.role === 'system')
   const messages = params.messages
-    .filter((message) => message.role !== 'system')
+    .filter(
+      (message): message is { role: 'user' | 'assistant'; content: string } =>
+        message.role === 'user' || message.role === 'assistant'
+    )
     .map((message) => ({
-      role: message.role === 'assistant' ? 'assistant' : 'user',
+      role: message.role,
       content: message.content
     }))
 
@@ -392,7 +395,7 @@ async function streamAnthropicChat(params: StreamChatParams): Promise<StreamChat
       params.onTextDelta(event.delta.text)
     }
     if (event.type === 'message_delta' && event.usage) {
-      usage = event.usage as Record<string, unknown>
+      usage = event.usage as unknown as Record<string, unknown>
     }
   }
 

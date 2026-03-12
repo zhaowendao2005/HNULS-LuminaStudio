@@ -1,3 +1,4 @@
+import { OF_PLANNING_SECTION_DEFINITIONS } from '@shared/Orchestraflow-types'
 import { logger } from '@main/services/logger'
 import type {
   GenerationAnalysisPlanningStatus,
@@ -37,20 +38,11 @@ const SECTION_TITLES: Array<{
   key: GenerationPlanningStreamSectionKey
   title: string
   root: 'analysis' | 'design'
-}> = [
-  { key: 'analysis-summary', title: '摘要', root: 'analysis' },
-  { key: 'analysis-goals', title: '目标', root: 'analysis' },
-  { key: 'analysis-success-criteria', title: '成功标准', root: 'analysis' },
-  { key: 'analysis-constraints', title: '约束', root: 'analysis' },
-  { key: 'analysis-prohibitions', title: '禁止项', root: 'analysis' },
-  { key: 'analysis-missing-info', title: '待补充信息', root: 'analysis' },
-  { key: 'analysis-readiness-signals', title: '成熟度信号', root: 'analysis' },
-  { key: 'design-candidate-nodes', title: '候选节点', root: 'design' },
-  { key: 'design-input-requirements', title: '输入要求', root: 'design' },
-  { key: 'design-output-requirements', title: '输出要求', root: 'design' },
-  { key: 'design-confirmation-questions', title: '待确认问题', root: 'design' },
-  { key: 'design-blueprint-requirements', title: '蓝图要求', root: 'design' }
-]
+}> = OF_PLANNING_SECTION_DEFINITIONS.map((definition) => ({
+  key: definition.key,
+  title: definition.title,
+  root: definition.rootKey
+}))
 
 export const analysisPlannerAgent = {
   id: 'analysis-planner-agent',
@@ -126,6 +118,18 @@ async function runAnalysisPlannerAgent(
       vendor: params.vendor
     })
     persistAndEmitMessageMeta(state, params, metaPayload)
+
+    if (structuredResult.mode === 'planning' && metaPayload.planningBlock) {
+      const planningDocument = params.repository.getOrCreatePlanningDocumentFromMessage({
+        sessionId: params.sessionId,
+        messageId: state.messageId
+      })
+      metaPayload.planningBlock = {
+        ...metaPayload.planningBlock,
+        documentId: planningDocument.id
+      }
+      persistAndEmitMessageMeta(state, params, metaPayload)
+    }
 
     finishStream(state, params, 'stop', modelResult.usage, {
       persistRawLlmData: params.persistRawLlmData,
@@ -487,13 +491,15 @@ export function buildPlanningProgressState(payloadText: string): AnalysisPlannin
 
 function emitPlanningProgressMeta(
   state: ActiveGenerationStream,
-  params: StartAnalysisPlannerAgentStreamParams,
+  params: StartAnalysisPlannerAgentStreamParams & {
+    runtimeSignals?: AnalysisPlannerRuntimeSignals
+  },
   progress: AnalysisPlanningProgressState
 ): void {
   const metaPayload = createStreamingPlanningMetaPayload({
     protocol: params.protocol,
     vendor: params.vendor,
-    trigger: params.runtimeSignals.explicitPlanningRequested ? 'explicit' : 'auto',
+    trigger: params.runtimeSignals?.explicitPlanningRequested ? 'explicit' : 'auto',
     progress
   })
   persistAndEmitMessageMeta(state, params, metaPayload)
@@ -678,7 +684,7 @@ function finishStream(
   params: StartAnalysisPlannerAgentStreamParams,
   finishReason: 'stop' | 'aborted' | 'error',
   usage?: Record<string, unknown>,
-    raw?: {
+  raw?: {
     persistRawLlmData: boolean
     rawResponseText: string
     rawTrace: unknown[]

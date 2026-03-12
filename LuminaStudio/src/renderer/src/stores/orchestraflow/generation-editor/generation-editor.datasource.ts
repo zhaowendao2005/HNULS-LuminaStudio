@@ -1,10 +1,15 @@
 import type {
+  GenerationApplyPlanningCommandProposalRequest,
+  GenerationCreatePlanningDocumentFromMessageRequest,
   GenerationCreateSessionRequest,
   GenerationDeleteSessionRequest,
   GenerationGlobalSettings,
+  GenerationRejectPlanningCommandProposalRequest,
   GenerationRuntimeStageKey,
   GenerationSaveDocumentRequest,
+  GenerationSavePlanningDocumentRequest,
   GenerationSaveStageConfigRequest,
+  GenerationSelectPlanningDocumentRequest,
   GenerationSendMessageRequest,
   GenerationSessionDetail,
   GenerationSessionSummary,
@@ -15,7 +20,7 @@ import type {
 /**
  * 根 datasource 现在只做“共享后端访问入口”。
  *
- * 各业务域 datasource 可以直接复用这里的方法，
+ * 各业务域 datasource 直接复用这里的方法，
  * 避免每个域都重复写一遍 window.api 调用和错误处理。
  */
 export const OrchestflowGenerationEditorDataSource = {
@@ -70,6 +75,51 @@ export const OrchestflowGenerationEditorDataSource = {
     const response = await window.api.orchestflowGenerationEditor.saveDocument(request)
     if (!response.success || !response.data) {
       throw new Error(response.error || 'Failed to save document')
+    }
+    return response.data
+  },
+
+  async savePlanningDocument(request: GenerationSavePlanningDocumentRequest) {
+    const response = await window.api.orchestflowGenerationEditor.savePlanningDocument(request)
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to save planning document')
+    }
+    return response.data
+  },
+
+  async selectPlanningDocument(request: GenerationSelectPlanningDocumentRequest) {
+    const response = await window.api.orchestflowGenerationEditor.selectPlanningDocument(request)
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to select planning document')
+    }
+    return response.data
+  },
+
+  async getOrCreatePlanningDocumentFromMessage(
+    request: GenerationCreatePlanningDocumentFromMessageRequest
+  ) {
+    const response =
+      await window.api.orchestflowGenerationEditor.getOrCreatePlanningDocumentFromMessage(request)
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to create planning document from message')
+    }
+    return response.data
+  },
+
+  async applyPlanningCommandProposal(request: GenerationApplyPlanningCommandProposalRequest) {
+    const response =
+      await window.api.orchestflowGenerationEditor.applyPlanningCommandProposal(request)
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to apply planning command proposal')
+    }
+    return response.data
+  },
+
+  async rejectPlanningCommandProposal(request: GenerationRejectPlanningCommandProposalRequest) {
+    const response =
+      await window.api.orchestflowGenerationEditor.rejectPlanningCommandProposal(request)
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to reject planning command proposal')
     }
     return response.data
   },

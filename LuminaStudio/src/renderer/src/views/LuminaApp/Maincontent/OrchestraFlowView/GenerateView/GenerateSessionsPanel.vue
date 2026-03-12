@@ -77,6 +77,7 @@
 </template>
 
 <script setup lang="ts">
+import type { GenerationRuntimeStageKey } from '@preload/types'
 import type { GenerateSessionViewModel } from '@renderer/stores/orchestraflow/generation-editor/generation-editor.types'
 import type { StageKey } from './generate-view.types'
 
@@ -85,8 +86,8 @@ const props = defineProps<{
   selectedSessionId: string
   pendingSessionId?: string
   stageOrder: StageKey[]
-  getStageLabel: (stage: StageKey) => string
-  getSessionStageDotClass: (currentStage: StageKey, stage: StageKey) => string
+  getStageLabel: (stage: GenerationRuntimeStageKey) => string
+  getSessionStageDotClass: (currentStage: string, stage: string) => string
 }>()
 
 defineEmits<{

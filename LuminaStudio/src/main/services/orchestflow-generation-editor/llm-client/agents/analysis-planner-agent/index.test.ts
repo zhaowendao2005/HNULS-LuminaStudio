@@ -1,28 +1,33 @@
 import { describe, expect, it, vi } from 'vitest'
 
-vi.mock(
-  '@main/services/logger',
-  () => ({
-    logger: {
-      scope: () => ({
-        info: vi.fn(),
-        warn: vi.fn(),
-        error: vi.fn()
-      })
-    }
-  }),
-  { virtual: true }
-)
+vi.mock('@main/services/logger', () => ({
+  logger: {
+    scope: () => ({
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn()
+    })
+  }
+}))
 
-vi.mock(
-  '@shared/Orchestraflow-types',
-  () => ({
-    buildOFRequirementContextPack: vi.fn(() => ({})),
-    renderOFAgentContextPack: vi.fn(() => ''),
-    OFRequirementDocument: {}
-  }),
-  { virtual: true }
-)
+vi.mock('@shared/Orchestraflow-types', () => ({
+  buildOFRequirementContextPack: vi.fn(() => ({})),
+  renderOFAgentContextPack: vi.fn(() => ''),
+  OF_PLANNING_SECTION_DEFINITIONS: [
+    { key: 'analysis-summary', title: '摘要', rootKey: 'analysis' },
+    { key: 'analysis-goals', title: '目标', rootKey: 'analysis' },
+    { key: 'analysis-success-criteria', title: '成功标准', rootKey: 'analysis' },
+    { key: 'analysis-constraints', title: '约束', rootKey: 'analysis' },
+    { key: 'analysis-prohibitions', title: '禁止项', rootKey: 'analysis' },
+    { key: 'analysis-missing-info', title: '待补充信息', rootKey: 'analysis' },
+    { key: 'analysis-readiness-signals', title: '成熟度信号', rootKey: 'analysis' },
+    { key: 'design-candidate-nodes', title: '候选节点', rootKey: 'design' },
+    { key: 'design-input-requirements', title: '输入要求', rootKey: 'design' },
+    { key: 'design-output-requirements', title: '输出要求', rootKey: 'design' },
+    { key: 'design-confirmation-questions', title: '待确认问题', rootKey: 'design' },
+    { key: 'design-blueprint-requirements', title: '蓝图要求', rootKey: 'design' }
+  ]
+}))
 
 import { buildPlanningProgressState } from './index'
 

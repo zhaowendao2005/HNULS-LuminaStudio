@@ -127,6 +127,8 @@ export function appendOptimisticMessages(params: {
     error: null,
     usageJson: null,
     metaJson: null,
+    rawResponseText: null,
+    rawTraceJson: null,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   })
@@ -144,6 +146,8 @@ export function appendOptimisticMessages(params: {
     error: null,
     usageJson: null,
     metaJson: null,
+    rawResponseText: null,
+    rawTraceJson: null,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   })

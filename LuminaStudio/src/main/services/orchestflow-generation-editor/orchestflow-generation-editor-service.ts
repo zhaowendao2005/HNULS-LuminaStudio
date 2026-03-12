@@ -1,17 +1,24 @@
 import type Database from 'better-sqlite3'
 import type { WebContents } from 'electron'
 import { randomUUID } from 'crypto'
+import { buildOFPlanningMarkdown, parseOFPlanningMarkdown } from '@shared/Orchestraflow-types'
 import { logger } from '../logger'
 import type { DatabaseManager } from '../database-sqlite'
 import type { ModelConfigService, PersistedModelProviderConfig } from '../model-config'
 import type {
+  GenerationApplyPlanningCommandProposalRequest,
   GenerationChannelKey,
+  GenerationCreatePlanningDocumentFromMessageRequest,
   GenerationCreateSessionRequest,
   GenerationGlobalSettings,
   GenerationListMessagesRequest,
+  GenerationRejectPlanningCommandProposalRequest,
   GenerationSaveDocumentRequest,
+  GenerationSavePlanningDocumentRequest,
   GenerationSaveStageConfigRequest,
+  GenerationSelectPlanningDocumentRequest,
   GenerationSessionSummary,
+  GenerationStageConfig,
   GenerationUpdateSessionStateRequest,
   ModelProviderProtocol
 } from '@preload/types'
@@ -19,6 +26,7 @@ import { GenerationEditorRepository } from './repositories/generation-editor.rep
 import {
   abortGenerationStream,
   startAnalysisPlannerAgentStream,
+  startCopilotEditorAgentStream,
   startGenerationStream
 } from './llm-client'
 import type { ActiveGenerationStream } from './types/stream.types'
@@ -49,7 +57,6 @@ export class OrchestflowGenerationEditorService {
   }
 
   async deleteSession(sessionId: string): Promise<void> {
-    // 删除会话前先中断该会话上的所有活动流，避免后续 stream event 再写回已删除消息。
     for (const [requestId, stream] of this.activeStreams.entries()) {
       if (stream.sessionId !== sessionId) {
         continue
@@ -76,6 +83,40 @@ export class OrchestflowGenerationEditorService {
     return this.repository.saveDocument(request)
   }
 
+  async savePlanningDocument(request: GenerationSavePlanningDocumentRequest) {
+    const parseResult = parseOFPlanningMarkdown(request.document.content)
+    if (parseResult.errors.length > 0) {
+      throw new Error(parseResult.errors.map((error) => error.message).join('；'))
+    }
+
+    return this.repository.savePlanningDocument({
+      ...request,
+      document: {
+        ...request.document,
+        sections: parseResult.document.sections,
+        content: buildOFPlanningMarkdown(parseResult.document)
+      }
+    })
+  }
+
+  async selectPlanningDocument(request: GenerationSelectPlanningDocumentRequest) {
+    return this.repository.selectPlanningDocument(request)
+  }
+
+  async getOrCreatePlanningDocumentFromMessage(
+    request: GenerationCreatePlanningDocumentFromMessageRequest
+  ) {
+    return this.repository.getOrCreatePlanningDocumentFromMessage(request)
+  }
+
+  async applyPlanningCommandProposal(request: GenerationApplyPlanningCommandProposalRequest) {
+    return this.repository.applyPlanningCommandProposal(request)
+  }
+
+  async rejectPlanningCommandProposal(request: GenerationRejectPlanningCommandProposalRequest) {
+    return this.repository.rejectPlanningCommandProposal(request)
+  }
+
   async listMessages(request: GenerationListMessagesRequest) {
     return this.repository.listMessages(request)
   }
@@ -84,7 +125,9 @@ export class OrchestflowGenerationEditorService {
     return this.repository.getGlobalSettings()
   }
 
-  async updateGlobalSettings(settings: Partial<GenerationGlobalSettings>): Promise<GenerationGlobalSettings> {
+  async updateGlobalSettings(
+    settings: Partial<GenerationGlobalSettings>
+  ): Promise<GenerationGlobalSettings> {
     return this.repository.updateGlobalSettings(settings)
   }
 
@@ -180,6 +223,39 @@ export class OrchestflowGenerationEditorService {
         memoryRounds: analysisStageConfig?.memoryRounds || 6,
         userMessage: text
       })
+    } else if (request.channelKey === 'analysis-copilot') {
+      const sessionDetail = this.repository.getSessionDetail(request.sessionId)
+      const analysisStageConfig = sessionDetail.stageConfigs.find(
+        (item) => item.stageKey === 'analysis'
+      )
+
+      if (!analysisStageConfig) {
+        throw new Error('Analysis stage config missing')
+      }
+
+      const planningDocument = this.ensureActiveAnalysisPlanningDocument(request.sessionId)
+
+      startCopilotEditorAgentStream({
+        activeStreams: this.activeStreams,
+        repository: this.repository,
+        sender,
+        requestId,
+        sessionId: request.sessionId,
+        channelKey: request.channelKey,
+        messageId: assistantMessageId,
+        providerId: request.providerId,
+        modelId: request.modelId,
+        vendor,
+        protocol: effectiveProtocol,
+        apiKey: provider.apiKey,
+        baseUrl: provider.baseUrl || undefined,
+        defaultHeaders: provider.defaultHeaders,
+        persistRawLlmData: globalSettings.persistRawLlmData,
+        stageKey: 'analysis',
+        stageConfig: analysisStageConfig as GenerationStageConfig,
+        planningDocument,
+        userMessage: text
+      })
     } else {
       startGenerationStream({
         activeStreams: this.activeStreams,
@@ -210,6 +286,30 @@ export class OrchestflowGenerationEditorService {
     abortGenerationStream(this.activeStreams, requestId)
   }
 
+  private ensureActiveAnalysisPlanningDocument(sessionId: string) {
+    const detail = this.repository.getSessionDetail(sessionId)
+    const analysisStageConfig = detail.stageConfigs.find((item) => item.stageKey === 'analysis')
+    if (analysisStageConfig?.activePlanningDocumentId) {
+      return this.repository.getPlanningDocumentById(analysisStageConfig.activePlanningDocumentId)
+    }
+
+    const latestPlanningMessage = [...detail.messages]
+      .reverse()
+      .find(
+        (message) =>
+          message.channelKey === 'analysis-discussion' && hasPlanningBlock(message.metaJson)
+      )
+
+    if (!latestPlanningMessage) {
+      throw new Error('请先在需求分析与计划对话中生成一版规划，再使用 Copilot 调整。')
+    }
+
+    return this.repository.getOrCreatePlanningDocumentFromMessage({
+      sessionId,
+      messageId: latestPlanningMessage.id
+    })
+  }
+
   private async resolveProvider(providerId: string): Promise<PersistedModelProviderConfig> {
     const config = await this.modelConfigService.getConfig()
     const provider = config.providers.find((item) => item.id === providerId)
@@ -228,9 +328,6 @@ export class OrchestflowGenerationEditorService {
       return 'openai'
     }
 
-    // GenerateView 当前统一走 OpenAI 兼容的 chat completions 链路。
-    // 对 siliconflow / openrouter 这类兼容端点，如果用户把协议写成 openai，
-    // 这里自动降级为 openai-completion，避免运行时直接抛错。
     log.warn('Auto-normalizing Generate provider protocol to openai-completion', {
       providerId: provider.id,
       providerName: provider.name,
@@ -258,4 +355,17 @@ function buildContentPreview(content: string): string {
 
 function normalizeBaseUrl(baseUrl: string): string {
   return baseUrl.trim().replace(/\/$/, '')
+}
+
+function hasPlanningBlock(metaJson: string | null): boolean {
+  if (!metaJson) {
+    return false
+  }
+
+  try {
+    const meta = JSON.parse(metaJson) as { planningBlock?: { kind?: string } }
+    return meta.planningBlock?.kind === 'analysis-planning'
+  } catch {
+    return false
+  }
 }

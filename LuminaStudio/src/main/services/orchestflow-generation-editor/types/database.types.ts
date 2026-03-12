@@ -24,6 +24,7 @@ export interface GenerationStageConfigRow {
   memory_rounds: number
   copilot_memory_rounds: number
   auto_approved: number
+  active_planning_document_id: string | null
 }
 
 export interface GenerationDocumentRow {
@@ -33,6 +34,18 @@ export interface GenerationDocumentRow {
   file_name: string
   summary: string
   content: string
+}
+
+export interface GenerationPlanningDocumentRow {
+  id: string
+  session_id: string
+  stage_key: GenerationStageKey
+  source_message_id: string
+  title: string
+  source_markdown: string
+  content: string
+  created_at: string
+  updated_at: string
 }
 
 export interface GenerationMessageRow {

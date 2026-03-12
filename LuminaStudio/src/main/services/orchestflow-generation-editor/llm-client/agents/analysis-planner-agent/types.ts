@@ -10,8 +10,8 @@ import type {
   GenerationSdkVendor,
   ModelProviderProtocol
 } from '@preload/types'
-import type { GenerationEditorRepository } from '../../repositories/generation-editor.repository'
-import type { ActiveGenerationStream } from '../../types/stream.types'
+import type { GenerationEditorRepository } from '../../../repositories/generation-editor.repository'
+import type { ActiveGenerationStream } from '../../../types/stream.types'
 
 export interface StartAnalysisPlannerAgentStreamParams {
   activeStreams: Map<string, ActiveGenerationStream>

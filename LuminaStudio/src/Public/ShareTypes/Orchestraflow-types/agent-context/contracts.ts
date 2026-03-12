@@ -1,6 +1,7 @@
 import type { OFBlueprintEditOperation } from '../blueprint/edit-operation'
 import type { OFBlueprintWorkflow } from '../blueprint/types'
 import type { OFBlockEnum } from '../core-types'
+import type { OFPlanningDocument } from '../planning-framework'
 
 export interface OFRequirementDocument {
   goals: string[]
@@ -19,7 +20,7 @@ export interface OFRequirementDocument {
 
 export interface OFAgentContextPackManifest {
   id: string
-  kind: 'requirement' | 'blueprint' | 'edit'
+  kind: 'requirement' | 'blueprint' | 'edit' | 'planning-edit'
   version: '1.0'
   title: string
   generated_at: string
@@ -50,4 +51,9 @@ export interface OFBuildBlueprintContextPackParams {
 export interface OFBuildEditContextPackParams {
   blueprint?: OFBlueprintWorkflow
   operations?: OFBlueprintEditOperation[]
+}
+
+export interface OFBuildPlanningEditContextPackParams {
+  document?: OFPlanningDocument
+  sourceDocument?: OFPlanningDocument
 }

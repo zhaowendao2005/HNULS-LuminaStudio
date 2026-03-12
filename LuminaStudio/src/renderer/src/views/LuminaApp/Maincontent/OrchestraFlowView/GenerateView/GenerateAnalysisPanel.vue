@@ -60,7 +60,11 @@
                 class="ml-1 inline-block h-3 w-1 animate-pulse bg-cyan-500 align-middle"
               ></span>
             </div>
-            <GeneratePlanningBlock v-if="entry.planningBlock" :block="entry.planningBlock" />
+            <GeneratePlanningBlock
+              v-if="entry.planningBlock"
+              :block="entry.planningBlock"
+              @use-copilot="$emit('open-planning-copilot', entry.message.id)"
+            />
             <GenerateMessageActionGroup
               v-if="entry.message.role === 'assistant' && entry.message.status !== 'streaming'"
               :message="entry.message"
@@ -102,7 +106,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Bot, FolderKanban, MessageSquare, Send, UserCircle } from 'lucide-vue-next'
-import type { GenerationMessage } from '@preload/types'
+import type { GenerationMessage, GenerationPlanningDocument } from '@preload/types'
 import { getGenerationPlanningBlock } from '@renderer/stores/orchestraflow/generation-editor/generation-editor.types'
 import GenerateMessageActionGroup from './GenerateMessageActionGroup.vue'
 import GeneratePlanningBlock from './GeneratePlanningBlock.vue'
@@ -112,6 +116,7 @@ const props = defineProps<{
   sessionSummary: string
   currentSessionStageLabel: string
   messages: GenerationMessage[]
+  planningDocuments: Record<string, GenerationPlanningDocument>
   analysisInput: string
   isAnalysisStreaming: boolean
 }>()
@@ -119,6 +124,7 @@ const props = defineProps<{
 defineEmits<{
   (e: 'open-sessions'): void
   (e: 'open-copilot'): void
+  (e: 'open-planning-copilot', messageId: string): void
   (e: 'update:analysis-input', value: string): void
   (e: 'send-analysis'): void
 }>()
@@ -130,7 +136,7 @@ defineEmits<{
 const decoratedMessages = computed(() => {
   return props.messages.map((message) => ({
     message,
-    planningBlock: getGenerationPlanningBlock(message)
+    planningBlock: getGenerationPlanningBlock(message, props.planningDocuments)
   }))
 })
 </script>

@@ -1,7 +1,9 @@
+import { parseOFPlanningMarkdown, type OFPlanningSectionKey } from '@shared/Orchestraflow-types'
 import type {
   GenerationDocument,
   GenerationGlobalSettings,
   GenerationMessage,
+  GenerationPlanningDocument,
   GenerationSessionSummary,
   GenerationStageConfig
 } from '@preload/types'
@@ -9,6 +11,7 @@ import type {
   GenerationDocumentRow,
   GenerationGlobalSettingsRow,
   GenerationMessageRow,
+  GenerationPlanningDocumentRow,
   GenerationSessionRow,
   GenerationStageConfigRow
 } from '../types/database.types'
@@ -34,7 +37,8 @@ export function mapStageConfig(row: GenerationStageConfigRow): GenerationStageCo
     sdkVendor: row.sdk_vendor,
     memoryRounds: row.memory_rounds,
     copilotMemoryRounds: row.copilot_memory_rounds,
-    autoApproved: row.auto_approved === 1
+    autoApproved: row.auto_approved === 1,
+    activePlanningDocumentId: row.active_planning_document_id
   }
 }
 
@@ -45,6 +49,26 @@ export function mapDocument(row: GenerationDocumentRow): GenerationDocument {
     fileName: row.file_name,
     summary: row.summary,
     content: row.content
+  }
+}
+
+export function mapPlanningDocument(
+  row: GenerationPlanningDocumentRow
+): GenerationPlanningDocument {
+  const parseResult = parseOFPlanningMarkdown(row.content)
+  const safeSections = parseResult.document.sections as Record<OFPlanningSectionKey, string>
+
+  return {
+    id: row.id,
+    sessionId: row.session_id,
+    stageKey: row.stage_key,
+    sourceMessageId: row.source_message_id,
+    title: row.title,
+    sourceMarkdown: row.source_markdown,
+    content: row.content,
+    sections: safeSections,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
   }
 }
 

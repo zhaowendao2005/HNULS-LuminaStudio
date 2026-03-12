@@ -23,9 +23,18 @@
         <div class="mt-3 text-[13px] font-semibold text-gray-800">{{ summaryText }}</div>
       </div>
 
-      <div :class="statusPanelClass">
-        <div class="text-[11px] font-semibold">{{ statusHeadline }}</div>
-        <div class="mt-1 text-[11px] leading-5 opacity-80">{{ statusDescription }}</div>
+      <div class="flex flex-col items-end gap-2">
+        <div :class="statusPanelClass">
+          <div class="text-[11px] font-semibold">{{ statusHeadline }}</div>
+          <div class="mt-1 text-[11px] leading-5 opacity-80">{{ statusDescription }}</div>
+        </div>
+        <button
+          type="button"
+          class="rounded-lg border border-violet-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-violet-700 transition-colors hover:bg-violet-50"
+          @click="$emit('use-copilot')"
+        >
+          使用 Copilot 调整
+        </button>
       </div>
     </div>
 
@@ -163,6 +172,10 @@ import GeneratePlanningMarkdownSection from './GeneratePlanningMarkdownSection.v
 
 const props = defineProps<{
   block: GenerationPlanningBlockPayload
+}>()
+
+defineEmits<{
+  (e: 'use-copilot'): void
 }>()
 
 const PlanningSectionCard = defineComponent({

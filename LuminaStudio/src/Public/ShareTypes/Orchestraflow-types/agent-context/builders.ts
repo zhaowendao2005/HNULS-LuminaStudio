@@ -3,6 +3,7 @@ import type {
   OFAgentContextSection,
   OFBuildBlueprintContextPackParams,
   OFBuildEditContextPackParams,
+  OFBuildPlanningEditContextPackParams,
   OFBuildRequirementContextPackParams,
   OFRequirementDocument
 } from './contracts'
@@ -15,6 +16,11 @@ import {
   GENERATED_BLUEPRINT_WORKFLOW_SCHEMA,
   GENERATED_RUNNABLE_WORKFLOW_SCHEMA
 } from '../blueprint/schemas'
+import {
+  buildOFPlanningMarkdown,
+  createEmptyOFPlanningDocument,
+  OF_PLANNING_SECTION_DEFINITIONS
+} from '../planning-framework'
 
 function createPackBase(
   kind: OFAgentContextPack['manifest']['kind'],
@@ -188,6 +194,46 @@ export function buildOFEditContextPack(
       nodes: buildNodeCatalog(nodeDefinitions),
       blueprint: params.blueprint || null,
       operations: params.operations || []
+    }
+  )
+}
+
+export function buildOFPlanningEditContextPack(
+  params: OFBuildPlanningEditContextPackParams = {}
+): OFAgentContextPack {
+  const document = params.document || createEmptyOFPlanningDocument()
+  const sourceDocument = params.sourceDocument || createEmptyOFPlanningDocument()
+
+  return createPackBase(
+    'planning-edit',
+    'OrchestraFlow Planning Edit Context Pack',
+    [
+      {
+        id: 'manifest',
+        title: 'Pack Manifest',
+        summary: '用于渐进式读取的总索引。',
+        dependencies: [],
+        render_kind: 'markdown'
+      },
+      {
+        id: 'planning-framework',
+        title: 'Planning Framework',
+        summary: '固定标题、section key 与编辑 DSL。',
+        dependencies: ['manifest'],
+        render_kind: 'markdown'
+      },
+      {
+        id: 'planning-document',
+        title: 'Planning Document',
+        summary: '当前 planning 工作稿与原始稿。',
+        dependencies: ['planning-framework'],
+        render_kind: 'markdown'
+      }
+    ],
+    {
+      planning_framework: OF_PLANNING_SECTION_DEFINITIONS,
+      planning_document: buildOFPlanningMarkdown(document),
+      source_planning_document: buildOFPlanningMarkdown(sourceDocument)
     }
   )
 }

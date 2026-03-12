@@ -5,14 +5,16 @@ import {
   resolveMenuByStage
 } from './generation-editor.datasource'
 import type {
+  GenerateAnalysisPlanningViewMode,
   GenerateCopilotMode,
-  GenerateViewStatus,
   GenerateSessionDetailViewModel,
-  GenerateSessionViewModel
+  GenerateSessionViewModel,
+  GenerateViewStatus
 } from './generation-editor.types'
 import type {
   GenerationDocument,
   GenerationMessage,
+  GenerationPlanningDocument,
   GenerationStageConfig,
   GenerationStageKey
 } from '@preload/types'
@@ -36,10 +38,9 @@ import { useGenerationGlobalSettingsStore } from './settings/global-settings.sto
 /**
  * facade 层只负责：
  * - 组合各业务域 store
- * - 对旧页面暴露兼容字段/方法
- * - 统一注册一次流式监听并把事件分发到各通道 store
- *
- * 真正状态已经下放到各域 store，不再继续把所有状态塞回一个大 store。
+ * - 对页面暴露兼容字段/方法
+ * - 统一注册流式监听并分发到各通道 store
+ * - 维护 analysis planning 共享工作稿的页面级 SSOT
  */
 export const useOrchestflowGenerationEditorStore = defineStore(
   'orchestflow-generation-editor',
@@ -89,6 +90,8 @@ export const useOrchestflowGenerationEditorStore = defineStore(
     const pendingSessionId = ref<string | null>(null)
     const viewStatus = ref<GenerateViewStatus>('bootstrapping')
     const lastErrorMessage = ref<string | null>(null)
+    const analysisPlanningViewMode = ref<GenerateAnalysisPlanningViewMode>('preview')
+    const isPlanningDocumentSaving = ref(false)
 
     const currentSession = computed<GenerateSessionDetailViewModel | null>(() => {
       return sessionDetailCacheStore.getSessionDetail(resolvedSessionId.value)
@@ -130,6 +133,15 @@ export const useOrchestflowGenerationEditorStore = defineStore(
 
     const analysisMessages = computed(() => {
       return analysisDiscussionStore.getMessages(currentSession.value)
+    })
+
+    const analysisActivePlanningDocument = computed<GenerationPlanningDocument | null>(() => {
+      const documentId =
+        currentSession.value?.stageConfigs.analysis.activePlanningDocumentId || null
+      if (!documentId || !currentSession.value) {
+        return null
+      }
+      return currentSession.value.planningDocuments[documentId] ?? null
     })
 
     const copilotInput = computed<string>({
@@ -202,10 +214,6 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       return created
     }
 
-    /**
-     * 统一负责把目标 session 解析成“当前真正可渲染的页面状态”。
-     * 切换过程中保留旧页面，只有成功拿到 detail 后才提交新的 resolvedSessionId。
-     */
     async function resolveSession(
       sessionId: string,
       options: {
@@ -252,16 +260,12 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       }
     }
 
-    /**
-     * 统一保证当前页面总能拿到一个可用会话。
-     */
     async function ensureActiveSession(): Promise<GenerateSessionDetailViewModel | null> {
       if (!sessions.value.length) {
         return createDefaultSession()
       }
 
       const targetSessionId = selectedSessionId.value || sessions.value[0]?.id || null
-
       if (!targetSessionId) {
         return createDefaultSession()
       }
@@ -307,7 +311,6 @@ export const useOrchestflowGenerationEditorStore = defineStore(
           viewStatus.value = 'ready'
         }
       } catch {
-        // 当前展示中的 session 明细丢失时，立即走恢复链路，不再把整页卡在 loading。
         if (resolvedSessionId.value === sessionId) {
           resolvedSessionId.value = null
           await ensureActiveSession()
@@ -316,7 +319,6 @@ export const useOrchestflowGenerationEditorStore = defineStore(
     }
 
     function hydrateSessionDetail(detail: GenerateSessionDetailViewModel): void {
-      // 这里必须先把 detail 写回缓存，因为 GenerateView 的 currentSession 就是从 detail cache 读取的。
       sessionDetailCacheStore.setSessionDetail(detail)
 
       analysisStageConfigStore.setConfig(detail.id, detail.stageConfigs.analysis)
@@ -528,6 +530,71 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       isRightPanelFullscreen.value = false
     }
 
+    async function openPlanningCopilotFromMessage(messageId: string): Promise<void> {
+      if (!currentSession.value) return
+      const planningDocument =
+        await OrchestflowGenerationEditorDataSource.getOrCreatePlanningDocumentFromMessage({
+          sessionId: currentSession.value.id,
+          messageId
+        })
+      currentSession.value.planningDocuments[planningDocument.id] = planningDocument
+      currentSession.value.stageConfigs.analysis.activePlanningDocumentId = planningDocument.id
+      analysisStageConfigStore.setConfig(currentSession.value.id, {
+        ...currentSession.value.stageConfigs.analysis,
+        activePlanningDocumentId: planningDocument.id
+      })
+      analysisPlanningViewMode.value = 'preview'
+      activeRightPanel.value = 'analysis'
+      await refreshSessionDetail(currentSession.value.id)
+    }
+
+    async function selectAnalysisPlanningDocument(documentId: string): Promise<void> {
+      if (!currentSession.value) return
+      const updated = await OrchestflowGenerationEditorDataSource.selectPlanningDocument({
+        sessionId: currentSession.value.id,
+        stageKey: 'analysis',
+        documentId
+      })
+      currentSession.value.stageConfigs.analysis = updated
+      analysisStageConfigStore.setConfig(currentSession.value.id, updated)
+    }
+
+    async function saveActivePlanningDocumentContent(content: string): Promise<void> {
+      if (!currentSession.value || !analysisActivePlanningDocument.value) return
+      isPlanningDocumentSaving.value = true
+      try {
+        const saved = await OrchestflowGenerationEditorDataSource.savePlanningDocument({
+          sessionId: currentSession.value.id,
+          document: {
+            ...analysisActivePlanningDocument.value,
+            content
+          }
+        })
+        currentSession.value.planningDocuments[saved.id] = saved
+      } finally {
+        isPlanningDocumentSaving.value = false
+      }
+    }
+
+    async function applyPlanningCommandProposal(messageId: string): Promise<void> {
+      if (!currentSession.value) return
+      const saved = await OrchestflowGenerationEditorDataSource.applyPlanningCommandProposal({
+        sessionId: currentSession.value.id,
+        messageId
+      })
+      currentSession.value.planningDocuments[saved.id] = saved
+      await refreshSessionDetail(currentSession.value.id)
+    }
+
+    async function rejectPlanningCommandProposal(messageId: string): Promise<void> {
+      if (!currentSession.value) return
+      await OrchestflowGenerationEditorDataSource.rejectPlanningCommandProposal({
+        sessionId: currentSession.value.id,
+        messageId
+      })
+      await refreshSessionDetail(currentSession.value.id)
+    }
+
     async function enterDesignView(): Promise<void> {
       activeMenu.value = 'design'
       await updateSessionState({
@@ -607,6 +674,9 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       analysisMessages,
       activeCopilotMessages,
       activeCopilotDocument,
+      analysisActivePlanningDocument,
+      analysisPlanningViewMode,
+      isPlanningDocumentSaving,
       dashboardStageCards,
       plannedSessionsCount,
       globalSettings,
@@ -628,6 +698,11 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       toggleAutoApproved,
       openCopilotPanel,
       closeRightPanel,
+      openPlanningCopilotFromMessage,
+      selectAnalysisPlanningDocument,
+      saveActivePlanningDocumentContent,
+      applyPlanningCommandProposal,
+      rejectPlanningCommandProposal,
       enterDesignView,
       handleDesignContentUpdate,
       handleStageModelSelect,

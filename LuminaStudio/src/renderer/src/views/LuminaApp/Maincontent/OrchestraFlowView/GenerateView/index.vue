@@ -56,10 +56,12 @@
               :session-summary="generationStore.currentSession.summary"
               :current-session-stage-label="currentSessionStageLabel"
               :messages="generationStore.analysisMessages"
+              :planning-documents="generationStore.currentSession.planningDocuments"
               :analysis-input="generationStore.analysisInput"
               :is-analysis-streaming="generationStore.isAnalysisStreaming"
               @open-sessions="generationStore.activeMenu = 'sessions'"
               @open-copilot="generationStore.openCopilotPanel('analysis')"
+              @open-planning-copilot="generationStore.openPlanningCopilotFromMessage($event)"
               @update:analysis-input="generationStore.analysisInput = $event"
               @send-analysis="generationStore.sendAnalysisMessage()"
             />
@@ -111,7 +113,33 @@
             </div>
           </div>
 
+          <GenerateAnalysisCopilotPanel
+            v-if="generationStore.activeRightPanel === 'analysis'"
+            :visible="generationStore.activeRightPanel === 'analysis'"
+            :is-fullscreen="generationStore.isRightPanelFullscreen"
+            :session-title="generationStore.currentSession.title"
+            :document="generationStore.analysisActivePlanningDocument"
+            :view-mode="generationStore.analysisPlanningViewMode"
+            :messages="generationStore.activeCopilotMessages"
+            :auto-approved="currentCopilotAutoApproved"
+            :copilot-input="generationStore.copilotInput"
+            :is-streaming="generationStore.isActiveCopilotStreaming"
+            :is-saving="generationStore.isPlanningDocumentSaving"
+            @toggle-auto-approved="generationStore.toggleAutoApproved()"
+            @toggle-fullscreen="
+              generationStore.isRightPanelFullscreen = !generationStore.isRightPanelFullscreen
+            "
+            @close="generationStore.closeRightPanel()"
+            @update:view-mode="generationStore.analysisPlanningViewMode = $event"
+            @update:copilot-input="generationStore.copilotInput = $event"
+            @send-copilot-message="generationStore.sendCopilotMessage()"
+            @save-document="generationStore.saveActivePlanningDocumentContent($event)"
+            @apply-proposal="generationStore.applyPlanningCommandProposal($event)"
+            @reject-proposal="generationStore.rejectPlanningCommandProposal($event)"
+          />
+
           <GeneratePlanDesignPanel
+            v-else
             :visible="generationStore.activeRightPanel !== null"
             :is-fullscreen="generationStore.isRightPanelFullscreen"
             :mode="generationStore.activeRightPanel || 'analysis'"
@@ -222,6 +250,7 @@ import {
 } from 'lucide-vue-next'
 import ModelSelector from '@renderer/components/ModelSelector/index.vue'
 import { useOrchestflowGenerationEditorStore } from '@renderer/stores/orchestraflow/generation-editor/generation-editor.store'
+import GenerateAnalysisCopilotPanel from './GenerateAnalysisCopilotPanel.vue'
 import GenerateAnalysisPanel from './GenerateAnalysisPanel.vue'
 import GenerateConfigDrawer from './GenerateConfigDrawer.vue'
 import GenerateCreateSessionDialog from './GenerateCreateSessionDialog.vue'

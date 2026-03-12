@@ -80,6 +80,29 @@ function renderEditOperations(): string {
   ].join('\n')
 }
 
+function renderPlanningEditContext(pack: OFAgentContextPack): string {
+  const planningFramework =
+    (pack.payload.planning_framework as Array<Record<string, unknown>>) || []
+  const currentDocument = String(pack.payload.planning_document || '')
+  const sourceDocument = String(pack.payload.source_planning_document || '')
+
+  return [
+    '## Planning Framework',
+    '- 唯一允许的根标题：# 需求分析 / # 设计交接',
+    '- 只能修改 section 正文，不能改标题、层级、顺序',
+    '- section-key -> 标题',
+    ...planningFramework.map((item) => {
+      return `- ${String(item.key)} => ${String(item.rootTitle)} / ${String(item.title)}`
+    }),
+    '',
+    '## Current Planning Document',
+    currentDocument || '(empty)',
+    '',
+    '## Source Planning Document',
+    sourceDocument || '(empty)'
+  ].join('\n')
+}
+
 export function renderOFAgentContextPack(pack: OFAgentContextPack, sectionIds?: string[]): string {
   const selectedSections = pack.sections.filter((section) =>
     sectionIds?.length ? sectionIds.includes(section.id) : true
@@ -100,6 +123,9 @@ export function renderOFAgentContextPack(pack: OFAgentContextPack, sectionIds?: 
           return renderBlueprintAuthoring(pack)
         case 'edit-operations':
           return renderEditOperations()
+        case 'planning-framework':
+        case 'planning-document':
+          return renderPlanningEditContext(pack)
         default:
           return `## ${section.title}\n${section.summary}`
       }

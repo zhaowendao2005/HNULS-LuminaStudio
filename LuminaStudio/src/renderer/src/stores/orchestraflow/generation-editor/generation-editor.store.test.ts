@@ -2,11 +2,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import type {
   GenerationDocument,
+  GenerationPlanningDocument,
   GenerationRuntimeStageKey,
   GenerationSessionDetail,
   GenerationSessionSummary,
-  GenerationStageConfig
+  GenerationStageConfig,
+  GenerationStageKey
 } from '@preload/types'
+import { createEmptyOFPlanningDocument, buildOFPlanningMarkdown } from '@shared/Orchestraflow-types'
 
 const {
   listSessionsMock,
@@ -16,13 +19,13 @@ const {
   getGlobalSettingsMock,
   updateGlobalSettingsMock
 } = vi.hoisted(() => ({
-    listSessionsMock: vi.fn<() => Promise<GenerationSessionSummary[]>>(),
-    createSessionMock: vi.fn<(request: { title: string }) => Promise<GenerationSessionDetail>>(),
-    deleteSessionMock: vi.fn<(sessionId: string) => Promise<void>>(),
-    getSessionDetailMock: vi.fn<(sessionId: string) => Promise<GenerationSessionDetail>>(),
-    getGlobalSettingsMock: vi.fn<() => Promise<{ persistRawLlmData: boolean }>>(),
-    updateGlobalSettingsMock: vi.fn<() => Promise<{ persistRawLlmData: boolean }>>()
-  }))
+  listSessionsMock: vi.fn<() => Promise<GenerationSessionSummary[]>>(),
+  createSessionMock: vi.fn<(request: { title: string }) => Promise<GenerationSessionDetail>>(),
+  deleteSessionMock: vi.fn<(sessionId: string) => Promise<void>>(),
+  getSessionDetailMock: vi.fn<(sessionId: string) => Promise<GenerationSessionDetail>>(),
+  getGlobalSettingsMock: vi.fn<() => Promise<{ persistRawLlmData: boolean }>>(),
+  updateGlobalSettingsMock: vi.fn<() => Promise<{ persistRawLlmData: boolean }>>()
+}))
 
 vi.mock('./sessions/session-list.datasource', () => ({
   SessionListDataSource: {
@@ -53,6 +56,11 @@ vi.mock('./generation-editor.datasource', async () => {
       updateSessionState: vi.fn(),
       saveStageConfig: vi.fn(),
       saveDocument: vi.fn(),
+      savePlanningDocument: vi.fn(),
+      selectPlanningDocument: vi.fn(),
+      getOrCreatePlanningDocumentFromMessage: vi.fn(),
+      applyPlanningCommandProposal: vi.fn(),
+      rejectPlanningCommandProposal: vi.fn(),
       getGlobalSettings: getGlobalSettingsMock,
       updateGlobalSettings: updateGlobalSettingsMock,
       sendMessage: vi.fn(),
@@ -64,7 +72,7 @@ vi.mock('./generation-editor.datasource', async () => {
 
 import { useOrchestflowGenerationEditorStore } from './generation-editor.store'
 
-function buildStageConfig(stageKey: GenerationRuntimeStageKey): GenerationStageConfig {
+function buildStageConfig(stageKey: GenerationStageKey): GenerationStageConfig {
   return {
     stageKey,
     providerId: null,
@@ -72,17 +80,35 @@ function buildStageConfig(stageKey: GenerationRuntimeStageKey): GenerationStageC
     sdkVendor: null,
     memoryRounds: 6,
     copilotMemoryRounds: 4,
-    autoApproved: false
+    autoApproved: false,
+    activePlanningDocumentId: null
   }
 }
 
-function buildDocument(documentKey: GenerationRuntimeStageKey): GenerationDocument {
+function buildDocument(documentKey: GenerationStageKey): GenerationDocument {
   return {
     documentKey,
     title: `${documentKey}-title`,
     fileName: `${documentKey}.md`,
     summary: '',
     content: ''
+  }
+}
+
+function buildPlanningDocument(id: string): GenerationPlanningDocument {
+  const document = createEmptyOFPlanningDocument()
+  const content = buildOFPlanningMarkdown(document)
+  return {
+    id,
+    sessionId: 'session-a',
+    stageKey: 'analysis',
+    sourceMessageId: 'message-1',
+    title: 'analysis-planning',
+    sourceMarkdown: content,
+    content,
+    sections: document.sections,
+    createdAt: '2026-03-12T00:00:00.000Z',
+    updatedAt: '2026-03-12T00:00:00.000Z'
   }
 }
 
@@ -114,6 +140,7 @@ function buildSessionDetail(
       buildStageConfig('verify')
     ],
     documents: [buildDocument('analysis'), buildDocument('design'), buildDocument('verify')],
+    planningDocuments: [buildPlanningDocument(`planning-${id}`)],
     messages: []
   }
 }

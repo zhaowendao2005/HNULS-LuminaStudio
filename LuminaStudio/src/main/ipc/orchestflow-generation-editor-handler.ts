@@ -1,12 +1,19 @@
 import type { IpcMainInvokeEvent } from 'electron'
 import { BaseIPCHandler } from './base-handler'
 import type { OrchestflowGenerationEditorService } from '../services/orchestflow-generation-editor'
-import type {  GenerationAbortMessageRequest,
+import type {
+  GenerationAbortMessageRequest,
+  GenerationApplyPlanningCommandProposalRequest,
+  GenerationCreatePlanningDocumentFromMessageRequest,
   GenerationCreateSessionRequest,
-  GenerationDeleteSessionRequest,GenerationListMessagesRequest,
+  GenerationDeleteSessionRequest,
   GenerationGlobalSettings,
+  GenerationListMessagesRequest,
+  GenerationRejectPlanningCommandProposalRequest,
   GenerationSaveDocumentRequest,
+  GenerationSavePlanningDocumentRequest,
   GenerationSaveStageConfigRequest,
+  GenerationSelectPlanningDocumentRequest,
   GenerationSendMessageRequest,
   GenerationUpdateSessionStateRequest
 } from '@preload/types'
@@ -64,6 +71,59 @@ export class OrchestflowGenerationEditorIPCHandler extends BaseIPCHandler {
       return { success: false, error: 'Invalid request' }
     }
     return { success: true, data: await this.service.saveDocument(request) }
+  }
+
+  async handleSavePlanningDocument(
+    _event: IpcMainInvokeEvent,
+    request: GenerationSavePlanningDocumentRequest
+  ) {
+    if (!request?.sessionId || !request?.document?.id) {
+      return { success: false, error: 'Invalid planning document request' }
+    }
+    return { success: true, data: await this.service.savePlanningDocument(request) }
+  }
+
+  async handleSelectPlanningDocument(
+    _event: IpcMainInvokeEvent,
+    request: GenerationSelectPlanningDocumentRequest
+  ) {
+    if (!request?.sessionId || !request?.stageKey || !request?.documentId) {
+      return { success: false, error: 'Invalid planning selection request' }
+    }
+    return { success: true, data: await this.service.selectPlanningDocument(request) }
+  }
+
+  async handleGetOrCreatePlanningDocumentFromMessage(
+    _event: IpcMainInvokeEvent,
+    request: GenerationCreatePlanningDocumentFromMessageRequest
+  ) {
+    if (!request?.sessionId || !request?.messageId) {
+      return { success: false, error: 'Invalid planning source request' }
+    }
+    return {
+      success: true,
+      data: await this.service.getOrCreatePlanningDocumentFromMessage(request)
+    }
+  }
+
+  async handleApplyPlanningCommandProposal(
+    _event: IpcMainInvokeEvent,
+    request: GenerationApplyPlanningCommandProposalRequest
+  ) {
+    if (!request?.sessionId || !request?.messageId) {
+      return { success: false, error: 'Invalid planning apply request' }
+    }
+    return { success: true, data: await this.service.applyPlanningCommandProposal(request) }
+  }
+
+  async handleRejectPlanningCommandProposal(
+    _event: IpcMainInvokeEvent,
+    request: GenerationRejectPlanningCommandProposalRequest
+  ) {
+    if (!request?.sessionId || !request?.messageId) {
+      return { success: false, error: 'Invalid planning reject request' }
+    }
+    return { success: true, data: await this.service.rejectPlanningCommandProposal(request) }
   }
 
   async handleListMessages(_event: IpcMainInvokeEvent, request: GenerationListMessagesRequest) {

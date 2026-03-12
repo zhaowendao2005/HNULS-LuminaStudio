@@ -5,8 +5,9 @@ import type { TableDefinition } from '../../types'
  *
  * 这套库只服务于 GenerateView：
  * - generation_sessions: 会话元信息
- * - generation_stage_configs: 三阶段配置（模型 / 记忆数 / Auto Approved）
+ * - generation_stage_configs: 三阶段配置（模型 / 记忆数 / Auto Approved / active planning document）
  * - generation_documents: 三阶段文档正文
+ * - generation_planning_documents: analysis planning 与 copilot 共用工作稿
  * - generation_messages: 4 条 AI 对话通道的消息历史
  */
 
@@ -52,6 +53,7 @@ export const GENERATION_STAGE_CONFIGS_TABLE: TableDefinition = {
       memory_rounds INTEGER NOT NULL DEFAULT 6,
       copilot_memory_rounds INTEGER NOT NULL DEFAULT 5,
       auto_approved INTEGER NOT NULL DEFAULT 1,
+      active_planning_document_id TEXT,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now')),
       PRIMARY KEY (session_id, stage_key),
@@ -75,6 +77,27 @@ export const GENERATION_DOCUMENTS_TABLE: TableDefinition = {
       PRIMARY KEY (session_id, document_key),
       FOREIGN KEY (session_id) REFERENCES generation_sessions(id) ON DELETE CASCADE
     );
+  `
+}
+
+export const GENERATION_PLANNING_DOCUMENTS_TABLE: TableDefinition = {
+  name: 'generation_planning_documents',
+  createSQL: `
+    CREATE TABLE IF NOT EXISTS generation_planning_documents (
+      id TEXT PRIMARY KEY,
+      session_id TEXT NOT NULL,
+      stage_key TEXT NOT NULL,
+      source_message_id TEXT NOT NULL,
+      title TEXT NOT NULL,
+      source_markdown TEXT NOT NULL DEFAULT '',
+      content TEXT NOT NULL DEFAULT '',
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (session_id) REFERENCES generation_sessions(id) ON DELETE CASCADE,
+      UNIQUE(session_id, source_message_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_generation_planning_documents_session_stage_updated_at
+      ON generation_planning_documents(session_id, stage_key, updated_at DESC);
   `
 }
 
@@ -124,6 +147,7 @@ export const ORCHESTFLOW_GENERATION_EDITOR_TABLES: TableDefinition[] = [
   GENERATION_SESSIONS_TABLE,
   GENERATION_STAGE_CONFIGS_TABLE,
   GENERATION_DOCUMENTS_TABLE,
+  GENERATION_PLANNING_DOCUMENTS_TABLE,
   GENERATION_MESSAGES_TABLE,
   GENERATION_GLOBAL_SETTINGS_TABLE
 ]

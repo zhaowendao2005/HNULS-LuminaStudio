@@ -1,10 +1,16 @@
+import { OF_PLANNING_SECTION_DEFINITIONS } from '@shared/Orchestraflow-types'
+import type {
+  OFPlanningSectionKey,
+  OFPlanningSectionDefinition,
+  OFPlanningValidationError
+} from '@shared/Orchestraflow-types'
 import type {
   GenerationChannelKey,
-  GenerationDocument,
+  GenerationCopilotEditBlockPayload,
   GenerationMessage,
   GenerationMessageMetaPayload,
   GenerationPlanningBlockPayload,
-  GenerationPlanningStreamSectionKey,
+  GenerationPlanningDocument,
   GenerationRuntimeStageKey,
   GenerationSessionDetail,
   GenerationSessionSummary,
@@ -21,6 +27,7 @@ export type GenerateMenuValue =
   | 'settings'
 export type GenerateCopilotMode = 'analysis' | 'design' | 'verify'
 export type GenerateViewStatus = 'bootstrapping' | 'ready' | 'switching' | 'error'
+export type GenerateAnalysisPlanningViewMode = 'preview' | 'source' | 'diff'
 
 export interface GenerateSessionViewModel {
   id: string
@@ -35,8 +42,17 @@ export interface GenerateSessionViewModel {
 
 export interface GenerateSessionDetailViewModel extends GenerateSessionViewModel {
   stageConfigs: Record<GenerationStageKey, GenerationStageConfig>
-  documents: Record<GenerationStageKey, GenerationDocument>
+  documents: Record<GenerationStageKey, GenerationDocumentViewModel>
+  planningDocuments: Record<string, GenerationPlanningDocument>
   messagesByChannel: Record<GenerationChannelKey, GenerationMessage[]>
+}
+
+export interface GenerationDocumentViewModel {
+  documentKey: GenerationStageKey
+  title: string
+  fileName: string
+  summary: string
+  content: string
 }
 
 export interface GenerateStoreStateSnapshot {
@@ -49,6 +65,7 @@ export interface GenerateStoreStateSnapshot {
 export interface GeneratePlanningMarkdownSection {
   title: string
   content: string
+  definition?: OFPlanningSectionDefinition
 }
 
 export function mapSessionSummary(
@@ -79,6 +96,9 @@ export function mapSessionDetail(session: GenerationSessionDetail): GenerateSess
       design: session.documents.find((item) => item.documentKey === 'design')!,
       verify: session.documents.find((item) => item.documentKey === 'verify')!
     },
+    planningDocuments: Object.fromEntries(
+      session.planningDocuments.map((document) => [document.id, document])
+    ),
     messagesByChannel: {
       'analysis-discussion': session.messages.filter(
         (item) => item.channelKey === 'analysis-discussion'
@@ -91,8 +111,7 @@ export function mapSessionDetail(session: GenerationSessionDetail): GenerateSess
 }
 
 /**
- * 生成编辑器当前只有 planning block 这一种结构化消息元数据。
- * 后面如果继续扩展别的 block，也统一从这里加解析入口。
+ * 生成编辑器当前有 planning block 与 copilot edit block 两种结构化元数据。
  */
 export function parseGenerationMessageMeta(
   metaJson: string | null
@@ -109,14 +128,32 @@ export function parseGenerationMessageMeta(
 }
 
 export function getGenerationPlanningBlock(
-  message: Pick<GenerationMessage, 'metaJson'>
+  message: Pick<GenerationMessage, 'metaJson'>,
+  planningDocuments: Record<string, GenerationPlanningDocument> = {}
 ): GenerationPlanningBlockPayload | null {
   const meta = parseGenerationMessageMeta(message.metaJson)
-  // message block 的展示必须跟随 mode=planning。
-  // 即使历史数据或异常流式过程里残留了 planningBlock，只要当前 mode 不是 planning，
-  // Generate 面板也不应该继续把它当成有效规划块渲染出来。
   if (meta?.mode === 'planning' && meta?.planningBlock?.kind === 'analysis-planning') {
-    return normalizePlanningBlock(meta.planningBlock)
+    const normalized = normalizePlanningBlock(meta.planningBlock)
+    if (normalized.documentId && planningDocuments[normalized.documentId]) {
+      const document = planningDocuments[normalized.documentId]
+      const roots = splitPlanningMarkdownByRoots(document.content)
+      return {
+        ...normalized,
+        analysisMarkdown: roots.analysisMarkdown,
+        designMarkdown: roots.designMarkdown
+      }
+    }
+    return normalized
+  }
+  return null
+}
+
+export function getGenerationCopilotEditBlock(
+  message: Pick<GenerationMessage, 'metaJson'>
+): GenerationCopilotEditBlockPayload | null {
+  const meta = parseGenerationMessageMeta(message.metaJson)
+  if (meta?.copilotEditBlock?.kind === 'planning-edit') {
+    return meta.copilotEditBlock
   }
   return null
 }
@@ -184,9 +221,11 @@ export function parsePlanningMarkdownSections(
     if (!currentTitle) {
       return
     }
+    const definition = OF_PLANNING_SECTION_DEFINITIONS.find((item) => item.title === currentTitle)
     sections[currentTitle] = {
       title: currentTitle,
-      content: currentContentLines.join('\n').trim()
+      content: currentContentLines.join('\n').trim(),
+      definition
     }
   }
 
@@ -211,14 +250,81 @@ export function parsePlanningMarkdownSections(
   }
 
   flushCurrentSection()
-
   return sections
 }
 
+export function splitPlanningMarkdownByRoots(markdown: string): {
+  analysisMarkdown: string
+  designMarkdown: string
+} {
+  return {
+    analysisMarkdown: extractRootMarkdownSection(markdown, '需求分析') || '# 需求分析\n',
+    designMarkdown: extractRootMarkdownSection(markdown, '设计交接') || '# 设计交接\n'
+  }
+}
+
 export function getPlanningActiveRootSection(
-  sectionKey: GenerationPlanningStreamSectionKey
+  sectionKey: OFPlanningSectionKey
 ): 'analysis' | 'design' {
   return sectionKey.startsWith('analysis-') ? 'analysis' : 'design'
+}
+
+export function buildPlanningDiffLines(params: {
+  sourceMarkdown: string
+  currentMarkdown: string
+}): Array<{ type: 'added' | 'removed' | 'unchanged'; text: string }> {
+  const sourceLines = params.sourceMarkdown.split('\n')
+  const currentLines = params.currentMarkdown.split('\n')
+  const maxLines = Math.max(sourceLines.length, currentLines.length)
+  const diffLines: Array<{ type: 'added' | 'removed' | 'unchanged'; text: string }> = []
+
+  for (let index = 0; index < maxLines; index += 1) {
+    const sourceLine = sourceLines[index] ?? null
+    const currentLine = currentLines[index] ?? null
+
+    if (sourceLine === currentLine && sourceLine !== null) {
+      diffLines.push({ type: 'unchanged', text: sourceLine })
+      continue
+    }
+
+    if (sourceLine !== null) {
+      diffLines.push({ type: 'removed', text: sourceLine })
+    }
+
+    if (currentLine !== null) {
+      diffLines.push({ type: 'added', text: currentLine })
+    }
+  }
+
+  return diffLines
+}
+
+export function formatPlanningValidationErrors(errors: OFPlanningValidationError[]): string {
+  return errors.map((error) => error.message).join('；')
+}
+
+function extractRootMarkdownSection(payloadBody: string, title: string): string {
+  if (!payloadBody.trim()) {
+    return ''
+  }
+
+  const lines = payloadBody.split('\n')
+  const header = `# ${title}`
+  const startIndex = lines.findIndex((line) => line.trim() === header)
+  if (startIndex < 0) {
+    return ''
+  }
+
+  const contentLines: string[] = [header]
+  for (let index = startIndex + 1; index < lines.length; index += 1) {
+    const currentLine = lines[index]
+    if (currentLine.startsWith('# ')) {
+      break
+    }
+    contentLines.push(currentLine)
+  }
+
+  return contentLines.join('\n').trim()
 }
 
 function toMarkdownList(items: string[]): string[] {

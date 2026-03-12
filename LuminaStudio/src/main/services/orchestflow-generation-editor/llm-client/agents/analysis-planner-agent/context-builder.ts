@@ -1,6 +1,7 @@
 import {
   buildOFRequirementContextPack,
   renderOFAgentContextPack,
+  type OFBlockEnum,
   type OFRequirementDocument
 } from '@shared/Orchestraflow-types'
 import type {
@@ -9,7 +10,7 @@ import type {
   GenerationMessageMetaPayload,
   GenerationPlanningBlockPayload
 } from '@preload/types'
-import type { GenerationEditorRepository } from '../../repositories/generation-editor.repository'
+import type { GenerationEditorRepository } from '../../../repositories/generation-editor.repository'
 import type { AnalysisPlannerContextBundle, AnalysisPlannerHistoryEntry } from './types'
 
 const ANALYSIS_DISCUSSION_CHANNEL: GenerationChannelKey = 'analysis-discussion'
@@ -207,7 +208,7 @@ function parseCandidateNodes(markdown: string): OFRequirementDocument['candidate
       const type = typePart.trim()
       const reason = reasonParts.join('：').trim()
       return {
-        type,
+        type: type as OFBlockEnum,
         reason
       }
     })
