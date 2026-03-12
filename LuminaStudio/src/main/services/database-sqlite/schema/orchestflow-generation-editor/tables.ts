@@ -94,6 +94,8 @@ export const GENERATION_MESSAGES_TABLE: TableDefinition = {
       error TEXT,
       usage_json TEXT,
       meta_json TEXT,
+      raw_response_text TEXT,
+      raw_trace_json TEXT,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now')),
       FOREIGN KEY (session_id) REFERENCES generation_sessions(id) ON DELETE CASCADE

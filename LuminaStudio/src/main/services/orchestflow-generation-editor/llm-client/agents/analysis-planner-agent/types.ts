@@ -52,6 +52,7 @@ export interface AnalysisPlannerRuntimeSignals {
 export interface AnalysisPlannerModelResult {
   rawPayload: string
   usage?: Record<string, unknown>
+  rawTrace: unknown[]
 }
 
 export interface AnalysisPlannerStructuredResult {

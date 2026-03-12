@@ -48,6 +48,8 @@ export interface GenerationMessageRow {
   error: string | null
   usage_json: string | null
   meta_json: string | null
+  raw_response_text: string | null
+  raw_trace_json: string | null
   created_at: string
   updated_at: string
 }

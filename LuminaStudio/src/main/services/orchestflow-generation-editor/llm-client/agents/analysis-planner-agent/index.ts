@@ -127,11 +127,17 @@ async function runAnalysisPlannerAgent(
     })
     persistAndEmitMessageMeta(state, params, metaPayload)
 
-    finishStream(state, params, 'stop', modelResult.usage)
+    finishStream(state, params, 'stop', modelResult.usage, {
+      rawResponseText: modelResult.rawPayload,
+      rawTrace: modelResult.rawTrace
+    })
   } catch (error) {
     const typedError = error as { name?: string; message?: string }
     if (typedError?.name === 'AbortError') {
-      finishStream(state, params, 'aborted')
+      finishStream(state, params, 'aborted', undefined, {
+        rawResponseText: state.answerText,
+        rawTrace: []
+      })
       return
     }
 
@@ -156,7 +162,10 @@ async function runAnalysisPlannerAgent(
       messageId: state.messageId,
       message: typedError?.message || 'Analysis planner failed'
     })
-    finishStream(state, params, 'error')
+    finishStream(state, params, 'error', undefined, {
+      rawResponseText: state.answerText,
+      rawTrace: []
+    })
   }
 }
 
@@ -283,7 +292,8 @@ async function runModelRequest(
 
   return {
     rawPayload: buildNormalizedPayload(accumulator),
-    usage: result.usage
+    usage: result.usage,
+    rawTrace: result.rawTrace
   }
 }
 
@@ -664,7 +674,11 @@ function finishStream(
   state: ActiveGenerationStream,
   params: StartAnalysisPlannerAgentStreamParams,
   finishReason: 'stop' | 'aborted' | 'error',
-  usage?: Record<string, unknown>
+  usage?: Record<string, unknown>,
+  raw?: {
+    rawResponseText: string
+    rawTrace: unknown[]
+  }
 ): void {
   const status =
     finishReason === 'stop' ? 'final' : finishReason === 'aborted' ? 'aborted' : 'error'
@@ -673,7 +687,9 @@ function finishStream(
     messageId: state.messageId,
     content: state.answerText,
     status,
-    usage
+    usage,
+    rawResponseText: raw?.rawResponseText ?? null,
+    rawTrace: raw?.rawTrace ?? []
   })
   params.repository.touchSession(state.sessionId)
 

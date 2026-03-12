@@ -123,6 +123,7 @@
                     <GenerateMessageActionGroup
                       v-if="message.role === 'assistant' && message.status !== 'streaming'"
                       :message="message"
+                      :messages="messages"
                     />
                   </div>
                   <div v-if="message.error" class="mt-1 text-[11px] text-rose-500">

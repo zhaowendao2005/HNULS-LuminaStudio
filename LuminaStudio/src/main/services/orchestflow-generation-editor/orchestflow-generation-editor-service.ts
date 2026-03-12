@@ -123,7 +123,9 @@ export class OrchestflowGenerationEditorService {
       model_id: request.modelId,
       error: null,
       usage_json: null,
-      meta_json: null
+      meta_json: null,
+      raw_response_text: null,
+      raw_trace_json: null
     })
 
     this.repository.insertMessage({
@@ -138,7 +140,9 @@ export class OrchestflowGenerationEditorService {
       model_id: request.modelId,
       error: null,
       usage_json: null,
-      meta_json: JSON.stringify({ vendor, protocol: effectiveProtocol })
+      meta_json: JSON.stringify({ vendor, protocol: effectiveProtocol }),
+      raw_response_text: null,
+      raw_trace_json: null
     })
 
     if (request.channelKey === 'analysis-discussion') {

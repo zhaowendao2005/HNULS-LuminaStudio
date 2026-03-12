@@ -60,6 +60,8 @@ export function mapMessage(row: GenerationMessageRow): GenerationMessage {
     error: row.error,
     usageJson: row.usage_json,
     metaJson: row.meta_json,
+    rawResponseText: row.raw_response_text,
+    rawTraceJson: row.raw_trace_json,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   }

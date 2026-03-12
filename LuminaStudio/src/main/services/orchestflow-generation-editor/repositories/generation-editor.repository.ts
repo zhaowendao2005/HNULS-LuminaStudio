@@ -249,8 +249,8 @@ export class GenerationEditorRepository {
     this.db
       .prepare(
         `INSERT INTO generation_messages (
-          id, session_id, channel_key, request_id, role, content, status, provider_id, model_id, error, usage_json, meta_json
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          id, session_id, channel_key, request_id, role, content, status, provider_id, model_id, error, usage_json, meta_json, raw_response_text, raw_trace_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         row.id,
@@ -264,7 +264,9 @@ export class GenerationEditorRepository {
         row.model_id,
         row.error,
         row.usage_json,
-        row.meta_json
+        row.meta_json,
+        row.raw_response_text,
+        row.raw_trace_json
       )
     this.touchSession(row.session_id)
   }
@@ -304,17 +306,21 @@ export class GenerationEditorRepository {
     content: string
     status: 'final' | 'aborted' | 'error'
     usage?: Record<string, unknown>
+    rawResponseText?: string | null
+    rawTrace?: unknown[] | null
   }): void {
     this.db
       .prepare(
         `UPDATE generation_messages
-         SET content = ?, status = ?, usage_json = ?, updated_at = datetime('now')
+         SET content = ?, status = ?, usage_json = ?, raw_response_text = ?, raw_trace_json = ?, updated_at = datetime('now')
          WHERE id = ?`
       )
       .run(
         params.content,
         params.status,
         params.usage ? JSON.stringify(params.usage) : null,
+        params.rawResponseText ?? null,
+        params.rawTrace ? JSON.stringify(params.rawTrace) : null,
         params.messageId
       )
   }

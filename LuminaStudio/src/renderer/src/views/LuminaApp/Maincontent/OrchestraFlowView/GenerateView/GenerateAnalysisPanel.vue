@@ -49,7 +49,10 @@
           <div class="text-xs font-semibold text-gray-800">
             {{ entry.message.role === 'user' ? 'User' : 'Lumina Agent' }}
           </div>
-          <div class="group relative rounded-xl" :class="entry.message.role === 'assistant' ? 'pr-2' : ''">
+          <div
+            class="group relative rounded-xl"
+            :class="entry.message.role === 'assistant' ? 'pr-2' : ''"
+          >
             <div class="whitespace-pre-wrap text-[13px] leading-relaxed text-gray-800">
               {{ entry.message.content }}
               <span
@@ -61,6 +64,7 @@
             <GenerateMessageActionGroup
               v-if="entry.message.role === 'assistant' && entry.message.status !== 'streaming'"
               :message="entry.message"
+              :messages="messages"
             />
           </div>
           <div v-if="entry.message.error" class="text-[11px] text-rose-500">

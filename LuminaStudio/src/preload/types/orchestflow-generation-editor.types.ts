@@ -89,6 +89,8 @@ export interface GenerationMessage {
   error: string | null
   usageJson: string | null
   metaJson: string | null
+  rawResponseText: string | null
+  rawTraceJson: string | null
   createdAt: string
   updatedAt: string
 }
