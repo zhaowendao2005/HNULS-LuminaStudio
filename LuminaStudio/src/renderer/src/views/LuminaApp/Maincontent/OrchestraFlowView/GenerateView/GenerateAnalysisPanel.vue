@@ -49,14 +49,20 @@
           <div class="text-xs font-semibold text-gray-800">
             {{ entry.message.role === 'user' ? 'User' : 'Lumina Agent' }}
           </div>
-          <div class="whitespace-pre-wrap text-[13px] leading-relaxed text-gray-800">
-            {{ entry.message.content }}
-            <span
-              v-if="entry.message.status === 'streaming'"
-              class="ml-1 inline-block h-3 w-1 animate-pulse bg-cyan-500 align-middle"
-            ></span>
+          <div class="group relative rounded-xl" :class="entry.message.role === 'assistant' ? 'pr-2' : ''">
+            <div class="whitespace-pre-wrap text-[13px] leading-relaxed text-gray-800">
+              {{ entry.message.content }}
+              <span
+                v-if="entry.message.status === 'streaming'"
+                class="ml-1 inline-block h-3 w-1 animate-pulse bg-cyan-500 align-middle"
+              ></span>
+            </div>
+            <GeneratePlanningBlock v-if="entry.planningBlock" :block="entry.planningBlock" />
+            <GenerateMessageActionGroup
+              v-if="entry.message.role === 'assistant' && entry.message.status !== 'streaming'"
+              :message="entry.message"
+            />
           </div>
-          <GeneratePlanningBlock v-if="entry.planningBlock" :block="entry.planningBlock" />
           <div v-if="entry.message.error" class="text-[11px] text-rose-500">
             {{ entry.message.error }}
           </div>
@@ -94,6 +100,7 @@ import { computed } from 'vue'
 import { Bot, FolderKanban, MessageSquare, Send, UserCircle } from 'lucide-vue-next'
 import type { GenerationMessage } from '@preload/types'
 import { getGenerationPlanningBlock } from '@renderer/stores/orchestraflow/generation-editor/generation-editor.types'
+import GenerateMessageActionGroup from './GenerateMessageActionGroup.vue'
 import GeneratePlanningBlock from './GeneratePlanningBlock.vue'
 
 const props = defineProps<{

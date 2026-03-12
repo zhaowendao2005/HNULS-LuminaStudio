@@ -110,15 +110,21 @@
 
                 <div
                   :class="[
-                    'w-full rounded-md text-[13px] text-gray-800',
+                    'group w-full rounded-md text-[13px] text-gray-800',
                     message.role === 'user' ? 'rounded-bl-md rounded-r-md bg-gray-50 p-2' : 'p-0.5'
                   ]"
                 >
-                  {{ message.content }}
-                  <span
-                    v-if="message.status === 'streaming'"
-                    class="ml-1 inline-block h-3 w-1 animate-pulse bg-violet-500 align-middle"
-                  ></span>
+                  <div class="relative rounded-xl" :class="message.role === 'assistant' ? 'pr-2' : ''">
+                    {{ message.content }}
+                    <span
+                      v-if="message.status === 'streaming'"
+                      class="ml-1 inline-block h-3 w-1 animate-pulse bg-violet-500 align-middle"
+                    ></span>
+                    <GenerateMessageActionGroup
+                      v-if="message.role === 'assistant' && message.status !== 'streaming'"
+                      :message="message"
+                    />
+                  </div>
                   <div v-if="message.error" class="mt-1 text-[11px] text-rose-500">
                     {{ message.error }}
                   </div>
@@ -169,6 +175,7 @@ import {
   X
 } from 'lucide-vue-next'
 import type { GenerationDocument, GenerationMessage } from '@preload/types'
+import GenerateMessageActionGroup from './GenerateMessageActionGroup.vue'
 import type { CopilotMode } from './generate-view.types'
 
 const props = defineProps<{
