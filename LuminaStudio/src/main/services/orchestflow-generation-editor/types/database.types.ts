@@ -3,7 +3,6 @@ import type {
   GenerationRuntimeStageKey,
   GenerationStageKey
 } from '@preload/types'
-import type { WebContents } from 'electron'
 
 export interface GenerationSessionRow {
   id: string
@@ -51,16 +50,4 @@ export interface GenerationMessageRow {
   meta_json: string | null
   created_at: string
   updated_at: string
-}
-
-export interface ActiveGenerationStream {
-  requestId: string
-  sessionId: string
-  channelKey: GenerationChannelKey
-  messageId: string
-  sender: WebContents
-  answerText: string
-  providerId: string
-  modelId: string
-  unsubscribe?: () => void
 }

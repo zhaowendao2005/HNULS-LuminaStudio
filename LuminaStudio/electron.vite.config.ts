@@ -20,10 +20,7 @@ export default defineConfig({
         input: {
           index: resolve('src/main/index.ts'),
           'utility/langchain-client': resolve('src/utility/langchain-client/entry.ts'),
-          'utility/orchestraflow': resolve('src/utility/orchestraflow/entry.ts'),
-          'utility/orchestflow-generation-editor': resolve(
-            'src/utility/orchestflow-generation-editor/entry.ts'
-          )
+          'utility/orchestraflow': resolve('src/utility/orchestraflow/entry.ts')
         }
       }
     }
