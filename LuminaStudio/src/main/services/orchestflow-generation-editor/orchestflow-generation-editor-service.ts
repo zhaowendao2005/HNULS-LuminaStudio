@@ -93,8 +93,8 @@ export class OrchestflowGenerationEditorService {
     if (!text) throw new Error('Message content is required')
 
     const provider = await this.resolveProvider(request.providerId)
-    this.assertProviderProtocolCompatible(provider)
-    const vendor = this.resolveSdkVendorFromProtocol(provider.protocol)
+    const effectiveProtocol = this.resolveEffectiveProtocol(provider)
+    const vendor = this.resolveSdkVendorFromProtocol(effectiveProtocol)
     const requestId = randomUUID()
     const assistantMessageId = randomUUID()
 
@@ -104,7 +104,7 @@ export class OrchestflowGenerationEditorService {
       channelKey: request.channelKey,
       providerId: request.providerId,
       providerName: provider.name,
-      protocol: provider.protocol,
+      protocol: effectiveProtocol,
       sdkVendor: vendor,
       baseUrl: provider.baseUrl,
       modelId: request.modelId,
@@ -138,7 +138,7 @@ export class OrchestflowGenerationEditorService {
       model_id: request.modelId,
       error: null,
       usage_json: null,
-      meta_json: JSON.stringify({ vendor, protocol: provider.protocol })
+      meta_json: JSON.stringify({ vendor, protocol: effectiveProtocol })
     })
 
     if (request.channelKey === 'analysis-discussion') {
@@ -158,7 +158,7 @@ export class OrchestflowGenerationEditorService {
         providerId: request.providerId,
         modelId: request.modelId,
         vendor,
-        protocol: provider.protocol,
+        protocol: effectiveProtocol,
         apiKey: provider.apiKey,
         baseUrl: provider.baseUrl || undefined,
         defaultHeaders: provider.defaultHeaders,
@@ -178,7 +178,7 @@ export class OrchestflowGenerationEditorService {
         providerName: provider.name,
         modelId: request.modelId,
         vendor,
-        protocol: provider.protocol,
+        protocol: effectiveProtocol,
         apiKey: provider.apiKey,
         baseUrl: provider.baseUrl || undefined,
         defaultHeaders: provider.defaultHeaders,
@@ -202,17 +202,27 @@ export class OrchestflowGenerationEditorService {
     return provider
   }
 
-  private assertProviderProtocolCompatible(provider: PersistedModelProviderConfig): void {
+  private resolveEffectiveProtocol(provider: PersistedModelProviderConfig): ModelProviderProtocol {
     if (provider.protocol !== 'openai') {
-      return
+      return provider.protocol
     }
 
     const normalizedBaseUrl = normalizeBaseUrl(provider.baseUrl)
-    if (normalizedBaseUrl !== OPENAI_OFFICIAL_BASE_URL) {
-      throw new Error(
-        `Provider "${provider.name}" is configured as protocol=openai but baseUrl is not OpenAI official. Please switch protocol to openai-completion or openai-response, or set baseUrl to ${OPENAI_OFFICIAL_BASE_URL}.`
-      )
+    if (!normalizedBaseUrl || normalizedBaseUrl === OPENAI_OFFICIAL_BASE_URL) {
+      return 'openai'
     }
+
+    // GenerateView 当前统一走 OpenAI 兼容的 chat completions 链路。
+    // 对 siliconflow / openrouter 这类兼容端点，如果用户把协议写成 openai，
+    // 这里自动降级为 openai-completion，避免运行时直接抛错。
+    log.warn('Auto-normalizing Generate provider protocol to openai-completion', {
+      providerId: provider.id,
+      providerName: provider.name,
+      originalProtocol: provider.protocol,
+      baseUrl: provider.baseUrl
+    })
+
+    return 'openai-completion'
   }
 
   private resolveSdkVendorFromProtocol(protocol: ModelProviderProtocol) {

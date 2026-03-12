@@ -20,6 +20,7 @@ export type GenerateMenuValue =
   | 'verify'
   | 'settings'
 export type GenerateCopilotMode = 'analysis' | 'design' | 'verify'
+export type GenerateViewStatus = 'bootstrapping' | 'ready' | 'switching' | 'error'
 
 export interface GenerateSessionViewModel {
   id: string
@@ -111,7 +112,10 @@ export function getGenerationPlanningBlock(
   message: Pick<GenerationMessage, 'metaJson'>
 ): GenerationPlanningBlockPayload | null {
   const meta = parseGenerationMessageMeta(message.metaJson)
-  if (meta?.planningBlock?.kind === 'analysis-planning') {
+  // message block 的展示必须跟随 mode=planning。
+  // 即使历史数据或异常流式过程里残留了 planningBlock，只要当前 mode 不是 planning，
+  // Generate 面板也不应该继续把它当成有效规划块渲染出来。
+  if (meta?.mode === 'planning' && meta?.planningBlock?.kind === 'analysis-planning') {
     return normalizePlanningBlock(meta.planningBlock)
   }
   return null

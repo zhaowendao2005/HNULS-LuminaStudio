@@ -444,10 +444,9 @@ function buildEmptyPlanningProgressState(): AnalysisPlanningProgressState {
   }
 }
 
-function buildPlanningProgressState(payloadText: string): AnalysisPlanningProgressState {
+export function buildPlanningProgressState(payloadText: string): AnalysisPlanningProgressState {
   const payload = payloadText.trim()
   const mode = extractPayloadScalar(payload, 'mode')
-  const planningStatus = extractPayloadScalar(payload, 'planningStatus')
   const body = extractPayloadBody(payload)
   const analysisMarkdown = extractRootMarkdownSection(body, '需求分析')
   const designMarkdown = extractRootMarkdownSection(body, '设计交接')
@@ -462,7 +461,10 @@ function buildPlanningProgressState(payloadText: string): AnalysisPlanningProgre
 
   return {
     shouldShowPlanningBlock:
-      mode === 'planning' || planningStatus === 'draft' || planningStatus === 'ready',
+      // planning block 的显隐必须跟随 mode，而不是跟随 planningStatus。
+      // continue 协议虽然也会带 planningStatus/固定标题壳，但它只表示“继续澄清”，
+      // 不能因为正文里还有 draft/ready 这些控制字段就提前把规划块挂出来。
+      mode === 'planning',
     activeSection,
     completedSectionKeys,
     analysisMarkdown: analysisMarkdown || '# 需求分析\n',

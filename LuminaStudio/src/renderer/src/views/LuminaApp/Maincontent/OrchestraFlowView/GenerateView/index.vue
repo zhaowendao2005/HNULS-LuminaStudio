@@ -41,6 +41,7 @@
               v-else-if="generationStore.activeMenu === 'sessions'"
               :sessions="generationStore.sessions"
               :selected-session-id="generationStore.selectedSessionId || ''"
+              :pending-session-id="generationStore.pendingSessionId || undefined"
               :stage-order="stageOrder"
               :get-stage-label="generationStore.getStageLabel"
               :get-session-stage-dot-class="generationStore.getSessionStageDotClass"
@@ -89,6 +90,17 @@
             </div>
           </div>
 
+          <div
+            v-if="generationStore.viewStatus === 'switching'"
+            class="pointer-events-none absolute inset-0 z-10 flex items-start justify-center bg-white/40 pt-6 backdrop-blur-[1px]"
+          >
+            <div
+              class="rounded-full border border-cyan-100 bg-white px-3 py-1 text-xs text-cyan-600 shadow-sm"
+            >
+              正在切换会话...
+            </div>
+          </div>
+
           <GeneratePlanDesignPanel
             :visible="generationStore.activeRightPanel !== null"
             :is-fullscreen="generationStore.isRightPanelFullscreen"
@@ -111,7 +123,23 @@
       </div>
 
       <div v-else class="flex flex-1 items-center justify-center text-sm text-gray-500">
-        正在加载 GenerateView...
+        <div
+          v-if="generationStore.viewStatus === 'error'"
+          class="flex max-w-sm flex-col items-center gap-3 rounded-2xl border border-rose-100 bg-white px-6 py-8 text-center shadow-sm"
+        >
+          <div class="text-sm font-semibold text-gray-800">GenerateView 初始化失败</div>
+          <div class="text-xs leading-6 text-gray-500">
+            {{ generationStore.lastErrorMessage || '当前没有可用会话，请重试。' }}
+          </div>
+          <button
+            type="button"
+            class="rounded-lg bg-cyan-600 px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-cyan-700"
+            @click="generationStore.retryInitialize()"
+          >
+            重新加载
+          </button>
+        </div>
+        <div v-else>正在加载 GenerateView...</div>
       </div>
     </div>
 

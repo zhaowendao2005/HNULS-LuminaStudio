@@ -1,5 +1,5 @@
 <template>
-  <div class="max-w-3xl mx-auto flex flex-col-reverse gap-8">
+  <div class="nc-message-thread max-w-3xl mx-auto flex flex-col-reverse gap-8">
     <!-- 正在生成提示 -->
     <div v-if="isGenerating" class="flex gap-4 animate-pulse">
       <div
@@ -143,9 +143,9 @@ const reversedMessages = computed(() => [...props.messages].reverse())
 function isRetrievalPlanNodeBlock(block: any): boolean {
   return (
     block?.type === 'node' &&
-    (block?.start?.nodeKind === 'planning' ||
-      block?.start?.nodeKind === 'initial_planning' ||
-      block?.start?.nodeKind === 'retrieval_plan')
+    // `planning` 表示回环/继续规划，它属于 agent 内部过程，不应该在普通聊天里额外展开。
+    // 这里仅保留首轮审批规划与旧版 retrieval_plan，避免 continue 轮次误触发 message block。
+    (block?.start?.nodeKind === 'initial_planning' || block?.start?.nodeKind === 'retrieval_plan')
   )
 }
 

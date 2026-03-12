@@ -135,7 +135,7 @@ function parsePlanningBlockFromMessage(
 
   try {
     const meta = JSON.parse(message.metaJson) as GenerationMessageMetaPayload
-    if (meta?.planningBlock?.kind === 'analysis-planning') {
+    if (meta?.mode === 'planning' && meta?.planningBlock?.kind === 'analysis-planning') {
       return normalizePlanningBlock(meta.planningBlock)
     }
   } catch {

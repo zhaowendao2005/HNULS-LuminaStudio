@@ -1,4 +1,4 @@
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { defineStore, storeToRefs } from 'pinia'
 import {
   OrchestflowGenerationEditorDataSource,
@@ -6,6 +6,7 @@ import {
 } from './generation-editor.datasource'
 import type {
   GenerateCopilotMode,
+  GenerateViewStatus,
   GenerateSessionDetailViewModel,
   GenerateSessionViewModel
 } from './generation-editor.types'
@@ -77,8 +78,13 @@ export const useOrchestflowGenerationEditorStore = defineStore(
     const { input: verifyCopilotInput, isStreaming: isVerifyCopilotStreaming } =
       storeToRefs(verifyCopilotStore)
 
+    const resolvedSessionId = ref<string | null>(null)
+    const pendingSessionId = ref<string | null>(null)
+    const viewStatus = ref<GenerateViewStatus>('bootstrapping')
+    const lastErrorMessage = ref<string | null>(null)
+
     const currentSession = computed<GenerateSessionDetailViewModel | null>(() => {
-      return sessionDetailCacheStore.getSessionDetail(selectedSessionId.value)
+      return sessionDetailCacheStore.getSessionDetail(resolvedSessionId.value)
     })
 
     const currentStageKey = computed<GenerationStageKey>(() => {
@@ -88,7 +94,7 @@ export const useOrchestflowGenerationEditorStore = defineStore(
     })
 
     const currentStageConfig = computed<GenerationStageConfig | null>(() => {
-      const sessionId = selectedSessionId.value
+      const sessionId = currentSession.value?.id || null
       if (!sessionId) return null
       if (currentStageKey.value === 'analysis') return analysisStageConfigStore.getConfig(sessionId)
       if (currentStageKey.value === 'design') return designStageConfigStore.getConfig(sessionId)
@@ -96,7 +102,7 @@ export const useOrchestflowGenerationEditorStore = defineStore(
     })
 
     const configDrawerStageConfig = computed<GenerationStageConfig | null>(() => {
-      const sessionId = selectedSessionId.value
+      const sessionId = currentSession.value?.id || null
       if (!sessionId) return null
       if (configDrawerTab.value === 'analysis') return analysisStageConfigStore.getConfig(sessionId)
       if (configDrawerTab.value === 'design') return designStageConfigStore.getConfig(sessionId)
@@ -149,7 +155,7 @@ export const useOrchestflowGenerationEditorStore = defineStore(
     })
 
     const activeCopilotDocument = computed<GenerationDocument | null>(() => {
-      const sessionId = selectedSessionId.value
+      const sessionId = currentSession.value?.id || null
       if (!sessionId || !activeRightPanel.value) return null
       if (activeRightPanel.value === 'analysis') return analysisDocumentStore.getDocument(sessionId)
       if (activeRightPanel.value === 'design') return designDocumentStore.getDocument(sessionId)
@@ -163,24 +169,105 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       return false
     })
 
+    function buildErrorMessage(error: unknown): string {
+      return error instanceof Error ? error.message : '加载 GenerateView 失败，请重试。'
+    }
+
+    function setErrorState(error: unknown): void {
+      lastErrorMessage.value = buildErrorMessage(error)
+      pendingSessionId.value = null
+      if (!currentSession.value) {
+        viewStatus.value = 'error'
+      } else {
+        viewStatus.value = 'ready'
+      }
+    }
+
+    async function createDefaultSession(): Promise<GenerateSessionDetailViewModel> {
+      const created = await sessionListStore.createSession('新建生成会话')
+      hydrateSessionDetail(created)
+      resolvedSessionId.value = created.id
+      selectedSessionId.value = created.id
+      activeMenu.value = 'analysis'
+      pendingSessionId.value = null
+      lastErrorMessage.value = null
+      viewStatus.value = 'ready'
+      return created
+    }
+
+    /**
+     * 统一负责把目标 session 解析成“当前真正可渲染的页面状态”。
+     * 切换过程中保留旧页面，只有成功拿到 detail 后才提交新的 resolvedSessionId。
+     */
+    async function resolveSession(
+      sessionId: string,
+      options: {
+        preserveCurrentView?: boolean
+        createDefaultOnFailure?: boolean
+      } = {}
+    ): Promise<GenerateSessionDetailViewModel | null> {
+      const { preserveCurrentView = true, createDefaultOnFailure = false } = options
+
+      pendingSessionId.value = sessionId
+      lastErrorMessage.value = null
+      viewStatus.value = preserveCurrentView && currentSession.value ? 'switching' : 'bootstrapping'
+
+      try {
+        const detail = await sessionDetailCacheStore.refreshSessionDetail(sessionId)
+        hydrateSessionDetail(detail)
+        resolvedSessionId.value = detail.id
+        selectedSessionId.value = detail.id
+        pendingSessionId.value = null
+        viewStatus.value = 'ready'
+        return detail
+      } catch (error) {
+        sessionDetailCacheStore.removeSessionDetail(sessionId)
+
+        if (currentSession.value?.id && currentSession.value.id !== sessionId) {
+          selectedSessionId.value = currentSession.value.id
+          setErrorState(error)
+          return null
+        }
+
+        resolvedSessionId.value = null
+
+        if (createDefaultOnFailure) {
+          try {
+            return await createDefaultSession()
+          } catch (createError) {
+            setErrorState(createError)
+            return null
+          }
+        }
+
+        setErrorState(error)
+        return null
+      }
+    }
+
+    /**
+     * 统一保证当前页面总能拿到一个可用会话。
+     */
+    async function ensureActiveSession(): Promise<GenerateSessionDetailViewModel | null> {
+      if (!sessions.value.length) {
+        return createDefaultSession()
+      }
+
+      const targetSessionId = selectedSessionId.value || sessions.value[0]?.id || null
+
+      if (!targetSessionId) {
+        return createDefaultSession()
+      }
+
+      return resolveSession(targetSessionId, {
+        preserveCurrentView: Boolean(currentSession.value),
+        createDefaultOnFailure: true
+      })
+    }
+
     async function initialize(): Promise<void> {
       await sessionListStore.initialize()
-
-      if (!sessions.value.length) {
-        const created = await sessionListStore.createSession('新建生成会话')
-        hydrateSessionDetail(created)
-        activeMenu.value = 'analysis'
-        return
-      }
-
-      if (!selectedSessionId.value) {
-        selectedSessionId.value = sessions.value[0].id
-      }
-
-      if (selectedSessionId.value) {
-        const detail = await sessionDetailCacheStore.refreshSessionDetail(selectedSessionId.value)
-        hydrateSessionDetail(detail)
-      }
+      await ensureActiveSession()
     }
 
     function bindStreamListener(): () => void {
@@ -203,12 +290,27 @@ export const useOrchestflowGenerationEditorStore = defineStore(
     }
 
     async function refreshSessionDetail(sessionId: string): Promise<void> {
-      const detail = await sessionDetailCacheStore.refreshSessionDetail(sessionId)
-      hydrateSessionDetail(detail)
-      sessionListStore.mergeSessionSummary(detail)
+      try {
+        const detail = await sessionDetailCacheStore.refreshSessionDetail(sessionId)
+        hydrateSessionDetail(detail)
+        sessionListStore.mergeSessionSummary(detail)
+        if (resolvedSessionId.value === sessionId) {
+          lastErrorMessage.value = null
+          viewStatus.value = 'ready'
+        }
+      } catch {
+        // 当前展示中的 session 明细丢失时，立即走恢复链路，不再把整页卡在 loading。
+        if (resolvedSessionId.value === sessionId) {
+          resolvedSessionId.value = null
+          await ensureActiveSession()
+        }
+      }
     }
 
     function hydrateSessionDetail(detail: GenerateSessionDetailViewModel): void {
+      // 这里必须先把 detail 写回缓存，因为 GenerateView 的 currentSession 就是从 detail cache 读取的。
+      sessionDetailCacheStore.setSessionDetail(detail)
+
       analysisStageConfigStore.setConfig(detail.id, detail.stageConfigs.analysis)
       designStageConfigStore.setConfig(detail.id, detail.stageConfigs.design)
       verifyStageConfigStore.setConfig(detail.id, detail.stageConfigs.verify)
@@ -221,11 +323,20 @@ export const useOrchestflowGenerationEditorStore = defineStore(
     }
 
     async function selectSession(sessionId: string): Promise<void> {
-      sessionListStore.selectSession(sessionId)
-      activeMenu.value = resolveMenuByStage(
-        sessions.value.find((item) => item.id === sessionId)?.currentStage || 'analysis'
-      )
-      await refreshSessionDetail(sessionId)
+      const nextSummary = sessions.value.find((item) => item.id === sessionId)
+      selectedSessionId.value = sessionId
+      activeMenu.value = resolveMenuByStage(nextSummary?.currentStage || 'analysis')
+
+      if (resolvedSessionId.value === sessionId && currentSession.value) {
+        pendingSessionId.value = null
+        viewStatus.value = 'ready'
+        return
+      }
+
+      await resolveSession(sessionId, {
+        preserveCurrentView: Boolean(currentSession.value),
+        createDefaultOnFailure: !currentSession.value
+      })
     }
 
     async function createSession(): Promise<void> {
@@ -239,23 +350,36 @@ export const useOrchestflowGenerationEditorStore = defineStore(
     }
 
     async function deleteSession(sessionId: string): Promise<void> {
+      const wasCurrentSession = selectedSessionId.value === sessionId
+
       await sessionListStore.deleteSession(sessionId)
       sessionDetailCacheStore.removeSessionDetail(sessionId)
 
-      if (selectedSessionId.value === sessionId) {
+      if (wasCurrentSession) {
         activeRightPanel.value = null
       }
 
+      if (resolvedSessionId.value === sessionId) {
+        resolvedSessionId.value = null
+      }
+
       if (selectedSessionId.value) {
-        const detail = await sessionDetailCacheStore.refreshSessionDetail(selectedSessionId.value)
-        hydrateSessionDetail(detail)
-        activeMenu.value = resolveMenuByStage(detail.currentStage)
+        const nextSummary = sessions.value.find((item) => item.id === selectedSessionId.value)
+        activeMenu.value = resolveMenuByStage(nextSummary?.currentStage || 'analysis')
+        await resolveSession(selectedSessionId.value, {
+          preserveCurrentView: false,
+          createDefaultOnFailure: true
+        })
         return
       }
 
-      const created = await sessionListStore.createSession('新建生成会话')
-      hydrateSessionDetail(created)
-      activeMenu.value = 'analysis'
+      await ensureActiveSession()
+    }
+
+    async function retryInitialize(): Promise<void> {
+      viewStatus.value = 'bootstrapping'
+      lastErrorMessage.value = null
+      await initialize()
     }
 
     async function saveCurrentStageConfig(partial: Partial<GenerationStageConfig>): Promise<void> {
@@ -445,6 +569,10 @@ export const useOrchestflowGenerationEditorStore = defineStore(
     return {
       sessions,
       selectedSessionId,
+      resolvedSessionId,
+      pendingSessionId,
+      viewStatus,
+      lastErrorMessage,
       activeMenu,
       activeRightPanel,
       isLeftSidebarCollapsed,
@@ -468,6 +596,7 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       dashboardStageCards,
       plannedSessionsCount,
       initialize,
+      retryInitialize,
       bindStreamListener,
       selectSession,
       createSession,

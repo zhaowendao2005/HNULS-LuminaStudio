@@ -16,9 +16,11 @@
         v-for="session in sessions"
         :key="session.id"
         type="button"
+        :disabled="props.pendingSessionId === session.id"
         :class="[
           'group relative flex items-start justify-between border-b border-gray-100 px-6 py-4 text-left transition-colors hover:bg-gray-50/50',
-          selectedSessionId === session.id ? 'bg-cyan-50/40' : ''
+          selectedSessionId === session.id ? 'bg-cyan-50/40' : '',
+          props.pendingSessionId === session.id ? 'cursor-wait opacity-70' : ''
         ]"
         @click="$emit('select-session', session.id)"
       >
@@ -27,6 +29,12 @@
             <span class="text-[13px] font-semibold text-gray-800">{{ session.title }}</span>
             <span class="rounded bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500">
               {{ getStageLabel(session.currentStage) }}
+            </span>
+            <span
+              v-if="props.pendingSessionId === session.id"
+              class="rounded bg-cyan-50 px-2 py-0.5 text-[10px] text-cyan-600"
+            >
+              切换中...
             </span>
           </div>
           <div class="text-xs leading-5 text-gray-500">{{ session.summary }}</div>
@@ -40,7 +48,13 @@
               class="rounded p-1 text-gray-300 opacity-0 transition-all hover:bg-rose-50 hover:text-rose-600 group-hover:opacity-100"
               @click.stop="$emit('delete-session', session.id)"
             >
-              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <svg
+                class="h-4 w-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
                 <path d="M3 6h18" />
                 <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
                 <path d="M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6" />
@@ -66,9 +80,10 @@
 import type { GenerateSessionViewModel } from '@renderer/stores/orchestraflow/generation-editor/generation-editor.types'
 import type { StageKey } from './generate-view.types'
 
-defineProps<{
+const props = defineProps<{
   sessions: GenerateSessionViewModel[]
   selectedSessionId: string
+  pendingSessionId?: string
   stageOrder: StageKey[]
   getStageLabel: (stage: StageKey) => string
   getSessionStageDotClass: (currentStage: StageKey, stage: StageKey) => string

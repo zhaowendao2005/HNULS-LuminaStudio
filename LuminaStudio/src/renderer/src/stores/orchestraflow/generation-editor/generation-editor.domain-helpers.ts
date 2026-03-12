@@ -151,6 +151,25 @@ export function appendOptimisticMessages(params: {
   return { assistantId }
 }
 
+export function markOptimisticAssistantMessageError(params: {
+  detail: GenerateSessionDetailViewModel
+  channelKey: GenerationChannelKey
+  assistantId: string
+  message: string
+  localState: ChannelStreamLocalState
+}): void {
+  const channelMessages = params.detail.messagesByChannel[params.channelKey]
+  const target = channelMessages.find((item) => item.id === params.assistantId)
+
+  if (target) {
+    target.status = 'error'
+    target.error = params.message
+    target.updatedAt = new Date().toISOString()
+  }
+
+  params.localState.activeRequestId = null
+}
+
 export function createStageConfigStore(storeId: string) {
   return defineStore(storeId, () => {
     const configBySessionId = ref<Record<string, GenerationStageConfig>>({})

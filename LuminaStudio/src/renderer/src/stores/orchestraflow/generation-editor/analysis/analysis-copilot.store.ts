@@ -5,7 +5,8 @@ import type { GenerateSessionDetailViewModel } from '../generation-editor.types'
 import {
   appendOptimisticMessages,
   applyStreamEventToChannelMessages,
-  createChannelStreamLocalState
+  createChannelStreamLocalState,
+  markOptimisticAssistantMessageError
 } from '../generation-editor.domain-helpers'
 import { AnalysisCopilotDataSource } from './analysis-copilot.datasource'
 
@@ -35,18 +36,29 @@ export const useGenerationAnalysisCopilotStore = defineStore(
         content,
         config
       })
-      const result = await AnalysisCopilotDataSource.sendMessage({
-        sessionId: detail.id,
-        channelKey: 'analysis-copilot',
-        providerId: config.providerId,
-        modelId: config.modelId,
-        content
-      })
-      const target = detail.messagesByChannel['analysis-copilot'].find(
-        (item) => item.id === assistantId
-      )
-      if (target) target.requestId = result.requestId
-      localState.value.streamMessageIdByRequest[result.requestId] = assistantId
+      try {
+        const result = await AnalysisCopilotDataSource.sendMessage({
+          sessionId: detail.id,
+          channelKey: 'analysis-copilot',
+          providerId: config.providerId,
+          modelId: config.modelId,
+          content
+        })
+        const target = detail.messagesByChannel['analysis-copilot'].find(
+          (item) => item.id === assistantId
+        )
+        if (target) target.requestId = result.requestId
+        localState.value.streamMessageIdByRequest[result.requestId] = assistantId
+      } catch (error) {
+        input.value = content
+        markOptimisticAssistantMessageError({
+          detail,
+          channelKey: 'analysis-copilot',
+          assistantId,
+          message: error instanceof Error ? error.message : '发送失败，请稍后重试。',
+          localState: localState.value
+        })
+      }
     }
 
     function applyStreamEvent(

@@ -5,7 +5,8 @@ import type { GenerateSessionDetailViewModel } from '../generation-editor.types'
 import {
   appendOptimisticMessages,
   applyStreamEventToChannelMessages,
-  createChannelStreamLocalState
+  createChannelStreamLocalState,
+  markOptimisticAssistantMessageError
 } from '../generation-editor.domain-helpers'
 import { AnalysisDiscussionDataSource } from './analysis-discussion.datasource'
 
@@ -36,28 +37,38 @@ export const useGenerationAnalysisDiscussionStore = defineStore(
         content,
         config
       })
+      try {
+        const result = await AnalysisDiscussionDataSource.sendMessage({
+          sessionId: detail.id,
+          channelKey: 'analysis-discussion',
+          providerId: config.providerId,
+          modelId: config.modelId,
+          content
+        })
 
-      const result = await AnalysisDiscussionDataSource.sendMessage({
-        sessionId: detail.id,
-        channelKey: 'analysis-discussion',
-        providerId: config.providerId,
-        modelId: config.modelId,
-        content
-      })
+        const target = detail.messagesByChannel['analysis-discussion'].find(
+          (item) => item.id === assistantId
+        )
+        if (target) {
+          target.requestId = result.requestId
+        }
+        localState.value.streamMessageIdByRequest[result.requestId] = assistantId
 
-      const target = detail.messagesByChannel['analysis-discussion'].find(
-        (item) => item.id === assistantId
-      )
-      if (target) {
-        target.requestId = result.requestId
+        await AnalysisDiscussionDataSource.updateSessionState({
+          sessionId: detail.id,
+          analysisTurnCount: detail.analysisTurnCount + 1,
+          summary: '需求讨论已进入真实对话持久化链路。'
+        })
+      } catch (error) {
+        input.value = content
+        markOptimisticAssistantMessageError({
+          detail,
+          channelKey: 'analysis-discussion',
+          assistantId,
+          message: error instanceof Error ? error.message : '发送失败，请稍后重试。',
+          localState: localState.value
+        })
       }
-      localState.value.streamMessageIdByRequest[result.requestId] = assistantId
-
-      await AnalysisDiscussionDataSource.updateSessionState({
-        sessionId: detail.id,
-        analysisTurnCount: detail.analysisTurnCount + 1,
-        summary: '需求讨论已进入真实对话持久化链路。'
-      })
     }
 
     function applyStreamEvent(

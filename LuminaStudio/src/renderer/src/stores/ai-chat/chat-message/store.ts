@@ -25,7 +25,10 @@
 import { defineStore } from 'pinia'
 import { ref, onScopeDispose } from 'vue'
 import type { AiChatStreamEvent } from '@preload/types'
-import type { UserInteractionRequestPayload } from '@shared/langchain-client.types'
+import type {
+  LangchainClientNodeKind,
+  UserInteractionRequestPayload
+} from '@shared/langchain-client.types'
 import { ChatMessageDataSource } from './datasource'
 import type {
   ChatMessage,
@@ -147,6 +150,20 @@ export const useChatMessageStore = defineStore('chat-message', () => {
    */
   const getStreamContext = (requestId: string): StreamContext | null => {
     return streamContexts.get(requestId) || null
+  }
+
+  /**
+   * 判断一个语义节点是否应该暴露成普通聊天里的可视化 Block。
+   *
+   * 这里要特别拦住 `planning`：
+   * - `initial_planning` = 首轮规划，需要给用户看
+   * - `planning` = 回环/继续规划，是 agent 内部继续推演步骤
+   *
+   * 如果不在这里拦住，NormalChat 会把 continue 轮次也渲染成
+   * retrieval plan message block，导致触发范围超出预期。
+   */
+  const shouldExposeNodeBlock = (nodeKind: LangchainClientNodeKind): boolean => {
+    return nodeKind !== 'planning'
   }
 
   /**
@@ -407,6 +424,7 @@ export const useChatMessageStore = defineStore('chat-message', () => {
       }
 
       case 'node-start': {
+        if (!shouldExposeNodeBlock(event.payload.nodeKind)) break
         const msg = getStreamMessage(event.requestId)
         const ctx = getStreamContext(event.requestId)
         if (!msg) break
@@ -418,6 +436,7 @@ export const useChatMessageStore = defineStore('chat-message', () => {
       }
 
       case 'node-result': {
+        if (!shouldExposeNodeBlock(event.payload.nodeKind)) break
         const msg = getStreamMessage(event.requestId)
         const ctx = getStreamContext(event.requestId)
         if (!msg) break
@@ -441,6 +460,7 @@ export const useChatMessageStore = defineStore('chat-message', () => {
       }
 
       case 'node-error': {
+        if (!shouldExposeNodeBlock(event.payload.nodeKind)) break
         const msg = getStreamMessage(event.requestId)
         const ctx = getStreamContext(event.requestId)
         if (!msg) break

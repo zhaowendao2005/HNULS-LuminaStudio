@@ -21,6 +21,10 @@ export const useGenerationSessionDetailCacheStore = defineStore(
       return mapped
     }
 
+    function setSessionDetail(detail: GenerateSessionDetailViewModel): void {
+      sessionDetails.value[detail.id] = detail
+    }
+
     function removeSessionDetail(sessionId: string): void {
       delete sessionDetails.value[sessionId]
     }
@@ -34,6 +38,7 @@ export const useGenerationSessionDetailCacheStore = defineStore(
       sessionDetails,
       hasSessionDetail,
       refreshSessionDetail,
+      setSessionDetail,
       removeSessionDetail,
       getSessionDetail
     }
