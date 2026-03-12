@@ -1,14 +1,14 @@
 /**
  * Model Config Store 本地类型定义（UI 层）
  *
- * 注意：这些类型仅用于前端 Store 和组件，与 Preload 跨进程类型不同
+ * 注意：这些类型仅用于前端 Store 和组件，与 Preload 跨进程类型不同。
  */
 
-export type ProviderType = 'openai' | 'custom'
-export type ProviderIcon = 'openai' | 'server' | 'box'
+export type ProviderType = 'openai' | 'openai-response' | 'openai-completion' | 'claude' | 'gemini'
+export type ProviderIcon = 'openai' | 'anthropic' | 'google' | 'server' | 'box'
 
 /**
- * UI 层的模型配置
+ * UI 层的模型配置。
  */
 export interface Model {
   id: string
@@ -17,7 +17,7 @@ export interface Model {
 }
 
 /**
- * UI 层的模型提供商配置
+ * UI 层的模型提供商配置。
  */
 export interface ModelProvider {
   id: string
@@ -31,7 +31,7 @@ export interface ModelProvider {
 }
 
 /**
- * 远程模型信息（从 API 返回）
+ * 远程模型信息（从 API 返回）。
  */
 export interface RemoteModel {
   id: string
@@ -41,14 +41,14 @@ export interface RemoteModel {
 }
 
 /**
- * 按分组的远程模型
+ * 按分组的远程模型。
  */
 export interface RemoteModelGroups {
   [groupName: string]: RemoteModel[]
 }
 
 /**
- * 提供商类型选项
+ * 提供商类型选项。
  */
 export interface ProviderTypeOption {
   id: ProviderType
@@ -58,15 +58,16 @@ export interface ProviderTypeOption {
 }
 
 /**
- * 新增提供商表单
+ * Provider 编辑表单。
  */
-export interface NewProviderForm {
+export interface ProviderForm {
+  id: string | null
   type: ProviderType
   name: string
 }
 
 /**
- * 新增模型表单
+ * 新增模型表单。
  */
 export interface NewModelForm {
   id: string

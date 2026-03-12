@@ -1,84 +1,71 @@
 /**
  * Model Config DataSource
  *
- * 数据源适配器：负责 Renderer ↔ Preload API 之间的类型映射和数据转换
+ * 数据源适配器：负责 Renderer ↔ Preload API 之间的类型映射和数据转换。
  */
-import type { ModelProvider, RemoteModelGroups, ProviderIcon } from './types'
 import type { ModelConfig } from '@preload/types'
+import type { ModelProvider, ProviderIcon, ProviderType, RemoteModelGroups } from './types'
 
-/**
- * 根据协议类型推断图标
- */
-function inferIconFromProtocol(protocol: string): ProviderIcon {
-  if (protocol === 'openai') return 'openai'
+function inferIconFromProtocol(protocol: ProviderType): ProviderIcon {
+  if (protocol === 'openai' || protocol === 'openai-response' || protocol === 'openai-completion') {
+    return 'openai'
+  }
+  if (protocol === 'claude') return 'anthropic'
+  if (protocol === 'gemini') return 'google'
   return 'server'
 }
 
-/**
- * 将后端返回的 ModelConfig 映射为前端 ModelProvider 列表
- */
 function mapConfigToProviders(config: ModelConfig | null): ModelProvider[] {
-  if (!config || !config.providers) return []
-  return config.providers.map((p) => ({
-    id: p.id,
-    type: p.protocol,
-    name: p.name,
-    apiKey: p.apiKey,
-    baseUrl: p.baseUrl,
-    icon: inferIconFromProtocol(p.protocol),
-    enabled: p.enabled,
-    models: p.models.map((m) => ({
-      id: m.id,
-      name: m.displayName,
-      group: m.group
+  if (!config?.providers) return []
+  return config.providers.map((provider) => ({
+    id: provider.id,
+    type: provider.protocol,
+    name: provider.name,
+    apiKey: provider.apiKey,
+    baseUrl: provider.baseUrl,
+    icon: inferIconFromProtocol(provider.protocol),
+    enabled: provider.enabled,
+    models: provider.models.map((model) => ({
+      id: model.id,
+      name: model.displayName,
+      group: model.group
     }))
   }))
 }
 
-/**
- * 将前端 ModelProvider 列表映射为后端 ModelConfig patch
- */
 function mapProvidersToConfigPatch(
   providers: ModelProvider[],
   activeProviderId: string | null
 ): Partial<ModelConfig> {
   return {
     activeProviderId: activeProviderId || undefined,
-    providers: providers.map((p) => ({
-      id: p.id,
-      name: p.name,
-      protocol: p.type,
-      enabled: p.enabled,
-      baseUrl: p.baseUrl,
-      apiKey: p.apiKey,
-      models: p.models.map((m) => ({
-        id: m.id,
-        displayName: m.name,
-        group: m.group
+    providers: providers.map((provider) => ({
+      id: provider.id,
+      name: provider.name,
+      protocol: provider.type,
+      enabled: provider.enabled,
+      baseUrl: provider.baseUrl,
+      apiKey: provider.apiKey,
+      models: provider.models.map((model) => ({
+        id: model.id,
+        displayName: model.name,
+        group: model.group
       }))
     }))
   }
 }
 
-/**
- * Model Config 数据源
- */
 export const ModelConfigDataSource = {
-  /**
-   * 获取提供商列表和当前激活的提供商 ID
-   */
   async getProviders(): Promise<{ providers: ModelProvider[]; activeProviderId: string | null }> {
-    const res = await window.api.modelConfig.get()
-    if (!res.success || !res.data) {
-      throw new Error(res.error || 'Failed to load model config')
+    const response = await window.api.modelConfig.get()
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to load model config')
     }
 
-    // 检查是否是默认配置（初始状态）
     const isDefaultConfig =
-      res.data.updatedAt === new Date(0).toISOString() && res.data.providers.length === 0
+      response.data.updatedAt === new Date(0).toISOString() && response.data.providers.length === 0
 
     if (isDefaultConfig) {
-      // 创建空配置
       await window.api.modelConfig.update({
         version: 2,
         activeProviderId: null,
@@ -87,30 +74,24 @@ export const ModelConfigDataSource = {
     }
 
     return {
-      providers: mapConfigToProviders(res.data),
-      activeProviderId: res.data.activeProviderId || null
+      providers: mapConfigToProviders(response.data),
+      activeProviderId: response.data.activeProviderId || null
     }
   },
 
-  /**
-   * 同步远程模型列表
-   */
   async syncRemoteModels(providerId: string): Promise<RemoteModelGroups> {
-    const res = await window.api.modelConfig.syncModels(providerId)
-    if (!res.success || !res.data) {
-      throw new Error(res.error || 'Failed to sync remote models')
+    const response = await window.api.modelConfig.syncModels(providerId)
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to sync remote models')
     }
-    return res.data
+    return response.data
   },
 
-  /**
-   * 保存提供商配置
-   */
   async saveProviders(providers: ModelProvider[], activeProviderId: string | null): Promise<void> {
     const patch = mapProvidersToConfigPatch(providers, activeProviderId)
-    const res = await window.api.modelConfig.update(patch)
-    if (!res.success) {
-      throw new Error(res.error || 'Failed to save model config')
+    const response = await window.api.modelConfig.update(patch)
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to save model config')
     }
   }
 }

@@ -1,18 +1,16 @@
 <template>
   <div
-    class="usersetting-model-config flex h-full w-full bg-[#f9f9f9] text-gray-800 font-sans overflow-hidden"
+    class="usersetting-model-config flex h-full w-full overflow-hidden bg-[#f9f9f9] font-sans text-gray-800"
   >
-    <!-- 左侧边栏 -->
     <div
-      class="w-72 flex-shrink-0 bg-white border-r border-gray-200 flex flex-col z-20 shadow-[2px_0_15px_rgba(0,0,0,0.03)]"
+      class="z-20 flex w-72 flex-shrink-0 flex-col border-r border-gray-200 bg-white shadow-[2px_0_15px_rgba(0,0,0,0.03)]"
     >
-      <div class="h-16 flex items-center px-5 border-b border-gray-100">
+      <div class="flex h-16 items-center border-b border-gray-100 px-5">
         <div
-          class="w-8 h-8 bg-black rounded-lg flex items-center justify-center text-white mr-3 shadow-md shadow-gray-200"
+          class="mr-3 flex h-8 w-8 items-center justify-center rounded-lg bg-black text-white shadow-md shadow-gray-200"
         >
-          <!-- Cpu Icon -->
           <svg
-            class="w-[18px] h-[18px]"
+            class="h-[18px] w-[18px]"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -30,37 +28,37 @@
             <line x1="1" y1="14" x2="4" y2="14"></line>
           </svg>
         </div>
-        <span class="font-bold text-lg tracking-tight text-gray-900">模型管理</span>
+        <span class="text-lg font-bold tracking-tight text-gray-900">模型管理</span>
       </div>
 
-      <div class="flex-1 overflow-y-auto px-3 py-3 space-y-1">
-        <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-3 py-2 mb-1">
+      <div class="flex-1 space-y-1 overflow-y-auto px-3 py-3">
+        <div class="mb-1 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-gray-400">
           模型服务商
         </div>
         <div
           v-for="provider in providers"
           :key="provider.id"
-          class="group relative flex items-center justify-between px-3 py-3 rounded-xl cursor-pointer transition-all duration-200 border"
+          class="group relative flex cursor-pointer items-center justify-between rounded-xl border px-3 py-3 transition-all duration-200"
           :class="
             selectedProviderId === provider.id
-              ? 'bg-blue-50/80 border-blue-200 text-blue-700 shadow-sm'
-              : 'bg-white border-transparent hover:bg-gray-100 hover:border-gray-200 text-gray-700'
+              ? 'border-blue-200 bg-blue-50/80 text-blue-700 shadow-sm'
+              : 'border-transparent bg-white text-gray-700 hover:border-gray-200 hover:bg-gray-100'
           "
           @click="selectProvider(provider.id)"
+          @contextmenu.prevent="openEditProvider(provider.id)"
         >
           <div class="flex items-center gap-3 overflow-hidden">
             <div
-              class="flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center border transition-colors"
+              class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border transition-colors"
               :class="
                 selectedProviderId === provider.id
-                  ? 'bg-white border-blue-100 text-blue-600'
-                  : 'bg-gray-50 border-gray-100 text-gray-500'
+                  ? 'border-blue-100 bg-white text-blue-600'
+                  : 'border-gray-100 bg-gray-50 text-gray-500'
               "
             >
-              <!-- Zap Icon for openai -->
               <svg
                 v-if="provider.icon === 'openai'"
-                class="w-5 h-5"
+                class="h-5 w-5"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -68,10 +66,37 @@
               >
                 <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path>
               </svg>
-              <!-- Server Icon for server -->
               <svg
-                v-else-if="provider.icon === 'server'"
-                class="w-5 h-5"
+                v-else-if="provider.icon === 'anthropic'"
+                class="h-5 w-5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M12 3 4 21h3l1.7-4h6.6l1.7 4h3L12 3Z"></path>
+                <path d="M10 13h4"></path>
+              </svg>
+              <svg
+                v-else-if="provider.icon === 'google'"
+                class="h-5 w-5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M12 3v6"></path>
+                <path d="M12 15v6"></path>
+                <path d="m5.64 5.64 4.24 4.24"></path>
+                <path d="m14.12 14.12 4.24 4.24"></path>
+                <path d="M3 12h6"></path>
+                <path d="M15 12h6"></path>
+                <path d="m5.64 18.36 4.24-4.24"></path>
+                <path d="m14.12 9.88 4.24-4.24"></path>
+              </svg>
+              <svg
+                v-else
+                class="h-5 w-5"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -82,57 +107,49 @@
                 <line x1="6" y1="6" x2="6.01" y2="6"></line>
                 <line x1="6" y1="18" x2="6.01" y2="18"></line>
               </svg>
-              <!-- Box Icon for default -->
+            </div>
+            <div class="flex min-w-0 flex-col">
+              <span
+                class="truncate text-sm font-semibold"
+                :class="selectedProviderId === provider.id ? 'text-blue-900' : 'text-gray-700'"
+              >
+                {{ provider.name }}
+              </span>
+              <span class="mt-0.5 flex items-center gap-1.5 truncate text-[10px] text-gray-400">
+                <span
+                  class="h-1.5 w-1.5 rounded-full"
+                  :class="provider.enabled ? 'bg-green-500' : 'bg-gray-300'"
+                ></span>
+                {{ providerTypeLabelMap[provider.type] }}
+              </span>
+            </div>
+          </div>
+          <div class="flex items-center gap-1">
+            <button
+              type="button"
+              class="rounded-md p-1.5 text-gray-400 opacity-0 transition-opacity hover:bg-blue-50 hover:text-blue-500 group-hover:opacity-100"
+              title="编辑提供商"
+              @click.stop="openEditProvider(provider.id)"
+            >
               <svg
-                v-else
-                class="w-5 h-5"
+                class="h-[14px] w-[14px]"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
                 stroke-width="2"
               >
-                <path
-                  d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"
-                ></path>
-                <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-                <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                <path d="M12 20h9"></path>
+                <path d="m16.5 3.5 4 4L7 21l-4 1 1-4 12.5-14.5Z"></path>
               </svg>
-            </div>
-            <div class="flex flex-col min-w-0">
-              <span
-                class="font-semibold text-sm truncate"
-                :class="selectedProviderId === provider.id ? 'text-blue-900' : 'text-gray-700'"
-              >
-                {{ provider.name }}
-              </span>
-              <span class="text-[10px] text-gray-400 truncate flex items-center gap-1.5 mt-0.5">
-                <span
-                  class="w-1.5 h-1.5 rounded-full"
-                  :class="provider.enabled ? 'bg-green-500' : 'bg-gray-300'"
-                ></span>
-                {{ provider.type === 'openai' ? 'OpenAI Protocol' : 'Custom' }}
-              </span>
-            </div>
-          </div>
-          <div class="flex items-center">
-            <svg
-              v-if="selectedProviderId === provider.id"
-              class="w-[14px] h-[14px] text-blue-400 opacity-80"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <polyline points="9 18 15 12 9 6"></polyline>
-            </svg>
+            </button>
             <button
-              v-else
-              class="p-1.5 rounded-md text-gray-400 hover:bg-red-50 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+              type="button"
+              class="rounded-md p-1.5 text-gray-400 opacity-0 transition-opacity hover:bg-red-50 hover:text-red-500 group-hover:opacity-100"
+              title="删除提供商"
               @click.stop="handleDeleteProvider(provider.id)"
             >
-              <!-- Trash2 Icon -->
               <svg
-                class="w-[14px] h-[14px]"
+                class="h-[14px] w-[14px]"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -148,14 +165,13 @@
         </div>
       </div>
 
-      <div class="p-4 border-t border-gray-100 bg-gray-50/30 backdrop-blur-sm">
+      <div class="border-t border-gray-100 bg-gray-50/30 p-4 backdrop-blur-sm">
         <button
-          class="w-full flex items-center justify-center gap-2 bg-white border border-gray-200 hover:border-blue-300 hover:text-blue-600 hover:shadow-md text-gray-600 font-medium py-3 rounded-xl transition-all duration-200 shadow-sm"
-          @click="isAddProviderModalOpen = true"
+          class="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white py-3 font-medium text-gray-600 shadow-sm transition-all duration-200 hover:border-blue-300 hover:text-blue-600 hover:shadow-md"
+          @click="store.openCreateProviderModal()"
         >
-          <!-- Plus Icon -->
           <svg
-            class="w-4 h-4"
+            class="h-4 w-4"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -169,19 +185,17 @@
       </div>
     </div>
 
-    <!-- 右侧主区域 -->
-    <div class="flex-1 flex flex-col h-full overflow-hidden bg-[#fafafa]">
-      <!-- Header -->
+    <div class="flex h-full flex-1 flex-col overflow-hidden bg-[#fafafa]">
       <div
         v-if="selectedProvider"
-        class="h-16 bg-white/80 backdrop-blur-md border-b border-gray-200 px-8 flex items-center justify-between sticky top-0 z-10"
+        class="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-gray-200 bg-white/80 px-8 backdrop-blur-md"
       >
         <div class="flex items-center gap-4">
           <div class="flex flex-col">
-            <h1 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+            <h1 class="flex items-center gap-2 text-xl font-bold text-gray-800">
               {{ selectedProvider.name }}
               <span
-                class="px-2 py-0.5 bg-gray-100 text-gray-500 text-[10px] font-mono rounded border border-gray-200 tracking-wide uppercase"
+                class="rounded border border-gray-200 bg-gray-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-gray-500"
               >
                 {{ selectedProvider.type }}
               </span>
@@ -190,41 +204,35 @@
         </div>
       </div>
 
-      <!-- 内容滚动区 -->
       <div class="flex-1 overflow-y-auto p-8">
-        <!-- 骨架屏：没有提供商时显示 -->
         <div
           v-if="!selectedProvider && providers.length === 0"
-          class="max-w-4xl mx-auto space-y-8 pb-20"
+          class="mx-auto max-w-4xl space-y-8 pb-20"
         >
-          >
-          <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden p-8">
+          <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
             <div class="animate-pulse space-y-6">
-              <div class="h-4 bg-gray-200 rounded w-1/4"></div>
+              <div class="h-4 w-1/4 rounded bg-gray-200"></div>
               <div class="space-y-4">
-                <div class="h-3 bg-gray-200 rounded w-1/6"></div>
-                <div class="h-10 bg-gray-100 rounded"></div>
+                <div class="h-3 w-1/6 rounded bg-gray-200"></div>
+                <div class="h-10 rounded bg-gray-100"></div>
               </div>
               <div class="space-y-4">
-                <div class="h-3 bg-gray-200 rounded w-1/6"></div>
-                <div class="h-10 bg-gray-100 rounded"></div>
+                <div class="h-3 w-1/6 rounded bg-gray-200"></div>
+                <div class="h-10 rounded bg-gray-100"></div>
               </div>
             </div>
-            <div class="mt-8 pt-8 border-t border-gray-100 text-center">
+            <div class="mt-8 border-t border-gray-100 pt-8 text-center">
               <p class="text-sm text-gray-500">请先添加模型服务商</p>
             </div>
           </div>
         </div>
 
-        <!-- 正常内容：有提供商时显示 -->
-        <div v-else class="max-w-4xl mx-auto space-y-8 pb-20">
-          <!-- Settings Card -->
+        <div v-else class="mx-auto max-w-4xl space-y-8 pb-20">
           <section class="space-y-4">
-            <div class="flex items-center gap-2 mb-2">
-              <div class="p-1.5 bg-blue-100 text-blue-600 rounded-lg">
-                <!-- Settings Icon -->
+            <div class="mb-2 flex items-center gap-2">
+              <div class="rounded-lg bg-blue-100 p-1.5 text-blue-600">
                 <svg
-                  class="w-[18px] h-[18px]"
+                  class="h-[18px] w-[18px]"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -239,44 +247,43 @@
               <h2 class="text-lg font-bold text-gray-900">服务配置</h2>
             </div>
             <div
-              class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden p-6 grid grid-cols-1 gap-6"
+              class="grid grid-cols-1 gap-6 overflow-hidden rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
             >
               <div>
-                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
+                <label class="mb-2 block text-xs font-bold uppercase tracking-wide text-gray-500">
                   API Key
                 </label>
                 <input
                   v-model="apiKeyDraft"
                   type="password"
-                  class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-mono"
+                  class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 font-mono text-sm text-gray-800 transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
                   placeholder="sk-..."
                   @blur="handleApiKeyBlur"
                 />
               </div>
               <div>
-                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
+                <label class="mb-2 block text-xs font-bold uppercase tracking-wide text-gray-500">
                   API Host URL
                 </label>
                 <input
                   v-model="baseUrlDraft"
                   type="text"
-                  class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-mono"
-                  placeholder="https://api.openai.com"
+                  class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 font-mono text-sm text-gray-800 transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                  :placeholder="baseUrlPlaceholder"
                   @blur="handleBaseUrlBlur"
                 />
-                <!-- 端点信息提示 -->
                 <div class="mt-2 space-y-1">
-                  <p class="text-[10px] text-gray-400 font-mono">
+                  <p class="font-mono text-[10px] text-gray-400">
                     <span class="text-gray-500">端点：</span>
                     <span v-if="baseUrlDraft">{{ computedModelsEndpoint }}</span>
                     <span v-else class="text-gray-300">请输入 API Host URL</span>
                   </p>
-                  <p class="text-[10px] text-gray-400 font-mono">
+                  <p class="font-mono text-[10px] text-gray-400">
                     <span class="text-gray-500">Chat：</span>
                     <span v-if="baseUrlDraft">{{ computedChatEndpoint }}</span>
                     <span v-else class="text-gray-300">请输入 API Host URL</span>
                   </p>
-                  <p class="text-[10px] text-gray-400 font-mono">
+                  <p class="font-mono text-[10px] text-gray-400">
                     <span class="text-gray-500">Completion：</span>
                     <span v-if="baseUrlDraft">{{ computedCompletionEndpoint }}</span>
                     <span v-else class="text-gray-300">请输入 API Host URL</span>
@@ -286,14 +293,12 @@
             </div>
           </section>
 
-          <!-- Models Card -->
           <section class="space-y-4">
-            <div class="flex items-center justify-between mb-2">
+            <div class="mb-2 flex items-center justify-between">
               <div class="flex items-center gap-2">
-                <div class="p-1.5 bg-purple-100 text-purple-600 rounded-lg">
-                  <!-- Box Icon -->
+                <div class="rounded-lg bg-purple-100 p-1.5 text-purple-600">
                   <svg
-                    class="w-[18px] h-[18px]"
+                    class="h-[18px] w-[18px]"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
@@ -308,19 +313,18 @@
                 </div>
                 <h2 class="text-lg font-bold text-gray-900">模型列表</h2>
                 <span
-                  class="px-2 py-0.5 bg-gray-200 text-gray-600 text-xs rounded-full font-medium"
+                  class="rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-600"
                 >
                   {{ selectedProvider?.models.length || 0 }}
                 </span>
               </div>
               <div class="flex gap-2">
                 <button
-                  class="text-xs font-medium bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-2 rounded-lg transition-all flex items-center gap-2 shadow-sm"
+                  class="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 shadow-sm transition-all hover:border-gray-300 hover:bg-gray-50"
                   @click="handleOpenManageModels"
                 >
-                  <!-- ListFilter Icon -->
                   <svg
-                    class="w-[14px] h-[14px]"
+                    class="h-[14px] w-[14px]"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
@@ -331,12 +335,11 @@
                   管理模型
                 </button>
                 <button
-                  class="text-xs font-medium bg-black text-white px-3 py-2 rounded-lg hover:bg-gray-800 transition-all flex items-center gap-1.5 shadow-sm"
-                  @click="isAddModelModalOpen = true"
+                  class="flex items-center gap-1.5 rounded-lg bg-black px-3 py-2 text-xs font-medium text-white shadow-sm transition-all hover:bg-gray-800"
+                  @click="store.isAddModelModalOpen = true"
                 >
-                  <!-- Plus Icon -->
                   <svg
-                    class="w-[14px] h-[14px]"
+                    class="h-[14px] w-[14px]"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
@@ -351,48 +354,44 @@
             </div>
 
             <div
-              class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden min-h-[120px]"
+              class="min-h-[120px] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm"
             >
-              <!-- 按分组显示模型列表 -->
               <div v-if="groupedModels.length > 0" class="divide-y divide-gray-100">
                 <div v-for="[groupName, models] in groupedModels" :key="groupName" class="p-4">
-                  <!-- 分组标题 -->
-                  <div class="flex items-center justify-between mb-3">
+                  <div class="mb-3 flex items-center justify-between">
                     <div class="flex items-center gap-2">
-                      <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                      <span class="text-xs font-bold uppercase tracking-wider text-gray-500">
                         {{ groupName || '未分组' }}
                       </span>
-                      <span class="text-[10px] bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded-md">
+                      <span class="rounded-md bg-gray-200 px-1.5 py-0.5 text-[10px] text-gray-600">
                         {{ models.length }}
                       </span>
                     </div>
                   </div>
-                  <!-- 模型列表 -->
                   <div class="space-y-2">
                     <div
                       v-for="model in models"
                       :key="model.id"
-                      class="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors group"
+                      class="group flex items-center justify-between rounded-lg px-3 py-2 transition-colors hover:bg-gray-50"
                     >
-                      <div class="flex items-center gap-3 flex-1 min-w-0">
+                      <div class="flex min-w-0 flex-1 items-center gap-3">
                         <span
-                          class="font-mono text-xs text-gray-600 px-2 py-1 bg-gray-100 rounded border border-gray-200 truncate"
+                          class="truncate rounded border border-gray-200 bg-gray-100 px-2 py-1 font-mono text-xs text-gray-600"
                         >
                           {{ model.id }}
                         </span>
-                        <span class="text-sm text-gray-800 font-medium truncate">
+                        <span class="truncate text-sm font-medium text-gray-800">
                           {{ model.name }}
                         </span>
                       </div>
-                      <div class="flex items-center gap-2 flex-shrink-0">
+                      <div class="flex flex-shrink-0 items-center gap-2">
                         <button
-                          class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors opacity-0 group-hover:opacity-100"
+                          class="rounded-md p-1.5 text-gray-400 opacity-0 transition-colors hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
                           title="删除模型"
                           @click="removeModel(model.id)"
                         >
-                          <!-- Minus Icon -->
                           <svg
-                            class="w-4 h-4"
+                            class="h-4 w-4"
                             viewBox="0 0 24 24"
                             fill="none"
                             stroke="currentColor"
@@ -408,7 +407,7 @@
               </div>
               <div v-else class="flex flex-col items-center justify-center py-12 text-gray-400">
                 <p class="text-sm">暂无模型</p>
-                <p class="text-xs mt-1 opacity-60">点击"管理模型"从 API 获取列表，或手动添加</p>
+                <p class="mt-1 text-xs opacity-60">点击“管理模型”从 API 获取列表，或手动添加</p>
               </div>
             </div>
           </section>
@@ -416,24 +415,21 @@
       </div>
     </div>
 
-    <!-- 弹窗 1：管理模型 -->
     <div
-      v-if="isManageModelsModalOpen"
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm"
-      @click="isManageModelsModalOpen = false"
+      v-if="store.isManageModelsModalOpen"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4 backdrop-blur-sm"
+      @click="store.isManageModelsModalOpen = false"
     >
       <div
-        class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh] border border-gray-200"
+        class="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
         @click.stop
       >
-        <!-- Header -->
-        <div class="px-6 py-5 border-b border-gray-100 bg-white space-y-4">
+        <div class="space-y-4 border-b border-gray-100 bg-white px-6 py-5">
           <div class="flex items-center justify-between">
             <div class="flex flex-col">
-              <h2 class="text-lg font-bold text-gray-800 flex items-center gap-2">
-                <!-- ListFilter Icon -->
+              <h2 class="flex items-center gap-2 text-lg font-bold text-gray-800">
                 <svg
-                  class="w-[18px] h-[18px] text-blue-600"
+                  class="h-[18px] w-[18px] text-blue-600"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -443,15 +439,14 @@
                 </svg>
                 管理模型列表
               </h2>
-              <p class="text-xs text-gray-500 mt-0.5">从 API 获取模型，点击 + 按钮添加模型或整组</p>
+              <p class="mt-0.5 text-xs text-gray-500">从 API 获取模型，点击 + 按钮添加模型或整组</p>
             </div>
             <button
-              class="text-gray-400 hover:text-gray-600 bg-gray-50 hover:bg-gray-100 rounded-full p-2 transition-colors"
-              @click="isManageModelsModalOpen = false"
+              class="rounded-full bg-gray-50 p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+              @click="store.isManageModelsModalOpen = false"
             >
-              <!-- X Icon -->
               <svg
-                class="w-5 h-5"
+                class="h-5 w-5"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -463,12 +458,10 @@
             </button>
           </div>
 
-          <!-- Search Bar -->
           <div class="relative">
-            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <!-- Search Icon -->
+            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
               <svg
-                class="w-4 h-4 text-gray-400"
+                class="h-4 w-4 text-gray-400"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -482,16 +475,15 @@
               v-model="modelSearchQuery"
               type="text"
               placeholder="搜索模型 ID 或分组名称..."
-              class="w-full pl-10 pr-10 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+              class="w-full rounded-xl border border-gray-200 bg-gray-50 py-2.5 pl-10 pr-10 text-sm text-gray-800 transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
             />
             <button
               v-if="modelSearchQuery"
-              class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
+              class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 transition-colors hover:text-gray-600"
               @click="clearSearch"
             >
-              <!-- X Icon -->
               <svg
-                class="w-4 h-4"
+                class="h-4 w-4"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -503,33 +495,30 @@
             </button>
           </div>
 
-          <!-- Search Stats -->
           <div v-if="modelSearchQuery" class="flex items-center justify-between text-xs">
             <span class="text-gray-500">
               找到
               <span class="font-semibold text-blue-600">{{ filteredModelCount }}</span>
               个模型
               <span v-if="filteredGroupCount < totalGroupCount">
-                在
+                ，分布在
                 <span class="font-semibold text-blue-600">{{ filteredGroupCount }}</span>
-                个分组中
+                个分组
               </span>
             </span>
-            <button class="text-blue-600 hover:text-blue-700 font-medium" @click="clearSearch">
+            <button class="font-medium text-blue-600 hover:text-blue-700" @click="clearSearch">
               清除搜索
             </button>
           </div>
         </div>
 
-        <!-- Body -->
         <div class="flex-1 overflow-y-auto bg-gray-50/50 p-6">
           <div
-            v-if="isLoadingModels"
-            class="flex flex-col items-center justify-center h-64 space-y-4"
+            v-if="store.isLoadingModels"
+            class="flex h-64 flex-col items-center justify-center space-y-4"
           >
-            <!-- RefreshCw Icon (spinning) -->
             <svg
-              class="w-8 h-8 animate-spin text-blue-500"
+              class="h-8 w-8 animate-spin text-blue-500"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -539,16 +528,15 @@
               <polyline points="1 20 1 14 7 14"></polyline>
               <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
             </svg>
-            <p class="text-sm text-gray-500 font-medium">正在连接 API 获取模型列表...</p>
+            <p class="text-sm font-medium text-gray-500">正在连接 API 获取模型列表...</p>
           </div>
           <div v-else class="space-y-6">
-            <!-- No Results Message -->
             <div
               v-if="modelSearchQuery && filteredModelGroups.length === 0"
               class="flex flex-col items-center justify-center py-16 text-gray-400"
             >
               <svg
-                class="w-16 h-16 mb-4 text-gray-300"
+                class="mb-4 h-16 w-16 text-gray-300"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -558,33 +546,32 @@
                 <path d="m21 21-4.35-4.35"></path>
               </svg>
               <p class="text-sm font-medium text-gray-500">未找到匹配的模型</p>
-              <p class="text-xs text-gray-400 mt-1">尝试使用其他关键词搜索</p>
+              <p class="mt-1 text-xs text-gray-400">尝试使用其他关键词搜索</p>
             </div>
 
             <div
               v-for="[groupName, models] in filteredModelGroups"
               :key="groupName"
-              class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden"
+              class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
             >
               <div
-                class="px-4 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between"
+                class="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-4 py-2"
               >
                 <div class="flex items-center gap-2">
-                  <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                  <span class="text-xs font-bold uppercase tracking-wider text-gray-500">
                     {{ groupName }}
                   </span>
-                  <span class="text-[10px] bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded-md">
+                  <span class="rounded-md bg-gray-200 px-1.5 py-0.5 text-[10px] text-gray-600">
                     {{ models.length }}
                   </span>
                 </div>
-                <!-- 批量添加/取消订阅整组按钮 -->
                 <button
                   v-if="isGroupFullyAdded(groupName, models)"
-                  class="flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors"
+                  class="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 hover:text-red-700"
                   @click="handleRemoveGroupModels(groupName, models)"
                 >
                   <svg
-                    class="w-3.5 h-3.5"
+                    class="h-3.5 w-3.5"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
@@ -596,11 +583,11 @@
                 </button>
                 <button
                   v-else
-                  class="flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-md transition-colors"
+                  class="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-700"
                   @click="handleAddGroupModels(groupName, models)"
                 >
                   <svg
-                    class="w-3.5 h-3.5"
+                    class="h-3.5 w-3.5"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
@@ -616,34 +603,31 @@
                 <div
                   v-for="model in models"
                   :key="model.id"
-                  class="relative flex items-center justify-between px-4 py-3 transition-colors group border rounded-lg"
+                  class="group relative flex items-center justify-between rounded-lg border px-4 py-3 transition-colors"
                   :class="
                     isModelAdded(model.id)
-                      ? 'bg-blue-50/70 border-blue-200 shadow-sm'
+                      ? 'border-blue-200 bg-blue-50/70 shadow-sm'
                       : 'border-transparent hover:bg-gray-50'
                   "
                 >
                   <span
                     v-if="isModelAdded(model.id)"
-                    class="absolute left-0 top-0 h-full w-1 bg-blue-400/80 rounded-r-full"
+                    class="absolute left-0 top-0 h-full w-1 rounded-r-full bg-blue-400/80"
                   ></span>
-                  <div class="flex flex-col flex-1 min-w-0">
-                    <span class="text-sm font-medium text-gray-900 truncate">
-                      {{ model.id }}
-                    </span>
+                  <div class="flex min-w-0 flex-1 flex-col">
+                    <span class="truncate text-sm font-medium text-gray-900">{{ model.id }}</span>
                     <span class="text-[10px] text-gray-400">
                       Created: {{ new Date(model.created * 1000).toLocaleDateString() }}
                     </span>
                   </div>
-                  <!-- 添加/取消订阅单个模型按钮（双态） -->
                   <button
                     v-if="isModelAdded(model.id)"
-                    class="flex-shrink-0 ml-3 p-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors"
+                    class="ml-3 flex-shrink-0 rounded-md p-1.5 text-red-600 transition-colors hover:bg-red-50 hover:text-red-700"
                     title="取消订阅"
                     @click="handleRemoveSingleModel(model.id)"
                   >
                     <svg
-                      class="w-4 h-4"
+                      class="h-4 w-4"
                       viewBox="0 0 24 24"
                       fill="none"
                       stroke="currentColor"
@@ -654,12 +638,12 @@
                   </button>
                   <button
                     v-else
-                    class="flex-shrink-0 ml-3 p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors opacity-0 group-hover:opacity-100"
+                    class="ml-3 flex-shrink-0 rounded-md p-1.5 text-gray-400 opacity-0 transition-colors hover:bg-blue-50 hover:text-blue-600 group-hover:opacity-100"
                     title="添加模型"
                     @click="handleAddSingleModel(model)"
                   >
                     <svg
-                      class="w-4 h-4"
+                      class="h-4 w-4"
                       viewBox="0 0 24 24"
                       fill="none"
                       stroke="currentColor"
@@ -675,20 +659,19 @@
 
             <div
               v-if="!modelSearchQuery && Object.keys(remoteModelGroups).length === 0"
-              class="text-center py-10 text-gray-400"
+              class="py-10 text-center text-gray-400"
             >
               未能获取到模型数据
             </div>
           </div>
         </div>
 
-        <!-- Footer -->
         <div
-          class="px-6 py-4 bg-white border-t border-gray-100 flex justify-between items-center z-10"
+          class="z-10 flex items-center justify-between border-t border-gray-100 bg-white px-6 py-4"
         >
           <button
-            class="px-5 py-2 text-sm font-medium text-white bg-black hover:bg-gray-800 rounded-lg shadow-lg transition-all"
-            @click="isManageModelsModalOpen = false"
+            class="rounded-lg bg-black px-5 py-2 text-sm font-medium text-white shadow-lg transition-all hover:bg-gray-800"
+            @click="store.isManageModelsModalOpen = false"
           >
             关闭
           </button>
@@ -696,57 +679,56 @@
       </div>
     </div>
 
-    <!-- 弹窗 2：手动添加模型 -->
     <div
-      v-if="isAddModelModalOpen"
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/20 backdrop-blur-[1px]"
-      @click="isAddModelModalOpen = false"
+      v-if="store.isAddModelModalOpen"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/20 p-4 backdrop-blur-[1px]"
+      @click="store.isAddModelModalOpen = false"
     >
       <div
-        class="bg-white rounded-2xl shadow-xl w-full max-w-sm border border-gray-100 p-6"
+        class="w-full max-w-sm rounded-2xl border border-gray-100 bg-white p-6 shadow-xl"
         @click.stop
       >
-        <h3 class="text-lg font-bold text-gray-900 mb-4">手动添加模型</h3>
+        <h3 class="mb-4 text-lg font-bold text-gray-900">手动添加模型</h3>
         <div class="space-y-4">
           <div>
-            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">模型 ID</label>
+            <label class="mb-1 block text-xs font-bold uppercase text-gray-500">模型 ID</label>
             <input
-              v-model="newModelForm.id"
+              v-model="store.newModelForm.id"
               type="text"
-              class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+              class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
               placeholder="e.g. gpt-4-32k"
             />
           </div>
           <div>
-            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">显示名称</label>
+            <label class="mb-1 block text-xs font-bold uppercase text-gray-500">显示名称</label>
             <input
-              v-model="newModelForm.name"
+              v-model="store.newModelForm.name"
               type="text"
-              class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+              class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
               placeholder="e.g. GPT-4 32K"
             />
           </div>
           <div>
-            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">分组</label>
+            <label class="mb-1 block text-xs font-bold uppercase text-gray-500">分组</label>
             <input
-              v-model="newModelForm.group"
+              v-model="store.newModelForm.group"
               type="text"
-              class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-              placeholder="e.g. deepseek, gemini 2.5, gpt-4 系列"
+              class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+              placeholder="e.g. gemini-2.5"
             />
             <p class="mt-1 text-xs text-gray-400">用于聚合 API 提供商的模型分组管理，可为空</p>
           </div>
         </div>
-        <div class="flex justify-end gap-2 mt-6">
+        <div class="mt-6 flex justify-end gap-2">
           <button
-            class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
-            @click="isAddModelModalOpen = false"
+            class="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100"
+            @click="store.isAddModelModalOpen = false"
           >
             取消
           </button>
           <button
-            class="px-4 py-2 text-sm text-white bg-black hover:bg-gray-800 rounded-lg"
-            @click="handleManualAddModel()"
+            class="rounded-lg bg-black px-4 py-2 text-sm text-white hover:bg-gray-800"
+            @click="handleManualAddModel"
           >
             添加
           </button>
@@ -754,25 +736,25 @@
       </div>
     </div>
 
-    <!-- 弹窗 3：添加提供商 -->
     <div
-      v-if="isAddProviderModalOpen"
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/20 backdrop-blur-[2px]"
-      @click="isAddProviderModalOpen = false"
+      v-if="store.isProviderModalOpen"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/20 p-4 backdrop-blur-[2px]"
+      @click="store.closeProviderModal()"
     >
       <div
-        class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden border border-gray-100"
+        class="w-full max-w-md overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xl"
         @click.stop
       >
-        <div class="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
-          <h2 class="text-lg font-bold text-gray-800">添加模型服务</h2>
+        <div class="flex items-center justify-between border-b border-gray-100 px-6 py-5">
+          <h2 class="text-lg font-bold text-gray-800">
+            {{ store.isEditingProvider ? '编辑模型服务' : '添加模型服务' }}
+          </h2>
           <button
-            class="text-gray-400 hover:text-gray-600 bg-gray-50 hover:bg-gray-100 rounded-full p-1.5 transition-colors"
-            @click="isAddProviderModalOpen = false"
+            class="rounded-full bg-gray-50 p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+            @click="store.closeProviderModal()"
           >
-            <!-- X Icon -->
             <svg
-              class="w-[18px] h-[18px]"
+              class="h-[18px] w-[18px]"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -783,64 +765,59 @@
             </svg>
           </button>
         </div>
-        <div class="p-6 space-y-4">
+        <div class="space-y-4 p-6">
           <div>
-            <label class="block text-xs font-bold text-gray-500 mb-1.5 uppercase">类型</label>
+            <label class="mb-1.5 block text-xs font-bold uppercase text-gray-500">类型</label>
             <div class="space-y-2">
               <label
-                v-for="type in PROVIDER_TYPES"
+                v-for="type in providerTypeOptions"
                 :key="type.id"
-                class="flex items-center justify-between px-4 py-3 rounded-xl border cursor-pointer transition-all"
+                class="flex cursor-pointer items-start justify-between rounded-xl border px-4 py-3 transition-all"
                 :class="
-                  !type.available
-                    ? 'bg-gray-50 border-gray-100 opacity-60 cursor-not-allowed'
-                    : newProviderForm.type === type.id
-                      ? 'bg-blue-50 border-blue-200 ring-1 ring-blue-100'
-                      : 'bg-white border-gray-200 hover:border-gray-300'
+                  store.providerForm.type === type.id
+                    ? 'border-blue-200 bg-blue-50 ring-1 ring-blue-100'
+                    : 'border-gray-200 bg-white hover:border-gray-300'
                 "
               >
-                <div class="flex items-center gap-3">
+                <div class="flex items-start gap-3">
                   <input
                     type="radio"
                     name="providerType"
                     :value="type.id"
-                    :checked="newProviderForm.type === type.id"
-                    :disabled="!type.available"
-                    class="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                    @change="newProviderForm.type = type.id"
+                    :checked="store.providerForm.type === type.id"
+                    class="mt-0.5 h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-500"
+                    @change="store.providerForm.type = type.id"
                   />
-                  <span
-                    :class="!type.available ? 'text-gray-400' : 'text-gray-700'"
-                    class="text-sm font-medium"
-                  >
-                    {{ type.name }}
-                  </span>
+                  <div>
+                    <div class="text-sm font-medium text-gray-700">{{ type.name }}</div>
+                    <div class="mt-0.5 text-xs text-gray-400">{{ type.description }}</div>
+                  </div>
                 </div>
               </label>
             </div>
           </div>
           <div>
-            <label class="block text-xs font-bold text-gray-500 mb-1.5 uppercase">名称</label>
+            <label class="mb-1.5 block text-xs font-bold uppercase text-gray-500">名称</label>
             <input
-              v-model="newProviderForm.name"
+              v-model="store.providerForm.name"
               type="text"
-              placeholder="例如：My Workspace"
-              class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+              placeholder="例如：Claude Team / Gemini Dev / OpenAI Responses"
+              class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
             />
           </div>
         </div>
-        <div class="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-2">
+        <div class="flex justify-end gap-2 border-t border-gray-100 bg-gray-50 px-6 py-4">
           <button
-            class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-200 rounded-lg transition-colors"
-            @click="isAddProviderModalOpen = false"
+            class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-200"
+            @click="store.closeProviderModal()"
           >
             取消
           </button>
           <button
-            class="px-6 py-2 text-sm font-medium text-white bg-black hover:bg-gray-800 rounded-lg shadow-sm transition-all"
-            @click="handleAddProvider()"
+            class="rounded-lg bg-black px-6 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-gray-800"
+            @click="store.submitProviderForm()"
           >
-            添加
+            {{ store.isEditingProvider ? '保存' : '添加' }}
           </button>
         </div>
       </div>
@@ -850,92 +827,90 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { useModelConfigStore } from '@renderer/stores/model-config/store'
-import type { Model } from '@renderer/stores/model-config/types'
 import { storeToRefs } from 'pinia'
+import { useModelConfigStore } from '@renderer/stores/model-config/store'
+import type { Model, ProviderTypeOption } from '@renderer/stores/model-config/types'
 
 defineEmits<{
   (e: 'back'): void
 }>()
 
-// 使用 Store
 const store = useModelConfigStore()
-const {
-  providers,
-  selectedProviderId,
-  selectedProvider,
-  isAddProviderModalOpen,
-  isAddModelModalOpen,
-  isManageModelsModalOpen,
-  isLoadingModels,
-  remoteModelGroups,
-  newProviderForm,
-  newModelForm
-} = storeToRefs(store)
+const { providers, selectedProviderId, selectedProvider, remoteModelGroups } = storeToRefs(store)
 
-// Provider 类型选项
-const PROVIDER_TYPES = [
-  { id: 'openai', name: 'OpenAI Protocol', available: true },
-  { id: 'custom', name: 'Custom', available: false }
-] as const
+const providerTypeOptions: ProviderTypeOption[] = [
+  {
+    id: 'openai',
+    name: 'OpenAI Chat Completions',
+    description: '传统 /v1/chat/completions 接口。',
+    available: true
+  },
+  {
+    id: 'openai-response',
+    name: 'OpenAI Responses',
+    description: 'OpenAI 新版 Responses API。',
+    available: true
+  },
+  {
+    id: 'openai-completion',
+    name: 'OpenAI Completions',
+    description: '传统 /v1/completions 接口。',
+    available: true
+  },
+  {
+    id: 'claude',
+    name: 'Claude',
+    description: 'Anthropic Claude 官方协议。',
+    available: true
+  },
+  {
+    id: 'gemini',
+    name: 'Gemini',
+    description: 'Google Gemini 官方协议。',
+    available: true
+  }
+]
 
-// 本地 UI 状态
+const providerTypeLabelMap: Record<string, string> = {
+  openai: 'OpenAI Chat',
+  'openai-response': 'OpenAI Responses',
+  'openai-completion': 'OpenAI Completion',
+  claude: 'Claude',
+  gemini: 'Gemini'
+}
+
 const apiKeyDraft = ref('')
 const baseUrlDraft = ref('')
 const modelSearchQuery = ref('')
 
-const computedModelsEndpoint = computed(() => {
-  if (!baseUrlDraft.value) return ''
-  const base = baseUrlDraft.value.trim().replace(/\/$/, '')
-  return `${base}/v1/models`
-})
-
-const computedChatEndpoint = computed(() => {
-  if (!baseUrlDraft.value) return ''
-  const base = baseUrlDraft.value.trim().replace(/\/$/, '')
-  return `${base}/v1/chat/completions`
-})
-
-const computedCompletionEndpoint = computed(() => {
-  if (!baseUrlDraft.value) return ''
-  const base = baseUrlDraft.value.trim().replace(/\/$/, '')
-  return `${base}/v1/completions`
-})
-
-// 按分组组织模型列表
 const groupedModels = computed(() => {
-  if (!selectedProvider.value?.models.length) return []
+  if (!selectedProvider.value?.models.length) return [] as [string, Model[]][]
   const groups: Record<string, Model[]> = {}
   selectedProvider.value.models.forEach((model) => {
     const group = model.group || 'default'
-    if (!groups[group]) {
-      groups[group] = []
-    }
+    if (!groups[group]) groups[group] = []
     groups[group].push(model)
   })
-  return Object.entries(groups).sort(([a], [b]) => {
-    if (a === 'default') return 1
-    if (b === 'default') return -1
-    return a.localeCompare(b)
+  return Object.entries(groups).sort(([left], [right]) => {
+    if (left === 'default') return 1
+    if (right === 'default') return -1
+    return left.localeCompare(right)
   })
 })
 
-// 过滤模型分组（基于搜索）
 const filteredModelGroups = computed(() => {
   if (!modelSearchQuery.value.trim()) {
     return Object.entries(remoteModelGroups.value)
   }
 
   const query = modelSearchQuery.value.toLowerCase().trim()
-  const filtered: [string, any[]][] = []
+  const filtered: [string, Array<{ id: string; created: number }>][] = []
 
   Object.entries(remoteModelGroups.value).forEach(([groupName, models]) => {
     const groupMatches = groupName.toLowerCase().includes(query)
-    const matchedModels = models.filter((model: any) => {
-      const modelIdMatches = model.id.toLowerCase().includes(query)
-      return groupMatches || modelIdMatches
+    const matchedModels = models.filter((model) => {
+      return groupMatches || model.id.toLowerCase().includes(query)
     })
-
     if (matchedModels.length > 0) {
       filtered.push([groupName, matchedModels])
     }
@@ -945,39 +920,67 @@ const filteredModelGroups = computed(() => {
 })
 
 const filteredModelCount = computed(() => {
-  return filteredModelGroups.value.reduce((sum, [, models]) => sum + models.length, 0)
+  return filteredModelGroups.value.reduce((total, [, models]) => total + models.length, 0)
 })
 
-const filteredGroupCount = computed(() => {
-  return filteredModelGroups.value.length
+const filteredGroupCount = computed(() => filteredModelGroups.value.length)
+const totalGroupCount = computed(() => Object.keys(remoteModelGroups.value).length)
+
+const baseUrlPlaceholder = computed(() => {
+  if (selectedProvider.value?.type === 'claude') return 'https://api.anthropic.com'
+  if (selectedProvider.value?.type === 'gemini') return 'https://generativelanguage.googleapis.com'
+  return 'https://api.openai.com'
 })
 
-const totalGroupCount = computed(() => {
-  return Object.keys(remoteModelGroups.value).length
+const computedModelsEndpoint = computed(() => {
+  const base = baseUrlDraft.value.trim().replace(/\/$/, '')
+  if (!base) return ''
+  if (selectedProvider.value?.type === 'claude') return `${base}/v1/models`
+  if (selectedProvider.value?.type === 'gemini') return `${base}/v1beta/models`
+  return base.endsWith('/v1') ? `${base}/models` : `${base}/v1/models`
 })
 
-// 初始化
+const computedChatEndpoint = computed(() => {
+  const base = baseUrlDraft.value.trim().replace(/\/$/, '')
+  if (!base) return ''
+  if (selectedProvider.value?.type === 'claude') return `${base}/v1/messages`
+  if (selectedProvider.value?.type === 'gemini')
+    return `${base}/v1beta/models/{model}:streamGenerateContent`
+  if (selectedProvider.value?.type === 'openai-response') {
+    return base.endsWith('/v1') ? `${base}/responses` : `${base}/v1/responses`
+  }
+  return base.endsWith('/v1') ? `${base}/chat/completions` : `${base}/v1/chat/completions`
+})
+
+const computedCompletionEndpoint = computed(() => {
+  const base = baseUrlDraft.value.trim().replace(/\/$/, '')
+  if (!base) return ''
+  if (selectedProvider.value?.type === 'openai-completion') {
+    return base.endsWith('/v1') ? `${base}/completions` : `${base}/v1/completions`
+  }
+  return '-'
+})
+
 onMounted(async () => {
-  // 从后端加载配置
   await store.fetchProviders()
-
   if (selectedProvider.value) {
     apiKeyDraft.value = selectedProvider.value.apiKey
     baseUrlDraft.value = selectedProvider.value.baseUrl
   }
 })
 
-// 监听选中的提供商变化，更新草稿
 watch(selectedProvider, (provider) => {
-  if (provider) {
-    apiKeyDraft.value = provider.apiKey
-    baseUrlDraft.value = provider.baseUrl
-  }
+  if (!provider) return
+  apiKeyDraft.value = provider.apiKey
+  baseUrlDraft.value = provider.baseUrl
 })
 
-// 方法
 async function selectProvider(id: string): Promise<void> {
   await store.selectProvider(id)
+}
+
+function openEditProvider(providerId: string): void {
+  store.openEditProviderModal(providerId)
 }
 
 async function handleDeleteProvider(id: string): Promise<void> {
@@ -1009,15 +1012,14 @@ async function removeModel(modelId: string): Promise<void> {
 }
 
 function isModelAdded(modelId: string): boolean {
-  return selectedProvider.value?.models.some((m) => m.id === modelId) || false
+  return selectedProvider.value?.models.some((model) => model.id === modelId) || false
 }
 
-function isGroupFullyAdded(_groupName: string, models: any[]): boolean {
-  if (!models.length) return false
-  return models.every((model) => isModelAdded(model.id))
+function isGroupFullyAdded(_groupName: string, models: Array<{ id: string }>): boolean {
+  return models.length > 0 && models.every((model) => isModelAdded(model.id))
 }
 
-async function handleAddSingleModel(model: any): Promise<void> {
+async function handleAddSingleModel(model: { id: string }): Promise<void> {
   await store.addSingleRemoteModel(model)
 }
 
@@ -1025,11 +1027,17 @@ async function handleRemoveSingleModel(modelId: string): Promise<void> {
   await store.removeSingleRemoteModel(modelId)
 }
 
-async function handleAddGroupModels(groupName: string, models: any[]): Promise<void> {
+async function handleAddGroupModels(
+  groupName: string,
+  models: Array<{ id: string }>
+): Promise<void> {
   await store.addGroupModels(groupName, models)
 }
 
-async function handleRemoveGroupModels(groupName: string, models: any[]): Promise<void> {
+async function handleRemoveGroupModels(
+  groupName: string,
+  models: Array<{ id: string }>
+): Promise<void> {
   await store.removeGroupModels(groupName, models)
 }
 
@@ -1037,15 +1045,7 @@ async function handleManualAddModel(): Promise<void> {
   await store.handleManualAddModel()
 }
 
-async function handleAddProvider(): Promise<void> {
-  await store.handleAddProvider()
-}
-
 function clearSearch(): void {
   modelSearchQuery.value = ''
 }
 </script>
-
-<style scoped>
-/* Component-specific styles (if needed) will go here */
-</style>

@@ -19,7 +19,10 @@ import { UserSettingsService } from './services/user-settings'
 import { UserSettingsIPCHandler } from './ipc/user-settings-handler'
 import { OrchestraflowWorkflowService } from './services/orchestraflow/orchestraflow-workflow-service'
 import { OrchestraflowIPCHandler } from './ipc/orchestraflow-handler'
+import { OrchestflowGenerationEditorService } from './services/orchestflow-generation-editor'
+import { OrchestflowGenerationEditorIPCHandler } from './ipc/orchestflow-generation-editor-handler'
 import { orchestraflowBridge } from './services/orchestraflow-bridge'
+import { orchestflowGenerationEditorBridge } from './services/orchestflow-generation-editor-bridge'
 import { logger } from './services/logger'
 import { McpService } from './services/mcp'
 import { McpIPCHandler } from './ipc/mcp-handler'
@@ -120,6 +123,14 @@ app.whenReady().then(() => {
   const orchestraflowWorkflowService = new OrchestraflowWorkflowService()
   new OrchestraflowIPCHandler(orchestraflowWorkflowService, modelConfigService)
 
+  // 初始化 GenerateView 持久化服务与 IPC Handler
+  const orchestflowGenerationEditorService = new OrchestflowGenerationEditorService(
+    databaseManager,
+    modelConfigService,
+    orchestflowGenerationEditorBridge
+  )
+  new OrchestflowGenerationEditorIPCHandler(orchestflowGenerationEditorService)
+
   // 启动 OrchestraFlow Bridge（按需启动，延迟初始化）
   setTimeout(async () => {
     try {
@@ -134,6 +145,16 @@ app.whenReady().then(() => {
   registerAllHandlers()
 
   createWindow()
+
+  // 预热 GenerateView 专用 utility bridge
+  setTimeout(async () => {
+    try {
+      await orchestflowGenerationEditorBridge.spawn()
+      orchestflowGenerationEditorBridge.init()
+    } catch (err) {
+      log.error('Failed to spawn orchestflow-generation-editor bridge', err)
+    }
+  }, 1200)
 
   // LangChain Agent runs on-demand via aiChat:start (mode='agent')
 
@@ -157,6 +178,7 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   langchainClientBridge.kill()
   orchestraflowBridge.kill()
+  orchestflowGenerationEditorBridge.kill()
   sqliteTestService.close()
   databaseManager.close()
 })
