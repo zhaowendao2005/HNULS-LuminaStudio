@@ -183,7 +183,7 @@ import {
   Settings
 } from 'lucide-vue-next'
 import ModelSelector from '@renderer/components/ModelSelector/index.vue'
-import { useOrchestflowGenerationEditorStore } from '@renderer/stores/orchestraflow/generation-editor.store'
+import { useOrchestflowGenerationEditorStore } from '@renderer/stores/orchestraflow/generation-editor/generation-editor.store'
 import GenerateAnalysisPanel from './GenerateAnalysisPanel.vue'
 import GenerateConfigDrawer from './GenerateConfigDrawer.vue'
 import GenerateCreateSessionDialog from './GenerateCreateSessionDialog.vue'

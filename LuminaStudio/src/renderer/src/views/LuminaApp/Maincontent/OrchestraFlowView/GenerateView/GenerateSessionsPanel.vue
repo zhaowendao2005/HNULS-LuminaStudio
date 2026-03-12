@@ -47,7 +47,7 @@
 </template>
 
 <script setup lang="ts">
-import type { GenerateSessionViewModel } from '@renderer/stores/orchestraflow/generation-editor.types'
+import type { GenerateSessionViewModel } from '@renderer/stores/orchestraflow/generation-editor/generation-editor.types'
 import type { StageKey } from './generate-view.types'
 
 defineProps<{
