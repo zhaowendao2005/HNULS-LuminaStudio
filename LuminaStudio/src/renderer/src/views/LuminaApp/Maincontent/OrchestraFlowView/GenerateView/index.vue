@@ -83,6 +83,16 @@
               @open-sessions="generationStore.activeMenu = 'sessions'"
             />
 
+            <GenerateGlobalSettingsPanel
+              v-else-if="generationStore.activeMenu === 'settings'"
+              :model-value="generationStore.globalSettings.persistRawLlmData"
+              :is-loading="generationStore.isGlobalSettingsLoading"
+              :is-saving="generationStore.isGlobalSettingsSaving"
+              @update:model-value="
+                generationStore.updateGlobalSettings({ persistRawLlmData: $event })
+              "
+            />
+
             <div v-else class="p-6 text-[13px] text-gray-500">
               {{ generationStore.activeMenu }} 模块开发中，当前选中会话：{{
                 generationStore.currentSession.title
@@ -217,6 +227,7 @@ import GenerateConfigDrawer from './GenerateConfigDrawer.vue'
 import GenerateCreateSessionDialog from './GenerateCreateSessionDialog.vue'
 import GenerateDashboardPanel from './GenerateDashboardPanel.vue'
 import GenerateDesignPanel from './GenerateDesignPanel.vue'
+import GenerateGlobalSettingsPanel from './GenerateGlobalSettingsPanel.vue'
 import GenerateHeader from './GenerateHeader.vue'
 import GeneratePlanDesignPanel from './GeneratePlanDesignPanel.vue'
 import GenerateSessionsPanel from './GenerateSessionsPanel.vue'

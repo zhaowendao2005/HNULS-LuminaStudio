@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto'
 import type {
   GenerationCreateSessionRequest,
   GenerationDocument,
+  GenerationGlobalSettings,
   GenerationListMessagesRequest,
   GenerationSaveDocumentRequest,
   GenerationSaveStageConfigRequest,
@@ -14,12 +15,14 @@ import type {
 import { DEFAULT_DOCUMENTS, DEFAULT_STAGE_CONFIGS } from '../constants/defaults'
 import {
   mapDocument,
+  mapGlobalSettings,
   mapMessage,
   mapSessionSummary,
   mapStageConfig
 } from '../mappers/generation-editor.mappers'
 import type {
   GenerationDocumentRow,
+  GenerationGlobalSettingsRow,
   GenerationMessageRow,
   GenerationSessionRow,
   GenerationStageConfigRow
@@ -33,6 +36,44 @@ import type {
  */
 export class GenerationEditorRepository {
   constructor(private readonly db: Database.Database) {}
+
+  getGlobalSettings(): GenerationGlobalSettings {
+    const row = this.db
+      .prepare('SELECT * FROM generation_global_settings WHERE id = 1')
+      .get() as GenerationGlobalSettingsRow | undefined
+
+    if (!row) {
+      this.db
+        .prepare(
+          `INSERT INTO generation_global_settings (id, persist_raw_llm_data)
+           VALUES (1, 0)
+           ON CONFLICT(id) DO NOTHING`
+        )
+        .run()
+
+      const inserted = this.db
+        .prepare('SELECT * FROM generation_global_settings WHERE id = 1')
+        .get() as GenerationGlobalSettingsRow
+      return mapGlobalSettings(inserted)
+    }
+
+    return mapGlobalSettings(row)
+  }
+
+  updateGlobalSettings(settings: Partial<GenerationGlobalSettings>): GenerationGlobalSettings {
+    const current = this.getGlobalSettings()
+    this.db
+      .prepare(
+        `INSERT INTO generation_global_settings (id, persist_raw_llm_data, updated_at)
+         VALUES (1, ?, datetime('now'))
+         ON CONFLICT(id) DO UPDATE SET
+           persist_raw_llm_data = excluded.persist_raw_llm_data,
+           updated_at = datetime('now')`
+      )
+      .run((settings.persistRawLlmData ?? current.persistRawLlmData) ? 1 : 0)
+
+    return this.getGlobalSettings()
+  }
 
   listSessions() {
     const rows = this.db

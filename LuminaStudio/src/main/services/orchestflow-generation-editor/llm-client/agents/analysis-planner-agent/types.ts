@@ -28,6 +28,7 @@ export interface StartAnalysisPlannerAgentStreamParams {
   apiKey: string
   baseUrl?: string
   defaultHeaders?: Record<string, string>
+  persistRawLlmData: boolean
   memoryRounds: number
   userMessage: string
 }

@@ -8,14 +8,21 @@ import type {
   GenerationStageConfig
 } from '@preload/types'
 
-const { listSessionsMock, createSessionMock, deleteSessionMock, getSessionDetailMock } = vi.hoisted(
-  () => ({
+const {
+  listSessionsMock,
+  createSessionMock,
+  deleteSessionMock,
+  getSessionDetailMock,
+  getGlobalSettingsMock,
+  updateGlobalSettingsMock
+} = vi.hoisted(() => ({
     listSessionsMock: vi.fn<() => Promise<GenerationSessionSummary[]>>(),
     createSessionMock: vi.fn<(request: { title: string }) => Promise<GenerationSessionDetail>>(),
     deleteSessionMock: vi.fn<(sessionId: string) => Promise<void>>(),
-    getSessionDetailMock: vi.fn<(sessionId: string) => Promise<GenerationSessionDetail>>()
-  })
-)
+    getSessionDetailMock: vi.fn<(sessionId: string) => Promise<GenerationSessionDetail>>(),
+    getGlobalSettingsMock: vi.fn<() => Promise<{ persistRawLlmData: boolean }>>(),
+    updateGlobalSettingsMock: vi.fn<() => Promise<{ persistRawLlmData: boolean }>>()
+  }))
 
 vi.mock('./sessions/session-list.datasource', () => ({
   SessionListDataSource: {
@@ -46,6 +53,8 @@ vi.mock('./generation-editor.datasource', async () => {
       updateSessionState: vi.fn(),
       saveStageConfig: vi.fn(),
       saveDocument: vi.fn(),
+      getGlobalSettings: getGlobalSettingsMock,
+      updateGlobalSettings: updateGlobalSettingsMock,
       sendMessage: vi.fn(),
       abortMessage: vi.fn(),
       onStream: vi.fn(() => () => {})
@@ -113,6 +122,8 @@ describe('generation-editor.store', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     vi.clearAllMocks()
+    getGlobalSettingsMock.mockResolvedValue({ persistRawLlmData: false })
+    updateGlobalSettingsMock.mockResolvedValue({ persistRawLlmData: false })
   })
 
   it('creates a default session when initialize finds no sessions', async () => {
@@ -128,6 +139,7 @@ describe('generation-editor.store', () => {
     expect(store.currentSession?.id).toBe('created-session')
     expect(store.selectedSessionId).toBe('created-session')
     expect(store.resolvedSessionId).toBe('created-session')
+    expect(store.globalSettings.persistRawLlmData).toBe(false)
   })
 
   it('keeps the current session when switching target detail fails', async () => {

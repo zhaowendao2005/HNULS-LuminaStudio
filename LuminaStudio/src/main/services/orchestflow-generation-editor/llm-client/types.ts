@@ -13,7 +13,6 @@ export interface StreamChatParams {
   defaultHeaders?: Record<string, string>
   messages: GenerationStreamChatMessage[]
   onTextDelta: (delta: string) => void
-  onRawEvent?: (event: unknown) => void
   signal: AbortSignal
 }
 

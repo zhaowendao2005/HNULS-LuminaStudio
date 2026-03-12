@@ -107,10 +107,23 @@ export const GENERATION_MESSAGES_TABLE: TableDefinition = {
   `
 }
 
+export const GENERATION_GLOBAL_SETTINGS_TABLE: TableDefinition = {
+  name: 'generation_global_settings',
+  createSQL: `
+    CREATE TABLE IF NOT EXISTS generation_global_settings (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      persist_raw_llm_data INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+  `
+}
+
 export const ORCHESTFLOW_GENERATION_EDITOR_TABLES: TableDefinition[] = [
   SCHEMA_VERSION_TABLE,
   GENERATION_SESSIONS_TABLE,
   GENERATION_STAGE_CONFIGS_TABLE,
   GENERATION_DOCUMENTS_TABLE,
-  GENERATION_MESSAGES_TABLE
+  GENERATION_MESSAGES_TABLE,
+  GENERATION_GLOBAL_SETTINGS_TABLE
 ]

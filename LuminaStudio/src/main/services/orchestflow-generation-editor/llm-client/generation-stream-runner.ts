@@ -31,6 +31,7 @@ export interface StartGenerationStreamParams {
   baseUrl?: string
   defaultHeaders?: Record<string, string>
   requestContent?: string
+  persistRawLlmData: boolean
   messages: GenerationStreamChatMessage[]
 }
 
@@ -106,6 +107,7 @@ async function runStream(
       modelId: params.modelId,
       requestContent: params.requestContent,
       hasReceivedDelta: hasLoggedFirstDelta,
+      persistRawLlmData: params.persistRawLlmData,
       rawResponseText: state.answerText,
       rawTrace: result.rawTrace
     })
@@ -121,6 +123,7 @@ async function runStream(
         modelId: params.modelId,
         requestContent: params.requestContent,
         hasReceivedDelta: hasLoggedFirstDelta,
+        persistRawLlmData: params.persistRawLlmData,
         rawResponseText: state.answerText,
         rawTrace: []
       })
@@ -149,6 +152,7 @@ async function runStream(
       modelId: params.modelId,
       requestContent: params.requestContent,
       hasReceivedDelta: hasLoggedFirstDelta,
+      persistRawLlmData: params.persistRawLlmData,
       rawResponseText: state.answerText,
       rawTrace: []
     })
@@ -215,6 +219,7 @@ function handleFinish(
     modelId: string
     requestContent?: string
     hasReceivedDelta: boolean
+    persistRawLlmData: boolean
     rawResponseText: string
     rawTrace: unknown[]
   }
@@ -227,8 +232,10 @@ function handleFinish(
     content: state.answerText,
     status,
     usage,
-    rawResponseText: logContext?.rawResponseText ?? state.answerText,
-    rawTrace: logContext?.rawTrace ?? []
+    rawResponseText: logContext?.persistRawLlmData
+      ? (logContext?.rawResponseText ?? state.answerText)
+      : null,
+    rawTrace: logContext?.persistRawLlmData ? (logContext?.rawTrace ?? []) : null
   })
 
   if (logContext) {
@@ -303,7 +310,6 @@ async function streamOpenAIChatCompletions(params: StreamChatParams): Promise<St
   let usage: Record<string, unknown> | undefined
   for await (const chunk of stream) {
     pushRawTraceEvent(rawTrace, chunk)
-    params.onRawEvent?.(chunk)
     const delta = chunk.choices[0]?.delta?.content ?? ''
     if (delta) {
       params.onTextDelta(delta)
@@ -341,7 +347,6 @@ async function streamOpenAIResponses(params: StreamChatParams): Promise<StreamCh
   let usage: Record<string, unknown> | undefined
   for await (const event of responseStream) {
     pushRawTraceEvent(rawTrace, event)
-    params.onRawEvent?.(event)
     if (event.type === 'response.output_text.delta' && event.delta) {
       params.onTextDelta(event.delta)
     }
@@ -383,7 +388,6 @@ async function streamAnthropicChat(params: StreamChatParams): Promise<StreamChat
   let usage: Record<string, unknown> | undefined
   for await (const event of stream) {
     pushRawTraceEvent(rawTrace, event)
-    params.onRawEvent?.(event)
     if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
       params.onTextDelta(event.delta.text)
     }
@@ -416,7 +420,6 @@ async function streamGoogleChat(params: StreamChatParams): Promise<StreamChatRes
   let usage: Record<string, unknown> | undefined
   for await (const chunk of stream) {
     pushRawTraceEvent(rawTrace, chunk)
-    params.onRawEvent?.(chunk)
     const text = typeof chunk.text === 'string' ? chunk.text : ''
     if (text) {
       params.onTextDelta(text)

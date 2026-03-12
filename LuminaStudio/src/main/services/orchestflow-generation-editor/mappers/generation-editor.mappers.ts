@@ -1,11 +1,13 @@
 import type {
   GenerationDocument,
+  GenerationGlobalSettings,
   GenerationMessage,
   GenerationSessionSummary,
   GenerationStageConfig
 } from '@preload/types'
 import type {
   GenerationDocumentRow,
+  GenerationGlobalSettingsRow,
   GenerationMessageRow,
   GenerationSessionRow,
   GenerationStageConfigRow
@@ -43,6 +45,12 @@ export function mapDocument(row: GenerationDocumentRow): GenerationDocument {
     fileName: row.file_name,
     summary: row.summary,
     content: row.content
+  }
+}
+
+export function mapGlobalSettings(row: GenerationGlobalSettingsRow): GenerationGlobalSettings {
+  return {
+    persistRawLlmData: row.persist_raw_llm_data === 1
   }
 }
 

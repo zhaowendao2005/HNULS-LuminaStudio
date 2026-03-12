@@ -7,6 +7,7 @@ import type { ModelConfigService, PersistedModelProviderConfig } from '../model-
 import type {
   GenerationChannelKey,
   GenerationCreateSessionRequest,
+  GenerationGlobalSettings,
   GenerationListMessagesRequest,
   GenerationSaveDocumentRequest,
   GenerationSaveStageConfigRequest,
@@ -79,6 +80,14 @@ export class OrchestflowGenerationEditorService {
     return this.repository.listMessages(request)
   }
 
+  async getGlobalSettings(): Promise<GenerationGlobalSettings> {
+    return this.repository.getGlobalSettings()
+  }
+
+  async updateGlobalSettings(settings: Partial<GenerationGlobalSettings>): Promise<GenerationGlobalSettings> {
+    return this.repository.updateGlobalSettings(settings)
+  }
+
   async sendMessage(
     sender: WebContents,
     request: {
@@ -93,6 +102,7 @@ export class OrchestflowGenerationEditorService {
     if (!text) throw new Error('Message content is required')
 
     const provider = await this.resolveProvider(request.providerId)
+    const globalSettings = this.repository.getGlobalSettings()
     const effectiveProtocol = this.resolveEffectiveProtocol(provider)
     const vendor = this.resolveSdkVendorFromProtocol(effectiveProtocol)
     const requestId = randomUUID()
@@ -166,6 +176,7 @@ export class OrchestflowGenerationEditorService {
         apiKey: provider.apiKey,
         baseUrl: provider.baseUrl || undefined,
         defaultHeaders: provider.defaultHeaders,
+        persistRawLlmData: globalSettings.persistRawLlmData,
         memoryRounds: analysisStageConfig?.memoryRounds || 6,
         userMessage: text
       })
@@ -186,6 +197,7 @@ export class OrchestflowGenerationEditorService {
         apiKey: provider.apiKey,
         baseUrl: provider.baseUrl || undefined,
         defaultHeaders: provider.defaultHeaders,
+        persistRawLlmData: globalSettings.persistRawLlmData,
         messages: [{ role: 'user', content: text }],
         requestContent: text
       })

@@ -1,6 +1,7 @@
 import type {
   GenerationCreateSessionRequest,
   GenerationDeleteSessionRequest,
+  GenerationGlobalSettings,
   GenerationRuntimeStageKey,
   GenerationSaveDocumentRequest,
   GenerationSaveStageConfigRequest,
@@ -69,6 +70,24 @@ export const OrchestflowGenerationEditorDataSource = {
     const response = await window.api.orchestflowGenerationEditor.saveDocument(request)
     if (!response.success || !response.data) {
       throw new Error(response.error || 'Failed to save document')
+    }
+    return response.data
+  },
+
+  async getGlobalSettings(): Promise<GenerationGlobalSettings> {
+    const response = await window.api.orchestflowGenerationEditor.getGlobalSettings()
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to get global settings')
+    }
+    return response.data
+  },
+
+  async updateGlobalSettings(
+    settings: Partial<GenerationGlobalSettings>
+  ): Promise<GenerationGlobalSettings> {
+    const response = await window.api.orchestflowGenerationEditor.updateGlobalSettings(settings)
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to update global settings')
     }
     return response.data
   },

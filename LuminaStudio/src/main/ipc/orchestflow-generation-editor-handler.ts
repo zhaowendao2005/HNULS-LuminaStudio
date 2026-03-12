@@ -4,6 +4,7 @@ import type { OrchestflowGenerationEditorService } from '../services/orchestflow
 import type {  GenerationAbortMessageRequest,
   GenerationCreateSessionRequest,
   GenerationDeleteSessionRequest,GenerationListMessagesRequest,
+  GenerationGlobalSettings,
   GenerationSaveDocumentRequest,
   GenerationSaveStageConfigRequest,
   GenerationSendMessageRequest,
@@ -77,7 +78,20 @@ export class OrchestflowGenerationEditorIPCHandler extends BaseIPCHandler {
       return { success: false, error: 'Invalid request' }
     }
     return { success: true, data: await this.service.sendMessage(_event.sender, request) }
-  }  async handleAbortMessage(_event: IpcMainInvokeEvent, request: GenerationAbortMessageRequest) {
+  }
+
+  async handleGetGlobalSettings() {
+    return { success: true, data: await this.service.getGlobalSettings() }
+  }
+
+  async handleUpdateGlobalSettings(
+    _event: IpcMainInvokeEvent,
+    settings: Partial<GenerationGlobalSettings>
+  ) {
+    return { success: true, data: await this.service.updateGlobalSettings(settings) }
+  }
+
+  async handleAbortMessage(_event: IpcMainInvokeEvent, request: GenerationAbortMessageRequest) {
     if (!request?.requestId) {
       return { success: false, error: 'Missing requestId' }
     }

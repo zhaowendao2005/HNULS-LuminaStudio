@@ -128,6 +128,7 @@ async function runAnalysisPlannerAgent(
     persistAndEmitMessageMeta(state, params, metaPayload)
 
     finishStream(state, params, 'stop', modelResult.usage, {
+      persistRawLlmData: params.persistRawLlmData,
       rawResponseText: modelResult.rawPayload,
       rawTrace: modelResult.rawTrace
     })
@@ -135,6 +136,7 @@ async function runAnalysisPlannerAgent(
     const typedError = error as { name?: string; message?: string }
     if (typedError?.name === 'AbortError') {
       finishStream(state, params, 'aborted', undefined, {
+        persistRawLlmData: params.persistRawLlmData,
         rawResponseText: state.answerText,
         rawTrace: []
       })
@@ -163,6 +165,7 @@ async function runAnalysisPlannerAgent(
       message: typedError?.message || 'Analysis planner failed'
     })
     finishStream(state, params, 'error', undefined, {
+      persistRawLlmData: params.persistRawLlmData,
       rawResponseText: state.answerText,
       rawTrace: []
     })
@@ -675,7 +678,8 @@ function finishStream(
   params: StartAnalysisPlannerAgentStreamParams,
   finishReason: 'stop' | 'aborted' | 'error',
   usage?: Record<string, unknown>,
-  raw?: {
+    raw?: {
+    persistRawLlmData: boolean
     rawResponseText: string
     rawTrace: unknown[]
   }
@@ -688,8 +692,8 @@ function finishStream(
     content: state.answerText,
     status,
     usage,
-    rawResponseText: raw?.rawResponseText ?? null,
-    rawTrace: raw?.rawTrace ?? []
+    rawResponseText: raw?.persistRawLlmData ? (raw?.rawResponseText ?? null) : null,
+    rawTrace: raw?.persistRawLlmData ? (raw?.rawTrace ?? []) : null
   })
   params.repository.touchSession(state.sessionId)
 

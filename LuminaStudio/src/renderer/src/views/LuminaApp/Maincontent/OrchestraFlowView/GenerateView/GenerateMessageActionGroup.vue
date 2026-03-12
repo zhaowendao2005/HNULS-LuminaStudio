@@ -189,7 +189,7 @@ const rawOutputText = computed(() => {
     })
 
   if (!assistantOutputs.length) {
-    return '(当前通道暂无 assistant 原始输出)'
+    return '未开启 Generate 全局配置中的“保存原始 LLM 输出到数据库”，或当前通道暂无 assistant 原始输出。'
   }
 
   return assistantOutputs.join('\n\n')

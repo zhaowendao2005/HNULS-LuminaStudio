@@ -52,6 +52,10 @@ export interface GenerationPlanningBlockStreamingState {
   completedSectionKeys: GenerationPlanningStreamSectionKey[]
 }
 
+export interface GenerationGlobalSettings {
+  persistRawLlmData: boolean
+}
+
 export interface GenerationPlanningBlockPayload {
   kind: 'analysis-planning'
   version: '2.0'
@@ -228,5 +232,9 @@ export interface OrchestrflowGenerationEditorAPI {
   ) => Promise<ApiResponse<{ requestId: string }>>
   abortMessage: (request: GenerationAbortMessageRequest) => Promise<ApiResponse<void>>
   deleteSession: (request: GenerationDeleteSessionRequest) => Promise<ApiResponse<void>>
+  getGlobalSettings: () => Promise<ApiResponse<GenerationGlobalSettings>>
+  updateGlobalSettings: (
+    settings: Partial<GenerationGlobalSettings>
+  ) => Promise<ApiResponse<GenerationGlobalSettings>>
   onStream: (handler: (event: GenerationStreamEvent) => void) => () => void
 }

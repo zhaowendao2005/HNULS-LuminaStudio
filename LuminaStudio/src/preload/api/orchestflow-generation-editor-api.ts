@@ -2,6 +2,7 @@ import { ipcRenderer } from 'electron'
 import type {  GenerationAbortMessageRequest,
   GenerationCreateSessionRequest,
   GenerationDeleteSessionRequest,GenerationListMessagesRequest,
+  GenerationGlobalSettings,
   GenerationSaveDocumentRequest,
   GenerationSaveStageConfigRequest,
   GenerationSendMessageRequest,
@@ -24,6 +25,10 @@ export const orchestflowGenerationEditorAPI: OrchestrflowGenerationEditorAPI = {
     ipcRenderer.invoke('orchestflowGenerationEditor:saveDocument', request),
   listMessages: (request: GenerationListMessagesRequest) =>
     ipcRenderer.invoke('orchestflowGenerationEditor:listMessages', request),
+  getGlobalSettings: () =>
+    ipcRenderer.invoke('orchestflowGenerationEditor:getGlobalSettings'),
+  updateGlobalSettings: (settings: Partial<GenerationGlobalSettings>) =>
+    ipcRenderer.invoke('orchestflowGenerationEditor:updateGlobalSettings', settings),
   sendMessage: (request: GenerationSendMessageRequest) =>
     ipcRenderer.invoke('orchestflowGenerationEditor:sendMessage', request),  abortMessage: (request: GenerationAbortMessageRequest) =>
     ipcRenderer.invoke('orchestflowGenerationEditor:abortMessage', request),

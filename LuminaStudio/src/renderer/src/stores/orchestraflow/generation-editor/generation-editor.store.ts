@@ -31,6 +31,7 @@ import { useGenerationDesignDocumentStore } from './design/design-document.store
 import { useGenerationVerifyCopilotStore } from './verify/verify-copilot.store'
 import { useGenerationVerifyStageConfigStore } from './verify/verify-stage-config.store'
 import { useGenerationVerifyDocumentStore } from './verify/verify-document.store'
+import { useGenerationGlobalSettingsStore } from './settings/global-settings.store'
 
 /**
  * facade 层只负责：
@@ -48,6 +49,7 @@ export const useOrchestflowGenerationEditorStore = defineStore(
     const workspaceShellStore = useGenerationWorkspaceShellStore()
     const workspaceCreateSessionStore = useGenerationWorkspaceCreateSessionStore()
     const workspaceDashboardStore = useGenerationWorkspaceDashboardStore()
+    const globalSettingsStore = useGenerationGlobalSettingsStore()
 
     const analysisDiscussionStore = useGenerationAnalysisDiscussionStore()
     const analysisCopilotStore = useGenerationAnalysisCopilotStore()
@@ -69,6 +71,11 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       storeToRefs(workspaceShellStore)
     const { showCreateSessionModal, newSessionName } = storeToRefs(workspaceCreateSessionStore)
     const { dashboardStageCards, plannedSessionsCount } = storeToRefs(workspaceDashboardStore)
+    const {
+      settings: globalSettings,
+      isLoading: isGlobalSettingsLoading,
+      isSaving: isGlobalSettingsSaving
+    } = storeToRefs(globalSettingsStore)
     const { input: analysisInput, isStreaming: isAnalysisStreaming } =
       storeToRefs(analysisDiscussionStore)
     const { input: analysisCopilotInput, isStreaming: isAnalysisCopilotStreaming } =
@@ -266,6 +273,7 @@ export const useOrchestflowGenerationEditorStore = defineStore(
     }
 
     async function initialize(): Promise<void> {
+      await globalSettingsStore.initialize()
       await sessionListStore.initialize()
       await ensureActiveSession()
     }
@@ -380,6 +388,12 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       viewStatus.value = 'bootstrapping'
       lastErrorMessage.value = null
       await initialize()
+    }
+
+    async function updateGlobalSettings(
+      partial: Partial<typeof globalSettings.value>
+    ): Promise<void> {
+      await globalSettingsStore.updateSettings(partial)
     }
 
     async function saveCurrentStageConfig(partial: Partial<GenerationStageConfig>): Promise<void> {
@@ -595,8 +609,12 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       activeCopilotDocument,
       dashboardStageCards,
       plannedSessionsCount,
+      globalSettings,
+      isGlobalSettingsLoading,
+      isGlobalSettingsSaving,
       initialize,
       retryInitialize,
+      updateGlobalSettings,
       bindStreamListener,
       selectSession,
       createSession,

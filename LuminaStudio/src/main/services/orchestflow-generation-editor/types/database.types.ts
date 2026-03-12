@@ -53,3 +53,10 @@ export interface GenerationMessageRow {
   created_at: string
   updated_at: string
 }
+
+export interface GenerationGlobalSettingsRow {
+  id: number
+  persist_raw_llm_data: number
+  created_at: string
+  updated_at: string
+}
