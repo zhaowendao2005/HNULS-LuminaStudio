@@ -1,5 +1,6 @@
 import type {
   GenerationCreateSessionRequest,
+  GenerationDeleteSessionRequest,
   GenerationRuntimeStageKey,
   GenerationSaveDocumentRequest,
   GenerationSaveStageConfigRequest,
@@ -10,6 +11,12 @@ import type {
   GenerationUpdateSessionStateRequest
 } from '@preload/types'
 
+/**
+ * 根 datasource 现在只做“共享后端访问入口”。
+ *
+ * 各业务域 datasource 可以直接复用这里的方法，
+ * 避免每个域都重复写一遍 window.api 调用和错误处理。
+ */
 export const OrchestflowGenerationEditorDataSource = {
   async listSessions(): Promise<GenerationSessionSummary[]> {
     const response = await window.api.orchestflowGenerationEditor.listSessions()
@@ -25,6 +32,13 @@ export const OrchestflowGenerationEditorDataSource = {
       throw new Error(response.error || 'Failed to create session')
     }
     return response.data
+  },
+
+  async deleteSession(request: GenerationDeleteSessionRequest): Promise<void> {
+    const response = await window.api.orchestflowGenerationEditor.deleteSession(request)
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to delete session')
+    }
   },
 
   async getSessionDetail(sessionId: string): Promise<GenerationSessionDetail> {
@@ -65,21 +79,17 @@ export const OrchestflowGenerationEditorDataSource = {
       throw new Error(response.error || 'Failed to send message')
     }
     return response.data
-  },  async abortMessage(requestId: string) {
+  },
+
+  async abortMessage(requestId: string): Promise<void> {
     const response = await window.api.orchestflowGenerationEditor.abortMessage({ requestId })
     if (!response.success) {
       throw new Error(response.error || 'Failed to abort message')
     }
   },
 
-  async deleteSession(sessionId: string): Promise<void> {
-    const response = await window.api.orchestflowGenerationEditor.deleteSession({ sessionId })
-    if (!response.success) {
-      throw new Error(response.error || 'Failed to delete session')
-    }
-  },
-
-  onStream(handler: (event: GenerationStreamEvent) => void): () => void {return window.api.orchestflowGenerationEditor.onStream(handler)
+  onStream(handler: (event: GenerationStreamEvent) => void): () => void {
+    return window.api.orchestflowGenerationEditor.onStream(handler)
   }
 }
 

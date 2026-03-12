@@ -1,66 +1,84 @@
-import { defineStore } from 'pinia'
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
+import { defineStore, storeToRefs } from 'pinia'
 import {
   OrchestflowGenerationEditorDataSource,
   resolveMenuByStage
 } from './generation-editor.datasource'
-import {
-  mapSessionDetail,
-  mapSessionSummary,
-  type GenerateCopilotMode,
-  type GenerateMenuValue,
-  type GenerateSessionDetailViewModel,
-  type GenerateSessionViewModel
+import type {
+  GenerateCopilotMode,
+  GenerateSessionDetailViewModel,
+  GenerateSessionViewModel
 } from './generation-editor.types'
 import type {
-  GenerationChannelKey,
   GenerationDocument,
   GenerationMessage,
   GenerationStageConfig,
   GenerationStageKey
 } from '@preload/types'
+import { useGenerationSessionListStore } from './sessions/session-list.store'
+import { useGenerationSessionDetailCacheStore } from './sessions/session-detail-cache.store'
+import { useGenerationWorkspaceShellStore } from './workspace/workspace-shell.store'
+import { useGenerationWorkspaceCreateSessionStore } from './workspace/workspace-create-session.store'
+import { useGenerationWorkspaceDashboardStore } from './workspace/workspace-dashboard.store'
+import { useGenerationAnalysisDiscussionStore } from './analysis/analysis-discussion.store'
+import { useGenerationAnalysisCopilotStore } from './analysis/analysis-copilot.store'
+import { useGenerationAnalysisStageConfigStore } from './analysis/analysis-stage-config.store'
+import { useGenerationAnalysisDocumentStore } from './analysis/analysis-document.store'
+import { useGenerationDesignCopilotStore } from './design/design-copilot.store'
+import { useGenerationDesignStageConfigStore } from './design/design-stage-config.store'
+import { useGenerationDesignDocumentStore } from './design/design-document.store'
+import { useGenerationVerifyCopilotStore } from './verify/verify-copilot.store'
+import { useGenerationVerifyStageConfigStore } from './verify/verify-stage-config.store'
+import { useGenerationVerifyDocumentStore } from './verify/verify-document.store'
 
 /**
- * GenerateView 的单一事实来源。
+ * facade 层只负责：
+ * - 组合各业务域 store
+ * - 对旧页面暴露兼容字段/方法
+ * - 统一注册一次流式监听并把事件分发到各通道 store
  *
- * 这里接管：
- * - 会话列表 / 当前会话
- * - 三阶段模型选择与抽屉配置
- * - 三阶段文档正文
- * - 4 条 AI 对话通道
+ * 真正状态已经下放到各域 store，不再继续把所有状态塞回一个大 store。
  */
 export const useOrchestflowGenerationEditorStore = defineStore(
   'orchestflow-generation-editor',
   () => {
-    const sessions = ref<GenerateSessionViewModel[]>([])
-    const sessionDetails = ref<Record<string, GenerateSessionDetailViewModel>>({})
-    const selectedSessionId = ref<string | null>(null)
-    const activeMenu = ref<GenerateMenuValue>('analysis')
-    const activeRightPanel = ref<GenerateCopilotMode | null>(null)
-    const isLeftSidebarCollapsed = ref(false)
-    const isRightPanelFullscreen = ref(false)
-    const showCreateSessionModal = ref(false)
-    const showConfigDrawer = ref(false)
-    const showModelSelector = ref(false)
-    const newSessionName = ref('')
-    const analysisInput = ref('')
-    const copilotInput = ref('')
-    const loading = ref(false)
-    const streamMessageIdByRequest = ref<Record<string, string>>({})
-    const activeRequestIdByChannel = ref<Partial<Record<GenerationChannelKey, string>>>({})
+    const sessionListStore = useGenerationSessionListStore()
+    const sessionDetailCacheStore = useGenerationSessionDetailCacheStore()
+    const workspaceShellStore = useGenerationWorkspaceShellStore()
+    const workspaceCreateSessionStore = useGenerationWorkspaceCreateSessionStore()
+    const workspaceDashboardStore = useGenerationWorkspaceDashboardStore()
 
-    const isAnalysisStreaming = computed(() => {
-      return Boolean(activeRequestIdByChannel.value['analysis-discussion'])
-    })
+    const analysisDiscussionStore = useGenerationAnalysisDiscussionStore()
+    const analysisCopilotStore = useGenerationAnalysisCopilotStore()
+    const analysisStageConfigStore = useGenerationAnalysisStageConfigStore()
+    const analysisDocumentStore = useGenerationAnalysisDocumentStore()
 
-    const isActiveCopilotStreaming = computed(() => {
-      if (!activeRightPanel.value) return false
-      return Boolean(activeRequestIdByChannel.value[getChannelKeyByMode(activeRightPanel.value)])
-    })
+    const designCopilotStore = useGenerationDesignCopilotStore()
+    const designStageConfigStore = useGenerationDesignStageConfigStore()
+    const designDocumentStore = useGenerationDesignDocumentStore()
+
+    const verifyCopilotStore = useGenerationVerifyCopilotStore()
+    const verifyStageConfigStore = useGenerationVerifyStageConfigStore()
+    const verifyDocumentStore = useGenerationVerifyDocumentStore()
+
+    const { sessions, selectedSessionId } = storeToRefs(sessionListStore)
+    const { activeMenu, activeRightPanel, isLeftSidebarCollapsed, isRightPanelFullscreen } =
+      storeToRefs(workspaceShellStore)
+    const { showConfigDrawer, showModelSelector, configDrawerTab } =
+      storeToRefs(workspaceShellStore)
+    const { showCreateSessionModal, newSessionName } = storeToRefs(workspaceCreateSessionStore)
+    const { dashboardStageCards, plannedSessionsCount } = storeToRefs(workspaceDashboardStore)
+    const { input: analysisInput, isStreaming: isAnalysisStreaming } =
+      storeToRefs(analysisDiscussionStore)
+    const { input: analysisCopilotInput, isStreaming: isAnalysisCopilotStreaming } =
+      storeToRefs(analysisCopilotStore)
+    const { input: designCopilotInput, isStreaming: isDesignCopilotStreaming } =
+      storeToRefs(designCopilotStore)
+    const { input: verifyCopilotInput, isStreaming: isVerifyCopilotStreaming } =
+      storeToRefs(verifyCopilotStore)
 
     const currentSession = computed<GenerateSessionDetailViewModel | null>(() => {
-      if (!selectedSessionId.value) return null
-      return sessionDetails.value[selectedSessionId.value] ?? null
+      return sessionDetailCacheStore.getSessionDetail(selectedSessionId.value)
     })
 
     const currentStageKey = computed<GenerationStageKey>(() => {
@@ -70,13 +88,19 @@ export const useOrchestflowGenerationEditorStore = defineStore(
     })
 
     const currentStageConfig = computed<GenerationStageConfig | null>(() => {
-      return currentSession.value?.stageConfigs[currentStageKey.value] ?? null
+      const sessionId = selectedSessionId.value
+      if (!sessionId) return null
+      if (currentStageKey.value === 'analysis') return analysisStageConfigStore.getConfig(sessionId)
+      if (currentStageKey.value === 'design') return designStageConfigStore.getConfig(sessionId)
+      return verifyStageConfigStore.getConfig(sessionId)
     })
 
-    const configDrawerTab = ref<GenerationStageKey>('analysis')
-
-    const configDrawerStageConfig = computed(() => {
-      return currentSession.value?.stageConfigs[configDrawerTab.value] ?? null
+    const configDrawerStageConfig = computed<GenerationStageConfig | null>(() => {
+      const sessionId = selectedSessionId.value
+      if (!sessionId) return null
+      if (configDrawerTab.value === 'analysis') return analysisStageConfigStore.getConfig(sessionId)
+      if (configDrawerTab.value === 'design') return designStageConfigStore.getConfig(sessionId)
+      return verifyStageConfigStore.getConfig(sessionId)
     })
 
     const currentModelLabel = computed(() => {
@@ -92,144 +116,112 @@ export const useOrchestflowGenerationEditorStore = defineStore(
     })
 
     const analysisMessages = computed(() => {
-      return currentSession.value?.messagesByChannel['analysis-discussion'] ?? []
+      return analysisDiscussionStore.getMessages(currentSession.value)
+    })
+
+    const copilotInput = computed<string>({
+      get() {
+        if (activeRightPanel.value === 'analysis') return analysisCopilotInput.value
+        if (activeRightPanel.value === 'design') return designCopilotInput.value
+        return verifyCopilotInput.value
+      },
+      set(value) {
+        if (activeRightPanel.value === 'analysis') {
+          analysisCopilotStore.input = value
+          return
+        }
+        if (activeRightPanel.value === 'design') {
+          designCopilotStore.input = value
+          return
+        }
+        verifyCopilotStore.input = value
+      }
     })
 
     const activeCopilotMessages = computed<GenerationMessage[]>(() => {
-      if (!currentSession.value || !activeRightPanel.value) return []
-      return currentSession.value.messagesByChannel[getChannelKeyByMode(activeRightPanel.value)]
+      if (activeRightPanel.value === 'analysis')
+        return analysisCopilotStore.getMessages(currentSession.value)
+      if (activeRightPanel.value === 'design')
+        return designCopilotStore.getMessages(currentSession.value)
+      if (activeRightPanel.value === 'verify')
+        return verifyCopilotStore.getMessages(currentSession.value)
+      return []
     })
 
     const activeCopilotDocument = computed<GenerationDocument | null>(() => {
-      if (!currentSession.value || !activeRightPanel.value) return null
-      if (activeRightPanel.value === 'analysis') return currentSession.value.documents.analysis
-      if (activeRightPanel.value === 'design') return currentSession.value.documents.design
-      return currentSession.value.documents.verify
+      const sessionId = selectedSessionId.value
+      if (!sessionId || !activeRightPanel.value) return null
+      if (activeRightPanel.value === 'analysis') return analysisDocumentStore.getDocument(sessionId)
+      if (activeRightPanel.value === 'design') return designDocumentStore.getDocument(sessionId)
+      return verifyDocumentStore.getDocument(sessionId)
     })
 
-    const dashboardStageCards = computed(() => {
-      return [
-        {
-          stage: 'analysis',
-          label: '未完成需求分析',
-          count: sessions.value.filter((item) => item.currentStage === 'analysis').length,
-          color: 'bg-cyan-500'
-        },
-        {
-          stage: 'design',
-          label: '未完成设计',
-          count: sessions.value.filter((item) => item.currentStage === 'design').length,
-          color: 'bg-emerald-500'
-        },
-        {
-          stage: 'verify',
-          label: '未完成校验',
-          count: sessions.value.filter((item) => item.currentStage === 'verify').length,
-          color: 'bg-violet-500'
-        },
-        {
-          stage: 'workflow',
-          label: '未生成工作流',
-          count: sessions.value.filter((item) => item.currentStage === 'workflow').length,
-          color: 'bg-amber-500'
-        }
-      ]
+    const isActiveCopilotStreaming = computed(() => {
+      if (activeRightPanel.value === 'analysis') return isAnalysisCopilotStreaming.value
+      if (activeRightPanel.value === 'design') return isDesignCopilotStreaming.value
+      if (activeRightPanel.value === 'verify') return isVerifyCopilotStreaming.value
+      return false
     })
-
-    const plannedSessionsCount = computed(
-      () => sessions.value.filter((item) => item.planGenerated).length
-    )
 
     async function initialize(): Promise<void> {
-      if (loading.value) return
-      loading.value = true
-      try {
-        const rows = await OrchestflowGenerationEditorDataSource.listSessions()
-        sessions.value = rows.map(mapSessionSummary)
+      await sessionListStore.initialize()
 
-        if (rows.length === 0) {
-          const created = await OrchestflowGenerationEditorDataSource.createSession({
-            title: '新建生成会话'
-          })
-          upsertSessionDetail(created)
-          selectedSessionId.value = created.id
-        } else {
-          selectedSessionId.value = rows[0].id
-          await refreshSessionDetail(rows[0].id)
-        }
-      } finally {
-        loading.value = false
+      if (!sessions.value.length) {
+        const created = await sessionListStore.createSession('新建生成会话')
+        hydrateSessionDetail(created)
+        activeMenu.value = 'analysis'
+        return
+      }
+
+      if (!selectedSessionId.value) {
+        selectedSessionId.value = sessions.value[0].id
+      }
+
+      if (selectedSessionId.value) {
+        const detail = await sessionDetailCacheStore.refreshSessionDetail(selectedSessionId.value)
+        hydrateSessionDetail(detail)
       }
     }
 
     function bindStreamListener(): () => void {
       return OrchestflowGenerationEditorDataSource.onStream((event) => {
-        const detail = sessionDetails.value[event.sessionId]
+        const detail = sessionDetailCacheStore.getSessionDetail(event.sessionId)
         if (!detail) return
 
-        if (event.type === 'stream-start') {
-          // 这里要把“前端本地占位消息”和“数据库真实消息”对齐，否则后续 delta 会找不到目标消息。
-          const target = findStreamMessage(
-            detail,
-            event.channelKey,
-            event.requestId,
-            event.messageId
-          )
-          if (target) {
-            target.id = event.messageId
-            target.requestId = event.requestId
-            target.status = 'streaming'
-          }
-          streamMessageIdByRequest.value[event.requestId] = event.messageId
-          activeRequestIdByChannel.value[event.channelKey] = event.requestId
-          return
-        }
+        const handled =
+          analysisDiscussionStore.applyStreamEvent(detail, event) ||
+          analysisCopilotStore.applyStreamEvent(detail, event) ||
+          designCopilotStore.applyStreamEvent(detail, event) ||
+          verifyCopilotStore.applyStreamEvent(detail, event)
 
-        const target = findStreamMessage(detail, event.channelKey, event.requestId, event.messageId)
-        if (!target) return
+        if (!handled) return
 
-        if (event.type === 'text-delta') {
-          target.content += event.delta
-          target.status = 'streaming'
-          target.requestId = event.requestId
-          return
-        }
-
-        if (event.type === 'message-meta') {
-          target.metaJson = event.metaJson
-          target.status = 'streaming'
-          target.requestId = event.requestId
-          return
-        }
-
-        if (event.type === 'error') {
-          target.error = event.message
-          target.status = 'error'
-          target.requestId = event.requestId
-          delete activeRequestIdByChannel.value[event.channelKey]
-          delete streamMessageIdByRequest.value[event.requestId]
-          void refreshSessionDetail(event.sessionId)
-          return
-        }
-
-        if (event.type === 'finish') {
-          target.status =
-            event.finishReason === 'stop'
-              ? 'final'
-              : event.finishReason === 'aborted'
-                ? 'aborted'
-                : 'error'
-          target.requestId = event.requestId
-          target.usageJson = event.usageJson ?? null
-          delete activeRequestIdByChannel.value[event.channelKey]
-          delete streamMessageIdByRequest.value[event.requestId]
+        if (event.type === 'error' || event.type === 'finish') {
           void refreshSessionDetail(event.sessionId)
         }
       })
     }
 
+    async function refreshSessionDetail(sessionId: string): Promise<void> {
+      const detail = await sessionDetailCacheStore.refreshSessionDetail(sessionId)
+      hydrateSessionDetail(detail)
+      sessionListStore.mergeSessionSummary(detail)
+    }
+
+    function hydrateSessionDetail(detail: GenerateSessionDetailViewModel): void {
+      analysisStageConfigStore.setConfig(detail.id, detail.stageConfigs.analysis)
+      designStageConfigStore.setConfig(detail.id, detail.stageConfigs.design)
+      verifyStageConfigStore.setConfig(detail.id, detail.stageConfigs.verify)
+
+      analysisDocumentStore.setDocument(detail.id, detail.documents.analysis)
+      designDocumentStore.setDocument(detail.id, detail.documents.design)
+      verifyDocumentStore.setDocument(detail.id, detail.documents.verify)
+
+      sessionListStore.mergeSessionSummary(detail)
+    }
+
     async function selectSession(sessionId: string): Promise<void> {
-      selectedSessionId.value = sessionId
+      sessionListStore.selectSession(sessionId)
       activeMenu.value = resolveMenuByStage(
         sessions.value.find((item) => item.id === sessionId)?.currentStage || 'analysis'
       )
@@ -239,51 +231,31 @@ export const useOrchestflowGenerationEditorStore = defineStore(
     async function createSession(): Promise<void> {
       const title = newSessionName.value.trim()
       if (!title) return
-      const detail = await OrchestflowGenerationEditorDataSource.createSession({ title })
-      upsertSessionDetail(detail)
-      selectedSessionId.value = detail.id
-      newSessionName.value = ''
+      const detail = await sessionListStore.createSession(title)
+      hydrateSessionDetail(detail)
       showCreateSessionModal.value = false
+      newSessionName.value = ''
       activeMenu.value = 'analysis'
     }
 
     async function deleteSession(sessionId: string): Promise<void> {
-      await OrchestflowGenerationEditorDataSource.deleteSession(sessionId)
+      await sessionListStore.deleteSession(sessionId)
+      sessionDetailCacheStore.removeSessionDetail(sessionId)
 
-      sessions.value = sessions.value.filter((item) => item.id !== sessionId)
-      delete sessionDetails.value[sessionId]
+      if (selectedSessionId.value === sessionId) {
+        activeRightPanel.value = null
+      }
 
-      // 清理已删除会话的本地流状态，避免前端继续把后续事件对到不存在的消息上。
-      Object.entries(activeRequestIdByChannel.value).forEach(([channelKey, requestId]) => {
-        if (!requestId) {
-          return
-        }
-        const mappedMessageId = streamMessageIdByRequest.value[requestId]
-        if (mappedMessageId && !findSessionByMessageId(mappedMessageId)) {
-          delete activeRequestIdByChannel.value[channelKey as GenerationChannelKey]
-          delete streamMessageIdByRequest.value[requestId]
-        }
-      })
-
-      if (selectedSessionId.value !== sessionId) {
+      if (selectedSessionId.value) {
+        const detail = await sessionDetailCacheStore.refreshSessionDetail(selectedSessionId.value)
+        hydrateSessionDetail(detail)
+        activeMenu.value = resolveMenuByStage(detail.currentStage)
         return
       }
 
-      const nextSession = sessions.value[0]
-      if (nextSession) {
-        selectedSessionId.value = nextSession.id
-        activeMenu.value = resolveMenuByStage(nextSession.currentStage)
-        await refreshSessionDetail(nextSession.id)
-        return
-      }
-
-      const created = await OrchestflowGenerationEditorDataSource.createSession({
-        title: '新建生成会话'
-      })
-      upsertSessionDetail(created)
-      selectedSessionId.value = created.id
+      const created = await sessionListStore.createSession('新建生成会话')
+      hydrateSessionDetail(created)
       activeMenu.value = 'analysis'
-      activeRightPanel.value = null
     }
 
     async function saveCurrentStageConfig(partial: Partial<GenerationStageConfig>): Promise<void> {
@@ -292,11 +264,17 @@ export const useOrchestflowGenerationEditorStore = defineStore(
         ...currentStageConfig.value,
         ...partial
       }
-      currentSession.value.stageConfigs[nextConfig.stageKey] = nextConfig
       await OrchestflowGenerationEditorDataSource.saveStageConfig({
         sessionId: currentSession.value.id,
         config: nextConfig
       })
+      currentSession.value.stageConfigs[nextConfig.stageKey] = nextConfig
+      if (nextConfig.stageKey === 'analysis')
+        analysisStageConfigStore.setConfig(currentSession.value.id, nextConfig)
+      if (nextConfig.stageKey === 'design')
+        designStageConfigStore.setConfig(currentSession.value.id, nextConfig)
+      if (nextConfig.stageKey === 'verify')
+        verifyStageConfigStore.setConfig(currentSession.value.id, nextConfig)
     }
 
     async function saveConfigDrawerStageConfig(
@@ -307,20 +285,32 @@ export const useOrchestflowGenerationEditorStore = defineStore(
         ...configDrawerStageConfig.value,
         ...partial
       }
-      currentSession.value.stageConfigs[nextConfig.stageKey] = nextConfig
       await OrchestflowGenerationEditorDataSource.saveStageConfig({
         sessionId: currentSession.value.id,
         config: nextConfig
       })
+      currentSession.value.stageConfigs[nextConfig.stageKey] = nextConfig
+      if (nextConfig.stageKey === 'analysis')
+        analysisStageConfigStore.setConfig(currentSession.value.id, nextConfig)
+      if (nextConfig.stageKey === 'design')
+        designStageConfigStore.setConfig(currentSession.value.id, nextConfig)
+      if (nextConfig.stageKey === 'verify')
+        verifyStageConfigStore.setConfig(currentSession.value.id, nextConfig)
     }
 
     async function saveDocument(document: GenerationDocument): Promise<void> {
       if (!currentSession.value) return
-      currentSession.value.documents[document.documentKey] = document
       await OrchestflowGenerationEditorDataSource.saveDocument({
         sessionId: currentSession.value.id,
         document
       })
+      currentSession.value.documents[document.documentKey] = document
+      if (document.documentKey === 'analysis')
+        analysisDocumentStore.setDocument(currentSession.value.id, document)
+      if (document.documentKey === 'design')
+        designDocumentStore.setDocument(currentSession.value.id, document)
+      if (document.documentKey === 'verify')
+        verifyDocumentStore.setDocument(currentSession.value.id, document)
     }
 
     async function updateSessionState(payload: {
@@ -337,114 +327,57 @@ export const useOrchestflowGenerationEditorStore = defineStore(
         analysisTurnCount: payload.analysisTurnCount,
         planGenerated: payload.planGenerated
       })
-      mergeSessionSummary(updated)
+      sessionListStore.mergeSessionSummary(updated)
+      const existing = sessionDetailCacheStore.getSessionDetail(currentSession.value.id)
+      if (existing) {
+        existing.currentStage = updated.currentStage
+        existing.summary = updated.summary
+        existing.analysisTurnCount = updated.analysisTurnCount
+        existing.planGenerated = updated.planGenerated
+      }
     }
 
     async function sendAnalysisMessage(): Promise<void> {
-      if (!currentSession.value) {
-        return
-      }
-      if (!currentStageConfig.value?.providerId || !currentStageConfig.value.modelId) {
-        // 没选模型时不要静默失败，直接拉起模型选择器，避免用户以为“发送按钮坏了”。
-        showModelSelector.value = true
-        return
-      }
-      const content = analysisInput.value.trim()
-      if (!content) return
-      analysisInput.value = ''
-      await appendOptimisticAndSend('analysis-discussion', content, currentStageConfig.value)
-      await updateSessionState({
-        analysisTurnCount: currentSession.value.analysisTurnCount + 1,
-        summary: '需求讨论已进入真实对话持久化链路。'
-      })
+      if (!currentSession.value) return
+      await analysisDiscussionStore.sendMessage(currentSession.value, currentStageConfig.value)
     }
 
     async function sendCopilotMessage(): Promise<void> {
       if (!currentSession.value || !activeRightPanel.value) return
-      const config = currentSession.value.stageConfigs[activeRightPanel.value]
-      if (!config.providerId || !config.modelId) {
-        // copilot 侧同样处理成显式引导，避免输入后点击发送没有任何反应。
-        showModelSelector.value = true
+      if (activeRightPanel.value === 'analysis') {
+        await analysisCopilotStore.sendMessage(
+          currentSession.value,
+          analysisStageConfigStore.getConfig(currentSession.value.id)
+        )
         return
       }
-      const content = copilotInput.value.trim()
-      if (!content) return
-      copilotInput.value = ''
-      await appendOptimisticAndSend(getChannelKeyByMode(activeRightPanel.value), content, config)
-    }
-
-    async function appendOptimisticAndSend(
-      channelKey: GenerationChannelKey,
-      content: string,
-      config: GenerationStageConfig
-    ): Promise<void> {
-      if (!currentSession.value) return
-
-      const messages = currentSession.value.messagesByChannel[channelKey]
-      messages.push({
-        id: crypto.randomUUID(),
-        sessionId: currentSession.value.id,
-        channelKey,
-        requestId: null,
-        role: 'user',
-        content,
-        status: 'final',
-        providerId: config.providerId,
-        modelId: config.modelId,
-        error: null,
-        usageJson: null,
-        metaJson: null,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      })
-
-      const assistantId = crypto.randomUUID()
-      messages.push({
-        id: assistantId,
-        sessionId: currentSession.value.id,
-        channelKey,
-        requestId: null,
-        role: 'assistant',
-        content: '',
-        status: 'streaming',
-        providerId: config.providerId,
-        modelId: config.modelId,
-        error: null,
-        usageJson: null,
-        metaJson: null,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      })
-
-      const result = await OrchestflowGenerationEditorDataSource.sendMessage({
-        sessionId: currentSession.value.id,
-        channelKey,
-        providerId: config.providerId!,
-        modelId: config.modelId!,
-        content
-      })
-
-      // 先把 requestId 绑到本地占位 assistant 上，哪怕 stream-start 先/后到，都能继续命中同一条消息。
-      const target = messages.find((item) => item.id === assistantId)
-      if (target) {
-        target.requestId = result.requestId
+      if (activeRightPanel.value === 'design') {
+        await designCopilotStore.sendMessage(
+          currentSession.value,
+          designStageConfigStore.getConfig(currentSession.value.id)
+        )
+        return
       }
-      streamMessageIdByRequest.value[result.requestId] = assistantId
+      await verifyCopilotStore.sendMessage(
+        currentSession.value,
+        verifyStageConfigStore.getConfig(currentSession.value.id)
+      )
     }
 
     async function toggleAutoApproved(): Promise<void> {
       if (!currentSession.value || !activeRightPanel.value) return
       const stageKey = activeRightPanel.value
-      const config = currentSession.value.stageConfigs[stageKey]
-      const nextConfig: GenerationStageConfig = {
-        ...config,
+      const source =
+        stageKey === 'analysis'
+          ? analysisStageConfigStore.getConfig(currentSession.value.id)
+          : stageKey === 'design'
+            ? designStageConfigStore.getConfig(currentSession.value.id)
+            : verifyStageConfigStore.getConfig(currentSession.value.id)
+
+      if (!source) return
+      await saveConfigDrawerStageConfig({
         stageKey,
-        autoApproved: !config.autoApproved
-      }
-      currentSession.value.stageConfigs[stageKey] = nextConfig
-      await OrchestflowGenerationEditorDataSource.saveStageConfig({
-        sessionId: currentSession.value.id,
-        config: nextConfig
+        autoApproved: !source.autoApproved
       })
     }
 
@@ -468,8 +401,10 @@ export const useOrchestflowGenerationEditorStore = defineStore(
 
     async function handleDesignContentUpdate(value: string): Promise<void> {
       if (!currentSession.value) return
+      const currentDocument = designDocumentStore.getDocument(currentSession.value.id)
+      if (!currentDocument) return
       const nextDocument = {
-        ...currentSession.value.documents.design,
+        ...currentDocument,
         content: value,
         summary: '设计正文已保存到数据库。'
       }
@@ -507,56 +442,6 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       return 'rounded-full h-2 w-2 bg-amber-200'
     }
 
-    async function refreshSessionDetail(sessionId: string): Promise<void> {
-      const detail = await OrchestflowGenerationEditorDataSource.getSessionDetail(sessionId)
-      upsertSessionDetail(detail)
-    }
-
-    function findStreamMessage(
-      detail: GenerateSessionDetailViewModel,
-      channelKey: GenerationChannelKey,
-      requestId: string,
-      messageId: string
-    ): GenerationMessage | undefined {
-      const channelMessages = detail.messagesByChannel[channelKey]
-      const mappedId = streamMessageIdByRequest.value[requestId]
-      return channelMessages.find(
-        (item) =>
-          item.id === messageId ||
-          item.id === mappedId ||
-          (item.requestId === requestId && item.role === 'assistant')
-      )
-    }
-
-    function findSessionByMessageId(messageId: string): GenerateSessionDetailViewModel | undefined {
-      return Object.values(sessionDetails.value).find((detail) => {
-        return Object.values(detail.messagesByChannel).some((messages) => {
-          return messages.some((message) => message.id === messageId)
-        })
-      })
-    }
-
-    function upsertSessionDetail(detail: any): void {
-      const mapped = mapSessionDetail(detail)
-      sessionDetails.value[mapped.id] = mapped
-      mergeSessionSummary(mapped)
-    }
-
-    function mergeSessionSummary(summary: GenerateSessionViewModel): void {
-      const index = sessions.value.findIndex((item) => item.id === summary.id)
-      if (index >= 0) {
-        sessions.value[index] = summary
-      } else {
-        sessions.value.unshift(summary)
-      }
-      if (sessionDetails.value[summary.id]) {
-        sessionDetails.value[summary.id] = {
-          ...sessionDetails.value[summary.id],
-          ...summary
-        }
-      }
-    }
-
     return {
       sessions,
       selectedSessionId,
@@ -589,6 +474,7 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       deleteSession,
       saveCurrentStageConfig,
       saveConfigDrawerStageConfig,
+      saveDocument,
       updateSessionState,
       sendAnalysisMessage,
       sendCopilotMessage,
@@ -603,9 +489,3 @@ export const useOrchestflowGenerationEditorStore = defineStore(
     }
   }
 )
-
-function getChannelKeyByMode(mode: GenerateCopilotMode): GenerationChannelKey {
-  if (mode === 'analysis') return 'analysis-copilot'
-  if (mode === 'design') return 'design-copilot'
-  return 'verify-copilot'
-}
