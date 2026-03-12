@@ -47,6 +47,18 @@ export class OrchestflowGenerationEditorService {
     return this.repository.getSessionDetail(sessionId)
   }
 
+  async deleteSession(sessionId: string): Promise<void> {
+    // 删除会话前先中断该会话上的所有活动流，避免后续 stream event 再写回已删除消息。
+    for (const [requestId, stream] of this.activeStreams.entries()) {
+      if (stream.sessionId !== sessionId) {
+        continue
+      }
+      abortGenerationStream(this.activeStreams, requestId)
+    }
+
+    this.repository.deleteSession(sessionId)
+  }
+
   async getSessionDetail(sessionId: string) {
     return this.repository.getSessionDetail(sessionId)
   }

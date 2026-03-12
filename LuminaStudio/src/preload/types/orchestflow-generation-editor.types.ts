@@ -149,6 +149,10 @@ export interface GenerationAbortMessageRequest {
   requestId: string
 }
 
+export interface GenerationDeleteSessionRequest {
+  sessionId: string
+}
+
 export interface GenerationStreamStartEvent {
   type: 'stream-start'
   requestId: string
@@ -221,5 +225,6 @@ export interface OrchestrflowGenerationEditorAPI {
     request: GenerationSendMessageRequest
   ) => Promise<ApiResponse<{ requestId: string }>>
   abortMessage: (request: GenerationAbortMessageRequest) => Promise<ApiResponse<void>>
+  deleteSession: (request: GenerationDeleteSessionRequest) => Promise<ApiResponse<void>>
   onStream: (handler: (event: GenerationStreamEvent) => void) => () => void
 }

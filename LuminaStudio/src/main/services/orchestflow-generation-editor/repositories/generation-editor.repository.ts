@@ -108,6 +108,17 @@ export class GenerationEditorRepository {
     return sessionId
   }
 
+  deleteSession(sessionId: string): void {
+    const transaction = this.db.transaction(() => {
+      this.db.prepare('DELETE FROM generation_messages WHERE session_id = ?').run(sessionId)
+      this.db.prepare('DELETE FROM generation_documents WHERE session_id = ?').run(sessionId)
+      this.db.prepare('DELETE FROM generation_stage_configs WHERE session_id = ?').run(sessionId)
+      this.db.prepare('DELETE FROM generation_sessions WHERE id = ?').run(sessionId)
+    })
+
+    transaction()
+  }
+
   getSessionDetail(sessionId: string): GenerationSessionDetail {
     const sessionRow = this.db
       .prepare('SELECT * FROM generation_sessions WHERE id = ?')

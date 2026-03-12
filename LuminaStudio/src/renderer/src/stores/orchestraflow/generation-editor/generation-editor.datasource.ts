@@ -65,17 +65,21 @@ export const OrchestflowGenerationEditorDataSource = {
       throw new Error(response.error || 'Failed to send message')
     }
     return response.data
-  },
-
-  async abortMessage(requestId: string) {
+  },  async abortMessage(requestId: string) {
     const response = await window.api.orchestflowGenerationEditor.abortMessage({ requestId })
     if (!response.success) {
       throw new Error(response.error || 'Failed to abort message')
     }
   },
 
-  onStream(handler: (event: GenerationStreamEvent) => void): () => void {
-    return window.api.orchestflowGenerationEditor.onStream(handler)
+  async deleteSession(sessionId: string): Promise<void> {
+    const response = await window.api.orchestflowGenerationEditor.deleteSession({ sessionId })
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to delete session')
+    }
+  },
+
+  onStream(handler: (event: GenerationStreamEvent) => void): () => void {return window.api.orchestflowGenerationEditor.onStream(handler)
   }
 }
 

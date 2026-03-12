@@ -1,10 +1,9 @@
 import type { IpcMainInvokeEvent } from 'electron'
 import { BaseIPCHandler } from './base-handler'
 import type { OrchestflowGenerationEditorService } from '../services/orchestflow-generation-editor'
-import type {
-  GenerationAbortMessageRequest,
+import type {  GenerationAbortMessageRequest,
   GenerationCreateSessionRequest,
-  GenerationListMessagesRequest,
+  GenerationDeleteSessionRequest,GenerationListMessagesRequest,
   GenerationSaveDocumentRequest,
   GenerationSaveStageConfigRequest,
   GenerationSendMessageRequest,
@@ -78,13 +77,19 @@ export class OrchestflowGenerationEditorIPCHandler extends BaseIPCHandler {
       return { success: false, error: 'Invalid request' }
     }
     return { success: true, data: await this.service.sendMessage(_event.sender, request) }
-  }
-
-  async handleAbortMessage(_event: IpcMainInvokeEvent, request: GenerationAbortMessageRequest) {
+  }  async handleAbortMessage(_event: IpcMainInvokeEvent, request: GenerationAbortMessageRequest) {
     if (!request?.requestId) {
       return { success: false, error: 'Missing requestId' }
     }
     await this.service.abortMessage(request.requestId)
+    return { success: true }
+  }
+
+  async handleDeleteSession(_event: IpcMainInvokeEvent, request: GenerationDeleteSessionRequest) {
+    if (!request?.sessionId) {
+      return { success: false, error: 'Missing sessionId' }
+    }
+    await this.service.deleteSession(request.sessionId)
     return { success: true }
   }
 }

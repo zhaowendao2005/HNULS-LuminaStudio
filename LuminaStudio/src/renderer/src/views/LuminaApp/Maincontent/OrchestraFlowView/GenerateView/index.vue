@@ -46,6 +46,7 @@
               :get-session-stage-dot-class="generationStore.getSessionStageDotClass"
               @open-create-session="openCreateSessionModal"
               @select-session="generationStore.selectSession($event)"
+              @delete-session="generationStore.deleteSession($event)"
             />
 
             <GenerateAnalysisPanel

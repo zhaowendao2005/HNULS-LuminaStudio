@@ -1,8 +1,7 @@
 import { ipcRenderer } from 'electron'
-import type {
-  GenerationAbortMessageRequest,
+import type {  GenerationAbortMessageRequest,
   GenerationCreateSessionRequest,
-  GenerationListMessagesRequest,
+  GenerationDeleteSessionRequest,GenerationListMessagesRequest,
   GenerationSaveDocumentRequest,
   GenerationSaveStageConfigRequest,
   GenerationSendMessageRequest,
@@ -26,11 +25,11 @@ export const orchestflowGenerationEditorAPI: OrchestrflowGenerationEditorAPI = {
   listMessages: (request: GenerationListMessagesRequest) =>
     ipcRenderer.invoke('orchestflowGenerationEditor:listMessages', request),
   sendMessage: (request: GenerationSendMessageRequest) =>
-    ipcRenderer.invoke('orchestflowGenerationEditor:sendMessage', request),
-  abortMessage: (request: GenerationAbortMessageRequest) =>
+    ipcRenderer.invoke('orchestflowGenerationEditor:sendMessage', request),  abortMessage: (request: GenerationAbortMessageRequest) =>
     ipcRenderer.invoke('orchestflowGenerationEditor:abortMessage', request),
-  onStream: (handler: (event: GenerationStreamEvent) => void) => {
-    const listener = (_event: unknown, payload: GenerationStreamEvent) => handler(payload)
+  deleteSession: (request: GenerationDeleteSessionRequest) =>
+    ipcRenderer.invoke('orchestflowGenerationEditor:deleteSession', request),
+  onStream: (handler: (event: GenerationStreamEvent) => void) => {const listener = (_event: unknown, payload: GenerationStreamEvent) => handler(payload)
     ipcRenderer.on('orchestflowGenerationEditor:stream', listener)
     return () => ipcRenderer.off('orchestflowGenerationEditor:stream', listener)
   }

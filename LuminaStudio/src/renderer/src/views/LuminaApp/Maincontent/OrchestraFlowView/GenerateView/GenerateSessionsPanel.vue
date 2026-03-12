@@ -32,7 +32,23 @@
           <div class="text-xs leading-5 text-gray-500">{{ session.summary }}</div>
         </div>
         <div class="flex shrink-0 flex-col items-end gap-3">
-          <div class="text-xs text-gray-400">{{ formatTime(session.updatedAt) }}</div>
+          <div class="flex items-center gap-2">
+            <div class="text-xs text-gray-400">{{ formatTime(session.updatedAt) }}</div>
+            <button
+              type="button"
+              title="删除会话"
+              class="rounded p-1 text-gray-300 opacity-0 transition-all hover:bg-rose-50 hover:text-rose-600 group-hover:opacity-100"
+              @click.stop="$emit('delete-session', session.id)"
+            >
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 6h18" />
+                <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
+                <path d="M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6" />
+                <path d="M10 11v6" />
+                <path d="M14 11v6" />
+              </svg>
+            </button>
+          </div>
           <div class="flex items-center gap-1.5">
             <span
               v-for="stage in stageOrder"
@@ -61,6 +77,7 @@ defineProps<{
 defineEmits<{
   (e: 'open-create-session'): void
   (e: 'select-session', sessionId: string): void
+  (e: 'delete-session', sessionId: string): void
 }>()
 
 function formatTime(value: string): string {

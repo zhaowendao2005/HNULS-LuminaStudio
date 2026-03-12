@@ -247,6 +247,45 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       activeMenu.value = 'analysis'
     }
 
+    async function deleteSession(sessionId: string): Promise<void> {
+      await OrchestflowGenerationEditorDataSource.deleteSession(sessionId)
+
+      sessions.value = sessions.value.filter((item) => item.id !== sessionId)
+      delete sessionDetails.value[sessionId]
+
+      // 清理已删除会话的本地流状态，避免前端继续把后续事件对到不存在的消息上。
+      Object.entries(activeRequestIdByChannel.value).forEach(([channelKey, requestId]) => {
+        if (!requestId) {
+          return
+        }
+        const mappedMessageId = streamMessageIdByRequest.value[requestId]
+        if (mappedMessageId && !findSessionByMessageId(mappedMessageId)) {
+          delete activeRequestIdByChannel.value[channelKey as GenerationChannelKey]
+          delete streamMessageIdByRequest.value[requestId]
+        }
+      })
+
+      if (selectedSessionId.value !== sessionId) {
+        return
+      }
+
+      const nextSession = sessions.value[0]
+      if (nextSession) {
+        selectedSessionId.value = nextSession.id
+        activeMenu.value = resolveMenuByStage(nextSession.currentStage)
+        await refreshSessionDetail(nextSession.id)
+        return
+      }
+
+      const created = await OrchestflowGenerationEditorDataSource.createSession({
+        title: '新建生成会话'
+      })
+      upsertSessionDetail(created)
+      selectedSessionId.value = created.id
+      activeMenu.value = 'analysis'
+      activeRightPanel.value = null
+    }
+
     async function saveCurrentStageConfig(partial: Partial<GenerationStageConfig>): Promise<void> {
       if (!currentSession.value || !currentStageConfig.value) return
       const nextConfig: GenerationStageConfig = {
@@ -489,6 +528,14 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       )
     }
 
+    function findSessionByMessageId(messageId: string): GenerateSessionDetailViewModel | undefined {
+      return Object.values(sessionDetails.value).find((detail) => {
+        return Object.values(detail.messagesByChannel).some((messages) => {
+          return messages.some((message) => message.id === messageId)
+        })
+      })
+    }
+
     function upsertSessionDetail(detail: any): void {
       const mapped = mapSessionDetail(detail)
       sessionDetails.value[mapped.id] = mapped
@@ -539,6 +586,7 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       bindStreamListener,
       selectSession,
       createSession,
+      deleteSession,
       saveCurrentStageConfig,
       saveConfigDrawerStageConfig,
       updateSessionState,
