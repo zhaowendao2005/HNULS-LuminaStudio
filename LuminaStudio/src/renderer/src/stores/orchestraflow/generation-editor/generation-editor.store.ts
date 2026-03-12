@@ -195,6 +195,13 @@ export const useOrchestflowGenerationEditorStore = defineStore(
           return
         }
 
+        if (event.type === 'message-meta') {
+          target.metaJson = event.metaJson
+          target.status = 'streaming'
+          target.requestId = event.requestId
+          return
+        }
+
         if (event.type === 'error') {
           target.error = event.message
           target.status = 'error'

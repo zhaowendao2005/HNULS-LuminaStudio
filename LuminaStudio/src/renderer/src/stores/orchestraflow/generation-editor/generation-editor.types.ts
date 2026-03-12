@@ -2,6 +2,8 @@ import type {
   GenerationChannelKey,
   GenerationDocument,
   GenerationMessage,
+  GenerationMessageMetaPayload,
+  GenerationPlanningBlockPayload,
   GenerationRuntimeStageKey,
   GenerationSessionDetail,
   GenerationSessionSummary,
@@ -79,4 +81,32 @@ export function mapSessionDetail(session: GenerationSessionDetail): GenerateSess
       'verify-copilot': session.messages.filter((item) => item.channelKey === 'verify-copilot')
     }
   }
+}
+
+/**
+ * 生成编辑器当前只有 planning block 这一种结构化消息元数据。
+ * 后面如果继续扩展别的 block，也统一从这里加解析入口。
+ */
+export function parseGenerationMessageMeta(
+  metaJson: string | null
+): GenerationMessageMetaPayload | null {
+  if (!metaJson) {
+    return null
+  }
+
+  try {
+    return JSON.parse(metaJson) as GenerationMessageMetaPayload
+  } catch {
+    return null
+  }
+}
+
+export function getGenerationPlanningBlock(
+  message: Pick<GenerationMessage, 'metaJson'>
+): GenerationPlanningBlockPayload | null {
+  const meta = parseGenerationMessageMeta(message.metaJson)
+  if (meta?.planningBlock?.kind === 'analysis-planning') {
+    return meta.planningBlock
+  }
+  return null
 }

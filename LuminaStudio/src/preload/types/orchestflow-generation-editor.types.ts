@@ -1,4 +1,6 @@
+import type { OFRequirementDocument } from '@shared/Orchestraflow-types'
 import type { ApiResponse } from './base.types'
+import type { ModelProviderProtocol } from './model-config.types'
 
 export type GenerationStageKey = 'analysis' | 'design' | 'verify'
 export type GenerationRuntimeStageKey = GenerationStageKey | 'workflow'
@@ -10,6 +12,22 @@ export type GenerationChannelKey =
 export type GenerationChatRole = 'user' | 'assistant' | 'system'
 export type GenerationMessageStatus = 'streaming' | 'final' | 'aborted' | 'error'
 export type GenerationSdkVendor = 'openai' | 'anthropic' | 'google'
+export type GenerationAnalysisAgentMode = 'continue' | 'planning'
+export type GenerationAnalysisPlanningStatus = 'draft' | 'ready'
+export type GenerationPlanningBlockFieldKey =
+  | 'summary'
+  | 'goals'
+  | 'success_criteria'
+  | 'constraints'
+  | 'prohibitions'
+  | 'missingQuestions'
+  | 'readinessSignals'
+  | 'candidate_nodes'
+  | 'input_requirements'
+  | 'output_requirements'
+  | 'human_confirmation_questions'
+  | 'blueprint_requirements'
+export type GenerationPlanningStreamSectionKey = 'analysis' | 'design'
 
 export interface GenerationStageConfig {
   stageKey: GenerationStageKey
@@ -27,6 +45,33 @@ export interface GenerationDocument {
   fileName: string
   summary: string
   content: string
+}
+
+export interface GenerationPlanningBlockStreamingState {
+  isStreaming: boolean
+  activeSection: GenerationPlanningStreamSectionKey
+  completedFieldKeys: GenerationPlanningBlockFieldKey[]
+}
+
+export interface GenerationPlanningBlockPayload {
+  kind: 'analysis-planning'
+  version: '1.0'
+  agentId: string
+  trigger: 'explicit' | 'auto'
+  status: GenerationAnalysisPlanningStatus
+  summary: string
+  readinessSignals: string[]
+  missingQuestions: string[]
+  requirementDocument: OFRequirementDocument
+  streamingState?: GenerationPlanningBlockStreamingState
+}
+
+export interface GenerationMessageMetaPayload {
+  vendor?: GenerationSdkVendor
+  protocol?: ModelProviderProtocol
+  agentId?: string
+  mode?: GenerationAnalysisAgentMode
+  planningBlock?: GenerationPlanningBlockPayload | null
 }
 
 export interface GenerationMessage {
@@ -119,6 +164,15 @@ export interface GenerationTextDeltaEvent {
   delta: string
 }
 
+export interface GenerationMessageMetaEvent {
+  type: 'message-meta'
+  requestId: string
+  sessionId: string
+  channelKey: GenerationChannelKey
+  messageId: string
+  metaJson: string | null
+}
+
 export interface GenerationFinishEvent {
   type: 'finish'
   requestId: string
@@ -141,6 +195,7 @@ export interface GenerationErrorEvent {
 export type GenerationStreamEvent =
   | GenerationStreamStartEvent
   | GenerationTextDeltaEvent
+  | GenerationMessageMetaEvent
   | GenerationFinishEvent
   | GenerationErrorEvent
 

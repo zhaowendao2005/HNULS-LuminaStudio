@@ -58,7 +58,6 @@
               :is-analysis-streaming="generationStore.isAnalysisStreaming"
               @open-sessions="generationStore.activeMenu = 'sessions'"
               @open-copilot="generationStore.openCopilotPanel('analysis')"
-              @enter-design="generationStore.enterDesignView()"
               @update:analysis-input="generationStore.analysisInput = $event"
               @send-analysis="generationStore.sendAnalysisMessage()"
             />

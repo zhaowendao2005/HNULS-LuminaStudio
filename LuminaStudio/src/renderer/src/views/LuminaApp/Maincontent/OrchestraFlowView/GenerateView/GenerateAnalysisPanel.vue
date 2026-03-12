@@ -31,9 +31,9 @@
     </div>
 
     <div class="flex-1 space-y-6 overflow-y-auto px-6 py-4">
-      <div v-for="message in messages" :key="message.id" class="flex gap-4">
+      <div v-for="entry in decoratedMessages" :key="entry.message.id" class="flex gap-4">
         <div
-          v-if="message.role === 'user'"
+          v-if="entry.message.role === 'user'"
           class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100"
         >
           <UserCircle :size="18" class="text-gray-500" />
@@ -47,34 +47,20 @@
 
         <div class="w-full space-y-1.5 pt-1.5">
           <div class="text-xs font-semibold text-gray-800">
-            {{ message.role === 'user' ? 'User' : 'Lumina Agent' }}
+            {{ entry.message.role === 'user' ? 'User' : 'Lumina Agent' }}
           </div>
-          <div class="text-[13px] leading-relaxed text-gray-800">
-            {{ message.content }}
+          <div class="whitespace-pre-wrap text-[13px] leading-relaxed text-gray-800">
+            {{ entry.message.content }}
             <span
-              v-if="message.status === 'streaming'"
+              v-if="entry.message.status === 'streaming'"
               class="ml-1 inline-block h-3 w-1 animate-pulse bg-cyan-500 align-middle"
             ></span>
           </div>
-          <div v-if="message.error" class="text-[11px] text-rose-500">{{ message.error }}</div>
+          <GeneratePlanningBlock v-if="entry.planningBlock" :block="entry.planningBlock" />
+          <div v-if="entry.message.error" class="text-[11px] text-rose-500">
+            {{ entry.message.error }}
+          </div>
         </div>
-      </div>
-
-      <div class="flex gap-2">
-        <button
-          type="button"
-          class="rounded-sm bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
-          @click="$emit('enter-design')"
-        >
-          进入规划设计页
-        </button>
-        <button
-          type="button"
-          class="rounded-sm bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-200"
-          @click="$emit('open-copilot')"
-        >
-          打开 copilot
-        </button>
       </div>
     </div>
 
@@ -104,14 +90,16 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { Bot, FolderKanban, MessageSquare, Send, UserCircle } from 'lucide-vue-next'
 import type { GenerationMessage } from '@preload/types'
+import { getGenerationPlanningBlock } from '@renderer/stores/orchestraflow/generation-editor/generation-editor.types'
+import GeneratePlanningBlock from './GeneratePlanningBlock.vue'
 
-defineProps<{
+const props = defineProps<{
   sessionTitle: string
   sessionSummary: string
   currentSessionStageLabel: string
-
   messages: GenerationMessage[]
   analysisInput: string
   isAnalysisStreaming: boolean
@@ -120,8 +108,18 @@ defineProps<{
 defineEmits<{
   (e: 'open-sessions'): void
   (e: 'open-copilot'): void
-  (e: 'enter-design'): void
   (e: 'update:analysis-input', value: string): void
   (e: 'send-analysis'): void
 }>()
+
+/**
+ * 这里把普通文本消息和 planning block 一起整理好，
+ * 模板层就不用每次都现场 parse metaJson 了。
+ */
+const decoratedMessages = computed(() => {
+  return props.messages.map((message) => ({
+    message,
+    planningBlock: getGenerationPlanningBlock(message)
+  }))
+})
 </script>

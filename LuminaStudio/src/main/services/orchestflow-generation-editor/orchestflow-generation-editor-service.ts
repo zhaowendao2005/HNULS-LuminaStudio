@@ -14,7 +14,11 @@ import type {
   ModelProviderProtocol
 } from '@preload/types'
 import { GenerationEditorRepository } from './repositories/generation-editor.repository'
-import { abortGenerationStream, startGenerationStream } from './llm-client'
+import {
+  abortGenerationStream,
+  startAnalysisPlannerAgentStream,
+  startGenerationStream
+} from './llm-client'
 import type { ActiveGenerationStream } from './types/stream.types'
 
 export class OrchestflowGenerationEditorService {
@@ -107,21 +111,46 @@ export class OrchestflowGenerationEditorService {
       meta_json: JSON.stringify({ vendor, protocol: provider.protocol })
     })
 
-    startGenerationStream({
-      activeStreams: this.activeStreams,
-      repository: this.repository,
-      sender,
-      requestId,
-      sessionId: request.sessionId,
-      channelKey: request.channelKey,
-      messageId: assistantMessageId,
-      providerId: request.providerId,
-      modelId: request.modelId,
-      vendor,
-      apiKey: provider.apiKey,
-      baseUrl: provider.baseUrl || undefined,
-      messages: [{ role: 'user', content: text }]
-    })
+    if (request.channelKey === 'analysis-discussion') {
+      const sessionDetail = this.repository.getSessionDetail(request.sessionId)
+      const analysisStageConfig = sessionDetail.stageConfigs.find(
+        (item) => item.stageKey === 'analysis'
+      )
+
+      startAnalysisPlannerAgentStream({
+        activeStreams: this.activeStreams,
+        repository: this.repository,
+        sender,
+        requestId,
+        sessionId: request.sessionId,
+        channelKey: request.channelKey,
+        messageId: assistantMessageId,
+        providerId: request.providerId,
+        modelId: request.modelId,
+        vendor,
+        protocol: provider.protocol,
+        apiKey: provider.apiKey,
+        baseUrl: provider.baseUrl || undefined,
+        memoryRounds: analysisStageConfig?.memoryRounds || 6,
+        userMessage: text
+      })
+    } else {
+      startGenerationStream({
+        activeStreams: this.activeStreams,
+        repository: this.repository,
+        sender,
+        requestId,
+        sessionId: request.sessionId,
+        channelKey: request.channelKey,
+        messageId: assistantMessageId,
+        providerId: request.providerId,
+        modelId: request.modelId,
+        vendor,
+        apiKey: provider.apiKey,
+        baseUrl: provider.baseUrl || undefined,
+        messages: [{ role: 'user', content: text }]
+      })
+    }
 
     return { requestId }
   }

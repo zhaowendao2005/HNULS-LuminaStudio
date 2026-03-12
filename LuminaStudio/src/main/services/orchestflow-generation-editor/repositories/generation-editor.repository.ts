@@ -268,6 +268,16 @@ export class GenerationEditorRepository {
       .run(content, messageId)
   }
 
+  updateMessageMeta(messageId: string, metaJson: string | null): void {
+    this.db
+      .prepare(
+        `UPDATE generation_messages
+         SET meta_json = ?, updated_at = datetime('now')
+         WHERE id = ?`
+      )
+      .run(metaJson, messageId)
+  }
+
   markMessageError(messageId: string, message: string): void {
     this.db
       .prepare(

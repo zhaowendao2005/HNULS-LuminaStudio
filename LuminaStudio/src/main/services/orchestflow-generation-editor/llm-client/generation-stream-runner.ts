@@ -7,7 +7,6 @@ import type { GenerationChannelKey, GenerationSdkVendor } from '@preload/types'
 import type { GenerationEditorRepository } from '../repositories/generation-editor.repository'
 import type { ActiveGenerationStream } from '../types/stream.types'
 import type { GenerationStreamChatMessage, StreamChatParams, StreamChatResult } from './types'
-import { placeholderGenerationAgent } from './agents'
 
 const log = logger.scope('OrchestflowGenerationEditorStreamRunner')
 
@@ -52,9 +51,6 @@ export function startGenerationStream(params: StartGenerationStreamParams): void
   }
 
   params.activeStreams.set(params.requestId, streamState)
-
-  // 当前先显式引用占位 agent，确保 agents 目录已经进入真实调用链的边界里。
-  void placeholderGenerationAgent
 
   void runStream(streamState, params)
 }
