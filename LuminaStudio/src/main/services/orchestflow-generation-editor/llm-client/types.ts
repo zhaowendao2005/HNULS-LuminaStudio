@@ -10,6 +10,7 @@ export interface StreamChatParams {
   modelId: string
   apiKey: string
   baseUrl?: string
+  defaultHeaders?: Record<string, string>
   messages: GenerationStreamChatMessage[]
   onTextDelta: (delta: string) => void
   signal: AbortSignal

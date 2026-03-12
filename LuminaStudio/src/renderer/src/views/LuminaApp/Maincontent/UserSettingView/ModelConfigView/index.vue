@@ -284,7 +284,7 @@
                     <span v-else class="text-gray-300">请输入 API Host URL</span>
                   </p>
                   <p class="font-mono text-[10px] text-gray-400">
-                    <span class="text-gray-500">Completion：</span>
+                    <span class="text-gray-500">Chat Completion：</span>
                     <span v-if="baseUrlDraft">{{ computedCompletionEndpoint }}</span>
                     <span v-else class="text-gray-300">请输入 API Host URL</span>
                   </p>
@@ -841,8 +841,8 @@ const { providers, selectedProviderId, selectedProvider, remoteModelGroups } = s
 const providerTypeOptions: ProviderTypeOption[] = [
   {
     id: 'openai',
-    name: 'OpenAI Chat Completions',
-    description: '传统 /v1/chat/completions 接口。',
+    name: 'OpenAI Official',
+    description: '仅用于 OpenAI 官方服务，固定官方 base URL。',
     available: true
   },
   {
@@ -853,8 +853,8 @@ const providerTypeOptions: ProviderTypeOption[] = [
   },
   {
     id: 'openai-completion',
-    name: 'OpenAI Completions',
-    description: '传统 /v1/completions 接口。',
+    name: 'OpenAI Chat Completions',
+    description: 'OpenAI 兼容 /v1/chat/completions 接口，适合聚合 API。',
     available: true
   },
   {
@@ -872,9 +872,9 @@ const providerTypeOptions: ProviderTypeOption[] = [
 ]
 
 const providerTypeLabelMap: Record<string, string> = {
-  openai: 'OpenAI Chat',
+  openai: 'OpenAI Official',
   'openai-response': 'OpenAI Responses',
-  'openai-completion': 'OpenAI Completion',
+  'openai-completion': 'OpenAI Chat Completions',
   claude: 'Claude',
   gemini: 'Gemini'
 }
@@ -929,7 +929,7 @@ const totalGroupCount = computed(() => Object.keys(remoteModelGroups.value).leng
 const baseUrlPlaceholder = computed(() => {
   if (selectedProvider.value?.type === 'claude') return 'https://api.anthropic.com'
   if (selectedProvider.value?.type === 'gemini') return 'https://generativelanguage.googleapis.com'
-  return 'https://api.openai.com'
+  return 'https://api.openai.com/v1'
 })
 
 const computedModelsEndpoint = computed(() => {
@@ -956,7 +956,7 @@ const computedCompletionEndpoint = computed(() => {
   const base = baseUrlDraft.value.trim().replace(/\/$/, '')
   if (!base) return ''
   if (selectedProvider.value?.type === 'openai-completion') {
-    return base.endsWith('/v1') ? `${base}/completions` : `${base}/v1/completions`
+    return base.endsWith('/v1') ? `${base}/chat/completions` : `${base}/v1/chat/completions`
   }
   return '-'
 })

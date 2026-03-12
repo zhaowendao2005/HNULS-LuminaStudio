@@ -3,7 +3,11 @@ import Anthropic from '@anthropic-ai/sdk'
 import { GoogleGenAI } from '@google/genai'
 import type { WebContents } from 'electron'
 import { logger } from '../../logger'
-import type { GenerationChannelKey, GenerationSdkVendor } from '@preload/types'
+import type {
+  GenerationChannelKey,
+  GenerationSdkVendor,
+  ModelProviderProtocol
+} from '@preload/types'
 import type { GenerationEditorRepository } from '../repositories/generation-editor.repository'
 import type { ActiveGenerationStream } from '../types/stream.types'
 import type { GenerationStreamChatMessage, StreamChatParams, StreamChatResult } from './types'
@@ -19,23 +23,17 @@ export interface StartGenerationStreamParams {
   channelKey: GenerationChannelKey
   messageId: string
   providerId: string
+  providerName?: string
   modelId: string
   vendor: GenerationSdkVendor
+  protocol: ModelProviderProtocol
   apiKey: string
   baseUrl?: string
+  defaultHeaders?: Record<string, string>
+  requestContent?: string
   messages: GenerationStreamChatMessage[]
 }
 
-/**
- * 这个 runner 专门负责主进程内的流式执行闭环：
- * - 建立 AbortController
- * - 调用最小 LLM client
- * - 增量落库
- * - 向 renderer 推送 stream 事件
- * - 最终清理 activeStreams
- *
- * service 层只需要准备好 request 上下文，然后把执行委托给这里。
- */
 export function startGenerationStream(params: StartGenerationStreamParams): void {
   const abortController = new AbortController()
   const streamState: ActiveGenerationStream = {
@@ -66,37 +64,88 @@ async function runStream(
   state: ActiveGenerationStream,
   params: StartGenerationStreamParams
 ): Promise<void> {
+  let hasLoggedFirstDelta = false
+
   try {
     emitStreamStart(state)
 
-    const result = await streamChat({
+    const result = await streamChatByProtocol({
+      protocol: params.protocol,
       vendor: params.vendor,
       modelId: params.modelId,
       apiKey: params.apiKey,
       baseUrl: params.baseUrl,
+      defaultHeaders: params.defaultHeaders,
       messages: params.messages,
       signal: state.abortController.signal,
       onTextDelta: (delta) => {
+        if (!hasLoggedFirstDelta) {
+          hasLoggedFirstDelta = true
+          log.info('Stream receiving started', {
+            requestId: state.requestId,
+            sessionId: state.sessionId,
+            channelKey: state.channelKey,
+            providerId: params.providerId,
+            providerName: params.providerName,
+            protocol: params.protocol,
+            sdkVendor: params.vendor,
+            baseUrl: params.baseUrl,
+            modelId: params.modelId
+          })
+        }
         handleTextDelta(state, params.repository, delta)
       }
     })
 
-    handleFinish(state, params.repository, params.activeStreams, 'stop', result.usage)
+    handleFinish(state, params.repository, params.activeStreams, 'stop', result.usage, {
+      providerId: params.providerId,
+      providerName: params.providerName,
+      protocol: params.protocol,
+      sdkVendor: params.vendor,
+      baseUrl: params.baseUrl,
+      modelId: params.modelId,
+      requestContent: params.requestContent,
+      hasReceivedDelta: hasLoggedFirstDelta
+    })
   } catch (error) {
     const err = error as { name?: string; message?: string }
     if (err?.name === 'AbortError') {
-      handleFinish(state, params.repository, params.activeStreams, 'aborted')
+      handleFinish(state, params.repository, params.activeStreams, 'aborted', undefined, {
+        providerId: params.providerId,
+        providerName: params.providerName,
+        protocol: params.protocol,
+        sdkVendor: params.vendor,
+        baseUrl: params.baseUrl,
+        modelId: params.modelId,
+        requestContent: params.requestContent,
+        hasReceivedDelta: hasLoggedFirstDelta
+      })
       return
     }
 
     log.error('Generate editor stream failed', error, {
       requestId: state.requestId,
       sessionId: state.sessionId,
-      channelKey: state.channelKey
+      channelKey: state.channelKey,
+      providerId: params.providerId,
+      providerName: params.providerName,
+      protocol: params.protocol,
+      sdkVendor: params.vendor,
+      baseUrl: params.baseUrl,
+      modelId: params.modelId
     })
 
     handleError(state, params.repository, err?.message ?? 'Unknown utility error')
-    handleFinish(state, params.repository, params.activeStreams, 'error')
+    handleFinish(state, params.repository, params.activeStreams, 'error', undefined, {
+      providerId: params.providerId,
+      providerName: params.providerName,
+      protocol: params.protocol,
+      sdkVendor: params.vendor,
+      baseUrl: params.baseUrl,
+      modelId: params.modelId,
+      requestContent: params.requestContent,
+      hasReceivedDelta: hasLoggedFirstDelta
+    })
   }
 }
 
@@ -150,7 +199,17 @@ function handleFinish(
   repository: GenerationEditorRepository,
   activeStreams: Map<string, ActiveGenerationStream>,
   finishReason: 'stop' | 'aborted' | 'error',
-  usage?: Record<string, unknown>
+  usage?: Record<string, unknown>,
+  logContext?: {
+    providerId: string
+    providerName?: string
+    protocol: ModelProviderProtocol
+    sdkVendor: GenerationSdkVendor
+    baseUrl?: string
+    modelId: string
+    requestContent?: string
+    hasReceivedDelta: boolean
+  }
 ): void {
   const status =
     finishReason === 'stop' ? 'final' : finishReason === 'aborted' ? 'aborted' : 'error'
@@ -161,6 +220,24 @@ function handleFinish(
     status,
     usage
   })
+
+  if (logContext) {
+    log.info('Stream receiving finished', {
+      requestId: state.requestId,
+      sessionId: state.sessionId,
+      channelKey: state.channelKey,
+      providerId: logContext.providerId,
+      providerName: logContext.providerName,
+      protocol: logContext.protocol,
+      sdkVendor: logContext.sdkVendor,
+      baseUrl: logContext.baseUrl,
+      modelId: logContext.modelId,
+      finishReason,
+      hasReceivedDelta: logContext.hasReceivedDelta,
+      outputChars: state.answerText.length,
+      requestContentPreview: buildContentPreview(logContext.requestContent || '')
+    })
+  }
 
   state.sender.send('orchestflowGenerationEditor:stream', {
     type: 'finish',
@@ -176,20 +253,26 @@ function handleFinish(
   activeStreams.delete(state.requestId)
 }
 
-export async function streamChat(params: StreamChatParams): Promise<StreamChatResult> {
-  if (params.vendor === 'anthropic') {
+export async function streamChatByProtocol(
+  params: StreamChatParams & { protocol: ModelProviderProtocol }
+): Promise<StreamChatResult> {
+  if (params.protocol === 'claude') {
     return streamAnthropicChat(params)
   }
-  if (params.vendor === 'google') {
+  if (params.protocol === 'gemini') {
     return streamGoogleChat(params)
   }
-  return streamOpenAIChat(params)
+  if (params.protocol === 'openai-response') {
+    return streamOpenAIResponses(params)
+  }
+  return streamOpenAIChatCompletions(params)
 }
 
-async function streamOpenAIChat(params: StreamChatParams): Promise<StreamChatResult> {
+async function streamOpenAIChatCompletions(params: StreamChatParams): Promise<StreamChatResult> {
   const client = new OpenAI({
     apiKey: params.apiKey,
-    baseURL: params.baseUrl
+    baseURL: normalizeOpenAICompatibleBaseUrl(params.baseUrl),
+    defaultHeaders: params.defaultHeaders
   })
 
   const stream = await client.chat.completions.create(
@@ -214,6 +297,40 @@ async function streamOpenAIChat(params: StreamChatParams): Promise<StreamChatRes
     }
     if (chunk.usage) {
       usage = chunk.usage as Record<string, unknown>
+    }
+  }
+
+  return { usage }
+}
+
+async function streamOpenAIResponses(params: StreamChatParams): Promise<StreamChatResult> {
+  const client = new OpenAI({
+    apiKey: params.apiKey,
+    baseURL: normalizeOpenAICompatibleBaseUrl(params.baseUrl),
+    defaultHeaders: params.defaultHeaders
+  })
+
+  const responseStream = await client.responses.create(
+    {
+      model: params.modelId,
+      stream: true,
+      input: params.messages.map((message) => ({
+        role: message.role,
+        content: [{ type: 'input_text', text: message.content }]
+      }))
+    },
+    {
+      signal: params.signal
+    }
+  )
+
+  let usage: Record<string, unknown> | undefined
+  for await (const event of responseStream) {
+    if (event.type === 'response.output_text.delta' && event.delta) {
+      params.onTextDelta(event.delta)
+    }
+    if (event.type === 'response.completed' && event.response?.usage) {
+      usage = event.response.usage as Record<string, unknown>
     }
   }
 
@@ -288,4 +405,30 @@ async function streamGoogleChat(params: StreamChatParams): Promise<StreamChatRes
   }
 
   return { usage }
+}
+
+function normalizeOpenAICompatibleBaseUrl(baseUrl?: string): string | undefined {
+  // 和 NormalChat 保持一致：聚合 API 常常只填 host，不带 /v1，
+  // 这里统一补齐，避免 Generate 链路请求到错误端点。
+  if (!baseUrl) {
+    return undefined
+  }
+
+  const normalized = baseUrl.trim().replace(/\/$/, '')
+  if (!normalized) {
+    return undefined
+  }
+
+  return normalized.endsWith('/v1') ? normalized : `${normalized}/v1`
+}
+
+function buildContentPreview(content: string): string {
+  const normalized = content.replace(/\s+/g, ' ').trim()
+  if (!normalized) {
+    return ''
+  }
+  if (normalized.length <= 200) {
+    return normalized
+  }
+  return `${normalized.slice(0, 200)}...`
 }

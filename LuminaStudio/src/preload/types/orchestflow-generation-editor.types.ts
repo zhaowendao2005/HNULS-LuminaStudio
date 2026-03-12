@@ -14,20 +14,19 @@ export type GenerationMessageStatus = 'streaming' | 'final' | 'aborted' | 'error
 export type GenerationSdkVendor = 'openai' | 'anthropic' | 'google'
 export type GenerationAnalysisAgentMode = 'continue' | 'planning'
 export type GenerationAnalysisPlanningStatus = 'draft' | 'ready'
-export type GenerationPlanningBlockFieldKey =
-  | 'summary'
-  | 'goals'
-  | 'success_criteria'
-  | 'constraints'
-  | 'prohibitions'
-  | 'missingQuestions'
-  | 'readinessSignals'
-  | 'candidate_nodes'
-  | 'input_requirements'
-  | 'output_requirements'
-  | 'human_confirmation_questions'
-  | 'blueprint_requirements'
-export type GenerationPlanningStreamSectionKey = 'analysis' | 'design'
+export type GenerationPlanningStreamSectionKey =
+  | 'analysis-summary'
+  | 'analysis-goals'
+  | 'analysis-success-criteria'
+  | 'analysis-constraints'
+  | 'analysis-prohibitions'
+  | 'analysis-missing-info'
+  | 'analysis-readiness-signals'
+  | 'design-candidate-nodes'
+  | 'design-input-requirements'
+  | 'design-output-requirements'
+  | 'design-confirmation-questions'
+  | 'design-blueprint-requirements'
 
 export interface GenerationStageConfig {
   stageKey: GenerationStageKey
@@ -50,20 +49,23 @@ export interface GenerationDocument {
 export interface GenerationPlanningBlockStreamingState {
   isStreaming: boolean
   activeSection: GenerationPlanningStreamSectionKey
-  completedFieldKeys: GenerationPlanningBlockFieldKey[]
+  completedSectionKeys: GenerationPlanningStreamSectionKey[]
 }
 
 export interface GenerationPlanningBlockPayload {
   kind: 'analysis-planning'
-  version: '1.0'
+  version: '2.0'
   agentId: string
   trigger: 'explicit' | 'auto'
   status: GenerationAnalysisPlanningStatus
-  summary: string
-  readinessSignals: string[]
-  missingQuestions: string[]
-  requirementDocument: OFRequirementDocument
+  analysisMarkdown: string
+  designMarkdown: string
   streamingState?: GenerationPlanningBlockStreamingState
+  /**
+   * 向后兼容旧消息：历史 metaJson 里还是 requirementDocument 结构。
+   * 新协议不再写它，但读取旧消息时仍允许存在。
+   */
+  requirementDocument?: OFRequirementDocument
 }
 
 export interface GenerationMessageMetaPayload {

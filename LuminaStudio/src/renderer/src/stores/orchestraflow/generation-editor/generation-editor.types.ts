@@ -4,6 +4,7 @@ import type {
   GenerationMessage,
   GenerationMessageMetaPayload,
   GenerationPlanningBlockPayload,
+  GenerationPlanningStreamSectionKey,
   GenerationRuntimeStageKey,
   GenerationSessionDetail,
   GenerationSessionSummary,
@@ -42,6 +43,11 @@ export interface GenerateStoreStateSnapshot {
   selectedSessionId: string | null
   activeMenu: GenerateMenuValue
   activeRightPanel: GenerateCopilotMode | null
+}
+
+export interface GeneratePlanningMarkdownSection {
+  title: string
+  content: string
 }
 
 export function mapSessionSummary(
@@ -106,7 +112,89 @@ export function getGenerationPlanningBlock(
 ): GenerationPlanningBlockPayload | null {
   const meta = parseGenerationMessageMeta(message.metaJson)
   if (meta?.planningBlock?.kind === 'analysis-planning') {
-    return meta.planningBlock
+    return normalizePlanningBlock(meta.planningBlock)
   }
   return null
+}
+
+export function normalizePlanningBlock(
+  planningBlock: GenerationPlanningBlockPayload
+): GenerationPlanningBlockPayload {
+  if (planningBlock.analysisMarkdown || planningBlock.designMarkdown) {
+    return planningBlock
+  }
+
+  const legacy = planningBlock.requirementDocument
+  return {
+    ...planningBlock,
+    analysisMarkdown: legacy
+      ? [
+          '# 需求分析',
+          '## 摘要',
+          '- 旧消息迁移：该规划块来自 v1 requirementDocument 结构。',
+          '## 目标',
+          ...toMarkdownList(legacy.goals),
+          '## 成功标准',
+          ...toMarkdownList(legacy.success_criteria),
+          '## 约束',
+          ...toMarkdownList(legacy.constraints),
+          '## 禁止项',
+          ...toMarkdownList(legacy.prohibitions),
+          '## 待补充信息',
+          '- 暂无',
+          '## 成熟度信号',
+          '- 暂无'
+        ].join('\n')
+      : '',
+    designMarkdown: legacy
+      ? [
+          '# 设计交接',
+          '## 候选节点',
+          ...toMarkdownList(legacy.candidate_nodes.map((item) => `${item.type}：${item.reason}`)),
+          '## 输入要求',
+          ...toMarkdownList(legacy.input_requirements),
+          '## 输出要求',
+          ...toMarkdownList(legacy.output_requirements),
+          '## 待确认问题',
+          ...toMarkdownList(legacy.human_confirmation_questions),
+          '## 蓝图要求',
+          ...toMarkdownList(legacy.blueprint_requirements)
+        ].join('\n')
+      : ''
+  }
+}
+
+export function parsePlanningMarkdownSections(
+  markdown: string
+): Record<string, GeneratePlanningMarkdownSection> {
+  if (!markdown.trim()) {
+    return {}
+  }
+
+  const sectionRegex = /^##\s+(.+?)\s*$([\s\S]*?)(?=^##\s+|^#\s+|$)/gm
+  const sections: Record<string, GeneratePlanningMarkdownSection> = {}
+
+  for (const match of markdown.matchAll(sectionRegex)) {
+    const title = match[1].trim()
+    const content = match[2].trim()
+    sections[title] = {
+      title,
+      content
+    }
+  }
+
+  return sections
+}
+
+export function getPlanningActiveRootSection(
+  sectionKey: GenerationPlanningStreamSectionKey
+): 'analysis' | 'design' {
+  return sectionKey.startsWith('analysis-') ? 'analysis' : 'design'
+}
+
+function toMarkdownList(items: string[]): string[] {
+  if (!items.length) {
+    return ['- 暂无']
+  }
+  return items.map((item) => `- ${item}`)
 }

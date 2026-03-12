@@ -1,6 +1,7 @@
 import type Database from 'better-sqlite3'
 import type { WebContents } from 'electron'
 import { randomUUID } from 'crypto'
+import { logger } from '../logger'
 import type { DatabaseManager } from '../database-sqlite'
 import type { ModelConfigService, PersistedModelProviderConfig } from '../model-config'
 import type {
@@ -20,6 +21,9 @@ import {
   startGenerationStream
 } from './llm-client'
 import type { ActiveGenerationStream } from './types/stream.types'
+
+const log = logger.scope('OrchestflowGenerationEditorService')
+const OPENAI_OFFICIAL_BASE_URL = 'https://api.openai.com/v1'
 
 export class OrchestflowGenerationEditorService {
   private readonly db: Database.Database
@@ -77,9 +81,23 @@ export class OrchestflowGenerationEditorService {
     if (!text) throw new Error('Message content is required')
 
     const provider = await this.resolveProvider(request.providerId)
+    this.assertProviderProtocolCompatible(provider)
     const vendor = this.resolveSdkVendorFromProtocol(provider.protocol)
     const requestId = randomUUID()
     const assistantMessageId = randomUUID()
+
+    log.info('Dispatching generation request', {
+      requestId,
+      sessionId: request.sessionId,
+      channelKey: request.channelKey,
+      providerId: request.providerId,
+      providerName: provider.name,
+      protocol: provider.protocol,
+      sdkVendor: vendor,
+      baseUrl: provider.baseUrl,
+      modelId: request.modelId,
+      contentPreview: buildContentPreview(text)
+    })
 
     this.repository.insertMessage({
       id: randomUUID(),
@@ -131,6 +149,7 @@ export class OrchestflowGenerationEditorService {
         protocol: provider.protocol,
         apiKey: provider.apiKey,
         baseUrl: provider.baseUrl || undefined,
+        defaultHeaders: provider.defaultHeaders,
         memoryRounds: analysisStageConfig?.memoryRounds || 6,
         userMessage: text
       })
@@ -144,11 +163,15 @@ export class OrchestflowGenerationEditorService {
         channelKey: request.channelKey,
         messageId: assistantMessageId,
         providerId: request.providerId,
+        providerName: provider.name,
         modelId: request.modelId,
         vendor,
+        protocol: provider.protocol,
         apiKey: provider.apiKey,
         baseUrl: provider.baseUrl || undefined,
-        messages: [{ role: 'user', content: text }]
+        defaultHeaders: provider.defaultHeaders,
+        messages: [{ role: 'user', content: text }],
+        requestContent: text
       })
     }
 
@@ -167,9 +190,34 @@ export class OrchestflowGenerationEditorService {
     return provider
   }
 
+  private assertProviderProtocolCompatible(provider: PersistedModelProviderConfig): void {
+    if (provider.protocol !== 'openai') {
+      return
+    }
+
+    const normalizedBaseUrl = normalizeBaseUrl(provider.baseUrl)
+    if (normalizedBaseUrl !== OPENAI_OFFICIAL_BASE_URL) {
+      throw new Error(
+        `Provider "${provider.name}" is configured as protocol=openai but baseUrl is not OpenAI official. Please switch protocol to openai-completion or openai-response, or set baseUrl to ${OPENAI_OFFICIAL_BASE_URL}.`
+      )
+    }
+  }
+
   private resolveSdkVendorFromProtocol(protocol: ModelProviderProtocol) {
     if (protocol === 'claude') return 'anthropic'
     if (protocol === 'gemini') return 'google'
     return 'openai'
   }
+}
+
+function buildContentPreview(content: string): string {
+  const normalized = content.replace(/\s+/g, ' ').trim()
+  if (normalized.length <= 200) {
+    return normalized
+  }
+  return `${normalized.slice(0, 200)}...`
+}
+
+function normalizeBaseUrl(baseUrl: string): string {
+  return baseUrl.trim().replace(/\/$/, '')
 }

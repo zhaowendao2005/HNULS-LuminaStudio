@@ -10,6 +10,8 @@ import type {
   RemoteModelGroups
 } from './types'
 
+const OPENAI_OFFICIAL_BASE_URL = 'https://api.openai.com/v1'
+
 function inferProviderIcon(type: ProviderType): ProviderIcon {
   if (type === 'claude') return 'anthropic'
   if (type === 'gemini') return 'google'
@@ -17,6 +19,11 @@ function inferProviderIcon(type: ProviderType): ProviderIcon {
     return 'openai'
   }
   return 'server'
+}
+
+function getDefaultBaseUrlByProviderType(type: ProviderType): string {
+  if (type === 'openai') return OPENAI_OFFICIAL_BASE_URL
+  return ''
 }
 
 export const useModelConfigStore = defineStore('model-config', () => {
@@ -102,11 +109,15 @@ export const useModelConfigStore = defineStore('model-config', () => {
     if (isEditingProvider.value && providerForm.value.id) {
       providers.value = providers.value.map((provider) => {
         if (provider.id !== providerForm.value.id) return provider
+        const nextType = providerForm.value.type
+        const nextBaseUrl =
+          nextType === 'openai' ? OPENAI_OFFICIAL_BASE_URL : provider.baseUrl || ''
         return {
           ...provider,
           name,
-          type: providerForm.value.type,
-          icon: inferProviderIcon(providerForm.value.type)
+          type: nextType,
+          baseUrl: nextBaseUrl,
+          icon: inferProviderIcon(nextType)
         }
       })
     } else {
@@ -118,7 +129,7 @@ export const useModelConfigStore = defineStore('model-config', () => {
           type: providerForm.value.type,
           name,
           apiKey: '',
-          baseUrl: '',
+          baseUrl: getDefaultBaseUrlByProviderType(providerForm.value.type),
           icon: inferProviderIcon(providerForm.value.type),
           enabled: true,
           models: []

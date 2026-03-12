@@ -2,16 +2,14 @@ import { logger } from '@main/services/logger'
 import type {
   GenerationAnalysisPlanningStatus,
   GenerationMessageMetaPayload,
-  GenerationPlanningBlockFieldKey,
-  GenerationPlanningStreamSectionKey,
-  OFRequirementDocument
+  GenerationPlanningStreamSectionKey
 } from '@preload/types'
-import { streamChat } from '../../generation-stream-runner'
+import { streamChatByProtocol } from '../../generation-stream-runner'
 import type { ActiveGenerationStream } from '../../../types/stream.types'
 import { buildAnalysisPlannerContextBundle } from './context-builder'
 import {
-  ANALYSIS_PLANNER_JSON_END_MARKER,
-  ANALYSIS_PLANNER_JSON_START_MARKER,
+  ANALYSIS_PLANNER_PAYLOAD_END_MARKER,
+  ANALYSIS_PLANNER_PAYLOAD_START_MARKER,
   buildAnalysisPlannerPromptMessages
 } from './prompt'
 import type {
@@ -35,22 +33,23 @@ const EXPLICIT_PLANNING_PATTERNS = [
   /整理方案/
 ]
 
-const ANALYSIS_SECTION_FIELD_KEYS: GenerationPlanningBlockFieldKey[] = [
-  'summary',
-  'goals',
-  'success_criteria',
-  'constraints',
-  'prohibitions',
-  'missingQuestions',
-  'readinessSignals'
-]
-
-const DESIGN_SECTION_FIELD_KEYS: GenerationPlanningBlockFieldKey[] = [
-  'candidate_nodes',
-  'input_requirements',
-  'output_requirements',
-  'human_confirmation_questions',
-  'blueprint_requirements'
+const SECTION_TITLES: Array<{
+  key: GenerationPlanningStreamSectionKey
+  title: string
+  root: 'analysis' | 'design'
+}> = [
+  { key: 'analysis-summary', title: '摘要', root: 'analysis' },
+  { key: 'analysis-goals', title: '目标', root: 'analysis' },
+  { key: 'analysis-success-criteria', title: '成功标准', root: 'analysis' },
+  { key: 'analysis-constraints', title: '约束', root: 'analysis' },
+  { key: 'analysis-prohibitions', title: '禁止项', root: 'analysis' },
+  { key: 'analysis-missing-info', title: '待补充信息', root: 'analysis' },
+  { key: 'analysis-readiness-signals', title: '成熟度信号', root: 'analysis' },
+  { key: 'design-candidate-nodes', title: '候选节点', root: 'design' },
+  { key: 'design-input-requirements', title: '输入要求', root: 'design' },
+  { key: 'design-output-requirements', title: '输出要求', root: 'design' },
+  { key: 'design-confirmation-questions', title: '待确认问题', root: 'design' },
+  { key: 'design-blueprint-requirements', title: '蓝图要求', root: 'design' }
 ]
 
 export const analysisPlannerAgent = {
@@ -62,20 +61,12 @@ export const analysisPlannerAgent = {
 interface AnalysisPlannerStreamAccumulator {
   rawText: string
   visibleBuffer: string
-  hiddenJsonBuffer: string
-  hasEnteredJsonPayload: boolean
+  payloadBuffer: string
+  hasEnteredPayload: boolean
   lockedAsStructuredOnly: boolean
   lastProgressSignature: string | null
 }
 
-/**
- * analysis planner agent 自己维护上下文、决策和规划 block。
- *
- * 它和普通聊天流的差异是：
- * - 先收集历史上下文
- * - 再让模型返回结构化 JSON
- * - 最后把用户可读文本 + planning block 一起写回消息
- */
 export function startAnalysisPlannerAgentStream(
   params: StartAnalysisPlannerAgentStreamParams
 ): void {
@@ -120,7 +111,11 @@ async function runAnalysisPlannerAgent(
       signal: state.abortController.signal,
       state
     })
-    const structuredResult = normalizeStructuredResult(modelResult.rawText, runtimeSignals)
+    const structuredResult = normalizeStructuredResult(
+      modelResult.rawPayload,
+      runtimeSignals,
+      state.answerText
+    )
     const assistantText = pickAssistantText(structuredResult)
 
     ensureAssistantTextSynced(state, params, assistantText)
@@ -143,7 +138,10 @@ async function runAnalysisPlannerAgent(
     log.error('Analysis planner agent failed', error, {
       requestId: state.requestId,
       sessionId: state.sessionId,
-      messageId: state.messageId
+      messageId: state.messageId,
+      providerId: params.providerId,
+      protocol: params.protocol,
+      modelId: params.modelId
     })
 
     params.repository.markMessageError(
@@ -212,14 +210,17 @@ async function runModelRequest(
     state: ActiveGenerationStream
   }
 ): Promise<AnalysisPlannerModelResult> {
+  let hasLoggedFirstDelta = false
+
   const accumulator: AnalysisPlannerStreamAccumulator = {
     rawText: '',
     visibleBuffer: '',
-    hiddenJsonBuffer: '',
-    hasEnteredJsonPayload: false,
+    payloadBuffer: '',
+    hasEnteredPayload: false,
     lockedAsStructuredOnly: false,
     lastProgressSignature: null
   }
+
   const messages = buildAnalysisPlannerPromptMessages({
     context: params.context,
     runtimeSignals: params.runtimeSignals,
@@ -228,18 +229,32 @@ async function runModelRequest(
   })
 
   if (params.runtimeSignals.explicitPlanningRequested) {
-    const initialProgress = buildPlanningProgressState('{"mode":"planning"}')
-    emitPlanningProgressMeta(params.state, params, initialProgress)
+    emitPlanningProgressMeta(params.state, params, buildEmptyPlanningProgressState())
   }
 
-  const result = await streamChat({
+  const result = await streamChatByProtocol({
+    protocol: params.protocol,
     vendor: params.vendor,
     modelId: params.modelId,
     apiKey: params.apiKey,
     baseUrl: params.baseUrl,
+    defaultHeaders: params.defaultHeaders,
     messages,
     signal: params.signal,
     onTextDelta: (delta) => {
+      if (!hasLoggedFirstDelta) {
+        hasLoggedFirstDelta = true
+        log.info('Analysis stream receiving started', {
+          requestId: params.requestId,
+          sessionId: params.sessionId,
+          channelKey: params.channelKey,
+          providerId: params.providerId,
+          protocol: params.protocol,
+          sdkVendor: params.vendor,
+          baseUrl: params.baseUrl,
+          modelId: params.modelId
+        })
+      }
       consumeModelDelta(params.state, params, accumulator, delta)
     }
   })
@@ -247,19 +262,31 @@ async function runModelRequest(
   flushRemainingVisibleBuffer(params.state, params, accumulator)
   maybeEmitPlanningProgress(params.state, params, accumulator)
 
+  if (!hasLoggedFirstDelta && !accumulator.payloadBuffer.trim()) {
+    throw new Error(
+      `Analysis planner received no stream payload. protocol=${params.protocol}, model=${params.modelId}`
+    )
+  }
+
+  log.info('Analysis stream receiving finished', {
+    requestId: params.requestId,
+    sessionId: params.sessionId,
+    channelKey: params.channelKey,
+    providerId: params.providerId,
+    protocol: params.protocol,
+    sdkVendor: params.vendor,
+    baseUrl: params.baseUrl,
+    modelId: params.modelId,
+    hasReceivedDelta: hasLoggedFirstDelta,
+    outputChars: params.state.answerText.length
+  })
+
   return {
-    rawText: buildNormalizedRawText(accumulator),
+    rawPayload: buildNormalizedPayload(accumulator),
     usage: result.usage
   }
 }
 
-/**
- * 这里把模型流式输出分成两段：
- * - marker 之前的正文直接流给前端
- * - marker 之间的 JSON 只缓存，不直接展示
- *
- * 如果模型意外一开始就输出 JSON，对用户先隐藏，最后走兜底解析。
- */
 function consumeModelDelta(
   state: ActiveGenerationStream,
   params: StartAnalysisPlannerAgentStreamParams,
@@ -270,14 +297,14 @@ function consumeModelDelta(
   accumulator.visibleBuffer += delta
 
   if (
-    !accumulator.hasEnteredJsonPayload &&
+    !accumulator.hasEnteredPayload &&
     !state.answerText.trim() &&
     !accumulator.lockedAsStructuredOnly
   ) {
     const firstNonWhitespace = accumulator.visibleBuffer.match(/\S/)
-    if (firstNonWhitespace?.[0] === '{') {
+    if (firstNonWhitespace?.[0] === 'm' && accumulator.visibleBuffer.startsWith('mode:')) {
       accumulator.lockedAsStructuredOnly = true
-      accumulator.hiddenJsonBuffer += accumulator.visibleBuffer
+      accumulator.payloadBuffer += accumulator.visibleBuffer
       accumulator.visibleBuffer = ''
       maybeEmitPlanningProgress(state, params, accumulator)
       return
@@ -285,27 +312,27 @@ function consumeModelDelta(
   }
 
   if (accumulator.lockedAsStructuredOnly) {
-    accumulator.hiddenJsonBuffer += delta
+    accumulator.payloadBuffer += delta
     maybeEmitPlanningProgress(state, params, accumulator)
     return
   }
 
   while (accumulator.visibleBuffer) {
-    if (!accumulator.hasEnteredJsonPayload) {
-      const startIndex = accumulator.visibleBuffer.indexOf(ANALYSIS_PLANNER_JSON_START_MARKER)
+    if (!accumulator.hasEnteredPayload) {
+      const startIndex = accumulator.visibleBuffer.indexOf(ANALYSIS_PLANNER_PAYLOAD_START_MARKER)
       if (startIndex >= 0) {
         const textBeforeMarker = accumulator.visibleBuffer.slice(0, startIndex)
         emitAssistantTextDelta(state, params, textBeforeMarker)
         accumulator.visibleBuffer = accumulator.visibleBuffer.slice(
-          startIndex + ANALYSIS_PLANNER_JSON_START_MARKER.length
+          startIndex + ANALYSIS_PLANNER_PAYLOAD_START_MARKER.length
         )
-        accumulator.hasEnteredJsonPayload = true
+        accumulator.hasEnteredPayload = true
         continue
       }
 
       const safeLength = Math.max(
         0,
-        accumulator.visibleBuffer.length - ANALYSIS_PLANNER_JSON_START_MARKER.length + 1
+        accumulator.visibleBuffer.length - ANALYSIS_PLANNER_PAYLOAD_START_MARKER.length + 1
       )
       if (safeLength === 0) {
         return
@@ -316,26 +343,26 @@ function consumeModelDelta(
       return
     }
 
-    const endIndex = accumulator.visibleBuffer.indexOf(ANALYSIS_PLANNER_JSON_END_MARKER)
+    const endIndex = accumulator.visibleBuffer.indexOf(ANALYSIS_PLANNER_PAYLOAD_END_MARKER)
     if (endIndex >= 0) {
-      accumulator.hiddenJsonBuffer += accumulator.visibleBuffer.slice(0, endIndex)
+      accumulator.payloadBuffer += accumulator.visibleBuffer.slice(0, endIndex)
       accumulator.visibleBuffer = accumulator.visibleBuffer.slice(
-        endIndex + ANALYSIS_PLANNER_JSON_END_MARKER.length
+        endIndex + ANALYSIS_PLANNER_PAYLOAD_END_MARKER.length
       )
-      accumulator.hasEnteredJsonPayload = false
+      accumulator.hasEnteredPayload = false
       maybeEmitPlanningProgress(state, params, accumulator)
       continue
     }
 
     const safeLength = Math.max(
       0,
-      accumulator.visibleBuffer.length - ANALYSIS_PLANNER_JSON_END_MARKER.length + 1
+      accumulator.visibleBuffer.length - ANALYSIS_PLANNER_PAYLOAD_END_MARKER.length + 1
     )
     if (safeLength === 0) {
       return
     }
 
-    accumulator.hiddenJsonBuffer += accumulator.visibleBuffer.slice(0, safeLength)
+    accumulator.payloadBuffer += accumulator.visibleBuffer.slice(0, safeLength)
     accumulator.visibleBuffer = accumulator.visibleBuffer.slice(safeLength)
     maybeEmitPlanningProgress(state, params, accumulator)
     return
@@ -351,8 +378,8 @@ function flushRemainingVisibleBuffer(
     return
   }
 
-  if (accumulator.hasEnteredJsonPayload) {
-    accumulator.hiddenJsonBuffer += accumulator.visibleBuffer
+  if (accumulator.hasEnteredPayload) {
+    accumulator.payloadBuffer += accumulator.visibleBuffer
     maybeEmitPlanningProgress(state, params, accumulator)
   } else {
     emitAssistantTextDelta(state, params, accumulator.visibleBuffer)
@@ -360,9 +387,9 @@ function flushRemainingVisibleBuffer(
   accumulator.visibleBuffer = ''
 }
 
-function buildNormalizedRawText(accumulator: AnalysisPlannerStreamAccumulator): string {
-  if (accumulator.hiddenJsonBuffer.trim()) {
-    return accumulator.hiddenJsonBuffer.trim()
+function buildNormalizedPayload(accumulator: AnalysisPlannerStreamAccumulator): string {
+  if (accumulator.payloadBuffer.trim()) {
+    return accumulator.payloadBuffer.trim()
   }
   return accumulator.rawText.trim()
 }
@@ -393,7 +420,7 @@ function maybeEmitPlanningProgress(
   params: StartAnalysisPlannerAgentStreamParams,
   accumulator: AnalysisPlannerStreamAccumulator
 ): void {
-  const progress = buildPlanningProgressState(accumulator.hiddenJsonBuffer)
+  const progress = buildPlanningProgressState(accumulator.payloadBuffer)
   if (!progress.shouldShowPlanningBlock) {
     return
   }
@@ -407,6 +434,42 @@ function maybeEmitPlanningProgress(
   emitPlanningProgressMeta(state, params, progress)
 }
 
+function buildEmptyPlanningProgressState(): AnalysisPlanningProgressState {
+  return {
+    shouldShowPlanningBlock: true,
+    activeSection: 'analysis-summary',
+    completedSectionKeys: [],
+    analysisMarkdown: '# 需求分析\n',
+    designMarkdown: '# 设计交接\n'
+  }
+}
+
+function buildPlanningProgressState(payloadText: string): AnalysisPlanningProgressState {
+  const payload = payloadText.trim()
+  const mode = extractPayloadScalar(payload, 'mode')
+  const planningStatus = extractPayloadScalar(payload, 'planningStatus')
+  const body = extractPayloadBody(payload)
+  const analysisMarkdown = extractRootMarkdownSection(body, '需求分析')
+  const designMarkdown = extractRootMarkdownSection(body, '设计交接')
+  const completedSectionKeys = SECTION_TITLES.filter((item) => {
+    const markdown = item.root === 'analysis' ? analysisMarkdown : designMarkdown
+    return hasMarkdownSubsection(markdown, item.title)
+  }).map((item) => item.key)
+
+  const activeSection =
+    SECTION_TITLES.find((item) => !completedSectionKeys.includes(item.key))?.key ||
+    'design-blueprint-requirements'
+
+  return {
+    shouldShowPlanningBlock:
+      mode === 'planning' || planningStatus === 'draft' || planningStatus === 'ready',
+    activeSection,
+    completedSectionKeys,
+    analysisMarkdown: analysisMarkdown || '# 需求分析\n',
+    designMarkdown: designMarkdown || '# 设计交接\n'
+  }
+}
+
 function emitPlanningProgressMeta(
   state: ActiveGenerationStream,
   params: StartAnalysisPlannerAgentStreamParams,
@@ -416,7 +479,6 @@ function emitPlanningProgressMeta(
     protocol: params.protocol,
     vendor: params.vendor,
     trigger: params.runtimeSignals.explicitPlanningRequested ? 'explicit' : 'auto',
-    readinessSignals: params.runtimeSignals.readinessSignals,
     progress
   })
   persistAndEmitMessageMeta(state, params, metaPayload)
@@ -426,7 +488,6 @@ function createStreamingPlanningMetaPayload(params: {
   protocol: string
   vendor: string
   trigger: 'explicit' | 'auto'
-  readinessSignals: string[]
   progress: AnalysisPlanningProgressState
 }): GenerationMessageMetaPayload {
   return {
@@ -436,22 +497,16 @@ function createStreamingPlanningMetaPayload(params: {
     mode: 'planning',
     planningBlock: {
       kind: 'analysis-planning',
-      version: '1.0',
+      version: '2.0',
       agentId: analysisPlannerAgent.id,
       trigger: params.trigger,
       status: 'draft',
-      summary: params.progress.completedFieldKeys.includes('summary')
-        ? '正在整理本轮规划摘要...'
-        : '正在生成需求分析与设计交接规划... ',
-      readinessSignals: params.progress.completedFieldKeys.includes('readinessSignals')
-        ? params.readinessSignals
-        : [],
-      missingQuestions: [],
-      requirementDocument: createEmptyRequirementDocument(),
+      analysisMarkdown: params.progress.analysisMarkdown,
+      designMarkdown: params.progress.designMarkdown,
       streamingState: {
         isStreaming: true,
         activeSection: params.progress.activeSection,
-        completedFieldKeys: params.progress.completedFieldKeys
+        completedSectionKeys: params.progress.completedSectionKeys
       }
     }
   }
@@ -474,54 +529,6 @@ function persistAndEmitMessageMeta(
   })
 }
 
-function buildPlanningProgressState(rawJsonText: string): AnalysisPlanningProgressState {
-  const normalized = repairCommonJsonTypos(normalizeJsonCandidate(rawJsonText))
-  const shouldShowPlanningBlock = /"mode"\s*:\s*"planning"/.test(normalized)
-
-  const completedFieldKeys: GenerationPlanningBlockFieldKey[] = []
-  const keyPatterns: Record<GenerationPlanningBlockFieldKey, RegExp> = {
-    summary: /"summary"\s*:/,
-    goals: /"goals"\s*:/,
-    success_criteria: /"success_criteria"\s*:/,
-    constraints: /"constraints"\s*:/,
-    prohibitions: /"prohibitions"\s*:/,
-    missingQuestions: /"missingQuestions"\s*:/,
-    readinessSignals: /"readinessSignals"\s*:/,
-    candidate_nodes: /"candidate_nodes"\s*:/,
-    input_requirements: /"input_requirements"\s*:/,
-    output_requirements: /"output_requirements"\s*:/,
-    human_confirmation_questions: /"human_confirmation_questions"\s*:/,
-    blueprint_requirements: /"blueprint_requirements"\s*:*/
-  }
-
-  ;(
-    [
-      ...ANALYSIS_SECTION_FIELD_KEYS,
-      ...DESIGN_SECTION_FIELD_KEYS
-    ] as GenerationPlanningBlockFieldKey[]
-  ).forEach((fieldKey) => {
-    if (keyPatterns[fieldKey].test(normalized)) {
-      completedFieldKeys.push(fieldKey)
-    }
-  })
-
-  const completedAnalysisCount = completedFieldKeys.filter((fieldKey) =>
-    ANALYSIS_SECTION_FIELD_KEYS.includes(fieldKey)
-  ).length
-  const activeSection: GenerationPlanningStreamSectionKey =
-    completedAnalysisCount < ANALYSIS_SECTION_FIELD_KEYS.length ? 'analysis' : 'design'
-
-  return {
-    shouldShowPlanningBlock,
-    completedFieldKeys,
-    activeSection
-  }
-}
-
-/**
- * 正常情况下 assistantText 会在流中已经展示完。
- * 这里只在模型没有按 marker 协议输出，或正文与最终解析结果不一致时做兜底补齐。
- */
 function ensureAssistantTextSynced(
   state: ActiveGenerationStream,
   params: StartAnalysisPlannerAgentStreamParams,
@@ -556,41 +563,53 @@ function normalizeDisplayText(text: string): string {
 }
 
 function normalizeStructuredResult(
-  rawText: string,
-  runtimeSignals: AnalysisPlannerRuntimeSignals
+  rawPayload: string,
+  runtimeSignals: AnalysisPlannerRuntimeSignals,
+  visibleAssistantText: string
 ): AnalysisPlannerStructuredResult {
-  const parsed = extractJSONObject(rawText)
-  if (!parsed) {
+  const mode = extractPayloadScalar(rawPayload, 'mode')
+  const trigger = extractPayloadScalar(rawPayload, 'trigger')
+  const planningStatus = extractPayloadScalar(rawPayload, 'planningStatus')
+  const analysisMarkdown = extractRootMarkdownSection(extractPayloadBody(rawPayload), '需求分析')
+  const designMarkdown = extractRootMarkdownSection(extractPayloadBody(rawPayload), '设计交接')
+
+  if (mode === 'planning') {
     return {
-      mode: 'continue',
-      trigger: runtimeSignals.explicitPlanningRequested ? 'explicit' : 'auto',
-      assistantText:
-        rawText.trim() || '我先继续帮你澄清需求，请再补充一下关键目标、输入和预期输出。',
-      readinessSignals: runtimeSignals.readinessSignals
+      mode: 'planning',
+      trigger:
+        runtimeSignals.explicitPlanningRequested || trigger === 'explicit' ? 'explicit' : 'auto',
+      assistantText: extractAssistantSummary(analysisMarkdown),
+      planningStatus: planningStatus === 'ready' ? 'ready' : 'draft',
+      analysisMarkdown,
+      designMarkdown
     }
   }
 
-  const mode = parsed.mode === 'planning' ? 'planning' : 'continue'
-  const trigger = runtimeSignals.explicitPlanningRequested
-    ? 'explicit'
-    : parsed.trigger === 'explicit'
-      ? 'explicit'
-      : 'auto'
-  const assistantText =
-    typeof parsed.assistantText === 'string' && parsed.assistantText.trim()
-      ? parsed.assistantText.trim()
-      : ''
+  if (mode === 'continue') {
+    // continue 是合法协议分支：代表模型判断当前信息还不够，
+    // 应继续澄清，而不是强行产出 planning block。
+    if (runtimeSignals.explicitPlanningRequested) {
+      throw new Error(
+        'Analysis planner returned mode=continue while explicitPlanningRequested=true.'
+      )
+    }
 
-  return {
-    mode,
-    trigger,
-    assistantText,
-    planningStatus: normalizePlanningStatus(parsed.planningStatus, mode),
-    summary: toNonEmptyString(parsed.summary),
-    requirementDocument: normalizeRequirementDocument(parsed.requirementDocument),
-    missingQuestions: normalizeStringArray(parsed.missingQuestions),
-    readinessSignals: normalizeStringArray(parsed.readinessSignals, runtimeSignals.readinessSignals)
+    if (!normalizeDisplayText(visibleAssistantText)) {
+      throw new Error(
+        'Analysis planner returned mode=continue but visible assistant text is empty.'
+      )
+    }
+
+    return {
+      mode: 'continue',
+      trigger: trigger === 'explicit' ? 'explicit' : 'auto',
+      assistantText: visibleAssistantText
+    }
   }
+
+  throw new Error(
+    `Analysis planner returned invalid payload. mode=${mode || 'empty'}, expected planning or continue.`
+  )
 }
 
 function pickAssistantText(result: AnalysisPlannerStructuredResult): string {
@@ -598,19 +617,17 @@ function pickAssistantText(result: AnalysisPlannerStructuredResult): string {
     return result.assistantText
   }
   if (result.mode === 'planning') {
-    return result.summary || '我已经先整理出一版需求规划，请看下面的结构化规划块。'
+    return '我已经先整理出一版需求规划，请看下面的结构化规划块。'
   }
-  return '我先继续帮你补齐需求关键信息，再进入规划。'
+  return ''
 }
 
 function buildMessageMetaPayload(params: {
   mode: AnalysisPlannerStructuredResult['mode']
   trigger: AnalysisPlannerStructuredResult['trigger']
   planningStatus?: GenerationAnalysisPlanningStatus
-  summary?: string
-  requirementDocument?: OFRequirementDocument
-  missingQuestions?: string[]
-  readinessSignals?: string[]
+  analysisMarkdown?: string
+  designMarkdown?: string
   protocol: string
   vendor: string
 }): GenerationMessageMetaPayload {
@@ -624,18 +641,16 @@ function buildMessageMetaPayload(params: {
   if (params.mode === 'planning') {
     metaPayload.planningBlock = {
       kind: 'analysis-planning',
-      version: '1.0',
+      version: '2.0',
       agentId: analysisPlannerAgent.id,
       trigger: params.trigger,
       status: params.planningStatus || 'draft',
-      summary: params.summary || '已生成一版规划摘要。',
-      readinessSignals: params.readinessSignals || [],
-      missingQuestions: params.missingQuestions || [],
-      requirementDocument: params.requirementDocument || createEmptyRequirementDocument(),
+      analysisMarkdown: params.analysisMarkdown || '# 需求分析\n',
+      designMarkdown: params.designMarkdown || '# 设计交接\n',
       streamingState: {
         isStreaming: false,
-        activeSection: 'design',
-        completedFieldKeys: [...ANALYSIS_SECTION_FIELD_KEYS, ...DESIGN_SECTION_FIELD_KEYS]
+        activeSection: 'design-blueprint-requirements',
+        completedSectionKeys: SECTION_TITLES.map((item) => item.key)
       }
     }
   }
@@ -673,125 +688,47 @@ function finishStream(
   params.activeStreams.delete(state.requestId)
 }
 
-function extractJSONObject(rawText: string): Record<string, unknown> | null {
-  const markerWrapped = extractMarkedJsonBlock(rawText)
-  if (markerWrapped) {
-    return safeParseJSONObject(markerWrapped)
-  }
-
-  const cleaned = normalizeJsonCandidate(rawText)
-  const firstBraceIndex = cleaned.indexOf('{')
-  const lastBraceIndex = cleaned.lastIndexOf('}')
-
-  if (firstBraceIndex < 0 || lastBraceIndex <= firstBraceIndex) {
-    return null
-  }
-
-  const candidate = cleaned.slice(firstBraceIndex, lastBraceIndex + 1)
-  return safeParseJSONObject(candidate)
+function extractPayloadScalar(payload: string, key: string): string {
+  const regex = new RegExp(`^${key}:\\s*(.+)$`, 'm')
+  return payload.match(regex)?.[1]?.trim() || ''
 }
 
-function extractMarkedJsonBlock(rawText: string): string | null {
-  const startIndex = rawText.indexOf(ANALYSIS_PLANNER_JSON_START_MARKER)
-  const endIndex = rawText.lastIndexOf(ANALYSIS_PLANNER_JSON_END_MARKER)
-
-  if (startIndex < 0 || endIndex <= startIndex) {
-    return null
+function extractPayloadBody(payload: string): string {
+  const dividerIndex = payload.indexOf('---')
+  if (dividerIndex < 0) {
+    return payload.trim()
   }
-
-  return rawText.slice(startIndex + ANALYSIS_PLANNER_JSON_START_MARKER.length, endIndex).trim()
+  return payload.slice(dividerIndex + 3).trim()
 }
 
-function safeParseJSONObject(candidate: string): Record<string, unknown> | null {
-  const normalizedCandidate = normalizeJsonCandidate(candidate)
-  try {
-    return JSON.parse(normalizedCandidate) as Record<string, unknown>
-  } catch {
-    try {
-      return JSON.parse(repairCommonJsonTypos(normalizedCandidate)) as Record<string, unknown>
-    } catch {
-      return null
-    }
+function extractRootMarkdownSection(payloadBody: string, title: string): string {
+  if (!payloadBody.trim()) {
+    return ''
   }
+  const escapedTitle = escapeForRegex(title)
+  const regex = new RegExp(`^#\\s+${escapedTitle}\\s*$([\\s\\S]*?)(?=^#\\s+|$)`, 'm')
+  const match = payloadBody.match(regex)
+  return match ? `# ${title}\n${match[1].trim()}`.trim() : ''
 }
 
-function normalizeJsonCandidate(text: string): string {
-  return text
-    .trim()
-    .replace(/^```json\s*/i, '')
-    .replace(/^```\s*/i, '')
-    .replace(/```$/i, '')
-}
-
-/**
- * 模型偶发会把中文引号、中文逗号之类混进 JSON。
- * 这里做一层非常保守的修复，只处理高频标点，不主动改字段结构。
- */
-function repairCommonJsonTypos(text: string): string {
-  return text.replace(/[“”]/g, '"').replace(/[‘’]/g, '"').replace(/，/g, ',').replace(/：/g, ':')
-}
-
-function normalizePlanningStatus(
-  value: unknown,
-  mode: AnalysisPlannerStructuredResult['mode']
-): GenerationAnalysisPlanningStatus | undefined {
-  if (mode !== 'planning') {
-    return undefined
+function hasMarkdownSubsection(markdown: string, title: string): boolean {
+  if (!markdown.trim()) {
+    return false
   }
-  return value === 'ready' ? 'ready' : 'draft'
+  const escapedTitle = escapeForRegex(title)
+  return new RegExp(`^##\\s+${escapedTitle}\\s*$`, 'm').test(markdown)
 }
 
-function normalizeRequirementDocument(value: unknown): OFRequirementDocument | undefined {
-  if (!value || typeof value !== 'object') {
-    return undefined
-  }
-
-  const record = value as Record<string, unknown>
-  return {
-    goals: normalizeStringArray(record.goals),
-    success_criteria: normalizeStringArray(record.success_criteria),
-    constraints: normalizeStringArray(record.constraints),
-    candidate_nodes: Array.isArray(record.candidate_nodes)
-      ? record.candidate_nodes
-          .filter(
-            (item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object'
-          )
-          .map((item) => ({
-            type: String(item.type || ''),
-            reason: String(item.reason || '')
-          }))
-          .filter((item) => item.type && item.reason)
-      : [],
-    prohibitions: normalizeStringArray(record.prohibitions),
-    human_confirmation_questions: normalizeStringArray(record.human_confirmation_questions),
-    input_requirements: normalizeStringArray(record.input_requirements),
-    output_requirements: normalizeStringArray(record.output_requirements),
-    blueprint_requirements: normalizeStringArray(record.blueprint_requirements)
-  }
+function extractAssistantSummary(analysisMarkdown: string): string {
+  const match = analysisMarkdown.match(/^##\s+摘要\s*$([\s\S]*?)(?=^##\s+|^#\s+|$)/m)
+  const content = match?.[1]?.trim() || ''
+  return content
+    .split('\n')
+    .map((line) => line.trim().replace(/^-\s*/, ''))
+    .filter(Boolean)
+    .join(' ')
 }
 
-function normalizeStringArray(value: unknown, fallback: string[] = []): string[] {
-  if (!Array.isArray(value)) {
-    return fallback
-  }
-  return value.map((item) => String(item || '').trim()).filter((item) => Boolean(item))
-}
-
-function toNonEmptyString(value: unknown): string | undefined {
-  const text = String(value || '').trim()
-  return text || undefined
-}
-
-function createEmptyRequirementDocument(): OFRequirementDocument {
-  return {
-    goals: [],
-    success_criteria: [],
-    constraints: [],
-    candidate_nodes: [],
-    prohibitions: [],
-    human_confirmation_questions: [],
-    input_requirements: [],
-    output_requirements: [],
-    blueprint_requirements: []
-  }
+function escapeForRegex(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }

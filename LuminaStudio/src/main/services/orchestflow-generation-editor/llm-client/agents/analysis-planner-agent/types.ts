@@ -5,7 +5,6 @@ import type {
   GenerationAnalysisPlanningStatus,
   GenerationChannelKey,
   GenerationMessage,
-  GenerationPlanningBlockFieldKey,
   GenerationPlanningBlockPayload,
   GenerationPlanningStreamSectionKey,
   GenerationSdkVendor,
@@ -28,6 +27,7 @@ export interface StartAnalysisPlannerAgentStreamParams {
   protocol: ModelProviderProtocol
   apiKey: string
   baseUrl?: string
+  defaultHeaders?: Record<string, string>
   memoryRounds: number
   userMessage: string
 }
@@ -50,7 +50,7 @@ export interface AnalysisPlannerRuntimeSignals {
 }
 
 export interface AnalysisPlannerModelResult {
-  rawText: string
+  rawPayload: string
   usage?: Record<string, unknown>
 }
 
@@ -59,14 +59,15 @@ export interface AnalysisPlannerStructuredResult {
   trigger: 'explicit' | 'auto'
   assistantText: string
   planningStatus?: GenerationAnalysisPlanningStatus
-  summary?: string
-  requirementDocument?: OFRequirementDocument
-  missingQuestions?: string[]
-  readinessSignals?: string[]
+  analysisMarkdown?: string
+  designMarkdown?: string
+  legacyRequirementDocument?: OFRequirementDocument
 }
 
 export interface AnalysisPlanningProgressState {
   shouldShowPlanningBlock: boolean
-  completedFieldKeys: GenerationPlanningBlockFieldKey[]
   activeSection: GenerationPlanningStreamSectionKey
+  completedSectionKeys: GenerationPlanningStreamSectionKey[]
+  analysisMarkdown: string
+  designMarkdown: string
 }

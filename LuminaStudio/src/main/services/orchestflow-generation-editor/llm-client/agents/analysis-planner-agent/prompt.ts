@@ -1,15 +1,16 @@
 import type { GenerationStreamChatMessage } from '../../types'
 import type { AnalysisPlannerContextBundle, AnalysisPlannerRuntimeSignals } from './types'
 
-export const ANALYSIS_PLANNER_JSON_START_MARKER = '<LUMINA_PLANNING_JSON>'
-export const ANALYSIS_PLANNER_JSON_END_MARKER = '</LUMINA_PLANNING_JSON>'
+export const ANALYSIS_PLANNER_PAYLOAD_START_MARKER = '<LUMINA_PLANNING_MD>'
+export const ANALYSIS_PLANNER_PAYLOAD_END_MARKER = '</LUMINA_PLANNING_MD>'
 
 /**
  * 这里把 prompt 拆出来，后续如果要继续调规则，不需要去翻执行器。
  *
- * 这版额外约束模型把“给用户看的正文”和“结构化 JSON”分段输出：
- * - 正文可以实时流到界面
- * - JSON 用专用 marker 包起来，避免直接显示给用户
+ * 新协议目标：
+ * - 给用户看的正文继续实时流式输出
+ * - 隐藏载荷改成更省 token 的 markdown 正文 + 少量控制头
+ * - 规划主体使用固定标题清单，方便后续续写和修改
  */
 export function buildAnalysisPlannerPromptMessages(params: {
   context: AnalysisPlannerContextBundle
@@ -34,43 +35,54 @@ export function buildAnalysisPlannerPromptMessages(params: {
 6. candidate_nodes 只能使用上下文里真实存在的节点类型。
 7. assistantText 是展示给用户看的自然语言；语气要专业、清晰、偏产品分析。
 
-你必须严格按下面两段格式输出，不要输出 Markdown，不要加代码块，不要解释：
+你必须严格按下面两段格式输出，不要加代码块，不要解释：
 第一段：直接输出给用户看的自然语言正文。
-第二段：紧跟在正文后面输出结构化 JSON，并且必须使用以下标记包裹：
-${ANALYSIS_PLANNER_JSON_START_MARKER}
-{...JSON...}
-${ANALYSIS_PLANNER_JSON_END_MARKER}
+第二段：紧跟在正文后输出隐藏载荷，并且必须使用以下 marker 包裹：
+${ANALYSIS_PLANNER_PAYLOAD_START_MARKER}
+mode: planning | continue
+trigger: explicit | auto
+planningStatus: draft | ready
+---
+# 需求分析
+## 摘要
+...
+## 目标
+...
+## 成功标准
+...
+## 约束
+...
+## 禁止项
+...
+## 待补充信息
+...
+## 成熟度信号
+...
 
-JSON 结构如下：
-{
-  "mode": "continue" | "planning",
-  "trigger": "explicit" | "auto",
-  "assistantText": "string",
-  "planningStatus": "draft" | "ready",
-  "summary": "string",
-  "missingQuestions": ["string"],
-  "readinessSignals": ["string"],
-  "requirementDocument": {
-    "goals": ["string"],
-    "success_criteria": ["string"],
-    "constraints": ["string"],
-    "candidate_nodes": [{ "type": "string", "reason": "string" }],
-    "prohibitions": ["string"],
-    "human_confirmation_questions": ["string"],
-    "input_requirements": ["string"],
-    "output_requirements": ["string"],
-    "blueprint_requirements": ["string"]
-  }
-}
+# 设计交接
+## 候选节点
+...
+## 输入要求
+...
+## 输出要求
+...
+## 待确认问题
+...
+## 蓝图要求
+...
+${ANALYSIS_PLANNER_PAYLOAD_END_MARKER}
 
-补充要求：
-- 正文必须和 JSON 里的 assistantText 语义一致。
-- mode=continue 时，不要伪造 requirementDocument，可返回空数组对象或省略 planning 字段内容。
-- mode=planning 时，summary 必填。
-- planningStatus=ready 表示你认为已经可以把这份 handoff 交给后续蓝图编排角色。
-- planningStatus=draft 表示已有阶段性规划，但仍有明显缺口，需要继续对话迭代。
-- missingQuestions 和 human_confirmation_questions 要尽量去重。
-- 所有 JSON key 必须使用标准双引号 ""，不要使用中文引号。`
+固定标题要求：
+- 顶层标题只能是：# 需求分析、# 设计交接。
+- 需求分析小节标题只能是：## 摘要、## 目标、## 成功标准、## 约束、## 禁止项、## 待补充信息、## 成熟度信号。
+- 设计交接小节标题只能是：## 候选节点、## 输入要求、## 输出要求、## 待确认问题、## 蓝图要求。
+- 不要改标题名字，不要新增同级别别名。
+- 每个小节正文优先使用 markdown 列表，允许少量短段落。
+- 候选节点请直接写成列表项，例如 \
+  - start：接收原始字符串输入\
+  - llm：负责生成回复\
+- 正文必须和隐藏载荷中的 ## 摘要 语义一致。
+- 如果 mode=continue，设计交接可以留空标题壳，但仍保留固定标题结构。`
 
   const userPrompt = [
     `explicitPlanningRequested=${String(params.runtimeSignals.explicitPlanningRequested)}`,
