@@ -25,6 +25,7 @@ export interface GenerationStageConfigRow {
   copilot_memory_rounds: number
   auto_approved: number
   active_planning_document_id: string | null
+  active_design_document_id: string | null
 }
 
 export interface GenerationDocumentRow {
@@ -44,6 +45,24 @@ export interface GenerationPlanningDocumentRow {
   title: string
   source_markdown: string
   content: string
+  created_at: string
+  updated_at: string
+}
+
+export interface GenerationDesignDocumentRow {
+  id: string
+  session_id: string
+  planning_document_id: string
+  planning_source_message_id: string
+  title: string
+  version: number
+  status: 'draft' | 'derived'
+  source_snapshot_markdown: string
+  content: string
+  summary: string
+  derived_target_type: string | null
+  derived_target_id: string | null
+  derived_status: string | null
   created_at: string
   updated_at: string
 }

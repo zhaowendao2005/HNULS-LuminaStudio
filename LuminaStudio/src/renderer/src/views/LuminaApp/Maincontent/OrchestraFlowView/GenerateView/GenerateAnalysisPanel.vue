@@ -63,7 +63,10 @@
             <GeneratePlanningBlock
               v-if="entry.planningBlock"
               :block="entry.planningBlock"
+              :existing-design-count="entry.existingDesignCount"
               @use-copilot="$emit('open-planning-copilot', entry.message.id)"
+              @create-design="$emit('create-planning-design', entry.message.id)"
+              @open-designs="$emit('open-existing-planning-designs', entry.message.id)"
             />
             <GenerateMessageActionGroup
               v-if="entry.message.role === 'assistant' && entry.message.status !== 'streaming'"
@@ -106,7 +109,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Bot, FolderKanban, MessageSquare, Send, UserCircle } from 'lucide-vue-next'
-import type { GenerationMessage, GenerationPlanningDocument } from '@preload/types'
+import type {
+  GenerationDesignDocument,
+  GenerationMessage,
+  GenerationPlanningDocument
+} from '@preload/types'
 import { getGenerationPlanningBlock } from '@renderer/stores/orchestraflow/generation-editor/generation-editor.types'
 import GenerateMessageActionGroup from './GenerateMessageActionGroup.vue'
 import GeneratePlanningBlock from './GeneratePlanningBlock.vue'
@@ -117,6 +124,7 @@ const props = defineProps<{
   currentSessionStageLabel: string
   messages: GenerationMessage[]
   planningDocuments: Record<string, GenerationPlanningDocument>
+  designDocuments: Record<string, GenerationDesignDocument>
   analysisInput: string
   isAnalysisStreaming: boolean
 }>()
@@ -125,6 +133,8 @@ defineEmits<{
   (e: 'open-sessions'): void
   (e: 'open-copilot'): void
   (e: 'open-planning-copilot', messageId: string): void
+  (e: 'create-planning-design', messageId: string): void
+  (e: 'open-existing-planning-designs', messageId: string): void
   (e: 'update:analysis-input', value: string): void
   (e: 'send-analysis'): void
 }>()
@@ -134,9 +144,19 @@ defineEmits<{
  * 模板层就不用每次都现场 parse metaJson 了。
  */
 const decoratedMessages = computed(() => {
-  return props.messages.map((message) => ({
-    message,
-    planningBlock: getGenerationPlanningBlock(message, props.planningDocuments)
-  }))
+  return props.messages.map((message) => {
+    const planningBlock = getGenerationPlanningBlock(message, props.planningDocuments)
+    const existingDesignCount = planningBlock?.documentId
+      ? Object.values(props.designDocuments).filter(
+          (document) => document.planningDocumentId === planningBlock.documentId
+        ).length
+      : 0
+
+    return {
+      message,
+      planningBlock,
+      existingDesignCount
+    }
+  })
 })
 </script>

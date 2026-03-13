@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import type {
+  GenerationDesignDocument,
   GenerationDocument,
   GenerationPlanningDocument,
   GenerationRuntimeStageKey,
@@ -59,6 +60,11 @@ vi.mock('./generation-editor.datasource', async () => {
       savePlanningDocument: vi.fn(),
       selectPlanningDocument: vi.fn(),
       getOrCreatePlanningDocumentFromMessage: vi.fn(),
+      createDesignDocumentFromPlanning: vi.fn(),
+      listDesignDocuments: vi.fn(),
+      saveDesignDocument: vi.fn(),
+      selectDesignDocument: vi.fn(),
+      deleteDesignDocument: vi.fn(),
       applyPlanningCommandProposal: vi.fn(),
       rejectPlanningCommandProposal: vi.fn(),
       getGlobalSettings: getGlobalSettingsMock,
@@ -81,7 +87,8 @@ function buildStageConfig(stageKey: GenerationStageKey): GenerationStageConfig {
     memoryRounds: 6,
     copilotMemoryRounds: 4,
     autoApproved: false,
-    activePlanningDocumentId: null
+    activePlanningDocumentId: null,
+    activeDesignDocumentId: null
   }
 }
 
@@ -112,6 +119,26 @@ function buildPlanningDocument(id: string): GenerationPlanningDocument {
   }
 }
 
+function buildDesignDocument(id: string, planningDocumentId: string): GenerationDesignDocument {
+  return {
+    id,
+    sessionId: 'session-a',
+    planningDocumentId,
+    planningSourceMessageId: 'message-1',
+    title: '规划设计 V1',
+    version: 1,
+    status: 'draft',
+    sourceSnapshotMarkdown: '# 需求分析',
+    content: '# 需求分析',
+    summary: '',
+    derivedTargetType: null,
+    derivedTargetId: null,
+    derivedStatus: null,
+    createdAt: '2026-03-12T00:00:00.000Z',
+    updatedAt: '2026-03-12T00:00:00.000Z'
+  }
+}
+
 function buildSessionSummary(
   id: string,
   currentStage: GenerationRuntimeStageKey = 'analysis'
@@ -132,6 +159,7 @@ function buildSessionDetail(
   id: string,
   currentStage: GenerationRuntimeStageKey = 'analysis'
 ): GenerationSessionDetail {
+  const planningDocument = buildPlanningDocument(`planning-${id}`)
   return {
     ...buildSessionSummary(id, currentStage),
     stageConfigs: [
@@ -140,7 +168,8 @@ function buildSessionDetail(
       buildStageConfig('verify')
     ],
     documents: [buildDocument('analysis'), buildDocument('design'), buildDocument('verify')],
-    planningDocuments: [buildPlanningDocument(`planning-${id}`)],
+    planningDocuments: [planningDocument],
+    designDocuments: [buildDesignDocument(`design-${id}`, planningDocument.id)],
     messages: []
   }
 }

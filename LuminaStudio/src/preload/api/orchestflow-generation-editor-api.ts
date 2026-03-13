@@ -2,14 +2,19 @@ import { ipcRenderer } from 'electron'
 import type {
   GenerationAbortMessageRequest,
   GenerationApplyPlanningCommandProposalRequest,
+  GenerationCreateDesignDocumentFromPlanningRequest,
   GenerationCreatePlanningDocumentFromMessageRequest,
   GenerationCreateSessionRequest,
+  GenerationDeleteDesignDocumentRequest,
   GenerationDeleteSessionRequest,
   GenerationGlobalSettings,
+  GenerationListDesignDocumentsRequest,
   GenerationListMessagesRequest,
   GenerationRejectPlanningCommandProposalRequest,
+  GenerationSaveDesignDocumentRequest,
   GenerationSaveDocumentRequest,
   GenerationSavePlanningDocumentRequest,
+  GenerationSelectDesignDocumentRequest,
   GenerationSaveStageConfigRequest,
   GenerationSelectPlanningDocumentRequest,
   GenerationSendMessageRequest,
@@ -41,6 +46,16 @@ export const orchestflowGenerationEditorAPI: OrchestrflowGenerationEditorAPI = {
       'orchestflowGenerationEditor:getOrCreatePlanningDocumentFromMessage',
       request
     ),
+  createDesignDocumentFromPlanning: (request: GenerationCreateDesignDocumentFromPlanningRequest) =>
+    ipcRenderer.invoke('orchestflowGenerationEditor:createDesignDocumentFromPlanning', request),
+  listDesignDocuments: (request: GenerationListDesignDocumentsRequest) =>
+    ipcRenderer.invoke('orchestflowGenerationEditor:listDesignDocuments', request),
+  saveDesignDocument: (request: GenerationSaveDesignDocumentRequest) =>
+    ipcRenderer.invoke('orchestflowGenerationEditor:saveDesignDocument', request),
+  selectDesignDocument: (request: GenerationSelectDesignDocumentRequest) =>
+    ipcRenderer.invoke('orchestflowGenerationEditor:selectDesignDocument', request),
+  deleteDesignDocument: (request: GenerationDeleteDesignDocumentRequest) =>
+    ipcRenderer.invoke('orchestflowGenerationEditor:deleteDesignDocument', request),
   applyPlanningCommandProposal: (request: GenerationApplyPlanningCommandProposalRequest) =>
     ipcRenderer.invoke('orchestflowGenerationEditor:applyPlanningCommandProposal', request),
   rejectPlanningCommandProposal: (request: GenerationRejectPlanningCommandProposalRequest) =>

@@ -28,13 +28,36 @@
           <div class="text-[11px] font-semibold">{{ statusHeadline }}</div>
           <div class="mt-1 text-[11px] leading-5 opacity-80">{{ statusDescription }}</div>
         </div>
-        <button
-          type="button"
-          class="rounded-lg border border-violet-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-violet-700 transition-colors hover:bg-violet-50"
-          @click="$emit('use-copilot')"
-        >
-          使用 Copilot 调整
-        </button>
+        <div class="flex flex-wrap items-center justify-end gap-2">
+          <span
+            v-if="existingDesignCount > 0"
+            class="rounded-full bg-white px-2 py-0.5 text-[10px] text-gray-500"
+          >
+            已有关联设计稿 {{ existingDesignCount }} 份
+          </span>
+          <button
+            type="button"
+            class="rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-emerald-700 transition-colors hover:bg-emerald-50"
+            @click="$emit('create-design')"
+          >
+            新建规划设计
+          </button>
+          <button
+            type="button"
+            class="rounded-lg border border-cyan-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-cyan-700 transition-colors hover:bg-cyan-50 disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-400"
+            :disabled="existingDesignCount === 0"
+            @click="$emit('open-designs')"
+          >
+            进入已有设计
+          </button>
+          <button
+            type="button"
+            class="rounded-lg border border-violet-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-violet-700 transition-colors hover:bg-violet-50"
+            @click="$emit('use-copilot')"
+          >
+            使用 Copilot 调整
+          </button>
+        </div>
       </div>
     </div>
 
@@ -172,10 +195,13 @@ import GeneratePlanningMarkdownSection from './GeneratePlanningMarkdownSection.v
 
 const props = defineProps<{
   block: GenerationPlanningBlockPayload
+  existingDesignCount: number
 }>()
 
 defineEmits<{
   (e: 'use-copilot'): void
+  (e: 'create-design'): void
+  (e: 'open-designs'): void
 }>()
 
 const PlanningSectionCard = defineComponent({

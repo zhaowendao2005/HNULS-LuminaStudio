@@ -1,5 +1,6 @@
 import { parseOFPlanningMarkdown, type OFPlanningSectionKey } from '@shared/Orchestraflow-types'
 import type {
+  GenerationDesignDocument,
   GenerationDocument,
   GenerationGlobalSettings,
   GenerationMessage,
@@ -8,6 +9,7 @@ import type {
   GenerationStageConfig
 } from '@preload/types'
 import type {
+  GenerationDesignDocumentRow,
   GenerationDocumentRow,
   GenerationGlobalSettingsRow,
   GenerationMessageRow,
@@ -38,7 +40,8 @@ export function mapStageConfig(row: GenerationStageConfigRow): GenerationStageCo
     memoryRounds: row.memory_rounds,
     copilotMemoryRounds: row.copilot_memory_rounds,
     autoApproved: row.auto_approved === 1,
-    activePlanningDocumentId: row.active_planning_document_id
+    activePlanningDocumentId: row.active_planning_document_id,
+    activeDesignDocumentId: row.active_design_document_id
   }
 }
 
@@ -67,6 +70,26 @@ export function mapPlanningDocument(
     sourceMarkdown: row.source_markdown,
     content: row.content,
     sections: safeSections,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  }
+}
+
+export function mapDesignDocument(row: GenerationDesignDocumentRow): GenerationDesignDocument {
+  return {
+    id: row.id,
+    sessionId: row.session_id,
+    planningDocumentId: row.planning_document_id,
+    planningSourceMessageId: row.planning_source_message_id,
+    title: row.title,
+    version: row.version,
+    status: row.status,
+    sourceSnapshotMarkdown: row.source_snapshot_markdown,
+    content: row.content,
+    summary: row.summary,
+    derivedTargetType: row.derived_target_type,
+    derivedTargetId: row.derived_target_id,
+    derivedStatus: row.derived_status,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   }

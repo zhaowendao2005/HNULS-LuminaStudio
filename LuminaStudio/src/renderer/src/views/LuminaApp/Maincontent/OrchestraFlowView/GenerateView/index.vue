@@ -57,11 +57,18 @@
               :current-session-stage-label="currentSessionStageLabel"
               :messages="generationStore.analysisMessages"
               :planning-documents="generationStore.currentSession.planningDocuments"
+              :design-documents="generationStore.currentSession.designDocuments"
               :analysis-input="generationStore.analysisInput"
               :is-analysis-streaming="generationStore.isAnalysisStreaming"
               @open-sessions="generationStore.activeMenu = 'sessions'"
               @open-copilot="generationStore.openCopilotPanel('analysis')"
               @open-planning-copilot="generationStore.openPlanningCopilotFromMessage($event)"
+              @create-planning-design="
+                generationStore.createDesignDocumentFromPlanningMessage($event)
+              "
+              @open-existing-planning-designs="
+                generationStore.openExistingDesignsFromPlanningMessage($event)
+              "
               @update:analysis-input="generationStore.analysisInput = $event"
               @send-analysis="generationStore.sendAnalysisMessage()"
             />
@@ -69,11 +76,16 @@
             <GenerateDesignPanel
               v-else-if="generationStore.activeMenu === 'design'"
               :session-title="generationStore.currentSession.title"
-              :file-name="generationStore.currentSession.documents.design.fileName"
-              :design-content="generationStore.currentSession.documents.design.content"
+              :design-content="generationStore.activeDesignDocument?.content || ''"
+              :design-count="generationStore.designDocumentList.length"
+              :has-active-design-document="Boolean(generationStore.activeDesignDocument)"
+              :active-design-title="generationStore.activeDesignDocument?.title || null"
+              :active-design-version="generationStore.activeDesignDocument?.version || null"
+              :active-planning-title="generationStore.activeDesignPlanningDocument?.title || null"
               @update:design-content="generationStore.handleDesignContentUpdate($event)"
               @open-copilot="generationStore.openCopilotPanel('design')"
               @open-sessions="generationStore.activeMenu = 'sessions'"
+              @open-design-manager="generationStore.openDesignManager()"
             />
 
             <GenerateVerifyPanel
@@ -235,6 +247,25 @@
       @close="generationStore.showCreateSessionModal = false"
       @confirm="generationStore.createSession()"
     />
+
+    <GenerateDesignManagerDialog
+      v-if="generationStore.currentSession"
+      :visible="generationStore.showDesignManagerModal"
+      :documents="generationStore.filteredDesignDocumentList"
+      :planning-document-id="generationStore.designManagerPlanningDocumentId"
+      :planning-documents="generationStore.currentSession.planningDocuments"
+      :active-design-document-id="generationStore.activeDesignDocument?.id || null"
+      @close="generationStore.closeDesignManager()"
+      @show-all="generationStore.openDesignManager()"
+      @select="generationStore.selectDesignDocument($event)"
+      @delete="generationStore.deleteDesignDocument($event)"
+      @create-from-current-planning="
+        generationStore.designManagerPlanningDocumentId &&
+        generationStore.createDesignDocumentFromPlanningDocumentId(
+          generationStore.designManagerPlanningDocumentId
+        )
+      "
+    />
   </div>
 </template>
 
@@ -253,6 +284,7 @@ import { useOrchestflowGenerationEditorStore } from '@renderer/stores/orchestraf
 import GenerateAnalysisCopilotPanel from './GenerateAnalysisCopilotPanel.vue'
 import GenerateAnalysisPanel from './GenerateAnalysisPanel.vue'
 import GenerateConfigDrawer from './GenerateConfigDrawer.vue'
+import GenerateDesignManagerDialog from './GenerateDesignManagerDialog.vue'
 import GenerateCreateSessionDialog from './GenerateCreateSessionDialog.vue'
 import GenerateDashboardPanel from './GenerateDashboardPanel.vue'
 import GenerateDesignPanel from './GenerateDesignPanel.vue'

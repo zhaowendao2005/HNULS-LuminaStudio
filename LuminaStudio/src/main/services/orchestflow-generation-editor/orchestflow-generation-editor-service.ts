@@ -8,13 +8,18 @@ import type { ModelConfigService, PersistedModelProviderConfig } from '../model-
 import type {
   GenerationApplyPlanningCommandProposalRequest,
   GenerationChannelKey,
+  GenerationCreateDesignDocumentFromPlanningRequest,
   GenerationCreatePlanningDocumentFromMessageRequest,
   GenerationCreateSessionRequest,
+  GenerationDeleteDesignDocumentRequest,
   GenerationGlobalSettings,
+  GenerationListDesignDocumentsRequest,
   GenerationListMessagesRequest,
   GenerationRejectPlanningCommandProposalRequest,
+  GenerationSaveDesignDocumentRequest,
   GenerationSaveDocumentRequest,
   GenerationSavePlanningDocumentRequest,
+  GenerationSelectDesignDocumentRequest,
   GenerationSaveStageConfigRequest,
   GenerationSelectPlanningDocumentRequest,
   GenerationSessionSummary,
@@ -107,6 +112,28 @@ export class OrchestflowGenerationEditorService {
     request: GenerationCreatePlanningDocumentFromMessageRequest
   ) {
     return this.repository.getOrCreatePlanningDocumentFromMessage(request)
+  }
+
+  async createDesignDocumentFromPlanning(
+    request: GenerationCreateDesignDocumentFromPlanningRequest
+  ) {
+    return this.repository.createDesignDocumentFromPlanning(request)
+  }
+
+  async listDesignDocuments(request: GenerationListDesignDocumentsRequest) {
+    return this.repository.listDesignDocuments(request)
+  }
+
+  async saveDesignDocument(request: GenerationSaveDesignDocumentRequest) {
+    return this.repository.saveDesignDocument(request)
+  }
+
+  async selectDesignDocument(request: GenerationSelectDesignDocumentRequest) {
+    return this.repository.selectDesignDocument(request)
+  }
+
+  async deleteDesignDocument(request: GenerationDeleteDesignDocumentRequest) {
+    return this.repository.deleteDesignDocument(request)
   }
 
   async applyPlanningCommandProposal(request: GenerationApplyPlanningCommandProposalRequest) {

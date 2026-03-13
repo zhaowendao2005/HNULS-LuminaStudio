@@ -23,6 +23,7 @@ export type GenerationAnalysisPlanningStatus = 'draft' | 'ready'
 export type GenerationPlanningStreamSectionKey = OFPlanningSectionKey
 export type GenerationCopilotEditStatus = 'noop' | 'pending' | 'applied' | 'rejected' | 'failed'
 export type GenerationCopilotSectionDecision = 'pending' | 'applied' | 'rejected'
+export type GenerationDesignDocumentStatus = 'draft' | 'derived'
 
 export interface GenerationStageConfig {
   stageKey: GenerationStageKey
@@ -33,6 +34,7 @@ export interface GenerationStageConfig {
   copilotMemoryRounds: number
   autoApproved: boolean
   activePlanningDocumentId: string | null
+  activeDesignDocumentId: string | null
 }
 
 export interface GenerationDocument {
@@ -51,6 +53,24 @@ export interface GenerationPlanningDocument extends OFSharedPlanningDocument {
   title: string
   sourceMarkdown: string
   content: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface GenerationDesignDocument {
+  id: string
+  sessionId: string
+  planningDocumentId: string
+  planningSourceMessageId: string
+  title: string
+  version: number
+  status: GenerationDesignDocumentStatus
+  sourceSnapshotMarkdown: string
+  content: string
+  summary: string
+  derivedTargetType: string | null
+  derivedTargetId: string | null
+  derivedStatus: string | null
   createdAt: string
   updatedAt: string
 }
@@ -137,6 +157,7 @@ export interface GenerationSessionDetail extends GenerationSessionSummary {
   stageConfigs: GenerationStageConfig[]
   documents: GenerationDocument[]
   planningDocuments: GenerationPlanningDocument[]
+  designDocuments: GenerationDesignDocument[]
   messages: GenerationMessage[]
 }
 
@@ -176,6 +197,31 @@ export interface GenerationSelectPlanningDocumentRequest {
 export interface GenerationCreatePlanningDocumentFromMessageRequest {
   sessionId: string
   messageId: string
+}
+
+export interface GenerationCreateDesignDocumentFromPlanningRequest {
+  sessionId: string
+  planningDocumentId: string
+}
+
+export interface GenerationListDesignDocumentsRequest {
+  sessionId: string
+  planningDocumentId?: string
+}
+
+export interface GenerationSaveDesignDocumentRequest {
+  sessionId: string
+  document: GenerationDesignDocument
+}
+
+export interface GenerationSelectDesignDocumentRequest {
+  sessionId: string
+  designDocumentId: string
+}
+
+export interface GenerationDeleteDesignDocumentRequest {
+  sessionId: string
+  designDocumentId: string
 }
 
 export interface GenerationApplyPlanningCommandProposalRequest {
@@ -285,6 +331,21 @@ export interface OrchestrflowGenerationEditorAPI {
   getOrCreatePlanningDocumentFromMessage: (
     request: GenerationCreatePlanningDocumentFromMessageRequest
   ) => Promise<ApiResponse<GenerationPlanningDocument>>
+  createDesignDocumentFromPlanning: (
+    request: GenerationCreateDesignDocumentFromPlanningRequest
+  ) => Promise<ApiResponse<GenerationDesignDocument>>
+  listDesignDocuments: (
+    request: GenerationListDesignDocumentsRequest
+  ) => Promise<ApiResponse<GenerationDesignDocument[]>>
+  saveDesignDocument: (
+    request: GenerationSaveDesignDocumentRequest
+  ) => Promise<ApiResponse<GenerationDesignDocument>>
+  selectDesignDocument: (
+    request: GenerationSelectDesignDocumentRequest
+  ) => Promise<ApiResponse<GenerationStageConfig>>
+  deleteDesignDocument: (
+    request: GenerationDeleteDesignDocumentRequest
+  ) => Promise<ApiResponse<void>>
   applyPlanningCommandProposal: (
     request: GenerationApplyPlanningCommandProposalRequest
   ) => Promise<ApiResponse<GenerationPlanningDocument>>

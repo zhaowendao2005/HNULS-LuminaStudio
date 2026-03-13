@@ -1,14 +1,20 @@
 import type {
   GenerationApplyPlanningCommandProposalRequest,
+  GenerationCreateDesignDocumentFromPlanningRequest,
   GenerationCreatePlanningDocumentFromMessageRequest,
   GenerationCreateSessionRequest,
+  GenerationDeleteDesignDocumentRequest,
+  GenerationDesignDocument,
   GenerationDeleteSessionRequest,
   GenerationGlobalSettings,
   GenerationRejectPlanningCommandProposalRequest,
+  GenerationListDesignDocumentsRequest,
   GenerationRuntimeStageKey,
+  GenerationSaveDesignDocumentRequest,
   GenerationSaveDocumentRequest,
   GenerationSavePlanningDocumentRequest,
   GenerationSaveStageConfigRequest,
+  GenerationSelectDesignDocumentRequest,
   GenerationSelectPlanningDocumentRequest,
   GenerationSendMessageRequest,
   GenerationSessionDetail,
@@ -104,6 +110,50 @@ export const OrchestflowGenerationEditorDataSource = {
       throw new Error(response.error || 'Failed to create planning document from message')
     }
     return response.data
+  },
+
+  async createDesignDocumentFromPlanning(
+    request: GenerationCreateDesignDocumentFromPlanningRequest
+  ): Promise<GenerationDesignDocument> {
+    const response =
+      await window.api.orchestflowGenerationEditor.createDesignDocumentFromPlanning(request)
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to create design document from planning')
+    }
+    return response.data
+  },
+
+  async listDesignDocuments(
+    request: GenerationListDesignDocumentsRequest
+  ): Promise<GenerationDesignDocument[]> {
+    const response = await window.api.orchestflowGenerationEditor.listDesignDocuments(request)
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to list design documents')
+    }
+    return response.data
+  },
+
+  async saveDesignDocument(request: GenerationSaveDesignDocumentRequest) {
+    const response = await window.api.orchestflowGenerationEditor.saveDesignDocument(request)
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to save design document')
+    }
+    return response.data
+  },
+
+  async selectDesignDocument(request: GenerationSelectDesignDocumentRequest) {
+    const response = await window.api.orchestflowGenerationEditor.selectDesignDocument(request)
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to select design document')
+    }
+    return response.data
+  },
+
+  async deleteDesignDocument(request: GenerationDeleteDesignDocumentRequest): Promise<void> {
+    const response = await window.api.orchestflowGenerationEditor.deleteDesignDocument(request)
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to delete design document')
+    }
   },
 
   async applyPlanningCommandProposal(request: GenerationApplyPlanningCommandProposalRequest) {

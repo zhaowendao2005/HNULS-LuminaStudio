@@ -4,14 +4,19 @@ import type { OrchestflowGenerationEditorService } from '../services/orchestflow
 import type {
   GenerationAbortMessageRequest,
   GenerationApplyPlanningCommandProposalRequest,
+  GenerationCreateDesignDocumentFromPlanningRequest,
   GenerationCreatePlanningDocumentFromMessageRequest,
   GenerationCreateSessionRequest,
+  GenerationDeleteDesignDocumentRequest,
   GenerationDeleteSessionRequest,
   GenerationGlobalSettings,
+  GenerationListDesignDocumentsRequest,
   GenerationListMessagesRequest,
   GenerationRejectPlanningCommandProposalRequest,
+  GenerationSaveDesignDocumentRequest,
   GenerationSaveDocumentRequest,
   GenerationSavePlanningDocumentRequest,
+  GenerationSelectDesignDocumentRequest,
   GenerationSaveStageConfigRequest,
   GenerationSelectPlanningDocumentRequest,
   GenerationSendMessageRequest,
@@ -104,6 +109,69 @@ export class OrchestflowGenerationEditorIPCHandler extends BaseIPCHandler {
       success: true,
       data: await this.service.getOrCreatePlanningDocumentFromMessage(request)
     }
+  }
+
+  async handleCreateDesignDocumentFromPlanning(
+    _event: IpcMainInvokeEvent,
+    request: GenerationCreateDesignDocumentFromPlanningRequest
+  ) {
+    if (!request?.sessionId || !request?.planningDocumentId) {
+      return { success: false, error: 'Invalid design source request' }
+    }
+    return {
+      success: true,
+      data: await this.service.createDesignDocumentFromPlanning(request)
+    }
+  }
+
+  async handleListDesignDocuments(
+    _event: IpcMainInvokeEvent,
+    request: GenerationListDesignDocumentsRequest
+  ) {
+    if (!request?.sessionId) {
+      return { success: false, error: 'Missing sessionId' }
+    }
+    return {
+      success: true,
+      data: await this.service.listDesignDocuments(request)
+    }
+  }
+
+  async handleSaveDesignDocument(
+    _event: IpcMainInvokeEvent,
+    request: GenerationSaveDesignDocumentRequest
+  ) {
+    if (!request?.sessionId || !request?.document?.id) {
+      return { success: false, error: 'Invalid design save request' }
+    }
+    return {
+      success: true,
+      data: await this.service.saveDesignDocument(request)
+    }
+  }
+
+  async handleSelectDesignDocument(
+    _event: IpcMainInvokeEvent,
+    request: GenerationSelectDesignDocumentRequest
+  ) {
+    if (!request?.sessionId || !request?.designDocumentId) {
+      return { success: false, error: 'Invalid design selection request' }
+    }
+    return {
+      success: true,
+      data: await this.service.selectDesignDocument(request)
+    }
+  }
+
+  async handleDeleteDesignDocument(
+    _event: IpcMainInvokeEvent,
+    request: GenerationDeleteDesignDocumentRequest
+  ) {
+    if (!request?.sessionId || !request?.designDocumentId) {
+      return { success: false, error: 'Invalid design delete request' }
+    }
+    await this.service.deleteDesignDocument(request)
+    return { success: true }
   }
 
   async handleApplyPlanningCommandProposal(

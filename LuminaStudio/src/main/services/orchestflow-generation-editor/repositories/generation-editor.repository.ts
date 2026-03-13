@@ -11,18 +11,24 @@ import {
 } from '@shared/Orchestraflow-types'
 import type {
   GenerationApplyPlanningCommandProposalRequest,
+  GenerationCreateDesignDocumentFromPlanningRequest,
   GenerationCreatePlanningDocumentFromMessageRequest,
   GenerationCreateSessionRequest,
+  GenerationDeleteDesignDocumentRequest,
+  GenerationDesignDocument,
   GenerationDocument,
   GenerationGlobalSettings,
+  GenerationListDesignDocumentsRequest,
   GenerationListMessagesRequest,
   GenerationMessage,
   GenerationMessageMetaPayload,
   GenerationPlanningDocument,
   GenerationRejectPlanningCommandProposalRequest,
+  GenerationSaveDesignDocumentRequest,
   GenerationSaveDocumentRequest,
   GenerationSavePlanningDocumentRequest,
   GenerationSaveStageConfigRequest,
+  GenerationSelectDesignDocumentRequest,
   GenerationSelectPlanningDocumentRequest,
   GenerationSessionDetail,
   GenerationStageConfig,
@@ -31,6 +37,7 @@ import type {
 } from '@preload/types'
 import { DEFAULT_DOCUMENTS, DEFAULT_STAGE_CONFIGS } from '../constants/defaults'
 import {
+  mapDesignDocument,
   mapDocument,
   mapGlobalSettings,
   mapMessage,
@@ -39,6 +46,7 @@ import {
   mapStageConfig
 } from '../mappers/generation-editor.mappers'
 import type {
+  GenerationDesignDocumentRow,
   GenerationDocumentRow,
   GenerationGlobalSettingsRow,
   GenerationMessageRow,
@@ -50,8 +58,8 @@ import type {
 /**
  * repository 层专门负责 Generate Editor 的 SQLite 访问。
  *
- * 这里把 planning 共享工作稿也一起纳入 repository，
- * 避免 service 层再重复维护 SQL 与 JSON meta 细节。
+ * 这里把 planning 工作稿和 design 多版本稿都收敛到一处，
+ * 避免 service 层重复维护 SQL / JSON meta / 回落逻辑。
  */
 export class GenerationEditorRepository {
   constructor(private readonly db: Database.Database) {}
@@ -124,8 +132,9 @@ export class GenerationEditorRepository {
           memory_rounds,
           copilot_memory_rounds,
           auto_approved,
-          active_planning_document_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          active_planning_document_id,
+          active_design_document_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
 
       ;(['analysis', 'design', 'verify'] as GenerationStageKey[]).forEach((stageKey) => {
@@ -139,7 +148,8 @@ export class GenerationEditorRepository {
           config.memoryRounds,
           config.copilotMemoryRounds,
           config.autoApproved ? 1 : 0,
-          config.activePlanningDocumentId
+          config.activePlanningDocumentId,
+          config.activeDesignDocumentId
         )
       })
 
@@ -180,6 +190,7 @@ export class GenerationEditorRepository {
   deleteSession(sessionId: string): void {
     const transaction = this.db.transaction(() => {
       this.db.prepare('DELETE FROM generation_messages WHERE session_id = ?').run(sessionId)
+      this.db.prepare('DELETE FROM generation_design_documents WHERE session_id = ?').run(sessionId)
       this.db
         .prepare('DELETE FROM generation_planning_documents WHERE session_id = ?')
         .run(sessionId)
@@ -208,6 +219,11 @@ export class GenerationEditorRepository {
         'SELECT * FROM generation_planning_documents WHERE session_id = ? ORDER BY updated_at DESC'
       )
       .all(sessionId) as GenerationPlanningDocumentRow[]
+    const designDocumentRows = this.db
+      .prepare(
+        'SELECT * FROM generation_design_documents WHERE session_id = ? ORDER BY updated_at DESC, version DESC'
+      )
+      .all(sessionId) as GenerationDesignDocumentRow[]
     const messageRows = this.db
       .prepare('SELECT * FROM generation_messages WHERE session_id = ? ORDER BY created_at ASC')
       .all(sessionId) as GenerationMessageRow[]
@@ -217,6 +233,7 @@ export class GenerationEditorRepository {
       stageConfigs: stageConfigRows.map(mapStageConfig),
       documents: documentRows.map(mapDocument),
       planningDocuments: planningDocumentRows.map(mapPlanningDocument),
+      designDocuments: designDocumentRows.map(mapDesignDocument),
       messages: messageRows.map(mapMessage)
     }
   }
@@ -264,8 +281,9 @@ export class GenerationEditorRepository {
           copilot_memory_rounds,
           auto_approved,
           active_planning_document_id,
+          active_design_document_id,
           updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
         ON CONFLICT(session_id, stage_key) DO UPDATE SET
           provider_id = excluded.provider_id,
           model_id = excluded.model_id,
@@ -274,6 +292,7 @@ export class GenerationEditorRepository {
           copilot_memory_rounds = excluded.copilot_memory_rounds,
           auto_approved = excluded.auto_approved,
           active_planning_document_id = excluded.active_planning_document_id,
+          active_design_document_id = excluded.active_design_document_id,
           updated_at = datetime('now')`
       )
       .run(
@@ -285,7 +304,8 @@ export class GenerationEditorRepository {
         request.config.memoryRounds,
         request.config.copilotMemoryRounds,
         request.config.autoApproved ? 1 : 0,
-        request.config.activePlanningDocumentId
+        request.config.activePlanningDocumentId,
+        request.config.activeDesignDocumentId
       )
 
     this.touchSession(request.sessionId)
@@ -388,6 +408,204 @@ export class GenerationEditorRepository {
     }
 
     return mapPlanningDocument(row)
+  }
+
+  listDesignDocuments(request: GenerationListDesignDocumentsRequest): GenerationDesignDocument[] {
+    const rows = request.planningDocumentId
+      ? (this.db
+          .prepare(
+            `SELECT * FROM generation_design_documents
+             WHERE session_id = ? AND planning_document_id = ?
+             ORDER BY version DESC, updated_at DESC`
+          )
+          .all(request.sessionId, request.planningDocumentId) as GenerationDesignDocumentRow[])
+      : (this.db
+          .prepare(
+            `SELECT * FROM generation_design_documents
+             WHERE session_id = ?
+             ORDER BY updated_at DESC, version DESC`
+          )
+          .all(request.sessionId) as GenerationDesignDocumentRow[])
+
+    return rows.map(mapDesignDocument)
+  }
+
+  getDesignDocumentById(designDocumentId: string): GenerationDesignDocument {
+    const row = this.db
+      .prepare('SELECT * FROM generation_design_documents WHERE id = ?')
+      .get(designDocumentId) as GenerationDesignDocumentRow | undefined
+
+    if (!row) {
+      throw new Error(`Design document not found: ${designDocumentId}`)
+    }
+
+    return mapDesignDocument(row)
+  }
+
+  createDesignDocumentFromPlanning(
+    request: GenerationCreateDesignDocumentFromPlanningRequest
+  ): GenerationDesignDocument {
+    const planningDocument = this.getPlanningDocumentById(request.planningDocumentId)
+    if (planningDocument.sessionId !== request.sessionId) {
+      throw new Error(`Planning document not found in session: ${request.planningDocumentId}`)
+    }
+
+    const versionRow = this.db
+      .prepare(
+        `SELECT MAX(version) as maxVersion
+         FROM generation_design_documents
+         WHERE session_id = ? AND planning_document_id = ?`
+      )
+      .get(request.sessionId, request.planningDocumentId) as { maxVersion: number | null }
+    const nextVersion = (versionRow.maxVersion || 0) + 1
+    const designDocumentId = randomUUID()
+    const title = `规划设计 V${nextVersion}`
+
+    // 设计稿首版直接复制 planning markdown，确保后续 planning 变化不会回写污染旧版本。
+    this.db
+      .prepare(
+        `INSERT INTO generation_design_documents (
+          id,
+          session_id,
+          planning_document_id,
+          planning_source_message_id,
+          title,
+          version,
+          status,
+          source_snapshot_markdown,
+          content,
+          summary
+        ) VALUES (?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?)`
+      )
+      .run(
+        designDocumentId,
+        request.sessionId,
+        planningDocument.id,
+        planningDocument.sourceMessageId,
+        title,
+        nextVersion,
+        planningDocument.content,
+        planningDocument.content,
+        ''
+      )
+
+    this.selectDesignDocument({
+      sessionId: request.sessionId,
+      designDocumentId
+    })
+
+    return this.getDesignDocumentById(designDocumentId)
+  }
+
+  saveDesignDocument(request: GenerationSaveDesignDocumentRequest): GenerationDesignDocument {
+    this.db
+      .prepare(
+        `INSERT INTO generation_design_documents (
+          id,
+          session_id,
+          planning_document_id,
+          planning_source_message_id,
+          title,
+          version,
+          status,
+          source_snapshot_markdown,
+          content,
+          summary,
+          derived_target_type,
+          derived_target_id,
+          derived_status,
+          updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        ON CONFLICT(id) DO UPDATE SET
+          title = excluded.title,
+          status = excluded.status,
+          source_snapshot_markdown = excluded.source_snapshot_markdown,
+          content = excluded.content,
+          summary = excluded.summary,
+          derived_target_type = excluded.derived_target_type,
+          derived_target_id = excluded.derived_target_id,
+          derived_status = excluded.derived_status,
+          updated_at = datetime('now')`
+      )
+      .run(
+        request.document.id,
+        request.sessionId,
+        request.document.planningDocumentId,
+        request.document.planningSourceMessageId,
+        request.document.title,
+        request.document.version,
+        request.document.status,
+        request.document.sourceSnapshotMarkdown,
+        request.document.content,
+        request.document.summary,
+        request.document.derivedTargetType,
+        request.document.derivedTargetId,
+        request.document.derivedStatus
+      )
+
+    const saved = this.getDesignDocumentById(request.document.id)
+    if (this.getStageConfig(request.sessionId, 'design').activeDesignDocumentId === saved.id) {
+      this.syncDesignStageDocument(saved)
+    }
+
+    this.touchSession(request.sessionId)
+    return saved
+  }
+
+  selectDesignDocument(request: GenerationSelectDesignDocumentRequest): GenerationStageConfig {
+    const designDocument = this.getDesignDocumentById(request.designDocumentId)
+    if (designDocument.sessionId !== request.sessionId) {
+      throw new Error(`Design document not found in session: ${request.designDocumentId}`)
+    }
+
+    this.db
+      .prepare(
+        `UPDATE generation_stage_configs
+         SET active_design_document_id = ?, updated_at = datetime('now')
+         WHERE session_id = ? AND stage_key = 'design'`
+      )
+      .run(request.designDocumentId, request.sessionId)
+
+    this.syncDesignStageDocument(designDocument)
+    this.touchSession(request.sessionId)
+    return this.getStageConfig(request.sessionId, 'design')
+  }
+
+  deleteDesignDocument(request: GenerationDeleteDesignDocumentRequest): void {
+    const designDocument = this.getDesignDocumentById(request.designDocumentId)
+    if (designDocument.sessionId !== request.sessionId) {
+      throw new Error(`Design document not found in session: ${request.designDocumentId}`)
+    }
+
+    const currentStageConfig = this.getStageConfig(request.sessionId, 'design')
+    this.db
+      .prepare('DELETE FROM generation_design_documents WHERE id = ? AND session_id = ?')
+      .run(request.designDocumentId, request.sessionId)
+
+    if (currentStageConfig.activeDesignDocumentId === request.designDocumentId) {
+      const fallback = this.listDesignDocuments({
+        sessionId: request.sessionId,
+        planningDocumentId: designDocument.planningDocumentId
+      })[0]
+
+      if (fallback) {
+        this.selectDesignDocument({
+          sessionId: request.sessionId,
+          designDocumentId: fallback.id
+        })
+      } else {
+        this.db
+          .prepare(
+            `UPDATE generation_stage_configs
+             SET active_design_document_id = NULL, updated_at = datetime('now')
+             WHERE session_id = ? AND stage_key = 'design'`
+          )
+          .run(request.sessionId)
+        this.clearDesignStageDocument(request.sessionId)
+      }
+    }
+
+    this.touchSession(request.sessionId)
   }
 
   getOrCreatePlanningDocumentFromMessage(
@@ -645,6 +863,46 @@ export class GenerationEditorRepository {
       documentId
     }
     this.updateMessageMeta(messageId, JSON.stringify(meta))
+  }
+
+  private syncDesignStageDocument(designDocument: GenerationDesignDocument): void {
+    // design 阶段旧正文继续保留为兼容镜像，避免其它逻辑突然读不到内容。
+    const currentDocument = this.getDocumentByKey(designDocument.sessionId, 'design')
+    this.saveDocument({
+      sessionId: designDocument.sessionId,
+      document: {
+        documentKey: 'design',
+        title: currentDocument?.title || '规划设计',
+        fileName: currentDocument?.fileName || 'planning_design.md',
+        summary: designDocument.summary,
+        content: designDocument.content
+      }
+    })
+  }
+
+  private clearDesignStageDocument(sessionId: string): void {
+    const currentDocument = this.getDocumentByKey(sessionId, 'design')
+    this.saveDocument({
+      sessionId,
+      document: {
+        documentKey: 'design',
+        title: currentDocument?.title || '规划设计',
+        fileName: currentDocument?.fileName || 'planning_design.md',
+        summary: '',
+        content: ''
+      }
+    })
+  }
+
+  private getDocumentByKey(
+    sessionId: string,
+    documentKey: GenerationStageKey
+  ): GenerationDocument | null {
+    const row = this.db
+      .prepare('SELECT * FROM generation_documents WHERE session_id = ? AND document_key = ?')
+      .get(sessionId, documentKey) as GenerationDocumentRow | undefined
+
+    return row ? mapDocument(row) : null
   }
 
   private getRequiredMessageById(messageId: string): GenerationMessageRow {

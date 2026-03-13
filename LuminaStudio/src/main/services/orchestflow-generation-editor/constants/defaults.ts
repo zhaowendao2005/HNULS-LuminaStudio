@@ -9,21 +9,24 @@ export const DEFAULT_STAGE_CONFIGS: Record<
     memoryRounds: 6,
     copilotMemoryRounds: 5,
     autoApproved: true,
-    activePlanningDocumentId: null
+    activePlanningDocumentId: null,
+    activeDesignDocumentId: null
   },
   design: {
     stageKey: 'design',
     memoryRounds: 6,
     copilotMemoryRounds: 5,
     autoApproved: true,
-    activePlanningDocumentId: null
+    activePlanningDocumentId: null,
+    activeDesignDocumentId: null
   },
   verify: {
     stageKey: 'verify',
     memoryRounds: 5,
     copilotMemoryRounds: 4,
     autoApproved: true,
-    activePlanningDocumentId: null
+    activePlanningDocumentId: null,
+    activeDesignDocumentId: null
   }
 }
 

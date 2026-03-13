@@ -13,6 +13,7 @@ import type {
 import type {
   GenerationChannelKey,
   GenerationCopilotEditBlockPayload,
+  GenerationDesignDocument,
   GenerationMessage,
   GenerationMessageMetaPayload,
   GenerationPlanningBlockPayload,
@@ -50,6 +51,7 @@ export interface GenerateSessionDetailViewModel extends GenerateSessionViewModel
   stageConfigs: Record<GenerationStageKey, GenerationStageConfig>
   documents: Record<GenerationStageKey, GenerationDocumentViewModel>
   planningDocuments: Record<string, GenerationPlanningDocument>
+  designDocuments: Record<string, GenerationDesignDocument>
   messagesByChannel: Record<GenerationChannelKey, GenerationMessage[]>
 }
 
@@ -134,6 +136,9 @@ export function mapSessionDetail(session: GenerationSessionDetail): GenerateSess
     },
     planningDocuments: Object.fromEntries(
       session.planningDocuments.map((document) => [document.id, document])
+    ),
+    designDocuments: Object.fromEntries(
+      session.designDocuments.map((document) => [document.id, document])
     ),
     messagesByChannel: {
       'analysis-discussion': session.messages.filter(
