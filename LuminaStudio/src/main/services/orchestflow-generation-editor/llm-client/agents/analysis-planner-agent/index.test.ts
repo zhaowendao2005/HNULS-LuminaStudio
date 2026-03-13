@@ -10,25 +10,6 @@ vi.mock('@main/services/logger', () => ({
   }
 }))
 
-vi.mock('@shared/Orchestraflow-types', () => ({
-  buildOFRequirementContextPack: vi.fn(() => ({})),
-  renderOFAgentContextPack: vi.fn(() => ''),
-  OF_PLANNING_SECTION_DEFINITIONS: [
-    { key: 'analysis-summary', title: '摘要', rootKey: 'analysis' },
-    { key: 'analysis-goals', title: '目标', rootKey: 'analysis' },
-    { key: 'analysis-success-criteria', title: '成功标准', rootKey: 'analysis' },
-    { key: 'analysis-constraints', title: '约束', rootKey: 'analysis' },
-    { key: 'analysis-prohibitions', title: '禁止项', rootKey: 'analysis' },
-    { key: 'analysis-missing-info', title: '待补充信息', rootKey: 'analysis' },
-    { key: 'analysis-readiness-signals', title: '成熟度信号', rootKey: 'analysis' },
-    { key: 'design-candidate-nodes', title: '候选节点', rootKey: 'design' },
-    { key: 'design-input-requirements', title: '输入要求', rootKey: 'design' },
-    { key: 'design-output-requirements', title: '输出要求', rootKey: 'design' },
-    { key: 'design-confirmation-questions', title: '待确认问题', rootKey: 'design' },
-    { key: 'design-blueprint-requirements', title: '蓝图要求', rootKey: 'design' }
-  ]
-}))
-
 import { buildPlanningProgressState } from './index'
 
 describe('analysis-planner-agent progress gating', () => {
@@ -43,7 +24,7 @@ planningStatus: draft
 - 继续补充信息
 
 # 设计交接
-## 候选节点
+## 节点声明
 - 暂无
 `)
 
@@ -61,7 +42,7 @@ planningStatus: ready
 - 已经可以开始规划
 
 # 设计交接
-## 候选节点
+## 节点声明
 - start：接收输入
     `)
 
@@ -83,12 +64,12 @@ planningStatus: draft
 - 产出一份结构完整的 handoff。
 
 # 设计交接
-## 候选节点
+## 节点声明
 - start：接收输入
 `)
 
     expect(progress.analysisMarkdown).toContain('## 摘要')
     expect(progress.analysisMarkdown).toContain('工作流规划方案')
-    expect(progress.designMarkdown).toContain('## 候选节点')
+    expect(progress.designMarkdown).toContain('## 节点声明')
   })
 })

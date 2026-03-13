@@ -31,7 +31,9 @@ export type GenerationDesignDocumentStatus =
   | 'invalid'
   | 'aborted'
   | 'error'
-export type GenerationDesignDocumentContentFormat = 'of-blueprint-text-v1'
+export type GenerationDesignDocumentContentFormat =
+  | 'of-blueprint-text-v1'
+  | 'of-blueprint-section-v1'
 export type GenerationDesignGenerationMode = 'generate' | 'regenerate'
 
 export interface GenerationStageConfig {

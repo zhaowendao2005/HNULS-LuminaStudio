@@ -77,7 +77,9 @@
               v-else-if="generationStore.activeMenu === 'design'"
               :session-title="generationStore.currentSession.title"
               :design-content="generationStore.activeDesignDocument?.content || ''"
-              :snapshot-markdown="generationStore.activeDesignDocument?.sourceSnapshotMarkdown || ''"
+              :snapshot-markdown="
+                generationStore.activeDesignDocument?.sourceSnapshotMarkdown || ''
+              "
               :design-count="generationStore.designDocumentList.length"
               :has-active-design-document="Boolean(generationStore.activeDesignDocument)"
               :has-generated-dsl="Boolean(generationStore.activeDesignDocument?.content?.trim())"
@@ -307,7 +309,7 @@ import GenerateVerifyPanel from './GenerateVerifyPanel.vue'
 import type { MenuItem, StageKey } from './generate-view.types'
 
 const generationStore = useOrchestflowGenerationEditorStore()
-const stageOrder: StageKey[] = ['analysis', 'design', 'verify', 'workflow']
+const stageOrder: StageKey[] = ['analysis', 'design', 'verify']
 
 const basicMenus: MenuItem[] = [
   { value: 'dashboard', label: 'Dashboard', icon: Activity },

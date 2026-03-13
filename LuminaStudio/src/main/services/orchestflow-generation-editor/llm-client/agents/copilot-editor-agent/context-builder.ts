@@ -1,10 +1,7 @@
-import {
-  buildOFPlanningEditContextPack,
-  parseOFPlanningMarkdown,
-  renderOFAgentContextPack
-} from '@shared/Orchestraflow-types'
+import { buildOFPlanningMarkdown, parseOFPlanningMarkdown } from '@shared/Orchestraflow-types'
 import type { GenerationMessage } from '@preload/types'
 import type { GenerationEditorRepository } from '../../../repositories/generation-editor.repository'
+import { buildPlanningEditCapabilityPrompt } from '../../prompt-sources/planning-contract.source'
 import type { CopilotEditorContextBundle } from './types'
 
 export function buildCopilotEditorContextBundle(params: {
@@ -32,15 +29,12 @@ export function buildCopilotEditorContextBundle(params: {
     copilotHistoryText: renderConversationText(
       selectRecentConversationRounds(copilotMessages, params.memoryRounds)
     ),
-    capabilityContextText: renderOFAgentContextPack(
-      buildOFPlanningEditContextPack({
-        document: planningDocument,
-        sourceDocument: planningDocument.sourceMarkdown
-          ? parseOFPlanningMarkdown(planningDocument.sourceMarkdown).document
-          : planningDocument
-      }),
-      ['manifest', 'planning-framework', 'planning-document']
-    )
+    capabilityContextText: buildPlanningEditCapabilityPrompt({
+      currentDocumentMarkdown: buildOFPlanningMarkdown(planningDocument),
+      sourceDocumentMarkdown: planningDocument.sourceMarkdown
+        ? buildOFPlanningMarkdown(parseOFPlanningMarkdown(planningDocument.sourceMarkdown).document)
+        : buildOFPlanningMarkdown(planningDocument)
+    })
   }
 }
 

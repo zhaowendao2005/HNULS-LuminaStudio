@@ -32,7 +32,7 @@ OrchestraFlow is now definition/registry-driven instead of relying on scattered 
 - Built-in node behavior is described in `builtins/*.definition.ts`, then consumed by editor defaults, variable selection, AI schema export, and runtime binding.
 - `src/Public/ShareTypes/Orchestraflow-types/blueprint/` owns Blueprint DSL, compiler, validator, and schema assets.
 - `src/Public/ShareTypes/Orchestraflow-types/mechanisms/` owns selector/edge/container/variable global rules.
-- `src/Public/ShareTypes/Orchestraflow-types/agent-context/` builds section-based context packs and renderers for requirement / blueprint / edit agents.
+- `src/main/services/orchestflow-generation-editor/llm-client/prompt-sources/` owns private prompt assembly for requirement / blueprint / edit agents, and reads first-hand definitions from `@shared/Orchestraflow-types`.
 
 Recommended reading order for OrchestraFlow:
 
@@ -41,7 +41,7 @@ Recommended reading order for OrchestraFlow:
 3. `src/Public/ShareTypes/Orchestraflow-types/node-definition-registry.ts`
 4. `src/Public/ShareTypes/Orchestraflow-types/mechanisms/index.ts`
 5. `src/Public/ShareTypes/Orchestraflow-types/blueprint/index.ts`
-6. `src/Public/ShareTypes/Orchestraflow-types/agent-context/index.ts`
+6. `src/main/services/orchestflow-generation-editor/llm-client/prompt-sources/`
 7. `src/renderer/src/stores/orchestraflow/workflow-editor/workflow-editor.store.ts`
 
 ## OrchestraFlow Checks

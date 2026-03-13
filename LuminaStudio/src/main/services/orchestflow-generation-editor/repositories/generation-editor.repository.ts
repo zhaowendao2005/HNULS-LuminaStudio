@@ -488,7 +488,7 @@ export class GenerationEditorRepository {
         title,
         nextVersion,
         planningDocument.content,
-        'of-blueprint-text-v1',
+        'of-blueprint-section-v1',
         '',
         ''
       )
@@ -764,25 +764,25 @@ export class GenerationEditorRepository {
   listMessages(request: GenerationListMessagesRequest) {
     const rows =
       request.channelKey === 'design-copilot' && request.designDocumentId !== undefined
-        ? (request.designDocumentId === null
-            ? (this.db
-                .prepare(
-                  `SELECT * FROM generation_messages
+        ? request.designDocumentId === null
+          ? (this.db
+              .prepare(
+                `SELECT * FROM generation_messages
                    WHERE session_id = ? AND channel_key = ? AND design_document_id IS NULL
                    ORDER BY created_at ASC`
-                )
-                .all(request.sessionId, request.channelKey) as GenerationMessageRow[])
-            : (this.db
-                .prepare(
-                  `SELECT * FROM generation_messages
+              )
+              .all(request.sessionId, request.channelKey) as GenerationMessageRow[])
+          : (this.db
+              .prepare(
+                `SELECT * FROM generation_messages
                    WHERE session_id = ? AND channel_key = ? AND design_document_id = ?
                    ORDER BY created_at ASC`
-                )
-                .all(
-                  request.sessionId,
-                  request.channelKey,
-                  request.designDocumentId
-                ) as GenerationMessageRow[]))
+              )
+              .all(
+                request.sessionId,
+                request.channelKey,
+                request.designDocumentId
+              ) as GenerationMessageRow[])
         : (this.db
             .prepare(
               `SELECT * FROM generation_messages

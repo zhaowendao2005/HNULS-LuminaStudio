@@ -5,7 +5,9 @@ This directory contains the Utility Process runtime for OrchestraFlow. It is the
 ## What Owns What
 
 - `src/Public/ShareTypes/Orchestraflow-types/`
-  - Single shared authority for runnable types, node definitions, mechanism definitions, Blueprint DSL, agent context packs, and the built-in registries.
+  - Single shared authority for runnable types, node definitions, mechanism definitions, Blueprint DSL, planning framework, and the built-in registries.
+- `src/main/services/orchestflow-generation-editor/llm-client/prompt-sources/`
+  - Agent 私域提示词组装层；从 shared definitions 读取真源并组装成 analysis / design / edit agent prompt。
 - `src/utility/orchestraflow/`
   - Runtime execution, node implementations, runtime bindings, and variable storage.
 - `src/renderer/src/stores/orchestraflow/`
@@ -24,7 +26,7 @@ The important architectural shift is that OrchestraFlow is now definition/regist
 3. `src/Public/ShareTypes/Orchestraflow-types/node-definition-registry.ts`
 4. `src/Public/ShareTypes/Orchestraflow-types/mechanisms/index.ts`
 5. `src/Public/ShareTypes/Orchestraflow-types/blueprint/index.ts`
-6. `src/Public/ShareTypes/Orchestraflow-types/agent-context/index.ts`
+6. `src/main/services/orchestflow-generation-editor/llm-client/prompt-sources/`
 7. `src/utility/orchestraflow/nodes/node-factory.ts`
 8. `src/utility/orchestraflow/services/variable-store.ts`
 

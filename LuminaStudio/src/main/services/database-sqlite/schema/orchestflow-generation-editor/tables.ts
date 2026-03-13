@@ -147,7 +147,7 @@ export const GENERATION_DESIGN_DOCUMENTS_TABLE: TableDefinition = {
       version INTEGER NOT NULL,
       status TEXT NOT NULL DEFAULT 'draft',
       source_snapshot_markdown TEXT NOT NULL DEFAULT '',
-      content_format TEXT NOT NULL DEFAULT 'of-blueprint-text-v1',
+      content_format TEXT NOT NULL DEFAULT 'of-blueprint-section-v1',
       content TEXT NOT NULL DEFAULT '',
       summary TEXT NOT NULL DEFAULT '',
       diagnostics_json TEXT,

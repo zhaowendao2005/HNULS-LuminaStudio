@@ -380,7 +380,7 @@ export function normalizePlanningBlock(
     designMarkdown: legacy
       ? [
           '# 设计交接',
-          '## 候选节点',
+          '## 节点声明',
           ...toMarkdownList(legacy.candidate_nodes.map((item) => `${item.type}：${item.reason}`)),
           '## 输入要求',
           ...toMarkdownList(legacy.input_requirements),

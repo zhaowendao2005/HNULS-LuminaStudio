@@ -94,7 +94,9 @@
                 <button
                   v-if="canOpenDiagnostics"
                   type="button"
-                  :class="viewMode === 'diagnostics' ? activeDangerToolbarTabClass : dangerToolbarTabClass"
+                  :class="
+                    viewMode === 'diagnostics' ? activeDangerToolbarTabClass : dangerToolbarTabClass
+                  "
                   @click="handleOpenDiagnostics()"
                 >
                   诊断视图
@@ -118,16 +120,17 @@
                   <div class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
                     需求分析规划稿快照
                   </div>
-                  <pre
-                    class="whitespace-pre-wrap font-mono text-[12px] leading-6 text-slate-700"
-                  >{{ snapshotMarkdown || '当前版本还没有快照内容。' }}</pre>
+                  <pre class="whitespace-pre-wrap font-mono text-[12px] leading-6 text-slate-700">{{
+                    snapshotMarkdown || '当前版本还没有快照内容。'
+                  }}</pre>
                 </div>
               </div>
 
               <div class="border-t border-gray-100 bg-white px-4 py-3">
                 <div class="flex items-center justify-between gap-4">
                   <div class="text-[11px] leading-5 text-gray-500">
-                    快照始终只读；点击按钮后会在右侧 design copilot 消息面板里出现 system 生成块，并覆盖当前版本正文。
+                    快照始终只读；点击按钮后会在右侧 design copilot 消息面板里出现 system
+                    生成块，并覆盖当前版本正文。
                   </div>
                   <button
                     type="button"
@@ -150,14 +153,16 @@
                 >
                   诊断数量：{{ diagnostics.length }}
                 </button>
-                <span class="ml-4">正文格式：of-blueprint-text-v1</span>
+                <span class="ml-4">正文格式：OFT/1（section-based）</span>
               </div>
               <div class="flex-1 bg-[#fbfbfc] p-4">
                 <textarea
                   :value="designContent"
                   class="h-full min-h-[520px] w-full resize-none border-none bg-transparent font-mono text-[12px] leading-6 text-gray-800 outline-none"
                   placeholder="在这里编辑规划设计稿 DSL 蓝图..."
-                  @input="$emit('update:design-content', ($event.target as HTMLTextAreaElement).value)"
+                  @input="
+                    $emit('update:design-content', ($event.target as HTMLTextAreaElement).value)
+                  "
                 ></textarea>
               </div>
             </template>
@@ -165,10 +170,15 @@
             <template v-else>
               <div class="flex min-h-0 flex-1 bg-[#fbfbfc]">
                 <div class="flex min-h-0 flex-1 flex-col border-r border-gray-200 bg-white">
-                  <div class="border-b border-gray-100 bg-rose-50/70 px-4 py-2 text-[11px] text-rose-600">
+                  <div
+                    class="border-b border-gray-100 bg-rose-50/70 px-4 py-2 text-[11px] text-rose-600"
+                  >
                     点击右侧诊断项可定位到对应 DSL 行段。当前模式只读。
                   </div>
-                  <div ref="diagnosticCodePaneRef" class="flex-1 overflow-auto p-4 font-mono text-[12px]">
+                  <div
+                    ref="diagnosticCodePaneRef"
+                    class="flex-1 overflow-auto p-4 font-mono text-[12px]"
+                  >
                     <div
                       v-for="row in diagnosticRows"
                       :key="row.lineNumber"
@@ -178,7 +188,10 @@
                         row.hasError ? 'bg-rose-50/90 border-rose-100' : 'bg-white'
                       ]"
                     >
-                      <div class="select-none pr-3 text-right text-[11px]" :class="row.hasError ? 'text-rose-500' : 'text-gray-400'">
+                      <div
+                        class="select-none pr-3 text-right text-[11px]"
+                        :class="row.hasError ? 'text-rose-500' : 'text-gray-400'"
+                      >
                         {{ row.lineNumber }}
                       </div>
                       <div class="whitespace-pre-wrap break-words">
@@ -190,10 +203,7 @@
                         >
                           {{ row.text || ' ' }}
                         </span>
-                        <div
-                          v-if="row.lineDiagnostics.length"
-                          class="mt-1 flex flex-wrap gap-1"
-                        >
+                        <div v-if="row.lineDiagnostics.length" class="mt-1 flex flex-wrap gap-1">
                           <span
                             v-for="diagnostic in row.lineDiagnostics"
                             :key="`${diagnostic.code}-${diagnostic.line}-${diagnostic.column}`"
@@ -211,7 +221,9 @@
                   <div class="border-b border-gray-100 px-4 py-3">
                     <div class="flex items-start justify-between gap-3">
                       <div>
-                        <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">错误详情</div>
+                        <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                          错误详情
+                        </div>
                         <div class="mt-1 text-[11px] text-gray-400">
                           共 {{ diagnostics.length }} 条诊断
                         </div>
@@ -238,10 +250,7 @@
                     </div>
                   </div>
                   <div class="flex-1 overflow-auto p-3">
-                    <div
-                      v-if="diagnostics.length"
-                      class="flex flex-col gap-2"
-                    >
+                    <div v-if="diagnostics.length" class="flex flex-col gap-2">
                       <button
                         v-for="(diagnostic, index) in diagnostics"
                         :key="`${diagnostic.code}-${diagnostic.line}-${diagnostic.column}-${index}`"
@@ -255,7 +264,9 @@
                         @click="$emit('select-diagnostic', index)"
                       >
                         <div class="flex items-center justify-between gap-2">
-                          <span class="rounded bg-rose-100 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700">
+                          <span
+                            class="rounded bg-rose-100 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700"
+                          >
                             {{ diagnostic.code }}
                           </span>
                           <span class="text-[10px] text-gray-500">
@@ -287,7 +298,8 @@
             <div class="max-w-sm text-center">
               <div class="text-sm font-semibold text-gray-800">当前还没有选中规划设计稿版本</div>
               <div class="mt-2 text-xs leading-6 text-gray-500">
-                先从需求分析与计划的 planning block 新建一份版本，再在这里切换快照视图和规划设计稿视图。
+                先从需求分析与计划的 planning block
+                新建一份版本，再在这里切换快照视图和规划设计稿视图。
               </div>
               <button
                 type="button"

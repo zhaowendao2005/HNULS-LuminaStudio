@@ -1,8 +1,9 @@
-import {
-  buildOFBlueprintTextContextPack,
-  renderOFAgentContextPack
-} from '@shared/Orchestraflow-types'
+import {} from '@shared/Orchestraflow-types'
 import type { GenerationEditorRepository } from '../../../repositories/generation-editor.repository'
+import { buildDeclaredNodeSpecsPrompt } from '../../prompt-sources/declared-node-spec.source'
+import { buildDslSyntaxPrompt } from '../../prompt-sources/dsl-syntax.source'
+import { buildMechanismRulesPrompt } from '../../prompt-sources/mechanism-rules.source'
+import { buildDeclaredNodesPrompt } from '../../prompt-sources/node-selection.source'
 import type { DesignBlueprintContextBundle } from './types'
 
 export function buildDesignBlueprintContextBundle(params: {
@@ -20,11 +21,6 @@ export function buildDesignBlueprintContextBundle(params: {
     })
     .slice(-params.memoryRounds * 2)
 
-  const contextPack = buildOFBlueprintTextContextPack({
-    snapshotMarkdown: designDocument.sourceSnapshotMarkdown,
-    currentDsl: designDocument.content
-  })
-
   return {
     snapshotMarkdown: designDocument.sourceSnapshotMarkdown,
     currentDsl: designDocument.content,
@@ -39,11 +35,9 @@ export function buildDesignBlueprintContextBundle(params: {
           })
           .join('\n\n')
       : '(当前版本暂无 design copilot 历史消息)',
-    capabilityContextText: renderOFAgentContextPack(contextPack, [
-      'manifest',
-      'mechanisms',
-      'nodes',
-      'blueprint-text-authoring'
-    ])
+    declaredNodesText: buildDeclaredNodesPrompt(designDocument.sourceSnapshotMarkdown),
+    declaredNodeSpecsText: buildDeclaredNodeSpecsPrompt(designDocument.sourceSnapshotMarkdown),
+    mechanismRulesText: buildMechanismRulesPrompt(),
+    dslSyntaxText: buildDslSyntaxPrompt()
   }
 }

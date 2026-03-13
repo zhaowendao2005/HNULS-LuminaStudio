@@ -21,6 +21,7 @@ export interface OFPlanningSectionDefinition {
   rootKey: OFPlanningRootKey
   rootTitle: string
   title: string
+  semanticRole?: 'node-declaration'
   order: number
 }
 
@@ -158,7 +159,8 @@ export const OF_PLANNING_SECTION_DEFINITIONS: OFPlanningSectionDefinition[] = [
     key: 'design-candidate-nodes',
     rootKey: 'design',
     rootTitle: ROOT_TITLES.design,
-    title: '候选节点',
+    title: '节点声明',
+    semanticRole: 'node-declaration',
     order: 8
   },
   {
@@ -211,6 +213,12 @@ export function getOFPlanningSectionDefinition(
   sectionKey: OFPlanningSectionKey
 ): OFPlanningSectionDefinition {
   return SECTION_DEFINITION_MAP[sectionKey]
+}
+
+export function getOFNodeDeclarationSectionDefinition(): OFPlanningSectionDefinition {
+  return OF_PLANNING_SECTION_DEFINITIONS.find(
+    (definition) => definition.semanticRole === 'node-declaration'
+  ) as OFPlanningSectionDefinition
 }
 
 export function getOFPlanningRootTitle(rootKey: OFPlanningRootKey): string {

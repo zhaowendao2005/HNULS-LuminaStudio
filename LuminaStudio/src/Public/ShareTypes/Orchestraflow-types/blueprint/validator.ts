@@ -11,6 +11,8 @@ import {
   normalizeOFRunnableNodeSelectorData
 } from '../selector-utils'
 
+export const OF_BLUEPRINT_REQUIRED_WORKFLOW_FIELDS = ['workflow.name'] as const
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

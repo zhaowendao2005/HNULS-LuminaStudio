@@ -1,4 +1,7 @@
-import { compileOFBlueprintTextDsl, type OFBlueprintTextDiagnostic } from '@shared/Orchestraflow-types'
+import {
+  compileOFBlueprintTextDsl,
+  type OFBlueprintTextDiagnostic
+} from '@shared/Orchestraflow-types'
 import { logger } from '@main/services/logger'
 import type {
   GenerationDesignBlueprintBlockPayload,
@@ -18,7 +21,9 @@ export * from './types'
 export * from './prompt'
 export * from './context-builder'
 
-export function startDesignBlueprintAgentStream(params: StartDesignBlueprintAgentStreamParams): void {
+export function startDesignBlueprintAgentStream(
+  params: StartDesignBlueprintAgentStreamParams
+): void {
   const abortController = new AbortController()
   const streamState: ActiveGenerationStream = {
     requestId: params.requestId,
@@ -95,6 +100,18 @@ async function runDesignBlueprintAgent(
             `design_document_id=${params.designDocument.id}`,
             `generation_mode=${generationMode}`,
             '',
+            '## 节点声明',
+            context.declaredNodesText,
+            '',
+            '## 声明节点 Spec',
+            context.declaredNodeSpecsText,
+            '',
+            '## 系统底层机制规则',
+            context.mechanismRulesText,
+            '',
+            '## DSL 语法与格式',
+            context.dslSyntaxText,
+            '',
             '## 当前需求分析规划稿快照',
             context.snapshotMarkdown || '(empty)',
             '',
@@ -103,9 +120,6 @@ async function runDesignBlueprintAgent(
             '',
             '## 当前版本 design copilot 最近对话',
             context.copilotHistoryText,
-            '',
-            '## Shared Blueprint Text Context',
-            context.capabilityContextText,
             '',
             '## 当前用户输入',
             params.userMessage
@@ -216,7 +230,9 @@ function finalizeDesignBlueprintGeneration(
   persistDesignDocument(params, {
     ...params.designDocument,
     status: designStatus,
-    contentFormat: 'of-blueprint-text-v1',
+    contentFormat: state.answerText.trim().startsWith('OFT/1')
+      ? 'of-blueprint-section-v1'
+      : 'of-blueprint-text-v1',
     content: state.answerText,
     summary: buildDesignDocumentSummary(designStatus, compileResult.diagnostics),
     diagnosticsJson: compileResult.diagnostics.length
@@ -228,23 +244,23 @@ function finalizeDesignBlueprintGeneration(
   updateMessageMeta(
     state,
     params,
-      buildDesignBlueprintMeta({
-        designDocumentId: params.designDocument.id,
-        generationMode,
-        status: metaStatus,
-        progressPercent: 100,
-        phaseLabel:
-          metaStatus === 'completed'
-            ? '规划设计稿生成完成'
-            : metaStatus === 'invalid'
-              ? '规划设计稿存在错误'
-              : metaStatus === 'aborted'
-                ? '规划设计稿生成已中断'
-                : '规划设计稿生成失败',
-        canAbort: false,
-        diagnostics: compileResult.diagnostics,
-        errorMessage: errorMessage || extractDiagnosticMessage(compileResult.diagnostics)
-      })
+    buildDesignBlueprintMeta({
+      designDocumentId: params.designDocument.id,
+      generationMode,
+      status: metaStatus,
+      progressPercent: 100,
+      phaseLabel:
+        metaStatus === 'completed'
+          ? '规划设计稿生成完成'
+          : metaStatus === 'invalid'
+            ? '规划设计稿存在错误'
+            : metaStatus === 'aborted'
+              ? '规划设计稿生成已中断'
+              : '规划设计稿生成失败',
+      canAbort: false,
+      diagnostics: compileResult.diagnostics,
+      errorMessage: errorMessage || extractDiagnosticMessage(compileResult.diagnostics)
+    })
   )
 
   finishMessage(state, params, finishReason, usage, {
@@ -290,7 +306,8 @@ function finishMessage(
     rawTrace: unknown[]
   }
 ): void {
-  const status = finishReason === 'completed' ? 'final' : finishReason === 'aborted' ? 'aborted' : 'error'
+  const status =
+    finishReason === 'completed' ? 'final' : finishReason === 'aborted' ? 'aborted' : 'error'
   params.repository.finishMessage({
     messageId: state.messageId,
     content: state.answerText,

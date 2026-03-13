@@ -99,7 +99,7 @@ describe('generation-editor.types', () => {
           trigger: 'auto',
           status: 'draft',
           analysisMarkdown: '# 需求分析\n## 摘要\n- 继续澄清',
-          designMarkdown: '# 设计交接\n## 候选节点\n- 暂无'
+          designMarkdown: '# 设计交接\n## 节点声明\n- 暂无'
         }
       })
     })
@@ -121,7 +121,7 @@ describe('generation-editor.types', () => {
           trigger: 'explicit',
           status: 'ready',
           analysisMarkdown: '# 需求分析\n## 摘要\n- 已可规划',
-          designMarkdown: '# 设计交接\n## 候选节点\n- start：接收输入'
+          designMarkdown: '# 设计交接\n## 节点声明\n- start：接收输入'
         }
       })
     })

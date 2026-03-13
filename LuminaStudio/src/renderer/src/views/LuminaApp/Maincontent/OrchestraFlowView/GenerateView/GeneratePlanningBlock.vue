@@ -139,9 +139,11 @@
 
         <div class="mt-3 space-y-3">
           <PlanningSectionCard
-            title="候选节点"
+            title="节点声明"
             section-key="design-candidate-nodes"
-            :content="designSections['候选节点']?.content || ''"
+            :content="
+              designSections['节点声明']?.content || designSections['候选节点']?.content || ''
+            "
             :loading="shouldShowSectionSkeleton('design-candidate-nodes')"
             :rows="3"
           />

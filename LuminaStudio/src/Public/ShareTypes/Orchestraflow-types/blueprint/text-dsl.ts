@@ -8,7 +8,6 @@ import type {
   OFBlueprintTextAst,
   OFBlueprintTextCompileResult,
   OFBlueprintTextDiagnostic,
-  OFBlueprintTextEdgeAst,
   OFBlueprintTextGraphAst,
   OFBlueprintTextLocation,
   OFBlueprintTextParseResult,
@@ -18,8 +17,37 @@ import type {
   OFBlueprintWorkflow
 } from './types'
 import { validateOFBlueprint } from './validator'
+import {
+  compileOFBlueprintSectionDslAst,
+  OF_BLUEPRINT_SECTION_DSL_HEADER,
+  parseOFBlueprintSectionDsl
+} from './section-dsl'
 
-const DSL_HEADER = 'BLUEPRINT DSL 1.0'
+export const OF_BLUEPRINT_TEXT_DSL_HEADER = 'BLUEPRINT DSL 1.0'
+export const OF_BLUEPRINT_TEXT_DSL_STATEMENT_FORMS = [
+  'NODE <node-id> TYPE <node-type>',
+  'EDGE <from-node>[.<handle>] -> <to-node>[.<handle>]',
+  'SUBGRAPH <container-node-id>',
+  'ENDSUBGRAPH',
+  'SET workflow.<field> = <json-literal>',
+  'SET <node-id>.data.<path> = <json-literal>',
+  'SET <path> <<TEXT ... TEXT',
+  'SET <path> <<JSON ... JSON'
+] as const
+export const OF_BLUEPRINT_TEXT_DSL_ALLOWED_WORKFLOW_FIELDS = [
+  'workflow.name',
+  'workflow.description',
+  'workflow.author'
+] as const
+export const OF_BLUEPRINT_TEXT_DSL_FORMAT_RULES = [
+  '首个非注释行必须严格等于 BLUEPRINT DSL 1.0。',
+  '字符串必须双引号。',
+  '数组和对象要么是单行合法 JSON，要么使用 <<JSON heredoc。',
+  '多行自然语言文本必须使用 <<TEXT heredoc。',
+  '注释必须整行以 # 开头。'
+] as const
+
+const DSL_HEADER = OF_BLUEPRINT_TEXT_DSL_HEADER
 const NODE_PATTERN = /^NODE\s+([A-Za-z0-9_-]+)\s+TYPE\s+([A-Za-z0-9_-]+)\s*$/
 const EDGE_PATTERN =
   /^EDGE\s+([A-Za-z0-9_-]+)(?:\.([A-Za-z0-9_-]+))?\s*->\s*([A-Za-z0-9_-]+)(?:\.([A-Za-z0-9_-]+))?\s*$/
@@ -77,6 +105,10 @@ export function parseOFBlueprintTextDsl(sourceText: string): OFBlueprintTextPars
     }
   }
 
+  if (lines[headerLineIndex].trim() === OF_BLUEPRINT_SECTION_DSL_HEADER) {
+    return parseOFBlueprintSectionDsl(sourceText)
+  }
+
   if (lines[headerLineIndex].trim() !== DSL_HEADER) {
     diagnostics.push(
       createDiagnostic({
@@ -128,6 +160,10 @@ export function parseOFBlueprintTextDsl(sourceText: string): OFBlueprintTextPars
 }
 
 export function compileOFBlueprintTextAst(ast: OFBlueprintTextAst): OFBlueprintTextCompileResult {
+  if (ast.version === '2.0') {
+    return compileOFBlueprintSectionDslAst(ast)
+  }
+
   const diagnostics: OFBlueprintTextDiagnostic[] = []
   const workflowMeta = {
     name: '',
@@ -185,22 +221,6 @@ export function compileOFBlueprintTextDsl(sourceText: string): OFBlueprintTextCo
     diagnostics: [...parseResult.diagnostics, ...compileResult.diagnostics],
     valid: parseResult.diagnostics.length === 0 && compileResult.valid
   }
-}
-
-export function buildOFBlueprintTextDslGuide(): string {
-  return [
-    `固定头部：${DSL_HEADER}`,
-    '允许全行注释，以 # 开头。',
-    '节点声明格式：NODE <node-id> TYPE <node-type>。',
-    '连线格式：EDGE <from-node>[.<handle>] -> <to-node>[.<handle>]。',
-    '进入子图格式：SUBGRAPH <container-node-id>，结束使用 ENDSUBGRAPH。',
-    '赋值格式：SET workflow.<field> = <json-literal>。',
-    '节点赋值格式：SET <node-id>.data.<path> = <json-literal>。',
-    '可选简写：SET <node-id>.config.<path> = <json-literal>。',
-    '多行字符串：SET <path> <<TEXT ... TEXT。',
-    '多行 JSON：SET <path> <<JSON ... JSON。',
-    '字符串必须双引号；数组和对象必须是合法 JSON。'
-  ].join('\n')
 }
 
 function parseGraphAst(
@@ -570,7 +590,10 @@ function compileGraphAst(
 } {
   const diagnostics: OFBlueprintTextDiagnostic[] = []
   const nodes: OFBlueprintNode[] = []
-  const nodeById = new Map<string, { ast: OFBlueprintTextGraphAst['nodes'][number]; node: OFBlueprintNode }>()
+  const nodeById = new Map<
+    string,
+    { ast: OFBlueprintTextGraphAst['nodes'][number]; node: OFBlueprintNode }
+  >()
 
   graph.nodes.forEach((nodeAst) => {
     const compiledNode = compileNodeAst(nodeAst, context)
@@ -640,9 +663,7 @@ function compileNodeAst(
 ): NodeCompileResult {
   const diagnostics: OFBlueprintTextDiagnostic[] = []
 
-  let definition:
-    | ReturnType<typeof resolveOFNodeDefinition>
-    | null = null
+  let definition: ReturnType<typeof resolveOFNodeDefinition> | null = null
   try {
     definition = resolveOFNodeDefinition(nodeAst.type as OFBlockEnum)
   } catch {
@@ -813,9 +834,7 @@ function applyNodeAssignment(
   }
 
   const configPath =
-    firstSegment === 'data' || firstSegment === 'config'
-      ? restSegments
-      : assignment.pathSegments
+    firstSegment === 'data' || firstSegment === 'config' ? restSegments : assignment.pathSegments
 
   if (configPath.length === 0) {
     diagnostics.push(
@@ -829,7 +848,13 @@ function applyNodeAssignment(
     return
   }
 
-  applyAssignmentIntoTarget(blueprintNode.config, configPath, assignment.value, assignment, diagnostics)
+  applyAssignmentIntoTarget(
+    blueprintNode.config,
+    configPath,
+    assignment.value,
+    assignment,
+    diagnostics
+  )
 }
 
 function applyAssignmentIntoTarget(
@@ -912,6 +937,10 @@ function applyAssignmentIntoTarget(
 }
 
 function hasAuthoringFieldValue(node: OFBlueprintNode, authoringPath: string): boolean {
+  if (authoringPath === 'data.subgraph') {
+    return Array.isArray(node.subgraph?.nodes) && node.subgraph.nodes.length > 0
+  }
+
   const normalizedPath = authoringPath.startsWith('data.')
     ? ['config', ...parsePathSegments(authoringPath.slice(5))]
     : parsePathSegments(authoringPath)
@@ -1131,7 +1160,11 @@ function resolveIssueLocation(path: string, ast: OFBlueprintTextAst): OFBlueprin
 
 function createInvalidAssignment(
   rawPath: string,
-  pathResult: { target: 'workflow' | 'node'; targetId: string | null; pathSegments: OFBlueprintTextPathSegment[] },
+  pathResult: {
+    target: 'workflow' | 'node'
+    targetId: string | null
+    pathSegments: OFBlueprintTextPathSegment[]
+  },
   location: OFBlueprintTextLocation
 ): OFBlueprintTextAssignmentAst {
   return {

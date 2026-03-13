@@ -34,5 +34,8 @@ export interface DesignBlueprintContextBundle {
   snapshotMarkdown: string
   currentDsl: string
   copilotHistoryText: string
-  capabilityContextText: string
+  declaredNodesText: string
+  declaredNodeSpecsText: string
+  mechanismRulesText: string
+  dslSyntaxText: string
 }

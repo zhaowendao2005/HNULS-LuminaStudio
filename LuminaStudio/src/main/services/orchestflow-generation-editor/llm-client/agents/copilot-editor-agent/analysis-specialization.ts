@@ -7,7 +7,7 @@ export function buildAnalysisCopilotSpecializationPrompt(): string {
 - 目标：是否覆盖用户明确要做的事情
 - 成功标准：是否可验收
 - 约束：是否包含实现边界
-- 候选节点：是否只写真实可用能力
+- 节点声明：是否只写真实可用能力，并作为下游 design agent 的唯一白名单来源
 - 蓝图要求：是否能交给后续 blueprint 阶段继续工作
 
 analysis 阶段命令契约：

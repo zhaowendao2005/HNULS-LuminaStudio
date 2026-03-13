@@ -61,10 +61,7 @@ export interface OFBlueprintValidationResult {
 
 export type OFBlueprintTextPathSegment = string | number
 export type OFBlueprintTextScalarValue = string | number | boolean | null
-export type OFBlueprintTextValue =
-  | OFBlueprintTextScalarValue
-  | Record<string, unknown>
-  | unknown[]
+export type OFBlueprintTextValue = OFBlueprintTextScalarValue | Record<string, unknown> | unknown[]
 
 export interface OFBlueprintTextLocation {
   line: number
@@ -115,11 +112,31 @@ export interface OFBlueprintTextGraphAst {
   edges: OFBlueprintTextEdgeAst[]
 }
 
-export interface OFBlueprintTextAst {
+export interface OFBlueprintTextLegacyAst {
   version: '1.0'
   workflowAssignments: OFBlueprintTextAssignmentAst[]
   graph: OFBlueprintTextGraphAst
 }
+
+export interface OFBlueprintSectionEntryAst {
+  key: string
+  value: unknown
+  location: OFBlueprintTextLocation
+}
+
+export interface OFBlueprintSectionAst {
+  name: string
+  entries: OFBlueprintSectionEntryAst[]
+  location: OFBlueprintTextLocation
+}
+
+export interface OFBlueprintSectionDslAst {
+  version: '2.0'
+  format: 'oft/1'
+  sections: OFBlueprintSectionAst[]
+}
+
+export type OFBlueprintTextAst = OFBlueprintTextLegacyAst | OFBlueprintSectionDslAst
 
 export interface OFBlueprintTextParseResult {
   ast: OFBlueprintTextAst | null

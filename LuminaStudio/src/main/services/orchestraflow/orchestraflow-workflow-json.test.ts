@@ -1,3 +1,4 @@
+/** WORKFLOW_TEMPLATE_BUSINESS_ONLY: 早期工作流模板探索测试，后续可随模板模块一起删除。 */
 import { describe, expect, it } from 'vitest'
 import {
   parseJsonc,

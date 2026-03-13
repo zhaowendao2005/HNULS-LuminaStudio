@@ -32,7 +32,8 @@ export function buildAnalysisPlannerPromptMessages(params: {
 3. 如果 explicitPlanningRequested=false，只有在你判断需求信息已经足够支撑规划时，才输出 mode=planning。
 4. 如果信息仍不够，输出 mode=continue，并继续追问关键缺口。
 5. planning 结果必须是需求分析 handoff，而不是 DSL/代码/节点图直接实现。
-6. candidate_nodes 只能使用上下文里真实存在的节点类型。
+6. 设计交接中的“节点声明”小节是后续 design agent 的 authoritative source。
+7. 节点声明只能使用上下文里真实存在的节点类型，不能写别名。
 7. assistantText 是展示给用户看的自然语言；语气要专业、清晰、偏产品分析。
 
 你必须严格按下面两段格式输出，不要加代码块，不要解释：
@@ -60,7 +61,7 @@ planningStatus: draft | ready
 ...
 
 # 设计交接
-## 候选节点
+## 节点声明
 ...
 ## 输入要求
 ...
@@ -75,12 +76,13 @@ ${ANALYSIS_PLANNER_PAYLOAD_END_MARKER}
 固定标题要求：
 - 顶层标题只能是：# 需求分析、# 设计交接。
 - 需求分析小节标题只能是：## 摘要、## 目标、## 成功标准、## 约束、## 禁止项、## 待补充信息、## 成熟度信号。
-- 设计交接小节标题只能是：## 候选节点、## 输入要求、## 输出要求、## 待确认问题、## 蓝图要求。
+- 设计交接小节标题只能是：## 节点声明、## 输入要求、## 输出要求、## 待确认问题、## 蓝图要求。
 - 不要改标题名字，不要新增同级别别名。
 - 每个小节正文优先使用 markdown 列表，允许少量短段落。
-- 候选节点请直接写成列表项，例如 \
+- 节点声明请直接写成列表项，例如 \
   - start：接收原始字符串输入\
   - llm：负责生成回复\
+- design agent 之后只会读取“节点声明”里出现的节点类型；未声明节点默认不可用。
 - 正文必须和隐藏载荷中的 ## 摘要 语义一致。
 - 如果 mode=continue，设计交接可以留空标题壳，但仍保留固定标题结构。`
 
@@ -89,11 +91,17 @@ ${ANALYSIS_PLANNER_PAYLOAD_END_MARKER}
     `memoryRounds=${params.memoryRounds}`,
     `runtimeReadinessSignals=${JSON.stringify(params.runtimeSignals.readinessSignals, null, 2)}`,
     '',
+    '## Planning 输出契约',
+    params.context.planningContractText,
+    '',
+    '## 可选节点声明目录',
+    params.context.nodeSelectionCatalogText,
+    '',
+    '## 系统边界摘要',
+    params.context.mechanismSummaryText,
+    '',
     '## 历史对话窗口',
     params.context.conversationText,
-    '',
-    '## OrchestraFlow 能力上下文',
-    params.context.capabilityContextText,
     '',
     '## 当前用户最新输入',
     params.userMessage

@@ -12,7 +12,6 @@ import type { DatabaseManager } from '../database-sqlite'
 import type { ModelConfigService, PersistedModelProviderConfig } from '../model-config'
 import type {
   GenerationApplyPlanningCommandProposalRequest,
-  GenerationChannelKey,
   GenerationCreateDesignDocumentFromPlanningRequest,
   GenerationCreatePlanningDocumentFromMessageRequest,
   GenerationCreateSessionRequest,
@@ -139,7 +138,7 @@ export class OrchestflowGenerationEditorService {
       ...request,
       document: {
         ...request.document,
-        contentFormat: 'of-blueprint-text-v1',
+        contentFormat: detectBlueprintContentFormat(request.document.content),
         status: nextStatus,
         diagnosticsJson: compileResult.diagnostics.length
           ? JSON.stringify(compileResult.diagnostics)
@@ -439,6 +438,19 @@ export class OrchestflowGenerationEditorService {
     if (protocol === 'gemini') return 'google'
     return 'openai'
   }
+}
+
+function detectBlueprintContentFormat(
+  sourceText: string
+): 'of-blueprint-text-v1' | 'of-blueprint-section-v1' {
+  const firstMeaningfulLine =
+    sourceText
+      .replace(/\r\n?/g, '\n')
+      .split('\n')
+      .map((line) => line.trim())
+      .find((line) => line.length > 0 && !line.startsWith('#')) || ''
+
+  return firstMeaningfulLine === 'OFT/1' ? 'of-blueprint-section-v1' : 'of-blueprint-text-v1'
 }
 
 function buildContentPreview(content: string): string {

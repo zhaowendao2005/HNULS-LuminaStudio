@@ -58,7 +58,7 @@ export interface GenerationDesignDocumentRow {
   version: number
   status: 'draft' | 'streaming' | 'valid' | 'invalid' | 'aborted' | 'error'
   source_snapshot_markdown: string
-  content_format: 'of-blueprint-text-v1'
+  content_format: 'of-blueprint-text-v1' | 'of-blueprint-section-v1'
   content: string
   summary: string
   diagnostics_json: string | null

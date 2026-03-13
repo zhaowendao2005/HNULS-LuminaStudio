@@ -1,7 +1,5 @@
 import {
-  buildOFRequirementContextPack,
-  renderOFAgentContextPack,
-  type OFBlockEnum,
+  getOFNodeDeclarationSectionDefinition,
   type OFRequirementDocument
 } from '@shared/Orchestraflow-types'
 import type {
@@ -11,6 +9,9 @@ import type {
   GenerationPlanningBlockPayload
 } from '@preload/types'
 import type { GenerationEditorRepository } from '../../../repositories/generation-editor.repository'
+import { buildMechanismSelectionSummaryPrompt } from '../../prompt-sources/mechanism-rules.source'
+import { buildNodeSelectionCatalogPrompt } from '../../prompt-sources/node-selection.source'
+import { buildPlanningOutputContractPrompt } from '../../prompt-sources/planning-contract.source'
 import type { AnalysisPlannerContextBundle, AnalysisPlannerHistoryEntry } from './types'
 
 const ANALYSIS_DISCUSSION_CHANNEL: GenerationChannelKey = 'analysis-discussion'
@@ -40,17 +41,12 @@ export function buildAnalysisPlannerContextBundle(params: {
   )
 
   const latestPlanningBlock = findLatestPlanningBlock(historyEntries)
-  const capabilityContextText = renderOFAgentContextPack(
-    buildOFRequirementContextPack({
-      document: buildRequirementDocumentFromPlanningBlock(latestPlanningBlock)
-    }),
-    ['manifest', 'mechanisms', 'nodes', 'requirement-document']
-  )
-
   return {
     historyEntries,
     conversationText: renderConversationText(historyEntries),
-    capabilityContextText,
+    planningContractText: buildPlanningOutputContractPrompt(),
+    nodeSelectionCatalogText: buildNodeSelectionCatalogPrompt(),
+    mechanismSummaryText: buildMechanismSelectionSummaryPrompt(),
     latestPlanningBlock
   }
 }
@@ -161,75 +157,6 @@ function normalizePlanningBlock(
   }
 }
 
-function buildRequirementDocumentFromPlanningBlock(
-  planningBlock: GenerationPlanningBlockPayload | null
-): OFRequirementDocument {
-  if (!planningBlock) {
-    return createEmptyRequirementDocument()
-  }
-  if (planningBlock.requirementDocument) {
-    return planningBlock.requirementDocument
-  }
-
-  return {
-    goals: parseMarkdownListByTitle(planningBlock.analysisMarkdown, '目标'),
-    success_criteria: parseMarkdownListByTitle(planningBlock.analysisMarkdown, '成功标准'),
-    constraints: parseMarkdownListByTitle(planningBlock.analysisMarkdown, '约束'),
-    candidate_nodes: parseCandidateNodes(planningBlock.designMarkdown),
-    prohibitions: parseMarkdownListByTitle(planningBlock.analysisMarkdown, '禁止项'),
-    human_confirmation_questions: parseMarkdownListByTitle(
-      planningBlock.designMarkdown,
-      '待确认问题'
-    ),
-    input_requirements: parseMarkdownListByTitle(planningBlock.designMarkdown, '输入要求'),
-    output_requirements: parseMarkdownListByTitle(planningBlock.designMarkdown, '输出要求'),
-    blueprint_requirements: parseMarkdownListByTitle(planningBlock.designMarkdown, '蓝图要求')
-  }
-}
-
-function parseMarkdownListByTitle(markdown: string, title: string): string[] {
-  const content = extractMarkdownSectionContent(markdown, title)
-  if (!content) {
-    return []
-  }
-
-  return content
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.startsWith('- '))
-    .map((line) => line.slice(2).trim())
-    .filter(Boolean)
-}
-
-function parseCandidateNodes(markdown: string): OFRequirementDocument['candidate_nodes'] {
-  return parseMarkdownListByTitle(markdown, '候选节点')
-    .map((item) => {
-      const [typePart, ...reasonParts] = item.split('：')
-      const type = typePart.trim()
-      const reason = reasonParts.join('：').trim()
-      return {
-        type: type as OFBlockEnum,
-        reason
-      }
-    })
-    .filter((item) => item.type && item.reason)
-}
-
-function extractMarkdownSectionContent(markdown: string, title: string): string {
-  if (!markdown.trim()) {
-    return ''
-  }
-
-  const escapedTitle = escapeForRegex(title)
-  const regex = new RegExp(`^##\\s+${escapedTitle}\\s*$([\\s\\S]*?)(?=^##\\s+|^#\\s+|$)`, 'm')
-  const match = markdown.match(regex)
-  return match?.[1]?.trim() || ''
-}
-
-function escapeForRegex(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-
 function buildLegacyAnalysisMarkdown(document: OFRequirementDocument): string {
   return [
     '# 需求分析',
@@ -251,9 +178,10 @@ function buildLegacyAnalysisMarkdown(document: OFRequirementDocument): string {
 }
 
 function buildLegacyDesignMarkdown(document: OFRequirementDocument): string {
+  const declarationTitle = getOFNodeDeclarationSectionDefinition().title
   return [
     '# 设计交接',
-    '## 候选节点',
+    `## ${declarationTitle}`,
     ...toMarkdownList(document.candidate_nodes.map((item) => `${item.type}：${item.reason}`)),
     '## 输入要求',
     ...toMarkdownList(document.input_requirements),

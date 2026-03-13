@@ -41,7 +41,9 @@ export interface AnalysisPlannerHistoryEntry {
 export interface AnalysisPlannerContextBundle {
   historyEntries: AnalysisPlannerHistoryEntry[]
   conversationText: string
-  capabilityContextText: string
+  planningContractText: string
+  nodeSelectionCatalogText: string
+  mechanismSummaryText: string
   latestPlanningBlock: GenerationPlanningBlockPayload | null
 }
 

@@ -1,3 +1,4 @@
+/** WORKFLOW_TEMPLATE_BUSINESS_ONLY: 早期工作流模板探索的 JSON/JSONC 解析模块，当前 generation agent 主链不应继续依赖。 */
 import type { OFRunnableWorkflow } from '@shared/Orchestraflow-types'
 import { assertOFRunnableWorkflow } from '@shared/Orchestraflow-types'
 

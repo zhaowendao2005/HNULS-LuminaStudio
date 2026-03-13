@@ -129,7 +129,7 @@ function buildDesignDocument(id: string, planningDocumentId: string): Generation
     version: 1,
     status: 'draft',
     sourceSnapshotMarkdown: '# 需求分析',
-    contentFormat: 'of-blueprint-text-v1',
+    contentFormat: 'of-blueprint-section-v1',
     content: '',
     summary: '',
     diagnosticsJson: null,

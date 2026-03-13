@@ -138,4 +138,40 @@ EDGE branch -> end
       ])
     )
   })
+
+  it('parses and compiles OFT/1 section-based dsl', () => {
+    const result = compileOFBlueprintTextDsl(`
+OFT/1
+[workflow]
+name = "section-demo"
+author = "tester"
+
+[input.user_query]
+type = "string"
+default = "hello"
+
+[node.start]
+type = "start"
+inputs = ["user_query"]
+
+[node.llm_main]
+type = "llm"
+model = "openai/gpt-4.1-mini"
+prompt = """
+请总结输入。
+"""
+struct = "answer:string"
+
+[node.end]
+type = "end"
+outputs = ["result:string <- @llm_main.structured_output.answer"]
+
+[graph]
+edges = ["start -> llm_main", "llm_main -> end"]
+`)
+
+    expect(result.valid).toBe(true)
+    expect(result.blueprint?.workflow.name).toBe('section-demo')
+    expect(result.runnable?.graph.nodes.length).toBeGreaterThan(0)
+  })
 })

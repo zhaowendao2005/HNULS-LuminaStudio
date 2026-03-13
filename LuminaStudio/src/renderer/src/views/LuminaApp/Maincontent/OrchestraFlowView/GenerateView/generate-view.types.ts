@@ -1,7 +1,7 @@
 import type { Component } from 'vue'
 
 export type MenuValue = 'dashboard' | 'sessions' | 'analysis' | 'design' | 'verify' | 'settings'
-export type StageKey = 'analysis' | 'design' | 'verify' | 'workflow'
+export type StageKey = 'analysis' | 'design' | 'verify'
 export type CopilotMode = 'analysis' | 'design' | 'verify'
 export type RightPanel = CopilotMode | null
 

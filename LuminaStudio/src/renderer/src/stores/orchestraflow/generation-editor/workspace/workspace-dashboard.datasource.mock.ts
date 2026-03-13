@@ -1,11 +1,11 @@
 import type { DashboardStageCard } from '@renderer/views/LuminaApp/Maincontent/OrchestraFlowView/GenerateView/generate-view.types'
 
 export const WorkspaceDashboardDataSourceMock = {
+  /** WORKFLOW_TEMPLATE_BUSINESS_ONLY: 早期工作流模板探索残留。当前 agent 路线只保留 analysis / design / verify 三阶段统计。 */
   buildStageCards(counts: {
     analysis: number
     design: number
     verify: number
-    workflow: number
   }): DashboardStageCard[] {
     return [
       {
@@ -25,12 +25,6 @@ export const WorkspaceDashboardDataSourceMock = {
         label: '未完成校验',
         count: counts.verify,
         color: 'bg-violet-500'
-      },
-      {
-        stage: 'workflow',
-        label: '未生成工作流',
-        count: counts.workflow,
-        color: 'bg-amber-500'
       }
     ]
   }

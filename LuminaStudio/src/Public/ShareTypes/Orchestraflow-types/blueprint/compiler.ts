@@ -218,10 +218,28 @@ function compileContainerSubgraph(
     idMap.set(child.id, `${compiledId}__${child.id}`)
   })
 
+  const entryNodeId =
+    typeof node.config.entry === 'string' && node.config.entry.trim()
+      ? idMap.get(node.config.entry.trim())
+      : null
+  const entryEdges = entryNodeId
+    ? [
+        {
+          id: `edge_${internalStartNodeId}_${entryNodeId}_entry`,
+          source: internalStartNodeId,
+          target: entryNodeId,
+          source_port_id: 'source',
+          target_port_id: 'target',
+          sourceHandle: 'source',
+          targetHandle: 'target'
+        } satisfies OFEdge
+      ]
+    : []
+
   return {
     graph: {
       nodes: [internalStartNode, ...compiled.nodes],
-      edges: compiled.edges,
+      edges: [...entryEdges, ...compiled.edges],
       viewport: { x: 0, y: 0, zoom: 1 }
     },
     idMap
