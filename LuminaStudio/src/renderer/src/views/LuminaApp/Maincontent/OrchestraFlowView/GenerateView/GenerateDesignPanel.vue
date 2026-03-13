@@ -209,9 +209,32 @@
 
                 <div class="flex w-[360px] min-w-[360px] flex-col bg-white">
                   <div class="border-b border-gray-100 px-4 py-3">
-                    <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">错误详情</div>
-                    <div class="mt-1 text-[11px] text-gray-400">
-                      共 {{ diagnostics.length }} 条诊断
+                    <div class="flex items-start justify-between gap-3">
+                      <div>
+                        <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">错误详情</div>
+                        <div class="mt-1 text-[11px] text-gray-400">
+                          共 {{ diagnostics.length }} 条诊断
+                        </div>
+                      </div>
+                      <div v-if="diagnostics.length" class="flex shrink-0 items-center gap-2">
+                        <button
+                          type="button"
+                          class="rounded border border-gray-200 bg-white px-2 py-1 text-[10px] font-semibold text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-800"
+                          @click="handleCopyDiagnosticsSummary"
+                        >
+                          复制摘要
+                        </button>
+                        <button
+                          type="button"
+                          class="rounded border border-gray-200 bg-white px-2 py-1 text-[10px] font-semibold text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-800"
+                          @click="handleCopyDiagnosticsDetail"
+                        >
+                          复制详情
+                        </button>
+                      </div>
+                    </div>
+                    <div v-if="diagnostics.length" class="mt-2 text-[10px] leading-5 text-gray-400">
+                      摘要便于贴给模型或 issue，详情会包含路径、上下文和定位信息。
                     </div>
                   </div>
                   <div class="flex-1 overflow-auto p-3">
@@ -386,6 +409,31 @@ const diagnosticRows = computed(() => {
 const diagnosticCodePaneRef = ref<HTMLElement | null>(null)
 const diagnosticLineRefs = new Map<number, HTMLElement>()
 
+const diagnosticsSummaryText = computed(() => {
+  if (!props.diagnostics.length) {
+    return '当前没有诊断错误。'
+  }
+
+  return props.diagnostics
+    .map((diagnostic, index) => {
+      return [
+        `#${index + 1} ${diagnostic.code}`,
+        `${diagnostic.message}`,
+        `位置: ${diagnostic.line}:${diagnostic.column} -> ${diagnostic.endLine}:${diagnostic.endColumn}`,
+        `路径: ${diagnostic.path}`
+      ].join('\n')
+    })
+    .join('\n\n')
+})
+
+const diagnosticsDetailText = computed(() => {
+  if (!props.diagnostics.length) {
+    return '当前没有诊断错误。'
+  }
+
+  return JSON.stringify(props.diagnostics, null, 2)
+})
+
 function setDiagnosticLineRef(lineNumber: number, element: Element | null): void {
   if (!element) {
     diagnosticLineRefs.delete(lineNumber)
@@ -400,6 +448,16 @@ function handleOpenDiagnostics(): void {
   if (props.selectedDiagnosticIndex === null) {
     emit('select-diagnostic', 0)
   }
+}
+
+async function handleCopyDiagnosticsSummary(): Promise<void> {
+  // 复制“人类可读摘要”，适合直接粘贴给模型、issue 或群里讨论。
+  await navigator.clipboard.writeText(diagnosticsSummaryText.value)
+}
+
+async function handleCopyDiagnosticsDetail(): Promise<void> {
+  // 复制完整结构化明细，保留 code/path/context/行列号，方便后续精确排查。
+  await navigator.clipboard.writeText(diagnosticsDetailText.value)
 }
 
 watch(

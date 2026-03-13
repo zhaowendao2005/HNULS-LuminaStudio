@@ -201,6 +201,14 @@
                         诊断：{{ getGenerationDesignBlueprintBlock(message)?.diagnostics?.length }}
                         条
                       </div>
+                      <div class="mt-2 text-[11px] leading-5 text-slate-500">
+                        悬浮后可通过右下角工具栏查看本次 design copilot 的完整会话与原始输出。
+                      </div>
+                      <GenerateMessageActionGroup
+                        v-if="message.status !== 'streaming'"
+                        :message="message"
+                        :messages="messages"
+                      />
                     </div>
 
                     <div
@@ -372,6 +380,14 @@
                     >
                       诊断：{{ getGenerationDesignBlueprintBlock(message)?.diagnostics?.length }} 条
                     </div>
+                    <div class="mt-2 text-[11px] leading-5 text-slate-500">
+                      悬浮后可通过右下角工具栏查看本次 design copilot 的完整会话与原始输出。
+                    </div>
+                    <GenerateMessageActionGroup
+                      v-if="message.status !== 'streaming'"
+                      :message="message"
+                      :messages="messages"
+                    />
                   </div>
 
                   <div

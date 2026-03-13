@@ -59,6 +59,26 @@
         </button>
       </div>
       <div ref="rawDialogContentRef" class="space-y-4">
+        <section
+          v-if="systemPromptText !== '(当前通道没有 system 提示词)'"
+          class="rounded-xl border border-amber-200 bg-amber-50/70 p-4"
+        >
+          <div class="mb-2 flex items-center justify-between gap-3">
+            <div class="text-[12px] font-semibold text-amber-900">System 提示词</div>
+            <button
+              type="button"
+              class="rounded-md border border-amber-200 bg-white px-2.5 py-1 text-[11px] text-amber-700 transition-colors hover:bg-amber-100"
+              @click="handleCopySystemPrompt"
+            >
+              复制 system
+            </button>
+          </div>
+          <pre
+            class="whitespace-pre-wrap break-all font-mono text-[12px] leading-6 text-amber-900"
+            >{{ systemPromptText }}</pre
+          >
+        </section>
+
         <section class="rounded-xl border border-gray-200 bg-white p-4">
           <div class="mb-2 flex items-center justify-between gap-3">
             <div class="text-[12px] font-semibold text-gray-800">全部正文</div>
@@ -132,6 +152,29 @@ const dialogSubtitle = computed(() => {
   return `显示当前 ${props.message.channelKey} 通道里的全部消息内容、原始 LLM 输出与完整对象`
 })
 
+const orderedMessages = computed(() => {
+  const systemMessages = props.messages.filter((message) => message.role === 'system')
+  const normalMessages = props.messages.filter((message) => message.role !== 'system')
+  return [...systemMessages, ...normalMessages]
+})
+
+const systemPromptText = computed(() => {
+  const systemMessages = props.messages.filter((message) => message.role === 'system')
+  if (!systemMessages.length) {
+    return '(当前通道没有 system 提示词)'
+  }
+
+  return systemMessages
+    .map((message, index) => {
+      return [
+        `#${index + 1} [System]`,
+        `status: ${message.status}`,
+        message.content?.trim() || '(空正文)'
+      ].join('\n')
+    })
+    .join('\n\n')
+})
+
 const currentMessageText = computed(() => {
   return JSON.stringify(
     {
@@ -162,7 +205,7 @@ const conversationText = computed(() => {
     return '(当前通道暂无消息)'
   }
 
-  return props.messages
+  return orderedMessages.value
     .map((message, index) => {
       const roleLabel =
         message.role === 'user' ? 'User' : message.role === 'assistant' ? 'Lumina Agent' : 'System'
@@ -197,7 +240,7 @@ const rawOutputText = computed(() => {
 
 const conversationRawText = computed(() => {
   return JSON.stringify(
-    props.messages.map((message) => ({
+    orderedMessages.value.map((message) => ({
       id: message.id,
       sessionId: message.sessionId,
       channelKey: message.channelKey,
@@ -227,6 +270,10 @@ async function handleCopy(): Promise<void> {
 
 async function handleCopyConversationText(): Promise<void> {
   await navigator.clipboard.writeText(conversationText.value)
+}
+
+async function handleCopySystemPrompt(): Promise<void> {
+  await navigator.clipboard.writeText(systemPromptText.value)
 }
 
 async function handleCopyRawOutputs(): Promise<void> {
