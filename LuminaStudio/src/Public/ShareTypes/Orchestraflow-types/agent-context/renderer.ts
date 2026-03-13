@@ -69,6 +69,19 @@ function renderBlueprintAuthoring(_pack: OFAgentContextPack): string {
   ].join('\n')
 }
 
+function renderBlueprintTextAuthoring(pack: OFAgentContextPack): string {
+  return [
+    '## Blueprint Text DSL Authoring',
+    String(pack.payload.text_dsl_guide || '').trim(),
+    '',
+    '## Current Snapshot',
+    String(pack.payload.snapshot_markdown || '(empty)'),
+    '',
+    '## Current DSL Draft',
+    String(pack.payload.current_dsl || '(empty)')
+  ].join('\n')
+}
+
 function renderEditOperations(): string {
   return [
     '## Edit Operations',
@@ -140,6 +153,8 @@ export function renderOFAgentContextPack(pack: OFAgentContextPack, sectionIds?: 
           return renderRequirementDocument(pack)
         case 'blueprint-authoring':
           return renderBlueprintAuthoring(pack)
+        case 'blueprint-text-authoring':
+          return renderBlueprintTextAuthoring(pack)
         case 'edit-operations':
           return renderEditOperations()
         case 'planning-framework':

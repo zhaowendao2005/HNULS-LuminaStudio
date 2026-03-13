@@ -2,6 +2,7 @@ import type {
   OFAgentContextPack,
   OFAgentContextSection,
   OFBuildBlueprintContextPackParams,
+  OFBuildBlueprintTextContextPackParams,
   OFBuildEditContextPackParams,
   OFBuildPlanningEditContextPackParams,
   OFBuildRequirementContextPackParams,
@@ -13,9 +14,10 @@ import { buildOFWorkflowAuthoringContract } from '../contract'
 import { listOFMechanismDefinitions } from '../mechanisms'
 import { listOFNodeDefinitions } from '../node-definition-registry'
 import {
+  buildOFBlueprintTextDslGuide,
   GENERATED_BLUEPRINT_WORKFLOW_SCHEMA,
   GENERATED_RUNNABLE_WORKFLOW_SCHEMA
-} from '../blueprint/schemas'
+} from '../blueprint'
 import {
   buildOFPlanningMarkdown,
   createEmptyOFPlanningDocument,
@@ -162,6 +164,40 @@ export function buildOFBlueprintContextPack(
       mechanisms: buildMechanismCatalog(mechanismDefinitions),
       nodes: buildNodeCatalog(nodeDefinitions),
       blueprint: params.blueprint || null,
+      schemas: {
+        blueprint: GENERATED_BLUEPRINT_WORKFLOW_SCHEMA,
+        runnable: GENERATED_RUNNABLE_WORKFLOW_SCHEMA
+      }
+    }
+  )
+}
+
+export function buildOFBlueprintTextContextPack(
+  params: OFBuildBlueprintTextContextPackParams = {}
+): OFAgentContextPack {
+  const nodeDefinitions = listOFNodeDefinitions()
+  const mechanismDefinitions = listOFMechanismDefinitions()
+  return createPackBase(
+    'blueprint-text',
+    'OrchestraFlow Blueprint Text DSL Context Pack',
+    [
+      ...buildSharedSections(),
+      {
+        id: 'blueprint-text-authoring',
+        title: 'Blueprint Text DSL Authoring',
+        summary: '文本 DSL 语法、Blueprint schema 与 compiler/validator 入口。',
+        dependencies: ['mechanisms', 'nodes'],
+        render_kind: 'markdown'
+      }
+    ],
+    {
+      contract: buildOFWorkflowAuthoringContract(),
+      mechanisms: buildMechanismCatalog(mechanismDefinitions),
+      nodes: buildNodeCatalog(nodeDefinitions),
+      blueprint: params.blueprint || null,
+      snapshot_markdown: params.snapshotMarkdown || '',
+      current_dsl: params.currentDsl || '',
+      text_dsl_guide: buildOFBlueprintTextDslGuide(),
       schemas: {
         blueprint: GENERATED_BLUEPRINT_WORKFLOW_SCHEMA,
         runnable: GENERATED_RUNNABLE_WORKFLOW_SCHEMA

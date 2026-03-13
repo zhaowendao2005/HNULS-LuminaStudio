@@ -473,9 +473,12 @@ export class GenerationEditorRepository {
           version,
           status,
           source_snapshot_markdown,
+          content_format,
           content,
-          summary
-        ) VALUES (?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?)`
+          summary,
+          diagnostics_json,
+          latest_generation_message_id
+        ) VALUES (?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, NULL, NULL)`
       )
       .run(
         designDocumentId,
@@ -485,7 +488,8 @@ export class GenerationEditorRepository {
         title,
         nextVersion,
         planningDocument.content,
-        planningDocument.content,
+        'of-blueprint-text-v1',
+        '',
         ''
       )
 
@@ -509,19 +513,25 @@ export class GenerationEditorRepository {
           version,
           status,
           source_snapshot_markdown,
+          content_format,
           content,
           summary,
+          diagnostics_json,
+          latest_generation_message_id,
           derived_target_type,
           derived_target_id,
           derived_status,
           updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
         ON CONFLICT(id) DO UPDATE SET
           title = excluded.title,
           status = excluded.status,
           source_snapshot_markdown = excluded.source_snapshot_markdown,
+          content_format = excluded.content_format,
           content = excluded.content,
           summary = excluded.summary,
+          diagnostics_json = excluded.diagnostics_json,
+          latest_generation_message_id = excluded.latest_generation_message_id,
           derived_target_type = excluded.derived_target_type,
           derived_target_id = excluded.derived_target_id,
           derived_status = excluded.derived_status,
@@ -536,8 +546,11 @@ export class GenerationEditorRepository {
         request.document.version,
         request.document.status,
         request.document.sourceSnapshotMarkdown,
+        request.document.contentFormat,
         request.document.content,
         request.document.summary,
+        request.document.diagnosticsJson,
+        request.document.latestGenerationMessageId,
         request.document.derivedTargetType,
         request.document.derivedTargetId,
         request.document.derivedStatus
@@ -749,13 +762,34 @@ export class GenerationEditorRepository {
   }
 
   listMessages(request: GenerationListMessagesRequest) {
-    const rows = this.db
-      .prepare(
-        `SELECT * FROM generation_messages
-         WHERE session_id = ? AND channel_key = ?
-         ORDER BY created_at ASC`
-      )
-      .all(request.sessionId, request.channelKey) as GenerationMessageRow[]
+    const rows =
+      request.channelKey === 'design-copilot' && request.designDocumentId !== undefined
+        ? (request.designDocumentId === null
+            ? (this.db
+                .prepare(
+                  `SELECT * FROM generation_messages
+                   WHERE session_id = ? AND channel_key = ? AND design_document_id IS NULL
+                   ORDER BY created_at ASC`
+                )
+                .all(request.sessionId, request.channelKey) as GenerationMessageRow[])
+            : (this.db
+                .prepare(
+                  `SELECT * FROM generation_messages
+                   WHERE session_id = ? AND channel_key = ? AND design_document_id = ?
+                   ORDER BY created_at ASC`
+                )
+                .all(
+                  request.sessionId,
+                  request.channelKey,
+                  request.designDocumentId
+                ) as GenerationMessageRow[]))
+        : (this.db
+            .prepare(
+              `SELECT * FROM generation_messages
+               WHERE session_id = ? AND channel_key = ?
+               ORDER BY created_at ASC`
+            )
+            .all(request.sessionId, request.channelKey) as GenerationMessageRow[])
     return rows.map(mapMessage)
   }
 
@@ -769,13 +803,14 @@ export class GenerationEditorRepository {
     this.db
       .prepare(
         `INSERT INTO generation_messages (
-          id, session_id, channel_key, request_id, role, content, status, provider_id, model_id, error, usage_json, meta_json, raw_response_text, raw_trace_json
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          id, session_id, channel_key, design_document_id, request_id, role, content, status, provider_id, model_id, error, usage_json, meta_json, raw_response_text, raw_trace_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         row.id,
         row.session_id,
         row.channel_key,
+        row.design_document_id,
         row.request_id,
         row.role,
         row.content,

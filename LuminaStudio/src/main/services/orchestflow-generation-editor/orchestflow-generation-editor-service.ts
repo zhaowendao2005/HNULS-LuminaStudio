@@ -1,7 +1,12 @@
 import type Database from 'better-sqlite3'
 import type { WebContents } from 'electron'
 import { randomUUID } from 'crypto'
-import { buildOFPlanningMarkdown, parseOFPlanningMarkdown } from '@shared/Orchestraflow-types'
+import {
+  buildOFPlanningMarkdown,
+  compileOFBlueprintTextDsl,
+  parseOFPlanningMarkdown,
+  type OFBlueprintTextDiagnostic
+} from '@shared/Orchestraflow-types'
 import { logger } from '../logger'
 import type { DatabaseManager } from '../database-sqlite'
 import type { ModelConfigService, PersistedModelProviderConfig } from '../model-config'
@@ -15,6 +20,7 @@ import type {
   GenerationGlobalSettings,
   GenerationListDesignDocumentsRequest,
   GenerationListMessagesRequest,
+  GenerationSendMessageRequest,
   GenerationRejectPlanningCommandProposalRequest,
   GenerationSaveDesignDocumentRequest,
   GenerationSaveDocumentRequest,
@@ -25,13 +31,15 @@ import type {
   GenerationSessionSummary,
   GenerationStageConfig,
   GenerationUpdateSessionStateRequest,
-  ModelProviderProtocol
+  ModelProviderProtocol,
+  type GenerationMessageMetaPayload
 } from '@preload/types'
 import { GenerationEditorRepository } from './repositories/generation-editor.repository'
 import {
   abortGenerationStream,
   startAnalysisPlannerAgentStream,
   startCopilotEditorAgentStream,
+  startDesignBlueprintAgentStream,
   startGenerationStream
 } from './llm-client'
 import type { ActiveGenerationStream } from './types/stream.types'
@@ -125,7 +133,20 @@ export class OrchestflowGenerationEditorService {
   }
 
   async saveDesignDocument(request: GenerationSaveDesignDocumentRequest) {
-    return this.repository.saveDesignDocument(request)
+    const compileResult = compileOFBlueprintTextDsl(request.document.content)
+    const nextStatus = compileResult.valid ? 'valid' : 'invalid'
+    return this.repository.saveDesignDocument({
+      ...request,
+      document: {
+        ...request.document,
+        contentFormat: 'of-blueprint-text-v1',
+        status: nextStatus,
+        diagnosticsJson: compileResult.diagnostics.length
+          ? JSON.stringify(compileResult.diagnostics)
+          : null,
+        summary: buildDesignDocumentSummary(nextStatus, compileResult.diagnostics)
+      }
+    })
   }
 
   async selectDesignDocument(request: GenerationSelectDesignDocumentRequest) {
@@ -160,13 +181,7 @@ export class OrchestflowGenerationEditorService {
 
   async sendMessage(
     sender: WebContents,
-    request: {
-      sessionId: string
-      channelKey: GenerationChannelKey
-      providerId: string
-      modelId: string
-      content: string
-    }
+    request: GenerationSendMessageRequest
   ): Promise<{ requestId: string }> {
     const text = request.content.trim()
     if (!text) throw new Error('Message content is required')
@@ -191,10 +206,16 @@ export class OrchestflowGenerationEditorService {
       contentPreview: buildContentPreview(text)
     })
 
+    const designDocument =
+      request.channelKey === 'design-copilot'
+        ? this.ensureActiveDesignDocument(request.sessionId, request.designDocumentId)
+        : null
+
     this.repository.insertMessage({
       id: randomUUID(),
       session_id: request.sessionId,
       channel_key: request.channelKey,
+      design_document_id: designDocument?.id || null,
       request_id: requestId,
       role: 'user',
       content: text,
@@ -212,6 +233,7 @@ export class OrchestflowGenerationEditorService {
       id: assistantMessageId,
       session_id: request.sessionId,
       channel_key: request.channelKey,
+      design_document_id: designDocument?.id || null,
       request_id: requestId,
       role: 'assistant',
       content: '',
@@ -220,7 +242,16 @@ export class OrchestflowGenerationEditorService {
       model_id: request.modelId,
       error: null,
       usage_json: null,
-      meta_json: JSON.stringify({ vendor, protocol: effectiveProtocol }),
+      meta_json: JSON.stringify(
+        request.channelKey === 'design-copilot' && designDocument
+          ? buildInitialDesignBlueprintMessageMeta({
+              vendor,
+              protocol: effectiveProtocol,
+              designDocumentId: designDocument.id,
+              generationMode: designDocument.content.trim() ? 'regenerate' : 'generate'
+            })
+          : { vendor, protocol: effectiveProtocol }
+      ),
       raw_response_text: null,
       raw_trace_json: null
     })
@@ -283,6 +314,27 @@ export class OrchestflowGenerationEditorService {
         planningDocument,
         userMessage: text
       })
+    } else if (request.channelKey === 'design-copilot') {
+      startDesignBlueprintAgentStream({
+        activeStreams: this.activeStreams,
+        repository: this.repository,
+        sender,
+        requestId,
+        sessionId: request.sessionId,
+        channelKey: request.channelKey,
+        messageId: assistantMessageId,
+        providerId: request.providerId,
+        modelId: request.modelId,
+        vendor,
+        protocol: effectiveProtocol,
+        apiKey: provider.apiKey,
+        baseUrl: provider.baseUrl || undefined,
+        defaultHeaders: provider.defaultHeaders,
+        persistRawLlmData: globalSettings.persistRawLlmData,
+        stageConfig: this.repository.getStageConfig(request.sessionId, 'design'),
+        designDocument: designDocument!,
+        userMessage: text
+      })
     } else {
       startGenerationStream({
         activeStreams: this.activeStreams,
@@ -335,6 +387,23 @@ export class OrchestflowGenerationEditorService {
       sessionId,
       messageId: latestPlanningMessage.id
     })
+  }
+
+  private ensureActiveDesignDocument(sessionId: string, designDocumentId?: string | null) {
+    if (designDocumentId) {
+      const designDocument = this.repository.getDesignDocumentById(designDocumentId)
+      if (designDocument.sessionId !== sessionId) {
+        throw new Error('当前 designDocumentId 不属于本会话。')
+      }
+      return designDocument
+    }
+
+    const stageConfig = this.repository.getStageConfig(sessionId, 'design')
+    if (!stageConfig.activeDesignDocumentId) {
+      throw new Error('请先选择一个规划设计稿版本，再使用 Design Copilot。')
+    }
+
+    return this.repository.getDesignDocumentById(stageConfig.activeDesignDocumentId)
   }
 
   private async resolveProvider(providerId: string): Promise<PersistedModelProviderConfig> {
@@ -394,5 +463,41 @@ function hasPlanningBlock(metaJson: string | null): boolean {
     return meta.planningBlock?.kind === 'analysis-planning'
   } catch {
     return false
+  }
+}
+
+function buildDesignDocumentSummary(
+  status: 'valid' | 'invalid',
+  diagnostics: OFBlueprintTextDiagnostic[]
+): string {
+  if (status === 'valid') {
+    return '规划设计稿 DSL 已通过解析与编译校验。'
+  }
+  if (diagnostics.length) {
+    return `规划设计稿 DSL 存在 ${diagnostics.length} 条校验错误。`
+  }
+  return '规划设计稿 DSL 尚未通过校验。'
+}
+
+function buildInitialDesignBlueprintMessageMeta(params: {
+  vendor: 'openai' | 'anthropic' | 'google'
+  protocol: ModelProviderProtocol
+  designDocumentId: string
+  generationMode: 'generate' | 'regenerate'
+}): GenerationMessageMetaPayload {
+  return {
+    vendor: params.vendor,
+    protocol: params.protocol,
+    designBlueprintBlock: {
+      kind: 'design-blueprint-generation',
+      designDocumentId: params.designDocumentId,
+      generationMode: params.generationMode,
+      status: 'streaming',
+      progressPercent: 5,
+      phaseLabel: '正在准备规划设计稿生成',
+      canAbort: true,
+      diagnostics: [],
+      errorMessage: null
+    }
   }
 }

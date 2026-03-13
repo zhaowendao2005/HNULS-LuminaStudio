@@ -5,6 +5,7 @@ import {
   parseOFPlanningMarkdown
 } from '@shared/Orchestraflow-types'
 import type {
+  OFBlueprintTextDiagnostic,
   OFPlanningEditCommand,
   OFPlanningSectionKey,
   OFPlanningSectionDefinition,
@@ -13,6 +14,7 @@ import type {
 import type {
   GenerationChannelKey,
   GenerationCopilotEditBlockPayload,
+  GenerationDesignBlueprintBlockPayload,
   GenerationDesignDocument,
   GenerationMessage,
   GenerationMessageMetaPayload,
@@ -35,6 +37,7 @@ export type GenerateMenuValue =
 export type GenerateCopilotMode = 'analysis' | 'design' | 'verify'
 export type GenerateViewStatus = 'bootstrapping' | 'ready' | 'switching' | 'error'
 export type GenerateAnalysisPlanningViewMode = 'preview' | 'source' | 'diff'
+export type GenerateDesignDocumentViewMode = 'snapshot' | 'dsl'
 
 export interface GenerateSessionViewModel {
   id: string
@@ -197,6 +200,30 @@ export function getGenerationCopilotEditBlock(
     return meta.copilotEditBlock
   }
   return null
+}
+
+export function getGenerationDesignBlueprintBlock(
+  message: Pick<GenerationMessage, 'metaJson'>
+): GenerationDesignBlueprintBlockPayload | null {
+  const meta = parseGenerationMessageMeta(message.metaJson)
+  if (meta?.designBlueprintBlock?.kind === 'design-blueprint-generation') {
+    return meta.designBlueprintBlock
+  }
+  return null
+}
+
+export function parseDesignDiagnosticsJson(
+  diagnosticsJson: string | null
+): OFBlueprintTextDiagnostic[] {
+  if (!diagnosticsJson) {
+    return []
+  }
+
+  try {
+    return JSON.parse(diagnosticsJson) as OFBlueprintTextDiagnostic[]
+  } catch {
+    return []
+  }
 }
 
 export function getPendingGenerationCopilotSectionKeys(

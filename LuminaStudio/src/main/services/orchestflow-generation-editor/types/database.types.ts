@@ -56,10 +56,13 @@ export interface GenerationDesignDocumentRow {
   planning_source_message_id: string
   title: string
   version: number
-  status: 'draft' | 'derived'
+  status: 'draft' | 'streaming' | 'valid' | 'invalid' | 'aborted' | 'error'
   source_snapshot_markdown: string
+  content_format: 'of-blueprint-text-v1'
   content: string
   summary: string
+  diagnostics_json: string | null
+  latest_generation_message_id: string | null
   derived_target_type: string | null
   derived_target_id: string | null
   derived_status: string | null
@@ -71,6 +74,7 @@ export interface GenerationMessageRow {
   id: string
   session_id: string
   channel_key: GenerationChannelKey
+  design_document_id: string | null
   request_id: string | null
   role: 'user' | 'assistant' | 'system'
   content: string

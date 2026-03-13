@@ -110,6 +110,7 @@ export const GENERATION_MESSAGES_TABLE: TableDefinition = {
       id TEXT PRIMARY KEY,
       session_id TEXT NOT NULL,
       channel_key TEXT NOT NULL,
+      design_document_id TEXT,
       request_id TEXT,
       role TEXT NOT NULL,
       content TEXT NOT NULL DEFAULT '',
@@ -127,6 +128,8 @@ export const GENERATION_MESSAGES_TABLE: TableDefinition = {
     );
     CREATE INDEX IF NOT EXISTS idx_generation_messages_session_channel_created_at
       ON generation_messages(session_id, channel_key, created_at ASC);
+    CREATE INDEX IF NOT EXISTS idx_generation_messages_session_channel_design_created_at
+      ON generation_messages(session_id, channel_key, design_document_id, created_at ASC);
     CREATE INDEX IF NOT EXISTS idx_generation_messages_request_id
       ON generation_messages(request_id);
   `
@@ -144,8 +147,11 @@ export const GENERATION_DESIGN_DOCUMENTS_TABLE: TableDefinition = {
       version INTEGER NOT NULL,
       status TEXT NOT NULL DEFAULT 'draft',
       source_snapshot_markdown TEXT NOT NULL DEFAULT '',
+      content_format TEXT NOT NULL DEFAULT 'of-blueprint-text-v1',
       content TEXT NOT NULL DEFAULT '',
       summary TEXT NOT NULL DEFAULT '',
+      diagnostics_json TEXT,
+      latest_generation_message_id TEXT,
       derived_target_type TEXT,
       derived_target_id TEXT,
       derived_status TEXT,

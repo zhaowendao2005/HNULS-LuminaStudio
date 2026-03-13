@@ -110,6 +110,8 @@ export function appendOptimisticMessages(params: {
   channelKey: GenerationChannelKey
   content: string
   config: GenerationStageConfig
+  designDocumentId?: string | null
+  assistantMetaJson?: string | null
 }): { assistantId: string } {
   const assistantId = crypto.randomUUID()
   const channelMessages = params.detail.messagesByChannel[params.channelKey]
@@ -118,6 +120,7 @@ export function appendOptimisticMessages(params: {
     id: crypto.randomUUID(),
     sessionId: params.detail.id,
     channelKey: params.channelKey,
+    designDocumentId: params.designDocumentId || null,
     requestId: null,
     role: 'user',
     content: params.content,
@@ -137,6 +140,7 @@ export function appendOptimisticMessages(params: {
     id: assistantId,
     sessionId: params.detail.id,
     channelKey: params.channelKey,
+    designDocumentId: params.designDocumentId || null,
     requestId: null,
     role: 'assistant',
     content: '',
@@ -145,7 +149,7 @@ export function appendOptimisticMessages(params: {
     modelId: params.config.modelId,
     error: null,
     usageJson: null,
-    metaJson: null,
+    metaJson: params.assistantMetaJson ?? null,
     rawResponseText: null,
     rawTraceJson: null,
     createdAt: new Date().toISOString(),

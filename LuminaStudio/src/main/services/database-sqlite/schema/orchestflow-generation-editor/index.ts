@@ -9,6 +9,6 @@ import { ORCHESTFLOW_GENERATION_EDITOR_TABLES } from './tables'
  */
 export const ORCHESTFLOW_GENERATION_EDITOR_SCHEMA: DatabaseSchema = {
   name: 'orchestflow-generation-editor',
-  version: 5,
+  version: 6,
   tables: ORCHESTFLOW_GENERATION_EDITOR_TABLES
 }

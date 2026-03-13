@@ -1,4 +1,5 @@
 import type {
+  OFBlueprintTextDiagnostic,
   OFPlanningCommandMode,
   OFPlanningDocument as OFSharedPlanningDocument,
   OFPlanningEditCommand,
@@ -23,7 +24,15 @@ export type GenerationAnalysisPlanningStatus = 'draft' | 'ready'
 export type GenerationPlanningStreamSectionKey = OFPlanningSectionKey
 export type GenerationCopilotEditStatus = 'noop' | 'pending' | 'applied' | 'rejected' | 'failed'
 export type GenerationCopilotSectionDecision = 'pending' | 'applied' | 'rejected'
-export type GenerationDesignDocumentStatus = 'draft' | 'derived'
+export type GenerationDesignDocumentStatus =
+  | 'draft'
+  | 'streaming'
+  | 'valid'
+  | 'invalid'
+  | 'aborted'
+  | 'error'
+export type GenerationDesignDocumentContentFormat = 'of-blueprint-text-v1'
+export type GenerationDesignGenerationMode = 'generate' | 'regenerate'
 
 export interface GenerationStageConfig {
   stageKey: GenerationStageKey
@@ -66,8 +75,11 @@ export interface GenerationDesignDocument {
   version: number
   status: GenerationDesignDocumentStatus
   sourceSnapshotMarkdown: string
+  contentFormat: GenerationDesignDocumentContentFormat
   content: string
   summary: string
+  diagnosticsJson: string | null
+  latestGenerationMessageId: string | null
   derivedTargetType: string | null
   derivedTargetId: string | null
   derivedStatus: string | null
@@ -114,6 +126,18 @@ export interface GenerationCopilotEditBlockPayload {
   errorMessage?: string | null
 }
 
+export interface GenerationDesignBlueprintBlockPayload {
+  kind: 'design-blueprint-generation'
+  designDocumentId: string
+  generationMode: GenerationDesignGenerationMode
+  status: 'streaming' | 'completed' | 'aborted' | 'invalid' | 'error'
+  progressPercent: number
+  phaseLabel: string
+  canAbort: boolean
+  diagnostics?: OFBlueprintTextDiagnostic[]
+  errorMessage?: string | null
+}
+
 export interface GenerationMessageMetaPayload {
   vendor?: GenerationSdkVendor
   protocol?: ModelProviderProtocol
@@ -121,12 +145,14 @@ export interface GenerationMessageMetaPayload {
   mode?: GenerationAnalysisAgentMode
   planningBlock?: GenerationPlanningBlockPayload | null
   copilotEditBlock?: GenerationCopilotEditBlockPayload | null
+  designBlueprintBlock?: GenerationDesignBlueprintBlockPayload | null
 }
 
 export interface GenerationMessage {
   id: string
   sessionId: string
   channelKey: GenerationChannelKey
+  designDocumentId: string | null
   requestId: string | null
   role: GenerationChatRole
   content: string
@@ -239,11 +265,13 @@ export interface GenerationRejectPlanningCommandProposalRequest {
 export interface GenerationListMessagesRequest {
   sessionId: string
   channelKey: GenerationChannelKey
+  designDocumentId?: string | null
 }
 
 export interface GenerationSendMessageRequest {
   sessionId: string
   channelKey: GenerationChannelKey
+  designDocumentId?: string | null
   providerId: string
   modelId: string
   content: string

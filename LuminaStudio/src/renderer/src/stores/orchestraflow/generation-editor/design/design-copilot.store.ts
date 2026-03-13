@@ -15,29 +15,42 @@ export const useGenerationDesignCopilotStore = defineStore('of-generation-design
   const localState = ref(createChannelStreamLocalState())
   const isStreaming = computed(() => Boolean(localState.value.activeRequestId))
 
-  function getMessages(detail: GenerateSessionDetailViewModel | null) {
-    return detail?.messagesByChannel['design-copilot'] ?? []
+  function getMessages(detail: GenerateSessionDetailViewModel | null, designDocumentId: string | null) {
+    return (detail?.messagesByChannel['design-copilot'] ?? []).filter((message) => {
+      return message.designDocumentId === designDocumentId
+    })
   }
 
   async function sendMessage(
     detail: GenerateSessionDetailViewModel | null,
-    config: GenerationStageConfig | null
+    config: GenerationStageConfig | null,
+    options?: {
+      designDocumentId?: string | null
+      content?: string
+      assistantMetaJson?: string | null
+    }
   ): Promise<void> {
     if (!detail || !config?.providerId || !config.modelId) return
-    const content = input.value.trim()
+    const designDocumentId = options?.designDocumentId || null
+    const content = (options?.content ?? input.value).trim()
     if (!content) return
 
-    input.value = ''
+    if (!options?.content) {
+      input.value = ''
+    }
     const { assistantId } = appendOptimisticMessages({
       detail,
       channelKey: 'design-copilot',
       content,
-      config
+      config,
+      designDocumentId,
+      assistantMetaJson: options?.assistantMetaJson || null
     })
     try {
       const result = await DesignCopilotDataSource.sendMessage({
         sessionId: detail.id,
         channelKey: 'design-copilot',
+        designDocumentId,
         providerId: config.providerId,
         modelId: config.modelId,
         content
@@ -48,7 +61,9 @@ export const useGenerationDesignCopilotStore = defineStore('of-generation-design
       if (target) target.requestId = result.requestId
       localState.value.streamMessageIdByRequest[result.requestId] = assistantId
     } catch (error) {
-      input.value = content
+      if (!options?.content) {
+        input.value = content
+      }
       markOptimisticAssistantMessageError({
         detail,
         channelKey: 'design-copilot',

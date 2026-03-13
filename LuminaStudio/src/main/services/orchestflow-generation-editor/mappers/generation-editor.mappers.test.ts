@@ -7,6 +7,7 @@ describe('generation-editor.mappers', () => {
       id: 'message-1',
       session_id: 'session-1',
       channel_key: 'analysis-discussion',
+      design_document_id: null,
       request_id: 'request-1',
       role: 'assistant',
       content: 'normalized visible content',

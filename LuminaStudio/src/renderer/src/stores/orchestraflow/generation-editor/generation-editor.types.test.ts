@@ -3,6 +3,7 @@ import { buildOFPlanningMarkdown, createEmptyOFPlanningDocument } from '@shared/
 import {
   buildPlanningDiffRows,
   buildPlanningReviewState,
+  getGenerationDesignBlueprintBlock,
   getGenerationPlanningBlock,
   getLatestGenerationPlanningReviewEntry,
   parsePlanningMarkdownSections
@@ -39,6 +40,7 @@ function buildCopilotMessage(params: {
     id: params.id,
     sessionId: 'session-1',
     channelKey: 'analysis-copilot',
+    designDocumentId: null,
     requestId: 'request-1',
     role: 'assistant',
     content: '这里是 copilot 的自然语言说明。',
@@ -206,5 +208,35 @@ describe('generation-editor.types', () => {
       beforeType: 'removed',
       afterType: 'added'
     })
+  })
+
+  it('parses design blueprint generation block from message meta', () => {
+    const block = getGenerationDesignBlueprintBlock({
+      metaJson: JSON.stringify({
+        designBlueprintBlock: {
+          kind: 'design-blueprint-generation',
+          designDocumentId: 'design-doc-1',
+          generationMode: 'generate',
+          status: 'invalid',
+          diagnostics: [
+            {
+              code: 'invalid-inline-value',
+              severity: 'error',
+              path: 'workflow.name',
+              message: 'workflow.name 缺失',
+              line: 2,
+              column: 1,
+              endLine: 2,
+              endColumn: 20
+            }
+          ],
+          errorMessage: 'invalid-inline-value: workflow.name 缺失'
+        }
+      })
+    })
+
+    expect(block?.designDocumentId).toBe('design-doc-1')
+    expect(block?.status).toBe('invalid')
+    expect(block?.diagnostics?.[0]?.code).toBe('invalid-inline-value')
   })
 })

@@ -5,20 +5,24 @@ import {
   OrchestflowGenerationEditorDataSource,
   resolveMenuByStage
 } from './generation-editor.datasource'
-import type {
-  GenerateAnalysisPlanningViewMode,
-  GenerateCopilotMode,
-  GenerateSessionDetailViewModel,
-  GenerateSessionViewModel,
-  GenerateViewStatus
+import {
+  parseDesignDiagnosticsJson,
+  type GenerateAnalysisPlanningViewMode,
+  type GenerateCopilotMode,
+  type GenerateDesignDocumentViewMode,
+  type GenerateSessionDetailViewModel,
+  type GenerateSessionViewModel,
+  type GenerateViewStatus
 } from './generation-editor.types'
 import type {
   GenerationDesignDocument,
   GenerationDocument,
   GenerationMessage,
+  GenerationMessageMetaPayload,
   GenerationPlanningDocument,
   GenerationStageConfig,
-  GenerationStageKey
+  GenerationStageKey,
+  GenerationStreamEvent
 } from '@preload/types'
 import { useGenerationSessionListStore } from './sessions/session-list.store'
 import { useGenerationSessionDetailCacheStore } from './sessions/session-detail-cache.store'
@@ -93,6 +97,8 @@ export const useOrchestflowGenerationEditorStore = defineStore(
     const viewStatus = ref<GenerateViewStatus>('bootstrapping')
     const lastErrorMessage = ref<string | null>(null)
     const analysisPlanningViewMode = ref<GenerateAnalysisPlanningViewMode>('preview')
+    const designDocumentViewMode = ref<GenerateDesignDocumentViewMode>('snapshot')
+    const selectedDesignDiagnosticIndex = ref<number | null>(null)
     const isPlanningDocumentSaving = ref(false)
     const showDesignManagerModal = ref(false)
     const designManagerPlanningDocumentId = ref<string | null>(null)
@@ -189,6 +195,17 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       return currentSession.value.planningDocuments[planningDocumentId] ?? null
     })
 
+    const activeDesignDiagnostics = computed(() => {
+      return parseDesignDiagnosticsJson(activeDesignDocument.value?.diagnosticsJson || null)
+    })
+
+    const selectedDesignDiagnostic = computed(() => {
+      if (selectedDesignDiagnosticIndex.value === null) {
+        return null
+      }
+      return activeDesignDiagnostics.value[selectedDesignDiagnosticIndex.value] || null
+    })
+
     const activeDesignPreviewDocument = computed<GenerationDocument | null>(() => {
       if (!activeDesignDocument.value) {
         return null
@@ -196,7 +213,7 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       return {
         documentKey: 'design',
         title: activeDesignDocument.value.title,
-        fileName: `planning_design_v${activeDesignDocument.value.version}.md`,
+        fileName: `planning_design_v${activeDesignDocument.value.version}.dsl`,
         summary: activeDesignDocument.value.summary,
         content: activeDesignDocument.value.content
       }
@@ -226,7 +243,10 @@ export const useOrchestflowGenerationEditorStore = defineStore(
         return analysisCopilotStore.getMessages(currentSession.value)
       }
       if (activeRightPanel.value === 'design') {
-        return designCopilotStore.getMessages(currentSession.value)
+        return designCopilotStore.getMessages(
+          currentSession.value,
+          activeDesignDocument.value?.id || null
+        )
       }
       if (activeRightPanel.value === 'verify') {
         return verifyCopilotStore.getMessages(currentSession.value)
@@ -356,10 +376,65 @@ export const useOrchestflowGenerationEditorStore = defineStore(
 
         if (!handled) return
 
+        if (event.channelKey === 'design-copilot') {
+          applyDesignStreamPreview(detail, event)
+        }
+
         if (event.type === 'error' || event.type === 'finish') {
           void refreshSessionDetail(event.sessionId)
         }
       })
+    }
+
+    function applyDesignStreamPreview(
+      detail: GenerateSessionDetailViewModel,
+      event: GenerationStreamEvent
+    ): void {
+      const targetMessage = detail.messagesByChannel['design-copilot'].find((message) => {
+        return (
+          message.id === event.messageId ||
+          (message.requestId === event.requestId && message.role === 'assistant')
+        )
+      })
+      const designDocumentId = targetMessage?.designDocumentId
+      if (!designDocumentId || !detail.designDocuments[designDocumentId]) {
+        return
+      }
+
+      const targetDocument = detail.designDocuments[designDocumentId]
+      targetDocument.latestGenerationMessageId = event.messageId
+
+      if (event.type === 'stream-start') {
+        targetDocument.status = 'streaming'
+        if (detail.stageConfigs.design.activeDesignDocumentId === designDocumentId) {
+          detail.documents.design = {
+            ...detail.documents.design,
+            content: targetDocument.content,
+            summary: '规划设计稿 DSL 正在生成中。'
+          }
+          designDocumentStore.setDocument(detail.id, detail.documents.design)
+        }
+        return
+      }
+
+      if (event.type === 'text-delta') {
+        targetDocument.status = 'streaming'
+        targetDocument.content = targetMessage?.content || targetDocument.content
+
+        if (detail.stageConfigs.design.activeDesignDocumentId === designDocumentId) {
+          detail.documents.design = {
+            ...detail.documents.design,
+            content: targetDocument.content,
+            summary: '规划设计稿 DSL 正在生成中。'
+          }
+          designDocumentStore.setDocument(detail.id, detail.documents.design)
+        }
+        return
+      }
+
+      if (event.type === 'error') {
+        targetDocument.status = 'error'
+      }
     }
 
     async function refreshSessionDetail(sessionId: string): Promise<void> {
@@ -563,9 +638,13 @@ export const useOrchestflowGenerationEditorStore = defineStore(
         return
       }
       if (activeRightPanel.value === 'design') {
+        if (!activeDesignDocument.value) return
         await designCopilotStore.sendMessage(
           currentSession.value,
-          designStageConfigStore.getConfig(currentSession.value.id)
+          designStageConfigStore.getConfig(currentSession.value.id),
+          {
+            designDocumentId: activeDesignDocument.value.id
+          }
         )
         return
       }
@@ -699,7 +778,55 @@ export const useOrchestflowGenerationEditorStore = defineStore(
         currentStage: 'design',
         summary: '已进入规划设计阶段。'
       })
+    }
+
+    async function requestDesignBlueprintGeneration(): Promise<void> {
+      if (!currentSession.value || !activeDesignDocument.value) return
+
+      const shouldConfirmOverwrite =
+        Boolean(activeDesignDocument.value.content.trim()) &&
+        !window.confirm('再次生成会覆盖当前版本正文，是否继续？')
+
+      if (shouldConfirmOverwrite) {
+        return
+      }
+
+      await enterDesignView()
+      designDocumentViewMode.value = 'dsl'
+      selectedDesignDiagnosticIndex.value = null
       openCopilotPanel('design')
+      const config = designStageConfigStore.getConfig(currentSession.value.id)
+      if (!config?.providerId || !config.modelId) {
+        throw new Error('请先选择 design 阶段模型。')
+      }
+
+      const generationMode = activeDesignDocument.value.content.trim() ? 'regenerate' : 'generate'
+      const initialMeta: GenerationMessageMetaPayload = {
+        designBlueprintBlock: {
+          kind: 'design-blueprint-generation',
+          designDocumentId: activeDesignDocument.value.id,
+          generationMode,
+          status: 'streaming',
+          progressPercent: 5,
+          phaseLabel: '正在准备规划设计稿生成',
+          canAbort: true,
+          diagnostics: [],
+          errorMessage: null
+        }
+      }
+
+      await designCopilotStore.sendMessage(
+        currentSession.value,
+        config,
+        {
+          designDocumentId: activeDesignDocument.value.id,
+          content:
+            generationMode === 'regenerate'
+              ? '重新规划设计当前版本并覆盖正文。'
+              : '开始规划设计当前版本。',
+          assistantMetaJson: JSON.stringify(initialMeta)
+        }
+      )
     }
 
     async function createDesignDocumentFromPlanningDocumentId(
@@ -719,6 +846,8 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       })
       designManagerPlanningDocumentId.value = planningDocumentId
       showDesignManagerModal.value = false
+      designDocumentViewMode.value = created.content.trim() ? 'dsl' : 'snapshot'
+      selectedDesignDiagnosticIndex.value = null
       await refreshSessionDetail(currentSession.value.id)
     }
 
@@ -765,6 +894,10 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       currentSession.value.stageConfigs.design = updated
       designStageConfigStore.setConfig(currentSession.value.id, updated)
       await refreshSessionDetail(currentSession.value.id)
+      designDocumentViewMode.value = currentSession.value.designDocuments[designDocumentId]?.content.trim()
+        ? 'dsl'
+        : 'snapshot'
+      selectedDesignDiagnosticIndex.value = null
       closeDesignManager()
     }
 
@@ -779,12 +912,13 @@ export const useOrchestflowGenerationEditorStore = defineStore(
 
     async function handleDesignContentUpdate(value: string): Promise<void> {
       if (!currentSession.value || !activeDesignDocument.value) return
+      designDocumentViewMode.value = 'dsl'
+      selectedDesignDiagnosticIndex.value = null
       const saved = await OrchestflowGenerationEditorDataSource.saveDesignDocument({
         sessionId: currentSession.value.id,
         document: {
           ...activeDesignDocument.value,
-          content: value,
-          summary: '设计正文已保存到数据库。'
+          content: value
         }
       })
       currentSession.value.designDocuments[saved.id] = saved
@@ -839,6 +973,21 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       ).length
     }
 
+    function openDesignDiagnostics(index: number | null = null): void {
+      if (!activeDesignDocument.value) return
+      designDocumentViewMode.value = 'diagnostics'
+      selectedDesignDiagnosticIndex.value =
+        index === null ? (activeDesignDiagnostics.value.length ? 0 : null) : index
+    }
+
+    function clearDesignDiagnosticSelection(): void {
+      selectedDesignDiagnosticIndex.value = null
+    }
+
+    async function abortGenerationRequest(requestId: string): Promise<void> {
+      await OrchestflowGenerationEditorDataSource.abortMessage(requestId)
+    }
+
     return {
       sessions,
       selectedSessionId,
@@ -871,10 +1020,14 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       analysisActivePlanningDocument,
       activeDesignDocument,
       activeDesignPlanningDocument,
+      activeDesignDiagnostics,
+      selectedDesignDiagnostic,
+      selectedDesignDiagnosticIndex,
       activeDesignPreviewDocument,
       designDocumentList,
       filteredDesignDocumentList,
       analysisPlanningViewMode,
+      designDocumentViewMode,
       isPlanningDocumentSaving,
       dashboardStageCards,
       plannedSessionsCount,
@@ -903,6 +1056,10 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       applyPlanningCommandProposal,
       rejectPlanningCommandProposal,
       enterDesignView,
+      requestDesignBlueprintGeneration,
+      openDesignDiagnostics,
+      clearDesignDiagnosticSelection,
+      abortGenerationRequest,
       createDesignDocumentFromPlanningDocumentId,
       createDesignDocumentFromPlanningMessage,
       openExistingDesignsFromPlanningMessage,

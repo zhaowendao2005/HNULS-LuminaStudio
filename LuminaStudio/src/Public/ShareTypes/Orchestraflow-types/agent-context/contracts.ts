@@ -20,7 +20,7 @@ export interface OFRequirementDocument {
 
 export interface OFAgentContextPackManifest {
   id: string
-  kind: 'requirement' | 'blueprint' | 'edit' | 'planning-edit'
+  kind: 'requirement' | 'blueprint' | 'blueprint-text' | 'edit' | 'planning-edit'
   version: '1.0'
   title: string
   generated_at: string
@@ -46,6 +46,12 @@ export interface OFBuildRequirementContextPackParams {
 
 export interface OFBuildBlueprintContextPackParams {
   blueprint?: OFBlueprintWorkflow
+}
+
+export interface OFBuildBlueprintTextContextPackParams {
+  blueprint?: OFBlueprintWorkflow | null
+  snapshotMarkdown?: string
+  currentDsl?: string
 }
 
 export interface OFBuildEditContextPackParams {

@@ -61,6 +61,9 @@
                 <span class="rounded bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500">
                   V{{ document.version }}
                 </span>
+                <span :class="resolveStatusClass(document.status)">
+                  {{ resolveStatusLabel(document.status) }}
+                </span>
                 <span
                   v-if="activeDesignDocumentId === document.id"
                   class="rounded bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700"
@@ -73,6 +76,9 @@
               </div>
               <div class="mt-1 text-xs leading-5 text-gray-500">
                 来源工作稿：{{ resolvePlanningTitle(document.planningDocumentId) }}
+              </div>
+              <div class="mt-1 text-xs leading-5 text-gray-500">
+                当前诊断：{{ resolveDiagnosticsCount(document.diagnosticsJson) }} 条
               </div>
               <div class="mt-1 text-xs text-gray-400">
                 更新时间：{{ formatTime(document.updatedAt) }}
@@ -157,5 +163,40 @@ function formatTime(value: string): string {
     hour: '2-digit',
     minute: '2-digit'
   })
+}
+
+function resolveStatusLabel(status: GenerationDesignDocument['status']): string {
+  if (status === 'streaming') return '生成中'
+  if (status === 'valid') return '已通过校验'
+  if (status === 'invalid') return '存在错误'
+  if (status === 'aborted') return '已中断'
+  if (status === 'error') return '生成失败'
+  return '待生成'
+}
+
+function resolveStatusClass(status: GenerationDesignDocument['status']): string {
+  if (status === 'streaming') {
+    return 'rounded bg-sky-100 px-2 py-0.5 text-[10px] font-semibold text-sky-700'
+  }
+  if (status === 'valid') {
+    return 'rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700'
+  }
+  if (status === 'invalid' || status === 'error') {
+    return 'rounded bg-rose-100 px-2 py-0.5 text-[10px] font-semibold text-rose-700'
+  }
+  if (status === 'aborted') {
+    return 'rounded bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700'
+  }
+  return 'rounded bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500'
+}
+
+function resolveDiagnosticsCount(diagnosticsJson: string | null): number {
+  if (!diagnosticsJson) return 0
+  try {
+    const parsed = JSON.parse(diagnosticsJson) as unknown[]
+    return Array.isArray(parsed) ? parsed.length : 0
+  } catch {
+    return 0
+  }
 }
 </script>
