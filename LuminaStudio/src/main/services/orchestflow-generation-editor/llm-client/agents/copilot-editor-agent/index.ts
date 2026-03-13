@@ -13,8 +13,14 @@ import { buildCopilotEditorContextBundle } from './context-builder'
 import {
   COPILOT_EDITOR_DSL_END_MARKER,
   COPILOT_EDITOR_DSL_START_MARKER,
-  extractVisibleTextAndDsl
+  extractVisibleTextAndDsl,
+  normalizeCopilotEditorCommandDsl
 } from './dsl'
+import {
+  resolveInitialStatus,
+  validateCopilotEditorModelResult,
+  type ValidatedCopilotEditorModelResult
+} from './result'
 import type { CopilotEditorModelResult, StartCopilotEditorAgentStreamParams } from './types'
 
 const log = logger.scope('CopilotEditorAgent')
@@ -63,17 +69,17 @@ async function runCopilotEditorAgent(
       delta: state.answerText
     })
 
-    const parsedDsl = parseOFPlanningCommandDsl(modelResult.commandDsl)
     const nextMeta = buildCopilotMetaPayload({
       documentId: params.planningDocument.id,
-      mode: parsedDsl.mode,
+      mode: modelResult.parsedDsl.mode,
       commandDsl: modelResult.commandDsl,
-      commands: parsedDsl.commands,
-      status: resolveInitialStatus(parsedDsl.mode, params.stageConfig.autoApproved),
-      errorMessage:
-        parsedDsl.errors.length > 0
-          ? parsedDsl.errors.map((error) => error.message).join('；')
-          : null
+      commands: modelResult.parsedDsl.commands,
+      status: resolveInitialStatus({
+        mode: modelResult.parsedDsl.mode,
+        autoApproved: params.stageConfig.autoApproved,
+        isValid: modelResult.isValid
+      }),
+      errorMessage: modelResult.validationError
     })
 
     params.repository.updateMessageMeta(state.messageId, JSON.stringify(nextMeta))
@@ -85,6 +91,17 @@ async function runCopilotEditorAgent(
       messageId: state.messageId,
       metaJson: JSON.stringify(nextMeta)
     })
+
+    if (nextMeta.copilotEditBlock?.status === 'failed') {
+      log.warn('Copilot editor agent produced invalid DSL after retry', {
+        requestId: state.requestId,
+        sessionId: state.sessionId,
+        channelKey: state.channelKey,
+        providerId: params.providerId,
+        modelId: params.modelId,
+        errorMessage: nextMeta.copilotEditBlock.errorMessage
+      })
+    }
 
     if (nextMeta.copilotEditBlock?.status === 'applied') {
       const appliedDocument = params.repository.applyPlanningCommandProposal({
@@ -135,21 +152,27 @@ async function runModelWithRetry(
   state: ActiveGenerationStream,
   params: StartCopilotEditorAgentStreamParams,
   context: ReturnType<typeof buildCopilotEditorContextBundle>
-): Promise<CopilotEditorModelResult> {
+): Promise<ValidatedCopilotEditorModelResult> {
   let lastError = ''
+  let lastAttempt: ValidatedCopilotEditorModelResult | null = null
 
   for (let attempt = 1; attempt <= 2; attempt += 1) {
     const result = await runModelOnce(state, params, context, lastError)
-    const parsedDsl = parseOFPlanningCommandDsl(result.commandDsl)
-    if (result.commandDsl && parsedDsl.errors.length === 0) {
-      return result
+    const validatedResult = validateCopilotEditorModelResult(result)
+    if (validatedResult.isValid) {
+      return validatedResult
     }
+    lastAttempt = validatedResult
 
     if (!result.commandDsl && result.visibleText) {
       lastError = `第 ${attempt} 次输出缺少 DSL marker：${COPILOT_EDITOR_DSL_START_MARKER} / ${COPILOT_EDITOR_DSL_END_MARKER}`
     } else {
-      lastError = parsedDsl.errors.map((error) => error.message).join('；')
+      lastError = validatedResult.validationError || '未解析到任何 planning 编辑命令'
     }
+  }
+
+  if (lastAttempt) {
+    return lastAttempt
   }
 
   throw new Error(lastError || 'Copilot editor agent failed to produce valid DSL.')
@@ -216,10 +239,11 @@ async function runModelOnce(
   })
 
   const extracted = extractVisibleTextAndDsl(rawText)
+  const normalizedCommandDsl = normalizeCopilotEditorCommandDsl(extracted.commandDsl)
   return {
     rawText,
     visibleText: extracted.visibleText,
-    commandDsl: extracted.commandDsl,
+    commandDsl: normalizedCommandDsl,
     usage: result.usage,
     rawTrace: result.rawTrace
   }
@@ -243,19 +267,19 @@ function buildCopilotMetaPayload(params: {
       commands: params.commands,
       status: params.status,
       affectedSectionKeys: listAffectedOFPlanningSectionKeys(params.commands),
+      sectionDecisionByKey: Object.fromEntries(
+        listAffectedOFPlanningSectionKeys(params.commands).map((sectionKey) => [
+          sectionKey,
+          params.status === 'applied'
+            ? 'applied'
+            : params.status === 'rejected'
+              ? 'rejected'
+              : 'pending'
+        ])
+      ),
       errorMessage: params.errorMessage
     }
   }
-}
-
-function resolveInitialStatus(
-  mode: OFPlanningCommandMode,
-  autoApproved: boolean
-): 'noop' | 'pending' | 'applied' | 'failed' {
-  if (mode === 'noop') {
-    return 'noop'
-  }
-  return autoApproved ? 'applied' : 'pending'
 }
 
 function emitStreamStart(state: ActiveGenerationStream): void {

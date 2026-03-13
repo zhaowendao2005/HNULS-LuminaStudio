@@ -1,5 +1,11 @@
-import { OF_PLANNING_SECTION_DEFINITIONS } from '@shared/Orchestraflow-types'
+import {
+  OF_PLANNING_SECTION_DEFINITIONS,
+  applyOFPlanningEditCommands,
+  buildOFPlanningMarkdown,
+  parseOFPlanningMarkdown
+} from '@shared/Orchestraflow-types'
 import type {
+  OFPlanningEditCommand,
   OFPlanningSectionKey,
   OFPlanningSectionDefinition,
   OFPlanningValidationError
@@ -66,6 +72,36 @@ export interface GeneratePlanningMarkdownSection {
   title: string
   content: string
   definition?: OFPlanningSectionDefinition
+}
+
+export interface GeneratePlanningReviewEntry {
+  messageId: string
+  block: GenerationCopilotEditBlockPayload
+}
+
+export interface GeneratePlanningSectionReview {
+  messageId: string
+  sectionKey: OFPlanningSectionKey
+  sectionTitle: string
+  currentContent: string
+  proposedContent: string
+}
+
+export interface GeneratePlanningReviewState {
+  reviewEntry: GeneratePlanningReviewEntry | null
+  displayDocument: GenerationPlanningDocument
+  diffSourceMarkdown: string
+  diffCurrentMarkdown: string
+  isPendingReview: boolean
+  isSourceEditable: boolean
+  reviewErrorMessage: string | null
+}
+
+export interface GeneratePlanningDiffRow {
+  beforeText: string
+  afterText: string
+  beforeType: 'removed' | 'unchanged' | 'empty'
+  afterType: 'added' | 'unchanged' | 'empty'
 }
 
 export function mapSessionSummary(
@@ -156,6 +192,128 @@ export function getGenerationCopilotEditBlock(
     return meta.copilotEditBlock
   }
   return null
+}
+
+export function getPendingGenerationCopilotSectionKeys(
+  block: GenerationCopilotEditBlockPayload
+): OFPlanningSectionKey[] {
+  if (block.status !== 'pending') {
+    return []
+  }
+
+  return block.affectedSectionKeys.filter((sectionKey) => {
+    return (block.sectionDecisionByKey?.[sectionKey] || 'pending') === 'pending'
+  })
+}
+
+export function getLatestGenerationPlanningReviewEntry(
+  messages: GenerationMessage[],
+  documentId: string
+): GeneratePlanningReviewEntry | null {
+  // 这里按消息时间倒序取最后一条 review block，确保文档区只围绕“当前最新一轮修改”审阅。
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index]
+    const block = getGenerationCopilotEditBlock(message)
+    if (!block || block.documentId !== documentId) {
+      continue
+    }
+    return {
+      messageId: message.id,
+      block
+    }
+  }
+  return null
+}
+
+export function getPendingGenerationPlanningSectionReviews(params: {
+  document: GenerationPlanningDocument
+  messages: GenerationMessage[]
+}): GeneratePlanningSectionReview[] {
+  const sourceDocument = parseOFPlanningMarkdown(params.document.sourceMarkdown).document
+  const reviews: GeneratePlanningSectionReview[] = []
+
+  params.messages.forEach((message) => {
+    const block = getGenerationCopilotEditBlock(message)
+    if (!block || block.documentId !== params.document.id) {
+      return
+    }
+
+    const pendingSectionKeys = getPendingGenerationCopilotSectionKeys(block)
+    pendingSectionKeys.forEach((sectionKey) => {
+      const proposedDocument = applyOFPlanningEditCommands(
+        { sections: { ...params.document.sections } },
+        filterPlanningCommandsBySectionKey(block.commands, sectionKey),
+        { sourceDocument }
+      )
+      const definition = OF_PLANNING_SECTION_DEFINITIONS.find((item) => item.key === sectionKey)
+      reviews.push({
+        messageId: message.id,
+        sectionKey,
+        sectionTitle: definition?.title || sectionKey,
+        currentContent: params.document.sections[sectionKey] || '',
+        proposedContent: proposedDocument.sections[sectionKey] || ''
+      })
+    })
+  })
+
+  return reviews
+}
+
+export function buildPlanningReviewState(params: {
+  document: GenerationPlanningDocument
+  messages: GenerationMessage[]
+}): GeneratePlanningReviewState {
+  const reviewEntry = getLatestGenerationPlanningReviewEntry(params.messages, params.document.id)
+
+  if (!reviewEntry) {
+    return {
+      reviewEntry: null,
+      displayDocument: params.document,
+      diffSourceMarkdown: params.document.sourceMarkdown,
+      diffCurrentMarkdown: params.document.content,
+      isPendingReview: false,
+      isSourceEditable: true,
+      reviewErrorMessage: null
+    }
+  }
+
+  if (reviewEntry.block.status !== 'pending') {
+    return {
+      reviewEntry,
+      displayDocument: params.document,
+      diffSourceMarkdown: params.document.sourceMarkdown,
+      diffCurrentMarkdown: params.document.content,
+      isPendingReview: false,
+      isSourceEditable: true,
+      reviewErrorMessage:
+        reviewEntry.block.status === 'failed' ? reviewEntry.block.errorMessage || null : null
+    }
+  }
+
+  // pending 阶段先在前端本地预演 proposed draft，文档区据此展示 preview/source/diff，
+  // 这样用户看到的是“待接受版本”，而不是已保存的当前版本。
+  const sourceDocument = parseOFPlanningMarkdown(params.document.sourceMarkdown).document
+  const nextSharedDocument = applyOFPlanningEditCommands(
+    { sections: { ...params.document.sections } },
+    reviewEntry.block.commands,
+    { sourceDocument }
+  )
+  const proposedMarkdown = buildOFPlanningMarkdown(nextSharedDocument)
+  const proposedDocument: GenerationPlanningDocument = {
+    ...params.document,
+    sections: nextSharedDocument.sections,
+    content: proposedMarkdown
+  }
+
+  return {
+    reviewEntry,
+    displayDocument: proposedDocument,
+    diffSourceMarkdown: params.document.content,
+    diffCurrentMarkdown: proposedDocument.content,
+    isPendingReview: true,
+    isSourceEditable: false,
+    reviewErrorMessage: null
+  }
 }
 
 export function normalizePlanningBlock(
@@ -299,6 +457,40 @@ export function buildPlanningDiffLines(params: {
   return diffLines
 }
 
+export function buildPlanningDiffRows(params: {
+  sourceMarkdown: string
+  currentMarkdown: string
+}): GeneratePlanningDiffRow[] {
+  const sourceLines = params.sourceMarkdown.split('\n')
+  const currentLines = params.currentMarkdown.split('\n')
+  const maxLines = Math.max(sourceLines.length, currentLines.length)
+  const rows: GeneratePlanningDiffRow[] = []
+
+  for (let index = 0; index < maxLines; index += 1) {
+    const sourceLine = sourceLines[index] ?? ''
+    const currentLine = currentLines[index] ?? ''
+
+    if (sourceLine === currentLine) {
+      rows.push({
+        beforeText: sourceLine,
+        afterText: currentLine,
+        beforeType: sourceLine ? 'unchanged' : 'empty',
+        afterType: currentLine ? 'unchanged' : 'empty'
+      })
+      continue
+    }
+
+    rows.push({
+      beforeText: sourceLine,
+      afterText: currentLine,
+      beforeType: sourceLine ? 'removed' : 'empty',
+      afterType: currentLine ? 'added' : 'empty'
+    })
+  }
+
+  return rows
+}
+
 export function formatPlanningValidationErrors(errors: OFPlanningValidationError[]): string {
   return errors.map((error) => error.message).join('；')
 }
@@ -332,4 +524,11 @@ function toMarkdownList(items: string[]): string[] {
     return ['- 暂无']
   }
   return items.map((item) => `- ${item}`)
+}
+
+function filterPlanningCommandsBySectionKey(
+  commands: OFPlanningEditCommand[],
+  sectionKey: OFPlanningSectionKey
+): OFPlanningEditCommand[] {
+  return commands.filter((command) => 'sectionKey' in command && command.sectionKey === sectionKey)
 }

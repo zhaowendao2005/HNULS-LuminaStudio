@@ -1,5 +1,6 @@
 import { computed, ref } from 'vue'
 import { defineStore, storeToRefs } from 'pinia'
+import type { OFPlanningSectionKey } from '@shared/Orchestraflow-types'
 import {
   OrchestflowGenerationEditorDataSource,
   resolveMenuByStage
@@ -576,21 +577,29 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       }
     }
 
-    async function applyPlanningCommandProposal(messageId: string): Promise<void> {
+    async function applyPlanningCommandProposal(payload: {
+      messageId: string
+      sectionKeys?: OFPlanningSectionKey[]
+    }): Promise<void> {
       if (!currentSession.value) return
       const saved = await OrchestflowGenerationEditorDataSource.applyPlanningCommandProposal({
         sessionId: currentSession.value.id,
-        messageId
+        messageId: payload.messageId,
+        sectionKeys: payload.sectionKeys
       })
       currentSession.value.planningDocuments[saved.id] = saved
       await refreshSessionDetail(currentSession.value.id)
     }
 
-    async function rejectPlanningCommandProposal(messageId: string): Promise<void> {
+    async function rejectPlanningCommandProposal(payload: {
+      messageId: string
+      sectionKeys?: OFPlanningSectionKey[]
+    }): Promise<void> {
       if (!currentSession.value) return
       await OrchestflowGenerationEditorDataSource.rejectPlanningCommandProposal({
         sessionId: currentSession.value.id,
-        messageId
+        messageId: payload.messageId,
+        sectionKeys: payload.sectionKeys
       })
       await refreshSessionDetail(currentSession.value.id)
     }

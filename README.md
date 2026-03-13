@@ -1,244 +1,159 @@
-# HNULS Knowledge Database
+# HNULS-LuminaStudio
 
-一个基于 Electron + Vue 3 + TypeScript 的现代化知识库管理系统，使用 SurrealDB 作为底层数据库，提供文档管理、知识图谱、RAG（检索增强生成）等功能。
+HNULS LabHub 的桌面端 AI 工作台仓库。
 
-## ✨ 特性
+这个仓库的真正应用工程位于 [`LuminaStudio/`](./LuminaStudio)。根目录 `README.md` 主要负责说明仓库入口、项目分层和常用开发命令，避免第一次进入仓库时看错旧目录或旧技术栈。
 
-- 📚 **知识库管理** - 创建、组织和管理多个知识库
-- 📄 **文档管理** - 支持多种视图模式（卡片、列表、树形）
-- 🗺️ **知识图谱** - 可视化文档之间的关系
-- 🤖 **RAG 功能** - 检索增强生成，智能问答
-- 🎨 **现代化 UI** - 基于 Tailwind CSS 的美观界面
-- 🔍 **全文搜索** - 快速检索知识库内容
-- 📊 **数据统计** - 文档数量、分块统计等
-- 🔐 **类型安全** - 完整的 TypeScript 支持
-- 📝 **操作日志** - 完整的数据库操作审计
+## 仓库结构
 
-## 🛠️ 技术栈
+```text
+HNULS-LuminaStudio/
+├── LuminaStudio/        # Electron + Vue + TypeScript 主应用
+├── _Documents/          # 项目文档、规范、参考资料
+├── .agents/skills/      # 给 AI / Agent 使用的项目技能说明
+├── AGENTS.md            # 本仓库协作规则与工程约束
+└── README.md            # 当前文件，仓库级导航入口
+```
 
-### 前端
-- **框架**: Vue 3 (Composition API)
-- **状态管理**: Pinia
-- **样式**: Tailwind CSS 4.x
-- **构建工具**: Vite + Electron Vite
-- **类型检查**: TypeScript + Vue TSC
+## 项目概况
 
-### 后端
-- **运行时**: Electron
-- **数据库**: SurrealDB
-- **日志**: electron-log
-- **IPC 通信**: Electron IPC
+`LuminaStudio` 是一个基于 Electron 的桌面应用，当前核心方向包括：
 
-### 开发工具
-- **包管理**: pnpm
-- **代码规范**: ESLint + Prettier
-- **构建**: electron-builder
+- AI 对话与流式消息渲染
+- OrchestraFlow 工作流定义、编辑与运行
+- 模型配置、重排模型、用户设置等本地配置管理
+- 基于 `better-sqlite3` 的本地数据存储
+- 通过 preload + IPC + main service + utility process 组织跨进程能力
+- 集成 MCP、LangChain、Vercel AI SDK 等 AI 能力基础设施
 
-## 📋 系统要求
+## 当前技术栈
 
-- **Node.js**: >= 18.0.0
-- **pnpm**: >= 8.0.0
-- **操作系统**: Windows 10+, macOS 10.15+, Linux
+### 前端 / 渲染进程
 
-## 🚀 快速开始
+- Vue 3
+- Pinia
+- Tailwind CSS 4
+- Vue Flow
+- TypeScript
 
-### 安装依赖
+### Electron 分层
+
+- `src/renderer/`: 页面、组件、stores、少量 composables / service
+- `src/preload/`: 跨进程类型、API 封装、bridge 暴露
+- `src/main/`: IPC handler、主进程 service、数据库与桥接服务
+- `src/utility/`: 独立 Node 子进程，承载 LangChain / OrchestraFlow 等长流程逻辑
+- `src/Public/`: 跨层共享类型与公共契约
+
+### 关键依赖
+
+- Electron
+- electron-vite
+- better-sqlite3
+- ai / openai / `@ai-sdk/openai-compatible`
+- langchain / `@langchain/core` / `@langchain/openai`
+- `@modelcontextprotocol/sdk`
+
+## 先看哪里
+
+如果你是第一次进入这个仓库，建议按这个顺序阅读：
+
+1. [`AGENTS.md`](./AGENTS.md)
+2. [`LuminaStudio/README.md`](./LuminaStudio/README.md)
+3. [`LuminaStudio/src/main/README.md`](./LuminaStudio/src/main/README.md)
+4. [`LuminaStudio/src/preload/README.md`](./LuminaStudio/src/preload/README.md)
+5. [`LuminaStudio/src/renderer/README.md`](./LuminaStudio/src/renderer/README.md)
+
+如果任务和 OrchestraFlow 有关，再继续看：
+
+- `LuminaStudio/src/Public/ShareTypes/Orchestraflow-types/`
+- `LuminaStudio/src/utility/orchestraflow/`
+- `LuminaStudio/src/renderer/src/stores/orchestraflow/`
+
+## 快速开始
+
+### 1. 进入应用目录
+
+```bash
+cd LuminaStudio
+```
+
+### 2. 安装依赖
 
 ```bash
 pnpm install
 ```
 
-### 开发模式
+### 3. 启动开发环境
 
 ```bash
-# 默认模式（info 日志级别）
 pnpm dev
+```
 
-# Debug 模式（详细日志）
+常用日志级别命令：
+
+```bash
+pnpm dev:info
 pnpm dev:debug
-
-# Trace 模式（最详细日志）
-pnpm dev:trace
-
-# Warn 模式（仅警告和错误）
+pnpm dev:verbose
+pnpm dev:silly
 pnpm dev:warn
+pnpm dev:error
 ```
 
-### 构建应用
+### 4. 构建应用
 
 ```bash
-# Windows
 pnpm build:win
-
-# macOS
 pnpm build:mac
-
-# Linux
 pnpm build:linux
-
-# 仅构建不打包
-pnpm build:unpack
 ```
 
-## 📁 项目结构
+## 常用检查命令
 
-```
-KnowledgeDatabase-src/
-├── src/
-│   ├── main/              # Electron 主进程
-│   │   ├── index.ts      # 应用入口
-│   │   ├── ipc/          # IPC 处理器
-│   │   └── services/     # 业务服务
-│   │       ├── surrealdb-service/    # SurrealDB 服务
-│   │       ├── knowledgeBase-library/ # 知识库元数据服务
-│   │       └── logger/               # 日志服务
-│   ├── preload/          # 预加载脚本
-│   │   ├── api/          # API 定义
-│   │   └── bridge/       # IPC 桥接
-│   └── renderer/         # Vue 渲染进程
-│       └── src/
-│           ├── views/    # 页面视图
-│           ├── components/ # 组件
-│           ├── stores/   # Pinia 状态管理
-│           └── service/  # 前端服务层
-├── vendor/               # 第三方资源
-│   └── surrealdb/        # SurrealDB 可执行文件
-├── dist/                 # 构建输出
-└── out/                  # 编译输出
-```
-
-## 🎯 核心功能
-
-### 知识库管理
-
-- 创建、编辑、删除知识库
-- 自定义知识库颜色和图标
-- 文档和分块统计
-- 元数据管理
-
-### 文档视图
-
-- **卡片视图**: 可视化文档卡片展示
-- **列表视图**: 紧凑的列表展示
-- **树形视图**: 层级结构展示
-
-### 数据库操作
-
-项目集成了 SurrealDB SDK，提供类型安全的数据库操作：
-
-```typescript
-// 创建文档
-await window.api.invoke('database:createdocument', {
-  title: '测试文档',
-  content: '文档内容',
-  tags: ['测试', '示例']
-})
-
-// 查询文档
-const documents = await window.api.invoke('database:getdocuments')
-
-// 执行自定义查询
-const result = await window.api.invoke(
-  'database:query',
-  'SELECT * FROM document WHERE tags CONTAINS $tag',
-  { tag: '测试' }
-)
-```
-
-更多示例请参考 [`_Docs/USAGE_EXAMPLE.md`](./_Docs/USAGE_EXAMPLE.md)
-
-### 日志系统
-
-项目提供完整的日志记录功能：
-
-- **应用日志**: 记录应用运行状态
-- **数据库日志**: 记录所有数据库操作
-- **日志级别**: error, warn, info, debug, trace
-
-日志文件位置：
-- Windows: `%APPDATA%\knowledgedatabase-src\logs\main.log`
-- macOS: `~/Library/Logs/knowledgedatabase-src/main.log`
-- Linux: `~/.config/knowledgedatabase-src/logs/main.log`
-
-详细配置请参考 [`_Docs/LOG_LEVELS.md`](./_Docs/LOG_LEVELS.md)
-
-## 🔧 开发指南
-
-### 代码规范
+在 `LuminaStudio/` 目录执行：
 
 ```bash
-# 代码格式化
-pnpm format
-
-# 代码检查
 pnpm lint
-
-# 类型检查
 pnpm typecheck
 ```
 
-### 推荐 IDE 配置
+如果改动涉及 OrchestraFlow，优先补跑：
 
-- [VSCode](https://code.visualstudio.com/)
-- [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint)
-- [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode)
-- [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar)
+```bash
+pnpm lint:orchestraflow
+pnpm test:orchestraflow
+pnpm exec tsc -p tsconfig.json --noEmit
+```
 
-### 服务层架构
+## 代码组织约定
 
-项目采用服务层架构设计：
+仓库里最重要的几条约定如下：
 
-- **单一职责**: 每个服务只负责一个业务域
-- **依赖注入**: 服务间通过构造函数注入依赖
-- **异步优先**: 所有 I/O 操作使用 async/await
-- **错误处理**: 统一的错误处理和日志记录
+- 渲染层状态以 Pinia store 作为单一事实来源
+- 跨进程类型以 `src/preload/types/` 为唯一权威来源
+- preload API 只做参数校验、类型转换和 IPC 调用，不承载复杂业务逻辑
+- main process 的 handler 尽量只做透传，实际业务逻辑放在 `services/`
+- OrchestraFlow 的共享契约以 `src/Public/ShareTypes/Orchestraflow-types/` 为单一事实来源
+- 修改完成后，需要处理自己引入的 lint 和 typecheck 问题
 
-## 📊 数据库配置
+## 适合在根目录完成的事
 
-### SurrealDB 连接信息
+根目录更适合做这些事情：
 
-- **Endpoint**: `http://127.0.0.1:8000`
-- **Namespace**: `knowledge`
-- **Database**: `main`
-- **Authentication**: Root (开发环境)
+- 阅读仓库级规范和协作文档
+- 定位主应用在哪个子目录
+- 查找项目文档、AI skills、工程规则
+- 给新同学或新 agent 提供统一入口
 
-### 使用 Surrealist 查看数据
+如果你要实际开发应用功能，通常应该进入 [`LuminaStudio/`](./LuminaStudio) 再开始。
 
-1. 下载 [Surrealist](https://github.com/StarlaneStudios/surrealdb.studio)
-2. 连接到 `http://127.0.0.1:8000`
-3. 使用 Root 认证（用户名: `root`, 密码: `root`）
-4. 选择 Namespace: `knowledge`, Database: `main`
+## 相关文档
 
-## 🐛 故障排查
+- [`AGENTS.md`](./AGENTS.md)
+- [`LuminaStudio/README.md`](./LuminaStudio/README.md)
+- [`LuminaStudio/package.json`](./LuminaStudio/package.json)
+- [`_Documents/`](./_Documents)
 
-### SurrealDB 服务未启动
+## 说明
 
-检查端口 8000 是否被占用，查看日志文件获取详细错误信息。
-
-### 数据库连接失败
-
-1. 确认 SurrealDB 服务正在运行
-2. 检查防火墙设置
-3. 查看应用日志文件
-
-### 类型错误
-
-1. 运行 `pnpm typecheck` 检查类型
-2. 重启 TypeScript 服务器
-3. 确认所有依赖已正确安装
-
-## 📝 许可证
-
-本项目采用 MIT 许可证。
-
-## 👥 贡献
-
-欢迎提交 Issue 和 Pull Request！
-
-## 📞 联系方式
-
-如有问题或建议，请通过 Issue 联系我们。
-
----
-
-**HNULS LabHub** - 知识库管理系统
+旧版根 README 中曾包含 SurrealDB、旧目录名和早期知识库项目描述。当前仓库已经演进为以 `LuminaStudio/` 为核心的 Electron + Vue + SQLite + AI 工作台工程，后续应以当前文档和子目录源码为准。

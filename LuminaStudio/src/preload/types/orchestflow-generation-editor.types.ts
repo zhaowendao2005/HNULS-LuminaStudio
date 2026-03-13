@@ -22,6 +22,7 @@ export type GenerationAnalysisAgentMode = 'continue' | 'planning'
 export type GenerationAnalysisPlanningStatus = 'draft' | 'ready'
 export type GenerationPlanningStreamSectionKey = OFPlanningSectionKey
 export type GenerationCopilotEditStatus = 'noop' | 'pending' | 'applied' | 'rejected' | 'failed'
+export type GenerationCopilotSectionDecision = 'pending' | 'applied' | 'rejected'
 
 export interface GenerationStageConfig {
   stageKey: GenerationStageKey
@@ -89,6 +90,7 @@ export interface GenerationCopilotEditBlockPayload {
   commands: OFPlanningEditCommand[]
   status: GenerationCopilotEditStatus
   affectedSectionKeys: OFPlanningSectionKey[]
+  sectionDecisionByKey?: Partial<Record<OFPlanningSectionKey, GenerationCopilotSectionDecision>>
   errorMessage?: string | null
 }
 
@@ -179,11 +181,13 @@ export interface GenerationCreatePlanningDocumentFromMessageRequest {
 export interface GenerationApplyPlanningCommandProposalRequest {
   sessionId: string
   messageId: string
+  sectionKeys?: OFPlanningSectionKey[]
 }
 
 export interface GenerationRejectPlanningCommandProposalRequest {
   sessionId: string
   messageId: string
+  sectionKeys?: OFPlanningSectionKey[]
 }
 
 export interface GenerationListMessagesRequest {

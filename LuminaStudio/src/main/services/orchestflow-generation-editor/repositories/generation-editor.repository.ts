@@ -5,7 +5,9 @@ import {
   buildOFPlanningMarkdown,
   createEmptyOFPlanningDocument,
   parseOFPlanningMarkdown,
-  type OFPlanningDocument
+  type OFPlanningDocument,
+  type OFPlanningEditCommand,
+  type OFPlanningSectionKey
 } from '@shared/Orchestraflow-types'
 import type {
   GenerationApplyPlanningCommandProposalRequest,
@@ -462,11 +464,13 @@ export class GenerationEditorRepository {
       throw new Error('Planning proposal meta missing')
     }
 
+    const targetSectionKeys = resolveTargetPlanningSectionKeys(editBlock, request.sectionKeys)
     const currentDocument = this.getPlanningDocumentById(editBlock.documentId)
     const sourceDocument = parseOFPlanningMarkdown(currentDocument.sourceMarkdown).document
+    const nextCommands = filterPlanningCommandsBySectionKeys(editBlock.commands, targetSectionKeys)
     const nextSharedDocument = applyOFPlanningEditCommands(
       { sections: { ...currentDocument.sections } },
-      editBlock.commands,
+      nextCommands,
       {
         sourceDocument
       }
@@ -484,7 +488,10 @@ export class GenerationEditorRepository {
 
     meta.copilotEditBlock = {
       ...editBlock,
-      status: 'applied',
+      status: resolvePlanningReviewStatus(
+        updateSectionDecisionByKey(editBlock, targetSectionKeys, 'applied')
+      ),
+      sectionDecisionByKey: updateSectionDecisionByKey(editBlock, targetSectionKeys, 'applied'),
       errorMessage: null
     }
     this.updateMessageMeta(request.messageId, JSON.stringify(meta))
@@ -501,9 +508,20 @@ export class GenerationEditorRepository {
 
     const meta = parseMessageMeta(message.meta_json)
     if (meta.copilotEditBlock) {
+      const targetSectionKeys = resolveTargetPlanningSectionKeys(
+        meta.copilotEditBlock,
+        request.sectionKeys
+      )
       meta.copilotEditBlock = {
         ...meta.copilotEditBlock,
-        status: 'rejected',
+        status: resolvePlanningReviewStatus(
+          updateSectionDecisionByKey(meta.copilotEditBlock, targetSectionKeys, 'rejected')
+        ),
+        sectionDecisionByKey: updateSectionDecisionByKey(
+          meta.copilotEditBlock,
+          targetSectionKeys,
+          'rejected'
+        ),
         errorMessage: null
       }
       this.updateMessageMeta(request.messageId, JSON.stringify(meta))
@@ -648,6 +666,75 @@ function parseMessageMeta(metaJson: string | null): GenerationMessageMetaPayload
   } catch {
     return {}
   }
+}
+
+function resolveTargetPlanningSectionKeys(
+  editBlock: NonNullable<GenerationMessageMetaPayload['copilotEditBlock']>,
+  sectionKeys?: OFPlanningSectionKey[]
+): OFPlanningSectionKey[] {
+  const pendingSectionKeys = editBlock.affectedSectionKeys.filter((sectionKey) => {
+    return (editBlock.sectionDecisionByKey?.[sectionKey] || 'pending') === 'pending'
+  })
+
+  if (!sectionKeys?.length) {
+    return pendingSectionKeys
+  }
+
+  return sectionKeys.filter((sectionKey) => pendingSectionKeys.includes(sectionKey))
+}
+
+function filterPlanningCommandsBySectionKeys(
+  commands: OFPlanningEditCommand[],
+  sectionKeys: OFPlanningSectionKey[]
+): OFPlanningEditCommand[] {
+  if (!sectionKeys.length) {
+    return []
+  }
+
+  return commands.filter((command) => {
+    if ('sectionKey' in command) {
+      return sectionKeys.includes(command.sectionKey)
+    }
+    if (command.type === 'noop') {
+      return false
+    }
+    throw new Error('仅 section 级 planning 命令支持单独接受/取消')
+  })
+}
+
+function updateSectionDecisionByKey(
+  editBlock: NonNullable<GenerationMessageMetaPayload['copilotEditBlock']>,
+  sectionKeys: OFPlanningSectionKey[],
+  nextDecision: 'applied' | 'rejected'
+): Partial<Record<OFPlanningSectionKey, 'pending' | 'applied' | 'rejected'>> {
+  const nextMap: Partial<Record<OFPlanningSectionKey, 'pending' | 'applied' | 'rejected'>> = {
+    ...editBlock.sectionDecisionByKey
+  }
+
+  editBlock.affectedSectionKeys.forEach((sectionKey) => {
+    if (!nextMap[sectionKey]) {
+      nextMap[sectionKey] = 'pending'
+    }
+  })
+
+  sectionKeys.forEach((sectionKey) => {
+    nextMap[sectionKey] = nextDecision
+  })
+
+  return nextMap
+}
+
+function resolvePlanningReviewStatus(
+  sectionDecisionByKey: Partial<Record<OFPlanningSectionKey, 'pending' | 'applied' | 'rejected'>>
+): 'pending' | 'applied' | 'rejected' {
+  const decisions = Object.values(sectionDecisionByKey)
+  if (decisions.some((decision) => decision === 'pending')) {
+    return 'pending'
+  }
+  if (decisions.some((decision) => decision === 'applied')) {
+    return 'applied'
+  }
+  return 'rejected'
 }
 
 function extractPlanningDocumentSource(message: GenerationMessageRow): {

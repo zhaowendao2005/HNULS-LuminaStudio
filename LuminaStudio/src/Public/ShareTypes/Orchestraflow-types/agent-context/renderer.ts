@@ -85,6 +85,8 @@ function renderPlanningEditContext(pack: OFAgentContextPack): string {
     (pack.payload.planning_framework as Array<Record<string, unknown>>) || []
   const currentDocument = String(pack.payload.planning_document || '')
   const sourceDocument = String(pack.payload.source_planning_document || '')
+  const exampleSectionKey =
+    planningFramework.length > 0 ? String(planningFramework[0].key) : 'analysis-summary'
 
   return [
     '## Planning Framework',
@@ -94,6 +96,23 @@ function renderPlanningEditContext(pack: OFAgentContextPack): string {
     ...planningFramework.map((item) => {
       return `- ${String(item.key)} => ${String(item.rootTitle)} / ${String(item.title)}`
     }),
+    '',
+    '## Canonical DSL Example',
+    '- 下面这个格式是可直接抄写的权威文本 DSL，不要改成 YAML / JSON / section-key: / new-content: |',
+    '<LUMINA_PLANNING_COMMANDS>',
+    'DOC <document-id>',
+    'MODE APPLY',
+    `REPLACE_SECTION ${exampleSectionKey}`,
+    '<CONTENT>',
+    '- 在这里写该 section 的新正文。',
+    '</CONTENT>',
+    '</LUMINA_PLANNING_COMMANDS>',
+    '',
+    '## Canonical NOOP Example',
+    '<LUMINA_PLANNING_COMMANDS>',
+    'MODE NOOP',
+    'NOOP',
+    '</LUMINA_PLANNING_COMMANDS>',
     '',
     '## Current Planning Document',
     currentDocument || '(empty)',

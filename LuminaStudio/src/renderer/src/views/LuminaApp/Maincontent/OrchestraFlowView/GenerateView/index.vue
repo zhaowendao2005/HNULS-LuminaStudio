@@ -134,8 +134,8 @@
             @update:copilot-input="generationStore.copilotInput = $event"
             @send-copilot-message="generationStore.sendCopilotMessage()"
             @save-document="generationStore.saveActivePlanningDocumentContent($event)"
-            @apply-proposal="generationStore.applyPlanningCommandProposal($event)"
-            @reject-proposal="generationStore.rejectPlanningCommandProposal($event)"
+            @apply-review="generationStore.applyPlanningCommandProposal($event)"
+            @reject-review="generationStore.rejectPlanningCommandProposal($event)"
           />
 
           <GeneratePlanDesignPanel
