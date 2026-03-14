@@ -88,7 +88,13 @@ function createWorkflow(): OFWorkflow {
           {
             variable: 'items',
             type: 'array',
-            default: ['alpha', 'beta', 'gamma']
+            schema: {
+              type: 'array',
+              items: {
+                type: 'string'
+              },
+              default: ['alpha', 'beta', 'gamma']
+            }
           }
         ]
       }
@@ -221,7 +227,10 @@ function createLoopWorkflow(): OFWorkflow {
           {
             variable: 'seed',
             type: 'number',
-            default: 1
+            schema: {
+              type: 'number',
+              default: 1
+            }
           }
         ]
       }
@@ -323,10 +332,23 @@ function createVariableAssignDebugWorkflow(): OFWorkflow {
           {
             variable: 'profile',
             type: 'object',
-            default: {
-              stats: {
-                score: 12
-              }
+            schema: {
+              type: 'object',
+              properties: {
+                stats: {
+                  type: 'object',
+                  properties: {
+                    score: {
+                      type: 'number',
+                      default: 12
+                    }
+                  },
+                  required: ['score'],
+                  additionalProperties: false
+                }
+              },
+              required: ['stats'],
+              additionalProperties: false
             }
           }
         ]

@@ -24,6 +24,7 @@ import {
   OFVarType,
   OF_LOOP_COUNT_VARIABLE_NAME,
   OF_LOOP_INDEX_VARIABLE_NAME,
+  getOFVarTypeFromSchema,
   getOFEdgeSourcePortId,
   getOFPathFromRef,
   getOFSelectorFromRef,
@@ -70,25 +71,10 @@ function getReachableNodeIds(startNodeId: string, edges: OFEdge[]): Set<string> 
   return reachable
 }
 
-function getSchemaNodeType(schema: OFJsonSchemaProperty): OFVarType {
-  switch (schema.type) {
-    case 'boolean':
-      return OFVarType.Boolean
-    case 'number':
-      return OFVarType.Number
-    case 'object':
-      return OFVarType.Object
-    case 'string':
-    default:
-      return OFVarType.String
-  }
-}
-
-function toStructuredSchema(
+function toVariableSchema(
   schema: OFJsonSchemaProperty | null | undefined
 ): OFAvailableVariable['schema'] {
-  if (!schema) return null
-  return schema.type === 'object' ? schema : null
+  return schema || null
 }
 
 function buildSchemaChildren(
@@ -111,8 +97,8 @@ function buildSchemaChildren(
         nodeType: base.nodeType,
         nodeTitle: base.nodeTitle,
         valueSelector: fieldSelector,
-        type: getSchemaNodeType(fieldSchema),
-        schema: toStructuredSchema(fieldSchema),
+        type: getOFVarTypeFromSchema(fieldSchema),
+        schema: toVariableSchema(fieldSchema),
         selectable: true,
         expandable: children.length > 0,
         children
@@ -199,7 +185,7 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
         type: variable.type,
         schema: variable.schema,
         selectable: true,
-        expandable: Boolean(variable.type === OFVarType.Object && variable.schema),
+        expandable: Boolean(variable.schema?.type === 'object'),
         children: []
       }
       const schema = variable.schema || null
@@ -251,21 +237,30 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
     if (!loopNode || loopNode.data.type !== OFBlockEnum.Loop) return null
 
     const data = loopNode.data as OFLoopNodeData
-    const items: OFAvailableVariable[] = (data.loop_variables || []).map((item) => ({
-      id: `loop:${loopNodeId}:${item.variable}`,
-      variable: item.variable,
-      path: item.variable,
-      label: item.label || item.variable,
-      nodeId: loopNodeId,
-      nodeType: OFBlockEnum.Loop,
-      nodeTitle: 'LOOP',
-      valueSelector: [item.variable],
-      type: item.type || OFVarType.String,
-      schema: item.schema || null,
-      selectable: true,
-      expandable: false,
-      children: []
-    }))
+    const items: OFAvailableVariable[] = (data.loop_variables || []).map((item) => {
+      const base: OFAvailableVariable = {
+        id: `loop:${loopNodeId}:${item.variable}`,
+        variable: item.variable,
+        path: item.variable,
+        label: item.label || item.variable,
+        nodeId: loopNodeId,
+        nodeType: OFBlockEnum.Loop,
+        nodeTitle: 'LOOP',
+        valueSelector: [item.variable],
+        type: item.type || OFVarType.String,
+        schema: item.schema || null,
+        selectable: true,
+        expandable: Boolean(item.schema?.type === 'object'),
+        children: []
+      }
+
+      const children = buildSchemaChildren(base, item.schema || null, [item.variable])
+      return {
+        ...base,
+        children,
+        expandable: children.length > 0
+      }
+    })
 
     items.push(
       {

@@ -189,11 +189,15 @@
                 <span v-if="field.required" class="of-declare-required">必填</span>
                 <template
                   v-if="
-                    field.default !== undefined && field.default !== null && field.default !== ''
+                    getVariableDefaultValue(field) !== undefined &&
+                    getVariableDefaultValue(field) !== null &&
+                    getVariableDefaultValue(field) !== ''
                   "
                 >
                   <span>，默认值为</span>
-                  <span class="of-declare-default">{{ formatDefaultValue(field.default) }}</span>
+                  <span class="of-declare-default">
+                    {{ formatDefaultValue(getVariableDefaultValue(field)) }}
+                  </span>
                 </template>
                 <span>。</span>
               </div>
@@ -298,7 +302,12 @@ import CapsuleTooltip from '../components/CapsuleTooltip.vue'
 import { useWorkflowEditorUIStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor-ui.store'
 import { useWorkflowEditorStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor.store'
 import { useNodeDebugStore } from '@renderer/stores/orchestraflow/node-debug/node-debug.store'
-import { OFVarType, type OFStartNodeData, type OFVariable } from '@shared/Orchestraflow-types'
+import {
+  OFVarType,
+  type OFJsonSchemaProperty,
+  type OFStartNodeData,
+  type OFVariable
+} from '@shared/Orchestraflow-types'
 import type { NodeDebugField } from '../NodeDebug/NodeDebugForm.vue'
 import { OF_PANEL_THEME } from '../panel-theme'
 
@@ -404,8 +413,7 @@ function handleFieldCreated(payload: {
     type: payload.type,
     required: payload.required,
     description: payload.description,
-    default: payload.defaultValue,
-    schema: payload.schema || null
+    schema: buildInputSchema(payload)
   }
   if (editingFieldIndex.value == null) {
     localInputs.value = [...localInputs.value, nextField]
@@ -433,6 +441,40 @@ function formatDefaultValue(value: unknown) {
     return JSON.stringify(value)
   } catch {
     return String(value)
+  }
+}
+
+// 开始节点输入的默认值已经统一收口到 schema 上，这里只从 schema 读取展示值。
+function getVariableDefaultValue(field: OFVariable): unknown {
+  return field.schema && 'default' in field.schema ? field.schema.default : undefined
+}
+
+function buildInputSchema(payload: {
+  type: OFVarType
+  defaultValue?: string | number | boolean | Record<string, any> | any[] | null
+  schema?: OFJsonSchemaProperty | null
+}): OFJsonSchemaProperty | null {
+  if (payload.type === OFVarType.Object) {
+    return payload.schema || null
+  }
+
+  if (payload.type === OFVarType.Array) {
+    return {
+      type: 'array',
+      items: {
+        type: 'string'
+      },
+      ...(payload.defaultValue !== undefined
+        ? { default: payload.defaultValue as any[] | null }
+        : {})
+    }
+  }
+
+  return {
+    type: payload.type as 'string' | 'number' | 'boolean',
+    ...(payload.defaultValue !== undefined
+      ? { default: payload.defaultValue as string | number | boolean | null }
+      : {})
   }
 }
 

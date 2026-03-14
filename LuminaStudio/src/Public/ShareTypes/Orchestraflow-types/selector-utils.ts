@@ -1,14 +1,12 @@
 import {
   OFBlockEnum,
-  type OFIfElseCase,
-  type OFIfElseCondition,
-  type OFJsonSchemaObject,
+  getOFVarTypeFromSchema,
   type OFLoopVariableData,
   type OFNode,
   type OFVariable,
   type OFIterationBranchOutputRef,
+  type OFJsonSchemaProperty,
   type OFSelectorRef,
-  type OFStructuredJsonSchema,
   type OFValueSource,
   type OFVariableRef,
   type OFVarType
@@ -30,12 +28,16 @@ function toLoopVariableList(value: unknown): OFLoopVariableData[] {
   return Array.isArray(value) ? (value as OFLoopVariableData[]) : []
 }
 
-function toConditionList(value: unknown): OFIfElseCondition[] {
-  return Array.isArray(value) ? (value as OFIfElseCondition[]) : []
+function toConditionList(value: unknown): MutableRecord[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is MutableRecord => toRecord(item) !== null)
+    : []
 }
 
-function toCaseList(value: unknown): OFIfElseCase[] {
-  return Array.isArray(value) ? (value as OFIfElseCase[]) : []
+function toCaseList(value: unknown): MutableRecord[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is MutableRecord => toRecord(item) !== null)
+    : []
 }
 
 function toNodeList(value: unknown): OFNode[] {
@@ -108,7 +110,6 @@ export function normalizeOFVariableRef(
     label?: unknown
     type?: unknown
     schema?: unknown
-    item_schema?: unknown
   },
   variableRoots: Iterable<string>
 ): OFVariableRef | undefined {
@@ -125,24 +126,36 @@ export function normalizeOFVariableRef(
         : typeof legacy.label === 'string'
           ? legacy.label
           : undefined,
-    type: (refRecord?.type ?? legacy.type) as OFVarType | undefined,
-    schema: resolveStructuredSchema(refRecord?.schema ?? legacy.schema),
-    item_schema: refRecord?.item_schema ?? legacy.item_schema ?? null
+    type: (refRecord?.type ??
+      legacy.type ??
+      getOFVarTypeFromSchema(resolveStructuredSchema(refRecord?.schema ?? legacy.schema))) as
+      | OFVarType
+      | undefined,
+    schema: resolveStructuredSchema(refRecord?.schema ?? legacy.schema)
   }
 }
 
-function resolveStructuredSchema(value: unknown): OFStructuredJsonSchema | null {
+function resolveStructuredSchema(value: unknown): OFJsonSchemaProperty | null {
   const record = toRecord(value)
-  if (
-    record &&
-    record.type === 'object' &&
-    typeof record.properties === 'object' &&
-    Array.isArray(record.required) &&
-    record.additionalProperties === false
-  ) {
-    return record as OFJsonSchemaObject
+  if (!record || typeof record.type !== 'string') {
+    return null
   }
-  return null
+
+  if (record.type === 'object') {
+    return typeof record.properties === 'object' &&
+      Array.isArray(record.required) &&
+      record.additionalProperties === false
+      ? (record as unknown as OFJsonSchemaProperty)
+      : null
+  }
+
+  if (record.type === 'array') {
+    return record.items ? (record as unknown as OFJsonSchemaProperty) : null
+  }
+
+  return ['string', 'number', 'boolean'].includes(record.type)
+    ? (record as unknown as OFJsonSchemaProperty)
+    : null
 }
 
 export function normalizeOFValueSource(
@@ -154,7 +167,6 @@ export function normalizeOFValueSource(
     label?: unknown
     type?: unknown
     schema?: unknown
-    item_schema?: unknown
     constant_value?: unknown
   },
   variableRoots: Iterable<string>
@@ -168,7 +180,14 @@ export function normalizeOFValueSource(
   if (mode === 'constant') {
     return {
       mode: 'constant',
-      constant_value: sourceRecord?.constant_value ?? legacy.constant_value
+      constant_value: (sourceRecord?.constant_value ?? legacy.constant_value) as
+        | string
+        | number
+        | boolean
+        | Record<string, unknown>
+        | unknown[]
+        | null
+        | undefined
     }
   }
 
@@ -179,8 +198,7 @@ export function normalizeOFValueSource(
       path: legacy.path,
       label: legacy.label,
       type: legacy.type,
-      schema: legacy.schema,
-      item_schema: legacy.item_schema
+      schema: legacy.schema
     },
     variableRoots
   )
@@ -445,11 +463,10 @@ export function normalizeOFRunnableNodeSelectorData(
           variable?.value_ref,
           {
             selector: variable?.value_selector,
-            path: variable?.value_path,
+            path: (variable as unknown as MutableRecord)?.value_path,
             label: variable?.label,
             type: variable?.type,
-            schema: variable?.schema,
-            item_schema: variable?.item_schema
+            schema: variable?.schema
           },
           variableRoots
         )
@@ -457,7 +474,7 @@ export function normalizeOFRunnableNodeSelectorData(
           variable.value_ref = valueRef
         }
         delete variable.value_selector
-        delete variable.value_path
+        delete (variable as unknown as MutableRecord).value_path
       }
       return
 
@@ -494,12 +511,13 @@ export function normalizeOFRunnableNodeSelectorData(
       )
       if (outputRef) data.output_ref = outputRef
 
-      data.branch_output_refs = (
-        Array.isArray(data.branch_output_refs)
-          ? data.branch_output_refs
-          : data.branch_output_selectors || []
-      )
-        .map((item: MutableRecord) => normalizeIterationBranchOutputRef(item, variableRoots))
+      const branchOutputItems = Array.isArray(data.branch_output_refs)
+        ? data.branch_output_refs
+        : Array.isArray(data.branch_output_selectors)
+          ? data.branch_output_selectors
+          : []
+      data.branch_output_refs = branchOutputItems
+        .map((item) => normalizeIterationBranchOutputRef(item as MutableRecord, variableRoots))
         .filter(Boolean)
 
       delete data.iterator_selector
@@ -510,7 +528,7 @@ export function normalizeOFRunnableNodeSelectorData(
         if (!child?.data || typeof child.data !== 'object') continue
         normalizeOFRunnableNodeSelectorData(
           child.data.type,
-          child.data as MutableRecord,
+          child.data as unknown as MutableRecord,
           variableRoots
         )
       }
@@ -525,8 +543,7 @@ export function normalizeOFRunnableNodeSelectorData(
             mode: variable?.value_type,
             selector: variable?.value_selector,
             constant_value: variable?.value,
-            schema: variable?.schema,
-            item_schema: variable?.item_schema
+            schema: variable?.schema
           },
           variableRoots
         )
@@ -534,7 +551,14 @@ export function normalizeOFRunnableNodeSelectorData(
           variable.value_source = valueSource
           variable.value_type = valueSource.mode
           if (valueSource.mode === 'constant') {
-            variable.value = valueSource.constant_value
+            variable.value = valueSource.constant_value as
+              | string
+              | number
+              | boolean
+              | Record<string, unknown>
+              | unknown[]
+              | null
+              | undefined
           }
         }
         delete variable.value_selector
@@ -548,14 +572,14 @@ export function normalizeOFRunnableNodeSelectorData(
         if (!child?.data || typeof child.data !== 'object') continue
         normalizeOFRunnableNodeSelectorData(
           child.data.type,
-          child.data as MutableRecord,
+          child.data as unknown as MutableRecord,
           variableRoots
         )
       }
       return
 
     case OFBlockEnum.VariableAssign:
-      for (const rule of Array.isArray(data.rules) ? data.rules : []) {
+      for (const rule of Array.isArray(data.rules) ? (data.rules as MutableRecord[]) : []) {
         const source = normalizeOFValueSource(
           rule?.source,
           {
@@ -565,7 +589,6 @@ export function normalizeOFRunnableNodeSelectorData(
             label: rule?.source_label,
             type: rule?.source_type,
             schema: rule?.schema,
-            item_schema: rule?.item_schema,
             constant_value: rule?.constant_value
           },
           variableRoots
@@ -574,7 +597,14 @@ export function normalizeOFRunnableNodeSelectorData(
           rule.source = source
           rule.source_mode = source.mode
           if (source.mode === 'constant') {
-            rule.constant_value = source.constant_value
+            rule.constant_value = source.constant_value as
+              | string
+              | number
+              | boolean
+              | Record<string, unknown>
+              | unknown[]
+              | null
+              | undefined
           } else {
             rule.source_type = source.ref.type
           }
@@ -591,11 +621,10 @@ export function normalizeOFRunnableNodeSelectorData(
           variable?.value_ref,
           {
             selector: variable?.value_selector,
-            path: variable?.value_path,
+            path: (variable as unknown as MutableRecord)?.value_path,
             label: variable?.label,
             type: variable?.type,
-            schema: variable?.schema,
-            item_schema: variable?.item_schema
+            schema: variable?.schema
           },
           variableRoots
         )
@@ -603,7 +632,7 @@ export function normalizeOFRunnableNodeSelectorData(
           variable.value_ref = valueRef
         }
         delete variable.value_selector
-        delete variable.value_path
+        delete (variable as unknown as MutableRecord).value_path
       }
       return
 

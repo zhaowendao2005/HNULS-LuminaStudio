@@ -4,6 +4,9 @@ import {
   findOFLegacyAuthoringNodeDefinition,
   OFBlockEnum,
   OFVarType,
+  getOFVarTypeFromSchema,
+  type OFAuthoringValuePayload,
+  type OFAuthoringVariableSpec,
   type OFBlueprintEdge,
   type OFBlueprintNode,
   type OFBlueprintTextCompileResult,
@@ -14,8 +17,7 @@ import {
   type OFBlueprintSectionDslAst,
   type OFBlueprintWorkflow,
   type OFJsonSchemaProperty,
-  type OFJsonSchemaObject,
-  type OFStructuredJsonSchema
+  type OFJsonSchemaObject
 } from '..'
 import { compileOFBlueprintToRunnable } from './compiler'
 import { validateOFBlueprint } from './validator'
@@ -23,7 +25,6 @@ import { validateOFBlueprint } from './validator'
 export const OF_BLUEPRINT_SECTION_DSL_HEADER = 'OFT/1'
 export const OF_BLUEPRINT_SECTION_DSL_SECTION_FORMS = [
   '[workflow]',
-  '[input.<name>]',
   '[node.<id>]',
   '[node.<container>.<child>]',
   '[subgraph.<container>]',
@@ -35,28 +36,28 @@ export const OF_BLUEPRINT_SECTION_DSL_RULES = [
   '数组必须写成单行 JSON 数组。',
   '边必须显式写成 `node.handle -> node.handle`。',
   'start/llm/if/loop/iter/set/end 使用节点专用字段，不再直接写深路径 `data.*`。',
-  '引用统一使用 @ref 语法，由编译器转换成 selector。',
+  '变量声明统一写成单行 JSON 对象数组；不再使用 input section 或 `name:type=value` 简写。',
+  '变量来源统一写成 `{"mode":"ref","ref":"@path"}` 或 `{"mode":"value","value":...}`。',
   '组合 object/array 中如需引用变量，必须把引用写成 JSON 字符串 `"@ref"`。'
 ] as const
 
-type ParsedValue = string | number | boolean | null | string[] | number[] | boolean[] | object
+type ParsedValue =
+  | string
+  | number
+  | boolean
+  | null
+  | string[]
+  | number[]
+  | boolean[]
+  | Record<string, unknown>
+  | unknown[]
 
 type SectionCompileContext = {
-  inputNames: Set<string>
   nodeIds: Set<string>
   variableRoots: Set<string>
 }
 
-type InputDefinition = {
-  name: string
-  type: string
-  desc?: string
-  defaultValue?: unknown
-  fields?: string[]
-}
-
 const WORKFLOW_ALLOWED_KEYS = new Set(['name', 'description', 'author'])
-const INPUT_ALLOWED_KEYS = new Set(['type', 'default', 'schema', 'fields', 'description'])
 const GRAPH_ALLOWED_KEYS = new Set(['edges'])
 const SUBGRAPH_ALLOWED_KEYS = new Set(['entry', 'edges'])
 const COMMON_NODE_ALLOWED_KEYS = new Set(['type', 'title', 'description'])
@@ -218,10 +219,9 @@ export function compileOFBlueprintSectionDslAst(
   }
 
   const workflow = compileWorkflowMeta(workflowSection, diagnostics)
-  const inputDefinitions = compileInputDefinitions(ast.sections, diagnostics)
+  validateSectionNames(ast.sections, diagnostics)
   const topNodeSections = ast.sections.filter((section) => isTopLevelNodeSection(section.name))
   const topNodeIds = new Set(topNodeSections.map((section) => extractTopLevelNodeId(section.name)))
-  const inputNames = new Set(inputDefinitions.map((item) => item.name))
 
   const nodes = topNodeSections
     .map((section) =>
@@ -229,11 +229,9 @@ export function compileOFBlueprintSectionDslAst(
         section,
         ast.sections,
         {
-          inputNames,
           nodeIds: topNodeIds,
-          variableRoots: inputNames
+          variableRoots: new Set()
         },
-        inputDefinitions,
         diagnostics
       )
     )
@@ -303,40 +301,36 @@ function compileWorkflowMeta(
   }
 }
 
-function compileInputDefinitions(
+function validateSectionNames(
   sections: OFBlueprintSectionAst[],
   diagnostics: OFBlueprintTextDiagnostic[]
-): InputDefinition[] {
-  return sections
-    .filter((section) => section.name.startsWith('input.'))
-    .map((section) => {
-      validateSectionKeys(section, INPUT_ALLOWED_KEYS, section.name, diagnostics)
-      const name = section.name.slice('input.'.length)
-      const type = getStringEntry(section, 'type') || ''
-      const desc = getStringEntry(section, 'description') || undefined
-      const defaultValue = getEntryValue(section, 'default')
-      const fields = getStringArrayEntry(section, 'fields')
+): void {
+  sections.forEach((section) => {
+    const valid =
+      section.name === 'workflow' ||
+      section.name === 'graph' ||
+      section.name.startsWith('node.') ||
+      section.name.startsWith('subgraph.')
 
-      if (!name || !type) {
-        diagnostics.push(
-          createDiagnostic({
-            code: 'invalid-input-section',
-            message: 'input section 必须包含变量名和 type。',
-            path: section.name,
-            ...section.location
-          })
-        )
-      }
+    if (valid) {
+      return
+    }
 
-      return { name, type, desc, defaultValue, fields }
-    })
+    diagnostics.push(
+      createDiagnostic({
+        code: 'unsupported-section',
+        message: `${section.name} 不是受支持的 OFT/1 section。变量声明必须直接写在 start / loop / set / end 节点字段里。`,
+        path: section.name,
+        ...section.location
+      })
+    )
+  })
 }
 
 function compileNodeSection(
   section: OFBlueprintSectionAst,
   allSections: OFBlueprintSectionAst[],
   context: SectionCompileContext,
-  inputDefinitions: InputDefinition[],
   diagnostics: OFBlueprintTextDiagnostic[]
 ): OFBlueprintNode | null {
   const nodePath = section.name.slice('node.'.length).split('.')
@@ -420,9 +414,12 @@ function compileNodeSection(
 
   switch (nodeType) {
     case OFBlockEnum.Start: {
-      const inputs = getStringArrayEntry(section, 'inputs')
       node.config.input = {
-        variables: buildStartVariables(inputs, inputDefinitions, diagnostics, section.location)
+        variables: buildStartVariables(
+          getVariableSpecArray(section, 'inputs', diagnostics, section.location),
+          diagnostics,
+          section.location
+        )
       }
       break
     }
@@ -447,7 +444,6 @@ function compileNodeSection(
       node.config.cases = buildIfCases(
         getArrayOfStrings(section, 'when'),
         {
-          inputNames: context.inputNames,
           nodeIds: childNodeIds.size ? childNodeIds : context.nodeIds,
           variableRoots: context.variableRoots
         },
@@ -462,7 +458,7 @@ function compileNodeSection(
     }
     case OFBlockEnum.VariableAssign: {
       node.config.rules = buildVariableAssignRules(
-        getArrayOfStrings(section, 'let'),
+        getVariableSpecArray(section, 'let', diagnostics, section.location),
         context,
         diagnostics,
         section.location
@@ -472,7 +468,7 @@ function compileNodeSection(
     case OFBlockEnum.End: {
       node.config.output = {
         variables: buildEndOutputs(
-          getArrayOfStrings(section, 'outputs'),
+          getVariableSpecArray(section, 'outputs', diagnostics, section.location),
           context,
           diagnostics,
           section.location
@@ -509,7 +505,7 @@ function compileNodeSection(
         node.config.loop_count = 1
       }
       const loopVars = buildLoopVariables(
-        getArrayOfStrings(section, 'vars'),
+        getVariableSpecArray(section, 'vars', diagnostics, section.location),
         context,
         diagnostics,
         section.location
@@ -529,7 +525,6 @@ function compileNodeSection(
       node.subgraph = buildSubgraph(
         childSections,
         subgraphSection,
-        inputDefinitions,
         diagnostics,
         new Set([
           ...context.variableRoots,
@@ -570,7 +565,6 @@ function compileNodeSection(
       node.subgraph = buildSubgraph(
         childSections,
         subgraphSection,
-        inputDefinitions,
         diagnostics,
         new Set([...context.variableRoots, 'item', 'index', 'length'])
       )
@@ -595,7 +589,6 @@ function compileNodeSection(
 function buildSubgraph(
   childSections: OFBlueprintSectionAst[],
   subgraphSection: OFBlueprintSectionAst | null,
-  inputDefinitions: InputDefinition[],
   diagnostics: OFBlueprintTextDiagnostic[],
   variableRoots: Set<string>
 ): OFBlueprintNode['subgraph'] {
@@ -609,11 +602,9 @@ function buildSubgraph(
         section,
         childSections,
         {
-          inputNames: new Set(inputDefinitions.map((item) => item.name)),
           nodeIds: childNodeIds,
           variableRoots
         },
-        inputDefinitions,
         diagnostics
       )
     )
@@ -680,76 +671,515 @@ function compileEdgeSpecs(
   })
 }
 
+function getVariableSpecArray(
+  section: OFBlueprintSectionAst | undefined | null,
+  key: string,
+  diagnostics: OFBlueprintTextDiagnostic[],
+  location: OFBlueprintTextLocation
+): OFAuthoringVariableSpec[] {
+  const value = getEntryValue(section, key)
+  if (value === undefined) {
+    return []
+  }
+  if (!Array.isArray(value)) {
+    diagnostics.push(
+      createDiagnostic({
+        code: 'invalid-variable-array',
+        message: `${key} 必须是单行 JSON 对象数组。`,
+        path: key,
+        ...location
+      })
+    )
+    return []
+  }
+
+  return value
+    .map((item, index) =>
+      parseAuthoringVariableSpec(item, `${key}[${index}]`, diagnostics, location)
+    )
+    .filter((item): item is OFAuthoringVariableSpec => Boolean(item))
+}
+
+function parseAuthoringVariableSpec(
+  value: unknown,
+  path: string,
+  diagnostics: OFBlueprintTextDiagnostic[],
+  location: OFBlueprintTextLocation
+): OFAuthoringVariableSpec | null {
+  if (!isPlainObject(value)) {
+    diagnostics.push(
+      createDiagnostic({
+        code: 'invalid-variable-spec',
+        message: `${path} 必须是对象。`,
+        path,
+        ...location
+      })
+    )
+    return null
+  }
+
+  const variable = typeof value.variable === 'string' ? value.variable.trim() : ''
+  if (!variable) {
+    diagnostics.push(
+      createDiagnostic({
+        code: 'missing-variable-name',
+        message: `${path}.variable 必须是非空字符串。`,
+        path: `${path}.variable`,
+        ...location
+      })
+    )
+    return null
+  }
+
+  // 明确拒绝旧的多入口字段，避免作者态继续出现多套语义。
+  ;['type', 'default', 'fields', 'item_type', 'item_schema'].forEach((legacyKey) => {
+    if (legacyKey in value) {
+      diagnostics.push(
+        createDiagnostic({
+          code: 'legacy-variable-key-not-supported',
+          message: `${path}.${legacyKey} 已废弃，变量声明只允许使用 schema。`,
+          path: `${path}.${legacyKey}`,
+          ...location
+        })
+      )
+    }
+  })
+
+  const schema = parseAuthoringSchemaNode(value.schema, `${path}.schema`, diagnostics, location)
+  if (!schema) {
+    return null
+  }
+
+  return {
+    variable,
+    label: typeof value.label === 'string' ? value.label.trim() || undefined : undefined,
+    description:
+      typeof value.description === 'string' ? value.description.trim() || undefined : undefined,
+    required: typeof value.required === 'boolean' ? value.required : undefined,
+    schema,
+    source: parseAuthoringVariableSource(value.source, `${path}.source`, diagnostics, location)
+  }
+}
+
+function parseAuthoringSchemaNode(
+  value: unknown,
+  path: string,
+  diagnostics: OFBlueprintTextDiagnostic[],
+  location: OFBlueprintTextLocation
+): OFJsonSchemaProperty | null {
+  if (!isPlainObject(value)) {
+    diagnostics.push(
+      createDiagnostic({
+        code: 'invalid-schema-node',
+        message: `${path} 必须是 schema 对象。`,
+        path,
+        ...location
+      })
+    )
+    return null
+  }
+
+  const type = typeof value.type === 'string' ? value.type.trim() : ''
+  const description = typeof value.description === 'string' ? value.description.trim() : undefined
+
+  switch (type) {
+    case 'string':
+    case 'number':
+    case 'boolean':
+      if ('default' in value && !isScalarDefault(value.default)) {
+        diagnostics.push(
+          createDiagnostic({
+            code: 'invalid-schema-default',
+            message: `${path}.default 只能是 string | number | boolean | null。`,
+            path: `${path}.default`,
+            ...location
+          })
+        )
+      }
+      return {
+        type,
+        description,
+        ...(value.default !== undefined
+          ? { default: value.default as string | number | boolean | null }
+          : {})
+      }
+
+    case 'array': {
+      if (
+        'default' in value &&
+        value.default !== undefined &&
+        !Array.isArray(value.default) &&
+        value.default !== null
+      ) {
+        diagnostics.push(
+          createDiagnostic({
+            code: 'invalid-array-default',
+            message: `${path}.default 必须是数组或 null。`,
+            path: `${path}.default`,
+            ...location
+          })
+        )
+      }
+      const items = parseAuthoringSchemaNode(value.items, `${path}.items`, diagnostics, location)
+      if (!items) {
+        return null
+      }
+      return {
+        type: 'array',
+        items,
+        description,
+        ...(value.default !== undefined ? { default: value.default as unknown[] | null } : {})
+      }
+    }
+
+    case 'object': {
+      if (value.additionalProperties !== false) {
+        diagnostics.push(
+          createDiagnostic({
+            code: 'missing-object-closure',
+            message: `${path}.additionalProperties 必须显式等于 false。`,
+            path: `${path}.additionalProperties`,
+            ...location
+          })
+        )
+      }
+      if (
+        'default' in value &&
+        value.default !== undefined &&
+        !isPlainObject(value.default) &&
+        value.default !== null
+      ) {
+        diagnostics.push(
+          createDiagnostic({
+            code: 'invalid-object-default',
+            message: `${path}.default 必须是对象或 null。`,
+            path: `${path}.default`,
+            ...location
+          })
+        )
+      }
+      if (!isPlainObject(value.properties) || Object.keys(value.properties).length === 0) {
+        diagnostics.push(
+          createDiagnostic({
+            code: 'invalid-object-properties',
+            message: `${path}.properties 必须是非空对象。`,
+            path: `${path}.properties`,
+            ...location
+          })
+        )
+      }
+      const required = Array.isArray(value.required)
+        ? value.required.filter(
+            (item): item is string => typeof item === 'string' && item.trim().length > 0
+          )
+        : null
+      if (!required) {
+        diagnostics.push(
+          createDiagnostic({
+            code: 'invalid-object-required',
+            message: `${path}.required 必须是字符串数组。`,
+            path: `${path}.required`,
+            ...location
+          })
+        )
+      }
+
+      const properties = Object.fromEntries(
+        Object.entries(isPlainObject(value.properties) ? value.properties : {}).flatMap(
+          ([key, child]) => {
+            const parsedChild = parseAuthoringSchemaNode(
+              child,
+              `${path}.properties.${key}`,
+              diagnostics,
+              location
+            )
+            return parsedChild ? [[key, parsedChild]] : []
+          }
+        )
+      ) as OFJsonSchemaObject['properties']
+
+      if (!Object.keys(properties).length || !required) {
+        return null
+      }
+
+      return {
+        type: 'object',
+        properties,
+        required,
+        additionalProperties: false,
+        description,
+        ...(value.default !== undefined
+          ? { default: value.default as Record<string, unknown> | null }
+          : {})
+      }
+    }
+
+    default:
+      diagnostics.push(
+        createDiagnostic({
+          code: 'unsupported-schema-type',
+          message: `${path}.type 只支持 string | number | boolean | object | array。`,
+          path: `${path}.type`,
+          ...location
+        })
+      )
+      return null
+  }
+}
+
+function parseAuthoringVariableSource(
+  value: unknown,
+  path: string,
+  diagnostics: OFBlueprintTextDiagnostic[],
+  location: OFBlueprintTextLocation
+): OFAuthoringVariableSpec['source'] {
+  if (value === undefined) {
+    return undefined
+  }
+  if (!isPlainObject(value)) {
+    diagnostics.push(
+      createDiagnostic({
+        code: 'invalid-variable-source',
+        message: `${path} 必须是 source 对象。`,
+        path,
+        ...location
+      })
+    )
+    return undefined
+  }
+
+  if (value.mode === 'ref') {
+    const ref = typeof value.ref === 'string' ? value.ref.trim() : ''
+    if (!ref.startsWith('@')) {
+      diagnostics.push(
+        createDiagnostic({
+          code: 'invalid-source-ref',
+          message: `${path}.ref 必须是以 @ 开头的引用字符串。`,
+          path: `${path}.ref`,
+          ...location
+        })
+      )
+      return undefined
+    }
+    return { mode: 'ref', ref }
+  }
+
+  if (value.mode === 'value') {
+    if (!Object.prototype.hasOwnProperty.call(value, 'value')) {
+      diagnostics.push(
+        createDiagnostic({
+          code: 'missing-source-value',
+          message: `${path}.value 不能为空。`,
+          path: `${path}.value`,
+          ...location
+        })
+      )
+      return undefined
+    }
+    return {
+      mode: 'value',
+      value: value.value as OFAuthoringValuePayload
+    }
+  }
+
+  diagnostics.push(
+    createDiagnostic({
+      code: 'invalid-source-mode',
+      message: `${path}.mode 只支持 ref 或 value。`,
+      path: `${path}.mode`,
+      ...location
+    })
+  )
+  return undefined
+}
+
 function buildStartVariables(
-  names: string[],
-  inputDefinitions: InputDefinition[],
+  specs: OFAuthoringVariableSpec[],
   diagnostics: OFBlueprintTextDiagnostic[],
   location: OFBlueprintTextLocation
 ): Record<string, unknown>[] {
-  const definitionMap = new Map(inputDefinitions.map((item) => [item.name, item] as const))
-  return names.flatMap((name) => {
-    const definition = definitionMap.get(name)
-    if (!definition) {
+  return specs.flatMap((spec, index) => {
+    if (spec.source) {
       diagnostics.push(
         createDiagnostic({
-          code: 'unknown-input-variable',
-          message: `start.inputs 引用了不存在的输入变量 ${name}。`,
-          path: `inputs.${name}`,
+          code: 'start-input-source-not-supported',
+          message: `inputs[${index}] 不能声明 source；开始节点输入只允许声明 schema。`,
+          path: `inputs[${index}].source`,
           ...location
         })
       )
       return []
     }
 
-    return [buildInputVariable(definition)]
+    return [
+      {
+        variable: spec.variable,
+        label: spec.label || spec.variable,
+        description: spec.description,
+        required: spec.required,
+        type: getOFVarTypeFromSchema(spec.schema),
+        schema: spec.schema
+      }
+    ]
   })
 }
 
-function buildInputVariable(definition: InputDefinition): Record<string, unknown> {
-  const parsedType = parseTypeSpec(definition.type)
-  const base = {
-    variable: definition.name,
-    label: definition.name,
-    type: parsedType.type,
-    description: definition.desc
-  } as Record<string, unknown>
-
-  if (parsedType.type === OFVarType.Array && parsedType.itemType) {
-    base.item_type = parsedType.itemType
-  }
-
-  if (parsedType.type === OFVarType.Object) {
-    base.schema = buildObjectSchema(definition.fields || [])
-  } else if (definition.defaultValue !== undefined) {
-    base.default = definition.defaultValue
-  }
-
-  return base
-}
-
-function buildObjectSchema(fieldSpecs: string[]): OFStructuredJsonSchema {
-  const properties: Record<string, OFJsonSchemaObject['properties'][string]> = {}
-  const required: string[] = []
-
-  fieldSpecs.forEach((fieldSpec) => {
-    const parsed = parseTypedAssignment(fieldSpec)
-    if (!parsed) {
-      return
+function buildLoopVariables(
+  specs: OFAuthoringVariableSpec[],
+  context: SectionCompileContext,
+  diagnostics: OFBlueprintTextDiagnostic[],
+  location: OFBlueprintTextLocation
+): Record<string, unknown>[] {
+  return specs.flatMap((spec, index) => {
+    if (!spec.source) {
+      diagnostics.push(
+        createDiagnostic({
+          code: 'missing-loop-var-source',
+          message: `vars[${index}] 必须声明 source。`,
+          path: `vars[${index}].source`,
+          ...location
+        })
+      )
+      return []
     }
-    properties[parsed.name] = createSchemaProperty(
-      convertVarTypeToSchemaType(parsed.typeInfo.type),
-      parsed.name,
-      parsed.constantValue
-    )
-    required.push(parsed.name)
-  })
 
-  return {
-    type: 'object',
-    properties,
-    required,
-    additionalProperties: false
-  }
+    const variable: Record<string, unknown> = {
+      variable: spec.variable,
+      label: spec.label || spec.variable,
+      description: spec.description,
+      required: spec.required,
+      type: getOFVarTypeFromSchema(spec.schema),
+      schema: spec.schema,
+      value_type: spec.source.mode === 'ref' ? 'variable' : 'constant'
+    }
+
+    if (spec.source.mode === 'ref') {
+      const selector = compileReferenceSelector(spec.source.ref, context, diagnostics, location)
+      variable.value_selector = selector
+      variable.value_source = {
+        mode: 'variable',
+        ref: {
+          selector,
+          path: selector.join('.'),
+          label: spec.label || spec.variable,
+          type: getOFVarTypeFromSchema(spec.schema),
+          schema: spec.schema
+        }
+      }
+    } else {
+      variable.value = spec.source.value
+      variable.value_source = {
+        mode: 'constant',
+        constant_value: spec.source.value
+      }
+    }
+
+    return [variable]
+  })
+}
+
+function buildVariableAssignRules(
+  specs: OFAuthoringVariableSpec[],
+  context: SectionCompileContext,
+  diagnostics: OFBlueprintTextDiagnostic[],
+  location: OFBlueprintTextLocation
+): Record<string, unknown>[] {
+  return specs.flatMap((spec, index) => {
+    if (!spec.source) {
+      diagnostics.push(
+        createDiagnostic({
+          code: 'missing-let-source',
+          message: `let[${index}] 必须声明 source。`,
+          path: `let[${index}].source`,
+          ...location
+        })
+      )
+      return []
+    }
+
+    const targetType = getOFVarTypeFromSchema(spec.schema)
+    if (!targetType) {
+      return []
+    }
+
+    const rule: Record<string, unknown> = {
+      id: `rule_${index + 1}`,
+      target_variable: spec.variable,
+      target_label: spec.label || spec.variable,
+      target_type: targetType,
+      schema: spec.schema,
+      description: spec.description,
+      source_mode: spec.source.mode === 'ref' ? 'variable' : 'constant'
+    }
+
+    if (spec.source.mode === 'ref') {
+      const selector = compileReferenceSelector(spec.source.ref, context, diagnostics, location)
+      rule.source_selector = selector
+      rule.source = {
+        mode: 'variable',
+        ref: {
+          selector,
+          path: selector.join('.')
+        }
+      }
+    } else {
+      rule.constant_value = spec.source.value
+      rule.source = {
+        mode: 'constant',
+        constant_value: spec.source.value
+      }
+    }
+
+    return [rule]
+  })
+}
+
+function buildEndOutputs(
+  specs: OFAuthoringVariableSpec[],
+  context: SectionCompileContext,
+  diagnostics: OFBlueprintTextDiagnostic[],
+  location: OFBlueprintTextLocation
+): Record<string, unknown>[] {
+  return specs.flatMap((spec, index) => {
+    if (!spec.source) {
+      diagnostics.push(
+        createDiagnostic({
+          code: 'missing-output-source',
+          message: `outputs[${index}] 必须声明 source。`,
+          path: `outputs[${index}].source`,
+          ...location
+        })
+      )
+      return []
+    }
+
+    const variable: Record<string, unknown> = {
+      variable: spec.variable,
+      label: spec.label || spec.variable,
+      description: spec.description,
+      required: spec.required,
+      type: getOFVarTypeFromSchema(spec.schema),
+      schema: spec.schema
+    }
+
+    if (spec.source.mode === 'ref') {
+      const selector = compileReferenceSelector(spec.source.ref, context, diagnostics, location)
+      variable.value_selector = selector
+    } else {
+      variable.value_template = spec.source.value
+    }
+
+    return [variable]
+  })
+}
+
+function isScalarDefault(value: unknown): value is string | number | boolean | null {
+  return (
+    value === null ||
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  )
 }
 
 function buildStructuredOutput(
@@ -850,159 +1280,6 @@ function buildIfCases(
   })
 }
 
-function buildLoopVariables(
-  specs: string[],
-  context: SectionCompileContext,
-  diagnostics: OFBlueprintTextDiagnostic[],
-  location: OFBlueprintTextLocation
-): Record<string, unknown>[] {
-  return specs.flatMap((spec, index) => {
-    const parsed = parseTypedAssignment(spec)
-    if (!parsed) {
-      diagnostics.push(
-        createDiagnostic({
-          code: 'invalid-loop-var',
-          message: `无法解析 loop vars 语句：${spec}`,
-          path: `vars[${index}]`,
-          ...location
-        })
-      )
-      return []
-    }
-
-    const variable: Record<string, unknown> = {
-      variable: parsed.name,
-      label: parsed.name,
-      type: parsed.typeInfo.type,
-      value_type: parsed.ref ? 'variable' : 'constant'
-    }
-
-    if (parsed.typeInfo.itemType) {
-      variable.item_type = parsed.typeInfo.itemType
-    }
-
-    if (parsed.ref) {
-      const selector = compileReferenceSelector(parsed.ref, context, diagnostics, location)
-      variable.value_source = {
-        mode: 'variable',
-        ref: {
-          selector,
-          path: selector.join('.')
-        }
-      }
-      variable.value_selector = selector
-    } else {
-      variable.value = parsed.constantValue ?? null
-    }
-
-    return [variable]
-  })
-}
-
-function buildVariableAssignRules(
-  specs: string[],
-  context: SectionCompileContext,
-  diagnostics: OFBlueprintTextDiagnostic[],
-  location: OFBlueprintTextLocation
-): Record<string, unknown>[] {
-  return specs.flatMap((spec, index) => {
-    const parsed = parseTypedAssignment(spec)
-    if (!parsed) {
-      diagnostics.push(
-        createDiagnostic({
-          code: 'invalid-let-rule',
-          message: `无法解析 let 语句：${spec}`,
-          path: `let[${index}]`,
-          ...location
-        })
-      )
-      return []
-    }
-
-    const rule: Record<string, unknown> = {
-      id: `rule_${index + 1}`,
-      target_variable: parsed.name,
-      target_label: parsed.name,
-      target_type: parsed.typeInfo.type,
-      source_mode: parsed.ref ? 'variable' : 'constant'
-    }
-
-    if (parsed.typeInfo.itemType) {
-      rule.item_type = parsed.typeInfo.itemType
-    }
-
-    if (parsed.ref) {
-      const selector = compileReferenceSelector(parsed.ref, context, diagnostics, location)
-      rule.source_selector = selector
-      rule.source = {
-        mode: 'variable',
-        ref: {
-          selector,
-          path: selector.join('.')
-        }
-      }
-    } else {
-      rule.constant_value = parsed.constantValue ?? null
-      rule.source = {
-        mode: 'constant',
-        constant_value: parsed.constantValue ?? null
-      }
-      if (parsed.typeInfo.type === OFVarType.Object && isPlainObject(parsed.constantValue)) {
-        rule.schema = buildObjectSchemaFromValue(parsed.constantValue)
-      }
-    }
-
-    return [rule]
-  })
-}
-
-function buildEndOutputs(
-  specs: string[],
-  context: SectionCompileContext,
-  diagnostics: OFBlueprintTextDiagnostic[],
-  location: OFBlueprintTextLocation
-): Record<string, unknown>[] {
-  return specs.flatMap((spec, index) => {
-    const parsed = parseOutputSpec(spec)
-    if (!parsed) {
-      diagnostics.push(
-        createDiagnostic({
-          code: 'invalid-output-spec',
-          message: `无法解析 outputs 语句：${spec}`,
-          path: `outputs[${index}]`,
-          ...location
-        })
-      )
-      return []
-    }
-
-    const variable: Record<string, unknown> = {
-      variable: parsed.name,
-      label: parsed.name,
-      type: parsed.typeInfo.type
-    }
-
-    if (parsed.typeInfo.itemType) {
-      variable.item_type = parsed.typeInfo.itemType
-    }
-
-    if (parsed.ref) {
-      const selector = compileReferenceSelector(parsed.ref, context, diagnostics, location)
-      variable.value_selector = selector
-    } else {
-      variable.value_template = parsed.template
-      if (parsed.typeInfo.type === OFVarType.Object && isPlainObject(parsed.template)) {
-        variable.schema = buildObjectSchemaFromValue(parsed.template)
-      }
-      if (parsed.typeInfo.type === OFVarType.Array && Array.isArray(parsed.template)) {
-        variable.item_type = parsed.typeInfo.itemType || undefined
-      }
-    }
-
-    return [variable]
-  })
-}
-
 function parseEdgeSpec(spec: string): OFBlueprintEdge | null {
   const match = spec
     .trim()
@@ -1059,77 +1336,6 @@ function parseWhenSpec(
   }
 }
 
-function parseOutputSpec(spec: string):
-  | { name: string; typeInfo: ReturnType<typeof parseTypeSpec>; ref: string; template?: undefined }
-  | {
-      name: string
-      typeInfo: ReturnType<typeof parseTypeSpec>
-      ref?: undefined
-      template: string | number | boolean | Record<string, unknown> | unknown[] | null
-    }
-  | null {
-  const match = spec.trim().match(/^([A-Za-z0-9_]+):([A-Za-z:]+)\s*<-\s*(.+)$/)
-  if (!match) return null
-  const [, name, typeText, expression] = match
-  const trimmed = expression.trim()
-  if (trimmed.startsWith('@')) {
-    return {
-      name,
-      typeInfo: parseTypeSpec(typeText),
-      ref: trimmed
-    }
-  }
-  return {
-    name,
-    typeInfo: parseTypeSpec(typeText),
-    template: parseLiteralExpression(trimmed).value as
-      | string
-      | number
-      | boolean
-      | Record<string, unknown>
-      | unknown[]
-      | null
-  }
-}
-
-function parseTypedAssignment(spec: string): {
-  name: string
-  typeInfo: ReturnType<typeof parseTypeSpec>
-  ref: string | null
-  constantValue: unknown
-} | null {
-  const match = spec.trim().match(/^([A-Za-z0-9_]+):([A-Za-z:]+)\s*=\s*(.+)$/)
-  if (!match) return null
-  const [, name, typeText, expression] = match
-  if (expression.trim().startsWith('@')) {
-    return {
-      name,
-      typeInfo: parseTypeSpec(typeText),
-      ref: expression.trim(),
-      constantValue: null
-    }
-  }
-  return {
-    name,
-    typeInfo: parseTypeSpec(typeText),
-    ref: null,
-    constantValue: parseLiteralExpression(expression.trim()).value
-  }
-}
-
-function parseTypeSpec(typeText: string): { type: OFVarType; itemType?: OFVarType } {
-  const trimmed = typeText.trim()
-  if (trimmed.startsWith('array:')) {
-    return {
-      type: OFVarType.Array,
-      itemType: mapPrimitiveType(trimmed.slice('array:'.length))
-    }
-  }
-  return {
-    type: mapPrimitiveType(trimmed)
-  }
-}
-
 function mapPrimitiveType(typeText: string): OFVarType {
   switch (typeText) {
     case 'string':
@@ -1161,31 +1367,6 @@ function convertVarTypeToSchemaType(type: OFVarType): 'string' | 'number' | 'boo
   if (type === OFVarType.Boolean) return 'boolean'
   if (type === OFVarType.Object || type === OFVarType.Array) return 'object'
   return 'string'
-}
-
-function createSchemaProperty(
-  type: 'string' | 'number' | 'boolean' | 'object',
-  description: string,
-  defaultValue?: unknown
-): OFJsonSchemaProperty {
-  if (type === 'object') {
-    return {
-      type: 'object',
-      properties: {},
-      required: [],
-      additionalProperties: false,
-      description,
-      ...(isPlainObject(defaultValue) ? { default: defaultValue as Record<string, unknown> } : {})
-    }
-  }
-
-  return {
-    type,
-    description,
-    ...(defaultValue !== undefined
-      ? { default: defaultValue as string | number | boolean | null }
-      : {})
-  }
 }
 
 function compileReferenceSelector(
@@ -1229,29 +1410,6 @@ function compileReferenceSelector(
   }
 
   return parts
-}
-
-function buildObjectSchemaFromValue(value: unknown): OFStructuredJsonSchema | null {
-  if (!isPlainObject(value)) return null
-  const properties = Object.fromEntries(
-    Object.entries(value).map(([key, item]) => [
-      key,
-      createSchemaProperty(inferSchemaType(item), key)
-    ])
-  )
-  return {
-    type: 'object',
-    properties,
-    required: Object.keys(properties),
-    additionalProperties: false
-  }
-}
-
-function inferSchemaType(value: unknown): 'string' | 'number' | 'boolean' | 'object' {
-  if (typeof value === 'number') return 'number'
-  if (typeof value === 'boolean') return 'boolean'
-  if (isPlainObject(value) || Array.isArray(value)) return 'object'
-  return 'string'
 }
 
 function parseSectionValue(
@@ -1355,13 +1513,6 @@ function getStringEntry(
 ): string | undefined {
   const value = getEntryValue(section, key)
   return typeof value === 'string' ? value : undefined
-}
-
-function getStringArrayEntry(
-  section: OFBlueprintSectionAst | undefined | null,
-  key: string
-): string[] {
-  return getArrayOfStrings(section, key)
 }
 
 function getArrayOfStrings(

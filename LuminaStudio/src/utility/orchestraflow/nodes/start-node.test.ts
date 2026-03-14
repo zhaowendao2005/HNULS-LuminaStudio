@@ -20,14 +20,37 @@ describe('StartNode', () => {
               label: '任务列表',
               type: OFVarType.Array,
               required: true,
-              default: [
-                {
-                  task_name: '初始化任务',
-                  params: {
-                    retry: true
+              schema: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    task_name: {
+                      type: 'string'
+                    },
+                    params: {
+                      type: 'object',
+                      properties: {
+                        retry: {
+                          type: 'boolean'
+                        }
+                      },
+                      required: ['retry'],
+                      additionalProperties: false
+                    }
+                  },
+                  required: ['task_name', 'params'],
+                  additionalProperties: false
+                },
+                default: [
+                  {
+                    task_name: '初始化任务',
+                    params: {
+                      retry: true
+                    }
                   }
-                }
-              ]
+                ]
+              }
             }
           ]
         }

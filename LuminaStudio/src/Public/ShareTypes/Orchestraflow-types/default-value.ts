@@ -1,4 +1,4 @@
-import type { OFInputVar, OFJsonSchemaProperty, OFStructuredJsonSchema } from './core-types'
+import type { OFInputVar, OFJsonSchemaProperty } from './core-types'
 import { OFVarType } from './core-types'
 
 export function cloneOFDefaultValue<T>(value: T): T {
@@ -16,6 +16,10 @@ export function buildOFDefaultValueFromSchemaProperty(schema: OFJsonSchemaProper
     return cloneOFDefaultValue(schema.default)
   }
 
+  if (schema.type === 'array') {
+    return []
+  }
+
   if (schema.type === 'object') {
     const nextValue: Record<string, unknown> = {}
     Object.entries(schema.properties || {}).forEach(([key, childSchema]) => {
@@ -31,12 +35,8 @@ export function buildOFDefaultValueFromSchemaProperty(schema: OFJsonSchemaProper
 }
 
 export function buildOFInputDefaultValue(inputVar: OFInputVar): unknown {
-  if (inputVar.default !== undefined) {
-    return cloneOFDefaultValue(inputVar.default)
-  }
-
-  if (inputVar.type === OFVarType.Object && inputVar.schema) {
-    return buildOFDefaultValueFromSchemaProperty(inputVar.schema as OFStructuredJsonSchema)
+  if (inputVar.schema) {
+    return buildOFDefaultValueFromSchemaProperty(inputVar.schema)
   }
 
   if (inputVar.type === OFVarType.Array) return []

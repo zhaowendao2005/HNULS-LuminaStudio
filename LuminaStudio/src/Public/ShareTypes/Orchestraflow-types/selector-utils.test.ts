@@ -15,7 +15,7 @@ describe('selector-utils', () => {
   })
 
   it('repairs legacy ifelse compare_selector misuse', () => {
-    const data: Record<string, unknown> = {
+    const data = {
       type: OFBlockEnum.IfElse,
       cases: [
         {
@@ -33,14 +33,19 @@ describe('selector-utils', () => {
       ]
     }
 
-    normalizeOFRunnableNodeSelectorData(OFBlockEnum.IfElse, data, ['content_package'])
+    normalizeOFRunnableNodeSelectorData(
+      OFBlockEnum.IfElse,
+      data as unknown as Record<string, unknown>,
+      ['content_package']
+    )
 
-    expect(data.cases[0].conditions[0].variable_ref.selector).toEqual([
-      'content_package',
-      'config',
-      'process_mode'
-    ])
-    expect(data.cases[0].conditions[0].compare_ref).toBeUndefined()
+    const condition = data.cases[0].conditions[0] as Record<string, unknown> as {
+      variable_ref?: { selector: string[] }
+      compare_ref?: unknown
+    }
+
+    expect(condition.variable_ref?.selector).toEqual(['content_package', 'config', 'process_mode'])
+    expect(condition.compare_ref).toBeUndefined()
   })
 
   it('collects selector roots from nested workflow nodes', () => {

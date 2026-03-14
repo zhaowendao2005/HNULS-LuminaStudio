@@ -25,11 +25,13 @@ export const loopNodeLlmSpec: OFNodeLlmSpec = {
   optional_fields: ['title', 'description'],
   examples: loopNodeDslDefinition.examples,
   warnings_zh: [
-    '`vars` 中每个变量都必须给初始化值或单个引用。',
-    '组合值必须写成合法 JSON，引用使用 `"@path"` 占位。'
+    '`vars` 中每个变量都必须显式声明 schema 与 source。',
+    'source.mode=value 的组合值必须写成合法 JSON，引用使用 `"@path"` 占位。'
   ],
   selector_policies: ['作者态引用统一写 `@ref`，组合 JSON 中的 `"@path"` 会在运行时解析。'],
   output_policies: ['循环输出由系统聚合为 `result` 和循环变量命名空间。'],
-  omit_rules: ['不要输出内部 start 节点、容器 viewport、output.variables。'],
+  omit_rules: [
+    '不要输出内部 start 节点、容器 viewport、output.variables、旧的 `vars = ["x:type=..."]` 简写。'
+  ],
   notes: ['循环输出由系统统一汇总为 result 和循环变量命名空间。']
 }

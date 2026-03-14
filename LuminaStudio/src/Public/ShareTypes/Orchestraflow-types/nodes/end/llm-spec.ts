@@ -18,8 +18,8 @@ export const endNodeLlmSpec: OFNodeLlmSpec = {
   required_fields: ['type', 'outputs'],
   optional_fields: ['title', 'description'],
   examples: endNodeDslDefinition.examples,
-  warnings_zh: ['组合 object/array 输出必须写成合法 JSON，引用使用 `"@path"` 占位。'],
-  selector_policies: ['纯引用使用 `<- @ref`；组合值使用 `<- <json-template>`。'],
-  omit_rules: ['不要输出 `value_selector`、`value_ref`。'],
+  warnings_zh: ['outputs[*] 必须显式声明 schema 与 source；不要再写 `<- @ref` 旧简写。'],
+  selector_policies: ['source.mode=ref 只接受单个 `@ref`；source.mode=value 用 JSON template。'],
+  omit_rules: ['不要输出 `value_selector`、`value_ref`、旧的 `<-` 输出简写。'],
   notes: ['结束节点通过 selector/template 从变量存储中提取最终输出。']
 }

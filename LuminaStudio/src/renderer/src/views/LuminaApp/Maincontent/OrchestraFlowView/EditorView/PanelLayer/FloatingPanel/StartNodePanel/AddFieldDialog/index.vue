@@ -289,15 +289,15 @@ function hydrateFormFromInitialField() {
   currentSchema.value = field?.schema || null
   errorMessage.value = ''
 
-  textDefaultValue.value = typeof field?.default === 'string' ? field.default : ''
+  const schemaDefault =
+    field?.schema && 'default' in field.schema ? field.schema.default : undefined
+  textDefaultValue.value = typeof schemaDefault === 'string' ? schemaDefault : ''
   numberDefaultValue.value =
-    typeof field?.default === 'number' && Number.isFinite(field.default)
-      ? String(field.default)
-      : ''
-  booleanDefaultValue.value = typeof field?.default === 'boolean' ? field.default : true
+    typeof schemaDefault === 'number' && Number.isFinite(schemaDefault) ? String(schemaDefault) : ''
+  booleanDefaultValue.value = typeof schemaDefault === 'boolean' ? schemaDefault : true
   arrayDefaultValue.value =
-    field?.type === OFVarType.Array && Array.isArray(field.default)
-      ? JSON.stringify(field.default, null, 2)
+    field?.type === OFVarType.Array && Array.isArray(schemaDefault)
+      ? JSON.stringify(schemaDefault, null, 2)
       : ''
 }
 

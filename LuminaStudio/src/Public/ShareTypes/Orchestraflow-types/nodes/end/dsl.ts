@@ -15,13 +15,14 @@ export const endNodeDslDefinition: OFNodeDslDefinition = {
     {
       label: 'outputs-ref',
       summary: '纯引用输出。',
-      value: 'outputs = ["summary:string <- @summary.text"]'
+      value:
+        'outputs = [{"variable":"summary","schema":{"type":"string"},"source":{"mode":"ref","ref":"@summary.text"}}]'
     },
     {
       label: 'outputs-composite',
       summary: '组合 object/array 输出，引用使用 `"@path"` 占位。',
       value:
-        'outputs = ["result:object <- {\\"content\\":\\"@final_text.output\\",\\"report\\":\\"@audit.output\\",\\"ok\\":true}"]'
+        'outputs = [{"variable":"result","schema":{"type":"object","properties":{"content":{"type":"string"},"report":{"type":"string"},"ok":{"type":"boolean"}},"required":["content","report","ok"],"additionalProperties":false},"source":{"mode":"value","value":{"content":"@final_text.output","report":"@audit.output","ok":true}}}]'
     }
   ]
 }

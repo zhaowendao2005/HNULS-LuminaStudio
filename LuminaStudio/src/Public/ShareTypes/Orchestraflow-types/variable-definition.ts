@@ -1,5 +1,4 @@
 import type {
-  OFJsonSchemaObject,
   OFLoopVariableData,
   OFStructuredOutputConfig,
   OFStructuredJsonSchema,
@@ -7,6 +6,7 @@ import type {
   OFVariableAssignRule
 } from './core-types'
 import {
+  getOFVarTypeFromSchema,
   normalizeOFVariableNamespace,
   OF_LLM_STRUCTURED_OUTPUT_NAME,
   OF_LLM_TEXT_OUTPUT_NAME,
@@ -53,17 +53,15 @@ export function ensureOFSelectableVariables(variables: OFVariable[]): OFVariable
               selector: item.value_selector,
               path: item.value_selector.join('.'),
               label: item.label || item.variable,
-              type: item.type,
-              schema: item.schema || null,
-              item_schema: item.item_schema || null
+              type: item.type || getOFVarTypeFromSchema(item.schema),
+              schema: item.schema || null
             }
           : {
               selector: [item.variable],
               path: item.variable,
               label: item.label || item.variable,
-              type: item.type,
-              schema: item.schema || null,
-              item_schema: item.item_schema || null
+              type: item.type || getOFVarTypeFromSchema(item.schema),
+              schema: item.schema || null
             })
     }))
   )
@@ -73,9 +71,9 @@ export const startInputVariableDefinition: OFVariableDefinition<void> = {
   id: 'start-input-template',
   build: () => [],
   notes_zh: [
-    '开始节点输入变量如果需要开箱即跑，应补安全的 default 预填值。',
-    'object 类型默认值应写在 schema 内部字段，不要直接写变量级 default。',
-    'array 类型默认值直接写真实 JSON 数组，不再维护数组 schema。'
+    '开始节点输入变量必须显式声明 schema；标量也不再裸写 type/default。',
+    '默认值统一写在 schema.default 或 schema 子字段的 default 上，不再写变量级 default。',
+    'array / object 的结构信息都收口到 schema，自身不再拆出 item_schema。'
   ]
 }
 
@@ -207,7 +205,6 @@ export const loopInnerStartVariableDefinition: OFVariableDefinition<{
         variable: item.variable,
         label: item.label || item.variable,
         type: item.type,
-        item_type: item.item_type,
         description: item.description,
         required: item.required,
         value_ref: {
@@ -215,11 +212,9 @@ export const loopInnerStartVariableDefinition: OFVariableDefinition<{
           path: item.variable,
           label: item.label || item.variable,
           type: item.type,
-          schema: item.schema || null,
-          item_schema: item.item_schema || null
+          schema: item.schema || null
         },
-        schema: item.schema || null,
-        item_schema: item.item_schema || null
+        schema: item.schema || null
       })),
       {
         variable: OF_LOOP_INDEX_VARIABLE_NAME,
@@ -274,7 +269,6 @@ export const loopOutputVariableDefinition: OFVariableDefinition<{
         variable: item.variable,
         label: item.label || item.variable,
         type: item.type,
-        item_type: item.item_type,
         description: item.description,
         required: item.required,
         value_ref: {
@@ -282,11 +276,9 @@ export const loopOutputVariableDefinition: OFVariableDefinition<{
           path: `${resolvedNamespace}.${item.variable}`,
           label: item.label || item.variable,
           type: item.type,
-          schema: item.schema || null,
-          item_schema: item.item_schema || null
+          schema: item.schema || null
         },
-        schema: item.schema || null,
-        item_schema: item.item_schema || null
+        schema: item.schema || null
       }))
     ]
   }
@@ -310,7 +302,6 @@ export const variableAssignOutputVariableDefinition: OFVariableDefinition<{
         variable,
         label: String(rule.target_label || variable).trim() || variable,
         type: rule.target_type,
-        item_type: rule.item_type,
         description: rule.description,
         required: true,
         value_ref: {
@@ -318,11 +309,9 @@ export const variableAssignOutputVariableDefinition: OFVariableDefinition<{
           path: `${resolvedNamespace}.${variable}`,
           label: String(rule.target_label || variable).trim() || variable,
           type: rule.target_type,
-          schema: rule.schema ?? null,
-          item_schema: rule.item_schema ?? null
+          schema: rule.schema ?? null
         },
-        schema: rule.schema ?? null,
-        item_schema: rule.item_schema ?? null
+        schema: rule.schema ?? null
       })
     })
 
@@ -333,11 +322,5 @@ export const variableAssignOutputVariableDefinition: OFVariableDefinition<{
 export function createStructuredSchemaObject(
   schema: OFStructuredJsonSchema | undefined | null
 ): OFStructuredJsonSchema | null {
-  return schema ? cloneOFValue(schema) : null
-}
-
-export function createItemSchemaObject(
-  schema: OFJsonSchemaObject | undefined | null
-): OFJsonSchemaObject | null {
   return schema ? cloneOFValue(schema) : null
 }

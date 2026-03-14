@@ -11,8 +11,9 @@ describe('prompt-sources dsl syntax', () => {
     expect(text).toContain(
       '不要把 `outputs`、`edges`、`inputs`、`vars`、`let` 这类数组拆成多行条目'
     )
+    expect(text).toContain('不要再写 `name:type=value` 或 `<- @ref` 简写')
     expect(text).toContain('不要写成 `上游.output -> 下游.input`')
-    expect(text).toContain('outputs = ["final_content:string <- @refine_loop.result"')
+    expect(text).toContain('outputs = [{"variable":"final_content"')
     expect(text).not.toContain('data.model.provider')
     expect(text).not.toContain('system-managed')
   })

@@ -26,9 +26,9 @@ export const loopNodeDslDefinition: OFNodeDslDefinition = {
     },
     {
       label: 'vars',
-      summary: '每个循环变量都必须给初始值、单个引用或组合 JSON。',
+      summary: '每个循环变量都必须显式声明 schema 与 source。',
       value:
-        'vars = ["counter:number=0","payload:object={\\"draft\\":\\"@start.seed\\",\\"round\\":0}"]'
+        'vars = [{"variable":"counter","schema":{"type":"number","default":0},"source":{"mode":"value","value":0}},{"variable":"payload","schema":{"type":"object","properties":{"draft":{"type":"string"},"round":{"type":"number","default":0}},"required":["draft","round"],"additionalProperties":false},"source":{"mode":"value","value":{"draft":"@start.seed","round":0}}}]'
     }
   ]
 }

@@ -16,9 +16,9 @@ export const variableAssignNodeDslDefinition: OFNodeDslDefinition = {
     { label: 'type', summary: '固定节点类型。', value: 'type = "set"' },
     {
       label: 'let',
-      summary: '支持常量、单个引用与组合 JSON。',
+      summary: '每个目标变量都显式声明 schema 与 source。',
       value:
-        'let = ["summary:string=@draft.text","payload:object={\\"raw\\":\\"@draft.text\\",\\"score\\":\\"@review.score\\",\\"ok\\":true}"]'
+        'let = [{"variable":"summary","schema":{"type":"string"},"source":{"mode":"ref","ref":"@draft.text"}},{"variable":"payload","schema":{"type":"object","properties":{"raw":{"type":"string"},"score":{"type":"number"},"ok":{"type":"boolean"}},"required":["raw","score","ok"],"additionalProperties":false},"source":{"mode":"value","value":{"raw":"@draft.text","score":"@review.score","ok":true}}}]'
     }
   ]
 }

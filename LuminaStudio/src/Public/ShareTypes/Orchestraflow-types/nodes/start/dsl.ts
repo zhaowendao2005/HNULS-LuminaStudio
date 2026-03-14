@@ -15,8 +15,9 @@ export const startNodeDslDefinition: OFNodeDslDefinition = {
     { label: 'type', summary: '固定节点类型。', value: 'type = "start"' },
     {
       label: 'inputs',
-      summary: '按输入声明名引用开始变量。',
-      value: 'inputs = ["user_query","config"]'
+      summary: '开始节点直接声明输入变量 schema，不再通过独立 input section 引用。',
+      value:
+        'inputs = [{"variable":"user_query","schema":{"type":"string","default":"请总结这段内容"}},{"variable":"config","schema":{"type":"object","properties":{"mode":{"type":"string","default":"batch"}},"required":["mode"],"additionalProperties":false}}]'
     }
   ]
 }

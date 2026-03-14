@@ -569,11 +569,6 @@ function handleTargetTypeChange(ruleId: string, targetType: OFVarType) {
     target_type: targetType
   }
 
-  if (targetType !== OFVarTypeEnum.Array) {
-    patch.item_type = undefined
-    patch.item_schema = null
-  }
-
   if (targetType !== OFVarTypeEnum.Object) {
     patch.schema = null
   }

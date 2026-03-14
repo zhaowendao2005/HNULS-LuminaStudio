@@ -311,8 +311,7 @@ function compileVariables(source: unknown[], idMap: Map<string, string>): OFVari
             path: variable.value_ref?.path || selector.join('.'),
             label: variable.value_ref?.label || variable.label || variable.variable,
             type: variable.value_ref?.type || variable.type,
-            schema: variable.value_ref?.schema ?? variable.schema ?? null,
-            item_schema: variable.value_ref?.item_schema ?? variable.item_schema ?? null
+            schema: variable.value_ref?.schema ?? variable.schema ?? null
           }
         : undefined
     }
@@ -345,8 +344,7 @@ function compileLoopVariables(source: unknown[], idMap: Map<string, string>): OF
                       : undefined) || selector.join('.'),
                   label: variable.label || variable.variable,
                   type: variable.type,
-                  schema: variable.schema ?? null,
-                  item_schema: variable.item_schema ?? null
+                  schema: variable.schema ?? null
                 }
               }
             : {

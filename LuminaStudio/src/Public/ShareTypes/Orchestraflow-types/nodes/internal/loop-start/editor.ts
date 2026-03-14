@@ -14,12 +14,10 @@ export const loopStartNodeEditor = {
           variable: item.variable,
           label: item.label,
           type: item.type,
-          item_type: item.item_type,
           description: item.description,
           required: item.required,
           value_type: 'constant' as const,
-          schema: item.schema,
-          item_schema: item.item_schema
+          schema: item.schema
         })) || []
     const parentNodeId = node.parentNode || node.id
     return {

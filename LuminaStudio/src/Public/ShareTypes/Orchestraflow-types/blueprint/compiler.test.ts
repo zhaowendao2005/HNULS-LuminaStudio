@@ -22,7 +22,13 @@ function createBlueprint(): OFBlueprintWorkflow {
                 variable: 'items',
                 label: 'items',
                 type: OFVarType.Array,
-                default: ['a']
+                schema: {
+                  type: 'array',
+                  items: {
+                    type: 'string'
+                  },
+                  default: ['a']
+                }
               }
             ]
           }

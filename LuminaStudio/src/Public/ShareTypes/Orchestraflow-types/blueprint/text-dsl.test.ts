@@ -9,13 +9,9 @@ OFT/1
 name = "section-demo"
 author = "tester"
 
-[input.user_query]
-type = "string"
-default = "hello"
-
 [node.start]
 type = "start"
-inputs = ["user_query"]
+inputs = [{"variable":"user_query","schema":{"type":"string","default":"hello"}}]
 
 [node.llm_main]
 type = "llm"
@@ -27,7 +23,7 @@ struct = "answer:string"
 
 [node.end]
 type = "end"
-outputs = ["result:string <- @llm_main.structured_output.answer"]
+outputs = [{"variable":"result","schema":{"type":"string"},"source":{"mode":"ref","ref":"@llm_main.structured_output.answer"}}]
 
 [graph]
 edges = ["start.source -> llm_main.target", "llm_main.source -> end.target"]
@@ -50,7 +46,7 @@ type = "start"
 
 [node.end]
 type = "end"
-outputs = ["result:string <- @start.output"]
+outputs = [{"variable":"result","schema":{"type":"string"},"source":{"mode":"ref","ref":"@start.output"}}]
 
 [graph]
 edges = ["start.source -> end.target"]
@@ -88,7 +84,7 @@ name = "multiline-array-error"
 [node.end]
 type = "end"
 outputs = [
-  "result:string <- @start.output"
+  {"variable":"result","schema":{"type":"string"},"source":{"mode":"ref","ref":"@start.output"}}
 ]
 
 [graph]
@@ -114,7 +110,7 @@ name = "invalid-handle-demo"
 
 [node.start]
 type = "start"
-inputs = ["user_query"]
+inputs = [{"variable":"user_query","schema":{"type":"string"}}]
 
 [node.llm_main]
 type = "llm"
@@ -123,7 +119,7 @@ prompt = "hello"
 
 [node.end]
 type = "end"
-outputs = ["result:string <- @llm_main.llmoutput"]
+outputs = [{"variable":"result","schema":{"type":"string"},"source":{"mode":"ref","ref":"@llm_main.llmoutput"}}]
 
 [graph]
 edges = ["start.output -> llm_main.input", "llm_main.output -> end.target"]

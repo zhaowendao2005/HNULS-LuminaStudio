@@ -2,7 +2,7 @@
  * OrchestraFlow 变量选择器类型定义
  */
 
-import type { OFBlockEnum, OFStructuredJsonSchema, OFVarType } from '@shared/Orchestraflow-types'
+import type { OFBlockEnum, OFJsonSchemaProperty, OFVarType } from '@shared/Orchestraflow-types'
 import type { OFMechanismUiHint } from '../workflow-editor.types'
 
 export type VariableSelectorTargetType =
@@ -27,7 +27,7 @@ export interface OFAvailableVariable {
   nodeTitle: string
   valueSelector: string[]
   type?: OFVarType | string
-  schema?: OFStructuredJsonSchema | null
+  schema?: OFJsonSchemaProperty | null
   selectable: boolean
   expandable: boolean
   children?: OFAvailableVariable[]

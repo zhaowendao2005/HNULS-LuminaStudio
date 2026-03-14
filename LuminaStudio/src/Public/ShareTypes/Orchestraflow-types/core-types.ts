@@ -52,13 +52,22 @@ export enum OFVarType {
 }
 
 // ===== 结构化输出 / Schema =====
+// 这里是变量声明与结构化输出共用的唯一 schema 真相层。
+// object / array / 标量都必须通过同一棵 schema tree 表达，避免 type / item_schema 多头语义。
 export type OFStructuredFieldType = 'string' | 'number' | 'boolean'
-export type OFStructuredSchemaNodeType = OFStructuredFieldType | 'object'
+export type OFStructuredSchemaNodeType = OFStructuredFieldType | 'object' | 'array'
 
 export interface OFJsonSchemaField {
   type: OFStructuredFieldType
   description?: string
   default?: string | number | boolean | null
+}
+
+export interface OFJsonSchemaArray {
+  type: 'array'
+  items: OFJsonSchemaProperty
+  description?: string
+  default?: unknown[] | null
 }
 
 export interface OFJsonSchemaObject {
@@ -70,7 +79,7 @@ export interface OFJsonSchemaObject {
   default?: Record<string, unknown> | null
 }
 
-export type OFJsonSchemaProperty = OFJsonSchemaField | OFJsonSchemaObject
+export type OFJsonSchemaProperty = OFJsonSchemaField | OFJsonSchemaArray | OFJsonSchemaObject
 export type OFStructuredJsonSchema = OFJsonSchemaObject
 
 export interface OFStructuredOutputConfig {
@@ -78,20 +87,44 @@ export interface OFStructuredOutputConfig {
   schema: OFStructuredJsonSchema | null
 }
 
+export type OFAuthoringValuePayload =
+  | string
+  | number
+  | boolean
+  | Record<string, unknown>
+  | unknown[]
+  | null
+
+export type OFAuthoringVariableSource =
+  | {
+      mode: 'ref'
+      ref: string
+    }
+  | {
+      mode: 'value'
+      value: OFAuthoringValuePayload
+    }
+
+export interface OFAuthoringVariableSpec {
+  variable: string
+  label?: string
+  description?: string
+  required?: boolean
+  schema: OFJsonSchemaProperty
+  source?: OFAuthoringVariableSource
+}
+
 export interface OFVariable {
   variable: string
   label?: string
   type?: OFVarType
-  item_type?: OFVarType
   description?: string
   required?: boolean
-  default?: string | number | boolean | Record<string, unknown> | unknown[] | null
   options?: string[]
   value_ref?: OFVariableRef
   value_selector?: string[]
   value_template?: string | number | boolean | Record<string, unknown> | unknown[] | null
-  schema?: OFStructuredJsonSchema | null
-  item_schema?: OFJsonSchemaObject | null
+  schema?: OFJsonSchemaProperty | null
 }
 
 export type OFInputVar = OFVariable
@@ -129,6 +162,26 @@ export function normalizeOFVariableNamespace(
   return normalized || fallback
 }
 
+// 统一从 schema 派生运行时变量类型，避免每层各自复制一套 type 判断。
+export function getOFVarTypeFromSchema(
+  schema: OFJsonSchemaProperty | null | undefined
+): OFVarType | undefined {
+  switch (schema?.type) {
+    case 'string':
+      return OFVarType.String
+    case 'number':
+      return OFVarType.Number
+    case 'boolean':
+      return OFVarType.Boolean
+    case 'array':
+      return OFVarType.Array
+    case 'object':
+      return OFVarType.Object
+    default:
+      return undefined
+  }
+}
+
 export function getOFNodeOutputNamespace(
   node: {
     output_namespace?: string
@@ -154,8 +207,7 @@ export interface OFSelectorRef {
 export interface OFVariableRef extends OFSelectorRef {
   label?: string
   type?: OFVarType
-  schema?: OFStructuredJsonSchema | null
-  item_schema?: OFJsonSchemaObject | null
+  schema?: OFJsonSchemaProperty | null
 }
 
 export type OFValueSource =
@@ -180,9 +232,7 @@ export interface OFVariableAssignRule {
   target_variable: string
   target_label?: string
   target_type: OFVarType
-  item_type?: OFVarType
-  schema?: OFStructuredJsonSchema | null
-  item_schema?: OFJsonSchemaObject | null
+  schema?: OFJsonSchemaProperty | null
   description?: string
 }
 
@@ -431,15 +481,13 @@ export interface OFLoopVariableData {
   variable: string
   label?: string
   type?: OFVarType
-  item_type?: OFVarType
   description?: string
   required?: boolean
   value_source?: OFValueSource
   value_type: OFLoopVariableValueType
   value?: string | number | boolean | Record<string, unknown> | unknown[] | null
   value_selector?: string[]
-  schema?: OFStructuredJsonSchema | null
-  item_schema?: OFJsonSchemaObject | null
+  schema?: OFJsonSchemaProperty | null
 }
 
 export type OFLoopNodeData = OFCommonNodeType & {

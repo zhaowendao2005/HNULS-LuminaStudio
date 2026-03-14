@@ -59,19 +59,24 @@ export const variableMechanismDefinition: OFMechanismDefinition = {
   title: '变量系统',
   summary: '统一变量默认值、schema、loop/input/output 变量的机器约束和 agent 说明。',
   hard_rules: [
-    'object 变量必须声明 schema，默认值放在 schema 内部字段。',
-    'array 变量直接写 JSON 数组 default，不再维护 array schema 产品语义。',
+    '所有变量声明都必须显式给出 schema；不要再写裸 type/default 或 item_schema。',
+    'array / object 的默认值都写在 schema 上，不再写变量级 default。',
     '节点派生输出变量只能从节点 definition 或机制 helper 生成。'
   ],
   examples: [
-    { label: '标量默认值', value: '{ "variable": "mode", "type": "string", "default": "batch" }' },
+    {
+      label: '标量默认值',
+      value:
+        '{ "variable": "mode", "schema": { "type": "string", "default": "batch" }, "source": { "mode": "value", "value": "batch" } }'
+    },
     {
       label: '对象 schema',
-      value: '{ "variable": "config", "type": "object", "schema": { "type": "object" } }'
+      value:
+        '{ "variable": "config", "schema": { "type": "object", "properties": { "mode": { "type": "string" } }, "required": ["mode"], "additionalProperties": false } }'
     }
   ],
   failure_modes: [
-    '在 object 变量上手写 variable.default 会让运行前输入与 validator 语义冲突。',
+    '在变量上手写 type/default/item_schema 会让 schema 真相层失效。',
     '在 renderer / runtime 手工派生第二份输出变量会让 SSOT 失效。'
   ],
   agent_render_hints: [
@@ -92,13 +97,13 @@ export const variableMechanismDefinition: OFMechanismDefinition = {
       id: 'structured-vars-require-schema',
       level: 'error',
       scope: 'variable',
-      summary: '`object` 类型变量必须显式声明 `schema`。'
+      summary: '所有变量声明都必须显式声明 `schema`。'
     },
     {
       id: 'structured-vars-no-variable-default',
       level: 'error',
       scope: 'variable',
-      summary: '`object` 类型变量不要写变量级 `default`；默认值应落在 `schema` 内。'
+      summary: '变量不要写变量级 `default`；默认值应落在 `schema` 内。'
     }
   ]
 }
@@ -208,16 +213,26 @@ export const blueprintSyntaxMechanismDefinition: OFMechanismDefinition = {
   helper_refs: ['validateOFBlueprint', 'compileOFBlueprintToRunnable'],
   global_fields: [
     { path: 'workflow.name', source: 'author', required: true, summary: '[workflow] 必填键。' },
-    { path: 'workflow.description', source: 'author', required: false, summary: '[workflow] 可选键。' },
+    {
+      path: 'workflow.description',
+      source: 'author',
+      required: false,
+      summary: '[workflow] 可选键。'
+    },
     { path: 'workflow.author', source: 'author', required: false, summary: '[workflow] 可选键。' },
-    { path: 'input.type', source: 'author', required: true, summary: '[input.<name>] 必填键。' },
-    { path: 'input.default', source: 'author', required: false, summary: '[input.<name>] 可选键。' },
-    { path: 'input.schema', source: 'author', required: false, summary: '[input.<name>] 可选键。' },
-    { path: 'input.fields', source: 'author', required: false, summary: '[input.<name>] 可选键。' },
-    { path: 'input.description', source: 'author', required: false, summary: '[input.<name>] 可选键。' },
     { path: 'graph.edges', source: 'author', required: true, summary: '[graph] 必填键。' },
-    { path: 'subgraph.entry', source: 'author', required: true, summary: '[subgraph.<container>] 必填键。' },
-    { path: 'subgraph.edges', source: 'author', required: true, summary: '[subgraph.<container>] 必填键。' }
+    {
+      path: 'subgraph.entry',
+      source: 'author',
+      required: true,
+      summary: '[subgraph.<container>] 必填键。'
+    },
+    {
+      path: 'subgraph.edges',
+      source: 'author',
+      required: true,
+      summary: '[subgraph.<container>] 必填键。'
+    }
   ]
 }
 

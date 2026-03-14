@@ -96,11 +96,17 @@ describe('buildWorkflowInputDefaultValue', () => {
     })
   })
 
-  it('prefers explicit variable-level default for array values', () => {
+  it('reads array defaults from schema', () => {
     const inputVar: OFInputVar = {
       variable: 'items',
       type: OFVarType.Array,
-      default: ['preset']
+      schema: {
+        type: 'array',
+        items: {
+          type: 'string'
+        },
+        default: ['preset']
+      }
     }
 
     expect(buildWorkflowInputDefaultValue(inputVar)).toEqual(['preset'])
@@ -110,14 +116,37 @@ describe('buildWorkflowInputDefaultValue', () => {
     const inputVar: OFInputVar = {
       variable: 'task_list',
       type: OFVarType.Array,
-      default: [
-        {
-          task_name: '初始化任务',
-          params: {
-            retry: true
+      schema: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            task_name: {
+              type: 'string'
+            },
+            params: {
+              type: 'object',
+              properties: {
+                retry: {
+                  type: 'boolean'
+                }
+              },
+              required: ['retry'],
+              additionalProperties: false
+            }
+          },
+          required: ['task_name', 'params'],
+          additionalProperties: false
+        },
+        default: [
+          {
+            task_name: '初始化任务',
+            params: {
+              retry: true
+            }
           }
-        }
-      ]
+        ]
+      }
     }
 
     expect(buildWorkflowInputDefaultValue(inputVar)).toEqual([

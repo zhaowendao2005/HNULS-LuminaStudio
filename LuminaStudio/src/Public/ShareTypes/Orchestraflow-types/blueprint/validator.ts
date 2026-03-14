@@ -51,6 +51,16 @@ function assertSelectorRef(value: unknown, path: string): void {
   assertStringArray(ref.selector, `${path}.selector`)
 }
 
+function toRecord(value: unknown): Record<string, unknown> | undefined {
+  return isRecord(value) ? value : undefined
+}
+
+function toRecordArray(value: unknown): Record<string, unknown>[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is Record<string, unknown> => isRecord(item))
+    : []
+}
+
 function assertAllowedScalarDefault(value: unknown, path: string): void {
   if (
     value !== null &&
@@ -62,17 +72,29 @@ function assertAllowedScalarDefault(value: unknown, path: string): void {
   }
 }
 
+function assertAllowedObjectDefault(value: unknown, path: string): void {
+  if (value !== null && !isRecord(value)) {
+    throw new Error(`${path} 只能是对象或 null`)
+  }
+}
+
 function validateJsonSchemaProperty(value: unknown, path: string): void {
   const schema = assertRecord(value, path)
   const type = assertNonEmptyString(schema.type, `${path}.type`)
 
   if (type === 'object') {
     const properties = assertRecord(schema.properties, `${path}.properties`)
+    if (Object.keys(properties).length === 0) {
+      throw new Error(`${path}.properties 不能为空`)
+    }
     if (!Array.isArray(schema.required)) {
       throw new Error(`${path}.required 必须是数组`)
     }
     if (schema.additionalProperties !== false) {
       throw new Error(`${path}.additionalProperties 必须等于 false`)
+    }
+    if ('default' in schema) {
+      assertAllowedObjectDefault(schema.default, `${path}.default`)
     }
     Object.entries(properties).forEach(([key, child]) => {
       validateJsonSchemaProperty(child, `${path}.properties.${key}`)
@@ -80,8 +102,21 @@ function validateJsonSchemaProperty(value: unknown, path: string): void {
     return
   }
 
+  if (type === 'array') {
+    validateJsonSchemaProperty(schema.items, `${path}.items`)
+    if (
+      'default' in schema &&
+      schema.default !== undefined &&
+      !Array.isArray(schema.default) &&
+      schema.default !== null
+    ) {
+      throw new Error(`${path}.default 必须是数组或 null`)
+    }
+    return
+  }
+
   if (!['string', 'number', 'boolean'].includes(type)) {
-    throw new Error(`${path}.type 仅支持 string | number | boolean | object`)
+    throw new Error(`${path}.type 仅支持 string | number | boolean | object | array`)
   }
 
   if ('default' in schema) {
@@ -92,13 +127,13 @@ function validateJsonSchemaProperty(value: unknown, path: string): void {
 function validateStructuredVariable(item: Record<string, unknown>, path: string): void {
   const type = item.type
   if (type === 'array') {
-    if ('schema' in item && item.schema !== undefined) {
-      throw new Error(
-        `${path}.schema 已不再支持。array 默认值必须直接写成 JSON 数组，系统不再理解数组内部 schema。`
-      )
+    if ('default' in item && item.default !== undefined) {
+      throw new Error(`${path}.default 不允许直接写在 array 变量上，默认值应写入 schema`)
     }
-    if ('default' in item && item.default !== undefined && !Array.isArray(item.default)) {
-      throw new Error(`${path}.default 必须是 JSON 数组`)
+    const schema = toRecord(item.schema)
+    validateJsonSchemaProperty(schema, `${path}.schema`)
+    if (schema?.type !== 'array') {
+      throw new Error(`${path}.schema.type 必须与变量 type=array 保持一致`)
     }
     return
   }
@@ -111,9 +146,10 @@ function validateStructuredVariable(item: Record<string, unknown>, path: string)
     throw new Error(`${path}.default 不允许直接写在 object 变量上，默认值应写入 schema`)
   }
 
-  validateJsonSchemaProperty(item.schema, `${path}.schema`)
+  const schema = toRecord(item.schema)
+  validateJsonSchemaProperty(schema, `${path}.schema`)
 
-  const schemaType = item.schema?.type
+  const schemaType = schema?.type
   if (schemaType !== 'object') {
     throw new Error(`${path}.schema.type 必须与变量 type=object 保持一致`)
   }
@@ -240,30 +276,31 @@ function validateSelectorFields(
   path: string
 ): void {
   switch (nodeType) {
-    case OFBlockEnum.Start:
-      validateVariableList(data.input?.variables, `${path}.input.variables`)
-      ;(data.input?.variables || []).forEach((item: Record<string, unknown>, index: number) => {
+    case OFBlockEnum.Start: {
+      const input = toRecord(data.input)
+      const variables = toRecordArray(input?.variables)
+      validateVariableList(variables, `${path}.input.variables`)
+      variables.forEach((item, index) => {
         if (item.value_ref) {
           assertSelectorRef(item.value_ref, `${path}.input.variables[${index}].value_ref`)
         }
       })
       return
+    }
     case OFBlockEnum.IfElse:
-      ;(data.cases || []).forEach((item: OFIfElseCase, index: number) => {
-        ;(item.conditions || []).forEach(
-          (condition: Record<string, unknown>, conditionIndex: number) => {
+      toCaseList(data.cases).forEach((item, index) => {
+        toConditionRecordList(item.conditions).forEach((condition, conditionIndex) => {
+          assertSelectorRef(
+            condition.variable_ref,
+            `${path}.cases[${index}].conditions[${conditionIndex}].variable_ref`
+          )
+          if (condition.compare_source_mode === 'variable') {
             assertSelectorRef(
-              condition.variable_ref,
-              `${path}.cases[${index}].conditions[${conditionIndex}].variable_ref`
+              condition.compare_ref,
+              `${path}.cases[${index}].conditions[${conditionIndex}].compare_ref`
             )
-            if (condition.compare_source_mode === 'variable') {
-              assertSelectorRef(
-                condition.compare_ref,
-                `${path}.cases[${index}].conditions[${conditionIndex}].compare_ref`
-              )
-            }
           }
-        )
+        })
       })
       return
     case OFBlockEnum.Iteration:
@@ -271,7 +308,7 @@ function validateSelectorFields(
       if (data.output_ref) {
         assertSelectorRef(data.output_ref, `${path}.output_ref`)
       }
-      ;(data.branch_output_refs || []).forEach((item: Record<string, unknown>, index: number) => {
+      toRecordArray(data.branch_output_refs).forEach((item, index) => {
         assertNonEmptyString(
           item.source_handle_id,
           `${path}.branch_output_refs[${index}].source_handle_id`
@@ -281,42 +318,48 @@ function validateSelectorFields(
       return
     case OFBlockEnum.Loop:
       validateVariableList(data.loop_variables, `${path}.loop_variables`)
-      ;(data.loop_variables || []).forEach((item: Record<string, unknown>, index: number) => {
-        if (item.value_source?.mode === 'variable') {
-          assertSelectorRef(
-            item.value_source.ref,
-            `${path}.loop_variables[${index}].value_source.ref`
-          )
+      toRecordArray(data.loop_variables).forEach((item, index) => {
+        const valueSource = toRecord(item.value_source)
+        if (valueSource?.mode === 'variable') {
+          assertSelectorRef(valueSource.ref, `${path}.loop_variables[${index}].value_source.ref`)
         }
       })
-      ;(data.break_conditions || []).forEach(
-        (condition: Record<string, unknown>, index: number) => {
-          assertSelectorRef(
-            condition.variable_ref,
-            `${path}.break_conditions[${index}].variable_ref`
-          )
-        }
-      )
+      toConditionRecordList(data.break_conditions).forEach((condition, index) => {
+        assertSelectorRef(condition.variable_ref, `${path}.break_conditions[${index}].variable_ref`)
+      })
       return
     case OFBlockEnum.VariableAssign:
       validateVariableList(data.rules, `${path}.rules`)
-      ;(data.rules || []).forEach((rule: Record<string, unknown>, index: number) => {
-        if (rule.source?.mode === 'variable') {
-          assertSelectorRef(rule.source.ref, `${path}.rules[${index}].source.ref`)
+      toRecordArray(data.rules).forEach((rule, index) => {
+        if (toRecord(rule.source)?.mode === 'variable') {
+          assertSelectorRef(toRecord(rule.source)?.ref, `${path}.rules[${index}].source.ref`)
         }
       })
       return
-    case OFBlockEnum.End:
-      validateVariableList(data.output?.variables, `${path}.output.variables`)
-      ;(data.output?.variables || []).forEach((item: Record<string, unknown>, index: number) => {
+    case OFBlockEnum.End: {
+      const output = toRecord(data.output)
+      const variables = toRecordArray(output?.variables)
+      validateVariableList(variables, `${path}.output.variables`)
+      variables.forEach((item, index) => {
         if (item.value_ref !== undefined) {
           assertSelectorRef(item.value_ref, `${path}.output.variables[${index}].value_ref`)
         }
       })
       return
+    }
     default:
       return
   }
+}
+
+function toCaseList(value: unknown): OFIfElseCase[] {
+  return Array.isArray(value) ? (value as OFIfElseCase[]) : []
+}
+
+function toConditionRecordList(value: unknown): Record<string, unknown>[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is Record<string, unknown> => isRecord(item))
+    : []
 }
 
 function validateEdgeHandles(
@@ -337,8 +380,9 @@ function validateEdgeHandles(
     throw new Error(`${edgePath}.targetHandle 必须等于 target`)
   }
   if (sourceType === OFBlockEnum.IfElse) {
-    const cases = (sourceNode?.data?.cases || []) as OFIfElseCase[]
-    const elseHandle = sourceNode?.data?.elseCase?.handleId
+    const sourceNodeData = toRecord(sourceNode?.data)
+    const cases = toCaseList(sourceNodeData?.cases)
+    const elseHandle = toRecord(sourceNodeData?.elseCase)?.handleId
     const allowed = new Set([...cases.map((item) => item.handleId), elseHandle].filter(Boolean))
     if (!allowed.has(sourceHandle)) {
       throw new Error(
@@ -418,7 +462,7 @@ export function assertOFRunnableWorkflow(value: unknown): OFRunnableWorkflow {
   assertNonEmptyString(workflow.author, 'workflow.author')
   assertNumber(workflow.createdAt, 'workflow.createdAt')
   assertNumber(workflow.updatedAt, 'workflow.updatedAt')
-  if (!['draft', 'published', 'archived'].includes(workflow.status)) {
+  if (!['draft', 'published', 'archived'].includes(String(workflow.status))) {
     throw new Error('workflow.status 必须是 draft | published | archived')
   }
 
@@ -506,26 +550,28 @@ function validateOFBlueprintSubgraph(
   const ids = new Set<string>()
   const nodeMap = new Map<string, Record<string, unknown>>()
   subgraph.nodes.forEach((node, index) => {
-    if (ids.has(node.id)) {
+    if (ids.has(String(node.id))) {
       issues.push({
         level: 'error',
         path: `${path}.nodes[${index}].id`,
         message: '子图节点 id 不能重复'
       })
     }
-    ids.add(node.id)
+    ids.add(String(node.id))
     nodeMap.set(node.id, node as unknown as Record<string, unknown>)
     validateBlueprintNode(node, `${path}.nodes[${index}]`, issues, allowContainers)
   })
   subgraph.edges.forEach((edge, index) => {
-    if (!edge.from.handle || !edge.to.handle) {
+    const from = toRecord(edge.from)
+    const to = toRecord(edge.to)
+    if (!from?.handle || !to?.handle) {
       issues.push({
         level: 'error',
         path: `${path}.edges[${index}]`,
         message: 'Blueprint edge 必须显式声明 from.handle 与 to.handle'
       })
     }
-    if (!ids.has(edge.from.node) || !ids.has(edge.to.node)) {
+    if (!ids.has(String(from?.node || '')) || !ids.has(String(to?.node || ''))) {
       issues.push({
         level: 'error',
         path: `${path}.edges[${index}]`,
@@ -571,9 +617,11 @@ export function validateOFBlueprint(value: unknown): OFBlueprintValidationResult
     issues.push({ level: 'error', path: 'edges', message: 'Blueprint edges 必须是数组' })
   }
 
+  const rootNodes = Array.isArray(value.nodes) ? value.nodes : []
+  const rootEdges = Array.isArray(value.edges) ? value.edges : []
   const ids = new Set<string>()
   const nodeMap = new Map<string, Record<string, unknown>>()
-  ;(value.nodes || []).forEach((node, index) => {
+  rootNodes.forEach((node, index) => {
     if (!isRecord(node)) {
       issues.push({ level: 'error', path: `nodes[${index}]`, message: '节点必须是对象' })
       return
@@ -584,25 +632,27 @@ export function validateOFBlueprint(value: unknown): OFBlueprintValidationResult
     }
     ids.add(nodeId)
     nodeMap.set(nodeId, node)
-    validateBlueprintNode(node as OFBlueprintNode, `nodes[${index}]`, issues, true)
+    validateBlueprintNode(node as unknown as OFBlueprintNode, `nodes[${index}]`, issues, true)
   })
-  ;(value.edges || []).forEach((edge, index) => {
+  rootEdges.forEach((edge, index) => {
     if (!isRecord(edge)) {
       issues.push({ level: 'error', path: `edges[${index}]`, message: '连线必须是对象' })
       return
     }
-    if (!edge.from || !edge.to) {
+    const from = toRecord(edge.from)
+    const to = toRecord(edge.to)
+    if (!from || !to) {
       issues.push({ level: 'error', path: `edges[${index}]`, message: '连线必须包含 from / to' })
       return
     }
-    if (!edge.from.handle || !edge.to.handle) {
+    if (!from.handle || !to.handle) {
       issues.push({
         level: 'error',
         path: `edges[${index}]`,
         message: 'Blueprint edge 必须显式声明 from.handle 与 to.handle'
       })
     }
-    if (!ids.has(edge.from.node) || !ids.has(edge.to.node)) {
+    if (!ids.has(String(from.node || '')) || !ids.has(String(to.node || ''))) {
       issues.push({
         level: 'error',
         path: `edges[${index}]`,

@@ -18,8 +18,10 @@ export const variableAssignNodeLlmSpec: OFNodeLlmSpec = {
   required_fields: ['type', 'let'],
   optional_fields: ['title', 'description'],
   examples: variableAssignNodeDslDefinition.examples,
-  selector_policies: ['作者态引用统一写 `@ref`，组合 JSON 中的 `"@path"` 会在运行时解析。'],
+  selector_policies: [
+    'source.mode=ref 时使用 `@ref`，source.mode=value 的组合 JSON 中 `"@path"` 会在运行时解析。'
+  ],
   output_policies: ['输出变量按 `target_variable` 自动派生。'],
-  omit_rules: ['不要输出 `source_selector`、`source.ref`、`constant_value`。'],
+  omit_rules: ['不要输出 `source_selector`、`constant_value`、`name:type=value` 旧简写。'],
   notes: ['变量赋值节点输出变量由规则目标变量自动派生。']
 }
