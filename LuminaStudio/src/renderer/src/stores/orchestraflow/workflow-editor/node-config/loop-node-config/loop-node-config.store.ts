@@ -97,7 +97,7 @@ function normalizeConfig(nodeId: string, data: Partial<OFLoopNodeConfig>): OFLoo
         const definition = resolveOFNodeDefinition(node.data.type)
         return {
           ...node,
-          type: definition.meta.vueFlowType,
+          type: definition.runtime.vueFlowType,
           data: definition.editor.normalizeData({
             node,
             helpers: this

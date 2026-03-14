@@ -15,9 +15,9 @@ import type {
   OFWorkflow,
   OFWorkflowGraph
 } from './core-types'
-import type { OFBlockEnum } from './core-types'
+import type { OFNodeAuthoringToken, OFNodeRuntimeInvariant } from './node-definition'
 import { listOFMechanismDefinitions, resolveOFMechanismDefinition } from './mechanisms'
-import { listOFNodeDefinitions } from './node-definition-registry'
+import { listOFAuthoringNodeDefinitions } from './node-definition-registry'
 
 export type OFFieldSource = 'author' | 'compiler' | 'runtime'
 
@@ -53,10 +53,10 @@ export interface OFEdgeContract {
 }
 
 export interface OFNodeAuthoringContract {
-  type: OFBlockEnum
+  // contract 层现在只表达“作者态 + LLM 安全暴露”的摘要，
+  // 不再把运行层枚举值直接当成作者 token。
+  type: OFNodeAuthoringToken
   title: string
-  internal?: boolean
-  ai_exposed: boolean
   author_required_fields: string[]
   compiler_injected_fields: string[]
   runtime_invariants: OFInvariantContract[]
@@ -150,11 +150,16 @@ export type OFRunnableWorkflow = Omit<OFWorkflow, 'graph'> & {
   graph: OFRunnableWorkflowGraph
 }
 
+// 下面这些 OFRunnable* 类型仍然属于固定运行层：
+// 这层继续服务 compiler/runtime/持久化，不参与作者态 token 的定义。
+
 function cloneFieldContract(field: OFFieldContract): OFFieldContract {
   return { ...field }
 }
 
-function cloneInvariantContract(invariant: OFInvariantContract): OFInvariantContract {
+function cloneInvariantContract(
+  invariant: OFInvariantContract | OFNodeRuntimeInvariant
+): OFInvariantContract {
   return { ...invariant }
 }
 
@@ -177,14 +182,14 @@ export function buildOFWorkflowAuthoringContract(): OFWorkflowAuthoringContract 
     global_invariants: listOFMechanismDefinitions().flatMap((mechanism) =>
       (mechanism.global_invariants || []).map(cloneInvariantContract)
     ),
-    nodes: listOFNodeDefinitions().map((definition) => ({
-      ...definition.authoring.contract,
-      author_required_fields: [...definition.authoring.contract.author_required_fields],
-      compiler_injected_fields: [...definition.authoring.contract.compiler_injected_fields],
-      runtime_invariants:
-        definition.authoring.contract.runtime_invariants.map(cloneInvariantContract),
-      produced_outputs: [...definition.authoring.contract.produced_outputs],
-      notes: [...definition.authoring.contract.notes]
+    nodes: listOFAuthoringNodeDefinitions().map((definition) => ({
+      type: definition.llmSpec.authoringToken,
+      title: definition.llmSpec.title,
+      author_required_fields: [...definition.llmSpec.required_fields],
+      compiler_injected_fields: [...(definition.runtime.system_managed_fields || [])],
+      runtime_invariants: (definition.runtime.runtime_invariants || []).map(cloneInvariantContract),
+      produced_outputs: [...definition.llmSpec.output_artifacts],
+      notes: [...(definition.llmSpec.notes || [])]
     }))
   }
 }

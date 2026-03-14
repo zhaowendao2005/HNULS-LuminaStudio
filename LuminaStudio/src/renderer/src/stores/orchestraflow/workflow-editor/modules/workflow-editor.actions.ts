@@ -218,14 +218,14 @@ export function createWorkflowEditorActionsModule(deps: WorkflowEditorActionsDep
     const nodeData = createDefaultNodeData(type, id, title)
     const newNode = normalizeNode({
       id,
-      type: definition.meta.vueFlowType,
+      type: definition.runtime.vueFlowType,
       position,
       data: nodeData as OFNode['data']
     })
     const nextNodes = [...deps.getNodes(), newNode]
     const nextEdges = [...deps.getEdges()]
 
-    if (definition.meta.kind === 'container' && 'subgraph' in nodeData) {
+    if (definition.runtime.kind === 'container' && 'subgraph' in nodeData) {
       const iterationSubgraph = nodeData.subgraph
       iterationSubgraph.nodes.forEach((childNode) => {
         nextNodes.push(
@@ -243,7 +243,7 @@ export function createWorkflowEditorActionsModule(deps: WorkflowEditorActionsDep
 
     deps.setNodes(dedupeNodes(nextNodes))
     deps.setEdges(dedupeEdges(nextEdges))
-    if (definition.meta.kind === 'container') {
+    if (definition.runtime.kind === 'container') {
       deps.syncIterationContainerSize(id)
     }
     deps.scheduleSave()

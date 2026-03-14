@@ -38,16 +38,6 @@ export interface OFBlueprintWorkflow {
   edges: OFBlueprintEdge[]
 }
 
-export type OFAuthoringDefaultKind = 'recommended' | 'example'
-
-export interface OFAuthoringDefaultRecommendation {
-  path: string
-  kind: OFAuthoringDefaultKind
-  value: string | number | boolean | Record<string, unknown> | unknown[] | null
-  summary: string
-  omit_when?: string
-}
-
 export interface OFBlueprintValidationIssue {
   level: 'error'
   path: string
@@ -58,10 +48,6 @@ export interface OFBlueprintValidationResult {
   valid: boolean
   issues: OFBlueprintValidationIssue[]
 }
-
-export type OFBlueprintTextPathSegment = string | number
-export type OFBlueprintTextScalarValue = string | number | boolean | null
-export type OFBlueprintTextValue = OFBlueprintTextScalarValue | Record<string, unknown> | unknown[]
 
 export interface OFBlueprintTextLocation {
   line: number
@@ -76,46 +62,6 @@ export interface OFBlueprintTextDiagnostic extends OFBlueprintTextLocation {
   path: string
   message: string
   context?: string
-}
-
-export interface OFBlueprintTextAssignmentAst {
-  kind: 'assignment'
-  rawPath: string
-  value: OFBlueprintTextValue
-  valueKind: 'inline' | 'heredoc-text' | 'heredoc-json'
-  target: 'workflow' | 'node'
-  targetId: string | null
-  pathSegments: OFBlueprintTextPathSegment[]
-  location: OFBlueprintTextLocation
-}
-
-export interface OFBlueprintTextEdgeAst {
-  kind: 'edge'
-  fromNodeId: string
-  fromHandle: string | null
-  toNodeId: string
-  toHandle: string | null
-  location: OFBlueprintTextLocation
-}
-
-export interface OFBlueprintTextNodeAst {
-  kind: 'node'
-  id: string
-  type: string
-  assignments: OFBlueprintTextAssignmentAst[]
-  subgraph: OFBlueprintTextGraphAst | null
-  location: OFBlueprintTextLocation
-}
-
-export interface OFBlueprintTextGraphAst {
-  nodes: OFBlueprintTextNodeAst[]
-  edges: OFBlueprintTextEdgeAst[]
-}
-
-export interface OFBlueprintTextLegacyAst {
-  version: '1.0'
-  workflowAssignments: OFBlueprintTextAssignmentAst[]
-  graph: OFBlueprintTextGraphAst
 }
 
 export interface OFBlueprintSectionEntryAst {
@@ -136,7 +82,8 @@ export interface OFBlueprintSectionDslAst {
   sections: OFBlueprintSectionAst[]
 }
 
-export type OFBlueprintTextAst = OFBlueprintTextLegacyAst | OFBlueprintSectionDslAst
+// 继续沿用 text-dsl 的类型名，避免上层调用点大面积改名。
+export type OFBlueprintTextAst = OFBlueprintSectionDslAst
 
 export interface OFBlueprintTextParseResult {
   ast: OFBlueprintTextAst | null

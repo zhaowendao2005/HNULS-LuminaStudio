@@ -36,6 +36,24 @@
       max-width="920px"
     >
       <div class="mb-3 flex items-center justify-end gap-2">
+        <div
+          class="mr-auto flex items-center gap-1 rounded-lg border border-gray-200 bg-gray-50 p-1"
+        >
+          <button
+            v-for="tab in rawDialogTabs"
+            :key="tab.id"
+            type="button"
+            :class="[
+              'rounded-md px-3 py-1.5 text-[12px] transition-colors',
+              activeRawDialogTab === tab.id
+                ? 'bg-white font-semibold text-gray-800 shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
+            ]"
+            @click="activeRawDialogTab = tab.id"
+          >
+            {{ tab.label }}
+          </button>
+        </div>
         <button
           type="button"
           class="rounded-md border border-gray-200 bg-white px-3 py-1.5 text-[12px] text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-800"
@@ -60,26 +78,29 @@
       </div>
       <div ref="rawDialogContentRef" class="space-y-4">
         <section
-          v-if="systemPromptText !== '(当前通道没有 system 提示词)'"
+          v-if="activeRawDialogTab === 'prompt'"
           class="rounded-xl border border-amber-200 bg-amber-50/70 p-4"
         >
           <div class="mb-2 flex items-center justify-between gap-3">
-            <div class="text-[12px] font-semibold text-amber-900">System 提示词</div>
+            <div class="text-[12px] font-semibold text-amber-900">真实发送给 LLM 的完整提示词</div>
             <button
               type="button"
               class="rounded-md border border-amber-200 bg-white px-2.5 py-1 text-[11px] text-amber-700 transition-colors hover:bg-amber-100"
-              @click="handleCopySystemPrompt"
+              @click="handleCopyPromptMessages"
             >
-              复制 system
+              复制提示词
             </button>
           </div>
           <pre
             class="whitespace-pre-wrap break-all font-mono text-[12px] leading-6 text-amber-900"
-            >{{ systemPromptText }}</pre
+            >{{ llmPromptText }}</pre
           >
         </section>
 
-        <section class="rounded-xl border border-gray-200 bg-white p-4">
+        <section
+          v-if="activeRawDialogTab === 'content'"
+          class="rounded-xl border border-gray-200 bg-white p-4"
+        >
           <div class="mb-2 flex items-center justify-between gap-3">
             <div class="text-[12px] font-semibold text-gray-800">全部正文</div>
             <button
@@ -96,7 +117,10 @@
           >
         </section>
 
-        <section class="rounded-xl border border-gray-200 bg-white p-4">
+        <section
+          v-if="activeRawDialogTab === 'raw-output'"
+          class="rounded-xl border border-gray-200 bg-white p-4"
+        >
           <div class="mb-2 flex items-center justify-between gap-3">
             <div class="text-[12px] font-semibold text-gray-800">全部原始 LLM 输出</div>
             <button
@@ -113,7 +137,10 @@
           >
         </section>
 
-        <section class="rounded-xl border border-gray-200 bg-white p-4">
+        <section
+          v-if="activeRawDialogTab === 'current-message'"
+          class="rounded-xl border border-gray-200 bg-white p-4"
+        >
           <div class="mb-2 text-[12px] font-semibold text-gray-800">当前消息完整对象</div>
           <pre
             class="whitespace-pre-wrap break-all font-mono text-[12px] leading-6 text-gray-700"
@@ -121,7 +148,10 @@
           >
         </section>
 
-        <section class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+        <section
+          v-if="activeRawDialogTab === 'all-messages'"
+          class="rounded-xl border border-gray-200 bg-gray-50 p-4"
+        >
           <div class="mb-2 text-[12px] font-semibold text-gray-800">本次分析对话完整对象</div>
           <pre
             class="of-generate-message-actions-json whitespace-pre-wrap break-all font-mono text-[12px] leading-6 text-gray-700"
@@ -135,7 +165,11 @@
 
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
-import type { GenerationMessage } from '@preload/types'
+import type {
+  GenerationLlmPromptMessage,
+  GenerationMessage,
+  GenerationMessageMetaPayload
+} from '@preload/types'
 import CenteredDialog from '@renderer/views/LuminaApp/Maincontent/OrchestraFlowView/EditorView/Common/CenteredDialog.vue'
 
 const props = defineProps<{
@@ -143,11 +177,24 @@ const props = defineProps<{
   messages: GenerationMessage[]
 }>()
 
+type RawDialogTabId = 'prompt' | 'content' | 'raw-output' | 'current-message' | 'all-messages'
+
 const isRawDialogOpen = ref(false)
+const activeRawDialogTab = ref<RawDialogTabId>('prompt')
 const rawDialogContentRef = ref<HTMLElement | null>(null)
 
+const rawDialogTabs: Array<{ id: RawDialogTabId; label: string }> = [
+  { id: 'prompt', label: '完整提示词' },
+  { id: 'content', label: '全部正文' },
+  { id: 'raw-output', label: '原始输出' },
+  { id: 'current-message', label: '当前消息对象' },
+  { id: 'all-messages', label: '全通道对象' }
+]
+
 const parsedCurrentUsage = computed(() => safeParseJson(props.message.usageJson))
-const parsedCurrentMeta = computed(() => safeParseJson(props.message.metaJson))
+const parsedCurrentMeta = computed(
+  () => safeParseJson(props.message.metaJson) as GenerationMessageMetaPayload | null
+)
 const dialogSubtitle = computed(() => {
   return `显示当前 ${props.message.channelKey} 通道里的全部消息内容、原始 LLM 输出与完整对象`
 })
@@ -158,21 +205,32 @@ const orderedMessages = computed(() => {
   return [...systemMessages, ...normalMessages]
 })
 
-const systemPromptText = computed(() => {
-  const systemMessages = props.messages.filter((message) => message.role === 'system')
-  if (!systemMessages.length) {
-    return '(当前通道没有 system 提示词)'
-  }
+const llmPromptText = computed(() => {
+  const promptEntries = orderedMessages.value.flatMap((message, index) => {
+    const meta = safeParseJson(message.metaJson) as GenerationMessageMetaPayload | null
+    const promptMessages = meta?.llmRequest?.messages || []
+    return promptMessages.map((promptMessage: GenerationLlmPromptMessage, promptIndex) => {
+      const roleLabel =
+        promptMessage.role === 'system'
+          ? 'System Prompt'
+          : promptMessage.role === 'user'
+            ? 'User Prompt'
+            : 'Assistant Prompt'
 
-  return systemMessages
-    .map((message, index) => {
       return [
-        `#${index + 1} [System]`,
+        `#${index + 1}.${promptIndex + 1} [${roleLabel}]`,
+        `messageId: ${message.id}`,
         `status: ${message.status}`,
-        message.content?.trim() || '(空正文)'
+        promptMessage.content?.trim() || '(空正文)'
       ].join('\n')
     })
-    .join('\n\n')
+  })
+
+  if (!promptEntries.length) {
+    return '(当前消息还没有记录到发送给 LLM 的完整提示词)'
+  }
+
+  return promptEntries.join('\n\n')
 })
 
 const currentMessageText = computed(() => {
@@ -272,8 +330,8 @@ async function handleCopyConversationText(): Promise<void> {
   await navigator.clipboard.writeText(conversationText.value)
 }
 
-async function handleCopySystemPrompt(): Promise<void> {
-  await navigator.clipboard.writeText(systemPromptText.value)
+async function handleCopyPromptMessages(): Promise<void> {
+  await navigator.clipboard.writeText(llmPromptText.value)
 }
 
 async function handleCopyRawOutputs(): Promise<void> {
@@ -286,6 +344,7 @@ async function handleCopyConversationRaw(): Promise<void> {
 
 watch(isRawDialogOpen, async (opened) => {
   if (!opened) return
+  activeRawDialogTab.value = 'prompt'
   await nextTick()
   rawDialogContentRef.value?.scrollIntoView({ block: 'start' })
 })

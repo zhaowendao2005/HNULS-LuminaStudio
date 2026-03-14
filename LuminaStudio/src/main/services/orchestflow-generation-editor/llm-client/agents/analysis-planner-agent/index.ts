@@ -244,6 +244,12 @@ async function runModelRequest(
     memoryRounds: params.memoryRounds
   })
 
+  persistAndEmitMessageMeta(params.state, params, {
+    llmRequest: {
+      messages
+    }
+  })
+
   if (params.runtimeSignals.explicitPlanningRequested) {
     emitPlanningProgressMeta(params.state, params, buildEmptyPlanningProgressState())
   }
@@ -538,7 +544,8 @@ function persistAndEmitMessageMeta(
   params: StartAnalysisPlannerAgentStreamParams,
   metaPayload: GenerationMessageMetaPayload
 ): void {
-  const metaJson = JSON.stringify(metaPayload)
+  const currentMeta = params.repository.getMessageById(state.messageId)?.meta_json
+  const metaJson = JSON.stringify(mergeMessageMeta(currentMeta, metaPayload))
   params.repository.updateMessageMeta(state.messageId, metaJson)
   state.sender.send('orchestflowGenerationEditor:stream', {
     type: 'message-meta',
@@ -548,6 +555,24 @@ function persistAndEmitMessageMeta(
     messageId: state.messageId,
     metaJson
   })
+}
+
+function mergeMessageMeta(
+  currentMetaJson: string | null | undefined,
+  patch: GenerationMessageMetaPayload
+): GenerationMessageMetaPayload {
+  if (!currentMetaJson) {
+    return patch
+  }
+
+  try {
+    return {
+      ...(JSON.parse(currentMetaJson) as GenerationMessageMetaPayload),
+      ...patch
+    }
+  } catch {
+    return patch
+  }
 }
 
 function ensureAssistantTextSynced(

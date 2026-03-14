@@ -232,6 +232,32 @@ describe('LoopNode', () => {
     expect(variableStore.get('loop1.counter')).toBe(3)
   })
 
+  it('支持通过 loop_count_ref 在运行时解析循环次数', async () => {
+    const variableStore = new VariableStore()
+    variableStore.set('config', { rounds: 2 })
+    const node = createLoopNodeDefinition({
+      loop_count: 1,
+      loop_count_ref: {
+        selector: ['config', 'rounds'],
+        path: 'config.rounds',
+        type: OFVarType.Number
+      }
+    })
+    const executeGraph = vi.fn(async ({ variableStore: childStore }) => ({
+      status: 'succeeded' as const,
+      outputs: {
+        counter: childStore.get('counter') + 1
+      }
+    }))
+
+    const loopNode = new LoopNode(node, variableStore)
+    const result = await loopNode.execute(createContext(node, variableStore, { executeGraph }))
+
+    expect(result.error).toBeUndefined()
+    expect(result.outputs.result).toEqual({ counter: 2 })
+    expect(executeGraph).toHaveBeenCalledTimes(2)
+  })
+
   it('非法配置会直接硬失败，并禁止容器嵌套', async () => {
     const variableStore = new VariableStore()
     const node = createLoopNodeDefinition({

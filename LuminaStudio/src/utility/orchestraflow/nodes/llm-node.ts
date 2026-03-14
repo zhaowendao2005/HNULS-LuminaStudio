@@ -84,14 +84,14 @@ export class LLMNode extends BaseNode {
       const messages = this.buildMessages(nodeData, context)
       const namespace = getOFNodeOutputNamespace(nodeData, context.node.id || 'llm')
       const outputVars =
-        resolveOFNodeDefinition(OFBlockEnum.LLM).variables.buildRuntimeOutputVariables?.({
+        resolveOFNodeDefinition(OFBlockEnum.LLM).runtime.buildRuntimeOutputVariables?.({
           title: namespace,
           structuredOutput: nodeData.structured_output
         }) || []
       const legacyOutputVars =
         namespace === this.context.node.id
           ? []
-          : resolveOFNodeDefinition(OFBlockEnum.LLM).variables.buildRuntimeOutputVariables?.({
+          : resolveOFNodeDefinition(OFBlockEnum.LLM).runtime.buildRuntimeOutputVariables?.({
               title: this.context.node.id,
               structuredOutput: nodeData.structured_output
             }) || []
@@ -423,7 +423,7 @@ export class LLMNode extends BaseNode {
     schema: OFStructuredJsonSchema
   ): Record<string, any> {
     const parsed = JSON.parse(content) as Record<string, any>
-    return this.buildZodSchema(schema).parse(parsed)
+    return this.buildZodSchema(schema).parse(parsed) as Record<string, any>
   }
 
   private applyOutputs(params: {

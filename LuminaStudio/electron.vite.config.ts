@@ -49,10 +49,10 @@ export default defineConfig({
       }
     },
     server: {
-      // 这里强制走 IPv4，并避开当前 Windows 的 excluded port range（5118-5217）。
-      // 原来的 5173 落在系统保留区间里，会直接报 listen EACCES。
+      // 这里强制走 IPv4，并交给系统分配可用端口，
+      // 避免 Windows 本机的 excluded port range / 权限限制导致固定端口直接 EACCES。
       host: '127.0.0.1',
-      port: 13000
+      port: 0
     },
     plugins: [vue()]
   }

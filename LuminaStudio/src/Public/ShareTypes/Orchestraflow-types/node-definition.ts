@@ -1,5 +1,4 @@
-import type { OFAuthoringDefaultRecommendation, OFBlueprintNode } from './blueprint'
-import type { OFNodeAuthoringContract } from './contract'
+import type { OFBlueprintNode } from './blueprint'
 import type {
   OFIfElseCondition,
   OFIterationBranchOutputRef,
@@ -15,6 +14,13 @@ import { OFBlockEnum, normalizeOFVariableNamespace } from './core-types'
 
 export type OFNodeDefinitionCategory = 'start' | 'llm' | 'logic' | 'end' | 'internal'
 export type OFNodeDefinitionKind = 'standard' | 'container' | 'internal-start'
+export type OFNodeAuthoringToken = 'start' | 'llm' | 'if' | 'iter' | 'loop' | 'set' | 'end'
+
+export interface OFNodeAuthoringExample {
+  label: string
+  summary: string
+  value?: string | number | boolean | Record<string, unknown> | unknown[] | null
+}
 
 export interface OFNodeVariableBuildParams {
   nodeId?: string
@@ -31,6 +37,9 @@ export interface OFNodeCompilerHelpers {
   compileIterationBranchOutputSelectors(source: unknown[]): OFIterationBranchOutputRef[]
   compileNodeContext(value: OFLLMNodeData['context']): OFLLMNodeData['context']
   compileSelectorField(value: unknown): string[]
+  compileTemplateValue(
+    value: string | number | boolean | Record<string, unknown> | unknown[] | null | undefined
+  ): string | number | boolean | Record<string, unknown> | unknown[] | null | undefined
   compileContainerSubgraph(
     node: OFBlueprintNode,
     compiledId: string,
@@ -65,23 +74,51 @@ export interface OFNodeEditorNormalizeParams {
   helpers: OFNodeEditorHelpers
 }
 
-export interface OFNodeDefinitionMeta {
-  type: OFBlockEnum
-  title: string
+export interface OFNodeRuntimeInvariant {
+  id: string
+  level: 'error'
+  scope: 'workflow' | 'node' | 'subgraph' | 'edge' | 'selector' | 'variable'
   summary: string
-  category: OFNodeDefinitionCategory
-  kind: OFNodeDefinitionKind
-  vueFlowType: string
-  internal?: boolean
-  ai_exposed: boolean
 }
 
-export interface OFNodeAgentDefinition {
+export interface OFNodeDslDefinition {
+  // dsl 是作者态真相层：
+  // 这里只描述 OFT/1 作者应该怎么写，不能倒灌 runtime/editor 的内部字段。
+  authoringToken: OFNodeAuthoringToken
+  title: string
+  summary: string
+  sectionForm: '[node.<id>]'
+  subgraphSectionForm?: '[subgraph.<container>]'
+  allowedKeys: string[]
+  requiredKeys: string[]
+  legacyTokens?: string[]
+  legacyKeyReplacements?: Record<string, string>
+  examples?: OFNodeAuthoringExample[]
+  warnings_zh?: string[]
+}
+
+export interface OFNodeLlmSpec {
+  // llmSpec 是给 LLM 的安全暴露层：
+  // 它可以转述 dsl/rules，但不能把 runtime 内部字段原样暴露给模型。
+  exposed: boolean
+  authoringToken: OFNodeAuthoringToken
+  title: string
+  summary: string
   capability_summary: string
   boundaries_zh: string[]
   input_dependencies: string[]
   output_artifacts: string[]
   composition_hints: string[]
+  section_template: string
+  required_fields: string[]
+  optional_fields: string[]
+  examples?: OFNodeAuthoringExample[]
+  warnings_zh?: string[]
+  selector_policies?: string[]
+  output_policies?: string[]
+  omit_rules?: string[]
+  authoring_hints?: string[]
+  notes?: string[]
 }
 
 export type OFPortDirection = 'input' | 'output'
@@ -118,46 +155,33 @@ export interface OFContainerSpec {
   }
 }
 
-export interface OFNodeSpec {
+export interface OFNodeRuntimeDefinition {
+  // runtime 是固定执行契约：
+  // 运行 type、ports、system-managed 字段、变量派生都在这一层收口。
+  type: OFBlockEnum
+  title: string
+  summary: string
+  category: OFNodeDefinitionCategory
+  kind: OFNodeDefinitionKind
+  vueFlowType: string
+  internal?: boolean
   ports: OFPortSpec[]
   system_managed_fields?: string[]
   side_effects?: OFNodeSideEffectSpec[]
   output_namespace: OFOutputNamespaceSpec
   container?: OFContainerSpec
-}
-
-export interface OFNodeAuthoringDefinition {
-  contract: OFNodeAuthoringContract
-  warnings_zh?: string[]
-  defaults?: OFAuthoringDefaultRecommendation[]
-  examples?: Array<{
-    label: string
-    summary: string
-    value?: string | number | boolean | Record<string, unknown> | unknown[] | null
-  }>
-  selector_policies?: string[]
-  output_policies?: string[]
-  omit_rules?: string[]
-  residual_notes_zh?: string[]
-}
-
-export interface OFNodePromptDefinition {
-  sanitizePromptNode?(node: OFNode): OFNode
-}
-
-export interface OFNodeVariablesDefinition {
+  runtime_invariants?: OFNodeRuntimeInvariant[]
   buildRuntimeOutputVariables?(params: OFNodeVariableBuildParams): OFVariable[]
   buildRuntimeInputVariables?(params: OFNodeVariableBuildParams): OFVariable[]
   getSelectableVariables(node: OFNode): OFVariable[]
 }
 
 export interface OFStandardNodeDefinition<TData extends OFNode['data'] = OFNode['data']> {
-  meta: OFNodeDefinitionMeta & { kind: 'standard' }
-  agent?: OFNodeAgentDefinition
-  spec: OFNodeSpec
-  authoring: OFNodeAuthoringDefinition
-  prompt?: OFNodePromptDefinition
-  variables: OFNodeVariablesDefinition
+  dsl: OFNodeDslDefinition
+  llmSpec: OFNodeLlmSpec
+  runtime: OFNodeRuntimeDefinition & { kind: 'standard' }
+  // editor / compiler 属于固定实现层：
+  // editor 负责默认值和归一化，compiler 负责把作者态编译成 runnable data。
   editor: {
     createDefaultData(params: OFNodeEditorCreateParams): TData
     normalizeData(params: OFNodeEditorNormalizeParams): TData
@@ -168,12 +192,9 @@ export interface OFStandardNodeDefinition<TData extends OFNode['data'] = OFNode[
 }
 
 export interface OFContainerNodeDefinition<TData extends OFNode['data'] = OFNode['data']> {
-  meta: OFNodeDefinitionMeta & { kind: 'container' }
-  agent?: OFNodeAgentDefinition
-  spec: OFNodeSpec
-  authoring: OFNodeAuthoringDefinition
-  prompt?: OFNodePromptDefinition
-  variables: OFNodeVariablesDefinition
+  dsl: OFNodeDslDefinition
+  llmSpec: OFNodeLlmSpec
+  runtime: OFNodeRuntimeDefinition & { kind: 'container' }
   editor: {
     createDefaultData(params: OFNodeEditorCreateParams): TData
     normalizeData(params: OFNodeEditorNormalizeParams): TData
@@ -184,16 +205,13 @@ export interface OFContainerNodeDefinition<TData extends OFNode['data'] = OFNode
 }
 
 export interface OFInternalStartNodeDefinition<TData extends OFNode['data'] = OFNode['data']> {
-  meta: OFNodeDefinitionMeta & { kind: 'internal-start'; internal: true; ai_exposed: false }
-  agent?: OFNodeAgentDefinition
-  spec: OFNodeSpec
-  authoring: OFNodeAuthoringDefinition
-  prompt?: OFNodePromptDefinition
-  variables: OFNodeVariablesDefinition
+  runtime: OFNodeRuntimeDefinition & { kind: 'internal-start'; internal: true }
   editor: {
     normalizeData(params: OFNodeEditorNormalizeParams): TData
   }
 }
+
+export type OFAuthoringNodeDefinition = OFStandardNodeDefinition | OFContainerNodeDefinition
 
 export type OFNodeDefinition =
   | OFStandardNodeDefinition
@@ -218,12 +236,18 @@ export function defineInternalStartOFNodeDefinition<TData extends OFNode['data']
   return definition
 }
 
+export function isOFAuthoringNodeDefinition(
+  definition: OFNodeDefinition
+): definition is OFAuthoringNodeDefinition {
+  return 'dsl' in definition && 'llmSpec' in definition
+}
+
 export function createOFPortSpec(port: OFPortSpec): OFPortSpec {
   return port
 }
 
 export function resolveOFNodeOutputNamespace(
-  definition: Pick<OFNodeDefinition, 'spec'>,
+  definition: Pick<OFNodeDefinition, 'runtime'>,
   params: {
     current?: string
     nodeId?: string
@@ -231,13 +255,13 @@ export function resolveOFNodeOutputNamespace(
     fallback: string
   }
 ): string | undefined {
-  if (definition.spec.output_namespace.source === 'none') {
+  if (definition.runtime.output_namespace.source === 'none') {
     return undefined
   }
   if (params.current) {
     return normalizeOFVariableNamespace(params.current, params.fallback)
   }
-  if (definition.spec.output_namespace.source === 'system-stable') {
+  if (definition.runtime.output_namespace.source === 'system-stable') {
     return normalizeOFVariableNamespace(params.nodeId, params.fallback)
   }
   return normalizeOFVariableNamespace(params.title, params.fallback)

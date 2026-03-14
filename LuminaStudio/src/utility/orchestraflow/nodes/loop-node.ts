@@ -13,6 +13,7 @@ import {
 import type { ExecutionContext, NodeResult } from './types'
 import { VariableStore } from '../services/variable-store'
 import { evaluateConditions } from './condition-evaluator'
+import { resolveValueTemplate } from '../services/value-converter'
 
 export class LoopNode extends BaseNode {
   readonly nodeType: OFBlockEnum.Loop
@@ -31,10 +32,11 @@ export class LoopNode extends BaseNode {
     const inLoopId = `${context.runId}:${context.node.id}:${randomUUID()}`
     const scopePath = [...context.scopePath, context.node.id]
     const workingStore = this.variableStore.fork()
+    const loopCount = this.resolveLoopCount(nodeData, workingStore)
 
     this.initializeLoopVariables(nodeData.loop_variables, workingStore)
 
-    for (let index = 0; index < nodeData.loop_count; index += 1) {
+    for (let index = 0; index < loopCount; index += 1) {
       if (context.isStopped()) {
         return this.buildStoppedResult(nodeData, workingStore)
       }
@@ -44,7 +46,7 @@ export class LoopNode extends BaseNode {
         normalizedTitle,
         context.node.id,
         index,
-        nodeData.loop_count
+        loopCount
       )
       if (this.shouldBreak(nodeData.break_conditions, nodeData.logical_operator, workingStore)) {
         break
@@ -55,7 +57,7 @@ export class LoopNode extends BaseNode {
         normalizedTitle,
         context.node.id,
         index,
-        nodeData.loop_count
+        loopCount
       )
 
       const childResult = await context.executeGraph({
@@ -67,7 +69,7 @@ export class LoopNode extends BaseNode {
         loopContext: {
           loopNodeId: context.node.id,
           loopTitle: normalizedTitle,
-          loopCount: nodeData.loop_count,
+          loopCount,
           index,
           inLoopId,
           scopePath
@@ -105,7 +107,7 @@ export class LoopNode extends BaseNode {
     workingStore: VariableStore
   ): unknown {
     if (loopVariable.value_type === 'constant') {
-      return loopVariable.value ?? null
+      return resolveValueTemplate(loopVariable.value ?? null, workingStore)
     }
 
     if (
@@ -116,6 +118,23 @@ export class LoopNode extends BaseNode {
     }
 
     return workingStore.getByVariableRef(loopVariable.value_source.ref)
+  }
+
+  private resolveLoopCount(nodeData: OFLoopNodeData, workingStore: VariableStore): number {
+    if (nodeData.loop_count_ref?.selector?.length) {
+      const resolved = workingStore.getByVariableRef(nodeData.loop_count_ref)
+      const count = Number(resolved)
+      if (!Number.isInteger(count) || count < 1) {
+        throw new Error('loop_count_ref 必须解析为大于等于 1 的整数')
+      }
+      return count
+    }
+
+    if (!Number.isInteger(nodeData.loop_count) || nodeData.loop_count < 1) {
+      throw new Error('loop_count 必须是大于等于 1 的整数')
+    }
+
+    return nodeData.loop_count
   }
 
   private createChildStore(
@@ -214,8 +233,11 @@ export class LoopNode extends BaseNode {
   }
 
   private validateConfig(nodeData: OFLoopNodeData): void {
-    if (!Number.isInteger(nodeData.loop_count) || nodeData.loop_count < 1) {
-      throw new Error('loop_count 必须是大于等于 1 的整数')
+    if (
+      (!Number.isInteger(nodeData.loop_count) || nodeData.loop_count < 1) &&
+      !nodeData.loop_count_ref?.selector?.length
+    ) {
+      throw new Error('loop_count 或 loop_count_ref 必须至少提供一个有效值')
     }
     if (!nodeData.subgraph?.nodes?.length) {
       throw new Error('subgraph 不能为空')

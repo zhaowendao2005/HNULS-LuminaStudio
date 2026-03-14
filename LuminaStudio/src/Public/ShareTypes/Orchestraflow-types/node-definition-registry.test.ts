@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
   OFBlockEnum,
-  OFVarType,
   type OFNode,
   type OFIfElseCondition,
   type OFIterationBranchOutputRef,
@@ -36,6 +35,16 @@ const compilerHelpers = {
   compileSelectorField(value: unknown) {
     return Array.isArray(value) ? value.map(String) : []
   },
+  compileTemplateValue(value: unknown) {
+    return value as
+      | string
+      | number
+      | boolean
+      | Record<string, unknown>
+      | unknown[]
+      | null
+      | undefined
+  },
   compileContainerSubgraph() {
     return {
       graph: {
@@ -50,14 +59,14 @@ const compilerHelpers = {
 
 function createNode(type: OFBlockEnum, id = `node-${type}`, title?: string): OFNode {
   const definition = resolveOFNodeDefinition(type)
-  const fallbackTitle = title || definition.meta.title
+  const fallbackTitle = title || definition.runtime.title
   const data =
     'createDefaultData' in definition.editor
       ? definition.editor.createDefaultData({ nodeId: id, title: fallbackTitle })
       : definition.editor.normalizeData({
           node: {
             id,
-            type: definition.meta.vueFlowType,
+            type: definition.runtime.vueFlowType,
             position: { x: 0, y: 0 },
             parentNode: id,
             extent: 'parent',
@@ -72,7 +81,7 @@ function createNode(type: OFBlockEnum, id = `node-${type}`, title?: string): OFN
               const nestedDefinition = resolveOFNodeDefinition(node.data.type)
               return {
                 ...node,
-                type: nestedDefinition.meta.vueFlowType,
+                type: nestedDefinition.runtime.vueFlowType,
                 data: nestedDefinition.editor.normalizeData({
                   node,
                   helpers: this
@@ -84,7 +93,7 @@ function createNode(type: OFBlockEnum, id = `node-${type}`, title?: string): OFN
 
   return {
     id,
-    type: definition.meta.vueFlowType,
+    type: definition.runtime.vueFlowType,
     position: { x: 0, y: 0 },
     data
   }
@@ -144,7 +153,7 @@ describe('OrchestraFlow node definitions', () => {
       list: listOFNodeDefinitions
     }
     const definition: OFNodeDefinition = registry.resolve(OFBlockEnum.Start)
-    expect(definition.meta.type).toBe(OFBlockEnum.Start)
+    expect(definition.runtime.type).toBe(OFBlockEnum.Start)
 
     const variableDefinition: OFVariableDefinition<void> = {
       id: 'test',
@@ -156,7 +165,7 @@ describe('OrchestraFlow node definitions', () => {
   it('registers all built-in node definitions', () => {
     const definitions = listOFNodeDefinitions()
     expect(definitions).toHaveLength(9)
-    expect(definitions.map((item) => item.meta.type)).toEqual(
+    expect(definitions.map((item) => item.runtime.type)).toEqual(
       expect.arrayContaining([
         OFBlockEnum.Start,
         OFBlockEnum.LLM,
@@ -170,29 +179,31 @@ describe('OrchestraFlow node definitions', () => {
       ])
     )
     definitions.forEach((definition) => {
-      expect(Array.isArray(definition.spec.ports)).toBe(true)
-      expect(definition.spec.output_namespace).toBeDefined()
+      expect(Array.isArray(definition.runtime.ports)).toBe(true)
+      expect(definition.runtime.output_namespace).toBeDefined()
     })
   })
 
   it('keeps editor and variable capabilities available for every definition', () => {
     listOFNodeDefinitions().forEach((definition) => {
-      const node = createNode(definition.meta.type)
-      expect(definition.authoring.contract.type).toBe(definition.meta.type)
-      expect(definition.variables.getSelectableVariables(node)).toBeInstanceOf(Array)
+      const node = createNode(definition.runtime.type)
+      if ('dsl' in definition) {
+        expect(definition.llmSpec.authoringToken).toBe(definition.dsl.authoringToken)
+      }
+      expect(definition.runtime.getSelectableVariables(node)).toBeInstanceOf(Array)
       expect(definition.editor.normalizeData).toBeTypeOf('function')
       if ('createDefaultData' in definition.editor) {
         expect(definition.editor.createDefaultData).toBeTypeOf('function')
       }
       if ('compiler' in definition) {
         const compiled = definition.compiler.compileData({
-          node: createDslNode(definition.meta.type),
-          compiledId: `compiled-${definition.meta.type}`,
-          title: definition.meta.title,
+          node: createDslNode(definition.runtime.type),
+          compiledId: `compiled-${definition.runtime.type}`,
+          title: definition.runtime.title,
           desc: '',
           helpers: compilerHelpers
         })
-        expect(compiled.type).toBe(definition.meta.type)
+        expect(compiled.type).toBe(definition.runtime.type)
       }
     })
   })

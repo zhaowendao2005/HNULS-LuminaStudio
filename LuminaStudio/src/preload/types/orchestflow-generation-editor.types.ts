@@ -31,9 +31,7 @@ export type GenerationDesignDocumentStatus =
   | 'invalid'
   | 'aborted'
   | 'error'
-export type GenerationDesignDocumentContentFormat =
-  | 'of-blueprint-text-v1'
-  | 'of-blueprint-section-v1'
+export type GenerationDesignDocumentContentFormat = 'of-blueprint-section-v1'
 export type GenerationDesignGenerationMode = 'generate' | 'regenerate'
 
 export interface GenerationStageConfig {
@@ -140,11 +138,21 @@ export interface GenerationDesignBlueprintBlockPayload {
   errorMessage?: string | null
 }
 
+export interface GenerationLlmPromptMessage {
+  role: 'system' | 'user' | 'assistant'
+  content: string
+}
+
+export interface GenerationLlmRequestPayload {
+  messages: GenerationLlmPromptMessage[]
+}
+
 export interface GenerationMessageMetaPayload {
   vendor?: GenerationSdkVendor
   protocol?: ModelProviderProtocol
   agentId?: string
   mode?: GenerationAnalysisAgentMode
+  llmRequest?: GenerationLlmRequestPayload | null
   planningBlock?: GenerationPlanningBlockPayload | null
   copilotEditBlock?: GenerationCopilotEditBlockPayload | null
   designBlueprintBlock?: GenerationDesignBlueprintBlockPayload | null

@@ -113,6 +113,47 @@ describe('VariableAssignNode', () => {
     })
   })
 
+  it('resolves @path placeholders inside composite constant values', async () => {
+    const variableStore = new VariableStore()
+    variableStore.set('draft', {
+      text: 'hello',
+      meta: {
+        score: 9
+      }
+    })
+    const node = createVariableAssignNode({
+      rules: [
+        {
+          id: 'rule-1',
+          source: {
+            mode: 'constant',
+            constant_value: {
+              raw: '@draft.text',
+              score: '@draft.meta.score',
+              ok: true
+            }
+          },
+          source_mode: 'constant',
+          target_variable: 'payload',
+          target_type: OFVarType.Object
+        }
+      ]
+    })
+
+    const result = await new VariableAssignNode(node, variableStore).execute(
+      createContext(node, variableStore)
+    )
+
+    expect(result.error).toBeUndefined()
+    expect(result.outputs).toEqual({
+      payload: {
+        raw: 'hello',
+        score: 9,
+        ok: true
+      }
+    })
+  })
+
   it('fails atomically when any rule conversion fails', async () => {
     const variableStore = new VariableStore()
     variableStore.set('profile', {

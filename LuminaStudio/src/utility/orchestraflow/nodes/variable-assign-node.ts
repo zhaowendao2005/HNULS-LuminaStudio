@@ -8,7 +8,7 @@ import {
 } from '@shared/Orchestraflow-types'
 import type { ExecutionContext, NodeResult } from './types'
 import { VariableStore } from '../services/variable-store'
-import { convertValue } from '../services/value-converter'
+import { convertValue, resolveValueTemplate } from '../services/value-converter'
 
 interface PendingWrite {
   variable: string
@@ -71,7 +71,7 @@ export class VariableAssignNode extends BaseNode {
       if (!Object.prototype.hasOwnProperty.call(rule.source, 'constant_value')) {
         throw new Error(`Rule "${rule.target_variable}" is missing constant_value`)
       }
-      return rule.source.constant_value
+      return resolveValueTemplate(rule.source.constant_value, this.variableStore)
     }
 
     if (rule.source?.mode !== 'variable' || !rule.source.ref?.selector?.length) {

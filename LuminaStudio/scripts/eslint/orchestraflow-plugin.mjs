@@ -85,7 +85,7 @@ function isSharedInternalFile(filename) {
 function isAllowedManualDerivedFile(filename) {
   const normalized = normalizeFilename(filename)
   return (
-    normalized.includes('/src/Public/ShareTypes/Orchestraflow-types/builtins/') ||
+    normalized.includes('/src/Public/ShareTypes/Orchestraflow-types/nodes/') ||
     normalized.endsWith('/src/Public/ShareTypes/Orchestraflow-types/blueprint/compiler.ts') ||
     normalized.endsWith('/src/utility/orchestraflow/runtime-binding-registry.ts') ||
     normalized.endsWith('.test.ts') ||
@@ -266,7 +266,7 @@ function createNoBusinessBranchOutsideDefinitionsRule() {
       schema: [],
       messages: {
         branch:
-          'Business branching on OFBlockEnum should live in built-in definitions, not in this orchestrator file.'
+          'Business branching on OFBlockEnum should live in shared node definitions, not in this orchestrator file.'
       }
     },
     create(context) {

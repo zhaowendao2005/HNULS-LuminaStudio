@@ -175,7 +175,7 @@ export const useVariableSelectorStore = defineStore('orchestraflow-variable-sele
     const nodeId = node.id
 
     const variables: OFVariable[] =
-      resolveOFNodeDefinition(nodeType).variables.getSelectableVariables(node)
+      resolveOFNodeDefinition(nodeType).runtime.getSelectableVariables(node)
 
     if (!variables.length) {
       return []

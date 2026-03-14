@@ -1,4 +1,5 @@
 import { OFVarType } from '@shared/Orchestraflow-types'
+import type { VariableStore } from './variable-store'
 
 export interface OFValueConversionParams {
   targetType: OFVarType
@@ -33,6 +34,46 @@ function parseJsonValue(value: string, params: OFValueConversionParams): unknown
   } catch {
     throw new Error(`${buildErrorPrefix(params)}: invalid JSON`)
   }
+}
+
+export function resolveValueTemplate(
+  value: string | number | boolean | Record<string, unknown> | unknown[] | null | undefined,
+  variableStore: VariableStore
+): string | number | boolean | Record<string, unknown> | unknown[] | null | undefined {
+  if (typeof value === 'string') {
+    if (!value.startsWith('@')) {
+      return value
+    }
+
+    const resolved = variableStore.getByPath(value.slice(1))
+    if (resolved === undefined) {
+      throw new Error(`Template reference "${value}" is undefined`)
+    }
+    return resolved as string | number | boolean | Record<string, unknown> | unknown[] | null
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) =>
+      resolveValueTemplate(
+        item as string | number | boolean | Record<string, unknown> | unknown[] | null,
+        variableStore
+      )
+    )
+  }
+
+  if (isPlainObject(value)) {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [
+        key,
+        resolveValueTemplate(
+          item as string | number | boolean | Record<string, unknown> | unknown[] | null,
+          variableStore
+        )
+      ])
+    )
+  }
+
+  return value
 }
 
 export function convertValue(value: unknown, params: OFValueConversionParams): unknown {

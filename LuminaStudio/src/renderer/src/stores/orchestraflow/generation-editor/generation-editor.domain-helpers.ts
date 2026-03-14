@@ -39,19 +39,24 @@ export function applyStreamEventToChannelMessages(params: {
   const channelMessages = detail.messagesByChannel[channelKey]
 
   if (event.type === 'stream-start') {
-    const target = channelMessages.find((item) => {
-      return (
-        item.id === event.messageId ||
-        item.id === localState.streamMessageIdByRequest[event.requestId] ||
-        (item.requestId === event.requestId && item.role === 'assistant')
-      )
-    })
+    const target =
+      channelMessages.find((item) => {
+        return (
+          item.id === event.messageId ||
+          item.id === localState.streamMessageIdByRequest[event.requestId] ||
+          (item.requestId === event.requestId && item.role === 'assistant')
+        )
+      }) || findPendingOptimisticAssistantMessage(channelMessages)
+
     if (target) {
-      target.id = event.messageId
+      // stream-start 可能会早于 sendMessage 返回 requestId。
+      // 这里优先把事件绑定到本地 optimistic assistant，避免首批 delta 被丢掉。
       target.requestId = event.requestId
       target.status = 'streaming'
+      localState.streamMessageIdByRequest[event.requestId] = target.id
+    } else {
+      localState.streamMessageIdByRequest[event.requestId] = event.messageId
     }
-    localState.streamMessageIdByRequest[event.requestId] = event.messageId
     localState.activeRequestId = event.requestId
     return true
   }
@@ -103,6 +108,14 @@ export function applyStreamEventToChannelMessages(params: {
   }
 
   return false
+}
+
+function findPendingOptimisticAssistantMessage(
+  channelMessages: GenerateSessionDetailViewModel['messagesByChannel'][GenerationChannelKey]
+) {
+  return [...channelMessages]
+    .reverse()
+    .find((item) => item.role === 'assistant' && item.status === 'streaming' && !item.requestId)
 }
 
 export function appendOptimisticMessages(params: {

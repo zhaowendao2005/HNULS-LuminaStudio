@@ -1,4 +1,3 @@
-import type { OFAuthoringDefaultRecommendation } from './blueprint'
 import type {
   OFJsonSchemaObject,
   OFLoopVariableData,
@@ -24,7 +23,6 @@ import {
 export interface OFVariableDefinition<TParams> {
   id: string
   build(params: TParams): OFVariable[]
-  authoring_defaults?: OFAuthoringDefaultRecommendation[]
   notes_zh?: string[]
 }
 
@@ -42,12 +40,6 @@ export function cloneOFValue<T>(value: T): T {
 
 export function cloneOFVariables(variables: OFVariable[]): OFVariable[] {
   return variables.map((item) => cloneOFValue(item))
-}
-
-export function cloneOFAuthoringDefaults(
-  defaults: OFAuthoringDefaultRecommendation[]
-): OFAuthoringDefaultRecommendation[] {
-  return defaults.map((item) => cloneOFValue(item))
 }
 
 export function ensureOFSelectableVariables(variables: OFVariable[]): OFVariable[] {
@@ -78,64 +70,12 @@ export function ensureOFSelectableVariables(variables: OFVariable[]): OFVariable
 }
 
 export const startInputVariableDefinition: OFVariableDefinition<void> = {
-  id: 'start-input-authoring-defaults',
+  id: 'start-input-template',
   build: () => [],
-  authoring_defaults: [
-    {
-      path: 'graph.nodes[start].data.input.variables[*].default',
-      kind: 'recommended',
-      value: 'example text',
-      summary: '为开始节点输入变量补 default，可让导入后的工作流直接运行，再由用户微调。',
-      omit_when: '该输入变量仅应由用户在每次运行前手动输入，且不应预填。'
-    },
-    {
-      path: 'graph.nodes[start].data.input.variables[string].default',
-      kind: 'example',
-      value: 'batch',
-      summary: 'string 输入变量使用非空短字符串作为可运行示例值。'
-    },
-    {
-      path: 'graph.nodes[start].data.input.variables[number].default',
-      kind: 'example',
-      value: 3,
-      summary: 'number 输入变量使用真实数字，避免写成字符串。'
-    },
-    {
-      path: 'graph.nodes[start].data.input.variables[boolean].default',
-      kind: 'example',
-      value: false,
-      summary: 'boolean 输入变量直接写 true/false。'
-    },
-    {
-      path: 'graph.nodes[start].data.input.variables[array].default',
-      kind: 'example',
-      value: ['sample-item'],
-      summary: 'array 输入变量直接写真实 JSON 数组默认值；系统不再支持数组 schema。'
-    },
-    {
-      path: 'graph.nodes[start].data.input.variables[object].schema',
-      kind: 'example',
-      value: {
-        type: 'object',
-        properties: {
-          topic: {
-            type: 'string',
-            description: '主题',
-            default: 'demo'
-          },
-          priority: {
-            type: 'number',
-            description: '优先级',
-            default: 1
-          }
-        },
-        required: ['topic', 'priority'],
-        additionalProperties: false,
-        description: 'object 输入变量必须声明 properties schema；字段默认值写在 schema 内。'
-      },
-      summary:
-        'object 输入变量必须声明 schema，字段默认值写在 schema 内，不要只写变量级 `default`。'
-    }
+  notes_zh: [
+    '开始节点输入变量如果需要开箱即跑，应补安全的 default 预填值。',
+    'object 类型默认值应写在 schema 内部字段，不要直接写变量级 default。',
+    'array 类型默认值直接写真实 JSON 数组，不再维护数组 schema。'
   ]
 }
 

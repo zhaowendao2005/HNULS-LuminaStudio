@@ -3,6 +3,7 @@ import {
   OFBlockEnum,
   OFVarType,
   resolveOFNodeDefinition,
+  type OFLLMNodeData,
   type OFNode
 } from '@shared/Orchestraflow-types'
 import { LLMNode } from './llm-node'
@@ -118,7 +119,7 @@ describe('LLMNode structured output schema', () => {
 
   it('marks structured_output as object when schema root is object', () => {
     const variables =
-      resolveOFNodeDefinition(OFBlockEnum.LLM).variables.buildRuntimeOutputVariables?.({
+      resolveOFNodeDefinition(OFBlockEnum.LLM).runtime.buildRuntimeOutputVariables?.({
         title: 'llm',
         structuredOutput: {
           enabled: true,
@@ -139,7 +140,7 @@ describe('LLMNode structured output schema', () => {
 
   it('uses OpenAI responses mode for plain text requests', async () => {
     const node = createLLMNode('responses')
-    const nodeData = ((node as any).context.node as OFNode).data
+    const nodeData = ((node as any).context.node as OFNode).data as OFLLMNodeData
     nodeData.prompt_template = [
       { id: 'system-1', role: 'system', text: 'You are concise.' },
       { id: 'user-1', role: 'user', text: 'Hello Lumina' }
@@ -192,8 +193,9 @@ describe('LLMNode structured output schema', () => {
   it('parses structured output from OpenAI responses mode', async () => {
     const node = createLLMNode('responses')
     const runtimeNode = (node as any).context.node as OFNode
-    runtimeNode.data.prompt_template = [{ id: 'user-1', role: 'user', text: 'Return JSON' }]
-    runtimeNode.data.structured_output = {
+    const runtimeData = runtimeNode.data as OFLLMNodeData
+    runtimeData.prompt_template = [{ id: 'user-1', role: 'user', text: 'Return JSON' }]
+    runtimeData.structured_output = {
       enabled: true,
       schema: {
         type: 'object',

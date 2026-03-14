@@ -1,5 +1,7 @@
 import type { OFRunnableWorkflow } from '../contract'
 import {
+  findOFAuthoringNodeDefinition,
+  findOFLegacyAuthoringNodeDefinition,
   OFBlockEnum,
   OFVarType,
   type OFBlueprintEdge,
@@ -11,6 +13,7 @@ import {
   type OFBlueprintSectionAst,
   type OFBlueprintSectionDslAst,
   type OFBlueprintWorkflow,
+  type OFJsonSchemaProperty,
   type OFJsonSchemaObject,
   type OFStructuredJsonSchema
 } from '..'
@@ -30,8 +33,10 @@ export const OF_BLUEPRINT_SECTION_DSL_RULES = [
   '所有结构用 section 表达，不使用缩进表达层级。',
   '多行 prompt 使用三引号字符串 `""" ... """`。',
   '数组必须写成单行 JSON 数组。',
+  '边必须显式写成 `node.handle -> node.handle`。',
   'start/llm/if/loop/iter/set/end 使用节点专用字段，不再直接写深路径 `data.*`。',
-  '引用统一使用 @ref 语法，由编译器转换成 selector。'
+  '引用统一使用 @ref 语法，由编译器转换成 selector。',
+  '组合 object/array 中如需引用变量，必须把引用写成 JSON 字符串 `"@ref"`。'
 ] as const
 
 type ParsedValue = string | number | boolean | null | string[] | number[] | boolean[] | object
@@ -49,6 +54,27 @@ type InputDefinition = {
   defaultValue?: unknown
   fields?: string[]
 }
+
+const WORKFLOW_ALLOWED_KEYS = new Set(['name', 'description', 'author'])
+const INPUT_ALLOWED_KEYS = new Set(['type', 'default', 'schema', 'fields', 'description'])
+const GRAPH_ALLOWED_KEYS = new Set(['edges'])
+const SUBGRAPH_ALLOWED_KEYS = new Set(['entry', 'edges'])
+const COMMON_NODE_ALLOWED_KEYS = new Set(['type', 'title', 'description'])
+const _LEGACY_KEY_REPLACEMENTS = new Map<string, string>([
+  ['desc', 'description'],
+  ['assignments', 'let'],
+  ['conditions', 'when'],
+  ['cases', 'when'],
+  ['elseCase', 'else_label'],
+  ['iterator_ref', 'over'],
+  ['output_policy', 'result'],
+  ['output_schema', 'struct'],
+  ['loop_count_ref', 'count'],
+  ['max_iterations', 'count'],
+  ['loop_condition', 'count 或 break_conditions'],
+  ['nodes', '删除该键；子图节点通过 [node.<container>.<child>] section 定义'],
+  ['start_node_id', '删除该键；内部 start 节点由系统管理']
+])
 
 const MULTILINE_QUOTE = '"""'
 
@@ -133,7 +159,7 @@ export function parseOFBlueprintSectionDsl(sourceText: string): OFBlueprintTextP
       diagnostics.push(
         createLineDiagnostic(
           'unknown-statement',
-          '无法识别这条 OFT/1 语句。',
+          buildUnknownStatementMessage(rawLine),
           'dsl',
           index,
           rawLine
@@ -254,8 +280,9 @@ function compileWorkflowMeta(
   section: OFBlueprintSectionAst,
   diagnostics: OFBlueprintTextDiagnostic[]
 ): OFBlueprintWorkflow['workflow'] {
+  validateSectionKeys(section, WORKFLOW_ALLOWED_KEYS, 'workflow', diagnostics)
   const name = getStringEntry(section, 'name')
-  const description = getStringEntry(section, 'desc') || getStringEntry(section, 'description')
+  const description = getStringEntry(section, 'description')
   const author = getStringEntry(section, 'author')
 
   if (!name?.trim()) {
@@ -283,10 +310,10 @@ function compileInputDefinitions(
   return sections
     .filter((section) => section.name.startsWith('input.'))
     .map((section) => {
+      validateSectionKeys(section, INPUT_ALLOWED_KEYS, section.name, diagnostics)
       const name = section.name.slice('input.'.length)
       const type = getStringEntry(section, 'type') || ''
-      const desc =
-        getStringEntry(section, 'desc') || getStringEntry(section, 'description') || undefined
+      const desc = getStringEntry(section, 'description') || undefined
       const defaultValue = getEntryValue(section, 'default')
       const fields = getStringArrayEntry(section, 'fields')
 
@@ -314,16 +341,64 @@ function compileNodeSection(
 ): OFBlueprintNode | null {
   const nodePath = section.name.slice('node.'.length).split('.')
   const nodeId = nodePath[nodePath.length - 1]
-  const nodeType = normalizeNodeType(getStringEntry(section, 'type') || '')
-  const title = getStringEntry(section, 'title') || undefined
-  const description =
-    getStringEntry(section, 'desc') || getStringEntry(section, 'description') || undefined
+  const rawType = getStringEntry(section, 'type') || ''
+  const normalizedType = rawType.trim().toLowerCase()
+  const legacyDefinition = findOFLegacyAuthoringNodeDefinition(normalizedType)
+  if (legacyDefinition) {
+    diagnostics.push(
+      createDiagnostic({
+        code: 'legacy-node-type-not-supported',
+        message: `节点 ${nodeId} 的 type=${rawType} 已废弃，请改用 ${legacyDefinition.dsl.authoringToken}。`,
+        path: `nodes.${nodeId}.type`,
+        ...section.location
+      })
+    )
+    return null
+  }
 
-  if (!nodeType) {
+  const definition = findOFAuthoringNodeDefinition(normalizedType)
+  const nodeType = definition?.runtime.type || null
+  const title = getStringEntry(section, 'title') || undefined
+  const description = getStringEntry(section, 'description') || undefined
+
+  if (!nodeType || !definition) {
     diagnostics.push(
       createDiagnostic({
         code: 'missing-node-type',
         message: `节点 ${nodeId} 缺少 type。`,
+        path: `nodes.${nodeId}.type`,
+        ...section.location
+      })
+    )
+    return null
+  }
+
+  const allowedNodeKeys = new Set([...COMMON_NODE_ALLOWED_KEYS, ...definition.dsl.allowedKeys])
+  validateSectionKeys(
+    section,
+    allowedNodeKeys,
+    `nodes.${nodeId}`,
+    diagnostics,
+    new Map(Object.entries(definition.dsl.legacyKeyReplacements || {}))
+  )
+
+  if (nodePath.length > 1 && nodeType === OFBlockEnum.Start) {
+    diagnostics.push(
+      createDiagnostic({
+        code: 'container-start-not-supported',
+        message: `容器子图中的内部 start 节点由系统注入，作者不应手写节点 ${nodeId}。`,
+        path: `nodes.${nodeId}.type`,
+        ...section.location
+      })
+    )
+    return null
+  }
+
+  if (nodePath.length > 1 && [OFBlockEnum.Iteration, OFBlockEnum.Loop].includes(nodeType)) {
+    diagnostics.push(
+      createDiagnostic({
+        code: 'nested-container-not-supported',
+        message: `容器子图内禁止再定义容器节点 ${nodeId}。`,
         path: `nodes.${nodeId}.type`,
         ...section.location
       })
@@ -372,6 +447,7 @@ function compileNodeSection(
       node.config.cases = buildIfCases(
         getArrayOfStrings(section, 'when'),
         {
+          inputNames: context.inputNames,
           nodeIds: childNodeIds.size ? childNodeIds : context.nodeIds,
           variableRoots: context.variableRoots
         },
@@ -406,18 +482,31 @@ function compileNodeSection(
     }
     case OFBlockEnum.Loop: {
       const countValue = getEntryValue(section, 'count')
-      if (typeof countValue !== 'number' || !Number.isInteger(countValue) || countValue < 1) {
+      if (typeof countValue === 'number' && Number.isInteger(countValue) && countValue >= 1) {
+        node.config.loop_count = countValue
+      } else if (typeof countValue === 'string' && countValue.trim().startsWith('@')) {
+        const selector = compileReferenceSelector(
+          countValue,
+          context,
+          diagnostics,
+          section.location
+        )
+        node.config.loop_count = 1
+        node.config.loop_count_selector = selector
+        node.config.loop_count_ref = {
+          selector,
+          path: selector.join('.')
+        }
+      } else {
         diagnostics.push(
           createDiagnostic({
             code: 'invalid-loop-count',
-            message: 'loop.count 当前只支持大于等于 1 的常量整数。',
+            message: 'loop.count 当前只支持大于等于 1 的常量整数，或单个 `@ref` 字符串。',
             path: `nodes.${nodeId}.count`,
             ...section.location
           })
         )
         node.config.loop_count = 1
-      } else {
-        node.config.loop_count = countValue
       }
       const loopVars = buildLoopVariables(
         getArrayOfStrings(section, 'vars'),
@@ -427,6 +516,16 @@ function compileNodeSection(
       )
       node.config.loop_variables = loopVars
       node.config.entry = getStringEntry(subgraphSection, 'entry') || undefined
+      if (!node.config.entry) {
+        diagnostics.push(
+          createDiagnostic({
+            code: 'missing-subgraph-entry',
+            message: `循环节点 ${nodeId} 缺少 [subgraph.${nodeId}] 的 entry。`,
+            path: `nodes.${nodeId}.entry`,
+            ...(subgraphSection?.location || section.location)
+          })
+        )
+      }
       node.subgraph = buildSubgraph(
         childSections,
         subgraphSection,
@@ -458,6 +557,16 @@ function compileNodeSection(
       )
       node.config.branch_output_selectors = []
       node.config.entry = getStringEntry(subgraphSection, 'entry') || undefined
+      if (!node.config.entry) {
+        diagnostics.push(
+          createDiagnostic({
+            code: 'missing-subgraph-entry',
+            message: `迭代节点 ${nodeId} 缺少 [subgraph.${nodeId}] 的 entry。`,
+            path: `nodes.${nodeId}.entry`,
+            ...(subgraphSection?.location || section.location)
+          })
+        )
+      }
       node.subgraph = buildSubgraph(
         childSections,
         subgraphSection,
@@ -490,6 +599,9 @@ function buildSubgraph(
   diagnostics: OFBlueprintTextDiagnostic[],
   variableRoots: Set<string>
 ): OFBlueprintNode['subgraph'] {
+  if (subgraphSection) {
+    validateSectionKeys(subgraphSection, SUBGRAPH_ALLOWED_KEYS, subgraphSection.name, diagnostics)
+  }
   const childNodeIds = new Set(childSections.map((item) => item.name.split('.').pop() || ''))
   const childNodes = childSections
     .map((section) =>
@@ -526,6 +638,9 @@ function compileGraphEdges(
   location: OFBlueprintTextLocation,
   diagnostics: OFBlueprintTextDiagnostic[]
 ): OFBlueprintEdge[] {
+  if (graphSection) {
+    validateSectionKeys(graphSection, GRAPH_ALLOWED_KEYS, 'graph', diagnostics)
+  }
   return compileEdgeSpecs(getArrayOfStrings(graphSection, 'edges'), nodeIds, location, diagnostics)
 }
 
@@ -621,13 +736,11 @@ function buildObjectSchema(fieldSpecs: string[]): OFStructuredJsonSchema {
     if (!parsed) {
       return
     }
-    properties[parsed.name] = {
-      type: convertVarTypeToSchemaType(parsed.typeInfo.type),
-      description: parsed.name,
-      ...(parsed.constantValue !== undefined
-        ? { default: parsed.constantValue as string | number | boolean | null }
-        : {})
-    }
+    properties[parsed.name] = createSchemaProperty(
+      convertVarTypeToSchemaType(parsed.typeInfo.type),
+      parsed.name,
+      parsed.constantValue
+    )
     required.push(parsed.name)
   })
 
@@ -711,7 +824,7 @@ function buildIfCases(
       operator: parsed.operator
     }
 
-    if (parsed.right.startsWith('@')) {
+    if (parsed.right?.startsWith('@')) {
       const compareSelector = compileReferenceSelector(parsed.right, context, diagnostics, location)
       condition.compare_source_mode = 'variable'
       condition.compare_selector = compareSelector
@@ -719,7 +832,7 @@ function buildIfCases(
         selector: compareSelector,
         path: compareSelector.join('.')
       }
-    } else {
+    } else if (parsed.right !== undefined) {
       const literal = parseLiteralExpression(parsed.right)
       condition.value = literal.value
       condition.value_type = literal.valueType
@@ -863,16 +976,27 @@ function buildEndOutputs(
       return []
     }
 
-    const selector = compileReferenceSelector(parsed.ref, context, diagnostics, location)
     const variable: Record<string, unknown> = {
       variable: parsed.name,
       label: parsed.name,
-      type: parsed.typeInfo.type,
-      value_selector: selector
+      type: parsed.typeInfo.type
     }
 
     if (parsed.typeInfo.itemType) {
       variable.item_type = parsed.typeInfo.itemType
+    }
+
+    if (parsed.ref) {
+      const selector = compileReferenceSelector(parsed.ref, context, diagnostics, location)
+      variable.value_selector = selector
+    } else {
+      variable.value_template = parsed.template
+      if (parsed.typeInfo.type === OFVarType.Object && isPlainObject(parsed.template)) {
+        variable.schema = buildObjectSchemaFromValue(parsed.template)
+      }
+      if (parsed.typeInfo.type === OFVarType.Array && Array.isArray(parsed.template)) {
+        variable.item_type = parsed.typeInfo.itemType || undefined
+      }
     }
 
     return [variable]
@@ -882,20 +1006,32 @@ function buildEndOutputs(
 function parseEdgeSpec(spec: string): OFBlueprintEdge | null {
   const match = spec
     .trim()
-    .match(
-      /^([A-Za-z0-9_-]+)(?:\.([A-Za-z0-9_-]+))?\s*->\s*([A-Za-z0-9_-]+)(?:\.([A-Za-z0-9_-]+))?$/
-    )
+    .match(/^([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)\s*->\s*([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)$/)
   if (!match) return null
   const [, fromNode, fromHandle, toNode, toHandle] = match
   return {
-    from: { node: fromNode, handle: fromHandle || 'source' },
-    to: { node: toNode, handle: toHandle || 'target' }
+    from: { node: fromNode, handle: fromHandle },
+    to: { node: toNode, handle: toHandle }
   }
 }
 
 function parseWhenSpec(
   spec: string
-): { left: string; operator: string; right: string; handle: string } | null {
+): { left: string; operator: string; right?: string; handle: string } | null {
+  const unaryMatch = spec
+    .trim()
+    .match(
+      /^(.+?)\s+(is_empty|is_not_empty|all_true|any_true|all_false|any_false)\s*=>\s*([A-Za-z0-9_-]+)$/
+    )
+  if (unaryMatch) {
+    const [, left, operatorToken, handle] = unaryMatch
+    return {
+      left: left.trim(),
+      operator: operatorToken.trim(),
+      handle: handle.trim()
+    }
+  }
+
   const match = spec
     .trim()
     .match(
@@ -923,16 +1059,36 @@ function parseWhenSpec(
   }
 }
 
-function parseOutputSpec(
-  spec: string
-): { name: string; typeInfo: ReturnType<typeof parseTypeSpec>; ref: string } | null {
+function parseOutputSpec(spec: string):
+  | { name: string; typeInfo: ReturnType<typeof parseTypeSpec>; ref: string; template?: undefined }
+  | {
+      name: string
+      typeInfo: ReturnType<typeof parseTypeSpec>
+      ref?: undefined
+      template: string | number | boolean | Record<string, unknown> | unknown[] | null
+    }
+  | null {
   const match = spec.trim().match(/^([A-Za-z0-9_]+):([A-Za-z:]+)\s*<-\s*(.+)$/)
   if (!match) return null
-  const [, name, typeText, ref] = match
+  const [, name, typeText, expression] = match
+  const trimmed = expression.trim()
+  if (trimmed.startsWith('@')) {
+    return {
+      name,
+      typeInfo: parseTypeSpec(typeText),
+      ref: trimmed
+    }
+  }
   return {
     name,
     typeInfo: parseTypeSpec(typeText),
-    ref: ref.trim()
+    template: parseLiteralExpression(trimmed).value as
+      | string
+      | number
+      | boolean
+      | Record<string, unknown>
+      | unknown[]
+      | null
   }
 }
 
@@ -1007,6 +1163,31 @@ function convertVarTypeToSchemaType(type: OFVarType): 'string' | 'number' | 'boo
   return 'string'
 }
 
+function createSchemaProperty(
+  type: 'string' | 'number' | 'boolean' | 'object',
+  description: string,
+  defaultValue?: unknown
+): OFJsonSchemaProperty {
+  if (type === 'object') {
+    return {
+      type: 'object',
+      properties: {},
+      required: [],
+      additionalProperties: false,
+      description,
+      ...(isPlainObject(defaultValue) ? { default: defaultValue as Record<string, unknown> } : {})
+    }
+  }
+
+  return {
+    type,
+    description,
+    ...(defaultValue !== undefined
+      ? { default: defaultValue as string | number | boolean | null }
+      : {})
+  }
+}
+
 function compileReferenceSelector(
   reference: string,
   context: SectionCompileContext,
@@ -1053,7 +1234,10 @@ function compileReferenceSelector(
 function buildObjectSchemaFromValue(value: unknown): OFStructuredJsonSchema | null {
   if (!isPlainObject(value)) return null
   const properties = Object.fromEntries(
-    Object.entries(value).map(([key, item]) => [key, { type: inferSchemaType(item) }])
+    Object.entries(value).map(([key, item]) => [
+      key,
+      createSchemaProperty(inferSchemaType(item), key)
+    ])
   )
   return {
     type: 'object',
@@ -1188,37 +1372,38 @@ function getArrayOfStrings(
   return Array.isArray(value) ? value.map((item) => String(item)) : []
 }
 
+function validateSectionKeys(
+  section: OFBlueprintSectionAst,
+  allowedKeys: Set<string>,
+  pathPrefix: string,
+  diagnostics: OFBlueprintTextDiagnostic[],
+  legacyKeyReplacements: Map<string, string> = _LEGACY_KEY_REPLACEMENTS
+): void {
+  section.entries.forEach((entry) => {
+    if (allowedKeys.has(entry.key)) {
+      return
+    }
+
+    const replacement = legacyKeyReplacements.get(entry.key)
+    diagnostics.push(
+      createDiagnostic({
+        code: replacement ? 'legacy-key-not-supported' : 'unknown-section-key',
+        message: replacement
+          ? `${section.name} 中的键 ${entry.key} 已废弃，请改用 ${replacement}。`
+          : `${section.name} 不支持键 ${entry.key}。`,
+        path: `${pathPrefix}.${entry.key}`,
+        ...entry.location
+      })
+    )
+  })
+}
+
 function isTopLevelNodeSection(name: string): boolean {
   return name.startsWith('node.') && name.slice('node.'.length).split('.').length === 1
 }
 
 function extractTopLevelNodeId(name: string): string {
   return name.slice('node.'.length)
-}
-
-function normalizeNodeType(rawType: string): OFBlockEnum | null {
-  const normalized = rawType.trim().toLowerCase()
-  switch (normalized) {
-    case 'start':
-      return OFBlockEnum.Start
-    case 'llm':
-      return OFBlockEnum.LLM
-    case 'if':
-    case 'ifelse':
-      return OFBlockEnum.IfElse
-    case 'loop':
-      return OFBlockEnum.Loop
-    case 'iter':
-    case 'iteration':
-      return OFBlockEnum.Iteration
-    case 'set':
-    case 'variable-assign':
-      return OFBlockEnum.VariableAssign
-    case 'end':
-      return OFBlockEnum.End
-    default:
-      return null
-  }
 }
 
 function parseModelId(value: string): { provider: string; name: string } {
@@ -1340,10 +1525,12 @@ function findFirstMeaningfulLine(lines: string[]): number {
   })
 }
 
-function createDiagnostic(input: OFBlueprintTextDiagnostic): OFBlueprintTextDiagnostic {
+function createDiagnostic(
+  input: Omit<OFBlueprintTextDiagnostic, 'severity'>
+): OFBlueprintTextDiagnostic {
   return {
-    severity: 'error',
-    ...input
+    ...input,
+    severity: 'error'
   }
 }
 
@@ -1382,6 +1569,25 @@ function createDefaultLocation(): OFBlueprintTextLocation {
     endLine: 1,
     endColumn: 1
   }
+}
+
+function buildUnknownStatementMessage(rawLine: string): string {
+  const trimmed = rawLine.trim()
+  const looksLikeMultilineJsonFragment =
+    trimmed === '[' ||
+    trimmed === ']' ||
+    trimmed === '{' ||
+    trimmed === '}' ||
+    trimmed.endsWith(',') ||
+    trimmed.startsWith('"') ||
+    trimmed.startsWith('{') ||
+    trimmed.startsWith('}')
+
+  if (looksLikeMultilineJsonFragment) {
+    return '无法识别这条 OFT/1 语句。若你在写数组或对象，请改成单行合法 JSON；OFT/1 不支持多行数组项或多行对象项。'
+  }
+
+  return '无法识别这条 OFT/1 语句。'
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

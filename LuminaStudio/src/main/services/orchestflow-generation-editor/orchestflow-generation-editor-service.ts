@@ -440,17 +440,8 @@ export class OrchestflowGenerationEditorService {
   }
 }
 
-function detectBlueprintContentFormat(
-  sourceText: string
-): 'of-blueprint-text-v1' | 'of-blueprint-section-v1' {
-  const firstMeaningfulLine =
-    sourceText
-      .replace(/\r\n?/g, '\n')
-      .split('\n')
-      .map((line) => line.trim())
-      .find((line) => line.length > 0 && !line.startsWith('#')) || ''
-
-  return firstMeaningfulLine === 'OFT/1' ? 'of-blueprint-section-v1' : 'of-blueprint-text-v1'
+function detectBlueprintContentFormat(_sourceText: string): 'of-blueprint-section-v1' {
+  return 'of-blueprint-section-v1'
 }
 
 function buildContentPreview(content: string): string {

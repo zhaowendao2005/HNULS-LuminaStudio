@@ -11,4 +11,6 @@ export interface ActiveGenerationStream {
   providerId: string
   modelId: string
   abortController: AbortController
+  pendingDeltaText?: string
+  pendingDeltaFlushTimer?: NodeJS.Timeout | null
 }

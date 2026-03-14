@@ -1,4 +1,3 @@
-import {} from '@shared/Orchestraflow-types'
 import type { GenerationEditorRepository } from '../../../repositories/generation-editor.repository'
 import { buildDeclaredNodeSpecsPrompt } from '../../prompt-sources/declared-node-spec.source'
 import { buildDslSyntaxPrompt } from '../../prompt-sources/dsl-syntax.source'
@@ -12,6 +11,9 @@ export function buildDesignBlueprintContextBundle(params: {
   designDocumentId: string
   memoryRounds: number
 }): DesignBlueprintContextBundle {
+  // 这里组装的是“给 LLM 看的作者态上下文”，职责是帮助模型产出合法 OFT/1 DSL。
+  // 它不应该直接等价于运行态/持久化态的内部结构；
+  // 后者是固定契约，前者则需要跟随 DSL + parser/compiler 的演进持续调优。
   const designDocument = params.repository.getDesignDocumentById(params.designDocumentId)
   const recentMessages = params.repository
     .listMessages({

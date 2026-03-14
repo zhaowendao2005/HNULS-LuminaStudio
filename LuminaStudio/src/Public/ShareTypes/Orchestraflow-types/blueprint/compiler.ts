@@ -81,12 +81,12 @@ function compileBlueprintNode(
     throw new Error(`Node type does not support Blueprint compilation: ${node.type}`)
   }
   const title = String(
-    node.title || definition.meta.title || getOFDefaultNodeTitle(node.type)
+    node.title || definition.runtime.title || getOFDefaultNodeTitle(node.type)
   ).trim()
   const desc = String(node.description || '').trim()
   const shell = createNodeShell(
     compiledId,
-    definition.meta.vueFlowType,
+    definition.runtime.vueFlowType,
     index,
     context.parentNodeId
   )
@@ -108,6 +108,9 @@ function compileBlueprintNode(
     },
     compileSelectorField(value: unknown) {
       return compileSelectorField(value, idMap)
+    },
+    compileTemplateValue(value) {
+      return rewriteTemplateRefs(value, idMap)
     },
     compileContainerSubgraph(
       containerNode: OFBlueprintNode,
@@ -164,33 +167,33 @@ function compileContainerSubgraph(
   const internalDefinition = resolveOFNodeDefinition(internalStartType)
   const inputVariables =
     internalStartType === OFBlockEnum.IterationStart
-      ? internalDefinition.variables.buildRuntimeInputVariables?.({
+      ? internalDefinition.runtime.buildRuntimeInputVariables?.({
           title,
           nodeId: compiledId
         }) || []
-      : internalDefinition.variables.buildRuntimeInputVariables?.({
+      : internalDefinition.runtime.buildRuntimeInputVariables?.({
           title,
           nodeId: compiledId,
           loopVariables
         }) || []
 
-  const internalStartNodeId = `${compiledId}-${internalDefinition.meta.vueFlowType}`
+  const internalStartNodeId = `${compiledId}-${internalDefinition.runtime.vueFlowType}`
   const internalStartNode: OFNode = {
     id: internalStartNodeId,
-    type: internalDefinition.meta.vueFlowType,
+    type: internalDefinition.runtime.vueFlowType,
     position: { x: 30, y: 40 },
     parentNode: compiledId,
     extent: 'parent',
     data: internalDefinition.editor.normalizeData({
       node: {
         id: internalStartNodeId,
-        type: internalDefinition.meta.vueFlowType,
+        type: internalDefinition.runtime.vueFlowType,
         position: { x: 30, y: 40 },
         parentNode: compiledId,
         extent: 'parent',
         data: {
-          title: internalDefinition.meta.title,
-          desc: internalDefinition.meta.title,
+          title: internalDefinition.runtime.title,
+          desc: internalDefinition.runtime.title,
           type: internalStartType,
           input: {
             variables: inputVariables
@@ -202,7 +205,7 @@ function compileContainerSubgraph(
           const nodeDefinition = resolveOFNodeDefinition(nodeValue.data.type)
           return {
             ...nodeValue,
-            type: nodeDefinition.meta.vueFlowType,
+            type: nodeDefinition.runtime.vueFlowType,
             data: nodeDefinition.editor.normalizeData({
               node: nodeValue,
               helpers: this
@@ -300,6 +303,7 @@ function compileVariables(source: unknown[], idMap: Map<string, string>): OFVari
     )
     return {
       ...variable,
+      value_template: rewriteTemplateRefs(variable.value_template, idMap),
       value_ref: selector.length
         ? {
             ...(variable.value_ref || {}),
@@ -347,7 +351,7 @@ function compileLoopVariables(source: unknown[], idMap: Map<string, string>): OF
               }
             : {
                 mode: 'constant',
-                constant_value: variable.value
+                constant_value: rewriteTemplateRefs(variable.value, idMap)
               }
     }
   })
@@ -393,21 +397,13 @@ function compileIterationBranchOutputSelectors(
 ): OFIterationBranchOutputRef[] {
   return source.map((item) => {
     const selector = item as OFIterationBranchOutputSelector
+    const compiledSelector = compileSelectorField(selector.output_selector, idMap)
     return {
       source_node_id: rewriteSelectorRoot(selector.source_node_id, idMap),
       source_handle_id: selector.source_handle_id,
       output_ref: {
-        ...(selector.output_ref || {}),
-        selector: compileSelectorField(
-          selector.output_ref?.selector ?? selector.output_selector,
-          idMap
-        ),
-        path:
-          selector.output_ref?.path ||
-          compileSelectorField(
-            selector.output_ref?.selector ?? selector.output_selector,
-            idMap
-          ).join('.')
+        selector: compiledSelector,
+        path: compiledSelector.join('.')
       }
     }
   })
@@ -445,5 +441,64 @@ function compileSelectorField(value: unknown, idMap: Map<string, string>): strin
 }
 
 function rewriteSelectorRoot(root: string, idMap: Map<string, string>): string {
-  return idMap.get(root) || root
+  if (idMap.has(root)) {
+    return idMap.get(root) || root
+  }
+
+  const dotIndex = root.indexOf('.')
+  if (dotIndex < 0) {
+    return root
+  }
+
+  const head = root.slice(0, dotIndex)
+  const tail = root.slice(dotIndex + 1)
+  if (!idMap.has(head)) {
+    return root
+  }
+
+  return `${idMap.get(head)}.${tail}`
+}
+
+function rewriteTemplateRefs(
+  value: string | number | boolean | Record<string, unknown> | unknown[] | null | undefined,
+  idMap: Map<string, string>
+): string | number | boolean | Record<string, unknown> | unknown[] | null | undefined {
+  if (typeof value === 'string') {
+    if (!value.startsWith('@')) {
+      return value
+    }
+
+    const rawPath = value.slice(1)
+    const dotIndex = rawPath.indexOf('.')
+    if (dotIndex < 0) {
+      return `@${rewriteSelectorRoot(rawPath, idMap)}`
+    }
+
+    const head = rawPath.slice(0, dotIndex)
+    const tail = rawPath.slice(dotIndex + 1)
+    return `@${rewriteSelectorRoot(head, idMap)}.${tail}`
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) =>
+      rewriteTemplateRefs(
+        item as string | number | boolean | Record<string, unknown> | unknown[] | null,
+        idMap
+      )
+    )
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [
+        key,
+        rewriteTemplateRefs(
+          item as string | number | boolean | Record<string, unknown> | unknown[] | null,
+          idMap
+        )
+      ])
+    )
+  }
+
+  return value
 }

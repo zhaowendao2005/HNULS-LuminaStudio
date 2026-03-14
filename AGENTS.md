@@ -62,7 +62,7 @@ trigger: always_on
 
 - **必须**：`LuminaStudio/src/Public/ShareTypes/Orchestraflow-types/` 作为 OrchestraFlow 共享契约的单一事实来源。
 - **必须**：普通消费者优先从 `@shared/Orchestraflow-types` 获取公开 API，不要继续扩散旧 deep import / legacy entrypoint。
-- **必须**：built-in 节点结构、authoring 约束、selector / output / omit 策略优先落在 `builtins/*.definition.ts`。
+- **必须**：built-in 节点结构、authoring 约束、selector / output / omit 策略优先落在 `nodes/**/definition.ts`，并按节点拆到 `dsl / llm-spec / runtime / editor / compiler` 子域。
 - **禁止**：在 renderer store、utility runtime、AI schema builder 中重复手写一份同等业务分支，绕过 shared definitions。
 - **必须**：涉及 OrchestraFlow 的快速检查优先运行 `pnpm lint:orchestraflow`。
 

@@ -1,7 +1,6 @@
 import {
-  OF_BLUEPRINT_SECTION_DSL_HEADER,
   OF_BLUEPRINT_REQUIRED_WORKFLOW_FIELDS,
-  OF_BLUEPRINT_TEXT_DSL_ALLOWED_WORKFLOW_FIELDS,
+  OF_BLUEPRINT_SECTION_DSL_HEADER,
   buildOFWorkflowAuthoringContract,
   listOFMechanismDefinitions
 } from '@shared/Orchestraflow-types'
@@ -24,6 +23,9 @@ export function buildMechanismSelectionSummaryPrompt(): string {
 export function buildMechanismRulesPrompt(): string {
   const definitions = listOFMechanismDefinitions()
   const contract = buildOFWorkflowAuthoringContract()
+  const workflowKeys = contract.global_fields
+    .filter((item) => item.path.startsWith('workflow.'))
+    .map((item) => item.path.replace(/^workflow\./, ''))
 
   return [
     '## 系统底层机制规则',
@@ -38,12 +40,20 @@ export function buildMechanismRulesPrompt(): string {
     '',
     '## Workflow 元信息约束',
     `- 生成 DSL 时，第一行必须先写 ${OF_BLUEPRINT_SECTION_DSL_HEADER}，然后立即进入 [workflow] section。`,
-    `- 允许设置的 workflow 字段仅有: ${OF_BLUEPRINT_TEXT_DSL_ALLOWED_WORKFLOW_FIELDS.join(', ')}`,
+    `- [workflow] section 允许设置的键仅有: ${workflowKeys.join(', ')}`,
     `- 当前硬性必填字段: ${OF_BLUEPRINT_REQUIRED_WORKFLOW_FIELDS.join(', ')}`,
     '- 若缺少 workflow.name，blueprint-validation 会直接失败。',
     '- 推荐最小开头模板：',
     '- [workflow]',
     '- name = "your-workflow-name"',
+    '',
+    '## LLM 输出格式红线',
+    '- 不要输出多行数组项：禁止写 `outputs = [` 然后下一行再写数组元素。',
+    '- 不要输出多行对象项：禁止把 `{"a": 1, "b": 2}` 拆成多行 JSON 键值。',
+    '- 正确写法是：整条 `key = ...` 保持单行，右侧直接放单行合法 JSON。',
+    '- 错误写法示例：`outputs = [` / `  "x:string <- @ref"` / `]`。',
+    '- 正确写法示例：`outputs = ["x:string <- @ref", "y:object <- {\\"ok\\": true}"]`。',
+    '- 如果对象里要引用变量，写成 `{"field": "@node.output"}`，不要拆成多行。',
     '',
     '## Workflow Authoring Contract',
     ...contract.global_invariants.map((item) => `- ${item.scope}: ${item.summary}`)

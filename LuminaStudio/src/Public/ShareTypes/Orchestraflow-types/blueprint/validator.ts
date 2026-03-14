@@ -1,11 +1,11 @@
-import type {
-  OFIfElseCase,
-  OFRunnableEdge,
-  OFRunnableSubgraphNode,
-  OFRunnableWorkflow
-} from '../contract'
+import type { OFRunnableEdge, OFRunnableSubgraphNode, OFRunnableWorkflow } from '../contract'
 import type { OFBlueprintNode, OFBlueprintValidationResult, OFBlueprintWorkflow } from './types'
-import { OFBlockEnum, getOFEdgeSourcePortId, getOFEdgeTargetPortId } from '../core-types'
+import {
+  OFBlockEnum,
+  getOFEdgeSourcePortId,
+  getOFEdgeTargetPortId,
+  type OFIfElseCase
+} from '../core-types'
 import {
   collectOFSelectorVariableRoots,
   normalizeOFRunnableNodeSelectorData

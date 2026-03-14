@@ -74,6 +74,14 @@ export function evaluateCondition(
       return getArrayLength(actual) < Number(expected)
     case 'length_lte':
       return getArrayLength(actual) <= Number(expected)
+    case 'all_true':
+      return Array.isArray(actual) && actual.every((item) => Boolean(item))
+    case 'any_true':
+      return Array.isArray(actual) && actual.some((item) => Boolean(item))
+    case 'all_false':
+      return Array.isArray(actual) && actual.every((item) => !item)
+    case 'any_false':
+      return Array.isArray(actual) && actual.some((item) => !item)
     default:
       return false
   }

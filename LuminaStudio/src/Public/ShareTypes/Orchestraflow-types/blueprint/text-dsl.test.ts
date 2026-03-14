@@ -1,144 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import {
-  compileOFBlueprintTextDsl,
-  parseOFBlueprintTextDsl,
-  type OFBlueprintWorkflow
-} from '.'
+import { compileOFBlueprintTextDsl, parseOFBlueprintTextDsl } from '.'
 
 describe('OF blueprint text dsl', () => {
-  it('parses and compiles a valid text dsl blueprint', () => {
-    const result = compileOFBlueprintTextDsl(`
-BLUEPRINT DSL 1.0
-# 这是一个最小可编译蓝图
-SET workflow.name = "demo-blueprint"
-SET workflow.author = "test"
-
-NODE start TYPE start
-SET start.data.input.variables[0].variable = "user_query"
-SET start.data.input.variables[0].label = "user_query"
-SET start.data.input.variables[0].type = "string"
-
-NODE llm_main TYPE llm
-SET llm_main.data.model.provider = "openai"
-SET llm_main.data.model.name = "gpt-4.1-mini"
-SET llm_main.data.structured_output.enabled = false
-SET llm_main.data.prompt_template[0].id = "prompt-1"
-SET llm_main.data.prompt_template[0].role = "user"
-SET llm_main.data.prompt_template[0].text <<TEXT
-请总结输入。
-TEXT
-
-NODE end TYPE end
-SET end.data.output.variables[0].variable = "result"
-SET end.data.output.variables[0].label = "result"
-SET end.data.output.variables[0].type = "string"
-SET end.data.output.variables[0].value_selector = ["llm_main.llmoutput"]
-
-EDGE start -> llm_main
-EDGE llm_main -> end
-`)
-
-    expect(result.valid).toBe(true)
-    expect(result.diagnostics).toEqual([])
-    expect(result.blueprint?.workflow.name).toBe('demo-blueprint')
-    expect(result.runnable?.graph.nodes.length).toBeGreaterThan(0)
-  })
-
-  it('supports JSON heredoc values for structured schema fields', () => {
-    const result = parseOFBlueprintTextDsl(`
-BLUEPRINT DSL 1.0
-SET workflow.name = "json-heredoc"
-NODE llm_main TYPE llm
-SET llm_main.data.model.provider = "openai"
-SET llm_main.data.model.name = "gpt-4.1-mini"
-SET llm_main.data.structured_output.enabled = true
-SET llm_main.data.structured_output.schema <<JSON
-{"type":"object","properties":{"answer":{"type":"string"}},"required":["answer"],"additionalProperties":false}
-JSON
-`)
-
-    expect(result.valid).toBe(true)
-    const llmNode = result.ast?.graph.nodes.find((node) => node.id === 'llm_main')
-    const schemaAssignment = llmNode?.assignments.find((item) =>
-      item.rawPath.includes('structured_output.schema')
-    )
-
-    expect(schemaAssignment?.value).toEqual({
-      type: 'object',
-      properties: {
-        answer: {
-          type: 'string'
-        }
-      },
-      required: ['answer'],
-      additionalProperties: false
-    } satisfies Record<string, unknown>)
-  })
-
-  it('reports sparse array index with line and error code', () => {
-    const result = compileOFBlueprintTextDsl(`
-BLUEPRINT DSL 1.0
-SET workflow.name = "sparse-array"
-NODE llm_main TYPE llm
-SET llm_main.data.model.provider = "openai"
-SET llm_main.data.model.name = "gpt-4.1-mini"
-SET llm_main.data.structured_output.enabled = false
-SET llm_main.data.prompt_template[1].role = "user"
-`)
-
-    expect(result.valid).toBe(false)
-    expect(result.diagnostics).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          code: 'sparse-array-index',
-          line: 8
-        })
-      ])
-    )
-  })
-
-  it('requires explicit ifelse source handle', () => {
-    const result = compileOFBlueprintTextDsl(`
-BLUEPRINT DSL 1.0
-SET workflow.name = "ifelse-handle"
-
-NODE start TYPE start
-SET start.data.input.variables[0].variable = "question"
-SET start.data.input.variables[0].label = "question"
-SET start.data.input.variables[0].type = "string"
-
-NODE branch TYPE ifelse
-SET branch.data.cases[0].id = "case-1"
-SET branch.data.cases[0].label = "case-1"
-SET branch.data.cases[0].handleId = "case_1"
-SET branch.data.cases[0].conditions[0].id = "condition-1"
-SET branch.data.cases[0].conditions[0].variable_ref.selector = ["question"]
-SET branch.data.cases[0].conditions[0].compare_source_mode = "constant"
-SET branch.data.cases[0].conditions[0].operator = "contains"
-SET branch.data.cases[0].conditions[0].compare_value = "hi"
-SET branch.data.elseCase.handleId = "else"
-SET branch.data.elseCase.label = "ELSE"
-
-NODE end TYPE end
-SET end.data.output.variables[0].variable = "result"
-SET end.data.output.variables[0].label = "result"
-SET end.data.output.variables[0].type = "string"
-SET end.data.output.variables[0].value_selector = ["question"]
-
-EDGE start -> branch
-EDGE branch -> end
-`)
-
-    expect(result.valid).toBe(false)
-    expect(result.diagnostics).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          code: 'missing-ifelse-handle'
-        })
-      ])
-    )
-  })
-
   it('parses and compiles OFT/1 section-based dsl', () => {
     const result = compileOFBlueprintTextDsl(`
 OFT/1
@@ -167,11 +30,79 @@ type = "end"
 outputs = ["result:string <- @llm_main.structured_output.answer"]
 
 [graph]
-edges = ["start -> llm_main", "llm_main -> end"]
+edges = ["start.source -> llm_main.target", "llm_main.source -> end.target"]
 `)
 
     expect(result.valid).toBe(true)
+    expect(result.diagnostics).toEqual([])
     expect(result.blueprint?.workflow.name).toBe('section-demo')
     expect(result.runnable?.graph.nodes.length).toBeGreaterThan(0)
+  })
+
+  it('supports OFT/1 section ast parsing', () => {
+    const result = parseOFBlueprintTextDsl(`
+OFT/1
+[workflow]
+name = "json-heredoc"
+
+[node.start]
+type = "start"
+
+[node.end]
+type = "end"
+outputs = ["result:string <- @start.output"]
+
+[graph]
+edges = ["start.source -> end.target"]
+`)
+
+    expect(result.valid).toBe(true)
+    expect(result.ast?.format).toBe('oft/1')
+    expect(result.ast?.sections.some((section) => section.name === 'workflow')).toBe(true)
+  })
+
+  it('rejects legacy BLUEPRINT DSL header', () => {
+    const result = compileOFBlueprintTextDsl(`
+BLUEPRINT DSL 1.0
+[workflow]
+name = "legacy"
+`)
+
+    expect(result.valid).toBe(false)
+    expect(result.diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'invalid-header',
+          context: 'BLUEPRINT DSL 1.0'
+        })
+      ])
+    )
+  })
+
+  it('explains multiline array fragments with a concrete OFT/1 hint', () => {
+    const result = compileOFBlueprintTextDsl(`
+OFT/1
+[workflow]
+name = "multiline-array-error"
+
+[node.end]
+type = "end"
+outputs = [
+  "result:string <- @start.output"
+]
+
+[graph]
+edges = ["start.source -> end.target"]
+`)
+
+    expect(result.valid).toBe(false)
+    expect(result.diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'unknown-statement',
+          message: expect.stringContaining('OFT/1 不支持多行数组项或多行对象项')
+        })
+      ])
+    )
   })
 })

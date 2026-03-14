@@ -89,6 +89,7 @@ export interface OFVariable {
   options?: string[]
   value_ref?: OFVariableRef
   value_selector?: string[]
+  value_template?: string | number | boolean | Record<string, unknown> | unknown[] | null
   schema?: OFStructuredJsonSchema | null
   item_schema?: OFJsonSchemaObject | null
 }
@@ -203,6 +204,10 @@ export type OFIfElseConditionOperator =
   | 'length_gte'
   | 'length_lt'
   | 'length_lte'
+  | 'all_true'
+  | 'any_true'
+  | 'all_false'
+  | 'any_false'
 
 export type OFIfElseLogicalOperator = 'and' | 'or'
 export type OFIfElseCompareSourceMode = 'constant' | 'variable'
@@ -440,6 +445,8 @@ export interface OFLoopVariableData {
 export type OFLoopNodeData = OFCommonNodeType & {
   type: OFBlockEnum.Loop
   loop_count: number
+  loop_count_ref?: OFVariableRef
+  loop_count_selector?: string[]
   loop_variables: OFLoopVariableData[]
   break_conditions?: OFIfElseCondition[]
   logical_operator?: OFIfElseLogicalOperator

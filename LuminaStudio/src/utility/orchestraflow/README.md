@@ -15,7 +15,7 @@ This directory contains the Utility Process runtime for OrchestraFlow. It is the
 
 The important architectural shift is that OrchestraFlow is now definition/registry-driven:
 
-- built-in nodes are described in `builtins/*.definition.ts`
+- built-in nodes are described in `nodes/**/definition.ts`, and public nodes are further split into `dsl / llm-spec / runtime / editor / compiler`
 - runtime code consumes shared definitions instead of maintaining a parallel descriptor system
 - editor defaults, derived fields, and selectable variables are computed from the same shared contracts
 
@@ -61,7 +61,7 @@ The important architectural shift is that OrchestraFlow is now definition/regist
 
 1. Add or update shared contracts first in `src/Public/ShareTypes/Orchestraflow-types/`.
 2. Prefer public imports from `@shared/Orchestraflow-types`; do not bypass the barrel for normal consumers.
-3. Put built-in node structure and authoring rules in `builtins/*.definition.ts`.
+3. Put built-in node structure and authoring rules in `nodes/**/definition.ts`, and keep public node truth split across `dsl / llm-spec / runtime / editor / compiler`.
 4. Let renderer stores and AI schema builder consume definitions instead of re-encoding business rules locally.
 5. Run the focused checks before finishing:
 

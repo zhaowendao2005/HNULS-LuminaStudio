@@ -29,7 +29,7 @@ OrchestraFlow is now definition/registry-driven instead of relying on scattered 
 - Shared authority lives under `src/Public/ShareTypes/Orchestraflow-types/`.
 - External consumers should import public APIs from `@shared/Orchestraflow-types`.
 - `index.ts` is the stable barrel entry for shared OrchestraFlow types, definitions, authoring contracts, and registry helpers such as `resolveOFNodeDefinition()` and `listOFNodeDefinitions()`.
-- Built-in node behavior is described in `builtins/*.definition.ts`, then consumed by editor defaults, variable selection, AI schema export, and runtime binding.
+- Built-in node behavior is described in `nodes/**/definition.ts`, and each public node is split into `dsl / llm-spec / runtime / editor / compiler`, then consumed by editor defaults, variable selection, prompt assembly, and runtime binding.
 - `src/Public/ShareTypes/Orchestraflow-types/blueprint/` owns Blueprint DSL, compiler, validator, and schema assets.
 - `src/Public/ShareTypes/Orchestraflow-types/mechanisms/` owns selector/edge/container/variable global rules.
 - `src/main/services/orchestflow-generation-editor/llm-client/prompt-sources/` owns private prompt assembly for requirement / blueprint / edit agents, and reads first-hand definitions from `@shared/Orchestraflow-types`.

@@ -64,7 +64,7 @@ tester.run(
     valid: [
       {
         filename:
-          '/repo/LuminaStudio/src/Public/ShareTypes/Orchestraflow-types/builtins/llm.definition.ts',
+          '/repo/LuminaStudio/src/Public/ShareTypes/Orchestraflow-types/nodes/llm/definition.ts',
         code: `function compile(type) { if (type === OFBlockEnum.LLM) return 1 }`
       },
       {
@@ -91,7 +91,7 @@ tester.run(
     valid: [
       {
         filename:
-          '/repo/LuminaStudio/src/Public/ShareTypes/Orchestraflow-types/builtins/iteration.definition.ts',
+          '/repo/LuminaStudio/src/Public/ShareTypes/Orchestraflow-types/nodes/iter/definition.ts',
         code: `const node = { start_node_id: 'x', type: 'iteration-start' }`
       },
       {

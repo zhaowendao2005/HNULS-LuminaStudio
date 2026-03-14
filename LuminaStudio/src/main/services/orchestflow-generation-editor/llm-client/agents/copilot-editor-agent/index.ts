@@ -179,11 +179,68 @@ async function runModelWithRetry(
 }
 
 async function runModelOnce(
-  _state: ActiveGenerationStream,
+  state: ActiveGenerationStream,
   params: StartCopilotEditorAgentStreamParams,
   context: ReturnType<typeof buildCopilotEditorContextBundle>,
   previousError: string
 ): Promise<CopilotEditorModelResult> {
+  const messages = [
+    {
+      role: 'system' as const,
+      content: [
+        buildCopilotEditorBasePrompt(),
+        '',
+        buildAnalysisCopilotSpecializationPrompt()
+      ].join('\n')
+    },
+    {
+      role: 'user' as const,
+      content: [
+        `current_document_id=${params.planningDocument.id}`,
+        `auto_approved=${String(params.stageConfig.autoApproved)}`,
+        '',
+        '## 当前 planning 工作稿',
+        context.planningDocument.content,
+        '',
+        '## 原始 planning 文档',
+        context.sourceMarkdown,
+        '',
+        '## 最近需求分析主对话',
+        context.discussionHistoryText,
+        '',
+        '## 最近 analysis copilot 对话',
+        context.copilotHistoryText,
+        '',
+        '## Planning Framework Context Pack',
+        context.capabilityContextText,
+        '',
+        previousError ? `## 上一轮 DSL 错误\n${previousError}` : '',
+        '## 当前用户输入',
+        params.userMessage
+      ]
+        .filter(Boolean)
+        .join('\n')
+    }
+  ]
+
+  const currentMeta = params.repository.getMessageById(state.messageId)?.meta_json
+  const nextMetaJson = JSON.stringify(
+    mergeMessageMeta(currentMeta, {
+      llmRequest: {
+        messages
+      }
+    })
+  )
+  params.repository.updateMessageMeta(state.messageId, nextMetaJson)
+  state.sender.send('orchestflowGenerationEditor:stream', {
+    type: 'message-meta',
+    requestId: state.requestId,
+    sessionId: state.sessionId,
+    channelKey: state.channelKey,
+    messageId: state.messageId,
+    metaJson: nextMetaJson
+  })
+
   let rawText = ''
   const result = await streamChatByProtocol({
     protocol: params.protocol,
@@ -195,44 +252,7 @@ async function runModelOnce(
     signal:
       params.activeStreams.get(params.requestId)?.abortController.signal ||
       new AbortController().signal,
-    messages: [
-      {
-        role: 'system',
-        content: [
-          buildCopilotEditorBasePrompt(),
-          '',
-          buildAnalysisCopilotSpecializationPrompt()
-        ].join('\n')
-      },
-      {
-        role: 'user',
-        content: [
-          `current_document_id=${params.planningDocument.id}`,
-          `auto_approved=${String(params.stageConfig.autoApproved)}`,
-          '',
-          '## 当前 planning 工作稿',
-          context.planningDocument.content,
-          '',
-          '## 原始 planning 文档',
-          context.sourceMarkdown,
-          '',
-          '## 最近需求分析主对话',
-          context.discussionHistoryText,
-          '',
-          '## 最近 analysis copilot 对话',
-          context.copilotHistoryText,
-          '',
-          '## Planning Framework Context Pack',
-          context.capabilityContextText,
-          '',
-          previousError ? `## 上一轮 DSL 错误\n${previousError}` : '',
-          '## 当前用户输入',
-          params.userMessage
-        ]
-          .filter(Boolean)
-          .join('\n')
-      }
-    ],
+    messages,
     onTextDelta: (delta) => {
       rawText += delta
     }
@@ -326,4 +346,22 @@ function finishStream(
   })
 
   params.activeStreams.delete(state.requestId)
+}
+
+function mergeMessageMeta(
+  currentMetaJson: string | null | undefined,
+  patch: GenerationMessageMetaPayload
+): GenerationMessageMetaPayload {
+  if (!currentMetaJson) {
+    return patch
+  }
+
+  try {
+    return {
+      ...(JSON.parse(currentMetaJson) as GenerationMessageMetaPayload),
+      ...patch
+    }
+  } catch {
+    return patch
+  }
 }

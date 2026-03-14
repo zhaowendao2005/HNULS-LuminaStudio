@@ -16,6 +16,7 @@ import { buildDesignBlueprintAgentPrompt } from './prompt'
 import type { StartDesignBlueprintAgentStreamParams } from './types'
 
 const log = logger.scope('DesignBlueprintAgent')
+const DESIGN_STREAM_FLUSH_INTERVAL_MS = 33
 
 export * from './types'
 export * from './prompt'
@@ -34,7 +35,9 @@ export function startDesignBlueprintAgentStream(
     answerText: '',
     providerId: params.providerId,
     modelId: params.modelId,
-    abortController
+    abortController,
+    pendingDeltaText: '',
+    pendingDeltaFlushTimer: null
   }
 
   params.activeStreams.set(params.requestId, streamState)
@@ -59,10 +62,46 @@ async function runDesignBlueprintAgent(
       memoryRounds: params.stageConfig.copilotMemoryRounds
     })
 
-    updateMessageMeta(
-      state,
-      params,
-      buildDesignBlueprintMeta({
+    const promptMessages = [
+      {
+        role: 'system' as const,
+        content: buildDesignBlueprintAgentPrompt()
+      },
+      {
+        role: 'user' as const,
+        content: [
+          `design_document_id=${params.designDocument.id}`,
+          `generation_mode=${generationMode}`,
+          '',
+          '## 节点声明',
+          context.declaredNodesText,
+          '',
+          '## 声明节点 Spec',
+          context.declaredNodeSpecsText,
+          '',
+          '## 系统底层机制规则',
+          context.mechanismRulesText,
+          '',
+          '## DSL 语法与格式',
+          context.dslSyntaxText,
+          '',
+          '## 当前需求分析规划稿快照',
+          context.snapshotMarkdown || '(empty)',
+          '',
+          '## 当前版本已有 DSL 正文',
+          context.currentDsl || '(empty)',
+          '',
+          '## 当前版本 design copilot 最近对话',
+          context.copilotHistoryText,
+          '',
+          '## 当前用户输入',
+          params.userMessage
+        ].join('\n')
+      }
+    ]
+
+    updateMessageMeta(state, params, {
+      ...buildDesignBlueprintMeta({
         designDocumentId: params.designDocument.id,
         generationMode,
         status: 'streaming',
@@ -71,8 +110,11 @@ async function runDesignBlueprintAgent(
         canAbort: true,
         diagnostics: [],
         errorMessage: null
-      })
-    )
+      }),
+      llmRequest: {
+        messages: promptMessages
+      }
+    })
 
     persistDesignDocument(params, {
       ...params.designDocument,
@@ -89,43 +131,7 @@ async function runDesignBlueprintAgent(
       baseUrl: params.baseUrl,
       defaultHeaders: params.defaultHeaders,
       signal: state.abortController.signal,
-      messages: [
-        {
-          role: 'system',
-          content: buildDesignBlueprintAgentPrompt()
-        },
-        {
-          role: 'user',
-          content: [
-            `design_document_id=${params.designDocument.id}`,
-            `generation_mode=${generationMode}`,
-            '',
-            '## 节点声明',
-            context.declaredNodesText,
-            '',
-            '## 声明节点 Spec',
-            context.declaredNodeSpecsText,
-            '',
-            '## 系统底层机制规则',
-            context.mechanismRulesText,
-            '',
-            '## DSL 语法与格式',
-            context.dslSyntaxText,
-            '',
-            '## 当前需求分析规划稿快照',
-            context.snapshotMarkdown || '(empty)',
-            '',
-            '## 当前版本已有 DSL 正文',
-            context.currentDsl || '(empty)',
-            '',
-            '## 当前版本 design copilot 最近对话',
-            context.copilotHistoryText,
-            '',
-            '## 当前用户输入',
-            params.userMessage
-          ].join('\n')
-        }
-      ],
+      messages: promptMessages,
       onTextDelta: (delta) => {
         handleTextDelta(state, params, delta)
       }
@@ -188,16 +194,8 @@ function handleTextDelta(
   delta: string
 ): void {
   state.answerText += delta
-  params.repository.updateMessageContent(state.messageId, state.answerText)
-
-  state.sender.send('orchestflowGenerationEditor:stream', {
-    type: 'text-delta',
-    requestId: state.requestId,
-    sessionId: state.sessionId,
-    channelKey: state.channelKey,
-    messageId: state.messageId,
-    delta
-  })
+  state.pendingDeltaText = (state.pendingDeltaText || '') + delta
+  schedulePendingTextDeltaFlush(state, params)
 }
 
 function finalizeDesignBlueprintGeneration(
@@ -209,6 +207,8 @@ function finalizeDesignBlueprintGeneration(
   usage?: Record<string, unknown>,
   errorMessage: string | null = null
 ): void {
+  flushPendingTextDelta(state, params)
+
   const compileResult = compileOFBlueprintTextDsl(state.answerText)
   const designStatus =
     finishReason === 'error'
@@ -230,9 +230,7 @@ function finalizeDesignBlueprintGeneration(
   persistDesignDocument(params, {
     ...params.designDocument,
     status: designStatus,
-    contentFormat: state.answerText.trim().startsWith('OFT/1')
-      ? 'of-blueprint-section-v1'
-      : 'of-blueprint-text-v1',
+    contentFormat: 'of-blueprint-section-v1',
     content: state.answerText,
     summary: buildDesignDocumentSummary(designStatus, compileResult.diagnostics),
     diagnosticsJson: compileResult.diagnostics.length
@@ -284,7 +282,8 @@ function updateMessageMeta(
   params: StartDesignBlueprintAgentStreamParams,
   meta: GenerationMessageMetaPayload
 ): void {
-  const metaJson = JSON.stringify(meta)
+  const currentMeta = params.repository.getMessageById(state.messageId)?.meta_json
+  const metaJson = JSON.stringify(mergeMessageMeta(currentMeta, meta))
   params.repository.updateMessageMeta(state.messageId, metaJson)
   state.sender.send('orchestflowGenerationEditor:stream', {
     type: 'message-meta',
@@ -294,6 +293,24 @@ function updateMessageMeta(
     messageId: state.messageId,
     metaJson
   })
+}
+
+function mergeMessageMeta(
+  currentMetaJson: string | null | undefined,
+  patch: GenerationMessageMetaPayload
+): GenerationMessageMetaPayload {
+  if (!currentMetaJson) {
+    return patch
+  }
+
+  try {
+    return {
+      ...(JSON.parse(currentMetaJson) as GenerationMessageMetaPayload),
+      ...patch
+    }
+  } catch {
+    return patch
+  }
 }
 
 function finishMessage(
@@ -306,6 +323,8 @@ function finishMessage(
     rawTrace: unknown[]
   }
 ): void {
+  flushPendingTextDelta(state, params)
+
   const status =
     finishReason === 'completed' ? 'final' : finishReason === 'aborted' ? 'aborted' : 'error'
   params.repository.finishMessage({
@@ -329,6 +348,50 @@ function finishMessage(
   })
 
   params.activeStreams.delete(state.requestId)
+}
+
+function schedulePendingTextDeltaFlush(
+  state: ActiveGenerationStream,
+  params: StartDesignBlueprintAgentStreamParams
+): void {
+  if (state.pendingDeltaFlushTimer) {
+    return
+  }
+
+  // design 面板之前每个 token 都会同步写库并发 IPC。
+  // 当模型回流很快时，主进程会先堆积大量事件，renderer 看起来就像“收完再慢慢吐”。
+  // 这里改成短间隔合批，把视觉延迟压回到接近真实流速。
+  state.pendingDeltaFlushTimer = setTimeout(() => {
+    state.pendingDeltaFlushTimer = null
+    flushPendingTextDelta(state, params)
+  }, DESIGN_STREAM_FLUSH_INTERVAL_MS)
+}
+
+function flushPendingTextDelta(
+  state: ActiveGenerationStream,
+  params: StartDesignBlueprintAgentStreamParams
+): void {
+  if (state.pendingDeltaFlushTimer) {
+    clearTimeout(state.pendingDeltaFlushTimer)
+    state.pendingDeltaFlushTimer = null
+  }
+
+  const pendingDeltaText = state.pendingDeltaText || ''
+  if (!pendingDeltaText) {
+    return
+  }
+
+  state.pendingDeltaText = ''
+  params.repository.updateMessageContent(state.messageId, state.answerText)
+
+  state.sender.send('orchestflowGenerationEditor:stream', {
+    type: 'text-delta',
+    requestId: state.requestId,
+    sessionId: state.sessionId,
+    channelKey: state.channelKey,
+    messageId: state.messageId,
+    delta: pendingDeltaText
+  })
 }
 
 function buildDesignBlueprintMeta(params: {
