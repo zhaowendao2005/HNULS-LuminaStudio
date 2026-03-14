@@ -6,7 +6,7 @@
       @open-generate="handleOpenGenerate"
     />
 
-    <GenerateView v-else-if="viewMode === 'generate'" />
+    <GenerateView v-else-if="viewMode === 'generate'" @open-workflow="handleOpenWorkflow" />
 
     <EditorView
       v-else-if="viewMode === 'editor'"

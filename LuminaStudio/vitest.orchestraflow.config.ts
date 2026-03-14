@@ -9,7 +9,8 @@ export default defineConfig({
       'src/utility/orchestraflow/**/*.test.ts',
       'src/Public/ShareTypes/Orchestraflow-types/**/*.test.ts',
       'src/main/services/orchestflow-generation-editor/**/*.test.ts',
-      'src/renderer/src/stores/orchestraflow/**/*.test.ts'
+      'src/renderer/src/stores/orchestraflow/**/*.test.ts',
+      'src/renderer/src/views/LuminaApp/Maincontent/OrchestraFlowView/GenerateView/**/*.test.ts'
     ]
   },
   resolve: {

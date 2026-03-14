@@ -144,16 +144,28 @@
             </template>
 
             <template v-else-if="viewMode === 'dsl'">
-              <div class="border-b border-gray-100 bg-white/80 px-4 py-2 text-[11px] text-gray-500">
+              <div
+                class="flex items-center justify-between gap-3 border-b border-gray-100 bg-white/80 px-4 py-2 text-[11px] text-gray-500"
+              >
+                <div class="flex items-center gap-3">
+                  <button
+                    type="button"
+                    class="rounded bg-gray-100 px-2 py-1 text-[10px] text-gray-600"
+                    :disabled="!canOpenDiagnostics"
+                    @click="handleOpenDiagnostics()"
+                  >
+                    诊断数量：{{ diagnostics.length }}
+                  </button>
+                  <span>正文格式：OFT/1（section-based）</span>
+                </div>
                 <button
                   type="button"
-                  class="rounded bg-gray-100 px-2 py-1 text-[10px] text-gray-600"
-                  :disabled="!canOpenDiagnostics"
-                  @click="handleOpenDiagnostics()"
+                  class="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-[11px] font-semibold text-cyan-700 transition-colors hover:bg-cyan-100 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-100 disabled:text-gray-400"
+                  :disabled="!canCompileWorkflow"
+                  @click="$emit('compile-workflow')"
                 >
-                  诊断数量：{{ diagnostics.length }}
+                  编译为工作流
                 </button>
-                <span class="ml-4">正文格式：OFT/1（section-based）</span>
               </div>
               <div class="flex-1 bg-[#fbfbfc] p-4">
                 <textarea
@@ -343,6 +355,7 @@ const emit = defineEmits<{
   (e: 'update:design-content', value: string): void
   (e: 'update:view-mode', value: GenerateDesignDocumentViewMode): void
   (e: 'generate-design'): void
+  (e: 'compile-workflow'): void
   (e: 'open-copilot'): void
   (e: 'open-sessions'): void
   (e: 'open-design-manager'): void
@@ -359,6 +372,13 @@ const activeDangerToolbarTabClass =
   'rounded bg-white px-2.5 py-1.5 text-[11px] font-semibold text-rose-700 shadow-sm'
 
 const canOpenDiagnostics = computed(() => props.diagnostics.length > 0)
+const canCompileWorkflow = computed(() => {
+  return (
+    props.hasActiveDesignDocument &&
+    Boolean(props.designContent.trim()) &&
+    props.designStatus === 'valid'
+  )
+})
 
 const statusText = computed(() => {
   if (!props.hasActiveDesignDocument) return '未选择版本'

@@ -15,6 +15,7 @@ import { createEmptyOFPlanningDocument, buildOFPlanningMarkdown } from '@shared/
 const {
   listSessionsMock,
   createSessionMock,
+  compileDesignDocumentToWorkflowMock,
   deleteSessionMock,
   getSessionDetailMock,
   getGlobalSettingsMock,
@@ -22,6 +23,7 @@ const {
 } = vi.hoisted(() => ({
   listSessionsMock: vi.fn<() => Promise<GenerationSessionSummary[]>>(),
   createSessionMock: vi.fn<(request: { title: string }) => Promise<GenerationSessionDetail>>(),
+  compileDesignDocumentToWorkflowMock: vi.fn(),
   deleteSessionMock: vi.fn<(sessionId: string) => Promise<void>>(),
   getSessionDetailMock: vi.fn<(sessionId: string) => Promise<GenerationSessionDetail>>(),
   getGlobalSettingsMock: vi.fn<() => Promise<{ persistRawLlmData: boolean }>>(),
@@ -63,6 +65,7 @@ vi.mock('./generation-editor.datasource', async () => {
       createDesignDocumentFromPlanning: vi.fn(),
       listDesignDocuments: vi.fn(),
       saveDesignDocument: vi.fn(),
+      compileDesignDocumentToWorkflow: compileDesignDocumentToWorkflowMock,
       selectDesignDocument: vi.fn(),
       deleteDesignDocument: vi.fn(),
       applyPlanningCommandProposal: vi.fn(),
@@ -241,5 +244,72 @@ describe('generation-editor.store', () => {
     expect(store.currentSession?.id).toBe('replacement-session')
     expect(store.selectedSessionId).toBe('replacement-session')
     expect(store.viewStatus).toBe('ready')
+  })
+
+  it('compiles the active design document into a workflow and syncs derived fields', async () => {
+    const detail = buildSessionDetail('session-a', 'design')
+    const designDocument = detail.designDocuments[0]
+    designDocument.status = 'valid'
+    designDocument.content = `OFT/1
+[workflow]
+name = "section-demo"
+author = "tester"
+
+[input.user_query]
+type = "string"
+default = "hello"
+
+[node.start]
+type = "start"
+inputs = ["user_query"]
+
+[node.llm_main]
+type = "llm"
+model = "openai/gpt-4.1-mini"
+prompt = """
+请总结输入。
+"""
+struct = "answer:string"
+
+[node.end]
+type = "end"
+outputs = ["result:string <- @llm_main.structured_output.answer"]
+
+[graph]
+edges = ["start.source -> llm_main.target", "llm_main.source -> end.target"]`
+    designDocument.summary = '规划设计稿 DSL 已通过解析与编译校验。'
+    detail.stageConfigs = detail.stageConfigs.map((config) =>
+      config.stageKey === 'design'
+        ? { ...config, activeDesignDocumentId: designDocument.id }
+        : config
+    )
+
+    const compiledDesignDocument: GenerationDesignDocument = {
+      ...designDocument,
+      derivedTargetType: 'workflow',
+      derivedTargetId: 'compiled-workflow-1',
+      derivedStatus: 'compiled'
+    }
+
+    listSessionsMock.mockResolvedValue([buildSessionSummary('session-a', 'design')])
+    getSessionDetailMock.mockResolvedValue(detail)
+    compileDesignDocumentToWorkflowMock.mockResolvedValue({
+      designDocument: compiledDesignDocument,
+      workflowId: 'compiled-workflow-1'
+    })
+
+    const store = useOrchestflowGenerationEditorStore()
+    await store.initialize()
+
+    const workflowId = await store.compileDesignDocumentToWorkflow()
+
+    expect(compileDesignDocumentToWorkflowMock).toHaveBeenCalledWith({
+      sessionId: 'session-a',
+      designDocumentId: designDocument.id
+    })
+    expect(workflowId).toBe('compiled-workflow-1')
+    expect(store.activeDesignDocument?.derivedTargetType).toBe('workflow')
+    expect(store.activeDesignDocument?.derivedTargetId).toBe('compiled-workflow-1')
+    expect(store.activeDesignDocument?.derivedStatus).toBe('compiled')
   })
 })

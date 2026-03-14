@@ -1,5 +1,7 @@
 import type {
   GenerationApplyPlanningCommandProposalRequest,
+  GenerationCompileDesignDocumentToWorkflowRequest,
+  GenerationCompileDesignDocumentToWorkflowResult,
   GenerationCreateDesignDocumentFromPlanningRequest,
   GenerationCreatePlanningDocumentFromMessageRequest,
   GenerationCreateSessionRequest,
@@ -137,6 +139,17 @@ export const OrchestflowGenerationEditorDataSource = {
     const response = await window.api.orchestflowGenerationEditor.saveDesignDocument(request)
     if (!response.success || !response.data) {
       throw new Error(response.error || 'Failed to save design document')
+    }
+    return response.data
+  },
+
+  async compileDesignDocumentToWorkflow(
+    request: GenerationCompileDesignDocumentToWorkflowRequest
+  ): Promise<GenerationCompileDesignDocumentToWorkflowResult> {
+    const response =
+      await window.api.orchestflowGenerationEditor.compileDesignDocumentToWorkflow(request)
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to compile design document to workflow')
     }
     return response.data
   },

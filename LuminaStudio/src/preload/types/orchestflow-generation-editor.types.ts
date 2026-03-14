@@ -250,6 +250,16 @@ export interface GenerationSaveDesignDocumentRequest {
   document: GenerationDesignDocument
 }
 
+export interface GenerationCompileDesignDocumentToWorkflowRequest {
+  sessionId: string
+  designDocumentId: string
+}
+
+export interface GenerationCompileDesignDocumentToWorkflowResult {
+  designDocument: GenerationDesignDocument
+  workflowId: string
+}
+
 export interface GenerationSelectDesignDocumentRequest {
   sessionId: string
   designDocumentId: string
@@ -378,6 +388,9 @@ export interface OrchestrflowGenerationEditorAPI {
   saveDesignDocument: (
     request: GenerationSaveDesignDocumentRequest
   ) => Promise<ApiResponse<GenerationDesignDocument>>
+  compileDesignDocumentToWorkflow: (
+    request: GenerationCompileDesignDocumentToWorkflowRequest
+  ) => Promise<ApiResponse<GenerationCompileDesignDocumentToWorkflowResult>>
   selectDesignDocument: (
     request: GenerationSelectDesignDocumentRequest
   ) => Promise<ApiResponse<GenerationStageConfig>>

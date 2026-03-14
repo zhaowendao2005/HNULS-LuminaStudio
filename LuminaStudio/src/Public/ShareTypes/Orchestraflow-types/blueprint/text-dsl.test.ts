@@ -105,4 +105,42 @@ edges = ["start.source -> end.target"]
       ])
     )
   })
+
+  it('rejects control edge handles that do not match renderer runtime contract', () => {
+    const result = compileOFBlueprintTextDsl(`
+OFT/1
+[workflow]
+name = "invalid-handle-demo"
+
+[node.start]
+type = "start"
+inputs = ["user_query"]
+
+[node.llm_main]
+type = "llm"
+model = "openai/gpt-4.1-mini"
+prompt = "hello"
+
+[node.end]
+type = "end"
+outputs = ["result:string <- @llm_main.llmoutput"]
+
+[graph]
+edges = ["start.output -> llm_main.input", "llm_main.output -> end.target"]
+`)
+
+    expect(result.valid).toBe(false)
+    expect(result.diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'blueprint-validation',
+          message: expect.stringContaining('只允许控制流出边 handle')
+        }),
+        expect.objectContaining({
+          code: 'blueprint-validation',
+          message: expect.stringContaining('只允许控制流入边 handle')
+        })
+      ])
+    )
+  })
 })

@@ -93,6 +93,7 @@
               @update:design-content="generationStore.handleDesignContentUpdate($event)"
               @update:view-mode="generationStore.designDocumentViewMode = $event"
               @generate-design="generationStore.requestDesignBlueprintGeneration()"
+              @compile-workflow="handleCompileWorkflow"
               @select-diagnostic="generationStore.openDesignDiagnostics($event)"
               @open-copilot="generationStore.openCopilotPanel('design')"
               @open-sessions="generationStore.activeMenu = 'sessions'"
@@ -306,8 +307,12 @@ import GeneratePlanDesignPanel from './GeneratePlanDesignPanel.vue'
 import GenerateSessionsPanel from './GenerateSessionsPanel.vue'
 import GenerateSidebar from './GenerateSidebar.vue'
 import GenerateVerifyPanel from './GenerateVerifyPanel.vue'
+import { runCompileWorkflowAction } from './compile-workflow.action'
 import type { MenuItem, StageKey } from './generate-view.types'
 
+const emit = defineEmits<{
+  (e: 'open-workflow', workflowId: string): void
+}>()
 const generationStore = useOrchestflowGenerationEditorStore()
 const stageOrder: StageKey[] = ['analysis', 'design', 'verify']
 
@@ -348,6 +353,14 @@ onUnmounted(() => {
 function openCreateSessionModal(): void {
   generationStore.newSessionName = ''
   generationStore.showCreateSessionModal = true
+}
+
+async function handleCompileWorkflow(): Promise<void> {
+  await runCompileWorkflowAction({
+    compileToWorkflow: () => generationStore.compileDesignDocumentToWorkflow(),
+    openWorkflow: (workflowId) => emit('open-workflow', workflowId),
+    reportError: (message) => window.alert(message)
+  })
 }
 </script>
 

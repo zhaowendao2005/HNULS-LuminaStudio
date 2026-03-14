@@ -6,7 +6,11 @@ import { app } from 'electron'
 import { join } from 'path'
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, unlinkSync } from 'fs'
 import { logger } from '../logger'
-import type { OFWorkflow, OFWorkflowMeta } from '../../../Public/ShareTypes/Orchestraflow-types'
+import type {
+  OFRunnableWorkflow,
+  OFWorkflow,
+  OFWorkflowMeta
+} from '../../../Public/ShareTypes/Orchestraflow-types'
 import { parseJsonc } from './orchestraflow-workflow-json'
 
 const log = logger.scope('OrchestraflowWorkflowService')
@@ -23,6 +27,16 @@ function getWorkflowDir(): string {
 // 生成6位随机字符串
 function generateRandomSuffix(): string {
   return Math.random().toString(36).substring(2, 8)
+}
+
+function buildWorkflowId(name?: string): string {
+  const baseName = String(name || 'workflow').trim() || 'workflow'
+  return `${baseName}-${generateRandomSuffix()}`
+}
+
+function writeWorkflowFile(workflow: OFWorkflow): void {
+  const filepath = join(getWorkflowDir(), `${workflow.id}.json`)
+  writeFileSync(filepath, JSON.stringify(workflow, null, 2), 'utf-8')
 }
 
 // 从文件名提取工作流ID
@@ -139,8 +153,7 @@ export class OrchestraflowWorkflowService {
    */
   async create(data: { name: string; description?: string; author?: string }): Promise<OFWorkflow> {
     const now = Math.floor(Date.now() / 1000)
-    const randomSuffix = generateRandomSuffix()
-    const workflowId = `${data.name}-${randomSuffix}`
+    const workflowId = buildWorkflowId(data.name)
 
     const workflow: OFWorkflow = {
       id: workflowId,
@@ -153,12 +166,30 @@ export class OrchestraflowWorkflowService {
       graph: { nodes: [], edges: [] }
     }
 
-    const filename = `${workflowId}.json`
-    const filepath = join(getWorkflowDir(), filename)
-    writeFileSync(filepath, JSON.stringify(workflow, null, 2), 'utf-8')
+    writeWorkflowFile(workflow)
 
     log.info(`Workflow created: ${workflowId}`)
     return workflow
+  }
+
+  /**
+   * 将编译产物写入工作流目录时，始终重新分配持久化 workflowId。
+   * 这样同一份 DSL 多次编译也会得到独立文件，不会污染已有工作流。
+   */
+  async createFromWorkflow(workflow: OFRunnableWorkflow): Promise<OFWorkflow> {
+    const now = Math.floor(Date.now() / 1000)
+    const workflowId = buildWorkflowId(workflow.name)
+    const persistedWorkflow: OFWorkflow = {
+      ...workflow,
+      id: workflowId,
+      createdAt: now,
+      updatedAt: now,
+      status: 'draft'
+    }
+
+    writeWorkflowFile(persistedWorkflow)
+    log.info(`Workflow compiled and created: ${workflowId}`)
+    return persistedWorkflow
   }
 
   /**

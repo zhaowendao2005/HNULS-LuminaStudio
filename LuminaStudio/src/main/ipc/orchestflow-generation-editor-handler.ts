@@ -4,6 +4,7 @@ import type { OrchestflowGenerationEditorService } from '../services/orchestflow
 import type {
   GenerationAbortMessageRequest,
   GenerationApplyPlanningCommandProposalRequest,
+  GenerationCompileDesignDocumentToWorkflowRequest,
   GenerationCreateDesignDocumentFromPlanningRequest,
   GenerationCreatePlanningDocumentFromMessageRequest,
   GenerationCreateSessionRequest,
@@ -147,6 +148,19 @@ export class OrchestflowGenerationEditorIPCHandler extends BaseIPCHandler {
     return {
       success: true,
       data: await this.service.saveDesignDocument(request)
+    }
+  }
+
+  async handleCompileDesignDocumentToWorkflow(
+    _event: IpcMainInvokeEvent,
+    request: GenerationCompileDesignDocumentToWorkflowRequest
+  ) {
+    if (!request?.sessionId || !request?.designDocumentId) {
+      return { success: false, error: 'Invalid design compile request' }
+    }
+    return {
+      success: true,
+      data: await this.service.compileDesignDocumentToWorkflow(request)
     }
   }
 

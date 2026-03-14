@@ -1,7 +1,9 @@
 import {
+  OFBlockEnum,
   OF_BLUEPRINT_REQUIRED_WORKFLOW_FIELDS,
   OF_BLUEPRINT_SECTION_DSL_HEADER,
   buildOFWorkflowAuthoringContract,
+  listOFAuthoringNodeDefinitions,
   listOFMechanismDefinitions
 } from '@shared/Orchestraflow-types'
 
@@ -26,6 +28,20 @@ export function buildMechanismRulesPrompt(): string {
   const workflowKeys = contract.global_fields
     .filter((item) => item.path.startsWith('workflow.'))
     .map((item) => item.path.replace(/^workflow\./, ''))
+  const handleRules = listOFAuthoringNodeDefinitions().map((definition) => {
+    if (definition.runtime.type === OFBlockEnum.IfElse) {
+      return '- if: 控制流入边 handle = target；控制流出边 handle 必须使用 case.handleId 或 elseCase.handleId。'
+    }
+
+    const inputHandles = definition.runtime.ports
+      .filter((port) => port.channel === 'control' && port.direction === 'input')
+      .map((port) => port.id)
+    const outputHandles = definition.runtime.ports
+      .filter((port) => port.channel === 'control' && port.direction === 'output')
+      .map((port) => port.id)
+
+    return `- ${definition.llmSpec.authoringToken}: 控制流入边 handle = ${inputHandles.join(', ') || '(none)'}；控制流出边 handle = ${outputHandles.join(', ') || '(none)'}。`
+  })
 
   return [
     '## 系统底层机制规则',
@@ -54,6 +70,11 @@ export function buildMechanismRulesPrompt(): string {
     '- 错误写法示例：`outputs = [` / `  "x:string <- @ref"` / `]`。',
     '- 正确写法示例：`outputs = ["x:string <- @ref", "y:object <- {\\"ok\\": true}"]`。',
     '- 如果对象里要引用变量，写成 `{"field": "@node.output"}`，不要拆成多行。',
+    '',
+    '## 控制流 Handle 契约',
+    `- 普通控制边默认写法：上游.${contract.edge_contract.default_source_handle} -> 下游.${contract.edge_contract.default_target_handle}。`,
+    '- 普通节点禁止把控制流 handle 写成 input/output 这类泛化命名。',
+    ...handleRules,
     '',
     '## Workflow Authoring Contract',
     ...contract.global_invariants.map((item) => `- ${item.scope}: ${item.summary}`)

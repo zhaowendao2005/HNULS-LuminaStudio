@@ -599,6 +599,24 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       }
     }
 
+    function syncSavedDesignDocument(saved: GenerationDesignDocument): void {
+      if (!currentSession.value) {
+        return
+      }
+
+      // design 多版本稿是单一事实来源；当前文档面板只同步激活版本的展示态字段。
+      currentSession.value.designDocuments[saved.id] = saved
+      currentSession.value.documents.design = {
+        ...currentSession.value.documents.design,
+        summary: saved.summary,
+        content: saved.content
+      }
+      designDocumentStore.setDocument(
+        currentSession.value.id,
+        currentSession.value.documents.design
+      )
+    }
+
     async function updateSessionState(payload: {
       currentStage?: GenerateSessionViewModel['currentStage']
       summary?: string
@@ -815,18 +833,14 @@ export const useOrchestflowGenerationEditorStore = defineStore(
         }
       }
 
-      await designCopilotStore.sendMessage(
-        currentSession.value,
-        config,
-        {
-          designDocumentId: activeDesignDocument.value.id,
-          content:
-            generationMode === 'regenerate'
-              ? '重新规划设计当前版本并覆盖正文。'
-              : '开始规划设计当前版本。',
-          assistantMetaJson: JSON.stringify(initialMeta)
-        }
-      )
+      await designCopilotStore.sendMessage(currentSession.value, config, {
+        designDocumentId: activeDesignDocument.value.id,
+        content:
+          generationMode === 'regenerate'
+            ? '重新规划设计当前版本并覆盖正文。'
+            : '开始规划设计当前版本。',
+        assistantMetaJson: JSON.stringify(initialMeta)
+      })
     }
 
     async function createDesignDocumentFromPlanningDocumentId(
@@ -894,7 +908,9 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       currentSession.value.stageConfigs.design = updated
       designStageConfigStore.setConfig(currentSession.value.id, updated)
       await refreshSessionDetail(currentSession.value.id)
-      designDocumentViewMode.value = currentSession.value.designDocuments[designDocumentId]?.content.trim()
+      designDocumentViewMode.value = currentSession.value.designDocuments[
+        designDocumentId
+      ]?.content.trim()
         ? 'dsl'
         : 'snapshot'
       selectedDesignDiagnosticIndex.value = null
@@ -921,17 +937,33 @@ export const useOrchestflowGenerationEditorStore = defineStore(
           content: value
         }
       })
-      currentSession.value.designDocuments[saved.id] = saved
-      currentSession.value.documents.design = {
-        ...currentSession.value.documents.design,
-        summary: saved.summary,
-        content: saved.content
-      }
-      designDocumentStore.setDocument(
-        currentSession.value.id,
-        currentSession.value.documents.design
-      )
+      syncSavedDesignDocument(saved)
       await updateSessionState({ summary: saved.summary })
+    }
+
+    async function compileDesignDocumentToWorkflow(): Promise<string> {
+      if (!currentSession.value || !activeDesignDocument.value) {
+        throw new Error('请先选择一个规划设计稿版本。')
+      }
+      if (!activeDesignDocument.value.content.trim()) {
+        throw new Error('当前规划设计稿 DSL 为空，无法编译为工作流。')
+      }
+      if (activeDesignDocument.value.status !== 'valid') {
+        throw new Error('当前规划设计稿尚未通过校验，请先修复诊断问题。')
+      }
+
+      try {
+        const result = await OrchestflowGenerationEditorDataSource.compileDesignDocumentToWorkflow({
+          sessionId: currentSession.value.id,
+          designDocumentId: activeDesignDocument.value.id
+        })
+        syncSavedDesignDocument(result.designDocument)
+        lastErrorMessage.value = null
+        return result.workflowId
+      } catch (error) {
+        lastErrorMessage.value = buildErrorMessage(error)
+        throw error
+      }
     }
 
     async function handleStageModelSelect(payload: {
@@ -1057,6 +1089,7 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       rejectPlanningCommandProposal,
       enterDesignView,
       requestDesignBlueprintGeneration,
+      compileDesignDocumentToWorkflow,
       openDesignDiagnostics,
       clearDesignDiagnosticSelection,
       abortGenerationRequest,

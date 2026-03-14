@@ -6,6 +6,7 @@ import {
   getOFEdgeTargetPortId,
   type OFIfElseCase
 } from '../core-types'
+import { resolveOFNodeDefinition } from '../node-definition-registry'
 import {
   collectOFSelectorVariableRoots,
   normalizeOFRunnableNodeSelectorData
@@ -137,6 +138,100 @@ function getNodeDisplayType(node: Record<string, unknown>, path: string): OFBloc
     throw new Error(`${path}.type 与 ${path}.data.type 必须一致`)
   }
   return nodeType
+}
+
+function listControlHandles(nodeType: OFBlockEnum, direction: 'input' | 'output'): string[] {
+  try {
+    return resolveOFNodeDefinition(nodeType)
+      .runtime.ports.filter((port) => port.channel === 'control' && port.direction === direction)
+      .map((port) => port.id)
+  } catch {
+    return []
+  }
+}
+
+function collectBlueprintIfElseSourceHandles(node: Record<string, unknown>): string[] {
+  const config = isRecord(node.config) ? node.config : {}
+  const cases = Array.isArray(config.cases) ? config.cases : []
+  const handles = cases
+    .map((item) => {
+      if (!isRecord(item) || typeof item.handleId !== 'string') {
+        return null
+      }
+      const handleId = item.handleId.trim()
+      return handleId || null
+    })
+    .filter((item): item is string => Boolean(item))
+
+  if (isRecord(config.elseCase) && typeof config.elseCase.handleId === 'string') {
+    const elseHandleId = config.elseCase.handleId.trim()
+    if (elseHandleId) {
+      handles.push(elseHandleId)
+    }
+  }
+
+  return handles
+}
+
+function formatAllowedHandles(handles: string[]): string {
+  return handles.length ? handles.join(', ') : '(none)'
+}
+
+function validateBlueprintEdgeHandles(
+  edge: Record<string, unknown>,
+  edgePath: string,
+  nodeMap: Map<string, Record<string, unknown>>,
+  issues: OFBlueprintValidationResult['issues']
+): void {
+  if (!isRecord(edge.from) || !isRecord(edge.to)) {
+    issues.push({
+      level: 'error',
+      path: edgePath,
+      message: '连线必须包含对象结构的 from / to。'
+    })
+    return
+  }
+
+  const sourceNodeId = typeof edge.from.node === 'string' ? edge.from.node.trim() : ''
+  const targetNodeId = typeof edge.to.node === 'string' ? edge.to.node.trim() : ''
+  const sourceHandle = typeof edge.from.handle === 'string' ? edge.from.handle.trim() : ''
+  const targetHandle = typeof edge.to.handle === 'string' ? edge.to.handle.trim() : ''
+
+  if (!sourceNodeId || !targetNodeId || !sourceHandle || !targetHandle) {
+    return
+  }
+
+  const sourceNode = nodeMap.get(sourceNodeId)
+  const targetNode = nodeMap.get(targetNodeId)
+  if (!sourceNode || !targetNode) {
+    return
+  }
+
+  const sourceType = sourceNode.type as OFBlockEnum
+  const targetType = targetNode.type as OFBlockEnum
+  const allowedTargetHandles = listControlHandles(targetType, 'input')
+  if (!allowedTargetHandles.includes(targetHandle)) {
+    issues.push({
+      level: 'error',
+      path: `${edgePath}.to.handle`,
+      message: `节点 ${targetNodeId}(${targetType}) 只允许控制流入边 handle: ${formatAllowedHandles(allowedTargetHandles)}。`
+    })
+  }
+
+  const allowedSourceHandles =
+    sourceType === OFBlockEnum.IfElse
+      ? collectBlueprintIfElseSourceHandles(sourceNode)
+      : listControlHandles(sourceType, 'output')
+  if (!allowedSourceHandles.includes(sourceHandle)) {
+    issues.push({
+      level: 'error',
+      path: `${edgePath}.from.handle`,
+      message:
+        sourceType === OFBlockEnum.IfElse
+          ? `IfElse 节点 ${sourceNodeId} 的出边 handle 必须匹配 case.handleId 或 elseCase.handleId；当前可用: ${formatAllowedHandles(allowedSourceHandles)}。`
+          : `节点 ${sourceNodeId}(${sourceType}) 只允许控制流出边 handle: ${formatAllowedHandles(allowedSourceHandles)}。`
+    })
+  }
 }
 
 function validateSelectorFields(
@@ -409,6 +504,7 @@ function validateOFBlueprintSubgraph(
   allowContainers: boolean
 ): void {
   const ids = new Set<string>()
+  const nodeMap = new Map<string, Record<string, unknown>>()
   subgraph.nodes.forEach((node, index) => {
     if (ids.has(node.id)) {
       issues.push({
@@ -418,6 +514,7 @@ function validateOFBlueprintSubgraph(
       })
     }
     ids.add(node.id)
+    nodeMap.set(node.id, node as unknown as Record<string, unknown>)
     validateBlueprintNode(node, `${path}.nodes[${index}]`, issues, allowContainers)
   })
   subgraph.edges.forEach((edge, index) => {
@@ -435,6 +532,12 @@ function validateOFBlueprintSubgraph(
         message: 'Blueprint edge 引用了不存在的子图节点'
       })
     }
+    validateBlueprintEdgeHandles(
+      edge as unknown as Record<string, unknown>,
+      `${path}.edges[${index}]`,
+      nodeMap,
+      issues
+    )
   })
 }
 
@@ -469,6 +572,7 @@ export function validateOFBlueprint(value: unknown): OFBlueprintValidationResult
   }
 
   const ids = new Set<string>()
+  const nodeMap = new Map<string, Record<string, unknown>>()
   ;(value.nodes || []).forEach((node, index) => {
     if (!isRecord(node)) {
       issues.push({ level: 'error', path: `nodes[${index}]`, message: '节点必须是对象' })
@@ -479,6 +583,7 @@ export function validateOFBlueprint(value: unknown): OFBlueprintValidationResult
       issues.push({ level: 'error', path: `nodes[${index}].id`, message: '根图节点 id 不能重复' })
     }
     ids.add(nodeId)
+    nodeMap.set(nodeId, node)
     validateBlueprintNode(node as OFBlueprintNode, `nodes[${index}]`, issues, true)
   })
   ;(value.edges || []).forEach((edge, index) => {
@@ -504,6 +609,7 @@ export function validateOFBlueprint(value: unknown): OFBlueprintValidationResult
         message: 'Blueprint edge 引用了不存在的根图节点'
       })
     }
+    validateBlueprintEdgeHandles(edge, `edges[${index}]`, nodeMap, issues)
   })
 
   return {

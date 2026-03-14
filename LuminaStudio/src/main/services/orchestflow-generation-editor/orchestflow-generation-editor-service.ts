@@ -12,6 +12,8 @@ import type { DatabaseManager } from '../database-sqlite'
 import type { ModelConfigService, PersistedModelProviderConfig } from '../model-config'
 import type {
   GenerationApplyPlanningCommandProposalRequest,
+  GenerationCompileDesignDocumentToWorkflowRequest,
+  GenerationCompileDesignDocumentToWorkflowResult,
   GenerationCreateDesignDocumentFromPlanningRequest,
   GenerationCreatePlanningDocumentFromMessageRequest,
   GenerationCreateSessionRequest,
@@ -31,9 +33,10 @@ import type {
   GenerationStageConfig,
   GenerationUpdateSessionStateRequest,
   ModelProviderProtocol,
-  type GenerationMessageMetaPayload
+  GenerationMessageMetaPayload
 } from '@preload/types'
 import { GenerationEditorRepository } from './repositories/generation-editor.repository'
+import { orchestraflowWorkflowService } from '../orchestraflow/orchestraflow-workflow-service'
 import {
   abortGenerationStream,
   startAnalysisPlannerAgentStream,
@@ -146,6 +149,43 @@ export class OrchestflowGenerationEditorService {
         summary: buildDesignDocumentSummary(nextStatus, compileResult.diagnostics)
       }
     })
+  }
+
+  async compileDesignDocumentToWorkflow(
+    request: GenerationCompileDesignDocumentToWorkflowRequest
+  ): Promise<GenerationCompileDesignDocumentToWorkflowResult> {
+    const designDocument = this.ensureActiveDesignDocument(
+      request.sessionId,
+      request.designDocumentId
+    )
+    if (!designDocument.content.trim()) {
+      throw new Error('当前规划设计稿 DSL 为空，无法编译为工作流。')
+    }
+
+    const compileResult = compileOFBlueprintTextDsl(designDocument.content)
+    if (!compileResult.valid || !compileResult.runnable) {
+      throw new Error(buildBlueprintCompileFailureMessage(compileResult.diagnostics))
+    }
+
+    // 编译链路只消费 shared blueprint compiler 的真相源，不在这里重复拼装 workflow graph。
+    const workflow = await orchestraflowWorkflowService.createFromWorkflow(compileResult.runnable)
+    const savedDesignDocument = this.repository.saveDesignDocument({
+      sessionId: request.sessionId,
+      document: {
+        ...designDocument,
+        status: 'valid',
+        summary: buildDesignDocumentSummary('valid', compileResult.diagnostics),
+        diagnosticsJson: null,
+        derivedTargetType: 'workflow',
+        derivedTargetId: workflow.id,
+        derivedStatus: 'compiled'
+      }
+    })
+
+    return {
+      designDocument: savedDesignDocument,
+      workflowId: workflow.id
+    }
   }
 
   async selectDesignDocument(request: GenerationSelectDesignDocumentRequest) {
@@ -480,6 +520,15 @@ function buildDesignDocumentSummary(
     return `规划设计稿 DSL 存在 ${diagnostics.length} 条校验错误。`
   }
   return '规划设计稿 DSL 尚未通过校验。'
+}
+
+function buildBlueprintCompileFailureMessage(diagnostics: OFBlueprintTextDiagnostic[]): string {
+  if (!diagnostics.length) {
+    return '当前规划设计稿 DSL 未通过编译校验，无法生成工作流。'
+  }
+
+  const firstDiagnostic = diagnostics[0]
+  return `当前规划设计稿 DSL 未通过编译校验：${firstDiagnostic.message}（${firstDiagnostic.line}:${firstDiagnostic.column}）`
 }
 
 function buildInitialDesignBlueprintMessageMeta(params: {

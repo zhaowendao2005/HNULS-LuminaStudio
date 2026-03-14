@@ -16,6 +16,7 @@ export function buildDslSyntaxPrompt(): string {
     '- OFT/1 里的数组和值对象必须写在同一条 `key = ...` 语句里，整体保持单行合法 JSON。',
     '- 如果对象内部需要引用变量，引用值写成 JSON 字符串 `"@ref"`，不要拆成多行键值对。',
     '- 一旦写成多行数组项或多行对象项，parser 会把这些行当成独立语句并报错。',
+    '- 普通控制边只能写成 `上游.source -> 下游.target`，不要写成 `上游.output -> 下游.input`。',
     '',
     '## 禁止示例',
     'outputs = [',
