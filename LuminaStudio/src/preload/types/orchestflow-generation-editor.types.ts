@@ -376,6 +376,15 @@ export interface GenerationTextDeltaEvent {
   delta: string
 }
 
+export interface GenerationContentReplaceEvent {
+  type: 'content-replace'
+  requestId: string
+  sessionId: string
+  channelKey: GenerationChannelKey
+  messageId: string
+  content: string
+}
+
 export interface GenerationMessageMetaEvent {
   type: 'message-meta'
   requestId: string
@@ -407,6 +416,7 @@ export interface GenerationErrorEvent {
 export type GenerationStreamEvent =
   | GenerationStreamStartEvent
   | GenerationTextDeltaEvent
+  | GenerationContentReplaceEvent
   | GenerationMessageMetaEvent
   | GenerationFinishEvent
   | GenerationErrorEvent

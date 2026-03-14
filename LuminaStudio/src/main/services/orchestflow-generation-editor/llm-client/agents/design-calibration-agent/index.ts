@@ -12,17 +12,20 @@ import type {
 import { streamChatByProtocol } from '../../generation-stream-runner'
 import type { ActiveGenerationStream } from '../../../types/stream.types'
 import { buildDesignCalibrationPassContextBundle } from './context-builder'
-import {
-  DESIGN_CALIBRATION_DSL_END_MARKER,
-  DESIGN_CALIBRATION_DSL_START_MARKER,
-  extractVisibleTextAndReplacementDsl
-} from './dsl'
+import { DESIGN_CALIBRATION_DSL_START_MARKER, extractVisibleTextAndReplacementDsl } from './dsl'
 import { buildDesignCalibrationAgentPrompt } from './prompt'
 import { buildDesignCalibrationProposal, validateDesignCalibrationModelResult } from './result'
 import type { DesignCalibrationModelResult, StartDesignCalibrationAgentStreamParams } from './types'
 
 const log = logger.scope('DesignCalibrationAgent')
 const MAX_CALIBRATION_PASSES = 8
+
+interface DesignCalibrationStreamAccumulator {
+  rawText: string
+  visibleText: string
+  visibleBuffer: string
+  hasEnteredReplacementDsl: boolean
+}
 
 export function startDesignCalibrationAgentStream(
   params: StartDesignCalibrationAgentStreamParams
@@ -61,10 +64,9 @@ async function runDesignCalibrationAgent(
 
   try {
     emitStreamStart(state)
-    state.answerText = currentVisibleSummary
-    params.repository.updateMessageContent(state.messageId, state.answerText)
 
     if (!currentDiagnostics.length) {
+      syncVisibleContent(state, params, '当前版本没有 diagnostics，无需校准。')
       const meta = buildCalibrationMetaPayload({
         designDocumentId: params.designDocument.id,
         status: 'failed',
@@ -112,6 +114,8 @@ async function runDesignCalibrationAgent(
         contextBudgetChars: params.contextBudgetChars
       })
 
+      // 每一轮校准都从空正文开始流式展示当前轮的真实可见输出，避免把上一轮摘要残留在 UI 上。
+      syncVisibleContent(state, params, '')
       const modelResult = await runModelOnce(
         state,
         params,
@@ -222,6 +226,9 @@ async function runDesignCalibrationAgent(
   } catch (error) {
     const typedError = error as { name?: string; message?: string }
     if (typedError?.name === 'AbortError') {
+      if (!state.answerText.trim()) {
+        syncVisibleContent(state, params, '校准已中断。')
+      }
       pushMessageMeta(
         state,
         params,
@@ -259,6 +266,10 @@ async function runDesignCalibrationAgent(
       state.messageId,
       typedError?.message || 'Design calibration agent failed'
     )
+
+    if (!state.answerText.trim()) {
+      syncVisibleContent(state, params, '校准失败。')
+    }
 
     pushMessageMeta(
       state,
@@ -345,7 +356,12 @@ async function runModelOnce(
     })
   )
 
-  let rawText = ''
+  const accumulator: DesignCalibrationStreamAccumulator = {
+    rawText: '',
+    visibleText: '',
+    visibleBuffer: '',
+    hasEnteredReplacementDsl: false
+  }
   const result = await streamChatByProtocol({
     protocol: params.protocol,
     vendor: params.vendor,
@@ -356,19 +372,112 @@ async function runModelOnce(
     signal: state.abortController.signal,
     messages,
     onTextDelta: (delta) => {
-      rawText += delta
+      consumeCalibrationVisibleTextDelta(state, params, accumulator, delta)
     }
   })
 
-  const extracted = extractVisibleTextAndReplacementDsl(rawText)
+  flushCalibrationVisibleText(state, params, accumulator)
+  const extracted = extractVisibleTextAndReplacementDsl(accumulator.rawText)
   return {
-    rawText,
-    visibleText: extracted.visibleText,
+    rawText: accumulator.rawText,
+    visibleText: accumulator.visibleText.trim() || extracted.visibleText,
     replacementDsl: extracted.replacementDsl,
     usage: result.usage,
     rawTrace: result.rawTrace,
     truncatedTailDiscarded: extracted.truncatedTailDiscarded
   }
+}
+
+function consumeCalibrationVisibleTextDelta(
+  state: ActiveGenerationStream,
+  params: StartDesignCalibrationAgentStreamParams,
+  accumulator: DesignCalibrationStreamAccumulator,
+  delta: string
+): void {
+  accumulator.rawText += delta
+  if (accumulator.hasEnteredReplacementDsl) {
+    return
+  }
+
+  accumulator.visibleBuffer += delta
+  while (accumulator.visibleBuffer) {
+    const markerIndex = accumulator.visibleBuffer.indexOf(DESIGN_CALIBRATION_DSL_START_MARKER)
+    if (markerIndex >= 0) {
+      appendCalibrationVisibleText(
+        state,
+        params,
+        accumulator,
+        accumulator.visibleBuffer.slice(0, markerIndex)
+      )
+      accumulator.visibleBuffer = accumulator.visibleBuffer.slice(
+        markerIndex + DESIGN_CALIBRATION_DSL_START_MARKER.length
+      )
+      accumulator.hasEnteredReplacementDsl = true
+      return
+    }
+
+    const safeLength = Math.max(
+      0,
+      accumulator.visibleBuffer.length - DESIGN_CALIBRATION_DSL_START_MARKER.length + 1
+    )
+    if (safeLength === 0) {
+      return
+    }
+
+    appendCalibrationVisibleText(
+      state,
+      params,
+      accumulator,
+      accumulator.visibleBuffer.slice(0, safeLength)
+    )
+    accumulator.visibleBuffer = accumulator.visibleBuffer.slice(safeLength)
+    return
+  }
+}
+
+function flushCalibrationVisibleText(
+  state: ActiveGenerationStream,
+  params: StartDesignCalibrationAgentStreamParams,
+  accumulator: DesignCalibrationStreamAccumulator
+): void {
+  if (accumulator.hasEnteredReplacementDsl || !accumulator.visibleBuffer) {
+    accumulator.visibleBuffer = ''
+    return
+  }
+
+  appendCalibrationVisibleText(state, params, accumulator, accumulator.visibleBuffer)
+  accumulator.visibleBuffer = ''
+}
+
+function appendCalibrationVisibleText(
+  state: ActiveGenerationStream,
+  params: StartDesignCalibrationAgentStreamParams,
+  accumulator: DesignCalibrationStreamAccumulator,
+  nextText: string
+): void {
+  if (!nextText) {
+    return
+  }
+
+  accumulator.visibleText += nextText
+  syncVisibleContent(state, params, accumulator.visibleText)
+}
+
+function syncVisibleContent(
+  state: ActiveGenerationStream,
+  params: StartDesignCalibrationAgentStreamParams,
+  content: string
+): void {
+  state.answerText = content
+  params.repository.updateMessageContent(state.messageId, content)
+  state.sender.send('orchestflowGenerationEditor:stream', {
+    type: 'content-replace',
+    requestId: state.requestId,
+    sessionId: state.sessionId,
+    channelKey: state.channelKey,
+    messageId: state.messageId,
+    content
+  })
 }
 
 function emitStreamStart(state: ActiveGenerationStream): void {

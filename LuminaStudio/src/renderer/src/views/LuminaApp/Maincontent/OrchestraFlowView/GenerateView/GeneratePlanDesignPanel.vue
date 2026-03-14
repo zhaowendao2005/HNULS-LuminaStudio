@@ -202,13 +202,9 @@
                       </div>
 
                       <div class="mt-2 text-[11px] leading-5 text-slate-500">
-                        悬浮后可通过右下角工具栏查看本次 design copilot 的完整会话与原始输出。
+                        右下角入口会始终显示，可随时查看本次 design copilot 的完整会话与原始输出。
                       </div>
-                      <GenerateMessageActionGroup
-                        v-if="message.status !== 'streaming'"
-                        :message="message"
-                        :messages="messages"
-                      />
+                      <GenerateMessageActionGroup :message="message" :messages="messages" />
                     </div>
 
                     <div
@@ -229,9 +225,8 @@
                         class="ml-1 inline-block h-3 w-1 animate-pulse bg-violet-500 align-middle"
                       ></span>
                       <GenerateMessageActionGroup
-                        v-if="message.role === 'assistant' && message.status !== 'streaming'"
+                        v-if="message.role === 'assistant'"
                         :message="message"
-                        :messages="messages"
                       />
                     </div>
 
@@ -381,13 +376,9 @@
                     </div>
 
                     <div class="mt-2 text-[11px] leading-5 text-slate-500">
-                      悬浮后可通过右下角工具栏查看本次 design copilot 的完整会话与原始输出。
+                      右下角入口会始终显示，可随时查看本次 design copilot 的完整会话与原始输出。
                     </div>
-                    <GenerateMessageActionGroup
-                      v-if="message.status !== 'streaming'"
-                      :message="message"
-                      :messages="messages"
-                    />
+                    <GenerateMessageActionGroup :message="message" :messages="messages" />
                   </div>
 
                   <div
@@ -408,9 +399,8 @@
                       class="ml-1 inline-block h-3 w-1 animate-pulse bg-violet-500 align-middle"
                     ></span>
                     <GenerateMessageActionGroup
-                      v-if="message.role === 'assistant' && message.status !== 'streaming'"
+                      v-if="message.role === 'assistant'"
                       :message="message"
-                      :messages="messages"
                     />
                   </div>
 
@@ -504,7 +494,7 @@ const helperText = computed(() => {
     return '这里是 analysis copilot 对话，目标是验证 AI 对话和数据库持久化链路。'
   }
   if (props.mode === 'design') {
-    return '这里是 design copilot 面板。当前面板只展示当前版本的专属消息。'
+    return '这里是 design copilot 面板。右下角入口会始终显示，可随时查看当前版本消息的完整细节。'
   }
   return '这里是 verify copilot 对话，已独立于 design mode。'
 })

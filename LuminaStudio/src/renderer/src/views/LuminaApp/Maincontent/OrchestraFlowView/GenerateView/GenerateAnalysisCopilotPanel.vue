@@ -328,9 +328,8 @@
                     class="ml-1 inline-block h-3 w-1 animate-pulse bg-violet-500 align-middle"
                   ></span>
                   <GenerateMessageActionGroup
-                    v-if="message.role === 'assistant' && message.status !== 'streaming'"
+                    v-if="message.role === 'assistant'"
                     :message="message"
-                    :messages="messages"
                   />
                   <div v-if="messageErrorText(message)" class="mt-2 text-[11px] text-rose-500">
                     {{ messageErrorText(message) }}

@@ -69,9 +69,8 @@
               @open-designs="$emit('open-existing-planning-designs', entry.message.id)"
             />
             <GenerateMessageActionGroup
-              v-if="entry.message.role === 'assistant' && entry.message.status !== 'streaming'"
+              v-if="entry.message.role === 'assistant'"
               :message="entry.message"
-              :messages="messages"
             />
           </div>
           <div v-if="entry.message.error" class="text-[11px] text-rose-500">

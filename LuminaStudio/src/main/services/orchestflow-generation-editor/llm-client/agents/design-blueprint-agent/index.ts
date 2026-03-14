@@ -16,7 +16,6 @@ import { buildDesignBlueprintPromptMessages } from './prompt'
 import type { StartDesignBlueprintAgentStreamParams } from './types'
 
 const log = logger.scope('DesignBlueprintAgent')
-const DESIGN_STREAM_FLUSH_INTERVAL_MS = 33
 
 export * from './types'
 export * from './prompt'
@@ -35,9 +34,7 @@ export function startDesignBlueprintAgentStream(
     answerText: '',
     providerId: params.providerId,
     modelId: params.modelId,
-    abortController,
-    pendingDeltaText: '',
-    pendingDeltaFlushTimer: null
+    abortController
   }
 
   params.activeStreams.set(params.requestId, streamState)
@@ -161,8 +158,15 @@ function handleTextDelta(
   delta: string
 ): void {
   state.answerText += delta
-  state.pendingDeltaText = (state.pendingDeltaText || '') + delta
-  schedulePendingTextDeltaFlush(state, params)
+  params.repository.updateMessageContent(state.messageId, state.answerText)
+  state.sender.send('orchestflowGenerationEditor:stream', {
+    type: 'text-delta',
+    requestId: state.requestId,
+    sessionId: state.sessionId,
+    channelKey: state.channelKey,
+    messageId: state.messageId,
+    delta
+  })
 }
 
 function finalizeDesignBlueprintGeneration(
@@ -174,8 +178,6 @@ function finalizeDesignBlueprintGeneration(
   usage?: Record<string, unknown>,
   errorMessage: string | null = null
 ): void {
-  flushPendingTextDelta(state, params)
-
   const compileResult = compileOFBlueprintTextDsl(state.answerText)
   const designStatus =
     finishReason === 'error'
@@ -316,51 +318,6 @@ function finishMessage(
 
   params.activeStreams.delete(state.requestId)
 }
-
-function schedulePendingTextDeltaFlush(
-  state: ActiveGenerationStream,
-  params: StartDesignBlueprintAgentStreamParams
-): void {
-  if (state.pendingDeltaFlushTimer) {
-    return
-  }
-
-  // design 面板之前每个 token 都会同步写库并发 IPC。
-  // 当模型回流很快时，主进程会先堆积大量事件，renderer 看起来就像“收完再慢慢吐”。
-  // 这里改成短间隔合批，把视觉延迟压回到接近真实流速。
-  state.pendingDeltaFlushTimer = setTimeout(() => {
-    state.pendingDeltaFlushTimer = null
-    flushPendingTextDelta(state, params)
-  }, DESIGN_STREAM_FLUSH_INTERVAL_MS)
-}
-
-function flushPendingTextDelta(
-  state: ActiveGenerationStream,
-  params: StartDesignBlueprintAgentStreamParams
-): void {
-  if (state.pendingDeltaFlushTimer) {
-    clearTimeout(state.pendingDeltaFlushTimer)
-    state.pendingDeltaFlushTimer = null
-  }
-
-  const pendingDeltaText = state.pendingDeltaText || ''
-  if (!pendingDeltaText) {
-    return
-  }
-
-  state.pendingDeltaText = ''
-  params.repository.updateMessageContent(state.messageId, state.answerText)
-
-  state.sender.send('orchestflowGenerationEditor:stream', {
-    type: 'text-delta',
-    requestId: state.requestId,
-    sessionId: state.sessionId,
-    channelKey: state.channelKey,
-    messageId: state.messageId,
-    delta: pendingDeltaText
-  })
-}
-
 function buildDesignBlueprintMeta(params: {
   designDocumentId: string
   generationMode: GenerationDesignGenerationMode

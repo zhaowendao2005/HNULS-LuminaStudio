@@ -77,6 +77,14 @@ export function applyStreamEventToChannelMessages(params: {
     return true
   }
 
+  if (event.type === 'content-replace') {
+    // 某些 agent 会在重试/多轮校准时重算“当前可见正文”，这里要整体替换而不是继续拼接。
+    target.content = event.content
+    target.status = 'streaming'
+    target.requestId = event.requestId
+    return true
+  }
+
   if (event.type === 'message-meta') {
     target.metaJson = event.metaJson
     target.status = 'streaming'

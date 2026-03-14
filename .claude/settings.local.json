@@ -3,7 +3,9 @@
     "allow": [
       "mcp__repgrep__search_literal",
       "mcp__smart-edit-mcp__read_file",
-      "mcp__smart-edit-mcp__edit_file"
+      "mcp__smart-edit-mcp__edit_file",
+      "mcp__repgrep__list_searchable_files",
+      "Bash(npm run:*)"
     ]
   }
 }

@@ -25,6 +25,13 @@ import type { CopilotEditorModelResult, StartCopilotEditorAgentStreamParams } fr
 
 const log = logger.scope('CopilotEditorAgent')
 
+interface CopilotEditorStreamAccumulator {
+  rawText: string
+  visibleText: string
+  visibleBuffer: string
+  hasEnteredCommandDsl: boolean
+}
+
 export function startCopilotEditorAgentStream(params: StartCopilotEditorAgentStreamParams): void {
   const abortController = new AbortController()
   const streamState: ActiveGenerationStream = {
@@ -241,7 +248,15 @@ async function runModelOnce(
     metaJson: nextMetaJson
   })
 
-  let rawText = ''
+  const accumulator: CopilotEditorStreamAccumulator = {
+    rawText: '',
+    visibleText: '',
+    visibleBuffer: '',
+    hasEnteredCommandDsl: false
+  }
+
+  // retry 时需要先把上一轮尝试的可见正文清空，避免用户看到两轮内容叠加。
+  syncVisibleContent(state, params, '')
   const result = await streamChatByProtocol({
     protocol: params.protocol,
     vendor: params.vendor,
@@ -254,19 +269,102 @@ async function runModelOnce(
       new AbortController().signal,
     messages,
     onTextDelta: (delta) => {
-      rawText += delta
+      consumeVisibleTextDelta(state, params, accumulator, delta)
     }
   })
 
-  const extracted = extractVisibleTextAndDsl(rawText)
+  flushRemainingVisibleText(state, params, accumulator)
+  const extracted = extractVisibleTextAndDsl(accumulator.rawText)
   const normalizedCommandDsl = normalizeCopilotEditorCommandDsl(extracted.commandDsl)
   return {
-    rawText,
-    visibleText: extracted.visibleText,
+    rawText: accumulator.rawText,
+    visibleText: accumulator.visibleText.trim() || extracted.visibleText,
     commandDsl: normalizedCommandDsl,
     usage: result.usage,
     rawTrace: result.rawTrace
   }
+}
+
+function consumeVisibleTextDelta(
+  state: ActiveGenerationStream,
+  params: StartCopilotEditorAgentStreamParams,
+  accumulator: CopilotEditorStreamAccumulator,
+  delta: string
+): void {
+  accumulator.rawText += delta
+  if (accumulator.hasEnteredCommandDsl) {
+    return
+  }
+
+  accumulator.visibleBuffer += delta
+  while (accumulator.visibleBuffer) {
+    const markerIndex = accumulator.visibleBuffer.indexOf(COPILOT_EDITOR_DSL_START_MARKER)
+    if (markerIndex >= 0) {
+      appendVisibleText(state, params, accumulator, accumulator.visibleBuffer.slice(0, markerIndex))
+      accumulator.visibleBuffer = accumulator.visibleBuffer.slice(
+        markerIndex + COPILOT_EDITOR_DSL_START_MARKER.length
+      )
+      accumulator.hasEnteredCommandDsl = true
+      return
+    }
+
+    const safeLength = Math.max(
+      0,
+      accumulator.visibleBuffer.length - COPILOT_EDITOR_DSL_START_MARKER.length + 1
+    )
+    if (safeLength === 0) {
+      return
+    }
+
+    appendVisibleText(state, params, accumulator, accumulator.visibleBuffer.slice(0, safeLength))
+    accumulator.visibleBuffer = accumulator.visibleBuffer.slice(safeLength)
+    return
+  }
+}
+
+function flushRemainingVisibleText(
+  state: ActiveGenerationStream,
+  params: StartCopilotEditorAgentStreamParams,
+  accumulator: CopilotEditorStreamAccumulator
+): void {
+  if (accumulator.hasEnteredCommandDsl || !accumulator.visibleBuffer) {
+    accumulator.visibleBuffer = ''
+    return
+  }
+
+  appendVisibleText(state, params, accumulator, accumulator.visibleBuffer)
+  accumulator.visibleBuffer = ''
+}
+
+function appendVisibleText(
+  state: ActiveGenerationStream,
+  params: StartCopilotEditorAgentStreamParams,
+  accumulator: CopilotEditorStreamAccumulator,
+  nextText: string
+): void {
+  if (!nextText) {
+    return
+  }
+
+  accumulator.visibleText += nextText
+  syncVisibleContent(state, params, accumulator.visibleText)
+}
+
+function syncVisibleContent(
+  state: ActiveGenerationStream,
+  params: StartCopilotEditorAgentStreamParams,
+  content: string
+): void {
+  state.answerText = content
+  params.repository.updateMessageContent(state.messageId, content)
+  state.sender.send('orchestflowGenerationEditor:stream', {
+    type: 'content-replace',
+    requestId: state.requestId,
+    sessionId: state.sessionId,
+    channelKey: state.channelKey,
+    messageId: state.messageId,
+    content
+  })
 }
 
 function buildCopilotMetaPayload(params: {
