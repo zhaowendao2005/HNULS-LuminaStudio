@@ -1,7 +1,8 @@
 import type Database from 'better-sqlite3'
 import type { WebContents } from 'electron'
-import { randomUUID } from 'crypto'
+import { createHash, randomUUID } from 'crypto'
 import {
+  buildOFBlueprintDiagnosticSignature,
   buildOFPlanningMarkdown,
   compileOFBlueprintTextDsl,
   parseOFPlanningMarkdown,
@@ -11,6 +12,7 @@ import { logger } from '../logger'
 import type { DatabaseManager } from '../database-sqlite'
 import type { ModelConfigService, PersistedModelProviderConfig } from '../model-config'
 import type {
+  GenerationApplyDesignCalibrationProposalRequest,
   GenerationApplyPlanningCommandProposalRequest,
   GenerationCompileDesignDocumentToWorkflowRequest,
   GenerationCompileDesignDocumentToWorkflowResult,
@@ -22,6 +24,7 @@ import type {
   GenerationListDesignDocumentsRequest,
   GenerationListMessagesRequest,
   GenerationSendMessageRequest,
+  GenerationRejectDesignCalibrationProposalRequest,
   GenerationRejectPlanningCommandProposalRequest,
   GenerationSaveDesignDocumentRequest,
   GenerationSaveDocumentRequest,
@@ -33,7 +36,9 @@ import type {
   GenerationStageConfig,
   GenerationUpdateSessionStateRequest,
   ModelProviderProtocol,
-  GenerationMessageMetaPayload
+  GenerationMessageMetaPayload,
+  GenerationDesignCalibrationBlockPayload,
+  GenerationDesignCopilotIntent
 } from '@preload/types'
 import { GenerationEditorRepository } from './repositories/generation-editor.repository'
 import { orchestraflowWorkflowService } from '../orchestraflow/orchestraflow-workflow-service'
@@ -41,6 +46,7 @@ import {
   abortGenerationStream,
   startAnalysisPlannerAgentStream,
   startCopilotEditorAgentStream,
+  startDesignCalibrationAgentStream,
   startDesignBlueprintAgentStream,
   startGenerationStream
 } from './llm-client'
@@ -200,8 +206,84 @@ export class OrchestflowGenerationEditorService {
     return this.repository.applyPlanningCommandProposal(request)
   }
 
+  async applyDesignCalibrationProposal(request: GenerationApplyDesignCalibrationProposalRequest) {
+    const message = this.repository.getMessageById(request.messageId)
+    if (!message || message.session_id !== request.sessionId) {
+      throw new Error(`Design calibration message not found: ${request.messageId}`)
+    }
+
+    const meta = parseGenerationMessageMeta(message.meta_json)
+    const block = meta.designCalibrationBlock
+    const proposal = block?.proposal
+    if (!block || block.kind !== 'design-calibration' || !proposal) {
+      throw new Error('Design calibration proposal missing')
+    }
+    if (block.status !== 'pending') {
+      throw new Error('当前 design calibration proposal 不处于待审阅状态。')
+    }
+
+    const designDocument = this.ensureActiveDesignDocument(
+      request.sessionId,
+      block.designDocumentId
+    )
+    const currentHash = buildContentHash(designDocument.content)
+    if (currentHash !== proposal.baseContentHash) {
+      throw new Error('当前规划设计稿正文已变更，请重新发起校准。')
+    }
+
+    const previewDsl = resolveCalibrationPreviewDsl(proposal)
+    if (!previewDsl.trim()) {
+      throw new Error('Design calibration proposal 缺少可应用的 preview DSL。')
+    }
+
+    const savedDocument = await this.saveDesignDocument({
+      sessionId: request.sessionId,
+      document: {
+        ...designDocument,
+        content: previewDsl
+      }
+    })
+
+    meta.designCalibrationBlock = {
+      ...block,
+      status: 'applied',
+      canAbort: false,
+      remainingDiagnosticCount: parseDesignDiagnostics(savedDocument.diagnosticsJson).length,
+      summary: savedDocument.summary,
+      errorMessage: null
+    }
+    this.repository.updateMessageMeta(request.messageId, JSON.stringify(meta))
+    return savedDocument
+  }
+
   async rejectPlanningCommandProposal(request: GenerationRejectPlanningCommandProposalRequest) {
     return this.repository.rejectPlanningCommandProposal(request)
+  }
+
+  async rejectDesignCalibrationProposal(request: GenerationRejectDesignCalibrationProposalRequest) {
+    const message = this.repository.getMessageById(request.messageId)
+    if (!message || message.session_id !== request.sessionId) {
+      throw new Error(`Design calibration message not found: ${request.messageId}`)
+    }
+
+    const meta = parseGenerationMessageMeta(message.meta_json)
+    if (meta.designCalibrationBlock?.kind === 'design-calibration') {
+      meta.designCalibrationBlock = {
+        ...meta.designCalibrationBlock,
+        status: 'rejected',
+        canAbort: false,
+        errorMessage: null
+      }
+      this.repository.updateMessageMeta(request.messageId, JSON.stringify(meta))
+    }
+
+    return this.repository
+      .listMessages({
+        sessionId: request.sessionId,
+        channelKey: 'design-copilot',
+        designDocumentId: meta.designCalibrationBlock?.designDocumentId || null
+      })
+      .find((item) => item.id === request.messageId)!
   }
 
   async listMessages(request: GenerationListMessagesRequest) {
@@ -236,6 +318,7 @@ export class OrchestflowGenerationEditorService {
       requestId,
       sessionId: request.sessionId,
       channelKey: request.channelKey,
+      designCopilotIntent: request.designCopilotIntent,
       providerId: request.providerId,
       providerName: provider.name,
       protocol: effectiveProtocol,
@@ -249,6 +332,8 @@ export class OrchestflowGenerationEditorService {
       request.channelKey === 'design-copilot'
         ? this.ensureActiveDesignDocument(request.sessionId, request.designDocumentId)
         : null
+    const designCopilotIntent: GenerationDesignCopilotIntent =
+      request.designCopilotIntent || 'blueprint-generate'
 
     this.repository.insertMessage({
       id: randomUUID(),
@@ -283,12 +368,19 @@ export class OrchestflowGenerationEditorService {
       usage_json: null,
       meta_json: JSON.stringify(
         request.channelKey === 'design-copilot' && designDocument
-          ? buildInitialDesignBlueprintMessageMeta({
-              vendor,
-              protocol: effectiveProtocol,
-              designDocumentId: designDocument.id,
-              generationMode: designDocument.content.trim() ? 'regenerate' : 'generate'
-            })
+          ? designCopilotIntent === 'diagnostic-calibration'
+            ? buildInitialDesignCalibrationMessageMeta({
+                vendor,
+                protocol: effectiveProtocol,
+                designDocumentId: designDocument.id,
+                diagnostics: parseDesignDiagnostics(designDocument.diagnosticsJson)
+              })
+            : buildInitialDesignBlueprintMessageMeta({
+                vendor,
+                protocol: effectiveProtocol,
+                designDocumentId: designDocument.id,
+                generationMode: designDocument.content.trim() ? 'regenerate' : 'generate'
+              })
           : { vendor, protocol: effectiveProtocol }
       ),
       raw_response_text: null,
@@ -354,26 +446,50 @@ export class OrchestflowGenerationEditorService {
         userMessage: text
       })
     } else if (request.channelKey === 'design-copilot') {
-      startDesignBlueprintAgentStream({
-        activeStreams: this.activeStreams,
-        repository: this.repository,
-        sender,
-        requestId,
-        sessionId: request.sessionId,
-        channelKey: request.channelKey,
-        messageId: assistantMessageId,
-        providerId: request.providerId,
-        modelId: request.modelId,
-        vendor,
-        protocol: effectiveProtocol,
-        apiKey: provider.apiKey,
-        baseUrl: provider.baseUrl || undefined,
-        defaultHeaders: provider.defaultHeaders,
-        persistRawLlmData: globalSettings.persistRawLlmData,
-        stageConfig: this.repository.getStageConfig(request.sessionId, 'design'),
-        designDocument: designDocument!,
-        userMessage: text
-      })
+      if (designCopilotIntent === 'diagnostic-calibration') {
+        startDesignCalibrationAgentStream({
+          activeStreams: this.activeStreams,
+          repository: this.repository,
+          sender,
+          requestId,
+          sessionId: request.sessionId,
+          channelKey: request.channelKey,
+          messageId: assistantMessageId,
+          providerId: request.providerId,
+          modelId: request.modelId,
+          vendor,
+          protocol: effectiveProtocol,
+          apiKey: provider.apiKey,
+          baseUrl: provider.baseUrl || undefined,
+          defaultHeaders: provider.defaultHeaders,
+          persistRawLlmData: globalSettings.persistRawLlmData,
+          stageConfig: this.repository.getStageConfig(request.sessionId, 'design'),
+          designDocument: designDocument!,
+          userMessage: text,
+          contextBudgetChars: request.designCalibrationContextBudgetChars || 100000
+        })
+      } else {
+        startDesignBlueprintAgentStream({
+          activeStreams: this.activeStreams,
+          repository: this.repository,
+          sender,
+          requestId,
+          sessionId: request.sessionId,
+          channelKey: request.channelKey,
+          messageId: assistantMessageId,
+          providerId: request.providerId,
+          modelId: request.modelId,
+          vendor,
+          protocol: effectiveProtocol,
+          apiKey: provider.apiKey,
+          baseUrl: provider.baseUrl || undefined,
+          defaultHeaders: provider.defaultHeaders,
+          persistRawLlmData: globalSettings.persistRawLlmData,
+          stageConfig: this.repository.getStageConfig(request.sessionId, 'design'),
+          designDocument: designDocument!,
+          userMessage: text
+        })
+      }
     } else {
       startGenerationStream({
         activeStreams: this.activeStreams,
@@ -552,4 +668,71 @@ function buildInitialDesignBlueprintMessageMeta(params: {
       errorMessage: null
     }
   }
+}
+
+function buildInitialDesignCalibrationMessageMeta(params: {
+  vendor: 'openai' | 'anthropic' | 'google'
+  protocol: ModelProviderProtocol
+  designDocumentId: string
+  diagnostics: OFBlueprintTextDiagnostic[]
+}): GenerationMessageMetaPayload {
+  return {
+    vendor: params.vendor,
+    protocol: params.protocol,
+    designCalibrationBlock: {
+      kind: 'design-calibration',
+      designDocumentId: params.designDocumentId,
+      status: 'streaming',
+      totalDiagnosticCount: params.diagnostics.length,
+      remainingDiagnosticCount: params.diagnostics.length,
+      currentPass: 0,
+      maxPasses: 8,
+      phaseLabel: '正在准备规划设计稿校准',
+      canAbort: true,
+      summary: params.diagnostics.length
+        ? `准备修复 ${params.diagnostics.length} 条 diagnostics。`
+        : '当前没有 diagnostics。',
+      truncatedTailDiscarded: false,
+      proposal: null,
+      errorMessage: null
+    }
+  }
+}
+
+function parseGenerationMessageMeta(metaJson: string | null): GenerationMessageMetaPayload {
+  if (!metaJson) {
+    return {}
+  }
+
+  try {
+    return JSON.parse(metaJson) as GenerationMessageMetaPayload
+  } catch {
+    return {}
+  }
+}
+
+function parseDesignDiagnostics(diagnosticsJson: string | null): OFBlueprintTextDiagnostic[] {
+  if (!diagnosticsJson) {
+    return []
+  }
+
+  try {
+    return JSON.parse(diagnosticsJson) as OFBlueprintTextDiagnostic[]
+  } catch {
+    return []
+  }
+}
+
+function resolveCalibrationPreviewDsl(
+  proposal: NonNullable<GenerationDesignCalibrationBlockPayload['proposal']>
+): string {
+  return proposal.previewDsl || proposal.replacementDsl || ''
+}
+
+function buildContentHash(content: string): string {
+  return createHash('sha1').update(content).digest('hex')
+}
+
+function buildDiagnosticSignatureList(diagnostics: OFBlueprintTextDiagnostic[]): string[] {
+  return diagnostics.map(buildOFBlueprintDiagnosticSignature)
 }

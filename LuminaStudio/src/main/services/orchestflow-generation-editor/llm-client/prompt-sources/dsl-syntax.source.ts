@@ -1,52 +1,77 @@
 import {
   OF_BLUEPRINT_SECTION_DSL_HEADER,
-  OF_BLUEPRINT_SECTION_DSL_RULES,
   OF_BLUEPRINT_SECTION_DSL_SECTION_FORMS
 } from '@shared/Orchestraflow-types'
+
+const CANONICAL_DSL_RULES = [
+  '所有结构用 section 表达，不使用缩进表达层级。',
+  '多行 prompt 使用三引号字符串 `""" ... """`。',
+  '数组必须写成单行 JSON 数组。',
+  '边必须显式写成 `node.handle -> node.handle`。',
+  '变量声明统一写成单行 JSON 对象数组。',
+  '变量来源统一写成 `{"mode":"ref","ref":"@path"}` 或 `{"mode":"value","value":...}`。',
+  '组合 object / array 中如需引用变量，必须把引用写成 JSON 字符串 `"@ref"`。'
+] as const
+
+export const CANONICAL_OBJECT_SCHEMA_TEMPLATE =
+  '{"type":"object","properties":{"mode":{"type":"string"}},"required":["mode"],"additionalProperties":false,"default":{"mode":"batch"}}'
+export const CANONICAL_ARRAY_SCHEMA_TEMPLATE =
+  '{"type":"array","items":{"type":"string"},"default":[]}'
+export const CANONICAL_REF_SOURCE_TEMPLATE =
+  '{"mode":"ref","ref":"@writer.structured_output.answer"}'
+export const CANONICAL_VALUE_SOURCE_TEMPLATE =
+  '{"mode":"value","value":{"mode":"strict"}}'
+export const CANONICAL_START_INPUT_TEMPLATE =
+  'inputs = [{"variable":"user_query","schema":{"type":"string","default":"hello"}}]'
+export const CANONICAL_LOOP_VAR_TEMPLATE =
+  'vars = [{"variable":"draft","schema":{"type":"string"},"source":{"mode":"ref","ref":"@planner.structured_output.outline"}}]'
+export const CANONICAL_LET_TEMPLATE =
+  'let = [{"variable":"audit_config","schema":{"type":"object","properties":{"mode":{"type":"string"}},"required":["mode"],"additionalProperties":false},"source":{"mode":"value","value":{"mode":"strict"}}}]'
+export const CANONICAL_END_OUTPUT_TEMPLATE =
+  'outputs = [{"variable":"final_answer","schema":{"type":"string"},"source":{"mode":"ref","ref":"@writer.structured_output.answer"}}]'
 
 export function buildDslSyntaxPrompt(): string {
   return [
     '## DSL 语法与格式',
     `- 固定头部: ${OF_BLUEPRINT_SECTION_DSL_HEADER}`,
     ...OF_BLUEPRINT_SECTION_DSL_SECTION_FORMS.map((item) => `- section: ${item}`),
-    ...OF_BLUEPRINT_SECTION_DSL_RULES.map((rule) => `- 规则: ${rule}`),
+    ...CANONICAL_DSL_RULES.map((rule) => `- 规则: ${rule}`),
     '',
-    '## LLM 强制写法提醒',
-    '- 不要把 `outputs`、`edges`、`inputs`、`vars`、`let` 这类数组拆成多行条目。',
-    '- OFT/1 里的数组和值对象必须写在同一条 `key = ...` 语句里，整体保持单行合法 JSON。',
-    '- `inputs`、`vars`、`let`、`outputs` 的每一项都必须是显式 JSON 对象，不要再写 `name:type=value` 或 `<- @ref` 简写。',
-    '- 如果对象内部需要引用变量，引用值写成 JSON 字符串 `\"@ref\"`，不要拆成多行键值对。',
-    '- 一旦写成多行数组项或多行对象项，parser 会把这些行当成独立语句并报错。',
-    '- 普通控制边只能写成 `上游.source -> 下游.target`，不要写成 `上游.output -> 下游.input`。',
+    '## 唯一合法变量骨架',
+    `- start.inputs: ${CANONICAL_START_INPUT_TEMPLATE}`,
+    `- loop.vars: ${CANONICAL_LOOP_VAR_TEMPLATE}`,
+    `- set.let: ${CANONICAL_LET_TEMPLATE}`,
+    `- end.outputs: ${CANONICAL_END_OUTPUT_TEMPLATE}`,
     '',
-    '## 禁止示例',
-    'outputs = [',
-    '  {"variable":"final_content","schema":{"type":"string"},"source":{"mode":"ref","ref":"@refine_loop.result"}},',
-    '  {"variable":"audit_report","schema":{"type":"object","properties":{"score":{"type":"string"}},"required":["score"],"additionalProperties":false},"source":{"mode":"value","value":{"score":"@audit.score"}}}',
-    ']',
+    '## 唯一合法 schema 骨架',
+    `- object schema: ${CANONICAL_OBJECT_SCHEMA_TEMPLATE}`,
+    `- array schema: ${CANONICAL_ARRAY_SCHEMA_TEMPLATE}`,
     '',
-    'edges = [',
-    '  "start.source -> end.target"',
-    ']',
+    '## 唯一合法 source 骨架',
+    `- ref source: ${CANONICAL_REF_SOURCE_TEMPLATE}`,
+    `- value source: ${CANONICAL_VALUE_SOURCE_TEMPLATE}`,
     '',
-    '## 正确示例',
-    'outputs = [{"variable":"final_content","schema":{"type":"string"},"source":{"mode":"ref","ref":"@refine_loop.result"}},{"variable":"audit_report","schema":{"type":"object","properties":{"score":{"type":"string"}},"required":["score"],"additionalProperties":false},"source":{"mode":"value","value":{"score":"@audit.score"}}}]',
-    'edges = ["start.source -> end.target"]',
-    '',
-    '## 最小模板',
+    '## 单一最小模板',
+    OF_BLUEPRINT_SECTION_DSL_HEADER,
     '[workflow]',
     'name = "demo_flow"',
     '',
     '[node.start]',
     'type = "start"',
-    'inputs = [{"variable":"user_query","schema":{"type":"string","default":"hello"}}]',
+    CANONICAL_START_INPUT_TEMPLATE,
     '',
     '[node.end]',
     'type = "end"',
-    'outputs = [{"variable":"result","schema":{"type":"string"},"source":{"mode":"ref","ref":"@user_query"}}]',
+    CANONICAL_END_OUTPUT_TEMPLATE,
     '',
     '[graph]',
     'edges = ["start.source -> end.target"]',
+    '',
+    '## 格式红线',
+    '- 不要自然语言解释。',
+    '- 不要 markdown code fence。',
+    '- 不要多行数组或多行对象。',
+    '- 普通控制边只使用 source / target。',
     '',
     '## 重要边界',
     '- 这里仅定义语法和格式，不负责节点字段 spec、变量语义、handle/link 语义。',

@@ -6,9 +6,12 @@ import {
   resolveMenuByStage
 } from './generation-editor.datasource'
 import {
+  buildDesignCalibrationReviewState,
+  getGenerationDesignCalibrationBlock,
   parseDesignDiagnosticsJson,
   type GenerateAnalysisPlanningViewMode,
   type GenerateCopilotMode,
+  type GenerateDesignCalibrationReviewState,
   type GenerateDesignDocumentViewMode,
   type GenerateSessionDetailViewModel,
   type GenerateSessionViewModel,
@@ -99,6 +102,8 @@ export const useOrchestflowGenerationEditorStore = defineStore(
     const analysisPlanningViewMode = ref<GenerateAnalysisPlanningViewMode>('preview')
     const designDocumentViewMode = ref<GenerateDesignDocumentViewMode>('snapshot')
     const selectedDesignDiagnosticIndex = ref<number | null>(null)
+    // 这里先作为本地可调预算，不落 SQLite，避免当前数据库版本升级直接清空 Generate 会话数据。
+    const designCalibrationContextBudgetChars = ref(100000)
     const isPlanningDocumentSaving = ref(false)
     const showDesignManagerModal = ref(false)
     const designManagerPlanningDocumentId = ref<string | null>(null)
@@ -138,7 +143,7 @@ export const useOrchestflowGenerationEditorStore = defineStore(
     const modelConfigLabel = computed(() => {
       const config = configDrawerStageConfig.value
       if (!config) return '未选择模型'
-      return `${config.modelId || '未选择模型'} / 主记忆 ${config.memoryRounds} / copilot ${config.copilotMemoryRounds}`
+      return `${config.modelId || '未选择模型'} / 主记忆 ${config.memoryRounds} / copilot ${config.copilotMemoryRounds} / 校准预算 ${designCalibrationContextBudgetChars.value}`
     })
 
     const analysisMessages = computed(() => {
@@ -205,6 +210,34 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       }
       return activeDesignDiagnostics.value[selectedDesignDiagnosticIndex.value] || null
     })
+
+    const activeDesignCalibrationReviewState = computed<GenerateDesignCalibrationReviewState>(
+      () => {
+        if (!activeDesignDocument.value) {
+          return {
+            reviewEntry: null,
+            previewDsl: '',
+            diffSourceDsl: '',
+            diffCurrentDsl: '',
+            diffRows: [],
+            isPendingReview: false,
+            reviewErrorMessage: null,
+            summary: '',
+            totalDiagnosticCount: 0,
+            remainingDiagnosticCount: 0,
+            truncatedTailDiscarded: false
+          }
+        }
+
+        return buildDesignCalibrationReviewState({
+          document: activeDesignDocument.value,
+          messages: designCopilotStore.getMessages(
+            currentSession.value,
+            activeDesignDocument.value.id
+          )
+        })
+      }
+    )
 
     const activeDesignPreviewDocument = computed<GenerationDocument | null>(() => {
       if (!activeDesignDocument.value) {
@@ -377,7 +410,7 @@ export const useOrchestflowGenerationEditorStore = defineStore(
         if (!handled) return
 
         if (event.channelKey === 'design-copilot') {
-          applyDesignStreamPreview(detail, event)
+          applyDesignStreamPreviewNext(detail, event)
         }
 
         if (event.type === 'error' || event.type === 'finish') {
@@ -386,7 +419,7 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       })
     }
 
-    function applyDesignStreamPreview(
+    function _applyDesignStreamPreview(
       detail: GenerateSessionDetailViewModel,
       event: GenerationStreamEvent
     ): void {
@@ -437,6 +470,77 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       }
     }
 
+    function applyDesignStreamPreviewNext(
+      detail: GenerateSessionDetailViewModel,
+      event: GenerationStreamEvent
+    ): void {
+      const targetMessage = detail.messagesByChannel['design-copilot'].find((message) => {
+        return (
+          message.id === event.messageId ||
+          (message.requestId === event.requestId && message.role === 'assistant')
+        )
+      })
+      const designDocumentId = targetMessage?.designDocumentId
+      if (!designDocumentId || !detail.designDocuments[designDocumentId]) {
+        return
+      }
+
+      const targetDocument = detail.designDocuments[designDocumentId]
+      targetDocument.latestGenerationMessageId = event.messageId
+      const calibrationBlock = targetMessage
+        ? getGenerationDesignCalibrationBlock(targetMessage)
+        : null
+
+      if (event.type === 'stream-start') {
+        if (!calibrationBlock) {
+          targetDocument.status = 'streaming'
+        }
+        if (detail.stageConfigs.design.activeDesignDocumentId === designDocumentId) {
+          detail.documents.design = {
+            ...detail.documents.design,
+            content: targetDocument.content,
+            summary: calibrationBlock ? '规划设计稿校准进行中。' : '规划设计稿 DSL 正在生成中。'
+          }
+          designDocumentStore.setDocument(detail.id, detail.documents.design)
+        }
+        return
+      }
+
+      if (event.type === 'text-delta') {
+        if (!calibrationBlock) {
+          targetDocument.status = 'streaming'
+          targetDocument.content = targetMessage?.content || targetDocument.content
+        }
+
+        if (detail.stageConfigs.design.activeDesignDocumentId === designDocumentId) {
+          detail.documents.design = {
+            ...detail.documents.design,
+            content: targetDocument.content,
+            summary: calibrationBlock ? '规划设计稿校准进行中。' : '规划设计稿 DSL 正在生成中。'
+          }
+          designDocumentStore.setDocument(detail.id, detail.documents.design)
+        }
+        return
+      }
+
+      if (event.type === 'message-meta') {
+        const nextCalibrationBlock = targetMessage
+          ? getGenerationDesignCalibrationBlock(targetMessage)
+          : null
+        if (
+          nextCalibrationBlock?.status === 'pending' &&
+          detail.stageConfigs.design.activeDesignDocumentId === designDocumentId
+        ) {
+          designDocumentViewMode.value = 'calibration-diff'
+        }
+        return
+      }
+
+      if (event.type === 'error' && !calibrationBlock) {
+        targetDocument.status = 'error'
+      }
+    }
+
     async function refreshSessionDetail(sessionId: string): Promise<void> {
       try {
         const detail = await sessionDetailCacheStore.refreshSessionDetail(sessionId)
@@ -464,6 +568,24 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       analysisDocumentStore.setDocument(detail.id, detail.documents.analysis)
       designDocumentStore.setDocument(detail.id, detail.documents.design)
       verifyDocumentStore.setDocument(detail.id, detail.documents.verify)
+
+      if (resolvedSessionId.value === detail.id) {
+        const activeDesignDocumentId = detail.stageConfigs.design.activeDesignDocumentId
+        if (activeDesignDocumentId) {
+          const activeDesignDocument = detail.designDocuments[activeDesignDocumentId]
+          if (activeDesignDocument) {
+            const reviewState = buildDesignCalibrationReviewState({
+              document: activeDesignDocument,
+              messages: detail.messagesByChannel['design-copilot'].filter((message) => {
+                return message.designDocumentId === activeDesignDocumentId
+              })
+            })
+            if (reviewState.isPendingReview) {
+              designDocumentViewMode.value = 'calibration-diff'
+            }
+          }
+        }
+      }
 
       sessionListStore.mergeSessionSummary(detail)
     }
@@ -661,7 +783,8 @@ export const useOrchestflowGenerationEditorStore = defineStore(
           currentSession.value,
           designStageConfigStore.getConfig(currentSession.value.id),
           {
-            designDocumentId: activeDesignDocument.value.id
+            designDocumentId: activeDesignDocument.value.id,
+            designCopilotIntent: 'blueprint-generate'
           }
         )
         return
@@ -790,6 +913,28 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       await refreshSessionDetail(currentSession.value.id)
     }
 
+    async function applyDesignCalibrationProposal(messageId: string): Promise<void> {
+      if (!currentSession.value) return
+      const saved = await OrchestflowGenerationEditorDataSource.applyDesignCalibrationProposal({
+        sessionId: currentSession.value.id,
+        messageId
+      })
+      syncSavedDesignDocument(saved)
+      designDocumentViewMode.value = saved.status === 'valid' ? 'dsl' : 'diagnostics'
+      selectedDesignDiagnosticIndex.value = saved.status === 'valid' ? null : 0
+      await refreshSessionDetail(currentSession.value.id)
+    }
+
+    async function rejectDesignCalibrationProposal(messageId: string): Promise<void> {
+      if (!currentSession.value) return
+      await OrchestflowGenerationEditorDataSource.rejectDesignCalibrationProposal({
+        sessionId: currentSession.value.id,
+        messageId
+      })
+      designDocumentViewMode.value = 'diagnostics'
+      await refreshSessionDetail(currentSession.value.id)
+    }
+
     async function enterDesignView(): Promise<void> {
       activeMenu.value = 'design'
       await updateSessionState({
@@ -839,7 +984,44 @@ export const useOrchestflowGenerationEditorStore = defineStore(
           generationMode === 'regenerate'
             ? '重新规划设计当前版本并覆盖正文。'
             : '开始规划设计当前版本。',
-        assistantMetaJson: JSON.stringify(initialMeta)
+        assistantMetaJson: JSON.stringify(initialMeta),
+        designCopilotIntent: 'blueprint-generate'
+      })
+    }
+
+    async function requestDesignCalibration(): Promise<void> {
+      if (!currentSession.value || !activeDesignDocument.value) return
+      if (!activeDesignDiagnostics.value.length) {
+        throw new Error('当前没有可修复的 diagnostics。')
+      }
+
+      openCopilotPanel('design')
+      const config = designStageConfigStore.getConfig(currentSession.value.id)
+      if (!config?.providerId || !config.modelId) {
+        throw new Error('请先选择 design 阶段模型。')
+      }
+      await designCopilotStore.sendMessage(currentSession.value, config, {
+        designDocumentId: activeDesignDocument.value.id,
+        designCopilotIntent: 'diagnostic-calibration',
+        designCalibrationContextBudgetChars: designCalibrationContextBudgetChars.value,
+        content: '请校准当前版本的全部 diagnostics，并生成可审阅的修复提案。',
+        assistantMetaJson: JSON.stringify({
+          designCalibrationBlock: {
+            kind: 'design-calibration',
+            designDocumentId: activeDesignDocument.value.id,
+            status: 'streaming',
+            totalDiagnosticCount: activeDesignDiagnostics.value.length,
+            remainingDiagnosticCount: activeDesignDiagnostics.value.length,
+            currentPass: 0,
+            maxPasses: 8,
+            phaseLabel: '正在准备规划设计稿校准',
+            canAbort: true,
+            summary: `准备修复 ${activeDesignDiagnostics.value.length} 条 diagnostics。`,
+            truncatedTailDiscarded: false,
+            proposal: null,
+            errorMessage: null
+          }
+        })
       })
     }
 
@@ -1053,6 +1235,7 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       activeDesignDocument,
       activeDesignPlanningDocument,
       activeDesignDiagnostics,
+      activeDesignCalibrationReviewState,
       selectedDesignDiagnostic,
       selectedDesignDiagnosticIndex,
       activeDesignPreviewDocument,
@@ -1060,6 +1243,7 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       filteredDesignDocumentList,
       analysisPlanningViewMode,
       designDocumentViewMode,
+      designCalibrationContextBudgetChars,
       isPlanningDocumentSaving,
       dashboardStageCards,
       plannedSessionsCount,
@@ -1089,7 +1273,10 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       rejectPlanningCommandProposal,
       enterDesignView,
       requestDesignBlueprintGeneration,
+      requestDesignCalibration,
       compileDesignDocumentToWorkflow,
+      applyDesignCalibrationProposal,
+      rejectDesignCalibrationProposal,
       openDesignDiagnostics,
       clearDesignDiagnosticSelection,
       abortGenerationRequest,

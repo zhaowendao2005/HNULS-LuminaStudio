@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { buildOFPlanningMarkdown, createEmptyOFPlanningDocument } from '@shared/Orchestraflow-types'
 import {
+  buildDesignCalibrationReviewState,
   buildPlanningDiffRows,
   buildPlanningReviewState,
+  getGenerationDesignCalibrationBlock,
   getGenerationDesignBlueprintBlock,
   getGenerationPlanningBlock,
   getLatestGenerationPlanningReviewEntry,
@@ -238,5 +240,123 @@ describe('generation-editor.types', () => {
     expect(block?.designDocumentId).toBe('design-doc-1')
     expect(block?.status).toBe('invalid')
     expect(block?.diagnostics?.[0]?.code).toBe('invalid-inline-value')
+  })
+
+  it('parses design calibration block from message meta', () => {
+    const block = getGenerationDesignCalibrationBlock({
+      metaJson: JSON.stringify({
+        designCalibrationBlock: {
+          kind: 'design-calibration',
+          designDocumentId: 'design-doc-1',
+          status: 'pending',
+          totalDiagnosticCount: 4,
+          remainingDiagnosticCount: 1,
+          currentPass: 2,
+          maxPasses: 8,
+          phaseLabel: '已生成修复提案，等待审阅',
+          canAbort: false,
+          summary: '修复了大部分错误',
+          truncatedTailDiscarded: true,
+          proposal: {
+            strategy: 'replace-document',
+            summary: 'replace current document',
+            baseContentHash: 'hash-1',
+            targetDiagnosticSignatures: ['a'],
+            coveredDiagnosticSignatures: ['a'],
+            remainingDiagnosticSignatures: ['b'],
+            operations: [],
+            replacementDsl: 'OFT/1',
+            previewDsl: 'OFT/1',
+            truncatedTailDiscarded: true
+          },
+          errorMessage: null
+        }
+      })
+    })
+
+    expect(block?.designDocumentId).toBe('design-doc-1')
+    expect(block?.status).toBe('pending')
+    expect(block?.truncatedTailDiscarded).toBe(true)
+  })
+
+  it('builds a design calibration diff review state from pending proposal', () => {
+    const document = {
+      id: 'design-doc-1',
+      sessionId: 'session-1',
+      planningDocumentId: 'planning-1',
+      planningSourceMessageId: 'message-1',
+      title: '规划设计 V1',
+      version: 1,
+      status: 'invalid',
+      sourceSnapshotMarkdown: '# snapshot',
+      contentFormat: 'of-blueprint-section-v1' as const,
+      content: 'OFT/1\n[workflow]\nname = "old"',
+      summary: '存在错误',
+      diagnosticsJson: null,
+      latestGenerationMessageId: null,
+      derivedTargetType: null,
+      derivedTargetId: null,
+      derivedStatus: null,
+      createdAt: '2026-03-14T00:00:00.000Z',
+      updatedAt: '2026-03-14T00:00:00.000Z'
+    }
+    const messages: GenerationMessage[] = [
+      {
+        id: 'message-1',
+        sessionId: 'session-1',
+        channelKey: 'design-copilot',
+        designDocumentId: 'design-doc-1',
+        requestId: 'request-1',
+        role: 'assistant',
+        content: '已生成修复提案',
+        status: 'final',
+        providerId: 'provider-1',
+        modelId: 'model-1',
+        error: null,
+        usageJson: null,
+        metaJson: JSON.stringify({
+          designCalibrationBlock: {
+            kind: 'design-calibration',
+            designDocumentId: 'design-doc-1',
+            status: 'pending',
+            totalDiagnosticCount: 3,
+            remainingDiagnosticCount: 0,
+            currentPass: 2,
+            maxPasses: 8,
+            phaseLabel: '已生成修复提案，等待审阅',
+            canAbort: false,
+            summary: '将 workflow.name 修正为 new',
+            truncatedTailDiscarded: false,
+            proposal: {
+              strategy: 'replace-document',
+              summary: 'replace current document',
+              baseContentHash: 'hash-1',
+              targetDiagnosticSignatures: ['a'],
+              coveredDiagnosticSignatures: ['a'],
+              remainingDiagnosticSignatures: [],
+              operations: [],
+              replacementDsl: 'OFT/1\n[workflow]\nname = "new"',
+              previewDsl: 'OFT/1\n[workflow]\nname = "new"',
+              truncatedTailDiscarded: false
+            },
+            errorMessage: null
+          }
+        }),
+        rawResponseText: null,
+        rawTraceJson: null,
+        createdAt: '2026-03-14T00:00:00.000Z',
+        updatedAt: '2026-03-14T00:00:00.000Z'
+      }
+    ]
+
+    const reviewState = buildDesignCalibrationReviewState({
+      document,
+      messages
+    })
+
+    expect(reviewState.isPendingReview).toBe(true)
+    expect(reviewState.summary).toContain('workflow.name')
+    expect(reviewState.diffCurrentDsl).toContain('name = "new"')
+    expect(reviewState.diffRows.some((row) => row.afterType === 'added')).toBe(true)
   })
 })

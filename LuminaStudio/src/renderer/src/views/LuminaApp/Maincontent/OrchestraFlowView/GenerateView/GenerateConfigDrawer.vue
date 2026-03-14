@@ -64,6 +64,7 @@ const props = defineProps<{
   designConfig: {
     designMemory: number
     copilotMemory: number
+    calibrationContextBudgetChars: number
   }
   verifyConfig: {
     verifyMemory: number
@@ -78,6 +79,7 @@ const emit = defineEmits<{
   (e: 'update:analysis-copilot-memory', value: number): void
   (e: 'update:design-memory', value: number): void
   (e: 'update:design-copilot-memory', value: number): void
+  (e: 'update:design-calibration-context-budget-chars', value: number): void
   (e: 'update:verify-memory', value: number): void
   (e: 'update:verify-copilot-memory', value: number): void
 }>()
@@ -111,7 +113,9 @@ const panelListeners = computed(() => {
   if (props.activeTab === 'design') {
     return {
       'update:design-memory': (value: number) => emit('update:design-memory', value),
-      'update:copilot-memory': (value: number) => emit('update:design-copilot-memory', value)
+      'update:copilot-memory': (value: number) => emit('update:design-copilot-memory', value),
+      'update:calibration-context-budget-chars': (value: number) =>
+        emit('update:design-calibration-context-budget-chars', value)
     }
   }
   return {

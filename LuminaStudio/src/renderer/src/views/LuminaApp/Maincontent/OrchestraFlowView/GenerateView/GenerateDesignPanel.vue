@@ -29,6 +29,14 @@
           </button>
           <button
             type="button"
+            class="rounded border border-amber-200 bg-amber-50 px-3 py-1.5 text-[11px] font-semibold text-amber-700 transition-colors hover:bg-amber-100 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-100 disabled:text-gray-400"
+            :disabled="!canTriggerCalibration"
+            @click="$emit('run-calibration')"
+          >
+            一键修复全部错误
+          </button>
+          <button
+            type="button"
             title="打开规划设计稿管理"
             class="rounded border border-gray-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-gray-700 transition-colors hover:bg-gray-50"
             @click="$emit('open-design-manager')"
@@ -100,6 +108,18 @@
                   @click="handleOpenDiagnostics()"
                 >
                   诊断视图
+                </button>
+                <button
+                  v-if="calibrationReview.isPendingReview"
+                  type="button"
+                  :class="
+                    viewMode === 'calibration-diff'
+                      ? activeDangerToolbarTabClass
+                      : dangerToolbarTabClass
+                  "
+                  @click="$emit('update:view-mode', 'calibration-diff')"
+                >
+                  校准审阅
                 </button>
               </div>
 
@@ -176,6 +196,121 @@
                     $emit('update:design-content', ($event.target as HTMLTextAreaElement).value)
                   "
                 ></textarea>
+              </div>
+            </template>
+
+            <template v-else-if="viewMode === 'calibration-diff'">
+              <div class="flex min-h-0 flex-1 bg-[#fbfbfc]">
+                <div class="flex min-h-0 flex-1 flex-col border-r border-gray-200 bg-white">
+                  <div class="border-b border-gray-100 bg-amber-50/70 px-4 py-3">
+                    <div class="flex items-center justify-between gap-3">
+                      <div>
+                        <div class="text-xs font-semibold uppercase tracking-wide text-amber-700">
+                          校准修复提案
+                        </div>
+                        <div class="mt-1 text-[11px] leading-5 text-amber-700/80">
+                          {{
+                            calibrationReview.summary || '当前提案已准备好，等待你决定是否应用。'
+                          }}
+                        </div>
+                      </div>
+                      <div class="shrink-0 text-right text-[10px] text-amber-700/80">
+                        <div>原始错误：{{ calibrationReview.totalDiagnosticCount }} 条</div>
+                        <div>剩余错误：{{ calibrationReview.remainingDiagnosticCount }} 条</div>
+                      </div>
+                    </div>
+                    <div
+                      v-if="calibrationReview.truncatedTailDiscarded"
+                      class="mt-2 rounded bg-amber-100 px-2 py-1 text-[11px] text-amber-800"
+                    >
+                      检测到模型输出尾部截断，系统已自动舍弃不完整尾段。
+                    </div>
+                    <div
+                      v-if="calibrationReview.reviewErrorMessage"
+                      class="mt-2 rounded bg-rose-50 px-2 py-1 text-[11px] text-rose-600"
+                    >
+                      {{ calibrationReview.reviewErrorMessage }}
+                    </div>
+                  </div>
+
+                  <div class="grid min-h-0 flex-1 grid-cols-2">
+                    <div class="min-h-0 border-r border-gray-200 bg-rose-50/20">
+                      <div
+                        class="border-b border-gray-100 px-4 py-2 text-[11px] font-semibold text-rose-700"
+                      >
+                        原始 DSL
+                      </div>
+                      <div class="h-full overflow-auto p-4 font-mono text-[12px] leading-6">
+                        <div
+                          v-for="(row, index) in calibrationReview.diffRows"
+                          :key="`before-${index}`"
+                          :class="[
+                            'whitespace-pre-wrap break-words px-2 py-0.5',
+                            row.beforeType === 'removed'
+                              ? 'bg-rose-100 text-rose-800'
+                              : 'text-gray-700'
+                          ]"
+                        >
+                          {{ row.beforeText || ' ' }}
+                        </div>
+                      </div>
+                    </div>
+                    <div class="min-h-0 bg-emerald-50/20">
+                      <div
+                        class="border-b border-gray-100 px-4 py-2 text-[11px] font-semibold text-emerald-700"
+                      >
+                        校准后 DSL
+                      </div>
+                      <div class="h-full overflow-auto p-4 font-mono text-[12px] leading-6">
+                        <div
+                          v-for="(row, index) in calibrationReview.diffRows"
+                          :key="`after-${index}`"
+                          :class="[
+                            'whitespace-pre-wrap break-words px-2 py-0.5',
+                            row.afterType === 'added'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : 'text-gray-700'
+                          ]"
+                        >
+                          {{ row.afterText || ' ' }}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    class="flex items-center justify-between gap-4 border-t border-gray-100 bg-white px-4 py-3"
+                  >
+                    <div class="text-[11px] leading-5 text-gray-500">
+                      这里的差异审阅交互刻意对齐需求分析与规划的 review
+                      流程：先预览，再决定应用或拒绝。
+                    </div>
+                    <div class="flex shrink-0 items-center gap-2">
+                      <button
+                        type="button"
+                        class="rounded border border-rose-200 bg-rose-50 px-3 py-1.5 text-[11px] font-semibold text-rose-700 transition-colors hover:bg-rose-100"
+                        :disabled="!calibrationReview.reviewEntry"
+                        @click="
+                          calibrationReview.reviewEntry &&
+                          $emit('reject-calibration', calibrationReview.reviewEntry.messageId)
+                        "
+                      >
+                        拒绝修复
+                      </button>
+                      <button
+                        type="button"
+                        class="rounded border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
+                        :disabled="!calibrationReview.reviewEntry"
+                        @click="
+                          calibrationReview.reviewEntry &&
+                          $emit('apply-calibration', calibrationReview.reviewEntry.messageId)
+                        "
+                      >
+                        应用修复
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </template>
 
@@ -332,7 +467,10 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import { FolderKanban, MessageSquare } from 'lucide-vue-next'
 import type { OFBlueprintTextDiagnostic } from '@shared/Orchestraflow-types'
-import type { GenerateDesignDocumentViewMode } from '@renderer/stores/orchestraflow/generation-editor/generation-editor.types'
+import type {
+  GenerateDesignCalibrationReviewState,
+  GenerateDesignDocumentViewMode
+} from '@renderer/stores/orchestraflow/generation-editor/generation-editor.types'
 import type { GenerationDesignDocumentStatus } from '@preload/types'
 
 const props = defineProps<{
@@ -349,6 +487,8 @@ const props = defineProps<{
   designStatus: GenerationDesignDocumentStatus | null
   diagnostics: OFBlueprintTextDiagnostic[]
   selectedDiagnosticIndex: number | null
+  calibrationReview: GenerateDesignCalibrationReviewState
+  isCopilotStreaming: boolean
 }>()
 
 const emit = defineEmits<{
@@ -356,10 +496,13 @@ const emit = defineEmits<{
   (e: 'update:view-mode', value: GenerateDesignDocumentViewMode): void
   (e: 'generate-design'): void
   (e: 'compile-workflow'): void
+  (e: 'run-calibration'): void
   (e: 'open-copilot'): void
   (e: 'open-sessions'): void
   (e: 'open-design-manager'): void
   (e: 'select-diagnostic', index: number): void
+  (e: 'apply-calibration', messageId: string): void
+  (e: 'reject-calibration', messageId: string): void
 }>()
 
 const toolbarTabClass =
@@ -377,6 +520,15 @@ const canCompileWorkflow = computed(() => {
     props.hasActiveDesignDocument &&
     Boolean(props.designContent.trim()) &&
     props.designStatus === 'valid'
+  )
+})
+
+const canTriggerCalibration = computed(() => {
+  return (
+    props.hasActiveDesignDocument &&
+    props.diagnostics.length > 0 &&
+    !props.isCopilotStreaming &&
+    !props.calibrationReview.isPendingReview
   )
 })
 

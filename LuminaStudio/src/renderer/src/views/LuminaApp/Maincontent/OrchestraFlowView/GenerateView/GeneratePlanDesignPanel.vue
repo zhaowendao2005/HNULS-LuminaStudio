@@ -138,17 +138,16 @@
                       v-if="
                         mode === 'design' &&
                         message.role === 'assistant' &&
-                        getGenerationDesignBlueprintBlock(message)
+                        getActiveDesignMessageBlock(message)
                       "
                       class="mb-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3"
                     >
                       <div class="flex items-center justify-between gap-3">
                         <div class="min-w-0">
-                          <div class="text-[11px] font-semibold text-slate-700">规划设计稿生成</div>
+                          <div class="text-[11px] font-semibold text-slate-700">规划设计稿任务</div>
                           <div class="mt-1 text-[11px] leading-5 text-slate-500">
                             {{
-                              getGenerationDesignBlueprintBlock(message)?.phaseLabel ||
-                              '正在处理当前版本'
+                              getActiveDesignMessageBlock(message)?.phaseLabel || '正在处理当前版本'
                             }}
                           </div>
                         </div>
@@ -164,8 +163,8 @@
                           <button
                             v-if="
                               message.requestId &&
-                              getGenerationDesignBlueprintBlock(message)?.canAbort &&
-                              getGenerationDesignBlueprintBlock(message)?.status === 'streaming'
+                              getActiveDesignMessageBlock(message)?.canAbort &&
+                              getActiveDesignMessageBlock(message)?.status === 'streaming'
                             "
                             type="button"
                             class="flex items-center gap-1 rounded border border-rose-200 bg-white px-2 py-1 text-[10px] font-semibold text-rose-700 transition-colors hover:bg-rose-50"
@@ -188,10 +187,10 @@
                       </div>
 
                       <div
-                        v-if="getGenerationDesignBlueprintBlock(message)?.errorMessage"
+                        v-if="getActiveDesignMessageBlock(message)?.errorMessage"
                         class="mt-2 rounded bg-rose-50 px-2 py-1 text-[11px] leading-5 text-rose-600"
                       >
-                        {{ getGenerationDesignBlueprintBlock(message)?.errorMessage }}
+                        {{ getActiveDesignMessageBlock(message)?.errorMessage }}
                       </div>
 
                       <div
@@ -319,7 +318,7 @@
                     v-if="
                       mode === 'design' &&
                       message.role === 'assistant' &&
-                      getGenerationDesignBlueprintBlock(message)
+                      getActiveDesignMessageBlock(message)
                     "
                     class="mb-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3"
                   >
@@ -328,8 +327,7 @@
                         <div class="text-[11px] font-semibold text-slate-700">规划设计稿生成</div>
                         <div class="mt-1 text-[11px] leading-5 text-slate-500">
                           {{
-                            getGenerationDesignBlueprintBlock(message)?.phaseLabel ||
-                            '正在处理当前版本'
+                            getActiveDesignMessageBlock(message)?.phaseLabel || '正在处理当前版本'
                           }}
                         </div>
                       </div>
@@ -345,8 +343,8 @@
                         <button
                           v-if="
                             message.requestId &&
-                            getGenerationDesignBlueprintBlock(message)?.canAbort &&
-                            getGenerationDesignBlueprintBlock(message)?.status === 'streaming'
+                            getActiveDesignMessageBlock(message)?.canAbort &&
+                            getActiveDesignMessageBlock(message)?.status === 'streaming'
                           "
                           type="button"
                           class="flex items-center gap-1 rounded border border-rose-200 bg-white px-2 py-1 text-[10px] font-semibold text-rose-700 transition-colors hover:bg-rose-50"
@@ -369,10 +367,10 @@
                     </div>
 
                     <div
-                      v-if="getGenerationDesignBlueprintBlock(message)?.errorMessage"
+                      v-if="getActiveDesignMessageBlock(message)?.errorMessage"
                       class="mt-2 rounded bg-rose-50 px-2 py-1 text-[11px] leading-5 text-rose-600"
                     >
-                      {{ getGenerationDesignBlueprintBlock(message)?.errorMessage }}
+                      {{ getActiveDesignMessageBlock(message)?.errorMessage }}
                     </div>
 
                     <div
@@ -468,6 +466,7 @@ import {
 } from 'lucide-vue-next'
 import type { GenerationDocument, GenerationMessage } from '@preload/types'
 import {
+  getGenerationDesignCalibrationBlock,
   getGenerationDesignBlueprintBlock,
   type GenerateCopilotMode
 } from '@renderer/stores/orchestraflow/generation-editor/generation-editor.types'
@@ -517,6 +516,14 @@ const inputPlaceholder = computed(() => {
 })
 
 function resolveDesignBlockStatusLabel(message: GenerationMessage): string {
+  const calibrationBlock = getGenerationDesignCalibrationBlock(message)
+  if (calibrationBlock?.status === 'streaming') return '校准中'
+  if (calibrationBlock?.status === 'pending') return '待审阅'
+  if (calibrationBlock?.status === 'applied') return '已应用'
+  if (calibrationBlock?.status === 'rejected') return '已拒绝'
+  if (calibrationBlock?.status === 'aborted') return '已中断'
+  if (calibrationBlock?.status === 'failed') return '校准失败'
+
   const block = getGenerationDesignBlueprintBlock(message)
   if (block?.status === 'streaming') return '正在生成'
   if (block?.status === 'completed') return '已完成'
@@ -526,6 +533,23 @@ function resolveDesignBlockStatusLabel(message: GenerationMessage): string {
 }
 
 function resolveDesignBlockStatusClass(message: GenerationMessage): string {
+  const calibrationBlock = getGenerationDesignCalibrationBlock(message)
+  if (calibrationBlock?.status === 'streaming') {
+    return 'bg-sky-100 text-sky-700'
+  }
+  if (calibrationBlock?.status === 'pending') {
+    return 'bg-amber-100 text-amber-700'
+  }
+  if (calibrationBlock?.status === 'applied') {
+    return 'bg-emerald-100 text-emerald-700'
+  }
+  if (calibrationBlock?.status === 'rejected' || calibrationBlock?.status === 'aborted') {
+    return 'bg-gray-100 text-gray-600'
+  }
+  if (calibrationBlock?.status === 'failed') {
+    return 'bg-rose-100 text-rose-700'
+  }
+
   const block = getGenerationDesignBlueprintBlock(message)
   if (block?.status === 'streaming') {
     return 'bg-sky-100 text-sky-700'
@@ -540,7 +564,22 @@ function resolveDesignBlockStatusClass(message: GenerationMessage): string {
 }
 
 function resolveDesignBlockProgress(message: GenerationMessage): number {
+  const calibrationBlock = getGenerationDesignCalibrationBlock(message)
+  if (calibrationBlock) {
+    if (calibrationBlock.status === 'pending' || calibrationBlock.status === 'applied') {
+      return 100
+    }
+    return Math.max(
+      5,
+      Math.round((calibrationBlock.currentPass / calibrationBlock.maxPasses) * 100)
+    )
+  }
+
   return getGenerationDesignBlueprintBlock(message)?.progressPercent ?? 0
+}
+
+function getActiveDesignMessageBlock(message: GenerationMessage) {
+  return getGenerationDesignCalibrationBlock(message) || getGenerationDesignBlueprintBlock(message)
 }
 
 // analysis / verify 模式左侧需要展示文档正文，design 模式只保留消息区，避免正文和 DSL 编辑区重复。

@@ -6,10 +6,11 @@ import type {
   GenerationStageConfig,
   ModelProviderProtocol
 } from '@preload/types'
+import type { OFBlueprintTextDiagnostic } from '@shared/Orchestraflow-types'
 import type { GenerationEditorRepository } from '../../../repositories/generation-editor.repository'
 import type { ActiveGenerationStream } from '../../../types/stream.types'
 
-export interface StartDesignBlueprintAgentStreamParams {
+export interface StartDesignCalibrationAgentStreamParams {
   activeStreams: Map<string, ActiveGenerationStream>
   repository: GenerationEditorRepository
   sender: WebContents
@@ -28,10 +29,23 @@ export interface StartDesignBlueprintAgentStreamParams {
   stageConfig: GenerationStageConfig
   designDocument: GenerationDesignDocument
   userMessage: string
+  contextBudgetChars: number
 }
 
-export interface DesignBlueprintContextBundle {
-  planningSnapshotSummaryText: string
-  designDocumentStateSummaryText: string
-  canonicalPromptSourceText: string
+export interface DesignCalibrationPassContextBundle {
+  planningSnapshotText: string
+  diagnosticsSummaryText: string
+  targetDiagnosticsText: string
+  dslContextText: string
+  promptSourceText: string
+  targetDiagnostics: OFBlueprintTextDiagnostic[]
+}
+
+export interface DesignCalibrationModelResult {
+  rawText: string
+  visibleText: string
+  replacementDsl: string
+  usage?: Record<string, unknown>
+  rawTrace: unknown[]
+  truncatedTailDiscarded: boolean
 }

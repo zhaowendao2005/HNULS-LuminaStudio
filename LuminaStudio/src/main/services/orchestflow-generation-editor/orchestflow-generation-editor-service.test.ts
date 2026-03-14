@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type Database from 'better-sqlite3'
-import type { GenerationDesignDocument } from '@preload/types'
+import { createHash } from 'crypto'
+import type {
+  GenerationDesignDocument,
+  GenerationMessage,
+  GenerationMessageMetaPayload
+} from '@preload/types'
 import type { DatabaseManager } from '../database-sqlite'
 import type { ModelConfigService } from '../model-config'
 import { OrchestflowGenerationEditorService } from './orchestflow-generation-editor-service'
@@ -158,5 +163,178 @@ describe('OrchestflowGenerationEditorService.compileDesignDocumentToWorkflow', (
 
     expect(createFromWorkflowMock).not.toHaveBeenCalled()
     expect(repositoryMock.saveDesignDocument).not.toHaveBeenCalled()
+  })
+})
+
+describe('OrchestflowGenerationEditorService design calibration proposal', () => {
+  it('applies a pending design calibration proposal to current document', async () => {
+    const service = createService()
+    const designDocument = buildDesignDocument('OFT/1\n[workflow]\nname = "old"')
+    const savedDesignDocument: GenerationDesignDocument = {
+      ...designDocument,
+      content: 'OFT/1\n[workflow]\nname = "new"',
+      status: 'valid',
+      summary: '规划设计稿 DSL 已通过解析与编译校验。',
+      diagnosticsJson: null
+    }
+    const messageMeta: GenerationMessageMetaPayload = {
+      designCalibrationBlock: {
+        kind: 'design-calibration',
+        designDocumentId: designDocument.id,
+        status: 'pending',
+        totalDiagnosticCount: 2,
+        remainingDiagnosticCount: 0,
+        currentPass: 2,
+        maxPasses: 8,
+        phaseLabel: '已生成修复提案，等待审阅',
+        canAbort: false,
+        summary: 'replace current document',
+        truncatedTailDiscarded: false,
+        proposal: {
+          strategy: 'replace-document',
+          summary: 'replace current document',
+          baseContentHash: createHash('sha1').update(designDocument.content).digest('hex'),
+          targetDiagnosticSignatures: ['a'],
+          coveredDiagnosticSignatures: ['a'],
+          remainingDiagnosticSignatures: [],
+          operations: [],
+          replacementDsl: savedDesignDocument.content,
+          previewDsl: savedDesignDocument.content,
+          truncatedTailDiscarded: false
+        },
+        errorMessage: null
+      }
+    }
+    const messageRow = {
+      id: 'message-1',
+      session_id: 'session-1',
+      channel_key: 'design-copilot',
+      design_document_id: designDocument.id,
+      request_id: 'request-1',
+      role: 'assistant',
+      content: '',
+      status: 'final',
+      provider_id: 'provider-1',
+      model_id: 'model-1',
+      error: null,
+      usage_json: null,
+      meta_json: JSON.stringify(messageMeta),
+      raw_response_text: null,
+      raw_trace_json: null,
+      created_at: '2026-03-14T00:00:00.000Z',
+      updated_at: '2026-03-14T00:00:00.000Z'
+    }
+    const repositoryMock = {
+      getMessageById: vi.fn().mockReturnValue(messageRow),
+      getDesignDocumentById: vi.fn().mockReturnValue(designDocument),
+      saveDesignDocument: vi.fn().mockReturnValue(savedDesignDocument),
+      updateMessageMeta: vi.fn()
+    }
+    Object.defineProperty(service, 'repository', {
+      value: repositoryMock,
+      configurable: true
+    })
+
+    const result = await service.applyDesignCalibrationProposal({
+      sessionId: 'session-1',
+      messageId: 'message-1'
+    })
+
+    expect(repositoryMock.saveDesignDocument).toHaveBeenCalledWith({
+      sessionId: 'session-1',
+      document: expect.objectContaining({
+        id: designDocument.id,
+        content: savedDesignDocument.content
+      })
+    })
+    expect(repositoryMock.updateMessageMeta).toHaveBeenCalledTimes(1)
+    expect(result.content).toBe(savedDesignDocument.content)
+  })
+
+  it('rejects a pending design calibration proposal without mutating document', async () => {
+    const service = createService()
+    const designDocument = buildDesignDocument('OFT/1\n[workflow]\nname = "old"')
+    const messageMeta: GenerationMessageMetaPayload = {
+      designCalibrationBlock: {
+        kind: 'design-calibration',
+        designDocumentId: designDocument.id,
+        status: 'pending',
+        totalDiagnosticCount: 2,
+        remainingDiagnosticCount: 1,
+        currentPass: 2,
+        maxPasses: 8,
+        phaseLabel: '已生成修复提案，等待审阅',
+        canAbort: false,
+        summary: 'replace current document',
+        truncatedTailDiscarded: false,
+        proposal: {
+          strategy: 'replace-document',
+          summary: 'replace current document',
+          baseContentHash: createHash('sha1').update(designDocument.content).digest('hex'),
+          targetDiagnosticSignatures: ['a'],
+          coveredDiagnosticSignatures: [],
+          remainingDiagnosticSignatures: ['a'],
+          operations: [],
+          replacementDsl: 'OFT/1\n[workflow]\nname = "new"',
+          previewDsl: 'OFT/1\n[workflow]\nname = "new"',
+          truncatedTailDiscarded: false
+        },
+        errorMessage: null
+      }
+    }
+    const returnedMessage: GenerationMessage = {
+      id: 'message-1',
+      sessionId: 'session-1',
+      channelKey: 'design-copilot',
+      designDocumentId: designDocument.id,
+      requestId: 'request-1',
+      role: 'assistant',
+      content: '',
+      status: 'final',
+      providerId: 'provider-1',
+      modelId: 'model-1',
+      error: null,
+      usageJson: null,
+      metaJson: JSON.stringify(messageMeta),
+      rawResponseText: null,
+      rawTraceJson: null,
+      createdAt: '2026-03-14T00:00:00.000Z',
+      updatedAt: '2026-03-14T00:00:00.000Z'
+    }
+    const repositoryMock = {
+      getMessageById: vi.fn().mockReturnValue({
+        id: returnedMessage.id,
+        session_id: returnedMessage.sessionId,
+        channel_key: returnedMessage.channelKey,
+        design_document_id: returnedMessage.designDocumentId,
+        request_id: returnedMessage.requestId,
+        role: returnedMessage.role,
+        content: returnedMessage.content,
+        status: returnedMessage.status,
+        provider_id: returnedMessage.providerId,
+        model_id: returnedMessage.modelId,
+        error: returnedMessage.error,
+        usage_json: returnedMessage.usageJson,
+        meta_json: returnedMessage.metaJson,
+        raw_response_text: returnedMessage.rawResponseText,
+        raw_trace_json: returnedMessage.rawTraceJson,
+        created_at: returnedMessage.createdAt,
+        updated_at: returnedMessage.updatedAt
+      }),
+      updateMessageMeta: vi.fn(),
+      listMessages: vi.fn().mockReturnValue([returnedMessage])
+    }
+    Object.defineProperty(service, 'repository', {
+      value: repositoryMock,
+      configurable: true
+    })
+
+    const result = await service.rejectDesignCalibrationProposal({
+      sessionId: 'session-1',
+      messageId: 'message-1'
+    })
+
+    expect(repositoryMock.updateMessageMeta).toHaveBeenCalledTimes(1)
+    expect(result.id).toBe('message-1')
   })
 })

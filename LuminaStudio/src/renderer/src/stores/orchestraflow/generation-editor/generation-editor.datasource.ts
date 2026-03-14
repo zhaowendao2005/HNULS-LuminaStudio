@@ -1,5 +1,6 @@
 import type {
   GenerationApplyPlanningCommandProposalRequest,
+  GenerationApplyDesignCalibrationProposalRequest,
   GenerationCompileDesignDocumentToWorkflowRequest,
   GenerationCompileDesignDocumentToWorkflowResult,
   GenerationCreateDesignDocumentFromPlanningRequest,
@@ -9,6 +10,7 @@ import type {
   GenerationDesignDocument,
   GenerationDeleteSessionRequest,
   GenerationGlobalSettings,
+  GenerationRejectDesignCalibrationProposalRequest,
   GenerationRejectPlanningCommandProposalRequest,
   GenerationListDesignDocumentsRequest,
   GenerationRuntimeStageKey,
@@ -178,11 +180,29 @@ export const OrchestflowGenerationEditorDataSource = {
     return response.data
   },
 
+  async applyDesignCalibrationProposal(request: GenerationApplyDesignCalibrationProposalRequest) {
+    const response =
+      await window.api.orchestflowGenerationEditor.applyDesignCalibrationProposal(request)
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to apply design calibration proposal')
+    }
+    return response.data
+  },
+
   async rejectPlanningCommandProposal(request: GenerationRejectPlanningCommandProposalRequest) {
     const response =
       await window.api.orchestflowGenerationEditor.rejectPlanningCommandProposal(request)
     if (!response.success || !response.data) {
       throw new Error(response.error || 'Failed to reject planning command proposal')
+    }
+    return response.data
+  },
+
+  async rejectDesignCalibrationProposal(request: GenerationRejectDesignCalibrationProposalRequest) {
+    const response =
+      await window.api.orchestflowGenerationEditor.rejectDesignCalibrationProposal(request)
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to reject design calibration proposal')
     }
     return response.data
   },

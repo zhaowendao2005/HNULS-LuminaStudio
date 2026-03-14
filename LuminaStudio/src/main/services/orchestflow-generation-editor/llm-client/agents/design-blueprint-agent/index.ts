@@ -12,7 +12,7 @@ import type {
 import { streamChatByProtocol } from '../../generation-stream-runner'
 import type { ActiveGenerationStream } from '../../../types/stream.types'
 import { buildDesignBlueprintContextBundle } from './context-builder'
-import { buildDesignBlueprintAgentPrompt } from './prompt'
+import { buildDesignBlueprintPromptMessages } from './prompt'
 import type { StartDesignBlueprintAgentStreamParams } from './types'
 
 const log = logger.scope('DesignBlueprintAgent')
@@ -57,48 +57,15 @@ async function runDesignBlueprintAgent(
 
     const context = buildDesignBlueprintContextBundle({
       repository: params.repository,
-      sessionId: params.sessionId,
-      designDocumentId: params.designDocument.id,
-      memoryRounds: params.stageConfig.copilotMemoryRounds
+      designDocumentId: params.designDocument.id
     })
 
-    const promptMessages = [
-      {
-        role: 'system' as const,
-        content: buildDesignBlueprintAgentPrompt()
-      },
-      {
-        role: 'user' as const,
-        content: [
-          `design_document_id=${params.designDocument.id}`,
-          `generation_mode=${generationMode}`,
-          '',
-          '## 节点声明',
-          context.declaredNodesText,
-          '',
-          '## 声明节点 Spec',
-          context.declaredNodeSpecsText,
-          '',
-          '## 系统底层机制规则',
-          context.mechanismRulesText,
-          '',
-          '## DSL 语法与格式',
-          context.dslSyntaxText,
-          '',
-          '## 当前需求分析规划稿快照',
-          context.snapshotMarkdown || '(empty)',
-          '',
-          '## 当前版本已有 DSL 正文',
-          context.currentDsl || '(empty)',
-          '',
-          '## 当前版本 design copilot 最近对话',
-          context.copilotHistoryText,
-          '',
-          '## 当前用户输入',
-          params.userMessage
-        ].join('\n')
-      }
-    ]
+    const promptMessages = buildDesignBlueprintPromptMessages({
+      designDocumentId: params.designDocument.id,
+      generationMode,
+      context,
+      userMessage: params.userMessage
+    })
 
     updateMessageMeta(state, params, {
       ...buildDesignBlueprintMeta({

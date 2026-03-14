@@ -1,6 +1,7 @@
 import { ipcRenderer } from 'electron'
 import type {
   GenerationAbortMessageRequest,
+  GenerationApplyDesignCalibrationProposalRequest,
   GenerationApplyPlanningCommandProposalRequest,
   GenerationCompileDesignDocumentToWorkflowRequest,
   GenerationCreateDesignDocumentFromPlanningRequest,
@@ -11,6 +12,7 @@ import type {
   GenerationGlobalSettings,
   GenerationListDesignDocumentsRequest,
   GenerationListMessagesRequest,
+  GenerationRejectDesignCalibrationProposalRequest,
   GenerationRejectPlanningCommandProposalRequest,
   GenerationSaveDesignDocumentRequest,
   GenerationSaveDocumentRequest,
@@ -59,6 +61,10 @@ export const orchestflowGenerationEditorAPI: OrchestrflowGenerationEditorAPI = {
     ipcRenderer.invoke('orchestflowGenerationEditor:selectDesignDocument', request),
   deleteDesignDocument: (request: GenerationDeleteDesignDocumentRequest) =>
     ipcRenderer.invoke('orchestflowGenerationEditor:deleteDesignDocument', request),
+  applyDesignCalibrationProposal: (request: GenerationApplyDesignCalibrationProposalRequest) =>
+    ipcRenderer.invoke('orchestflowGenerationEditor:applyDesignCalibrationProposal', request),
+  rejectDesignCalibrationProposal: (request: GenerationRejectDesignCalibrationProposalRequest) =>
+    ipcRenderer.invoke('orchestflowGenerationEditor:rejectDesignCalibrationProposal', request),
   applyPlanningCommandProposal: (request: GenerationApplyPlanningCommandProposalRequest) =>
     ipcRenderer.invoke('orchestflowGenerationEditor:applyPlanningCommandProposal', request),
   rejectPlanningCommandProposal: (request: GenerationRejectPlanningCommandProposalRequest) =>

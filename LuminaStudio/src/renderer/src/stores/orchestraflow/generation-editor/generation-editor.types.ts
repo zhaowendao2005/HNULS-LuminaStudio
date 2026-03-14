@@ -14,6 +14,7 @@ import type {
 import type {
   GenerationChannelKey,
   GenerationCopilotEditBlockPayload,
+  GenerationDesignCalibrationBlockPayload,
   GenerationDesignBlueprintBlockPayload,
   GenerationDesignDocument,
   GenerationMessage,
@@ -37,7 +38,7 @@ export type GenerateMenuValue =
 export type GenerateCopilotMode = 'analysis' | 'design' | 'verify'
 export type GenerateViewStatus = 'bootstrapping' | 'ready' | 'switching' | 'error'
 export type GenerateAnalysisPlanningViewMode = 'preview' | 'source' | 'diff'
-export type GenerateDesignDocumentViewMode = 'snapshot' | 'dsl'
+export type GenerateDesignDocumentViewMode = 'snapshot' | 'dsl' | 'diagnostics' | 'calibration-diff'
 
 export interface GenerateSessionViewModel {
   id: string
@@ -100,6 +101,25 @@ export interface GeneratePlanningReviewState {
   isPendingReview: boolean
   isSourceEditable: boolean
   reviewErrorMessage: string | null
+}
+
+export interface GenerateDesignCalibrationReviewEntry {
+  messageId: string
+  block: GenerationDesignCalibrationBlockPayload
+}
+
+export interface GenerateDesignCalibrationReviewState {
+  reviewEntry: GenerateDesignCalibrationReviewEntry | null
+  previewDsl: string
+  diffSourceDsl: string
+  diffCurrentDsl: string
+  diffRows: GeneratePlanningDiffRow[]
+  isPendingReview: boolean
+  reviewErrorMessage: string | null
+  summary: string
+  totalDiagnosticCount: number
+  remainingDiagnosticCount: number
+  truncatedTailDiscarded: boolean
 }
 
 export interface GeneratePlanningDiffRow {
@@ -208,6 +228,16 @@ export function getGenerationDesignBlueprintBlock(
   const meta = parseGenerationMessageMeta(message.metaJson)
   if (meta?.designBlueprintBlock?.kind === 'design-blueprint-generation') {
     return meta.designBlueprintBlock
+  }
+  return null
+}
+
+export function getGenerationDesignCalibrationBlock(
+  message: Pick<GenerationMessage, 'metaJson'>
+): GenerationDesignCalibrationBlockPayload | null {
+  const meta = parseGenerationMessageMeta(message.metaJson)
+  if (meta?.designCalibrationBlock?.kind === 'design-calibration') {
+    return meta.designCalibrationBlock
   }
   return null
 }
@@ -345,6 +375,85 @@ export function buildPlanningReviewState(params: {
     isPendingReview: true,
     isSourceEditable: false,
     reviewErrorMessage: null
+  }
+}
+
+export function getLatestGenerationDesignCalibrationReviewEntry(
+  messages: GenerationMessage[],
+  designDocumentId: string
+): GenerateDesignCalibrationReviewEntry | null {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index]
+    const block = getGenerationDesignCalibrationBlock(message)
+    if (!block || block.designDocumentId !== designDocumentId) {
+      continue
+    }
+    return {
+      messageId: message.id,
+      block
+    }
+  }
+  return null
+}
+
+export function buildDesignCalibrationReviewState(params: {
+  document: GenerationDesignDocument
+  messages: GenerationMessage[]
+}): GenerateDesignCalibrationReviewState {
+  const reviewEntry = getLatestGenerationDesignCalibrationReviewEntry(
+    params.messages,
+    params.document.id
+  )
+
+  if (!reviewEntry) {
+    return {
+      reviewEntry: null,
+      previewDsl: '',
+      diffSourceDsl: params.document.content,
+      diffCurrentDsl: params.document.content,
+      diffRows: [],
+      isPendingReview: false,
+      reviewErrorMessage: null,
+      summary: '',
+      totalDiagnosticCount: 0,
+      remainingDiagnosticCount: 0,
+      truncatedTailDiscarded: false
+    }
+  }
+
+  const proposal = reviewEntry.block.proposal
+  if (reviewEntry.block.status !== 'pending' || !proposal?.previewDsl?.trim()) {
+    return {
+      reviewEntry,
+      previewDsl: '',
+      diffSourceDsl: params.document.content,
+      diffCurrentDsl: params.document.content,
+      diffRows: [],
+      isPendingReview: false,
+      reviewErrorMessage:
+        reviewEntry.block.status === 'failed' ? reviewEntry.block.errorMessage || null : null,
+      summary: reviewEntry.block.summary,
+      totalDiagnosticCount: reviewEntry.block.totalDiagnosticCount,
+      remainingDiagnosticCount: reviewEntry.block.remainingDiagnosticCount,
+      truncatedTailDiscarded: reviewEntry.block.truncatedTailDiscarded
+    }
+  }
+
+  return {
+    reviewEntry,
+    previewDsl: proposal.previewDsl,
+    diffSourceDsl: params.document.content,
+    diffCurrentDsl: proposal.previewDsl,
+    diffRows: buildPlanningDiffRows({
+      sourceMarkdown: params.document.content,
+      currentMarkdown: proposal.previewDsl
+    }),
+    isPendingReview: true,
+    reviewErrorMessage: null,
+    summary: reviewEntry.block.summary,
+    totalDiagnosticCount: reviewEntry.block.totalDiagnosticCount,
+    remainingDiagnosticCount: reviewEntry.block.remainingDiagnosticCount,
+    truncatedTailDiscarded: reviewEntry.block.truncatedTailDiscarded
   }
 }
 

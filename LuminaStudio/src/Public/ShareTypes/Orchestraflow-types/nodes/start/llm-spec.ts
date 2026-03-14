@@ -20,6 +20,7 @@ export const startNodeLlmSpec: OFNodeLlmSpec = {
   authoring_hints: [...(startInputVariableDefinition.notes_zh || [])],
   warnings_zh: [
     'inputs 数组中的每一项都必须显式带 schema；不要再写旧的 [input.<name>] section。',
+    'object 的默认值必须写在 schema.default；仅写 properties.*.default 不会被读取。',
     '默认值统一写在 schema.default 或 schema 子字段 default 上，不要写变量级 default。'
   ],
   omit_rules: ['不要输出 `value_selector`、`value_ref`、变量级 `default`、旧的 input section。'],

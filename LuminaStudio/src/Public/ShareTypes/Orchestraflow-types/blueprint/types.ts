@@ -95,3 +95,19 @@ export interface OFBlueprintTextCompileResult extends OFBlueprintTextParseResult
   blueprint: OFBlueprintWorkflow | null
   runnable: import('../contract').OFRunnableWorkflow | null
 }
+
+export function buildOFBlueprintDiagnosticSignature(
+  diagnostic: Pick<
+    OFBlueprintTextDiagnostic,
+    'code' | 'path' | 'line' | 'column' | 'endLine' | 'endColumn'
+  >
+): string {
+  return [
+    diagnostic.code,
+    diagnostic.path,
+    diagnostic.line,
+    diagnostic.column,
+    diagnostic.endLine,
+    diagnostic.endColumn
+  ].join('|')
+}

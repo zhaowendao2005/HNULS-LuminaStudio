@@ -3,6 +3,7 @@ import { BaseIPCHandler } from './base-handler'
 import type { OrchestflowGenerationEditorService } from '../services/orchestflow-generation-editor'
 import type {
   GenerationAbortMessageRequest,
+  GenerationApplyDesignCalibrationProposalRequest,
   GenerationApplyPlanningCommandProposalRequest,
   GenerationCompileDesignDocumentToWorkflowRequest,
   GenerationCreateDesignDocumentFromPlanningRequest,
@@ -13,6 +14,7 @@ import type {
   GenerationGlobalSettings,
   GenerationListDesignDocumentsRequest,
   GenerationListMessagesRequest,
+  GenerationRejectDesignCalibrationProposalRequest,
   GenerationRejectPlanningCommandProposalRequest,
   GenerationSaveDesignDocumentRequest,
   GenerationSaveDocumentRequest,
@@ -198,6 +200,16 @@ export class OrchestflowGenerationEditorIPCHandler extends BaseIPCHandler {
     return { success: true, data: await this.service.applyPlanningCommandProposal(request) }
   }
 
+  async handleApplyDesignCalibrationProposal(
+    _event: IpcMainInvokeEvent,
+    request: GenerationApplyDesignCalibrationProposalRequest
+  ) {
+    if (!request?.sessionId || !request?.messageId) {
+      return { success: false, error: 'Invalid design calibration apply request' }
+    }
+    return { success: true, data: await this.service.applyDesignCalibrationProposal(request) }
+  }
+
   async handleRejectPlanningCommandProposal(
     _event: IpcMainInvokeEvent,
     request: GenerationRejectPlanningCommandProposalRequest
@@ -206,6 +218,16 @@ export class OrchestflowGenerationEditorIPCHandler extends BaseIPCHandler {
       return { success: false, error: 'Invalid planning reject request' }
     }
     return { success: true, data: await this.service.rejectPlanningCommandProposal(request) }
+  }
+
+  async handleRejectDesignCalibrationProposal(
+    _event: IpcMainInvokeEvent,
+    request: GenerationRejectDesignCalibrationProposalRequest
+  ) {
+    if (!request?.sessionId || !request?.messageId) {
+      return { success: false, error: 'Invalid design calibration reject request' }
+    }
+    return { success: true, data: await this.service.rejectDesignCalibrationProposal(request) }
   }
 
   async handleListMessages(_event: IpcMainInvokeEvent, request: GenerationListMessagesRequest) {

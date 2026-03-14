@@ -68,6 +68,8 @@ vi.mock('./generation-editor.datasource', async () => {
       compileDesignDocumentToWorkflow: compileDesignDocumentToWorkflowMock,
       selectDesignDocument: vi.fn(),
       deleteDesignDocument: vi.fn(),
+      applyDesignCalibrationProposal: vi.fn(),
+      rejectDesignCalibrationProposal: vi.fn(),
       applyPlanningCommandProposal: vi.fn(),
       rejectPlanningCommandProposal: vi.fn(),
       getGlobalSettings: getGlobalSettingsMock,

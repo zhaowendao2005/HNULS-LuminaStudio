@@ -17,7 +17,7 @@ export const startNodeDslDefinition: OFNodeDslDefinition = {
       label: 'inputs',
       summary: '开始节点直接声明输入变量 schema，不再通过独立 input section 引用。',
       value:
-        'inputs = [{"variable":"user_query","schema":{"type":"string","default":"请总结这段内容"}},{"variable":"config","schema":{"type":"object","properties":{"mode":{"type":"string","default":"batch"}},"required":["mode"],"additionalProperties":false}}]'
+        'inputs = [{"variable":"user_query","schema":{"type":"string","default":"请总结这段内容"}},{"variable":"config","schema":{"type":"object","properties":{"mode":{"type":"string","default":"batch"}},"required":["mode"],"additionalProperties":false,"default":{"mode":"batch"}}}]'
     }
   ]
 }

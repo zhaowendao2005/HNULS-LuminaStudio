@@ -1,6 +1,10 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import type { GenerationStageConfig, GenerationStreamEvent } from '@preload/types'
+import type {
+  GenerationDesignCopilotIntent,
+  GenerationStageConfig,
+  GenerationStreamEvent
+} from '@preload/types'
 import type { GenerateSessionDetailViewModel } from '../generation-editor.types'
 import {
   appendOptimisticMessages,
@@ -15,7 +19,10 @@ export const useGenerationDesignCopilotStore = defineStore('of-generation-design
   const localState = ref(createChannelStreamLocalState())
   const isStreaming = computed(() => Boolean(localState.value.activeRequestId))
 
-  function getMessages(detail: GenerateSessionDetailViewModel | null, designDocumentId: string | null) {
+  function getMessages(
+    detail: GenerateSessionDetailViewModel | null,
+    designDocumentId: string | null
+  ) {
     return (detail?.messagesByChannel['design-copilot'] ?? []).filter((message) => {
       return message.designDocumentId === designDocumentId
     })
@@ -28,6 +35,8 @@ export const useGenerationDesignCopilotStore = defineStore('of-generation-design
       designDocumentId?: string | null
       content?: string
       assistantMetaJson?: string | null
+      designCopilotIntent?: GenerationDesignCopilotIntent
+      designCalibrationContextBudgetChars?: number
     }
   ): Promise<void> {
     if (!detail || !config?.providerId || !config.modelId) return
@@ -51,6 +60,8 @@ export const useGenerationDesignCopilotStore = defineStore('of-generation-design
         sessionId: detail.id,
         channelKey: 'design-copilot',
         designDocumentId,
+        designCopilotIntent: options?.designCopilotIntent,
+        designCalibrationContextBudgetChars: options?.designCalibrationContextBudgetChars,
         providerId: config.providerId,
         modelId: config.modelId,
         content

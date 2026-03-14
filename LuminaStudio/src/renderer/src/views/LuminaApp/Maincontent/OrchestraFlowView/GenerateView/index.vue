@@ -90,10 +90,15 @@
               :design-status="generationStore.activeDesignDocument?.status || null"
               :diagnostics="generationStore.activeDesignDiagnostics"
               :selected-diagnostic-index="generationStore.selectedDesignDiagnosticIndex"
+              :calibration-review="generationStore.activeDesignCalibrationReviewState"
+              :is-copilot-streaming="generationStore.isActiveCopilotStreaming"
               @update:design-content="generationStore.handleDesignContentUpdate($event)"
               @update:view-mode="generationStore.designDocumentViewMode = $event"
               @generate-design="generationStore.requestDesignBlueprintGeneration()"
+              @run-calibration="generationStore.requestDesignCalibration()"
               @compile-workflow="handleCompileWorkflow"
+              @apply-calibration="generationStore.applyDesignCalibrationProposal($event)"
+              @reject-calibration="generationStore.rejectDesignCalibrationProposal($event)"
               @select-diagnostic="generationStore.openDesignDiagnostics($event)"
               @open-copilot="generationStore.openCopilotPanel('design')"
               @open-sessions="generationStore.activeMenu = 'sessions'"
@@ -229,7 +234,8 @@
       }"
       :design-config="{
         designMemory: generationStore.currentSession.stageConfigs.design.memoryRounds,
-        copilotMemory: generationStore.currentSession.stageConfigs.design.copilotMemoryRounds
+        copilotMemory: generationStore.currentSession.stageConfigs.design.copilotMemoryRounds,
+        calibrationContextBudgetChars: generationStore.designCalibrationContextBudgetChars
       }"
       :verify-config="{
         verifyMemory: generationStore.currentSession.stageConfigs.verify.memoryRounds,
@@ -246,6 +252,9 @@
       @update:design-memory="generationStore.saveConfigDrawerStageConfig({ memoryRounds: $event })"
       @update:design-copilot-memory="
         generationStore.saveConfigDrawerStageConfig({ copilotMemoryRounds: $event })
+      "
+      @update:design-calibration-context-budget-chars="
+        generationStore.designCalibrationContextBudgetChars = $event
       "
       @update:verify-memory="generationStore.saveConfigDrawerStageConfig({ memoryRounds: $event })"
       @update:verify-copilot-memory="

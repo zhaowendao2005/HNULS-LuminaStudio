@@ -1,4 +1,5 @@
 import type {
+  OFBlueprintEditOperation,
   OFBlueprintTextDiagnostic,
   OFPlanningCommandMode,
   OFPlanningDocument as OFSharedPlanningDocument,
@@ -33,6 +34,17 @@ export type GenerationDesignDocumentStatus =
   | 'error'
 export type GenerationDesignDocumentContentFormat = 'of-blueprint-section-v1'
 export type GenerationDesignGenerationMode = 'generate' | 'regenerate'
+export type GenerationDesignCopilotIntent = 'blueprint-generate' | 'diagnostic-calibration'
+export type GenerationDesignCalibrationStatus =
+  | 'streaming'
+  | 'pending'
+  | 'applied'
+  | 'rejected'
+  | 'failed'
+  | 'aborted'
+export type GenerationDesignCalibrationProposalStrategy =
+  | 'structured-operations'
+  | 'replace-document'
 
 export interface GenerationStageConfig {
   stageKey: GenerationStageKey
@@ -138,6 +150,35 @@ export interface GenerationDesignBlueprintBlockPayload {
   errorMessage?: string | null
 }
 
+export interface GenerationDesignCalibrationProposalPayload {
+  strategy: GenerationDesignCalibrationProposalStrategy
+  summary: string
+  baseContentHash: string
+  targetDiagnosticSignatures: string[]
+  coveredDiagnosticSignatures: string[]
+  remainingDiagnosticSignatures: string[]
+  operations: OFBlueprintEditOperation[]
+  replacementDsl?: string | null
+  previewDsl: string
+  truncatedTailDiscarded: boolean
+}
+
+export interface GenerationDesignCalibrationBlockPayload {
+  kind: 'design-calibration'
+  designDocumentId: string
+  status: GenerationDesignCalibrationStatus
+  totalDiagnosticCount: number
+  remainingDiagnosticCount: number
+  currentPass: number
+  maxPasses: number
+  phaseLabel: string
+  canAbort: boolean
+  summary: string
+  truncatedTailDiscarded: boolean
+  proposal?: GenerationDesignCalibrationProposalPayload | null
+  errorMessage?: string | null
+}
+
 export interface GenerationLlmPromptMessage {
   role: 'system' | 'user' | 'assistant'
   content: string
@@ -156,6 +197,7 @@ export interface GenerationMessageMetaPayload {
   planningBlock?: GenerationPlanningBlockPayload | null
   copilotEditBlock?: GenerationCopilotEditBlockPayload | null
   designBlueprintBlock?: GenerationDesignBlueprintBlockPayload | null
+  designCalibrationBlock?: GenerationDesignCalibrationBlockPayload | null
 }
 
 export interface GenerationMessage {
@@ -292,9 +334,21 @@ export interface GenerationSendMessageRequest {
   sessionId: string
   channelKey: GenerationChannelKey
   designDocumentId?: string | null
+  designCopilotIntent?: GenerationDesignCopilotIntent
+  designCalibrationContextBudgetChars?: number
   providerId: string
   modelId: string
   content: string
+}
+
+export interface GenerationApplyDesignCalibrationProposalRequest {
+  sessionId: string
+  messageId: string
+}
+
+export interface GenerationRejectDesignCalibrationProposalRequest {
+  sessionId: string
+  messageId: string
 }
 
 export interface GenerationAbortMessageRequest {
@@ -397,6 +451,12 @@ export interface OrchestrflowGenerationEditorAPI {
   deleteDesignDocument: (
     request: GenerationDeleteDesignDocumentRequest
   ) => Promise<ApiResponse<void>>
+  applyDesignCalibrationProposal: (
+    request: GenerationApplyDesignCalibrationProposalRequest
+  ) => Promise<ApiResponse<GenerationDesignDocument>>
+  rejectDesignCalibrationProposal: (
+    request: GenerationRejectDesignCalibrationProposalRequest
+  ) => Promise<ApiResponse<GenerationMessage>>
   applyPlanningCommandProposal: (
     request: GenerationApplyPlanningCommandProposalRequest
   ) => Promise<ApiResponse<GenerationPlanningDocument>>
