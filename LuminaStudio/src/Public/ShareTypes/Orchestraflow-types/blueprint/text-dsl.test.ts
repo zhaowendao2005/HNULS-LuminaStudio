@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { compileOFBlueprintTextDsl, parseOFBlueprintTextDsl } from '.'
+import {
+  compileOFBlueprintTextDsl,
+  parseOFBlueprintTextDsl,
+  recoverOFBlueprintTextDslToRunnable
+} from '.'
 
 describe('OF blueprint text dsl', () => {
   it('parses and compiles OFT/1 section-based dsl', () => {
@@ -137,6 +141,34 @@ edges = ["start.output -> llm_main.input", "llm_main.output -> end.target"]
           message: expect.stringContaining('只允许控制流入边 handle')
         })
       ])
+    )
+  })
+
+  it('recovers an invalid design draft into a force-importable runnable workflow', () => {
+    const result = recoverOFBlueprintTextDslToRunnable(
+      `
+OFT/1
+[workflow]
+
+[node.llm_main]
+type = "llm"
+prompt = "请输出摘要"
+
+[graph]
+edges = ["llm_main.output -> missing.target"]
+`,
+      {
+        fallbackWorkflowName: 'Recovered Draft'
+      }
+    )
+
+    expect(result.runnable).toBeTruthy()
+    expect(result.blueprint?.workflow.name).toBe('Recovered Draft')
+    expect(result.recoverySummary).toEqual(
+      expect.objectContaining({
+        synthesizedStartNode: true,
+        synthesizedEndNode: true
+      })
     )
   })
 })

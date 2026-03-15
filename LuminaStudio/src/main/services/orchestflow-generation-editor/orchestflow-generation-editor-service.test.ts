@@ -139,7 +139,9 @@ describe('OrchestflowGenerationEditorService.compileDesignDocumentToWorkflow', (
     })
     expect(result).toEqual({
       designDocument: savedDesignDocument,
-      workflowId: 'workflow-compiled-1'
+      workflowId: 'workflow-compiled-1',
+      mode: 'strict',
+      recoverySummary: null
     })
   })
 
@@ -163,6 +165,67 @@ describe('OrchestflowGenerationEditorService.compileDesignDocumentToWorkflow', (
 
     expect(createFromWorkflowMock).not.toHaveBeenCalled()
     expect(repositoryMock.saveDesignDocument).not.toHaveBeenCalled()
+  })
+
+  it('force imports an invalid DSL as workflow draft and preserves diagnostics on document', async () => {
+    const service = createService()
+    const designDocument = {
+      ...buildDesignDocument('OFT/1\n[workflow]\n\n[node.llm_main]\ntype = "llm"\nprompt = "hello"\n'),
+      status: 'invalid' as const,
+      summary: '规划设计稿 DSL 存在 1 条校验错误。'
+    }
+    const savedDesignDocument: GenerationDesignDocument = {
+      ...designDocument,
+      summary: '规划设计稿已容错导入为工作流草稿，忽略了 1 条局部错误。',
+      diagnosticsJson: expect.any(String) as unknown as string,
+      derivedTargetType: 'workflow',
+      derivedTargetId: 'workflow-force-1',
+      derivedStatus: 'force-imported'
+    }
+    const repositoryMock = {
+      getDesignDocumentById: vi.fn().mockReturnValue(designDocument),
+      saveDesignDocument: vi.fn().mockReturnValue(savedDesignDocument)
+    }
+    Object.defineProperty(service, 'repository', {
+      value: repositoryMock,
+      configurable: true
+    })
+    createFromWorkflowMock.mockResolvedValue({
+      id: 'workflow-force-1',
+      name: '规划设计 V1',
+      description: undefined,
+      author: 'LuminaStudio',
+      createdAt: 1,
+      updatedAt: 1,
+      status: 'draft',
+      graph: { nodes: [], edges: [] }
+    })
+
+    const result = await service.compileDesignDocumentToWorkflow({
+      sessionId: 'session-1',
+      designDocumentId: 'design-1',
+      mode: 'force-draft'
+    })
+
+    expect(createFromWorkflowMock).toHaveBeenCalledTimes(1)
+    expect(repositoryMock.saveDesignDocument).toHaveBeenCalledWith({
+      sessionId: 'session-1',
+      document: expect.objectContaining({
+        id: 'design-1',
+        status: 'invalid',
+        derivedTargetId: 'workflow-force-1',
+        derivedStatus: 'force-imported'
+      })
+    })
+    expect(result).toEqual({
+      designDocument: savedDesignDocument,
+      workflowId: 'workflow-force-1',
+      mode: 'force-draft',
+      recoverySummary: expect.objectContaining({
+        synthesizedStartNode: true,
+        synthesizedEndNode: true
+      })
+    })
   })
 })
 

@@ -519,7 +519,8 @@ const canCompileWorkflow = computed(() => {
   return (
     props.hasActiveDesignDocument &&
     Boolean(props.designContent.trim()) &&
-    props.designStatus === 'valid'
+    props.designStatus !== 'streaming' &&
+    !props.isCopilotStreaming
   )
 })
 

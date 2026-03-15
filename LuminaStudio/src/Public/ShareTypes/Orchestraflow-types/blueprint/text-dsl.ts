@@ -1,4 +1,8 @@
-import { compileOFBlueprintSectionDslAst, parseOFBlueprintSectionDsl } from './section-dsl'
+import {
+  compileOFBlueprintSectionDslAst,
+  parseOFBlueprintSectionDsl,
+  recoverOFBlueprintSectionDslAst
+} from './section-dsl'
 import type {
   OFBlueprintTextAst,
   OFBlueprintTextCompileResult,
@@ -26,7 +30,8 @@ export function compileOFBlueprintTextDsl(sourceText: string): OFBlueprintTextCo
     return {
       ...parseResult,
       blueprint: null,
-      runnable: null
+      runnable: null,
+      recoverySummary: null
     }
   }
 
@@ -34,6 +39,32 @@ export function compileOFBlueprintTextDsl(sourceText: string): OFBlueprintTextCo
   return {
     ...compileResult,
     diagnostics: [...parseResult.diagnostics, ...compileResult.diagnostics],
-    valid: parseResult.diagnostics.length === 0 && compileResult.valid
+    valid: parseResult.diagnostics.length === 0 && compileResult.valid,
+    recoverySummary: null
+  }
+}
+
+export function recoverOFBlueprintTextDslToRunnable(
+  sourceText: string,
+  options: {
+    fallbackWorkflowName?: string
+    fallbackAuthor?: string
+  } = {}
+): OFBlueprintTextCompileResult {
+  const parseResult = parseOFBlueprintTextDsl(sourceText)
+  if (!parseResult.ast) {
+    return {
+      ...parseResult,
+      blueprint: null,
+      runnable: null,
+      recoverySummary: null
+    }
+  }
+
+  const recoverResult = recoverOFBlueprintSectionDslAst(parseResult.ast, options)
+  return {
+    ...recoverResult,
+    diagnostics: [...parseResult.diagnostics, ...recoverResult.diagnostics],
+    valid: parseResult.diagnostics.length === 0 && recoverResult.valid
   }
 }

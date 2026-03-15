@@ -214,7 +214,8 @@ export function compileOFBlueprintSectionDslAst(
       diagnostics,
       valid: false,
       blueprint: null,
-      runnable: null
+      runnable: null,
+      recoverySummary: null
     }
   }
 
@@ -270,7 +271,118 @@ export function compileOFBlueprintSectionDslAst(
     diagnostics,
     valid: diagnostics.length === 0,
     blueprint: diagnostics.length === 0 ? blueprint : null,
-    runnable
+    runnable,
+    recoverySummary: null
+  }
+}
+
+export function recoverOFBlueprintSectionDslAst(
+  ast: OFBlueprintSectionDslAst,
+  options: {
+    fallbackWorkflowName?: string
+    fallbackAuthor?: string
+  } = {}
+): OFBlueprintTextCompileResult {
+  const diagnostics: OFBlueprintTextDiagnostic[] = []
+  const sectionMap = new Map(ast.sections.map((section) => [section.name, section] as const))
+  const workflowSection = sectionMap.get('workflow')
+
+  const workflow = workflowSection
+    ? compileWorkflowMeta(workflowSection, diagnostics)
+    : {
+        name: options.fallbackWorkflowName?.trim() || '',
+        author: options.fallbackAuthor?.trim() || undefined
+      }
+
+  if (!workflowSection) {
+    diagnostics.push(
+      createDiagnostic({
+        code: 'missing-workflow-section',
+        message: '缺少 [workflow] section，已按容错导入流程补默认工作流信息。',
+        path: 'workflow',
+        ...createDefaultLocation()
+      })
+    )
+  }
+
+  validateSectionNames(ast.sections, diagnostics)
+  const topNodeSections = ast.sections.filter((section) => isTopLevelNodeSection(section.name))
+  const topNodeIds = new Set(topNodeSections.map((section) => extractTopLevelNodeId(section.name)))
+
+  const topLevelNodes = topNodeSections
+    .map((section) =>
+      compileNodeSection(
+        section,
+        ast.sections,
+        {
+          nodeIds: topNodeIds,
+          variableRoots: new Set()
+        },
+        diagnostics
+      )
+    )
+    .filter((node): node is OFBlueprintNode => Boolean(node))
+
+  const rootEdges = compileGraphEdges(
+    sectionMap.get('graph'),
+    topNodeIds,
+    createDefaultLocation(),
+    diagnostics
+  )
+
+  let recoveredBlueprint: OFBlueprintWorkflow = {
+    version: '2.0',
+    workflow: {
+      name: workflow.name?.trim() || options.fallbackWorkflowName?.trim() || 'Recovered Workflow',
+      description: workflow.description,
+      author: workflow.author?.trim() || options.fallbackAuthor?.trim() || 'LuminaStudio'
+    },
+    nodes: topLevelNodes,
+    edges: rootEdges
+  }
+
+  // 容错导入只做“保住可恢复骨架”，不会为了通过而伪造复杂业务字段。
+  recoveredBlueprint = sanitizeBlueprintForRecovery(recoveredBlueprint)
+  const synthesis = ensureRecoveryBoundaryNodes(recoveredBlueprint)
+  recoveredBlueprint = synthesis.blueprint
+
+  let runnable = tryCompileRecoveredRunnable(recoveredBlueprint)
+  if (!runnable) {
+    // 如果完整骨架仍然编不过，就退化成最小 start/end 草稿，确保编辑器至少能打开继续手改。
+    recoveredBlueprint = createMinimalRecoveryBlueprint(recoveredBlueprint)
+    runnable = tryCompileRecoveredRunnable(recoveredBlueprint)
+  }
+
+  if (!runnable) {
+    diagnostics.push(
+      createDiagnostic({
+        code: 'force-recovery-failed',
+        message: '当前规划设计稿即使启用容错导入，仍无法恢复出可编辑工作流草稿。',
+        path: 'workflow',
+        ...resolveSectionLocation('workflow', ast)
+      })
+    )
+  }
+
+  return {
+    ast,
+    diagnostics,
+    valid: diagnostics.length === 0,
+    blueprint: recoveredBlueprint,
+    runnable,
+    recoverySummary: {
+      discardedNodeCount: Math.max(
+        0,
+        countDeclaredNodeSections(ast.sections) - countBlueprintNodes(recoveredBlueprint)
+      ),
+      discardedEdgeCount: Math.max(
+        0,
+        countDeclaredEdgeSpecs(ast.sections) - countBlueprintEdges(recoveredBlueprint)
+      ),
+      discardedDiagnosticCount: diagnostics.length,
+      synthesizedStartNode: synthesis.synthesizedStartNode,
+      synthesizedEndNode: synthesis.synthesizedEndNode
+    }
   }
 }
 
@@ -1667,6 +1779,248 @@ function tryCompileRunnable(
     )
     return null
   }
+}
+
+function tryCompileRecoveredRunnable(blueprint: OFBlueprintWorkflow): OFRunnableWorkflow | null {
+  try {
+    return compileOFBlueprintToRunnable(blueprint)
+  } catch {
+    return null
+  }
+}
+
+function sanitizeBlueprintForRecovery(blueprint: OFBlueprintWorkflow): OFBlueprintWorkflow {
+  let nextBlueprint: OFBlueprintWorkflow = {
+    ...blueprint,
+    nodes: blueprint.nodes.map((node) => sanitizeRecoveredNode(node)),
+    edges: pruneEdgesByKnownNodes(blueprint.edges, new Set(blueprint.nodes.map((node) => node.id)))
+  }
+
+  while (true) {
+    const edgeIssuePaths = validateOFBlueprint(nextBlueprint)
+      .issues.map((issue) => issue.path)
+      .filter((path) => path.includes('edges['))
+    if (!edgeIssuePaths.length) {
+      return nextBlueprint
+    }
+
+    const pruned = removeRecoveryEdgesByIssuePaths(nextBlueprint, edgeIssuePaths)
+    if (!pruned.removed) {
+      return nextBlueprint
+    }
+    nextBlueprint = pruned.blueprint
+  }
+}
+
+function sanitizeRecoveredNode(node: OFBlueprintNode): OFBlueprintNode {
+  if (!node.subgraph) {
+    return {
+      ...node,
+      config: isPlainObject(node.config) ? node.config : {}
+    }
+  }
+
+  const sanitizedSubgraph = {
+    nodes: node.subgraph.nodes.map((child) => sanitizeRecoveredNode(child)),
+    edges: pruneEdgesByKnownNodes(
+      node.subgraph.edges,
+      new Set(node.subgraph.nodes.map((child) => child.id))
+    )
+  }
+
+  return {
+    ...node,
+    config: isPlainObject(node.config) ? node.config : {},
+    subgraph: sanitizedSubgraph
+  }
+}
+
+function pruneEdgesByKnownNodes(
+  edges: OFBlueprintEdge[],
+  knownNodeIds: Set<string>
+): OFBlueprintEdge[] {
+  return edges.filter((edge) => knownNodeIds.has(edge.from.node) && knownNodeIds.has(edge.to.node))
+}
+
+function removeRecoveryEdgesByIssuePaths(
+  blueprint: OFBlueprintWorkflow,
+  issuePaths: string[]
+): {
+  blueprint: OFBlueprintWorkflow
+  removed: boolean
+} {
+  const rootIndexes = new Set<number>()
+  const subgraphIndexesByNode = new Map<number, Set<number>>()
+
+  issuePaths.forEach((path) => {
+    const rootMatch = path.match(/^edges\[(\d+)\]/)
+    if (rootMatch) {
+      rootIndexes.add(Number(rootMatch[1]))
+      return
+    }
+
+    const subgraphMatch = path.match(/^nodes\[(\d+)\]\.subgraph\.edges\[(\d+)\]/)
+    if (subgraphMatch) {
+      const nodeIndex = Number(subgraphMatch[1])
+      const edgeIndex = Number(subgraphMatch[2])
+      const bucket = subgraphIndexesByNode.get(nodeIndex) || new Set<number>()
+      bucket.add(edgeIndex)
+      subgraphIndexesByNode.set(nodeIndex, bucket)
+    }
+  })
+
+  if (!rootIndexes.size && !subgraphIndexesByNode.size) {
+    return { blueprint, removed: false }
+  }
+
+  const nextNodes = blueprint.nodes.map((node, nodeIndex) => {
+    const edgeIndexes = subgraphIndexesByNode.get(nodeIndex)
+    if (!node.subgraph || !edgeIndexes?.size) {
+      return node
+    }
+
+    return {
+      ...node,
+      subgraph: {
+        ...node.subgraph,
+        edges: node.subgraph.edges.filter((_edge, edgeIndex) => !edgeIndexes.has(edgeIndex))
+      }
+    }
+  })
+
+  return {
+    blueprint: {
+      ...blueprint,
+      nodes: nextNodes,
+      edges: blueprint.edges.filter((_edge, edgeIndex) => !rootIndexes.has(edgeIndex))
+    },
+    removed: true
+  }
+}
+
+function ensureRecoveryBoundaryNodes(blueprint: OFBlueprintWorkflow): {
+  blueprint: OFBlueprintWorkflow
+  synthesizedStartNode: boolean
+  synthesizedEndNode: boolean
+} {
+  const nextNodes = [...blueprint.nodes]
+  let synthesizedStartNode = false
+  let synthesizedEndNode = false
+
+  if (!nextNodes.some((node) => node.type === OFBlockEnum.Start)) {
+    nextNodes.unshift(createRecoveryBoundaryNode(OFBlockEnum.Start, nextNodes, 'Recovered Start'))
+    synthesizedStartNode = true
+  }
+
+  if (!nextNodes.some((node) => node.type === OFBlockEnum.End)) {
+    nextNodes.push(createRecoveryBoundaryNode(OFBlockEnum.End, nextNodes, 'Recovered End'))
+    synthesizedEndNode = true
+  }
+
+  return {
+    blueprint: {
+      ...blueprint,
+      nodes: nextNodes
+    },
+    synthesizedStartNode,
+    synthesizedEndNode
+  }
+}
+
+function createRecoveryBoundaryNode(
+  type: OFBlockEnum.Start | OFBlockEnum.End,
+  existingNodes: OFBlueprintNode[],
+  title: string
+): OFBlueprintNode {
+  const baseId = type === OFBlockEnum.Start ? 'recovered_start' : 'recovered_end'
+  let candidateId = baseId
+  let suffix = 1
+  const existingIds = new Set(existingNodes.map((node) => node.id))
+  while (existingIds.has(candidateId)) {
+    candidateId = `${baseId}_${suffix}`
+    suffix += 1
+  }
+
+  return {
+    id: candidateId,
+    type,
+    title,
+    config:
+      type === OFBlockEnum.Start
+        ? {
+            input: { variables: [] }
+          }
+        : {
+            output: { variables: [] }
+          }
+  }
+}
+
+function createMinimalRecoveryBlueprint(blueprint: OFBlueprintWorkflow): OFBlueprintWorkflow {
+  const startNode =
+    blueprint.nodes.find((node) => node.type === OFBlockEnum.Start) ||
+    createRecoveryBoundaryNode(OFBlockEnum.Start, blueprint.nodes, 'Recovered Start')
+  const endNode =
+    blueprint.nodes.find((node) => node.type === OFBlockEnum.End) ||
+    createRecoveryBoundaryNode(OFBlockEnum.End, [startNode, ...blueprint.nodes], 'Recovered End')
+
+  return {
+    ...blueprint,
+    nodes: [startNode, endNode],
+    edges: [
+      {
+        from: { node: startNode.id, handle: 'source' },
+        to: { node: endNode.id, handle: 'target' }
+      }
+    ]
+  }
+}
+
+function countDeclaredNodeSections(sections: OFBlueprintSectionAst[]): number {
+  return sections.filter((section) => section.name.startsWith('node.')).length
+}
+
+function countDeclaredEdgeSpecs(sections: OFBlueprintSectionAst[]): number {
+  return sections.reduce((total, section) => {
+    const edgeSpecs = section.entries.find((entry) => entry.key === 'edges')?.value
+    return total + (Array.isArray(edgeSpecs) ? edgeSpecs.length : 0)
+  }, 0)
+}
+
+function countBlueprintNodes(blueprint: OFBlueprintWorkflow): number {
+  return blueprint.nodes.reduce((total, node) => {
+    return total + 1 + (node.subgraph ? countBlueprintSubgraphNodes(node.subgraph.nodes) : 0)
+  }, 0)
+}
+
+function countBlueprintSubgraphNodes(nodes: OFBlueprintNode[]): number {
+  return nodes.reduce((total, node) => {
+    return total + 1 + (node.subgraph ? countBlueprintSubgraphNodes(node.subgraph.nodes) : 0)
+  }, 0)
+}
+
+function countBlueprintEdges(blueprint: OFBlueprintWorkflow): number {
+  return (
+    blueprint.edges.length +
+    blueprint.nodes.reduce((total, node) => {
+      return (
+        total +
+        (node.subgraph ? countBlueprintSubgraphEdges(node.subgraph.nodes, node.subgraph.edges) : 0)
+      )
+    }, 0)
+  )
+}
+
+function countBlueprintSubgraphEdges(nodes: OFBlueprintNode[], edges: OFBlueprintEdge[]): number {
+  return (
+    edges.length +
+    nodes.reduce((total, node) => {
+      return (
+        total +
+        (node.subgraph ? countBlueprintSubgraphEdges(node.subgraph.nodes, node.subgraph.edges) : 0)
+      )
+    }, 0)
+  )
 }
 
 function findFirstMeaningfulLine(lines: string[]): number {

@@ -6,6 +6,7 @@ import {
   buildOFPlanningMarkdown,
   compileOFBlueprintTextDsl,
   parseOFPlanningMarkdown,
+  recoverOFBlueprintTextDslToRunnable,
   type OFBlueprintTextDiagnostic
 } from '@shared/Orchestraflow-types'
 import { logger } from '../logger'
@@ -168,29 +169,50 @@ export class OrchestflowGenerationEditorService {
       throw new Error('当前规划设计稿 DSL 为空，无法编译为工作流。')
     }
 
-    const compileResult = compileOFBlueprintTextDsl(designDocument.content)
-    if (!compileResult.valid || !compileResult.runnable) {
-      throw new Error(buildBlueprintCompileFailureMessage(compileResult.diagnostics))
+    const mode = request.mode || 'strict'
+    // strict 仍然保持原有强校验；force-draft 则允许把可恢复骨架直接落成可编辑 workflow 草稿。
+    const compileResult =
+      mode === 'force-draft'
+        ? recoverOFBlueprintTextDslToRunnable(designDocument.content, {
+            fallbackWorkflowName: designDocument.title
+          })
+        : compileOFBlueprintTextDsl(designDocument.content)
+
+    if (!compileResult.runnable) {
+      throw new Error(
+        mode === 'force-draft'
+          ? buildBlueprintForceImportFailureMessage(compileResult.diagnostics)
+          : buildBlueprintCompileFailureMessage(compileResult.diagnostics)
+      )
     }
 
     // 编译链路只消费 shared blueprint compiler 的真相源，不在这里重复拼装 workflow graph。
     const workflow = await orchestraflowWorkflowService.createFromWorkflow(compileResult.runnable)
+    const nextDesignStatus = mode === 'strict' || compileResult.valid ? 'valid' : designDocument.status
     const savedDesignDocument = this.repository.saveDesignDocument({
       sessionId: request.sessionId,
       document: {
         ...designDocument,
-        status: 'valid',
-        summary: buildDesignDocumentSummary('valid', compileResult.diagnostics),
-        diagnosticsJson: null,
+        status: nextDesignStatus,
+        summary:
+          mode === 'force-draft'
+            ? buildForceImportedDesignSummary(compileResult.diagnostics)
+            : buildDesignDocumentSummary('valid', compileResult.diagnostics),
+        diagnosticsJson:
+          mode === 'force-draft' && compileResult.diagnostics.length
+            ? JSON.stringify(compileResult.diagnostics)
+            : null,
         derivedTargetType: 'workflow',
         derivedTargetId: workflow.id,
-        derivedStatus: 'compiled'
+        derivedStatus: mode === 'force-draft' ? 'force-imported' : 'compiled'
       }
     })
 
     return {
       designDocument: savedDesignDocument,
-      workflowId: workflow.id
+      workflowId: workflow.id,
+      mode,
+      recoverySummary: compileResult.recoverySummary
     }
   }
 
@@ -699,6 +721,22 @@ function buildBlueprintCompileFailureMessage(diagnostics: OFBlueprintTextDiagnos
 
   const firstDiagnostic = diagnostics[0]
   return `当前规划设计稿 DSL 未通过编译校验：${firstDiagnostic.message}（${firstDiagnostic.line}:${firstDiagnostic.column}）`
+}
+
+function buildBlueprintForceImportFailureMessage(diagnostics: OFBlueprintTextDiagnostic[]): string {
+  if (!diagnostics.length) {
+    return '当前规划设计稿无法通过容错导入生成工作流草稿。'
+  }
+
+  const firstDiagnostic = diagnostics[0]
+  return `当前规划设计稿无法通过容错导入生成工作流草稿：${firstDiagnostic.message}（${firstDiagnostic.line}:${firstDiagnostic.column}）`
+}
+
+function buildForceImportedDesignSummary(diagnostics: OFBlueprintTextDiagnostic[]): string {
+  if (!diagnostics.length) {
+    return '规划设计稿已通过容错导入生成工作流草稿。'
+  }
+  return `规划设计稿已容错导入为工作流草稿，忽略了 ${diagnostics.length} 条局部错误。`
 }
 
 function buildInitialDesignBlueprintMessageMeta(params: {

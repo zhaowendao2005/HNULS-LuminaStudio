@@ -1,5 +1,6 @@
 import type {
   OFBlueprintEditOperation,
+  OFBlueprintRecoverySummary,
   OFBlueprintTextDiagnostic,
   OFPlanningCommandMode,
   OFPlanningDocument as OFSharedPlanningDocument,
@@ -35,6 +36,7 @@ export type GenerationDesignDocumentStatus =
 export type GenerationDesignDocumentContentFormat = 'of-blueprint-section-v1'
 export type GenerationDesignGenerationMode = 'generate' | 'regenerate'
 export type GenerationDesignCopilotIntent = 'blueprint-generate' | 'diagnostic-calibration'
+export type GenerationDesignWorkflowCompileMode = 'strict' | 'force-draft'
 export type GenerationDesignCalibrationStatus =
   | 'streaming'
   | 'pending'
@@ -295,11 +297,14 @@ export interface GenerationSaveDesignDocumentRequest {
 export interface GenerationCompileDesignDocumentToWorkflowRequest {
   sessionId: string
   designDocumentId: string
+  mode?: GenerationDesignWorkflowCompileMode
 }
 
 export interface GenerationCompileDesignDocumentToWorkflowResult {
   designDocument: GenerationDesignDocument
   workflowId: string
+  mode: GenerationDesignWorkflowCompileMode
+  recoverySummary: OFBlueprintRecoverySummary | null
 }
 
 export interface GenerationSelectDesignDocumentRequest {

@@ -293,19 +293,22 @@ edges = ["start.source -> llm_main.target", "llm_main.source -> end.target"]`
     getSessionDetailMock.mockResolvedValue(detail)
     compileDesignDocumentToWorkflowMock.mockResolvedValue({
       designDocument: compiledDesignDocument,
-      workflowId: 'compiled-workflow-1'
+      workflowId: 'compiled-workflow-1',
+      mode: 'strict',
+      recoverySummary: null
     })
 
     const store = useOrchestflowGenerationEditorStore()
     await store.initialize()
 
-    const workflowId = await store.compileDesignDocumentToWorkflow()
+    const result = await store.compileDesignDocumentToWorkflow()
 
     expect(compileDesignDocumentToWorkflowMock).toHaveBeenCalledWith({
       sessionId: 'session-a',
-      designDocumentId: designDocument.id
+      designDocumentId: designDocument.id,
+      mode: 'strict'
     })
-    expect(workflowId).toBe('compiled-workflow-1')
+    expect(result.workflowId).toBe('compiled-workflow-1')
     expect(store.activeDesignDocument?.derivedTargetType).toBe('workflow')
     expect(store.activeDesignDocument?.derivedTargetId).toBe('compiled-workflow-1')
     expect(store.activeDesignDocument?.derivedStatus).toBe('compiled')

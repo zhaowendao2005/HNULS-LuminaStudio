@@ -18,7 +18,9 @@ import {
   type GenerateViewStatus
 } from './generation-editor.types'
 import type {
+  GenerationCompileDesignDocumentToWorkflowResult,
   GenerationDesignDocument,
+  GenerationDesignWorkflowCompileMode,
   GenerationDocument,
   GenerationMessage,
   GenerationMessageMetaPayload,
@@ -1123,25 +1125,28 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       await updateSessionState({ summary: saved.summary })
     }
 
-    async function compileDesignDocumentToWorkflow(): Promise<string> {
+    async function compileDesignDocumentToWorkflow(
+      mode: GenerationDesignWorkflowCompileMode = 'strict'
+    ): Promise<GenerationCompileDesignDocumentToWorkflowResult> {
       if (!currentSession.value || !activeDesignDocument.value) {
         throw new Error('请先选择一个规划设计稿版本。')
       }
       if (!activeDesignDocument.value.content.trim()) {
         throw new Error('当前规划设计稿 DSL 为空，无法编译为工作流。')
       }
-      if (activeDesignDocument.value.status !== 'valid') {
+      if (mode === 'strict' && activeDesignDocument.value.status !== 'valid') {
         throw new Error('当前规划设计稿尚未通过校验，请先修复诊断问题。')
       }
 
       try {
         const result = await OrchestflowGenerationEditorDataSource.compileDesignDocumentToWorkflow({
           sessionId: currentSession.value.id,
-          designDocumentId: activeDesignDocument.value.id
+          designDocumentId: activeDesignDocument.value.id,
+          mode
         })
         syncSavedDesignDocument(result.designDocument)
         lastErrorMessage.value = null
-        return result.workflowId
+        return result
       } catch (error) {
         lastErrorMessage.value = buildErrorMessage(error)
         throw error

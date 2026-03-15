@@ -64,6 +64,14 @@ export interface OFBlueprintTextDiagnostic extends OFBlueprintTextLocation {
   context?: string
 }
 
+export interface OFBlueprintRecoverySummary {
+  discardedNodeCount: number
+  discardedEdgeCount: number
+  discardedDiagnosticCount: number
+  synthesizedStartNode: boolean
+  synthesizedEndNode: boolean
+}
+
 export interface OFBlueprintSectionEntryAst {
   key: string
   value: unknown
@@ -94,6 +102,7 @@ export interface OFBlueprintTextParseResult {
 export interface OFBlueprintTextCompileResult extends OFBlueprintTextParseResult {
   blueprint: OFBlueprintWorkflow | null
   runnable: import('../contract').OFRunnableWorkflow | null
+  recoverySummary: OFBlueprintRecoverySummary | null
 }
 
 export function buildOFBlueprintDiagnosticSignature(

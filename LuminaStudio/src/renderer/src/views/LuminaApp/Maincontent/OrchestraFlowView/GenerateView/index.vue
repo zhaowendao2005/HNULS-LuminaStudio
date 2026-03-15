@@ -368,7 +368,8 @@ function openCreateSessionModal(): void {
 
 async function handleCompileWorkflow(): Promise<void> {
   await runCompileWorkflowAction({
-    compileToWorkflow: () => generationStore.compileDesignDocumentToWorkflow(),
+    compileToWorkflow: (mode) => generationStore.compileDesignDocumentToWorkflow(mode),
+    confirmForceImport: (message) => window.confirm(message),
     openWorkflow: (workflowId) => emit('open-workflow', workflowId),
     reportError: (message) => window.alert(message)
   })
