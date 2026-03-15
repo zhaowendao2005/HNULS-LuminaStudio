@@ -13,4 +13,5 @@ export interface ActiveGenerationStream {
   abortController: AbortController
   pendingDeltaText?: string
   pendingDeltaFlushTimer?: NodeJS.Timeout | null
+  terminalStateHandled?: boolean
 }

@@ -60,7 +60,6 @@ export const useGenerationAnalysisDiscussionStore = defineStore(
           summary: '需求讨论已进入真实对话持久化链路。'
         })
       } catch (error) {
-        input.value = content
         markOptimisticAssistantMessageError({
           detail,
           channelKey: 'analysis-discussion',

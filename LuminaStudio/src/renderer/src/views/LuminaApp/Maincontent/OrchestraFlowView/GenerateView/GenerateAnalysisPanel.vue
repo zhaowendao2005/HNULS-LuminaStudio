@@ -53,6 +53,19 @@
             class="group relative rounded-xl"
             :class="entry.message.role === 'assistant' ? 'pr-2' : ''"
           >
+            <button
+              v-if="
+                entry.message.role === 'assistant' &&
+                entry.message.status === 'streaming' &&
+                entry.message.requestId
+              "
+              type="button"
+              class="absolute right-0 top-0 flex items-center gap-1 rounded border border-rose-200 bg-white px-2 py-1 text-[10px] font-semibold text-rose-700 transition-colors hover:bg-rose-50"
+              @click="$emit('abort-request', entry.message.requestId)"
+            >
+              <Square :size="10" />
+              停止
+            </button>
             <div class="whitespace-pre-wrap text-[13px] leading-relaxed text-gray-800">
               {{ entry.message.content }}
               <span
@@ -87,7 +100,8 @@
         <input
           :model-value="analysisInput"
           type="text"
-          placeholder="输入补充需求或修改意见..."
+          :disabled="isAnalysisStreaming"
+          :placeholder="analysisInputPlaceholder"
           class="flex-1 border-none bg-transparent text-[13px] text-gray-800 placeholder-gray-400 focus:outline-none"
           @input="$emit('update:analysis-input', ($event.target as HTMLInputElement).value)"
           @keydown.enter="$emit('send-analysis')"
@@ -107,7 +121,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Bot, FolderKanban, MessageSquare, Send, UserCircle } from 'lucide-vue-next'
+import { Bot, FolderKanban, MessageSquare, Send, Square, UserCircle } from 'lucide-vue-next'
 import type {
   GenerationDesignDocument,
   GenerationMessage,
@@ -136,6 +150,7 @@ defineEmits<{
   (e: 'open-existing-planning-designs', messageId: string): void
   (e: 'update:analysis-input', value: string): void
   (e: 'send-analysis'): void
+  (e: 'abort-request', requestId: string): void
 }>()
 
 /**
@@ -157,5 +172,9 @@ const decoratedMessages = computed(() => {
       existingDesignCount
     }
   })
+})
+
+const analysisInputPlaceholder = computed(() => {
+  return props.isAnalysisStreaming ? '消息已发出，等待 AI 回复中...' : '输入补充需求或修改意见...'
 })
 </script>

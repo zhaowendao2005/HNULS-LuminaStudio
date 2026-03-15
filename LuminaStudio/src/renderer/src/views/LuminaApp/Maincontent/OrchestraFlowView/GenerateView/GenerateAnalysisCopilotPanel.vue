@@ -322,6 +322,19 @@
                       : 'bg-white text-gray-700 shadow-sm border-gray-200'
                   ]"
                 >
+                  <button
+                    v-if="
+                      message.role === 'assistant' &&
+                      message.status === 'streaming' &&
+                      message.requestId
+                    "
+                    type="button"
+                    class="mb-2 flex items-center gap-1 rounded border border-rose-200 bg-white px-2 py-1 text-[10px] font-semibold text-rose-700 transition-colors hover:bg-rose-50"
+                    @click="$emit('abort-request', message.requestId)"
+                  >
+                    <Square :size="10" />
+                    停止
+                  </button>
                   {{ message.content }}
                   <span
                     v-if="message.status === 'streaming'"
@@ -344,8 +357,9 @@
               >
                 <textarea
                   :model-value="copilotInput"
+                  :disabled="isStreaming"
                   class="min-h-[80px] max-h-32 w-full resize-none bg-transparent p-3 text-[13px] outline-none"
-                  placeholder="向 AI 提问或提出修改建议..."
+                  :placeholder="copilotInputPlaceholder"
                   @input="
                     $emit('update:copilot-input', ($event.target as HTMLTextAreaElement).value)
                   "
@@ -387,6 +401,7 @@ import {
   MessageSquare,
   Minimize2,
   Send,
+  Square,
   UserCircle,
   X
 } from 'lucide-vue-next'
@@ -428,6 +443,7 @@ const emit = defineEmits<{
   (e: 'save-document', value: string): void
   (e: 'apply-review', payload: { messageId: string; sectionKeys: OFPlanningSectionKey[] }): void
   (e: 'reject-review', payload: { messageId: string; sectionKeys: OFPlanningSectionKey[] }): void
+  (e: 'abort-request', requestId: string): void
 }>()
 
 const toolbarTabClass =
@@ -474,6 +490,10 @@ const pendingSectionReviews = computed<GeneratePlanningSectionReview[]>(() => {
 })
 
 const pendingCount = computed(() => pendingSectionReviews.value.length)
+
+const copilotInputPlaceholder = computed(() => {
+  return props.isStreaming ? '消息已发出，等待 AI 回复中...' : '向 AI 提问或提出修改建议...'
+})
 
 const sourceDocument = computed(() => {
   if (!props.document) {

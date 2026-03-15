@@ -517,7 +517,21 @@ export class OrchestflowGenerationEditorService {
   }
 
   async abortMessage(requestId: string): Promise<void> {
+    const activeStream = this.activeStreams.get(requestId)
+    if (!activeStream) {
+      return
+    }
+
+    this.failActiveStream(activeStream, '已停止，本次生成内容已丢弃，可重试。')
     abortGenerationStream(this.activeStreams, requestId)
+  }
+
+  shutdown(): void {
+    for (const stream of this.activeStreams.values()) {
+      this.failActiveStream(stream, '程序关闭，未完成的生成已停止，本次内容已丢弃。')
+      stream.abortController.abort()
+    }
+    this.activeStreams.clear()
   }
 
   private ensureActiveAnalysisPlanningDocument(sessionId: string) {
@@ -593,6 +607,46 @@ export class OrchestflowGenerationEditorService {
     if (protocol === 'claude') return 'anthropic'
     if (protocol === 'gemini') return 'google'
     return 'openai'
+  }
+
+  private failActiveStream(stream: ActiveGenerationStream, errorMessage: string): void {
+    if (stream.terminalStateHandled) {
+      return
+    }
+    stream.terminalStateHandled = true
+    stream.answerText = ''
+    this.repository.discardMessageAsFailed(stream.messageId, errorMessage)
+    this.repository.touchSession(stream.sessionId)
+
+    if (stream.sender.isDestroyed()) {
+      return
+    }
+
+    stream.sender.send('orchestflowGenerationEditor:stream', {
+      type: 'content-replace',
+      requestId: stream.requestId,
+      sessionId: stream.sessionId,
+      channelKey: stream.channelKey,
+      messageId: stream.messageId,
+      content: ''
+    })
+    stream.sender.send('orchestflowGenerationEditor:stream', {
+      type: 'error',
+      requestId: stream.requestId,
+      sessionId: stream.sessionId,
+      channelKey: stream.channelKey,
+      messageId: stream.messageId,
+      message: errorMessage
+    })
+    stream.sender.send('orchestflowGenerationEditor:stream', {
+      type: 'finish',
+      requestId: stream.requestId,
+      sessionId: stream.sessionId,
+      channelKey: stream.channelKey,
+      messageId: stream.messageId,
+      finishReason: 'error',
+      usageJson: null
+    })
   }
 }
 
@@ -733,6 +787,6 @@ function buildContentHash(content: string): string {
   return createHash('sha1').update(content).digest('hex')
 }
 
-function buildDiagnosticSignatureList(diagnostics: OFBlueprintTextDiagnostic[]): string[] {
+function _buildDiagnosticSignatureList(diagnostics: OFBlueprintTextDiagnostic[]): string[] {
   return diagnostics.map(buildOFBlueprintDiagnosticSignature)
 }

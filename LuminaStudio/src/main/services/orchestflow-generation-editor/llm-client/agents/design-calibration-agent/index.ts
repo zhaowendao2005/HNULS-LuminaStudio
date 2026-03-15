@@ -226,30 +226,7 @@ async function runDesignCalibrationAgent(
   } catch (error) {
     const typedError = error as { name?: string; message?: string }
     if (typedError?.name === 'AbortError') {
-      if (!state.answerText.trim()) {
-        syncVisibleContent(state, params, '校准已中断。')
-      }
-      pushMessageMeta(
-        state,
-        params,
-        buildCalibrationMetaPayload({
-          designDocumentId: params.designDocument.id,
-          status: 'aborted',
-          totalDiagnosticCount: initialCompile.diagnostics.length,
-          remainingDiagnosticCount: currentDiagnostics.length,
-          currentPass: 0,
-          maxPasses: MAX_CALIBRATION_PASSES,
-          phaseLabel: '校准已中断',
-          canAbort: false,
-          summary: '校准已中断。',
-          truncatedTailDiscarded,
-          errorMessage: null
-        })
-      )
-      finishStream(state, params, 'aborted', aggregatedUsage, {
-        rawResponseText: aggregatedRawTexts.join('\n\n===== PASS =====\n\n'),
-        rawTrace: aggregatedRawTrace
-      })
+      failStreamWithDiscard(state, params, '??????????????????')
       return
     }
 
@@ -517,6 +494,11 @@ function finishStream(
     rawTrace: unknown[]
   }
 ): void {
+  if (state.terminalStateHandled) {
+    params.activeStreams.delete(state.requestId)
+    return
+  }
+  state.terminalStateHandled = true
   const status =
     finishReason === 'stop' ? 'final' : finishReason === 'aborted' ? 'aborted' : 'error'
 
@@ -540,6 +522,47 @@ function finishStream(
     usageJson: usage ? JSON.stringify(usage) : null
   })
 
+  params.activeStreams.delete(state.requestId)
+}
+
+function failStreamWithDiscard(
+  state: ActiveGenerationStream,
+  params: StartDesignCalibrationAgentStreamParams,
+  errorMessage: string
+): void {
+  if (state.terminalStateHandled) {
+    params.activeStreams.delete(state.requestId)
+    return
+  }
+  state.terminalStateHandled = true
+  state.answerText = ''
+  params.repository.discardMessageAsFailed(state.messageId, errorMessage)
+  params.repository.touchSession(state.sessionId)
+  state.sender.send('orchestflowGenerationEditor:stream', {
+    type: 'content-replace',
+    requestId: state.requestId,
+    sessionId: state.sessionId,
+    channelKey: state.channelKey,
+    messageId: state.messageId,
+    content: ''
+  })
+  state.sender.send('orchestflowGenerationEditor:stream', {
+    type: 'error',
+    requestId: state.requestId,
+    sessionId: state.sessionId,
+    channelKey: state.channelKey,
+    messageId: state.messageId,
+    message: errorMessage
+  })
+  state.sender.send('orchestflowGenerationEditor:stream', {
+    type: 'finish',
+    requestId: state.requestId,
+    sessionId: state.sessionId,
+    channelKey: state.channelKey,
+    messageId: state.messageId,
+    finishReason: 'error',
+    usageJson: null
+  })
   params.activeStreams.delete(state.requestId)
 }
 

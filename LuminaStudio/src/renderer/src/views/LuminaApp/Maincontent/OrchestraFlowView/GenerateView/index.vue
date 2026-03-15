@@ -71,6 +71,7 @@
               "
               @update:analysis-input="generationStore.analysisInput = $event"
               @send-analysis="generationStore.sendAnalysisMessage()"
+              @abort-request="generationStore.abortGenerationRequest($event)"
             />
 
             <GenerateDesignPanel
@@ -165,6 +166,7 @@
             @save-document="generationStore.saveActivePlanningDocumentContent($event)"
             @apply-review="generationStore.applyPlanningCommandProposal($event)"
             @reject-review="generationStore.rejectPlanningCommandProposal($event)"
+            @abort-request="generationStore.abortGenerationRequest($event)"
           />
 
           <GeneratePlanDesignPanel

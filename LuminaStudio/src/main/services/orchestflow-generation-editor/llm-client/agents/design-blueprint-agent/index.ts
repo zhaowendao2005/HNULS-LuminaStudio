@@ -112,7 +112,7 @@ async function runDesignBlueprintAgent(
   } catch (error) {
     const typedError = error as { name?: string; message?: string }
     if (typedError?.name === 'AbortError') {
-      finalizeDesignBlueprintGeneration(state, params, generationMode, 'aborted', [], undefined)
+      failStreamWithDiscard(state, params, '已停止，本次生成内容已丢弃，可重试。')
       return
     }
 
@@ -292,7 +292,11 @@ function finishMessage(
     rawTrace: unknown[]
   }
 ): void {
-  flushPendingTextDelta(state, params)
+  if (state.terminalStateHandled) {
+    params.activeStreams.delete(state.requestId)
+    return
+  }
+  state.terminalStateHandled = true
 
   const status =
     finishReason === 'completed' ? 'final' : finishReason === 'aborted' ? 'aborted' : 'error'
@@ -316,6 +320,47 @@ function finishMessage(
     usageJson: usage ? JSON.stringify(usage) : null
   })
 
+  params.activeStreams.delete(state.requestId)
+}
+
+function failStreamWithDiscard(
+  state: ActiveGenerationStream,
+  params: StartDesignBlueprintAgentStreamParams,
+  errorMessage: string
+): void {
+  if (state.terminalStateHandled) {
+    params.activeStreams.delete(state.requestId)
+    return
+  }
+  state.terminalStateHandled = true
+  state.answerText = ''
+  params.repository.discardMessageAsFailed(state.messageId, errorMessage)
+  params.repository.touchSession(state.sessionId)
+  state.sender.send('orchestflowGenerationEditor:stream', {
+    type: 'content-replace',
+    requestId: state.requestId,
+    sessionId: state.sessionId,
+    channelKey: state.channelKey,
+    messageId: state.messageId,
+    content: ''
+  })
+  state.sender.send('orchestflowGenerationEditor:stream', {
+    type: 'error',
+    requestId: state.requestId,
+    sessionId: state.sessionId,
+    channelKey: state.channelKey,
+    messageId: state.messageId,
+    message: errorMessage
+  })
+  state.sender.send('orchestflowGenerationEditor:stream', {
+    type: 'finish',
+    requestId: state.requestId,
+    sessionId: state.sessionId,
+    channelKey: state.channelKey,
+    messageId: state.messageId,
+    finishReason: 'error',
+    usageJson: null
+  })
   params.activeStreams.delete(state.requestId)
 }
 function buildDesignBlueprintMeta(params: {

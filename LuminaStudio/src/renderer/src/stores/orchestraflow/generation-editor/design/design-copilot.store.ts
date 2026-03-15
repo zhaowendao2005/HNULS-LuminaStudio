@@ -72,9 +72,6 @@ export const useGenerationDesignCopilotStore = defineStore('of-generation-design
       if (target) target.requestId = result.requestId
       localState.value.streamMessageIdByRequest[result.requestId] = assistantId
     } catch (error) {
-      if (!options?.content) {
-        input.value = content
-      }
       markOptimisticAssistantMessageError({
         detail,
         channelKey: 'design-copilot',

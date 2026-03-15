@@ -164,6 +164,7 @@ app.on('window-all-closed', () => {
 
 // 应用退出前清理数据库连接
 app.on('before-quit', () => {
+  orchestflowGenerationEditorService.shutdown()
   langchainClientBridge.kill()
   orchestraflowBridge.kill()
   sqliteTestService.close()

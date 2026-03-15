@@ -129,10 +129,7 @@ async function runCopilotEditorAgent(
   } catch (error) {
     const typedError = error as { name?: string; message?: string }
     if (typedError?.name === 'AbortError') {
-      finishStream(state, params, 'aborted', undefined, {
-        rawResponseText: state.answerText,
-        rawTrace: []
-      })
+      failStreamWithDiscard(state, params, '已停止，本次生成内容已丢弃，可重试。')
       return
     }
 
@@ -420,6 +417,12 @@ function finishStream(
     rawTrace: unknown[]
   }
 ): void {
+  if (state.terminalStateHandled) {
+    params.activeStreams.delete(state.requestId)
+    return
+  }
+  state.terminalStateHandled = true
+
   const status =
     finishReason === 'stop' ? 'final' : finishReason === 'aborted' ? 'aborted' : 'error'
 
@@ -443,6 +446,47 @@ function finishStream(
     usageJson: usage ? JSON.stringify(usage) : null
   })
 
+  params.activeStreams.delete(state.requestId)
+}
+
+function failStreamWithDiscard(
+  state: ActiveGenerationStream,
+  params: StartCopilotEditorAgentStreamParams,
+  errorMessage: string
+): void {
+  if (state.terminalStateHandled) {
+    params.activeStreams.delete(state.requestId)
+    return
+  }
+  state.terminalStateHandled = true
+  state.answerText = ''
+  params.repository.discardMessageAsFailed(state.messageId, errorMessage)
+  params.repository.touchSession(state.sessionId)
+  state.sender.send('orchestflowGenerationEditor:stream', {
+    type: 'content-replace',
+    requestId: state.requestId,
+    sessionId: state.sessionId,
+    channelKey: state.channelKey,
+    messageId: state.messageId,
+    content: ''
+  })
+  state.sender.send('orchestflowGenerationEditor:stream', {
+    type: 'error',
+    requestId: state.requestId,
+    sessionId: state.sessionId,
+    channelKey: state.channelKey,
+    messageId: state.messageId,
+    message: errorMessage
+  })
+  state.sender.send('orchestflowGenerationEditor:stream', {
+    type: 'finish',
+    requestId: state.requestId,
+    sessionId: state.sessionId,
+    channelKey: state.channelKey,
+    messageId: state.messageId,
+    finishReason: 'error',
+    usageJson: null
+  })
   params.activeStreams.delete(state.requestId)
 }
 

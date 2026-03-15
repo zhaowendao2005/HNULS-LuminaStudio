@@ -212,6 +212,19 @@
                       class="relative rounded-xl"
                       :class="message.role === 'assistant' ? 'pr-2' : ''"
                     >
+                      <button
+                        v-if="
+                          message.role === 'assistant' &&
+                          message.status === 'streaming' &&
+                          message.requestId
+                        "
+                        type="button"
+                        class="mb-2 flex items-center gap-1 rounded border border-rose-200 bg-white px-2 py-1 text-[10px] font-semibold text-rose-700 transition-colors hover:bg-rose-50"
+                        @click="$emit('abort-request', message.requestId)"
+                      >
+                        <Square :size="10" />
+                        停止
+                      </button>
                       <pre
                         v-if="mode === 'design' && message.role === 'assistant'"
                         class="whitespace-pre-wrap break-words font-mono text-[12px] leading-6 text-gray-800"
@@ -245,6 +258,7 @@
                 <input
                   :value="copilotInput"
                   type="text"
+                  :disabled="isStreaming"
                   :placeholder="inputPlaceholder"
                   class="flex-1 border-none bg-transparent text-xs text-gray-800 placeholder-gray-400 focus:outline-none"
                   @input="$emit('update:copilot-input', ($event.target as HTMLInputElement).value)"
@@ -386,6 +400,19 @@
                     class="relative rounded-xl"
                     :class="message.role === 'assistant' ? 'pr-2' : ''"
                   >
+                    <button
+                      v-if="
+                        message.role === 'assistant' &&
+                        message.status === 'streaming' &&
+                        message.requestId
+                      "
+                      type="button"
+                      class="mb-2 flex items-center gap-1 rounded border border-rose-200 bg-white px-2 py-1 text-[10px] font-semibold text-rose-700 transition-colors hover:bg-rose-50"
+                      @click="$emit('abort-request', message.requestId)"
+                    >
+                      <Square :size="10" />
+                      停止
+                    </button>
                     <pre
                       v-if="mode === 'design' && message.role === 'assistant'"
                       class="whitespace-pre-wrap break-words font-mono text-[12px] leading-6 text-gray-800"
@@ -419,6 +446,7 @@
               <input
                 :value="copilotInput"
                 type="text"
+                :disabled="isStreaming"
                 :placeholder="inputPlaceholder"
                 class="flex-1 border-none bg-transparent text-xs text-gray-800 placeholder-gray-400 focus:outline-none"
                 @input="$emit('update:copilot-input', ($event.target as HTMLInputElement).value)"
@@ -500,6 +528,7 @@ const helperText = computed(() => {
 })
 
 const inputPlaceholder = computed(() => {
+  if (props.isStreaming) return '消息已发出，等待 AI 回复中...'
   if (props.mode === 'analysis') return '补充需求分析要求...'
   if (props.mode === 'design') return '补充当前版本的 DSL 蓝图要求...'
   return '补充校验要求...'

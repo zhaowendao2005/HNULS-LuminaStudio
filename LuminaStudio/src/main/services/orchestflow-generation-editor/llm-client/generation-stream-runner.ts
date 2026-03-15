@@ -114,19 +114,12 @@ async function runStream(
   } catch (error) {
     const err = error as { name?: string; message?: string }
     if (err?.name === 'AbortError') {
-      handleFinish(state, params.repository, params.activeStreams, 'aborted', undefined, {
-        providerId: params.providerId,
-        providerName: params.providerName,
-        protocol: params.protocol,
-        sdkVendor: params.vendor,
-        baseUrl: params.baseUrl,
-        modelId: params.modelId,
-        requestContent: params.requestContent,
-        hasReceivedDelta: hasLoggedFirstDelta,
-        persistRawLlmData: params.persistRawLlmData,
-        rawResponseText: state.answerText,
-        rawTrace: []
-      })
+      handleAbortDiscard(
+        state,
+        params.repository,
+        params.activeStreams,
+        '已停止，本次生成内容已丢弃，可重试。'
+      )
       return
     }
 
@@ -224,6 +217,12 @@ function handleFinish(
     rawTrace: unknown[]
   }
 ): void {
+  if (state.terminalStateHandled) {
+    activeStreams.delete(state.requestId)
+    return
+  }
+  state.terminalStateHandled = true
+
   const status =
     finishReason === 'stop' ? 'final' : finishReason === 'aborted' ? 'aborted' : 'error'
 
@@ -267,6 +266,51 @@ function handleFinish(
   })
 
   repository.touchSession(state.sessionId)
+  activeStreams.delete(state.requestId)
+}
+
+function handleAbortDiscard(
+  state: ActiveGenerationStream,
+  repository: GenerationEditorRepository,
+  activeStreams: Map<string, ActiveGenerationStream>,
+  errorMessage: string
+): void {
+  if (state.terminalStateHandled) {
+    activeStreams.delete(state.requestId)
+    return
+  }
+  state.terminalStateHandled = true
+  state.answerText = ''
+
+  repository.discardMessageAsFailed(state.messageId, errorMessage)
+  repository.touchSession(state.sessionId)
+
+  state.sender.send('orchestflowGenerationEditor:stream', {
+    type: 'content-replace',
+    requestId: state.requestId,
+    sessionId: state.sessionId,
+    channelKey: state.channelKey,
+    messageId: state.messageId,
+    content: ''
+  })
+  state.sender.send('orchestflowGenerationEditor:stream', {
+    type: 'error',
+    requestId: state.requestId,
+    sessionId: state.sessionId,
+    channelKey: state.channelKey,
+    messageId: state.messageId,
+    message: errorMessage
+  })
+  state.sender.send('orchestflowGenerationEditor:stream', {
+    type: 'finish',
+    requestId: state.requestId,
+    sessionId: state.sessionId,
+    channelKey: state.channelKey,
+    messageId: state.messageId,
+    finishReason: 'error',
+    usageJson: null
+  })
+
   activeStreams.delete(state.requestId)
 }
 

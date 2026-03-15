@@ -880,6 +880,16 @@ export class GenerationEditorRepository {
       )
   }
 
+  discardMessageAsFailed(messageId: string, errorMessage: string): void {
+    this.db
+      .prepare(
+        `UPDATE generation_messages
+         SET content = '', status = 'error', error = ?, usage_json = NULL, raw_response_text = NULL, raw_trace_json = NULL, updated_at = datetime('now')
+         WHERE id = ?`
+      )
+      .run(errorMessage, messageId)
+  }
+
   touchSession(sessionId: string): void {
     this.db
       .prepare(`UPDATE generation_sessions SET updated_at = datetime('now') WHERE id = ?`)

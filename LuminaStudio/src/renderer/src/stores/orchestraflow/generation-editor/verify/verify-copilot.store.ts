@@ -48,7 +48,6 @@ export const useGenerationVerifyCopilotStore = defineStore('of-generation-verify
       if (target) target.requestId = result.requestId
       localState.value.streamMessageIdByRequest[result.requestId] = assistantId
     } catch (error) {
-      input.value = content
       markOptimisticAssistantMessageError({
         detail,
         channelKey: 'verify-copilot',
