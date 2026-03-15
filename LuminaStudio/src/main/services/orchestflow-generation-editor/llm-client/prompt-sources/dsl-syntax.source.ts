@@ -19,8 +19,7 @@ export const CANONICAL_ARRAY_SCHEMA_TEMPLATE =
   '{"type":"array","items":{"type":"string"},"default":[]}'
 export const CANONICAL_REF_SOURCE_TEMPLATE =
   '{"mode":"ref","ref":"@writer.structured_output.answer"}'
-export const CANONICAL_VALUE_SOURCE_TEMPLATE =
-  '{"mode":"value","value":{"mode":"strict"}}'
+export const CANONICAL_VALUE_SOURCE_TEMPLATE = '{"mode":"value","value":{"mode":"strict"}}'
 export const CANONICAL_START_INPUT_TEMPLATE =
   'inputs = [{"variable":"user_query","schema":{"type":"string","default":"hello"}}]'
 export const CANONICAL_LOOP_VAR_TEMPLATE =

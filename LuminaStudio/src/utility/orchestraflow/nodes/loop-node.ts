@@ -41,13 +41,7 @@ export class LoopNode extends BaseNode {
         return this.buildStoppedResult(nodeData, workingStore)
       }
 
-      this.setLoopRuntimeMetadata(
-        workingStore,
-        normalizedTitle,
-        context.node.id,
-        index,
-        loopCount
-      )
+      this.setLoopRuntimeMetadata(workingStore, normalizedTitle, context.node.id, index, loopCount)
       if (this.shouldBreak(nodeData.break_conditions, nodeData.logical_operator, workingStore)) {
         break
       }

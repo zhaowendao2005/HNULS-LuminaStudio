@@ -12,7 +12,8 @@
         <div
           class="rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-xs leading-6 text-amber-700"
         >
-          开启后，Generate 会把 assistant 的原始 LLM 文本和 provider 事件追踪完整写入数据库，仅建议调试时临时打开。
+          开启后，Generate 会把 assistant 的原始 LLM 文本和 provider
+          事件追踪完整写入数据库，仅建议调试时临时打开。
         </div>
 
         <div
@@ -29,9 +30,7 @@
             <span
               :class="[
                 'rounded-full px-2.5 py-1 text-[11px] font-semibold',
-                modelValue
-                  ? 'bg-emerald-100 text-emerald-700'
-                  : 'bg-slate-200 text-slate-600'
+                modelValue ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'
               ]"
             >
               {{ modelValue ? '已开启' : '已关闭' }}

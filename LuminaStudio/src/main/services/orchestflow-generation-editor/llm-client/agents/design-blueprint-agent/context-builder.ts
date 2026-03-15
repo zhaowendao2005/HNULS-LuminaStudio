@@ -148,7 +148,10 @@ function sanitizePlanningSectionContent(content: string): string {
     sanitizedLines.push(trimmed)
   }
 
-  return sanitizedLines.join('\n').replace(/\n{3,}/g, '\n\n').trim()
+  return sanitizedLines
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
 }
 
 function shouldDropPlanningLine(trimmedLine: string): boolean {
@@ -192,9 +195,7 @@ function looksLikeDslAssignment(contentLine: string): boolean {
 }
 
 function looksLikeBlueprintEdge(contentLine: string): boolean {
-  return /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\s*->\s*[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(
-    contentLine
-  )
+  return /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\s*->\s*[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(contentLine)
 }
 
 function buildDesignDocumentStateSummary(designDocument: GenerationDesignDocument): string {

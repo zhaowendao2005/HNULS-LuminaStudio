@@ -30,8 +30,8 @@ export class EndNode extends BaseNode {
           const value =
             v.value_template !== undefined
               ? resolveValueTemplate(v.value_template, this.variableStore)
-              : this.variableStore.getByVariableRef(v.value_ref) ??
-                this.variableStore.getBySelector([v.variable])
+              : (this.variableStore.getByVariableRef(v.value_ref) ??
+                this.variableStore.getBySelector([v.variable]))
           outputs[v.variable] = value
         }
       }

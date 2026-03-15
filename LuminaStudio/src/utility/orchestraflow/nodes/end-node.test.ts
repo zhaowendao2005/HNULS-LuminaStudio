@@ -63,7 +63,9 @@ describe('EndNode', () => {
       }
     })
 
-    const result = await new EndNode(node, variableStore).execute(createContext(node, variableStore))
+    const result = await new EndNode(node, variableStore).execute(
+      createContext(node, variableStore)
+    )
 
     expect(result.error).toBeUndefined()
     expect(result.outputs).toEqual({

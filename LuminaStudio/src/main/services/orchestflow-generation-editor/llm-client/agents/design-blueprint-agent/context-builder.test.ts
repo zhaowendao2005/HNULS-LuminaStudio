@@ -105,7 +105,9 @@ describe('design-blueprint-agent context builder', () => {
     expect(context.planningSnapshotSummaryText).not.toContain('## DSL 语法与格式')
 
     expect(context.designDocumentStateSummaryText).toContain('- status: invalid')
-    expect(context.designDocumentStateSummaryText).toContain('- contentFormat: of-blueprint-section-v1')
+    expect(context.designDocumentStateSummaryText).toContain(
+      '- contentFormat: of-blueprint-section-v1'
+    )
     expect(context.designDocumentStateSummaryText).toContain('- lastCompilePassed: no')
     expect(context.designDocumentStateSummaryText).toContain('missing-workflow-name')
     expect(context.designDocumentStateSummaryText).not.toContain('vars = ["x:type=string"]')
