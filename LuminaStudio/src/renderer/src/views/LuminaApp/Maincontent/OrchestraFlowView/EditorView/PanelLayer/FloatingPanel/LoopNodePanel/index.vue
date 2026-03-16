@@ -164,6 +164,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type {
   OFIfElseCondition,
+  OFJsonSchemaProperty,
   OFLoopNodeData,
   OFLoopVariableData,
   OFStructuredJsonSchema,
@@ -427,13 +428,16 @@ function openLoopVariableSchema(variableId: string, mode: 'object') {
   const item = loopVariables.value.find((entry) => (entry.id || entry.variable) === variableId)
   if (!item) return
   activeSchemaTarget.value = { variableId, mode }
-  objectSchemaEditorStore.open(currentNode.value.id, item.schema || null)
+  objectSchemaEditorStore.open(
+    currentNode.value.id,
+    item.schema && item.schema.type === 'object' ? item.schema : null
+  )
 }
 
 function handleSchemaSave(schema: OFStructuredJsonSchema) {
   if (!activeSchemaTarget.value) return
   patchLoopVariable(activeSchemaTarget.value.variableId, {
-    schema
+    schema: schema as OFJsonSchemaProperty
   })
   activeSchemaTarget.value = null
 }

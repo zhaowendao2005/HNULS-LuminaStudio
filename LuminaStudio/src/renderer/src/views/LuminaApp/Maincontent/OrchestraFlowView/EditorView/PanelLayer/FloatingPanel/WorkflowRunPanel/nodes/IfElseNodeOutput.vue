@@ -26,10 +26,10 @@
       </div>
     </div>
 
-    <div v-if="tracing.outputs?.caseEvaluations" class="mt-3 space-y-2">
+    <div v-if="caseEvaluations.length" class="mt-3 space-y-2">
       <div class="text-xs font-medium uppercase text-gray-500">条件结果</div>
       <div
-        v-for="item in tracing.outputs.caseEvaluations"
+        v-for="item in caseEvaluations"
         :key="item.caseId"
         class="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
       >
@@ -84,5 +84,12 @@ const haloClass = computed(() =>
   props.tracing.status === OFNodeRunningStatus.Running
     ? 'ring-2 ring-cyan-400/70 shadow-[0_0_0_6px_rgba(34,211,238,0.12)]'
     : ''
+)
+
+const caseEvaluations = computed(
+  () =>
+    ((props.tracing.outputs?.caseEvaluations as
+      | Array<{ caseId: string; label: string; passed: boolean }>
+      | undefined) || [])
 )
 </script>

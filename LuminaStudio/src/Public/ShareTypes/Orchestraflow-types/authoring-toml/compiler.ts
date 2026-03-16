@@ -14,7 +14,11 @@ import type {
 } from '../core-types'
 import { resolveOFAuthoringNodeDefinition } from '../node-definition-registry'
 import type { OFRunnableWorkflow } from '../contract'
-import type { OFAuthoringTomlDocument, OFAuthoringTomlEdgeRecord, OFAuthoringTomlNodeRecord } from './types'
+import type {
+  OFAuthoringTomlDocument,
+  OFAuthoringTomlEdgeRecord,
+  OFAuthoringTomlNodeRecord
+} from './types'
 
 type CompiledNodeContext = {
   parentNodeId?: string
@@ -143,7 +147,9 @@ function compileLoopVariables(source: unknown): OFLoopVariableData[] {
       : record.value !== undefined
         ? {
             mode: 'constant',
-            constant_value: record.value as OFValueSource extends { constant_value: infer T } ? T : never
+            constant_value: record.value as OFValueSource extends { constant_value: infer T }
+              ? T
+              : never
           }
         : undefined
 
@@ -152,7 +158,9 @@ function compileLoopVariables(source: unknown): OFLoopVariableData[] {
       label: record.label ? String(record.label) : undefined,
       description: record.description ? String(record.description) : undefined,
       required: record.required === true,
-      value_type: record.value_type ? String(record.value_type) as OFLoopVariableData['value_type'] : 'constant',
+      value_type: record.value_type
+        ? (String(record.value_type) as OFLoopVariableData['value_type'])
+        : 'constant',
       value: (record.value ?? null) as OFLoopVariableData['value'],
       value_selector: selector,
       schema: (record.schema || null) as OFJsonSchemaProperty | null,
@@ -184,7 +192,11 @@ function compileAssignRules(source: unknown): OFVariableAssignRule[] {
             }
           : {
               mode: 'constant',
-              constant_value: sourceRecord.value as OFValueSource extends { constant_value: infer T } ? T : never
+              constant_value: sourceRecord.value as OFValueSource extends {
+                constant_value: infer T
+              }
+                ? T
+                : never
             },
       target_variable: String(record.target_variable || ''),
       target_label: record.target_label ? String(record.target_label) : undefined,
@@ -228,14 +240,17 @@ function buildNodeBase(record: OFAuthoringTomlNodeRecord, context: CompiledNodeC
   }
 }
 
-function compileNodeRecord(record: OFAuthoringTomlNodeRecord, context: CompiledNodeContext): OFNode {
+function compileNodeRecord(
+  record: OFAuthoringTomlNodeRecord,
+  context: CompiledNodeContext
+): OFNode {
   const definition = resolveOFAuthoringNodeDefinition(record.type)
   const defaultData = definition.editor.createDefaultData({
     nodeId: record.id,
     title: record.title
   })
 
-  let data = { ...defaultData, desc: record.description || '' } as Record<string, unknown>
+  const data = { ...defaultData, desc: record.description || '' } as Record<string, unknown>
 
   if (record.type === 'start') {
     data.input = { variables: compileVariables(record.inputs) }
@@ -262,7 +277,9 @@ function compileNodeRecord(record: OFAuthoringTomlNodeRecord, context: CompiledN
       : []
     data.parallel_mode = record.parallel_mode ? String(record.parallel_mode) : 'sequential'
     data.parallel_nums = Number(record.parallel_nums || 1)
-    data.error_handle_mode = record.error_handle_mode ? String(record.error_handle_mode) : 'terminated'
+    data.error_handle_mode = record.error_handle_mode
+      ? String(record.error_handle_mode)
+      : 'terminated'
     data.flatten_output = record.flatten_output !== false
     data.subgraph = subgraph
   } else if (record.type === 'loop') {
@@ -309,12 +326,13 @@ function compileEdges(
       target_port_id: edge.targetHandle || 'target',
       sourceHandle: edge.sourceHandle || 'source',
       targetHandle: edge.targetHandle || 'target',
-      data: sourceNode && targetNode
-        ? {
-            sourceType: sourceNode.data.type,
-            targetType: targetNode.data.type
-          }
-        : undefined
+      data:
+        sourceNode && targetNode
+          ? {
+              sourceType: sourceNode.data.type,
+              targetType: targetNode.data.type
+            }
+          : undefined
     }
   })
 }

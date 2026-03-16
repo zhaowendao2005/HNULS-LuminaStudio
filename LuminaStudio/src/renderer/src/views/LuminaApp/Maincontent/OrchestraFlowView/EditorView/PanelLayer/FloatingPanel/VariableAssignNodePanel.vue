@@ -169,7 +169,7 @@
                               : ({
                                   mode: 'variable',
                                   ref:
-                                    rule.source_mode === 'variable' && rule.source?.mode === 'variable'
+                                    rule.source?.mode === 'variable'
                                       ? rule.source.ref
                                       : {
                                           selector: [],
@@ -601,7 +601,10 @@ function openSchemaEditor(ruleId: string) {
   const rule = rules.value.find((item) => item.id === ruleId)
   if (!rule || !currentNode.value) return
   activeSchemaRuleId.value = ruleId
-  objectSchemaEditorStore.open(currentNode.value.id, rule.schema || null)
+  objectSchemaEditorStore.open(
+    currentNode.value.id,
+    rule.schema && rule.schema.type === 'object' ? rule.schema : null
+  )
 }
 
 function getSchemaSummary(rule: OFVariableAssignRule) {

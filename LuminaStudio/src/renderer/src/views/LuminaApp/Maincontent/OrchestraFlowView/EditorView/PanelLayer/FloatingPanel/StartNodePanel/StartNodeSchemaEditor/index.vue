@@ -295,6 +295,17 @@ function fieldToSchemaNode(field: StartSchemaDraftField): OFJsonSchemaProperty {
     }
   }
 
+  if (field.type === 'array') {
+    return {
+      type: 'array',
+      items: {
+        type: 'string'
+      },
+      description: field.description?.trim() || undefined,
+      default: Array.isArray(field.default) ? field.default : undefined
+    }
+  }
+
   return {
     type: field.type,
     description: field.description?.trim() || undefined,

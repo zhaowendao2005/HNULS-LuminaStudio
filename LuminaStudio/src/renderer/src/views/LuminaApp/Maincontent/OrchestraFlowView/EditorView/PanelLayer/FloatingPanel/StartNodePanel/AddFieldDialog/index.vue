@@ -187,7 +187,7 @@
 
   <StartNodeSchemaEditor
     v-model="schemaEditorVisible"
-    :schema="currentSchema"
+    :schema="currentObjectSchema"
     root-type="object"
     @save="handleSchemaSave"
   />
@@ -200,7 +200,7 @@ import WhiteSelect, {
   type WhiteSelectOption
 } from '@renderer/views/LuminaApp/Maincontent/NormalChat/components/WhiteSelect.vue'
 import StartNodeSchemaEditor from '../StartNodeSchemaEditor/index.vue'
-import type { OFStructuredJsonSchema, OFVariable } from '@shared/Orchestraflow-types'
+import type { OFJsonSchemaProperty, OFStructuredJsonSchema, OFVariable } from '@shared/Orchestraflow-types'
 import { OFVarType } from '@shared/Orchestraflow-types'
 const fieldTypeOptions: WhiteSelectOption[] = [
   { label: 'string', value: OFVarType.String },
@@ -243,9 +243,12 @@ const textDefaultValue = ref('')
 const numberDefaultValue = ref('')
 const booleanDefaultValue = ref<boolean>(true)
 const arrayDefaultValue = ref('')
-const currentSchema = ref<OFStructuredJsonSchema | null>(null)
+const currentSchema = ref<OFJsonSchemaProperty | null>(null)
 const errorMessage = ref('')
 const schemaEditorVisible = ref(false)
+const currentObjectSchema = computed(() =>
+  currentSchema.value?.type === 'object' ? currentSchema.value : null
+)
 
 const dialogTitle = computed(() => (props.initialField ? '编辑变量' : '添加变量'))
 const schemaSummary = computed(() => {
@@ -348,7 +351,7 @@ function confirm() {
     errorMessage.value = '变量名称不能为空'
     return
   }
-  if (selectedType.value === OFVarType.Object && !currentSchema.value) {
+  if (selectedType.value === OFVarType.Object && (!currentSchema.value || currentSchema.value.type !== 'object')) {
     errorMessage.value = 'object 类型必须先配置 Schema'
     return
   }
@@ -361,7 +364,10 @@ function confirm() {
       required: form.value.required,
       description: form.value.description.trim() || undefined,
       defaultValue: buildDefaultValue(),
-      schema: selectedType.value === OFVarType.Object ? currentSchema.value : null
+      schema:
+        selectedType.value === OFVarType.Object && currentSchema.value?.type === 'object'
+          ? currentSchema.value
+          : null
     })
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '默认值格式无效'
@@ -379,7 +385,9 @@ function buildDefaultValue() {
     case OFVarType.Boolean:
       return booleanDefaultValue.value
     case OFVarType.Object:
-      return currentSchema.value?.default
+      return currentSchema.value && 'default' in currentSchema.value
+        ? currentSchema.value.default
+        : undefined
     case OFVarType.Array:
       if (!arrayDefaultValue.value.trim()) return undefined
       return parseArrayDefaultValue()

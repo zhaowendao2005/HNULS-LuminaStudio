@@ -14,8 +14,12 @@ export function parseOFAuthoringToml(raw: string): OFAuthoringTomlParseResult {
         name: String(workflow.name || '未命名工作流'),
         description: workflow.description ? String(workflow.description) : undefined
       },
-      nodes: nodes.map((node) => ({ ...(node as Record<string, unknown>) })) as unknown as OFAuthoringTomlDocument['nodes'],
-      edges: edges.map((edge) => ({ ...(edge as Record<string, unknown>) })) as unknown as OFAuthoringTomlDocument['edges']
+      nodes: nodes.map((node) => ({
+        ...(node as Record<string, unknown>)
+      })) as unknown as OFAuthoringTomlDocument['nodes'],
+      edges: edges.map((edge) => ({
+        ...(edge as Record<string, unknown>)
+      })) as unknown as OFAuthoringTomlDocument['edges']
     }
 
     return {
