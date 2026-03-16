@@ -265,7 +265,7 @@ export type OFIfElseCompareSourceMode = 'constant' | 'variable'
 export interface OFIfElseCondition {
   id: string
   variable_ref?: OFVariableRef
-  variable_selector: string[]
+  variable_selector?: string[]
   variable_path?: string
   variable_label?: string
   variable_type?: OFVarType
@@ -706,13 +706,15 @@ export interface OFIterationNodeConfig {
 export interface OFIterationBranchOutputSelector {
   source_node_id: string
   source_handle_id: string
-  output_selector: string[]
+  output_selector?: string[]
+  output_ref?: OFVariableRef
 }
 
 export interface OFIterationBranchOutputRef {
   source_node_id: string
   source_handle_id: string
   output_ref: OFVariableRef
+  output_selector?: string[]
 }
 
 export interface OFIterationStartNodeConfig {

@@ -1,40 +1,39 @@
-import type { GenerationDocument, GenerationStageConfig, GenerationStageKey } from '@preload/types'
+import type {
+  GenerationAnalysisDocument,
+  GenerationGlobalSettings,
+  GenerationStageConfig,
+  GenerationStageKey
+} from '@preload/types'
 
-export const DEFAULT_STAGE_CONFIGS: Record<
-  GenerationStageKey,
-  Omit<GenerationStageConfig, 'providerId' | 'modelId' | 'sdkVendor'>
-> = {
+export const DEFAULT_GLOBAL_SETTINGS: GenerationGlobalSettings = {
+  persistRawLlmData: false
+}
+
+export const DEFAULT_STAGE_CONFIGS: Record<GenerationStageKey, GenerationStageConfig> = {
   analysis: {
     stageKey: 'analysis',
+    providerId: 'openai',
+    modelId: 'gpt-4.1-mini',
     memoryRounds: 6,
-    copilotMemoryRounds: 5,
-    autoApproved: true,
-    activePlanningDocumentId: null,
-    activeDesignDocumentId: null
+    maxRepairIterations: 1,
+    budgetLimitTokens: 12000
   },
   design: {
     stageKey: 'design',
-    memoryRounds: 6,
-    copilotMemoryRounds: 5,
-    autoApproved: true,
-    activePlanningDocumentId: null,
-    activeDesignDocumentId: null
-  },
-  verify: {
-    stageKey: 'verify',
-    memoryRounds: 5,
-    copilotMemoryRounds: 4,
-    autoApproved: true,
-    activePlanningDocumentId: null,
-    activeDesignDocumentId: null
+    providerId: 'openai',
+    modelId: 'gpt-4.1-mini',
+    memoryRounds: 4,
+    maxRepairIterations: 4,
+    budgetLimitTokens: 20000
   }
 }
 
-export const DEFAULT_DOCUMENTS: Record<
-  GenerationStageKey,
-  Omit<GenerationDocument, 'summary' | 'content'>
-> = {
-  analysis: { documentKey: 'analysis', title: '需求分析', fileName: 'requirement_analysis.md' },
-  design: { documentKey: 'design', title: '规划设计', fileName: 'planning_design.md' },
-  verify: { documentKey: 'verify', title: '校验', fileName: 'verify_checklist.md' }
+export function createDefaultAnalysisDocument(): GenerationAnalysisDocument {
+  return {
+    documentKey: 'analysis',
+    title: '需求分析',
+    content: '# 需求分析\n\n## 摘要\n\n## 目标\n\n## 约束\n\n## 成功标准\n',
+    summary: '尚未生成分析结果。',
+    updatedAt: new Date().toISOString()
+  }
 }

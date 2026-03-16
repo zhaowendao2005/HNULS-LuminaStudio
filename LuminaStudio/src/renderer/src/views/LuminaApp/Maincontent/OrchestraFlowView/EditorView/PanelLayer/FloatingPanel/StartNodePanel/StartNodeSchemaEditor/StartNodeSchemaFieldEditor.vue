@@ -138,7 +138,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-export type StartSchemaDraftType = 'string' | 'number' | 'boolean' | 'object'
+export type StartSchemaDraftType = 'string' | 'number' | 'boolean' | 'object' | 'array'
 
 export interface StartSchemaDraftField {
   id: string
@@ -164,7 +164,8 @@ const typeOptions = [
   { label: 'string', value: 'string' },
   { label: 'number', value: 'number' },
   { label: 'boolean', value: 'boolean' },
-  { label: 'object', value: 'object' }
+  { label: 'object', value: 'object' },
+  { label: 'array', value: 'array' }
 ]
 
 const nestedFields = computed(() => props.field.children || [])

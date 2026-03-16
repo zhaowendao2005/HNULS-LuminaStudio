@@ -1,223 +1,88 @@
-import type {
-  OFBlueprintEditOperation,
-  OFBlueprintRecoverySummary,
-  OFBlueprintTextDiagnostic,
-  OFPlanningCommandMode,
-  OFPlanningDocument as OFSharedPlanningDocument,
-  OFPlanningEditCommand,
-  OFPlanningSectionKey,
-  OFRequirementDocument
-} from '@shared/Orchestraflow-types'
 import type { ApiResponse } from './base.types'
-import type { ModelProviderProtocol } from './model-config.types'
 
-export type GenerationStageKey = 'analysis' | 'design' | 'verify'
-export type GenerationRuntimeStageKey = GenerationStageKey | 'workflow'
-export type GenerationChannelKey =
-  | 'analysis-discussion'
-  | 'analysis-copilot'
-  | 'design-copilot'
-  | 'verify-copilot'
+export type GenerationStageKey = 'analysis' | 'design'
+export type GenerationChannelKey = 'analysis-planner' | 'planning-copilot' | 'design-planner'
 export type GenerationChatRole = 'user' | 'assistant' | 'system'
-export type GenerationMessageStatus = 'streaming' | 'final' | 'aborted' | 'error'
-export type GenerationSdkVendor = 'openai' | 'anthropic' | 'google'
-export type GenerationAnalysisAgentMode = 'continue' | 'planning'
-export type GenerationAnalysisPlanningStatus = 'draft' | 'ready'
-export type GenerationPlanningStreamSectionKey = OFPlanningSectionKey
-export type GenerationCopilotEditStatus = 'noop' | 'pending' | 'applied' | 'rejected' | 'failed'
-export type GenerationCopilotSectionDecision = 'pending' | 'applied' | 'rejected'
-export type GenerationDesignDocumentStatus =
-  | 'draft'
-  | 'streaming'
-  | 'valid'
-  | 'invalid'
-  | 'aborted'
-  | 'error'
-export type GenerationDesignDocumentContentFormat = 'of-blueprint-section-v1'
-export type GenerationDesignGenerationMode = 'generate' | 'regenerate'
-export type GenerationDesignCopilotIntent = 'blueprint-generate' | 'diagnostic-calibration'
-export type GenerationDesignWorkflowCompileMode = 'strict' | 'force-draft'
-export type GenerationDesignCalibrationStatus =
-  | 'streaming'
+export type GenerationMessageStatus =
   | 'pending'
-  | 'applied'
-  | 'rejected'
+  | 'streaming'
+  | 'completed'
   | 'failed'
   | 'aborted'
-export type GenerationDesignCalibrationProposalStrategy =
-  | 'structured-operations'
-  | 'replace-document'
+export type GenerationSdkVendor = 'openai' | 'anthropic' | 'google'
+export type GenerationRunStatus = 'running' | 'completed' | 'failed' | 'aborted'
+export type GenerationDesignDocumentStatus = 'draft' | 'valid' | 'invalid'
+export type GenerationDesignDocumentContentFormat = 'of-workflow-toml-v1'
+export type GenerationValidationCategory =
+  | 'syntax'
+  | 'field'
+  | 'reference'
+  | 'topology'
+  | 'semantic'
 
 export interface GenerationStageConfig {
   stageKey: GenerationStageKey
-  providerId: string | null
-  modelId: string | null
-  sdkVendor: GenerationSdkVendor | null
+  providerId: string
+  modelId: string
   memoryRounds: number
-  copilotMemoryRounds: number
-  autoApproved: boolean
-  activePlanningDocumentId: string | null
-  activeDesignDocumentId: string | null
+  maxRepairIterations: number
+  budgetLimitTokens: number
 }
 
-export interface GenerationDocument {
-  documentKey: GenerationStageKey
+export interface GenerationAnalysisDocument {
+  documentKey: 'analysis'
   title: string
-  fileName: string
+  content: string
   summary: string
-  content: string
+  updatedAt: string
 }
 
-export interface GenerationPlanningDocument extends OFSharedPlanningDocument {
-  id: string
-  sessionId: string
-  stageKey: GenerationStageKey
-  sourceMessageId: string
-  title: string
-  sourceMarkdown: string
-  content: string
-  createdAt: string
-  updatedAt: string
+export interface GenerationValidationDiagnostic {
+  category: GenerationValidationCategory
+  code: string
+  message: string
+  nodeId?: string
+  path?: string
+}
+
+export interface GenerationValidationReport {
+  valid: boolean
+  diagnostics: GenerationValidationDiagnostic[]
 }
 
 export interface GenerationDesignDocument {
   id: string
   sessionId: string
-  planningDocumentId: string
-  planningSourceMessageId: string
   title: string
-  version: number
-  status: GenerationDesignDocumentStatus
-  sourceSnapshotMarkdown: string
-  contentFormat: GenerationDesignDocumentContentFormat
   content: string
+  contentFormat: GenerationDesignDocumentContentFormat
   summary: string
-  diagnosticsJson: string | null
-  latestGenerationMessageId: string | null
-  derivedTargetType: string | null
+  status: GenerationDesignDocumentStatus
+  validationJson: string | null
+  planningSourceMessageId: string | null
+  derivedTargetType: 'workflow' | null
   derivedTargetId: string | null
-  derivedStatus: string | null
+  version: number
   createdAt: string
   updatedAt: string
 }
 
-export interface GenerationPlanningBlockStreamingState {
-  isStreaming: boolean
-  activeSection: GenerationPlanningStreamSectionKey
-  completedSectionKeys: GenerationPlanningStreamSectionKey[]
-}
-
-export interface GenerationGlobalSettings {
-  persistRawLlmData: boolean
-}
-
-export interface GenerationPlanningBlockPayload {
-  kind: 'analysis-planning'
-  version: '2.0'
-  agentId: string
-  trigger: 'explicit' | 'auto'
-  status: GenerationAnalysisPlanningStatus
-  analysisMarkdown: string
-  designMarkdown: string
-  documentId?: string | null
-  streamingState?: GenerationPlanningBlockStreamingState
-  /**
-   * 向后兼容旧消息：历史 metaJson 里还是 requirementDocument 结构。
-   * 新协议不再写它，但读取旧消息时仍允许存在。
-   */
-  requirementDocument?: OFRequirementDocument
-}
-
-export interface GenerationCopilotEditBlockPayload {
-  kind: 'planning-edit'
-  documentId: string
-  mode: OFPlanningCommandMode
-  commandDsl: string
-  commands: OFPlanningEditCommand[]
-  status: GenerationCopilotEditStatus
-  affectedSectionKeys: OFPlanningSectionKey[]
-  sectionDecisionByKey?: Partial<Record<OFPlanningSectionKey, GenerationCopilotSectionDecision>>
-  errorMessage?: string | null
-}
-
-export interface GenerationDesignBlueprintBlockPayload {
-  kind: 'design-blueprint-generation'
-  designDocumentId: string
-  generationMode: GenerationDesignGenerationMode
-  status: 'streaming' | 'completed' | 'aborted' | 'invalid' | 'error'
-  progressPercent: number
-  phaseLabel: string
-  canAbort: boolean
-  diagnostics?: OFBlueprintTextDiagnostic[]
-  errorMessage?: string | null
-}
-
-export interface GenerationDesignCalibrationProposalPayload {
-  strategy: GenerationDesignCalibrationProposalStrategy
-  summary: string
-  baseContentHash: string
-  targetDiagnosticSignatures: string[]
-  coveredDiagnosticSignatures: string[]
-  remainingDiagnosticSignatures: string[]
-  operations: OFBlueprintEditOperation[]
-  replacementDsl?: string | null
-  previewDsl: string
-  truncatedTailDiscarded: boolean
-}
-
-export interface GenerationDesignCalibrationBlockPayload {
-  kind: 'design-calibration'
-  designDocumentId: string
-  status: GenerationDesignCalibrationStatus
-  totalDiagnosticCount: number
-  remainingDiagnosticCount: number
-  currentPass: number
-  maxPasses: number
-  phaseLabel: string
-  canAbort: boolean
-  summary: string
-  truncatedTailDiscarded: boolean
-  proposal?: GenerationDesignCalibrationProposalPayload | null
-  errorMessage?: string | null
-}
-
-export interface GenerationLlmPromptMessage {
-  role: 'system' | 'user' | 'assistant'
-  content: string
-}
-
-export interface GenerationLlmRequestPayload {
-  messages: GenerationLlmPromptMessage[]
-}
-
 export interface GenerationMessageMetaPayload {
+  runId?: string
+  stageKey?: GenerationStageKey
   vendor?: GenerationSdkVendor
-  protocol?: ModelProviderProtocol
-  agentId?: string
-  mode?: GenerationAnalysisAgentMode
-  llmRequest?: GenerationLlmRequestPayload | null
-  planningBlock?: GenerationPlanningBlockPayload | null
-  copilotEditBlock?: GenerationCopilotEditBlockPayload | null
-  designBlueprintBlock?: GenerationDesignBlueprintBlockPayload | null
-  designCalibrationBlock?: GenerationDesignCalibrationBlockPayload | null
+  artifactDocumentId?: string
 }
 
 export interface GenerationMessage {
   id: string
   sessionId: string
   channelKey: GenerationChannelKey
-  designDocumentId: string | null
-  requestId: string | null
   role: GenerationChatRole
-  content: string
   status: GenerationMessageStatus
-  providerId: string | null
-  modelId: string | null
-  error: string | null
-  usageJson: string | null
+  content: string
   metaJson: string | null
-  rawResponseText: string | null
-  rawTraceJson: string | null
+  requestId: string | null
   createdAt: string
   updatedAt: string
 }
@@ -225,19 +90,19 @@ export interface GenerationMessage {
 export interface GenerationSessionSummary {
   id: string
   title: string
-  currentStage: GenerationRuntimeStageKey
+  currentStage: GenerationStageKey
   summary: string
   analysisTurnCount: number
-  planGenerated: boolean
+  designVersionCount: number
   createdAt: string
   updatedAt: string
 }
 
 export interface GenerationSessionDetail extends GenerationSessionSummary {
   stageConfigs: GenerationStageConfig[]
-  documents: GenerationDocument[]
-  planningDocuments: GenerationPlanningDocument[]
+  analysisDocument: GenerationAnalysisDocument
   designDocuments: GenerationDesignDocument[]
+  selectedDesignDocumentId: string | null
   messages: GenerationMessage[]
 }
 
@@ -247,10 +112,7 @@ export interface GenerationCreateSessionRequest {
 
 export interface GenerationUpdateSessionStateRequest {
   sessionId: string
-  currentStage?: GenerationRuntimeStageKey
-  summary?: string
-  analysisTurnCount?: number
-  planGenerated?: boolean
+  currentStage: GenerationStageKey
 }
 
 export interface GenerationSaveStageConfigRequest {
@@ -258,53 +120,20 @@ export interface GenerationSaveStageConfigRequest {
   config: GenerationStageConfig
 }
 
-export interface GenerationSaveDocumentRequest {
+export interface GenerationSaveAnalysisDocumentRequest {
   sessionId: string
-  document: GenerationDocument
+  document: GenerationAnalysisDocument
 }
 
-export interface GenerationSavePlanningDocumentRequest {
+export interface GenerationCreateDesignDocumentRequest {
   sessionId: string
-  document: GenerationPlanningDocument
-}
-
-export interface GenerationSelectPlanningDocumentRequest {
-  sessionId: string
-  stageKey: GenerationStageKey
-  documentId: string
-}
-
-export interface GenerationCreatePlanningDocumentFromMessageRequest {
-  sessionId: string
-  messageId: string
-}
-
-export interface GenerationCreateDesignDocumentFromPlanningRequest {
-  sessionId: string
-  planningDocumentId: string
-}
-
-export interface GenerationListDesignDocumentsRequest {
-  sessionId: string
-  planningDocumentId?: string
+  title?: string
+  planningSourceMessageId?: string | null
 }
 
 export interface GenerationSaveDesignDocumentRequest {
   sessionId: string
   document: GenerationDesignDocument
-}
-
-export interface GenerationCompileDesignDocumentToWorkflowRequest {
-  sessionId: string
-  designDocumentId: string
-  mode?: GenerationDesignWorkflowCompileMode
-}
-
-export interface GenerationCompileDesignDocumentToWorkflowResult {
-  designDocument: GenerationDesignDocument
-  workflowId: string
-  mode: GenerationDesignWorkflowCompileMode
-  recoverySummary: OFBlueprintRecoverySummary | null
 }
 
 export interface GenerationSelectDesignDocumentRequest {
@@ -317,43 +146,28 @@ export interface GenerationDeleteDesignDocumentRequest {
   designDocumentId: string
 }
 
-export interface GenerationApplyPlanningCommandProposalRequest {
+export interface GenerationCompileDesignDocumentToWorkflowRequest {
   sessionId: string
-  messageId: string
-  sectionKeys?: OFPlanningSectionKey[]
+  designDocumentId: string
 }
 
-export interface GenerationRejectPlanningCommandProposalRequest {
-  sessionId: string
-  messageId: string
-  sectionKeys?: OFPlanningSectionKey[]
+export interface GenerationCompileDesignDocumentToWorkflowResult {
+  designDocument: GenerationDesignDocument
+  workflowId: string
 }
 
 export interface GenerationListMessagesRequest {
   sessionId: string
   channelKey: GenerationChannelKey
-  designDocumentId?: string | null
 }
 
 export interface GenerationSendMessageRequest {
   sessionId: string
   channelKey: GenerationChannelKey
-  designDocumentId?: string | null
-  designCopilotIntent?: GenerationDesignCopilotIntent
-  designCalibrationContextBudgetChars?: number
+  text: string
   providerId: string
   modelId: string
-  content: string
-}
-
-export interface GenerationApplyDesignCalibrationProposalRequest {
-  sessionId: string
-  messageId: string
-}
-
-export interface GenerationRejectDesignCalibrationProposalRequest {
-  sessionId: string
-  messageId: string
+  designDocumentId?: string | null
 }
 
 export interface GenerationAbortMessageRequest {
@@ -364,65 +178,98 @@ export interface GenerationDeleteSessionRequest {
   sessionId: string
 }
 
-export interface GenerationStreamStartEvent {
-  type: 'stream-start'
+export interface GenerationGlobalSettings {
+  persistRawLlmData: boolean
+}
+
+export interface GenerationRunStartEvent {
+  type: 'run-start'
+  runId: string
   requestId: string
+  messageId: string
   sessionId: string
   channelKey: GenerationChannelKey
-  messageId: string
+  stageKey: GenerationStageKey
+  startedAt: string
 }
 
 export interface GenerationTextDeltaEvent {
   type: 'text-delta'
-  requestId: string
-  sessionId: string
-  channelKey: GenerationChannelKey
+  runId: string
   messageId: string
   delta: string
 }
 
-export interface GenerationContentReplaceEvent {
-  type: 'content-replace'
-  requestId: string
-  sessionId: string
-  channelKey: GenerationChannelKey
-  messageId: string
+export interface GenerationArtifactReplaceEvent {
+  type: 'artifact-replace'
+  runId: string
+  artifact: 'analysis-document' | 'design-document'
+  documentId?: string
   content: string
+  summary: string
 }
 
-export interface GenerationMessageMetaEvent {
-  type: 'message-meta'
-  requestId: string
-  sessionId: string
-  channelKey: GenerationChannelKey
-  messageId: string
-  metaJson: string | null
+export interface GenerationPromptSnapshotEvent {
+  type: 'prompt-snapshot'
+  runId: string
+  stepKey: string
+  title: string
+  prompt: string
+}
+
+export interface GenerationContextSnapshotEvent {
+  type: 'context-snapshot'
+  runId: string
+  stepKey: string
+  title: string
+  context: string
+}
+
+export interface GenerationMemorySnapshotEvent {
+  type: 'memory-snapshot'
+  runId: string
+  stepKey: string
+  memory: Record<string, unknown>
+}
+
+export interface GenerationValidationReportEvent {
+  type: 'validation-report'
+  runId: string
+  report: GenerationValidationReport
+}
+
+export interface GenerationBudgetEvent {
+  type: 'budget-update'
+  runId: string
+  spentTokens: number
+  iteration: number
+  maxIterations: number
 }
 
 export interface GenerationFinishEvent {
-  type: 'finish'
-  requestId: string
-  sessionId: string
-  channelKey: GenerationChannelKey
+  type: 'run-finish'
+  runId: string
   messageId: string
-  finishReason: 'stop' | 'aborted' | 'error'
-  usageJson?: string | null
+  status: Extract<GenerationRunStatus, 'completed' | 'aborted'>
+  finishedAt: string
 }
 
 export interface GenerationErrorEvent {
-  type: 'error'
-  requestId: string
-  sessionId: string
-  channelKey: GenerationChannelKey
+  type: 'run-error'
+  runId: string
   messageId: string
-  message: string
+  error: string
 }
 
 export type GenerationStreamEvent =
-  | GenerationStreamStartEvent
+  | GenerationRunStartEvent
   | GenerationTextDeltaEvent
-  | GenerationContentReplaceEvent
-  | GenerationMessageMetaEvent
+  | GenerationArtifactReplaceEvent
+  | GenerationPromptSnapshotEvent
+  | GenerationContextSnapshotEvent
+  | GenerationMemorySnapshotEvent
+  | GenerationValidationReportEvent
+  | GenerationBudgetEvent
   | GenerationFinishEvent
   | GenerationErrorEvent
 
@@ -434,61 +281,37 @@ export interface OrchestrflowGenerationEditorAPI {
   getSessionDetail: (sessionId: string) => Promise<ApiResponse<GenerationSessionDetail>>
   updateSessionState: (
     request: GenerationUpdateSessionStateRequest
-  ) => Promise<ApiResponse<GenerationSessionSummary>>
+  ) => Promise<ApiResponse<GenerationSessionDetail>>
   saveStageConfig: (
     request: GenerationSaveStageConfigRequest
   ) => Promise<ApiResponse<GenerationStageConfig>>
-  saveDocument: (request: GenerationSaveDocumentRequest) => Promise<ApiResponse<GenerationDocument>>
-  savePlanningDocument: (
-    request: GenerationSavePlanningDocumentRequest
-  ) => Promise<ApiResponse<GenerationPlanningDocument>>
-  selectPlanningDocument: (
-    request: GenerationSelectPlanningDocumentRequest
-  ) => Promise<ApiResponse<GenerationStageConfig>>
-  getOrCreatePlanningDocumentFromMessage: (
-    request: GenerationCreatePlanningDocumentFromMessageRequest
-  ) => Promise<ApiResponse<GenerationPlanningDocument>>
-  createDesignDocumentFromPlanning: (
-    request: GenerationCreateDesignDocumentFromPlanningRequest
+  saveAnalysisDocument: (
+    request: GenerationSaveAnalysisDocumentRequest
+  ) => Promise<ApiResponse<GenerationAnalysisDocument>>
+  createDesignDocument: (
+    request: GenerationCreateDesignDocumentRequest
   ) => Promise<ApiResponse<GenerationDesignDocument>>
-  listDesignDocuments: (
-    request: GenerationListDesignDocumentsRequest
-  ) => Promise<ApiResponse<GenerationDesignDocument[]>>
   saveDesignDocument: (
     request: GenerationSaveDesignDocumentRequest
   ) => Promise<ApiResponse<GenerationDesignDocument>>
-  compileDesignDocumentToWorkflow: (
-    request: GenerationCompileDesignDocumentToWorkflowRequest
-  ) => Promise<ApiResponse<GenerationCompileDesignDocumentToWorkflowResult>>
   selectDesignDocument: (
     request: GenerationSelectDesignDocumentRequest
-  ) => Promise<ApiResponse<GenerationStageConfig>>
+  ) => Promise<ApiResponse<GenerationSessionDetail>>
   deleteDesignDocument: (
     request: GenerationDeleteDesignDocumentRequest
   ) => Promise<ApiResponse<void>>
-  applyDesignCalibrationProposal: (
-    request: GenerationApplyDesignCalibrationProposalRequest
-  ) => Promise<ApiResponse<GenerationDesignDocument>>
-  rejectDesignCalibrationProposal: (
-    request: GenerationRejectDesignCalibrationProposalRequest
-  ) => Promise<ApiResponse<GenerationMessage>>
-  applyPlanningCommandProposal: (
-    request: GenerationApplyPlanningCommandProposalRequest
-  ) => Promise<ApiResponse<GenerationPlanningDocument>>
-  rejectPlanningCommandProposal: (
-    request: GenerationRejectPlanningCommandProposalRequest
-  ) => Promise<ApiResponse<GenerationMessage>>
+  compileDesignDocumentToWorkflow: (
+    request: GenerationCompileDesignDocumentToWorkflowRequest
+  ) => Promise<ApiResponse<GenerationCompileDesignDocumentToWorkflowResult>>
   listMessages: (
     request: GenerationListMessagesRequest
   ) => Promise<ApiResponse<GenerationMessage[]>>
-  sendMessage: (
-    request: GenerationSendMessageRequest
-  ) => Promise<ApiResponse<{ requestId: string }>>
-  abortMessage: (request: GenerationAbortMessageRequest) => Promise<ApiResponse<void>>
-  deleteSession: (request: GenerationDeleteSessionRequest) => Promise<ApiResponse<void>>
   getGlobalSettings: () => Promise<ApiResponse<GenerationGlobalSettings>>
   updateGlobalSettings: (
     settings: Partial<GenerationGlobalSettings>
   ) => Promise<ApiResponse<GenerationGlobalSettings>>
+  sendMessage: (request: GenerationSendMessageRequest) => Promise<ApiResponse<GenerationMessage>>
+  abortMessage: (request: GenerationAbortMessageRequest) => Promise<ApiResponse<void>>
+  deleteSession: (request: GenerationDeleteSessionRequest) => Promise<ApiResponse<void>>
   onStream: (handler: (event: GenerationStreamEvent) => void) => () => void
 }

@@ -1,354 +1,126 @@
 <template>
-  <div
-    class="of-generate-view of-generate-shell h-full w-full overflow-hidden bg-gray-50 text-gray-800"
-  >
-    <div class="flex h-full w-full flex-col overflow-hidden font-sans">
-      <GenerateHeader
-        :current-model-label="generationStore.currentModelLabel"
-        @toggle-sidebar="
-          generationStore.isLeftSidebarCollapsed = !generationStore.isLeftSidebarCollapsed
-        "
-        @open-config="generationStore.showConfigDrawer = true"
-        @open-model-selector="generationStore.showModelSelector = true"
+  <div class="gv-shell-m01 flex h-full w-full flex-col overflow-hidden bg-slate-100 text-slate-900">
+    <GenerateHeader
+      @create-session="handleCreateSession"
+      @open-config="generationStore.showConfigDrawer = true"
+      @open-model-selector="generationStore.showModelSelector = true"
+    />
+
+    <div v-if="generationStore.currentSession" class="flex min-h-0 flex-1 overflow-hidden">
+      <GenerateSidebar
+        :menus="menus"
+        :active-menu="generationStore.activeMenu"
+        @change-menu="generationStore.activeMenu = $event"
       />
 
-      <div v-if="generationStore.currentSession" class="relative flex flex-1 overflow-hidden">
-        <GenerateSidebar
-          :collapsed="generationStore.isLeftSidebarCollapsed"
-          :active-menu="generationStore.activeMenu"
-          :basic-menus="basicMenus"
-          :workflow-menus="workflowMenus"
-          :config-menus="configMenus"
-          @change-menu="generationStore.activeMenu = $event"
-        />
-
-        <main class="relative flex flex-1 overflow-hidden bg-white">
-          <div
-            :class="[
-              'flex-1 overflow-y-auto transition-all duration-300',
-              generationStore.isRightPanelFullscreen ? 'hidden' : 'block'
-            ]"
-          >
-            <GenerateDashboardPanel
-              v-if="generationStore.activeMenu === 'dashboard'"
-              :sessions-count="generationStore.sessions.length"
-              :planned-sessions-count="generationStore.plannedSessionsCount"
-              :current-session-stage-label="currentSessionStageLabel"
-              :dashboard-stage-cards="generationStore.dashboardStageCards"
-            />
-
-            <GenerateSessionsPanel
-              v-else-if="generationStore.activeMenu === 'sessions'"
-              :sessions="generationStore.sessions"
-              :selected-session-id="generationStore.selectedSessionId || ''"
-              :pending-session-id="generationStore.pendingSessionId || undefined"
-              :stage-order="stageOrder"
-              :get-stage-label="generationStore.getStageLabel"
-              :get-session-stage-dot-class="generationStore.getSessionStageDotClass"
-              @open-create-session="openCreateSessionModal"
-              @select-session="generationStore.selectSession($event)"
-              @delete-session="generationStore.deleteSession($event)"
-            />
-
-            <GenerateAnalysisPanel
-              v-else-if="generationStore.activeMenu === 'analysis'"
-              :session-title="generationStore.currentSession.title"
-              :session-summary="generationStore.currentSession.summary"
-              :current-session-stage-label="currentSessionStageLabel"
-              :messages="generationStore.analysisMessages"
-              :planning-documents="generationStore.currentSession.planningDocuments"
-              :design-documents="generationStore.currentSession.designDocuments"
-              :analysis-input="generationStore.analysisInput"
-              :is-analysis-streaming="generationStore.isAnalysisStreaming"
-              @open-sessions="generationStore.activeMenu = 'sessions'"
-              @open-copilot="generationStore.openCopilotPanel('analysis')"
-              @open-planning-copilot="generationStore.openPlanningCopilotFromMessage($event)"
-              @create-planning-design="
-                generationStore.createDesignDocumentFromPlanningMessage($event)
-              "
-              @open-existing-planning-designs="
-                generationStore.openExistingDesignsFromPlanningMessage($event)
-              "
-              @update:analysis-input="generationStore.analysisInput = $event"
-              @send-analysis="generationStore.sendAnalysisMessage()"
-              @abort-request="generationStore.abortGenerationRequest($event)"
-            />
-
-            <GenerateDesignPanel
-              v-else-if="generationStore.activeMenu === 'design'"
-              :session-title="generationStore.currentSession.title"
-              :design-content="generationStore.activeDesignDocument?.content || ''"
-              :snapshot-markdown="
-                generationStore.activeDesignDocument?.sourceSnapshotMarkdown || ''
-              "
-              :design-count="generationStore.designDocumentList.length"
-              :has-active-design-document="Boolean(generationStore.activeDesignDocument)"
-              :has-generated-dsl="Boolean(generationStore.activeDesignDocument?.content?.trim())"
-              :active-design-title="generationStore.activeDesignDocument?.title || null"
-              :active-design-version="generationStore.activeDesignDocument?.version || null"
-              :active-planning-title="generationStore.activeDesignPlanningDocument?.title || null"
-              :view-mode="generationStore.designDocumentViewMode"
-              :design-status="generationStore.activeDesignDocument?.status || null"
-              :diagnostics="generationStore.activeDesignDiagnostics"
-              :selected-diagnostic-index="generationStore.selectedDesignDiagnosticIndex"
-              :calibration-review="generationStore.activeDesignCalibrationReviewState"
-              :is-copilot-streaming="generationStore.isActiveCopilotStreaming"
-              @update:design-content="generationStore.handleDesignContentUpdate($event)"
-              @update:view-mode="generationStore.designDocumentViewMode = $event"
-              @generate-design="generationStore.requestDesignBlueprintGeneration()"
-              @run-calibration="generationStore.requestDesignCalibration()"
-              @compile-workflow="handleCompileWorkflow"
-              @apply-calibration="generationStore.applyDesignCalibrationProposal($event)"
-              @reject-calibration="generationStore.rejectDesignCalibrationProposal($event)"
-              @select-diagnostic="generationStore.openDesignDiagnostics($event)"
-              @open-copilot="generationStore.openCopilotPanel('design')"
-              @open-sessions="generationStore.activeMenu = 'sessions'"
-              @open-design-manager="generationStore.openDesignManager()"
-            />
-
-            <GenerateVerifyPanel
-              v-else-if="generationStore.activeMenu === 'verify'"
-              :session-title="generationStore.currentSession.title"
-              :file-name="generationStore.currentSession.documents.verify.fileName"
-              :verify-content="generationStore.currentSession.documents.verify.content"
-              @open-copilot="generationStore.openCopilotPanel('verify')"
-              @open-sessions="generationStore.activeMenu = 'sessions'"
-            />
-
-            <GenerateGlobalSettingsPanel
-              v-else-if="generationStore.activeMenu === 'settings'"
-              :model-value="generationStore.globalSettings.persistRawLlmData"
-              :is-loading="generationStore.isGlobalSettingsLoading"
-              :is-saving="generationStore.isGlobalSettingsSaving"
-              @update:model-value="
-                generationStore.updateGlobalSettings({ persistRawLlmData: $event })
-              "
-            />
-
-            <div v-else class="p-6 text-[13px] text-gray-500">
-              {{ generationStore.activeMenu }} 模块开发中，当前选中会话：{{
-                generationStore.currentSession.title
-              }}。
-            </div>
-          </div>
-
-          <div
-            v-if="generationStore.viewStatus === 'switching'"
-            class="pointer-events-none absolute inset-0 z-10 flex items-start justify-center bg-white/40 pt-6 backdrop-blur-[1px]"
-          >
-            <div
-              class="rounded-full border border-cyan-100 bg-white px-3 py-1 text-xs text-cyan-600 shadow-sm"
-            >
-              正在切换会话...
-            </div>
-          </div>
-
-          <GenerateAnalysisCopilotPanel
-            v-if="generationStore.activeRightPanel === 'analysis'"
-            :visible="generationStore.activeRightPanel === 'analysis'"
-            :is-fullscreen="generationStore.isRightPanelFullscreen"
-            :session-title="generationStore.currentSession.title"
-            :document="generationStore.analysisActivePlanningDocument"
-            :view-mode="generationStore.analysisPlanningViewMode"
-            :messages="generationStore.activeCopilotMessages"
-            :auto-approved="currentCopilotAutoApproved"
-            :copilot-input="generationStore.copilotInput"
-            :is-streaming="generationStore.isActiveCopilotStreaming"
-            :is-saving="generationStore.isPlanningDocumentSaving"
-            @toggle-auto-approved="generationStore.toggleAutoApproved()"
-            @toggle-fullscreen="
-              generationStore.isRightPanelFullscreen = !generationStore.isRightPanelFullscreen
-            "
-            @close="generationStore.closeRightPanel()"
-            @update:view-mode="generationStore.analysisPlanningViewMode = $event"
-            @update:copilot-input="generationStore.copilotInput = $event"
-            @send-copilot-message="generationStore.sendCopilotMessage()"
-            @save-document="generationStore.saveActivePlanningDocumentContent($event)"
-            @apply-review="generationStore.applyPlanningCommandProposal($event)"
-            @reject-review="generationStore.rejectPlanningCommandProposal($event)"
-            @abort-request="generationStore.abortGenerationRequest($event)"
+      <main class="flex min-h-0 flex-1 overflow-hidden bg-slate-100">
+        <div class="min-h-0 flex-1 overflow-y-auto">
+          <GenerateSessionsPanel
+            v-if="generationStore.activeMenu === 'sessions'"
+            :sessions="generationStore.sessions"
+            :selected-session-id="generationStore.currentSession.id"
+            @create-session="handleCreateSession"
+            @select-session="generationStore.selectSession($event)"
+            @delete-session="generationStore.deleteSession($event)"
           />
 
-          <GeneratePlanDesignPanel
+          <GenerateAnalysisPanel
+            v-else-if="generationStore.activeMenu === 'analysis'"
+            :document="generationStore.currentSession.analysisDocument"
+            :analysis-messages="generationStore.analysisMessages"
+            :planning-messages="generationStore.planningCopilotMessages"
+            :analysis-input="generationStore.analysisInput"
+            :planning-input="generationStore.planningCopilotInput"
+            @update:document="handleAnalysisDocumentChange"
+            @update:analysis-input="generationStore.analysisInput = $event"
+            @update:planning-input="generationStore.planningCopilotInput = $event"
+            @send-analysis="generationStore.sendMessage('analysis-planner', generationStore.analysisInput)"
+            @send-planning="
+              generationStore.sendMessage('planning-copilot', generationStore.planningCopilotInput)
+            "
+            @create-design="handleCreateDesignDocument"
+          />
+
+          <GenerateDesignPanel
+            v-else-if="generationStore.activeMenu === 'design'"
+            :documents="generationStore.currentSession.designDocuments"
+            :active-document="generationStore.activeDesignDocument"
+            :design-messages="generationStore.designMessages"
+            :design-input="generationStore.designInput"
+            @create-design="handleCreateDesignDocument"
+            @compile-workflow="handleCompileWorkflow"
+            @select-document="generationStore.selectDesignDocument($event)"
+            @delete-document="generationStore.deleteDesignDocument($event)"
+            @update:content="handleDesignContentChange"
+            @update:design-input="generationStore.designInput = $event"
+            @send-design="generationStore.sendMessage('design-planner', generationStore.designInput)"
+          />
+
+          <GenerateGlobalSettingsPanel
             v-else
-            :visible="generationStore.activeRightPanel !== null"
-            :is-fullscreen="generationStore.isRightPanelFullscreen"
-            :mode="generationStore.activeRightPanel || 'analysis'"
-            :session-title="generationStore.currentSession.title"
-            :document="generationStore.activeCopilotDocument"
-            :messages="generationStore.activeCopilotMessages"
-            :auto-approved="currentCopilotAutoApproved"
-            :copilot-input="generationStore.copilotInput"
-            :is-streaming="generationStore.isActiveCopilotStreaming"
-            @toggle-auto-approved="generationStore.toggleAutoApproved()"
-            @toggle-fullscreen="
-              generationStore.isRightPanelFullscreen = !generationStore.isRightPanelFullscreen
-            "
-            @close="generationStore.closeRightPanel()"
-            @update:copilot-input="generationStore.copilotInput = $event"
-            @send-copilot-message="generationStore.sendCopilotMessage()"
-            @abort-request="generationStore.abortGenerationRequest($event)"
+            :model-value="generationStore.globalSettings.persistRawLlmData"
+            @update:model-value="generationStore.updateGlobalSettings({ persistRawLlmData: $event })"
           />
-        </main>
-      </div>
-
-      <div v-else class="flex flex-1 items-center justify-center text-sm text-gray-500">
-        <div
-          v-if="generationStore.viewStatus === 'error'"
-          class="flex max-w-sm flex-col items-center gap-3 rounded-2xl border border-rose-100 bg-white px-6 py-8 text-center shadow-sm"
-        >
-          <div class="text-sm font-semibold text-gray-800">GenerateView 初始化失败</div>
-          <div class="text-xs leading-6 text-gray-500">
-            {{ generationStore.lastErrorMessage || '当前没有可用会话，请重试。' }}
-          </div>
-          <button
-            type="button"
-            class="rounded-lg bg-cyan-600 px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-cyan-700"
-            @click="generationStore.retryInitialize()"
-          >
-            重新加载
-          </button>
         </div>
-        <div v-else>正在加载 GenerateView...</div>
-      </div>
+
+        <GenerateRunInspectorPanel :run="generationStore.inspectorStore.selectedRun" />
+      </main>
+    </div>
+
+    <div v-else class="flex flex-1 items-center justify-center text-sm text-slate-500">
+      {{ generationStore.isLoading ? '正在加载 GenerateView...' : generationStore.errorMessage }}
     </div>
 
     <ModelSelector
-      v-if="generationStore.currentSession"
+      v-if="generationStore.currentStageConfig"
       :visible="generationStore.showModelSelector"
-      :current-provider-id="generationStore.currentStageConfig?.providerId || null"
-      :current-model-id="generationStore.currentStageConfig?.modelId || null"
+      :current-provider-id="generationStore.currentStageConfig.providerId"
+      :current-model-id="generationStore.currentStageConfig.modelId"
       title="选择当前阶段模型"
-      search-placeholder="搜索公共模型..."
-      hint-text="选择后会作用于当前阶段视图，并持久化到生成编辑器数据库"
       @update:visible="generationStore.showModelSelector = $event"
-      @select="generationStore.handleStageModelSelect"
+      @select="handleSelectModel"
     />
 
     <GenerateConfigDrawer
-      v-if="generationStore.currentSession"
+      v-if="generationStore.currentStageConfig"
       :visible="generationStore.showConfigDrawer"
-      :active-tab="generationStore.configDrawerTab"
-      :model-config-label="generationStore.modelConfigLabel"
-      :analysis-config="{
-        discussionMemory: generationStore.currentSession.stageConfigs.analysis.memoryRounds,
-        copilotMemory: generationStore.currentSession.stageConfigs.analysis.copilotMemoryRounds
-      }"
-      :design-config="{
-        designMemory: generationStore.currentSession.stageConfigs.design.memoryRounds,
-        copilotMemory: generationStore.currentSession.stageConfigs.design.copilotMemoryRounds,
-        calibrationContextBudgetChars: generationStore.designCalibrationContextBudgetChars
-      }"
-      :verify-config="{
-        verifyMemory: generationStore.currentSession.stageConfigs.verify.memoryRounds,
-        copilotMemory: generationStore.currentSession.stageConfigs.verify.copilotMemoryRounds
-      }"
+      :config="generationStore.currentStageConfig"
       @close="generationStore.showConfigDrawer = false"
-      @change-tab="generationStore.configDrawerTab = $event"
-      @update:analysis-discussion-memory="
-        generationStore.saveConfigDrawerStageConfig({ memoryRounds: $event })
-      "
-      @update:analysis-copilot-memory="
-        generationStore.saveConfigDrawerStageConfig({ copilotMemoryRounds: $event })
-      "
-      @update:design-memory="generationStore.saveConfigDrawerStageConfig({ memoryRounds: $event })"
-      @update:design-copilot-memory="
-        generationStore.saveConfigDrawerStageConfig({ copilotMemoryRounds: $event })
-      "
-      @update:design-calibration-context-budget-chars="
-        generationStore.designCalibrationContextBudgetChars = $event
-      "
-      @update:verify-memory="generationStore.saveConfigDrawerStageConfig({ memoryRounds: $event })"
-      @update:verify-copilot-memory="
-        generationStore.saveConfigDrawerStageConfig({ copilotMemoryRounds: $event })
-      "
-    />
-
-    <GenerateCreateSessionDialog
-      :visible="generationStore.showCreateSessionModal"
-      :model-value="generationStore.newSessionName"
-      @update:model-value="generationStore.newSessionName = $event"
-      @close="generationStore.showCreateSessionModal = false"
-      @confirm="generationStore.createSession()"
-    />
-
-    <GenerateDesignManagerDialog
-      v-if="generationStore.currentSession"
-      :visible="generationStore.showDesignManagerModal"
-      :documents="generationStore.filteredDesignDocumentList"
-      :planning-document-id="generationStore.designManagerPlanningDocumentId"
-      :planning-documents="generationStore.currentSession.planningDocuments"
-      :active-design-document-id="generationStore.activeDesignDocument?.id || null"
-      @close="generationStore.closeDesignManager()"
-      @show-all="generationStore.openDesignManager()"
-      @select="generationStore.selectDesignDocument($event)"
-      @delete="generationStore.deleteDesignDocument($event)"
-      @create-from-current-planning="
-        generationStore.designManagerPlanningDocumentId &&
-        generationStore.createDesignDocumentFromPlanningDocumentId(
-          generationStore.designManagerPlanningDocumentId
-        )
-      "
+      @update:memory-rounds="updateCurrentStageConfig({ memoryRounds: $event })"
+      @update:max-repair-iterations="updateCurrentStageConfig({ maxRepairIterations: $event })"
+      @update:budget-limit-tokens="updateCurrentStageConfig({ budgetLimitTokens: $event })"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted } from 'vue'
-import {
-  Activity,
-  CheckCircle,
-  GitBranch,
-  LayoutTemplate,
-  MessageSquare,
-  Settings
-} from 'lucide-vue-next'
+import { onMounted, onUnmounted } from 'vue'
+import { LayoutList, FilePenLine, ScrollText, Settings } from 'lucide-vue-next'
 import ModelSelector from '@renderer/components/ModelSelector/index.vue'
 import { useOrchestflowGenerationEditorStore } from '@renderer/stores/orchestraflow/generation-editor/generation-editor.store'
-import GenerateAnalysisCopilotPanel from './GenerateAnalysisCopilotPanel.vue'
 import GenerateAnalysisPanel from './GenerateAnalysisPanel.vue'
 import GenerateConfigDrawer from './GenerateConfigDrawer.vue'
-import GenerateDesignManagerDialog from './GenerateDesignManagerDialog.vue'
-import GenerateCreateSessionDialog from './GenerateCreateSessionDialog.vue'
-import GenerateDashboardPanel from './GenerateDashboardPanel.vue'
 import GenerateDesignPanel from './GenerateDesignPanel.vue'
 import GenerateGlobalSettingsPanel from './GenerateGlobalSettingsPanel.vue'
 import GenerateHeader from './GenerateHeader.vue'
-import GeneratePlanDesignPanel from './GeneratePlanDesignPanel.vue'
+import GenerateRunInspectorPanel from './GenerateRunInspectorPanel.vue'
 import GenerateSessionsPanel from './GenerateSessionsPanel.vue'
 import GenerateSidebar from './GenerateSidebar.vue'
-import GenerateVerifyPanel from './GenerateVerifyPanel.vue'
 import { runCompileWorkflowAction } from './compile-workflow.action'
-import type { MenuItem, StageKey } from './generate-view.types'
+import type { MenuItem } from './generate-view.types'
 
 const emit = defineEmits<{
   (e: 'open-workflow', workflowId: string): void
 }>()
+
 const generationStore = useOrchestflowGenerationEditorStore()
-const stageOrder: StageKey[] = ['analysis', 'design', 'verify']
 
-const basicMenus: MenuItem[] = [
-  { value: 'dashboard', label: 'Dashboard', icon: Activity },
-  { value: 'sessions', label: '会话管理', icon: MessageSquare }
+const menus: MenuItem[] = [
+  { value: 'sessions', label: '会话', icon: LayoutList },
+  { value: 'analysis', label: 'Analysis', icon: ScrollText },
+  { value: 'design', label: 'Design', icon: FilePenLine },
+  { value: 'settings', label: '设置', icon: Settings }
 ]
-
-const workflowMenus: MenuItem[] = [
-  { value: 'analysis', label: '需求分析与计划', icon: GitBranch },
-  { value: 'design', label: '规划设计', icon: LayoutTemplate },
-  { value: 'verify', label: '校验', icon: CheckCircle }
-]
-
-const configMenus: MenuItem[] = [{ value: 'settings', label: '全局配置', icon: Settings }]
-
-const currentSessionStageLabel = computed(() => {
-  if (!generationStore.currentSession) return '未完成需求分析'
-  return generationStore.getStageLabel(generationStore.currentSession.currentStage)
-})
-
-const currentCopilotAutoApproved = computed(() => {
-  if (!generationStore.currentSession || !generationStore.activeRightPanel) return true
-  return generationStore.currentSession.stageConfigs[generationStore.activeRightPanel].autoApproved
-})
 
 let disposeStreamListener: (() => void) | null = null
 
@@ -361,17 +133,65 @@ onUnmounted(() => {
   disposeStreamListener?.()
 })
 
-function openCreateSessionModal(): void {
-  generationStore.newSessionName = ''
-  generationStore.showCreateSessionModal = true
+async function handleCreateSession(): Promise<void> {
+  const title = window.prompt('输入新会话标题', generationStore.newSessionTitle) || ''
+  generationStore.newSessionTitle = title
+  await generationStore.createSession()
+}
+
+async function handleCreateDesignDocument(): Promise<void> {
+  await generationStore.createDesignDocument('设计稿')
+  generationStore.activeMenu = 'design'
+}
+
+async function handleAnalysisDocumentChange(content: string): Promise<void> {
+  if (!generationStore.currentSession) return
+  await generationStore.saveAnalysisDocument({
+    ...generationStore.currentSession.analysisDocument,
+    content,
+    summary: content.split('\n').find((line) => line.trim()) || '已手动编辑分析文档。'
+  })
+}
+
+async function handleDesignContentChange(content: string): Promise<void> {
+  if (!generationStore.activeDesignDocument) return
+  await generationStore.saveDesignDocument({
+    ...generationStore.activeDesignDocument,
+    content,
+    status: 'draft',
+    summary: '已手动编辑设计稿。'
+  })
 }
 
 async function handleCompileWorkflow(): Promise<void> {
   await runCompileWorkflowAction({
-    compileToWorkflow: (mode) => generationStore.compileDesignDocumentToWorkflow(mode),
-    confirmForceImport: (message) => window.confirm(message),
+    compileToWorkflow: () => generationStore.compileDesignDocumentToWorkflow(),
     openWorkflow: (workflowId) => emit('open-workflow', workflowId),
     reportError: (message) => window.alert(message)
+  })
+}
+
+async function handleSelectModel(payload: {
+  provider: { id: string }
+  model: { id: string }
+}): Promise<void> {
+  if (!generationStore.currentStageConfig) return
+  await generationStore.updateStageConfig({
+    ...generationStore.currentStageConfig,
+    providerId: payload.provider.id,
+    modelId: payload.model.id
+  })
+}
+
+async function updateCurrentStageConfig(patch: {
+  memoryRounds?: number
+  maxRepairIterations?: number
+  budgetLimitTokens?: number
+}): Promise<void> {
+  if (!generationStore.currentStageConfig) return
+  await generationStore.updateStageConfig({
+    ...generationStore.currentStageConfig,
+    ...patch
   })
 }
 </script>

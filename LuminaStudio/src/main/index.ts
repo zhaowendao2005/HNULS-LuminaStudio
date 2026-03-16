@@ -27,6 +27,7 @@ import { McpService } from './services/mcp'
 import { McpIPCHandler } from './ipc/mcp-handler'
 
 const log = logger.scope('Main')
+let orchestflowGenerationEditorService: OrchestflowGenerationEditorService | null = null
 
 // 确保开发环境也使用 LuminaStudio 作为应用名称（生产环境自动使用 productName）
 if (!app.isPackaged) {
@@ -123,7 +124,7 @@ app.whenReady().then(() => {
   new OrchestraflowIPCHandler(orchestraflowWorkflowService, modelConfigService)
 
   // GenerateView 现在直接在主进程里完成流式调用与持久化，不再额外预热专用 utility bridge。
-  const orchestflowGenerationEditorService = new OrchestflowGenerationEditorService(
+  orchestflowGenerationEditorService = new OrchestflowGenerationEditorService(
     databaseManager,
     modelConfigService
   )
@@ -164,7 +165,7 @@ app.on('window-all-closed', () => {
 
 // 应用退出前清理数据库连接
 app.on('before-quit', () => {
-  orchestflowGenerationEditorService.shutdown()
+  orchestflowGenerationEditorService?.shutdown()
   langchainClientBridge.kill()
   orchestraflowBridge.kill()
   sqliteTestService.close()

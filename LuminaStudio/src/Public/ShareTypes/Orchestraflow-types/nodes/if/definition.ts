@@ -1,14 +1,23 @@
 import type { OFIfElseNodeData } from '../../core-types'
 import { defineStandardOFNodeDefinition } from '../../node-definition'
 import { ifNodeCompiler } from './compiler'
-import { ifNodeDslDefinition } from './dsl'
+import { ifNodeDescription } from './description'
 import { ifNodeEditor } from './editor'
-import { ifNodeLlmSpec } from './llm-spec'
+import { ifNodeErrorGuidance } from './error-guidance'
+import { ifNodeMainPrompt } from './main-prompt'
 import { ifNodeRuntimeDefinition } from './runtime'
+import { ifNodeTomlDefinition } from './toml'
 
 export const ifNodeDefinition = defineStandardOFNodeDefinition<OFIfElseNodeData>({
-  dsl: ifNodeDslDefinition,
-  llmSpec: ifNodeLlmSpec,
+  authoring: {
+    token: 'if',
+    title: 'if',
+    description: ifNodeDescription,
+    mainPrompt: ifNodeMainPrompt,
+    errorGuidance: ifNodeErrorGuidance,
+    toml: ifNodeTomlDefinition,
+    legacyTokens: ['ifelse']
+  },
   runtime: ifNodeRuntimeDefinition,
   editor: ifNodeEditor,
   compiler: ifNodeCompiler

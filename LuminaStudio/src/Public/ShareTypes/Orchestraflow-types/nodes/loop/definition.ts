@@ -1,14 +1,22 @@
 import type { OFLoopNodeData } from '../../core-types'
 import { defineContainerOFNodeDefinition } from '../../node-definition'
 import { loopNodeCompiler } from './compiler'
-import { loopNodeDslDefinition } from './dsl'
+import { loopNodeDescription } from './description'
 import { loopNodeEditor } from './editor'
-import { loopNodeLlmSpec } from './llm-spec'
+import { loopNodeErrorGuidance } from './error-guidance'
+import { loopNodeMainPrompt } from './main-prompt'
 import { loopNodeRuntimeDefinition } from './runtime'
+import { loopNodeTomlDefinition } from './toml'
 
 export const loopNodeDefinition = defineContainerOFNodeDefinition<OFLoopNodeData>({
-  dsl: loopNodeDslDefinition,
-  llmSpec: loopNodeLlmSpec,
+  authoring: {
+    token: 'loop',
+    title: 'loop',
+    description: loopNodeDescription,
+    mainPrompt: loopNodeMainPrompt,
+    errorGuidance: loopNodeErrorGuidance,
+    toml: loopNodeTomlDefinition
+  },
   runtime: loopNodeRuntimeDefinition,
   editor: loopNodeEditor,
   compiler: loopNodeCompiler

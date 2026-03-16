@@ -4,6 +4,9 @@
     "src/renderer/src/env.d.ts",
     "src/renderer/src/**/*",
     "src/renderer/src/**/*.vue",
+    "src/preload/api/**/*",
+    "src/preload/bridge/**/*",
+    "src/preload/types/**/*",
     "src/preload/*.d.ts",
     "src/Public/**/*"
   ],

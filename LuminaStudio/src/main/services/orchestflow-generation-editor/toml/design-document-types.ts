@@ -1,0 +1,1 @@
+export type DesignDocumentTomlText = string

@@ -1,71 +1,46 @@
-import type {
-  GenerationChannelKey,
-  GenerationRuntimeStageKey,
-  GenerationStageKey
-} from '@preload/types'
-
 export interface GenerationSessionRow {
   id: string
   title: string
-  current_stage: GenerationRuntimeStageKey
+  current_stage: string
   summary: string
-  analysis_turn_count: number
-  plan_generated: number
+  selected_design_document_id: string | null
   created_at: string
   updated_at: string
 }
 
 export interface GenerationStageConfigRow {
   session_id: string
-  stage_key: GenerationStageKey
-  provider_id: string | null
-  model_id: string | null
-  sdk_vendor: 'openai' | 'anthropic' | 'google' | null
+  stage_key: string
+  provider_id: string
+  model_id: string
   memory_rounds: number
-  copilot_memory_rounds: number
-  auto_approved: number
-  active_planning_document_id: string | null
-  active_design_document_id: string | null
-}
-
-export interface GenerationDocumentRow {
-  session_id: string
-  document_key: GenerationStageKey
-  title: string
-  file_name: string
-  summary: string
-  content: string
-}
-
-export interface GenerationPlanningDocumentRow {
-  id: string
-  session_id: string
-  stage_key: GenerationStageKey
-  source_message_id: string
-  title: string
-  source_markdown: string
-  content: string
+  max_repair_iterations: number
+  budget_limit_tokens: number
   created_at: string
+  updated_at: string
+}
+
+export interface GenerationAnalysisDocumentRow {
+  session_id: string
+  title: string
+  content: string
+  summary: string
   updated_at: string
 }
 
 export interface GenerationDesignDocumentRow {
   id: string
   session_id: string
-  planning_document_id: string
-  planning_source_message_id: string
   title: string
-  version: number
-  status: 'draft' | 'streaming' | 'valid' | 'invalid' | 'aborted' | 'error'
-  source_snapshot_markdown: string
-  content_format: 'of-blueprint-section-v1'
   content: string
+  content_format: string
   summary: string
-  diagnostics_json: string | null
-  latest_generation_message_id: string | null
+  status: string
+  validation_json: string | null
+  planning_source_message_id: string | null
   derived_target_type: string | null
   derived_target_id: string | null
-  derived_status: string | null
+  version: number
   created_at: string
   updated_at: string
 }
@@ -73,19 +48,12 @@ export interface GenerationDesignDocumentRow {
 export interface GenerationMessageRow {
   id: string
   session_id: string
-  channel_key: GenerationChannelKey
-  design_document_id: string | null
-  request_id: string | null
-  role: 'user' | 'assistant' | 'system'
+  channel_key: string
+  role: string
+  status: string
   content: string
-  status: 'streaming' | 'final' | 'aborted' | 'error'
-  provider_id: string | null
-  model_id: string | null
-  error: string | null
-  usage_json: string | null
   meta_json: string | null
-  raw_response_text: string | null
-  raw_trace_json: string | null
+  request_id: string | null
   created_at: string
   updated_at: string
 }
@@ -93,6 +61,5 @@ export interface GenerationMessageRow {
 export interface GenerationGlobalSettingsRow {
   id: number
   persist_raw_llm_data: number
-  created_at: string
   updated_at: string
 }

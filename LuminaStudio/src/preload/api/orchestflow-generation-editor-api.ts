@@ -1,25 +1,17 @@
 import { ipcRenderer } from 'electron'
 import type {
   GenerationAbortMessageRequest,
-  GenerationApplyDesignCalibrationProposalRequest,
-  GenerationApplyPlanningCommandProposalRequest,
   GenerationCompileDesignDocumentToWorkflowRequest,
-  GenerationCreateDesignDocumentFromPlanningRequest,
-  GenerationCreatePlanningDocumentFromMessageRequest,
+  GenerationCreateDesignDocumentRequest,
   GenerationCreateSessionRequest,
   GenerationDeleteDesignDocumentRequest,
   GenerationDeleteSessionRequest,
   GenerationGlobalSettings,
-  GenerationListDesignDocumentsRequest,
   GenerationListMessagesRequest,
-  GenerationRejectDesignCalibrationProposalRequest,
-  GenerationRejectPlanningCommandProposalRequest,
+  GenerationSaveAnalysisDocumentRequest,
   GenerationSaveDesignDocumentRequest,
-  GenerationSaveDocumentRequest,
-  GenerationSavePlanningDocumentRequest,
-  GenerationSelectDesignDocumentRequest,
   GenerationSaveStageConfigRequest,
-  GenerationSelectPlanningDocumentRequest,
+  GenerationSelectDesignDocumentRequest,
   GenerationSendMessageRequest,
   GenerationStreamEvent,
   GenerationUpdateSessionStateRequest,
@@ -36,39 +28,18 @@ export const orchestflowGenerationEditorAPI: OrchestrflowGenerationEditorAPI = {
     ipcRenderer.invoke('orchestflowGenerationEditor:updateSessionState', request),
   saveStageConfig: (request: GenerationSaveStageConfigRequest) =>
     ipcRenderer.invoke('orchestflowGenerationEditor:saveStageConfig', request),
-  saveDocument: (request: GenerationSaveDocumentRequest) =>
-    ipcRenderer.invoke('orchestflowGenerationEditor:saveDocument', request),
-  savePlanningDocument: (request: GenerationSavePlanningDocumentRequest) =>
-    ipcRenderer.invoke('orchestflowGenerationEditor:savePlanningDocument', request),
-  selectPlanningDocument: (request: GenerationSelectPlanningDocumentRequest) =>
-    ipcRenderer.invoke('orchestflowGenerationEditor:selectPlanningDocument', request),
-  getOrCreatePlanningDocumentFromMessage: (
-    request: GenerationCreatePlanningDocumentFromMessageRequest
-  ) =>
-    ipcRenderer.invoke(
-      'orchestflowGenerationEditor:getOrCreatePlanningDocumentFromMessage',
-      request
-    ),
-  createDesignDocumentFromPlanning: (request: GenerationCreateDesignDocumentFromPlanningRequest) =>
-    ipcRenderer.invoke('orchestflowGenerationEditor:createDesignDocumentFromPlanning', request),
-  listDesignDocuments: (request: GenerationListDesignDocumentsRequest) =>
-    ipcRenderer.invoke('orchestflowGenerationEditor:listDesignDocuments', request),
+  saveAnalysisDocument: (request: GenerationSaveAnalysisDocumentRequest) =>
+    ipcRenderer.invoke('orchestflowGenerationEditor:saveAnalysisDocument', request),
+  createDesignDocument: (request: GenerationCreateDesignDocumentRequest) =>
+    ipcRenderer.invoke('orchestflowGenerationEditor:createDesignDocument', request),
   saveDesignDocument: (request: GenerationSaveDesignDocumentRequest) =>
     ipcRenderer.invoke('orchestflowGenerationEditor:saveDesignDocument', request),
-  compileDesignDocumentToWorkflow: (request: GenerationCompileDesignDocumentToWorkflowRequest) =>
-    ipcRenderer.invoke('orchestflowGenerationEditor:compileDesignDocumentToWorkflow', request),
   selectDesignDocument: (request: GenerationSelectDesignDocumentRequest) =>
     ipcRenderer.invoke('orchestflowGenerationEditor:selectDesignDocument', request),
   deleteDesignDocument: (request: GenerationDeleteDesignDocumentRequest) =>
     ipcRenderer.invoke('orchestflowGenerationEditor:deleteDesignDocument', request),
-  applyDesignCalibrationProposal: (request: GenerationApplyDesignCalibrationProposalRequest) =>
-    ipcRenderer.invoke('orchestflowGenerationEditor:applyDesignCalibrationProposal', request),
-  rejectDesignCalibrationProposal: (request: GenerationRejectDesignCalibrationProposalRequest) =>
-    ipcRenderer.invoke('orchestflowGenerationEditor:rejectDesignCalibrationProposal', request),
-  applyPlanningCommandProposal: (request: GenerationApplyPlanningCommandProposalRequest) =>
-    ipcRenderer.invoke('orchestflowGenerationEditor:applyPlanningCommandProposal', request),
-  rejectPlanningCommandProposal: (request: GenerationRejectPlanningCommandProposalRequest) =>
-    ipcRenderer.invoke('orchestflowGenerationEditor:rejectPlanningCommandProposal', request),
+  compileDesignDocumentToWorkflow: (request: GenerationCompileDesignDocumentToWorkflowRequest) =>
+    ipcRenderer.invoke('orchestflowGenerationEditor:compileDesignDocumentToWorkflow', request),
   listMessages: (request: GenerationListMessagesRequest) =>
     ipcRenderer.invoke('orchestflowGenerationEditor:listMessages', request),
   getGlobalSettings: () => ipcRenderer.invoke('orchestflowGenerationEditor:getGlobalSettings'),

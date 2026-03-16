@@ -161,7 +161,7 @@
                       @click="
                         patchRule(rule.id, {
                           source:
-                            rule.source?.mode === 'variable'
+                            rule.source_mode === 'variable'
                               ? ({
                                   mode: 'constant',
                                   constant_value: rule.constant_value
@@ -169,7 +169,7 @@
                               : ({
                                   mode: 'variable',
                                   ref:
-                                    rule.source?.mode === 'variable'
+                                    rule.source_mode === 'variable' && rule.source?.mode === 'variable'
                                       ? rule.source.ref
                                       : {
                                           selector: [],

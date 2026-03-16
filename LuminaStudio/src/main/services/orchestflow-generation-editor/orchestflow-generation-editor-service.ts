@@ -1,830 +1,527 @@
 import type Database from 'better-sqlite3'
 import type { WebContents } from 'electron'
-import { createHash, randomUUID } from 'crypto'
-import {
-  buildOFBlueprintDiagnosticSignature,
-  buildOFPlanningMarkdown,
-  compileOFBlueprintTextDsl,
-  parseOFPlanningMarkdown,
-  recoverOFBlueprintTextDslToRunnable,
-  type OFBlueprintTextDiagnostic
-} from '@shared/Orchestraflow-types'
-import { logger } from '../logger'
-import type { DatabaseManager } from '../database-sqlite'
-import type { ModelConfigService, PersistedModelProviderConfig } from '../model-config'
 import type {
-  GenerationApplyDesignCalibrationProposalRequest,
-  GenerationApplyPlanningCommandProposalRequest,
+  GenerationAnalysisDocument,
   GenerationCompileDesignDocumentToWorkflowRequest,
   GenerationCompileDesignDocumentToWorkflowResult,
-  GenerationCreateDesignDocumentFromPlanningRequest,
-  GenerationCreatePlanningDocumentFromMessageRequest,
+  GenerationCreateDesignDocumentRequest,
   GenerationCreateSessionRequest,
   GenerationDeleteDesignDocumentRequest,
+  GenerationDeleteSessionRequest,
+  GenerationDesignDocument,
   GenerationGlobalSettings,
-  GenerationListDesignDocumentsRequest,
   GenerationListMessagesRequest,
-  GenerationSendMessageRequest,
-  GenerationRejectDesignCalibrationProposalRequest,
-  GenerationRejectPlanningCommandProposalRequest,
+  GenerationSaveAnalysisDocumentRequest,
   GenerationSaveDesignDocumentRequest,
-  GenerationSaveDocumentRequest,
-  GenerationSavePlanningDocumentRequest,
-  GenerationSelectDesignDocumentRequest,
   GenerationSaveStageConfigRequest,
-  GenerationSelectPlanningDocumentRequest,
-  GenerationSessionSummary,
+  GenerationSelectDesignDocumentRequest,
+  GenerationSendMessageRequest,
+  GenerationSessionDetail,
   GenerationStageConfig,
+  GenerationStageKey,
+  GenerationStreamEvent,
   GenerationUpdateSessionStateRequest,
-  ModelProviderProtocol,
-  GenerationMessageMetaPayload,
-  GenerationDesignCalibrationBlockPayload,
-  GenerationDesignCopilotIntent
+  GenerationValidationReport,
+  ModelConfig
 } from '@preload/types'
+import { logger } from '@main/services/logger'
+import type { DatabaseManager } from '../database-sqlite/database-manager'
+import { OrchestraflowWorkflowService } from '../orchestraflow/orchestraflow-workflow-service'
+import type { ModelConfigService } from '../model-config'
+import { runAnalysisPlanner } from './agents/analysis-planner/graph'
+import { runDesignPlanner } from './agents/design-planner/graph'
+import { runPlanningCopilot } from './agents/planning-copilot/graph'
+import { estimateTokenUsage } from './agents/shared/trace-helpers'
+import { DEFAULT_STAGE_CONFIGS, createDefaultAnalysisDocument } from './constants/defaults'
+import { createGenerationChatModel } from './providers/chat-model-factory'
+import type { GenerationModelProviderConfig } from './providers/types'
 import { GenerationEditorRepository } from './repositories/generation-editor.repository'
-import { orchestraflowWorkflowService } from '../orchestraflow/orchestraflow-workflow-service'
-import {
-  abortGenerationStream,
-  startAnalysisPlannerAgentStream,
-  startCopilotEditorAgentStream,
-  startDesignCalibrationAgentStream,
-  startDesignBlueprintAgentStream,
-  startGenerationStream
-} from './llm-client'
-import type { ActiveGenerationStream } from './types/stream.types'
+import { buildBaseWorkflowSpecPrompt } from './prompts/base-workflow-spec'
+import { buildCompressedNodePrompt } from './prompts/prompt-compressor'
+import { createActiveGenerationRun } from './runtime/agent-runner'
+import { GenerationBudgetController } from './runtime/budget-controller'
+import { GenerationCallbackBridge } from './runtime/callback-bridge'
+import { EphemeralGenerationMemory } from './runtime/ephemeral-memory'
+import { GenerationTraceBuffer } from './runtime/trace-buffer'
+import type { ActiveGenerationRun, GenerationEventSink } from './runtime/types/runtime.types'
+import { compileDesignDocumentTomlToWorkflow } from './toml/compiler'
+import { runFormatValidation } from './validation/format-validator'
+import { mapAuthoringDiagnostics } from './validation/diagnostics'
+import { validateOFAuthoringToml } from '@shared/Orchestraflow-types'
 
 const log = logger.scope('OrchestflowGenerationEditorService')
-const OPENAI_OFFICIAL_BASE_URL = 'https://api.openai.com/v1'
 
-export class OrchestflowGenerationEditorService {
-  private readonly db: Database.Database
+function nowIso(): string {
+  return new Date().toISOString()
+}
+
+function buildAnalysisSummary(content: string): string {
+  const firstLine = content
+    .split('\n')
+    .map((line) => line.trim())
+    .find(Boolean)
+  return firstLine || '已生成需求分析。'
+}
+
+function buildDesignSummary(document: GenerationDesignDocument): string {
+  if (document.status === 'valid') {
+    return '设计稿已通过校验。'
+  }
+  if (document.status === 'invalid') {
+    return '设计稿仍有校验问题。'
+  }
+  return '设计稿草稿已更新。'
+}
+
+function applyPlanningPatch(
+  document: GenerationAnalysisDocument,
+  patch: { action: 'replace-analysis' | 'append-analysis'; content: string }
+): GenerationAnalysisDocument {
+  const nextContent =
+    patch.action === 'append-analysis'
+      ? `${document.content.trim()}\n\n${patch.content.trim()}`
+      : patch.content.trim()
+  return {
+    ...document,
+    content: nextContent,
+    summary: buildAnalysisSummary(nextContent),
+    updatedAt: nowIso()
+  }
+}
+
+export class OrchestflowGenerationEditorService implements GenerationEventSink {
   private readonly repository: GenerationEditorRepository
-  private readonly activeStreams = new Map<string, ActiveGenerationStream>()
+  private readonly memory = new EphemeralGenerationMemory()
+  private readonly traceBuffer = new GenerationTraceBuffer()
+  private readonly workflowService = new OrchestraflowWorkflowService()
+  private readonly activeRuns = new Map<string, ActiveGenerationRun>()
 
   constructor(
     databaseManager: DatabaseManager,
     private readonly modelConfigService: ModelConfigService
   ) {
-    this.db = databaseManager.getDatabase('orchestflow-generation-editor')
-    this.repository = new GenerationEditorRepository(this.db)
+    const db = databaseManager.getDatabase('orchestflow-generation-editor') as Database.Database
+    this.repository = new GenerationEditorRepository(db)
   }
 
-  async listSessions(): Promise<GenerationSessionSummary[]> {
+  emit(event: GenerationStreamEvent): void {
+    this.traceBuffer.append(event.runId, event)
+    for (const run of this.activeRuns.values()) {
+      if (run.runId === event.runId && (run as ActiveGenerationRun & { sender?: WebContents }).sender) {
+        ;(run as ActiveGenerationRun & { sender?: WebContents }).sender?.send(
+          'orchestflowGenerationEditor:stream',
+          event
+        )
+      }
+    }
+  }
+
+  listSessions() {
     return this.repository.listSessions()
   }
 
-  async createSession(request: GenerationCreateSessionRequest) {
-    const sessionId = this.repository.createSession(request)
-    return this.repository.getSessionDetail(sessionId)
+  createSession(request: GenerationCreateSessionRequest): GenerationSessionDetail {
+    return this.repository.createSession({
+      title: request.title,
+      stageConfigs: [DEFAULT_STAGE_CONFIGS.analysis, DEFAULT_STAGE_CONFIGS.design],
+      analysisDocument: createDefaultAnalysisDocument()
+    })
   }
 
-  async deleteSession(sessionId: string): Promise<void> {
-    for (const [requestId, stream] of this.activeStreams.entries()) {
-      if (stream.sessionId !== sessionId) {
-        continue
-      }
-      abortGenerationStream(this.activeStreams, requestId)
-    }
-
+  deleteSession(request: string | GenerationDeleteSessionRequest): void {
+    const sessionId = typeof request === 'string' ? request : request.sessionId
     this.repository.deleteSession(sessionId)
   }
 
-  async getSessionDetail(sessionId: string) {
+  getSessionDetail(sessionId: string): GenerationSessionDetail {
     return this.repository.getSessionDetail(sessionId)
   }
 
-  async updateSessionState(request: GenerationUpdateSessionStateRequest) {
-    return this.repository.updateSessionState(request)
+  updateSessionState(request: GenerationUpdateSessionStateRequest): GenerationSessionDetail {
+    return this.repository.updateSessionState(request.sessionId, request.currentStage)
   }
 
-  async saveStageConfig(request: GenerationSaveStageConfigRequest) {
-    return this.repository.saveStageConfig(request)
+  saveStageConfig(request: GenerationSaveStageConfigRequest): GenerationStageConfig {
+    return this.repository.saveStageConfig(request.sessionId, request.config)
   }
 
-  async saveDocument(request: GenerationSaveDocumentRequest) {
-    return this.repository.saveDocument(request)
+  saveAnalysisDocument(request: GenerationSaveAnalysisDocumentRequest): GenerationAnalysisDocument {
+    return this.repository.saveAnalysisDocument(request.sessionId, request.document)
   }
 
-  async savePlanningDocument(request: GenerationSavePlanningDocumentRequest) {
-    const parseResult = parseOFPlanningMarkdown(request.document.content)
-    if (parseResult.errors.length > 0) {
-      throw new Error(parseResult.errors.map((error) => error.message).join('；'))
-    }
-
-    return this.repository.savePlanningDocument({
-      ...request,
-      document: {
-        ...request.document,
-        sections: parseResult.document.sections,
-        content: buildOFPlanningMarkdown(parseResult.document)
-      }
+  createDesignDocument(request: GenerationCreateDesignDocumentRequest): GenerationDesignDocument {
+    return this.repository.createDesignDocument({
+      sessionId: request.sessionId,
+      title: request.title?.trim() || '设计稿',
+      planningSourceMessageId: request.planningSourceMessageId || null
     })
   }
 
-  async selectPlanningDocument(request: GenerationSelectPlanningDocumentRequest) {
-    return this.repository.selectPlanningDocument(request)
+  saveDesignDocument(request: GenerationSaveDesignDocumentRequest): GenerationDesignDocument {
+    return this.repository.saveDesignDocument(request.sessionId, request.document)
   }
 
-  async getOrCreatePlanningDocumentFromMessage(
-    request: GenerationCreatePlanningDocumentFromMessageRequest
-  ) {
-    return this.repository.getOrCreatePlanningDocumentFromMessage(request)
+  selectDesignDocument(request: GenerationSelectDesignDocumentRequest): GenerationSessionDetail {
+    return this.repository.selectDesignDocument(request.sessionId, request.designDocumentId)
   }
 
-  async createDesignDocumentFromPlanning(
-    request: GenerationCreateDesignDocumentFromPlanningRequest
-  ) {
-    return this.repository.createDesignDocumentFromPlanning(request)
+  deleteDesignDocument(request: GenerationDeleteDesignDocumentRequest): void {
+    this.repository.deleteDesignDocument(request.sessionId, request.designDocumentId)
   }
 
-  async listDesignDocuments(request: GenerationListDesignDocumentsRequest) {
-    return this.repository.listDesignDocuments(request)
+  listMessages(request: GenerationListMessagesRequest) {
+    return this.repository.listMessages(request.sessionId, request.channelKey)
   }
 
-  async saveDesignDocument(request: GenerationSaveDesignDocumentRequest) {
-    const compileResult = compileOFBlueprintTextDsl(request.document.content)
-    const nextStatus = compileResult.valid ? 'valid' : 'invalid'
-    return this.repository.saveDesignDocument({
-      ...request,
-      document: {
-        ...request.document,
-        contentFormat: detectBlueprintContentFormat(request.document.content),
-        status: nextStatus,
-        diagnosticsJson: compileResult.diagnostics.length
-          ? JSON.stringify(compileResult.diagnostics)
-          : null,
-        summary: buildDesignDocumentSummary(nextStatus, compileResult.diagnostics)
-      }
-    })
+  getGlobalSettings(): GenerationGlobalSettings {
+    return this.repository.getGlobalSettings()
+  }
+
+  updateGlobalSettings(settings: Partial<GenerationGlobalSettings>): GenerationGlobalSettings {
+    return this.repository.updateGlobalSettings(settings)
   }
 
   async compileDesignDocumentToWorkflow(
     request: GenerationCompileDesignDocumentToWorkflowRequest
   ): Promise<GenerationCompileDesignDocumentToWorkflowResult> {
-    const designDocument = this.ensureActiveDesignDocument(
-      request.sessionId,
-      request.designDocumentId
-    )
-    if (!designDocument.content.trim()) {
-      throw new Error('当前规划设计稿 DSL 为空，无法编译为工作流。')
+    const detail = this.repository.getSessionDetail(request.sessionId)
+    const designDocument = detail.designDocuments.find((item) => item.id === request.designDocumentId)
+    if (!designDocument) {
+      throw new Error('设计稿不存在，无法编译。')
     }
 
-    const mode = request.mode || 'strict'
-    // strict 仍然保持原有强校验；force-draft 则允许把可恢复骨架直接落成可编辑 workflow 草稿。
-    const compileResult =
-      mode === 'force-draft'
-        ? recoverOFBlueprintTextDslToRunnable(designDocument.content, {
-            fallbackWorkflowName: designDocument.title
-          })
-        : compileOFBlueprintTextDsl(designDocument.content)
-
-    if (!compileResult.runnable) {
-      throw new Error(
-        mode === 'force-draft'
-          ? buildBlueprintForceImportFailureMessage(compileResult.diagnostics)
-          : buildBlueprintCompileFailureMessage(compileResult.diagnostics)
-      )
+    const parsed = runFormatValidation(designDocument.content)
+    if (!parsed.document) {
+      throw new Error(parsed.diagnostics.map((item) => item.message).join('\n'))
     }
 
-    // 编译链路只消费 shared blueprint compiler 的真相源，不在这里重复拼装 workflow graph。
-    const workflow = await orchestraflowWorkflowService.createFromWorkflow(compileResult.runnable)
-    const nextDesignStatus = mode === 'strict' || compileResult.valid ? 'valid' : designDocument.status
-    const savedDesignDocument = this.repository.saveDesignDocument({
-      sessionId: request.sessionId,
-      document: {
-        ...designDocument,
-        status: nextDesignStatus,
-        summary:
-          mode === 'force-draft'
-            ? buildForceImportedDesignSummary(compileResult.diagnostics)
-            : buildDesignDocumentSummary('valid', compileResult.diagnostics),
-        diagnosticsJson:
-          mode === 'force-draft' && compileResult.diagnostics.length
-            ? JSON.stringify(compileResult.diagnostics)
-            : null,
-        derivedTargetType: 'workflow',
-        derivedTargetId: workflow.id,
-        derivedStatus: mode === 'force-draft' ? 'force-imported' : 'compiled'
-      }
+    const validation = validateOFAuthoringToml(parsed.document)
+    if (!validation.valid) {
+      throw new Error(validation.diagnostics.map((item) => item.message).join('\n'))
+    }
+
+    const compiled = compileDesignDocumentTomlToWorkflow(designDocument.content)
+    if (!compiled.runnable) {
+      throw new Error(compiled.diagnostics.map((item) => item.message).join('\n'))
+    }
+
+    const workflow = await this.workflowService.createFromWorkflow(compiled.runnable)
+    const saved = this.repository.saveDesignDocument(request.sessionId, {
+      ...designDocument,
+      status: 'valid',
+      validationJson: JSON.stringify({
+        valid: true,
+        diagnostics: []
+      }),
+      summary: '设计稿已编译为工作流。',
+      derivedTargetType: 'workflow',
+      derivedTargetId: workflow.id,
+      updatedAt: nowIso()
     })
 
     return {
-      designDocument: savedDesignDocument,
-      workflowId: workflow.id,
-      mode,
-      recoverySummary: compileResult.recoverySummary
+      designDocument: saved,
+      workflowId: workflow.id
     }
   }
 
-  async selectDesignDocument(request: GenerationSelectDesignDocumentRequest) {
-    return this.repository.selectDesignDocument(request)
-  }
+  async sendMessage(sender: WebContents, request: GenerationSendMessageRequest) {
+    const stageKey = request.channelKey === 'design-planner' ? 'design' : 'analysis'
+    const detail = this.repository.getSessionDetail(request.sessionId)
+    const stageConfig = this.getStageConfig(detail, stageKey)
 
-  async deleteDesignDocument(request: GenerationDeleteDesignDocumentRequest) {
-    return this.repository.deleteDesignDocument(request)
-  }
-
-  async applyPlanningCommandProposal(request: GenerationApplyPlanningCommandProposalRequest) {
-    return this.repository.applyPlanningCommandProposal(request)
-  }
-
-  async applyDesignCalibrationProposal(request: GenerationApplyDesignCalibrationProposalRequest) {
-    const message = this.repository.getMessageById(request.messageId)
-    if (!message || message.session_id !== request.sessionId) {
-      throw new Error(`Design calibration message not found: ${request.messageId}`)
-    }
-
-    const meta = parseGenerationMessageMeta(message.meta_json)
-    const block = meta.designCalibrationBlock
-    const proposal = block?.proposal
-    if (!block || block.kind !== 'design-calibration' || !proposal) {
-      throw new Error('Design calibration proposal missing')
-    }
-    if (block.status !== 'pending') {
-      throw new Error('当前 design calibration proposal 不处于待审阅状态。')
-    }
-
-    const designDocument = this.ensureActiveDesignDocument(
-      request.sessionId,
-      block.designDocumentId
-    )
-    const currentHash = buildContentHash(designDocument.content)
-    if (currentHash !== proposal.baseContentHash) {
-      throw new Error('当前规划设计稿正文已变更，请重新发起校准。')
-    }
-
-    const previewDsl = resolveCalibrationPreviewDsl(proposal)
-    if (!previewDsl.trim()) {
-      throw new Error('Design calibration proposal 缺少可应用的 preview DSL。')
-    }
-
-    const savedDocument = await this.saveDesignDocument({
-      sessionId: request.sessionId,
-      document: {
-        ...designDocument,
-        content: previewDsl
-      }
-    })
-
-    meta.designCalibrationBlock = {
-      ...block,
-      status: 'applied',
-      canAbort: false,
-      remainingDiagnosticCount: parseDesignDiagnostics(savedDocument.diagnosticsJson).length,
-      summary: savedDocument.summary,
-      errorMessage: null
-    }
-    this.repository.updateMessageMeta(request.messageId, JSON.stringify(meta))
-    return savedDocument
-  }
-
-  async rejectPlanningCommandProposal(request: GenerationRejectPlanningCommandProposalRequest) {
-    return this.repository.rejectPlanningCommandProposal(request)
-  }
-
-  async rejectDesignCalibrationProposal(request: GenerationRejectDesignCalibrationProposalRequest) {
-    const message = this.repository.getMessageById(request.messageId)
-    if (!message || message.session_id !== request.sessionId) {
-      throw new Error(`Design calibration message not found: ${request.messageId}`)
-    }
-
-    const meta = parseGenerationMessageMeta(message.meta_json)
-    if (meta.designCalibrationBlock?.kind === 'design-calibration') {
-      meta.designCalibrationBlock = {
-        ...meta.designCalibrationBlock,
-        status: 'rejected',
-        canAbort: false,
-        errorMessage: null
-      }
-      this.repository.updateMessageMeta(request.messageId, JSON.stringify(meta))
-    }
-
-    return this.repository
-      .listMessages({
-        sessionId: request.sessionId,
-        channelKey: 'design-copilot',
-        designDocumentId: meta.designCalibrationBlock?.designDocumentId || null
-      })
-      .find((item) => item.id === request.messageId)!
-  }
-
-  async listMessages(request: GenerationListMessagesRequest) {
-    return this.repository.listMessages(request)
-  }
-
-  async getGlobalSettings(): Promise<GenerationGlobalSettings> {
-    return this.repository.getGlobalSettings()
-  }
-
-  async updateGlobalSettings(
-    settings: Partial<GenerationGlobalSettings>
-  ): Promise<GenerationGlobalSettings> {
-    return this.repository.updateGlobalSettings(settings)
-  }
-
-  async sendMessage(
-    sender: WebContents,
-    request: GenerationSendMessageRequest
-  ): Promise<{ requestId: string }> {
-    const text = request.content.trim()
-    if (!text) throw new Error('Message content is required')
-
-    const provider = await this.resolveProvider(request.providerId)
-    const globalSettings = this.repository.getGlobalSettings()
-    const effectiveProtocol = this.resolveEffectiveProtocol(provider)
-    const vendor = this.resolveSdkVendorFromProtocol(effectiveProtocol)
-    const requestId = randomUUID()
-    const assistantMessageId = randomUUID()
-
-    log.info('Dispatching generation request', {
-      requestId,
+    const userMessage = this.repository.insertMessage({
       sessionId: request.sessionId,
       channelKey: request.channelKey,
-      designCopilotIntent: request.designCopilotIntent,
-      providerId: request.providerId,
-      providerName: provider.name,
-      protocol: effectiveProtocol,
-      sdkVendor: vendor,
-      baseUrl: provider.baseUrl,
-      modelId: request.modelId,
-      contentPreview: buildContentPreview(text)
-    })
-
-    const designDocument =
-      request.channelKey === 'design-copilot'
-        ? this.ensureActiveDesignDocument(request.sessionId, request.designDocumentId)
-        : null
-    const designCopilotIntent: GenerationDesignCopilotIntent =
-      request.designCopilotIntent || 'blueprint-generate'
-
-    this.repository.insertMessage({
-      id: randomUUID(),
-      session_id: request.sessionId,
-      channel_key: request.channelKey,
-      design_document_id: designDocument?.id || null,
-      request_id: requestId,
       role: 'user',
-      content: text,
-      status: 'final',
-      provider_id: request.providerId,
-      model_id: request.modelId,
-      error: null,
-      usage_json: null,
-      meta_json: null,
-      raw_response_text: null,
-      raw_trace_json: null
+      status: 'completed',
+      content: request.text
     })
 
-    this.repository.insertMessage({
-      id: assistantMessageId,
-      session_id: request.sessionId,
-      channel_key: request.channelKey,
-      design_document_id: designDocument?.id || null,
-      request_id: requestId,
+    const assistantMessage = this.repository.insertMessage({
+      sessionId: request.sessionId,
+      channelKey: request.channelKey,
       role: 'assistant',
-      content: '',
       status: 'streaming',
-      provider_id: request.providerId,
-      model_id: request.modelId,
-      error: null,
-      usage_json: null,
-      meta_json: JSON.stringify(
-        request.channelKey === 'design-copilot' && designDocument
-          ? designCopilotIntent === 'diagnostic-calibration'
-            ? buildInitialDesignCalibrationMessageMeta({
-                vendor,
-                protocol: effectiveProtocol,
-                designDocumentId: designDocument.id,
-                diagnostics: parseDesignDiagnostics(designDocument.diagnosticsJson)
-              })
-            : buildInitialDesignBlueprintMessageMeta({
-                vendor,
-                protocol: effectiveProtocol,
-                designDocumentId: designDocument.id,
-                generationMode: designDocument.content.trim() ? 'regenerate' : 'generate'
-              })
-          : { vendor, protocol: effectiveProtocol }
-      ),
-      raw_response_text: null,
-      raw_trace_json: null
+      content: '',
+      meta: {
+        stageKey
+      }
     })
 
-    if (request.channelKey === 'analysis-discussion') {
-      const sessionDetail = this.repository.getSessionDetail(request.sessionId)
-      const analysisStageConfig = sessionDetail.stageConfigs.find(
-        (item) => item.stageKey === 'analysis'
-      )
+    const activeRun = createActiveGenerationRun({
+      sessionId: request.sessionId,
+      channelKey: request.channelKey,
+      stageKey,
+      messageId: assistantMessage.id
+    }) as ActiveGenerationRun & { sender?: WebContents }
+    activeRun.sender = sender
+    this.activeRuns.set(activeRun.requestId, activeRun)
 
-      startAnalysisPlannerAgentStream({
-        activeStreams: this.activeStreams,
-        repository: this.repository,
-        sender,
-        requestId,
-        sessionId: request.sessionId,
-        channelKey: request.channelKey,
-        messageId: assistantMessageId,
-        providerId: request.providerId,
-        modelId: request.modelId,
-        vendor,
-        protocol: effectiveProtocol,
-        apiKey: provider.apiKey,
-        baseUrl: provider.baseUrl || undefined,
-        defaultHeaders: provider.defaultHeaders,
-        persistRawLlmData: globalSettings.persistRawLlmData,
-        memoryRounds: analysisStageConfig?.memoryRounds || 6,
-        userMessage: text
-      })
-    } else if (request.channelKey === 'analysis-copilot') {
-      const sessionDetail = this.repository.getSessionDetail(request.sessionId)
-      const analysisStageConfig = sessionDetail.stageConfigs.find(
-        (item) => item.stageKey === 'analysis'
-      )
+    this.emit({
+      type: 'run-start',
+      runId: activeRun.runId,
+      requestId: activeRun.requestId,
+      messageId: assistantMessage.id,
+      sessionId: request.sessionId,
+      channelKey: request.channelKey,
+      stageKey,
+      startedAt: nowIso()
+    })
 
-      if (!analysisStageConfig) {
-        throw new Error('Analysis stage config missing')
-      }
-
-      const planningDocument = this.ensureActiveAnalysisPlanningDocument(request.sessionId)
-
-      startCopilotEditorAgentStream({
-        activeStreams: this.activeStreams,
-        repository: this.repository,
-        sender,
-        requestId,
-        sessionId: request.sessionId,
-        channelKey: request.channelKey,
-        messageId: assistantMessageId,
-        providerId: request.providerId,
-        modelId: request.modelId,
-        vendor,
-        protocol: effectiveProtocol,
-        apiKey: provider.apiKey,
-        baseUrl: provider.baseUrl || undefined,
-        defaultHeaders: provider.defaultHeaders,
-        persistRawLlmData: globalSettings.persistRawLlmData,
-        stageKey: 'analysis',
-        stageConfig: analysisStageConfig as GenerationStageConfig,
-        planningDocument,
-        userMessage: text
-      })
-    } else if (request.channelKey === 'design-copilot') {
-      if (designCopilotIntent === 'diagnostic-calibration') {
-        startDesignCalibrationAgentStream({
-          activeStreams: this.activeStreams,
-          repository: this.repository,
-          sender,
-          requestId,
-          sessionId: request.sessionId,
-          channelKey: request.channelKey,
-          messageId: assistantMessageId,
-          providerId: request.providerId,
-          modelId: request.modelId,
-          vendor,
-          protocol: effectiveProtocol,
-          apiKey: provider.apiKey,
-          baseUrl: provider.baseUrl || undefined,
-          defaultHeaders: provider.defaultHeaders,
-          persistRawLlmData: globalSettings.persistRawLlmData,
-          stageConfig: this.repository.getStageConfig(request.sessionId, 'design'),
-          designDocument: designDocument!,
-          userMessage: text,
-          contextBudgetChars: request.designCalibrationContextBudgetChars || 100000
-        })
-      } else {
-        startDesignBlueprintAgentStream({
-          activeStreams: this.activeStreams,
-          repository: this.repository,
-          sender,
-          requestId,
-          sessionId: request.sessionId,
-          channelKey: request.channelKey,
-          messageId: assistantMessageId,
-          providerId: request.providerId,
-          modelId: request.modelId,
-          vendor,
-          protocol: effectiveProtocol,
-          apiKey: provider.apiKey,
-          baseUrl: provider.baseUrl || undefined,
-          defaultHeaders: provider.defaultHeaders,
-          persistRawLlmData: globalSettings.persistRawLlmData,
-          stageConfig: this.repository.getStageConfig(request.sessionId, 'design'),
-          designDocument: designDocument!,
-          userMessage: text
-        })
-      }
-    } else {
-      startGenerationStream({
-        activeStreams: this.activeStreams,
-        repository: this.repository,
-        sender,
-        requestId,
-        sessionId: request.sessionId,
-        channelKey: request.channelKey,
-        messageId: assistantMessageId,
-        providerId: request.providerId,
-        providerName: provider.name,
-        modelId: request.modelId,
-        vendor,
-        protocol: effectiveProtocol,
-        apiKey: provider.apiKey,
-        baseUrl: provider.baseUrl || undefined,
-        defaultHeaders: provider.defaultHeaders,
-        persistRawLlmData: globalSettings.persistRawLlmData,
-        messages: [{ role: 'user', content: text }],
-        requestContent: text
-      })
+    void this.executeAgentRun(activeRun, request, detail, stageConfig, userMessage.content)
+    return {
+      ...assistantMessage,
+      requestId: activeRun.requestId
     }
-
-    return { requestId }
   }
 
   async abortMessage(requestId: string): Promise<void> {
-    const activeStream = this.activeStreams.get(requestId)
-    if (!activeStream) {
-      return
+    const activeRun = this.activeRuns.get(requestId)
+    if (activeRun) {
+      activeRun.aborted = true
     }
-
-    this.failActiveStream(activeStream, '已停止，本次生成内容已丢弃，可重试。')
-    abortGenerationStream(this.activeStreams, requestId)
   }
 
   shutdown(): void {
-    for (const stream of this.activeStreams.values()) {
-      this.failActiveStream(stream, '程序关闭，未完成的生成已停止，本次内容已丢弃。')
-      stream.abortController.abort()
-    }
-    this.activeStreams.clear()
+    this.activeRuns.clear()
   }
 
-  private ensureActiveAnalysisPlanningDocument(sessionId: string) {
-    const detail = this.repository.getSessionDetail(sessionId)
-    const analysisStageConfig = detail.stageConfigs.find((item) => item.stageKey === 'analysis')
-    if (analysisStageConfig?.activePlanningDocumentId) {
-      return this.repository.getPlanningDocumentById(analysisStageConfig.activePlanningDocumentId)
-    }
+  private async executeAgentRun(
+    activeRun: ActiveGenerationRun,
+    request: GenerationSendMessageRequest,
+    detail: GenerationSessionDetail,
+    stageConfig: GenerationStageConfig,
+    userText: string
+  ): Promise<void> {
+    const bridge = new GenerationCallbackBridge(this, activeRun.runId)
+    const budget = new GenerationBudgetController(stageConfig.maxRepairIterations)
 
-    const latestPlanningMessage = [...detail.messages]
-      .reverse()
-      .find(
-        (message) =>
-          message.channelKey === 'analysis-discussion' && hasPlanningBlock(message.metaJson)
-      )
+    try {
+      const provider = await this.resolveProviderConfig(request.providerId, request.modelId)
+      const model = createGenerationChatModel(provider)
+      const memoryWindow = this.memory.read(request.sessionId, stageConfig.memoryRounds)
+      const workflowSpec = buildBaseWorkflowSpecPrompt()
+      const nodePrompt = buildCompressedNodePrompt()
 
-    if (!latestPlanningMessage) {
-      throw new Error('请先在需求分析与计划对话中生成一版规划，再使用 Copilot 调整。')
-    }
+      bridge.emit({
+        type: 'memory-snapshot',
+        stepKey: request.channelKey,
+        memory: {
+          memoryWindow
+        }
+      })
 
-    return this.repository.getOrCreatePlanningDocumentFromMessage({
-      sessionId,
-      messageId: latestPlanningMessage.id
-    })
-  }
+      if (request.channelKey === 'analysis-planner') {
+        const result = await runAnalysisPlanner({
+          model,
+          context: {
+            analysisDocument: detail.analysisDocument.content,
+            userText,
+            memoryWindow,
+            workflowSpec
+          }
+        })
+        bridge.emit({ type: 'prompt-snapshot', stepKey: 'analysis-planner', title: 'Analysis Prompt', prompt: result.prompt })
+        bridge.emit({ type: 'context-snapshot', stepKey: 'analysis-planner', title: 'Analysis Context', context: result.context })
+        const spentTokens = budget.add(estimateTokenUsage(result.prompt + result.markdown))
+        bridge.emit({
+          type: 'budget-update',
+          spentTokens,
+          iteration: 1,
+          maxIterations: budget.getMaxIterations()
+        })
+        this.repository.updateMessageContent(activeRun.messageId, result.markdown)
+        const analysisDocument = this.repository.saveAnalysisDocument(request.sessionId, {
+          ...detail.analysisDocument,
+          content: result.markdown,
+          summary: buildAnalysisSummary(result.markdown)
+        })
+        bridge.emit({
+          type: 'artifact-replace',
+          artifact: 'analysis-document',
+          content: analysisDocument.content,
+          summary: analysisDocument.summary
+        })
+      } else if (request.channelKey === 'planning-copilot') {
+        const result = await runPlanningCopilot({
+          model,
+          context: {
+            analysisDocument: detail.analysisDocument.content,
+            userText,
+            memoryWindow
+          }
+        })
+        bridge.emit({ type: 'prompt-snapshot', stepKey: 'planning-copilot', title: 'Planning Copilot Prompt', prompt: result.prompt })
+        bridge.emit({ type: 'context-snapshot', stepKey: 'planning-copilot', title: 'Planning Copilot Context', context: result.context })
+        const spentTokens = budget.add(estimateTokenUsage(result.prompt + result.patchToml))
+        bridge.emit({
+          type: 'budget-update',
+          spentTokens,
+          iteration: 1,
+          maxIterations: budget.getMaxIterations()
+        })
+        this.repository.updateMessageContent(activeRun.messageId, result.patchToml)
+        const patch = require('@shared/Orchestraflow-types').parseOFPlanningPatchToml(
+          result.patchToml
+        ) as { action: 'replace-analysis' | 'append-analysis'; content: string }
+        const analysisDocument = this.repository.saveAnalysisDocument(
+          request.sessionId,
+          applyPlanningPatch(detail.analysisDocument, patch)
+        )
+        bridge.emit({
+          type: 'artifact-replace',
+          artifact: 'analysis-document',
+          content: analysisDocument.content,
+          summary: analysisDocument.summary
+        })
+      } else {
+        const designDocument =
+          detail.designDocuments.find((item) => item.id === (request.designDocumentId || detail.selectedDesignDocumentId)) ||
+          this.repository.createDesignDocument({
+            sessionId: request.sessionId,
+            title: '设计稿',
+            planningSourceMessageId: null
+          })
 
-  private ensureActiveDesignDocument(sessionId: string, designDocumentId?: string | null) {
-    if (designDocumentId) {
-      const designDocument = this.repository.getDesignDocumentById(designDocumentId)
-      if (designDocument.sessionId !== sessionId) {
-        throw new Error('当前 designDocumentId 不属于本会话。')
+        let currentToml = designDocument.content
+        let lastValidation: GenerationValidationReport | null = null
+        let finalToml = currentToml
+
+        for (let iteration = 1; iteration <= stageConfig.maxRepairIterations; iteration += 1) {
+          const result = await runDesignPlanner({
+            model,
+            context: {
+              analysisDocument: detail.analysisDocument.content,
+              currentToml,
+              workflowSpec,
+              nodePrompt,
+              validationReport: lastValidation
+            }
+          })
+          bridge.emit({ type: 'prompt-snapshot', stepKey: 'design-planner', title: `Design Prompt #${iteration}`, prompt: result.prompt })
+          bridge.emit({ type: 'context-snapshot', stepKey: 'design-planner', title: `Design Context #${iteration}`, context: result.context })
+          const spentTokens = budget.add(estimateTokenUsage(result.prompt + result.toml))
+          bridge.emit({
+            type: 'budget-update',
+            spentTokens,
+            iteration,
+            maxIterations: budget.getMaxIterations()
+          })
+
+          finalToml = result.toml
+          const parsed = runFormatValidation(result.toml)
+          if (!parsed.document) {
+            lastValidation = {
+              valid: false,
+              diagnostics: mapAuthoringDiagnostics(parsed.diagnostics)
+            }
+            bridge.emit({ type: 'validation-report', report: lastValidation })
+            currentToml = result.toml
+            continue
+          }
+
+          const validation = validateOFAuthoringToml(parsed.document)
+          lastValidation = {
+            valid: validation.valid,
+            diagnostics: mapAuthoringDiagnostics(validation.diagnostics)
+          }
+          bridge.emit({ type: 'validation-report', report: lastValidation })
+          currentToml = result.toml
+          if (validation.valid) {
+            break
+          }
+        }
+
+        this.repository.updateMessageContent(activeRun.messageId, finalToml)
+        const savedDocument = this.repository.saveDesignDocument(request.sessionId, {
+          ...designDocument,
+          content: finalToml,
+          contentFormat: 'of-workflow-toml-v1',
+          status: lastValidation?.valid ? 'valid' : 'invalid',
+          summary: buildDesignSummary({
+            ...designDocument,
+            status: lastValidation?.valid ? 'valid' : 'invalid'
+          } as GenerationDesignDocument),
+          validationJson: JSON.stringify(lastValidation),
+          updatedAt: nowIso()
+        })
+        bridge.emit({
+          type: 'artifact-replace',
+          artifact: 'design-document',
+          documentId: savedDocument.id,
+          content: savedDocument.content,
+          summary: savedDocument.summary
+        })
+        this.repository.updateSessionState(request.sessionId, 'design')
       }
-      return designDocument
-    }
 
-    const stageConfig = this.repository.getStageConfig(sessionId, 'design')
-    if (!stageConfig.activeDesignDocumentId) {
-      throw new Error('请先选择一个规划设计稿版本，再使用 Design Copilot。')
-    }
+      if (activeRun.aborted) {
+        this.repository.finishMessage(activeRun.messageId, 'aborted')
+        this.emit({
+          type: 'run-finish',
+          runId: activeRun.runId,
+          messageId: activeRun.messageId,
+          status: 'aborted',
+          finishedAt: nowIso()
+        })
+        return
+      }
 
-    return this.repository.getDesignDocumentById(stageConfig.activeDesignDocumentId)
+      const assistantMessage = this.repository.finishMessage(activeRun.messageId, 'completed')
+      this.memory.push(request.sessionId, `user:${userText}`)
+      this.memory.push(request.sessionId, `assistant:${assistantMessage.content}`)
+      this.emit({
+        type: 'run-finish',
+        runId: activeRun.runId,
+        messageId: activeRun.messageId,
+        status: 'completed',
+        finishedAt: nowIso()
+      })
+    } catch (error) {
+      log.error('Generate run failed', error)
+      this.repository.failMessage(
+        activeRun.messageId,
+        error instanceof Error ? error.message : '生成失败'
+      )
+      this.emit({
+        type: 'run-error',
+        runId: activeRun.runId,
+        messageId: activeRun.messageId,
+        error: error instanceof Error ? error.message : '生成失败'
+      })
+    } finally {
+      this.activeRuns.delete(activeRun.requestId)
+      this.traceBuffer.clear(activeRun.runId)
+    }
   }
 
-  private async resolveProvider(providerId: string): Promise<PersistedModelProviderConfig> {
-    const config = await this.modelConfigService.getConfig()
+  private getStageConfig(
+    detail: GenerationSessionDetail,
+    stageKey: GenerationStageKey
+  ): GenerationStageConfig {
+    return (
+      detail.stageConfigs.find((config) => config.stageKey === stageKey) ||
+      DEFAULT_STAGE_CONFIGS[stageKey]
+    )
+  }
+
+  private async resolveProviderConfig(
+    providerId: string,
+    modelId: string
+  ): Promise<GenerationModelProviderConfig> {
+    const config = (await this.modelConfigService.getConfig()) as ModelConfig
     const provider = config.providers.find((item) => item.id === providerId)
-    if (!provider) throw new Error(`Provider not found: ${providerId}`)
-    if (!provider.apiKey) throw new Error(`Provider apiKey missing: ${providerId}`)
-    return provider
-  }
-
-  private resolveEffectiveProtocol(provider: PersistedModelProviderConfig): ModelProviderProtocol {
-    if (provider.protocol !== 'openai') {
-      return provider.protocol
+    if (!provider) {
+      throw new Error(`模型 provider 不存在：${providerId}`)
     }
 
-    const normalizedBaseUrl = normalizeBaseUrl(provider.baseUrl)
-    if (!normalizedBaseUrl || normalizedBaseUrl === OPENAI_OFFICIAL_BASE_URL) {
-      return 'openai'
-    }
-
-    log.warn('Auto-normalizing Generate provider protocol to openai-completion', {
-      providerId: provider.id,
-      providerName: provider.name,
-      originalProtocol: provider.protocol,
-      baseUrl: provider.baseUrl
-    })
-
-    return 'openai-completion'
-  }
-
-  private resolveSdkVendorFromProtocol(protocol: ModelProviderProtocol) {
-    if (protocol === 'claude') return 'anthropic'
-    if (protocol === 'gemini') return 'google'
-    return 'openai'
-  }
-
-  private failActiveStream(stream: ActiveGenerationStream, errorMessage: string): void {
-    if (stream.terminalStateHandled) {
-      return
-    }
-    stream.terminalStateHandled = true
-    stream.answerText = ''
-    this.repository.discardMessageAsFailed(stream.messageId, errorMessage)
-    this.repository.touchSession(stream.sessionId)
-
-    if (stream.sender.isDestroyed()) {
-      return
-    }
-
-    stream.sender.send('orchestflowGenerationEditor:stream', {
-      type: 'content-replace',
-      requestId: stream.requestId,
-      sessionId: stream.sessionId,
-      channelKey: stream.channelKey,
-      messageId: stream.messageId,
-      content: ''
-    })
-    stream.sender.send('orchestflowGenerationEditor:stream', {
-      type: 'error',
-      requestId: stream.requestId,
-      sessionId: stream.sessionId,
-      channelKey: stream.channelKey,
-      messageId: stream.messageId,
-      message: errorMessage
-    })
-    stream.sender.send('orchestflowGenerationEditor:stream', {
-      type: 'finish',
-      requestId: stream.requestId,
-      sessionId: stream.sessionId,
-      channelKey: stream.channelKey,
-      messageId: stream.messageId,
-      finishReason: 'error',
-      usageJson: null
-    })
-  }
-}
-
-function detectBlueprintContentFormat(_sourceText: string): 'of-blueprint-section-v1' {
-  return 'of-blueprint-section-v1'
-}
-
-function buildContentPreview(content: string): string {
-  const normalized = content.replace(/\s+/g, ' ').trim()
-  if (normalized.length <= 200) {
-    return normalized
-  }
-  return `${normalized.slice(0, 200)}...`
-}
-
-function normalizeBaseUrl(baseUrl: string): string {
-  return baseUrl.trim().replace(/\/$/, '')
-}
-
-function hasPlanningBlock(metaJson: string | null): boolean {
-  if (!metaJson) {
-    return false
-  }
-
-  try {
-    const meta = JSON.parse(metaJson) as { planningBlock?: { kind?: string } }
-    return meta.planningBlock?.kind === 'analysis-planning'
-  } catch {
-    return false
-  }
-}
-
-function buildDesignDocumentSummary(
-  status: 'valid' | 'invalid',
-  diagnostics: OFBlueprintTextDiagnostic[]
-): string {
-  if (status === 'valid') {
-    return '规划设计稿 DSL 已通过解析与编译校验。'
-  }
-  if (diagnostics.length) {
-    return `规划设计稿 DSL 存在 ${diagnostics.length} 条校验错误。`
-  }
-  return '规划设计稿 DSL 尚未通过校验。'
-}
-
-function buildBlueprintCompileFailureMessage(diagnostics: OFBlueprintTextDiagnostic[]): string {
-  if (!diagnostics.length) {
-    return '当前规划设计稿 DSL 未通过编译校验，无法生成工作流。'
-  }
-
-  const firstDiagnostic = diagnostics[0]
-  return `当前规划设计稿 DSL 未通过编译校验：${firstDiagnostic.message}（${firstDiagnostic.line}:${firstDiagnostic.column}）`
-}
-
-function buildBlueprintForceImportFailureMessage(diagnostics: OFBlueprintTextDiagnostic[]): string {
-  if (!diagnostics.length) {
-    return '当前规划设计稿无法通过容错导入生成工作流草稿。'
-  }
-
-  const firstDiagnostic = diagnostics[0]
-  return `当前规划设计稿无法通过容错导入生成工作流草稿：${firstDiagnostic.message}（${firstDiagnostic.line}:${firstDiagnostic.column}）`
-}
-
-function buildForceImportedDesignSummary(diagnostics: OFBlueprintTextDiagnostic[]): string {
-  if (!diagnostics.length) {
-    return '规划设计稿已通过容错导入生成工作流草稿。'
-  }
-  return `规划设计稿已容错导入为工作流草稿，忽略了 ${diagnostics.length} 条局部错误。`
-}
-
-function buildInitialDesignBlueprintMessageMeta(params: {
-  vendor: 'openai' | 'anthropic' | 'google'
-  protocol: ModelProviderProtocol
-  designDocumentId: string
-  generationMode: 'generate' | 'regenerate'
-}): GenerationMessageMetaPayload {
-  return {
-    vendor: params.vendor,
-    protocol: params.protocol,
-    designBlueprintBlock: {
-      kind: 'design-blueprint-generation',
-      designDocumentId: params.designDocumentId,
-      generationMode: params.generationMode,
-      status: 'streaming',
-      progressPercent: 5,
-      phaseLabel: '正在准备规划设计稿生成',
-      canAbort: true,
-      diagnostics: [],
-      errorMessage: null
+    return {
+      providerId,
+      modelId,
+      protocol: provider.protocol,
+      baseUrl: provider.baseUrl,
+      apiKey: provider.apiKey
     }
   }
-}
-
-function buildInitialDesignCalibrationMessageMeta(params: {
-  vendor: 'openai' | 'anthropic' | 'google'
-  protocol: ModelProviderProtocol
-  designDocumentId: string
-  diagnostics: OFBlueprintTextDiagnostic[]
-}): GenerationMessageMetaPayload {
-  return {
-    vendor: params.vendor,
-    protocol: params.protocol,
-    designCalibrationBlock: {
-      kind: 'design-calibration',
-      designDocumentId: params.designDocumentId,
-      status: 'streaming',
-      totalDiagnosticCount: params.diagnostics.length,
-      remainingDiagnosticCount: params.diagnostics.length,
-      currentPass: 0,
-      maxPasses: 8,
-      phaseLabel: '正在准备规划设计稿校准',
-      canAbort: true,
-      summary: params.diagnostics.length
-        ? `准备修复 ${params.diagnostics.length} 条 diagnostics。`
-        : '当前没有 diagnostics。',
-      truncatedTailDiscarded: false,
-      proposal: null,
-      errorMessage: null
-    }
-  }
-}
-
-function parseGenerationMessageMeta(metaJson: string | null): GenerationMessageMetaPayload {
-  if (!metaJson) {
-    return {}
-  }
-
-  try {
-    return JSON.parse(metaJson) as GenerationMessageMetaPayload
-  } catch {
-    return {}
-  }
-}
-
-function parseDesignDiagnostics(diagnosticsJson: string | null): OFBlueprintTextDiagnostic[] {
-  if (!diagnosticsJson) {
-    return []
-  }
-
-  try {
-    return JSON.parse(diagnosticsJson) as OFBlueprintTextDiagnostic[]
-  } catch {
-    return []
-  }
-}
-
-function resolveCalibrationPreviewDsl(
-  proposal: NonNullable<GenerationDesignCalibrationBlockPayload['proposal']>
-): string {
-  return proposal.previewDsl || proposal.replacementDsl || ''
-}
-
-function buildContentHash(content: string): string {
-  return createHash('sha1').update(content).digest('hex')
-}
-
-function _buildDiagnosticSignatureList(diagnostics: OFBlueprintTextDiagnostic[]): string[] {
-  return diagnostics.map(buildOFBlueprintDiagnosticSignature)
 }

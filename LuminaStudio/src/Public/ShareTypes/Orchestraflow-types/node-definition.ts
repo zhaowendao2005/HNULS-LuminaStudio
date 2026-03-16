@@ -22,6 +22,42 @@ export interface OFNodeAuthoringExample {
   value?: string | number | boolean | Record<string, unknown> | unknown[] | null
 }
 
+export interface OFNodeAuthoringDescription {
+  summary: string
+  capabilitySummary: string
+  boundariesZh: string[]
+  inputDependencies: string[]
+  outputArtifacts: string[]
+  compositionHints: string[]
+  notes?: string[]
+}
+
+export interface OFNodeAuthoringTomlFieldDefinition {
+  key: string
+  required: boolean
+  summary: string
+  example?: string
+  multiline?: boolean
+}
+
+export interface OFNodeAuthoringTomlDefinition {
+  sectionTemplate: string
+  requiredFields: string[]
+  optionalFields: string[]
+  fields: OFNodeAuthoringTomlFieldDefinition[]
+  exampleBlocks: string[]
+}
+
+export interface OFNodeAuthoringDefinition {
+  token: OFNodeAuthoringToken
+  title: string
+  description: OFNodeAuthoringDescription
+  mainPrompt: string
+  errorGuidance: string[]
+  toml: OFNodeAuthoringTomlDefinition
+  legacyTokens?: string[]
+}
+
 export interface OFNodeVariableBuildParams {
   nodeId?: string
   title: string
@@ -81,46 +117,6 @@ export interface OFNodeRuntimeInvariant {
   summary: string
 }
 
-export interface OFNodeDslDefinition {
-  // dsl 是作者态真相层：
-  // 这里只描述 OFT/1 作者应该怎么写，不能倒灌 runtime/editor 的内部字段。
-  authoringToken: OFNodeAuthoringToken
-  title: string
-  summary: string
-  sectionForm: '[node.<id>]'
-  subgraphSectionForm?: '[subgraph.<container>]'
-  allowedKeys: string[]
-  requiredKeys: string[]
-  legacyTokens?: string[]
-  legacyKeyReplacements?: Record<string, string>
-  examples?: OFNodeAuthoringExample[]
-  warnings_zh?: string[]
-}
-
-export interface OFNodeLlmSpec {
-  // llmSpec 是给 LLM 的安全暴露层：
-  // 它可以转述 dsl/rules，但不能把 runtime 内部字段原样暴露给模型。
-  exposed: boolean
-  authoringToken: OFNodeAuthoringToken
-  title: string
-  summary: string
-  capability_summary: string
-  boundaries_zh: string[]
-  input_dependencies: string[]
-  output_artifacts: string[]
-  composition_hints: string[]
-  section_template: string
-  required_fields: string[]
-  optional_fields: string[]
-  examples?: OFNodeAuthoringExample[]
-  warnings_zh?: string[]
-  selector_policies?: string[]
-  output_policies?: string[]
-  omit_rules?: string[]
-  authoring_hints?: string[]
-  notes?: string[]
-}
-
 export type OFPortDirection = 'input' | 'output'
 export type OFPortChannel = 'control' | 'data'
 
@@ -156,8 +152,6 @@ export interface OFContainerSpec {
 }
 
 export interface OFNodeRuntimeDefinition {
-  // runtime 是固定执行契约：
-  // 运行 type、ports、system-managed 字段、变量派生都在这一层收口。
   type: OFBlockEnum
   title: string
   summary: string
@@ -177,11 +171,8 @@ export interface OFNodeRuntimeDefinition {
 }
 
 export interface OFStandardNodeDefinition<TData extends OFNode['data'] = OFNode['data']> {
-  dsl: OFNodeDslDefinition
-  llmSpec: OFNodeLlmSpec
+  authoring: OFNodeAuthoringDefinition
   runtime: OFNodeRuntimeDefinition & { kind: 'standard' }
-  // editor / compiler 属于固定实现层：
-  // editor 负责默认值和归一化，compiler 负责把作者态编译成 runnable data。
   editor: {
     createDefaultData(params: OFNodeEditorCreateParams): TData
     normalizeData(params: OFNodeEditorNormalizeParams): TData
@@ -192,8 +183,7 @@ export interface OFStandardNodeDefinition<TData extends OFNode['data'] = OFNode[
 }
 
 export interface OFContainerNodeDefinition<TData extends OFNode['data'] = OFNode['data']> {
-  dsl: OFNodeDslDefinition
-  llmSpec: OFNodeLlmSpec
+  authoring: OFNodeAuthoringDefinition
   runtime: OFNodeRuntimeDefinition & { kind: 'container' }
   editor: {
     createDefaultData(params: OFNodeEditorCreateParams): TData
@@ -239,15 +229,22 @@ export function defineInternalStartOFNodeDefinition<TData extends OFNode['data']
 export function isOFAuthoringNodeDefinition(
   definition: OFNodeDefinition
 ): definition is OFAuthoringNodeDefinition {
-  return 'dsl' in definition && 'llmSpec' in definition
+  return 'authoring' in definition
 }
 
-export function createOFPortSpec(port: OFPortSpec): OFPortSpec {
-  return port
+export function createOFPortSpec(
+  input: Omit<OFPortSpec, 'required' | 'multi' | 'internal'> & Partial<OFPortSpec>
+): OFPortSpec {
+  return {
+    required: true,
+    multi: false,
+    internal: false,
+    ...input
+  }
 }
 
 export function resolveOFNodeOutputNamespace(
-  definition: Pick<OFNodeDefinition, 'runtime'>,
+  definition: Pick<OFStandardNodeDefinition | OFContainerNodeDefinition, 'runtime'>,
   params: {
     current?: string
     nodeId?: string

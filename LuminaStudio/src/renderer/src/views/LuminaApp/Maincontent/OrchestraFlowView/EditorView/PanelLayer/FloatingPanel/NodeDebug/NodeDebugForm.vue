@@ -93,7 +93,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { OFVarType, type OFStructuredJsonSchema } from '@shared/Orchestraflow-types'
+import { OFVarType, type OFJsonSchemaProperty } from '@shared/Orchestraflow-types'
 
 export interface NodeDebugField {
   key: string
@@ -101,7 +101,7 @@ export interface NodeDebugField {
   type?: OFVarType | string
   required?: boolean
   placeholder?: string
-  schema?: OFStructuredJsonSchema | null
+  schema?: OFJsonSchemaProperty | null
 }
 
 const props = defineProps<{
@@ -173,7 +173,7 @@ function getDisplayValue(field: NodeDebugField): string {
   return String(value)
 }
 
-function formatSchema(schema: OFStructuredJsonSchema): string {
+function formatSchema(schema: OFJsonSchemaProperty): string {
   return JSON.stringify(schema, null, 2)
 }
 

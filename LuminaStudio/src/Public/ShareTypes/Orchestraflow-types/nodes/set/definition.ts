@@ -1,15 +1,24 @@
 import type { OFVariableAssignNodeData } from '../../core-types'
 import { defineStandardOFNodeDefinition } from '../../node-definition'
 import { variableAssignNodeCompiler } from './compiler'
-import { variableAssignNodeDslDefinition } from './dsl'
+import { variableAssignNodeDescription } from './description'
 import { variableAssignNodeEditor } from './editor'
-import { variableAssignNodeLlmSpec } from './llm-spec'
+import { variableAssignNodeErrorGuidance } from './error-guidance'
+import { variableAssignNodeMainPrompt } from './main-prompt'
 import { variableAssignNodeRuntimeDefinition } from './runtime'
+import { variableAssignNodeTomlDefinition } from './toml'
 
 export const variableAssignNodeDefinition =
   defineStandardOFNodeDefinition<OFVariableAssignNodeData>({
-    dsl: variableAssignNodeDslDefinition,
-    llmSpec: variableAssignNodeLlmSpec,
+    authoring: {
+      token: 'set',
+      title: 'set',
+      description: variableAssignNodeDescription,
+      mainPrompt: variableAssignNodeMainPrompt,
+      errorGuidance: variableAssignNodeErrorGuidance,
+      toml: variableAssignNodeTomlDefinition,
+      legacyTokens: ['variable-assign']
+    },
     runtime: variableAssignNodeRuntimeDefinition,
     editor: variableAssignNodeEditor,
     compiler: variableAssignNodeCompiler

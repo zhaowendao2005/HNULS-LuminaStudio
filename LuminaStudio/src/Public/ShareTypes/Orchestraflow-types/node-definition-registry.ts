@@ -37,13 +37,13 @@ function registerNodeDefinition(definition: OFNodeDefinition): void {
     return
   }
 
-  if (AUTHORING_NODE_REGISTRY.has(definition.dsl.authoringToken)) {
-    throw new Error(`Duplicate OrchestraFlow authoring token: ${definition.dsl.authoringToken}`)
+  if (AUTHORING_NODE_REGISTRY.has(definition.authoring.token)) {
+    throw new Error(`Duplicate OrchestraFlow authoring token: ${definition.authoring.token}`)
   }
 
-  AUTHORING_NODE_REGISTRY.set(definition.dsl.authoringToken, definition)
+  AUTHORING_NODE_REGISTRY.set(definition.authoring.token, definition)
 
-  for (const legacyToken of definition.dsl.legacyTokens || []) {
+  for (const legacyToken of definition.authoring.legacyTokens || []) {
     LEGACY_AUTHORING_TOKEN_REGISTRY.set(legacyToken, definition)
   }
 }

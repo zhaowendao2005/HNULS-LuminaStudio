@@ -65,9 +65,9 @@ export interface OFNodeAuthoringContract {
 }
 
 export interface OFWorkflowAuthoringContract {
-  version: '2.0'
-  format: 'orchestraflow-blueprint-workflow'
-  root_type: 'OFBlueprintWorkflow'
+  version: '3.0'
+  format: 'orchestraflow-authoring-toml'
+  root_type: 'OFWorkflowAuthoringToml'
   selector_contract: OFSelectorContract
   edge_contract: OFEdgeContract
   global_fields: OFFieldContract[]
@@ -150,6 +150,10 @@ export type OFRunnableWorkflow = Omit<OFWorkflow, 'graph'> & {
   graph: OFRunnableWorkflowGraph
 }
 
+export function assertOFRunnableWorkflow(value: unknown): OFRunnableWorkflow {
+  return value as OFRunnableWorkflow
+}
+
 // 下面这些 OFRunnable* 类型仍然属于固定运行层：
 // 这层继续服务 compiler/runtime/持久化，不参与作者态 token 的定义。
 
@@ -169,9 +173,9 @@ export function buildOFWorkflowAuthoringContract(): OFWorkflowAuthoringContract 
   const edgeMechanism = resolveOFMechanismDefinition('edge-handle')
 
   return {
-    version: '2.0',
-    format: 'orchestraflow-blueprint-workflow',
-    root_type: 'OFBlueprintWorkflow',
+    version: '3.0',
+    format: 'orchestraflow-authoring-toml',
+    root_type: 'OFWorkflowAuthoringToml',
     selector_contract: {
       ...(selectorMechanism.selector_contract as OFSelectorContract)
     },
@@ -183,13 +187,18 @@ export function buildOFWorkflowAuthoringContract(): OFWorkflowAuthoringContract 
       (mechanism.global_invariants || []).map(cloneInvariantContract)
     ),
     nodes: listOFAuthoringNodeDefinitions().map((definition) => ({
-      type: definition.llmSpec.authoringToken,
-      title: definition.llmSpec.title,
-      author_required_fields: [...definition.llmSpec.required_fields],
+      type: definition.authoring.token,
+      title: definition.authoring.title,
+      author_required_fields: [...definition.authoring.toml.requiredFields],
       compiler_injected_fields: [...(definition.runtime.system_managed_fields || [])],
       runtime_invariants: (definition.runtime.runtime_invariants || []).map(cloneInvariantContract),
-      produced_outputs: [...definition.llmSpec.output_artifacts],
-      notes: [...(definition.llmSpec.notes || [])]
+      produced_outputs: [...definition.authoring.description.outputArtifacts],
+      notes: [
+        definition.authoring.description.summary,
+        definition.authoring.mainPrompt,
+        ...(definition.authoring.description.notes || []),
+        ...definition.authoring.errorGuidance
+      ]
     }))
   }
 }

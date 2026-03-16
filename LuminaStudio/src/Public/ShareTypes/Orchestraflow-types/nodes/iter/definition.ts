@@ -1,14 +1,23 @@
 import type { OFIterationNodeData } from '../../core-types'
 import { defineContainerOFNodeDefinition } from '../../node-definition'
 import { iterationNodeCompiler } from './compiler'
-import { iterationNodeDslDefinition } from './dsl'
+import { iterationNodeDescription } from './description'
 import { iterationNodeEditor } from './editor'
-import { iterationNodeLlmSpec } from './llm-spec'
+import { iterationNodeErrorGuidance } from './error-guidance'
+import { iterationNodeMainPrompt } from './main-prompt'
 import { iterationNodeRuntimeDefinition } from './runtime'
+import { iterationNodeTomlDefinition } from './toml'
 
 export const iterationNodeDefinition = defineContainerOFNodeDefinition<OFIterationNodeData>({
-  dsl: iterationNodeDslDefinition,
-  llmSpec: iterationNodeLlmSpec,
+  authoring: {
+    token: 'iter',
+    title: 'iter',
+    description: iterationNodeDescription,
+    mainPrompt: iterationNodeMainPrompt,
+    errorGuidance: iterationNodeErrorGuidance,
+    toml: iterationNodeTomlDefinition,
+    legacyTokens: ['iteration']
+  },
   runtime: iterationNodeRuntimeDefinition,
   editor: iterationNodeEditor,
   compiler: iterationNodeCompiler

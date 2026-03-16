@@ -1,35 +1,9 @@
-.of-generate-view {
-  --of-generate-bg: #f9fafb;
-  --of-generate-panel-shadow: -4px 0 24px rgba(0, 0, 0, 0.03);
-}
+.gv-shell-m01 {
+  textarea {
+    resize: vertical;
+  }
 
-.of-generate-view,
-.of-generate-view * {
-  box-sizing: border-box;
-}
-
-.of-generate-view ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-.of-generate-view ::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.of-generate-view ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.35);
-  border-radius: 9999px;
-}
-
-.of-generate-view ::-webkit-scrollbar-thumb:hover {
-  background: rgba(100, 116, 139, 0.55);
-}
-
-.of-generate-view .of-generate-shell {
-  background: var(--of-generate-bg);
-}
-
-.of-generate-view .of-generate-right-panel {
-  box-shadow: var(--of-generate-panel-shadow);
+  pre {
+    overflow-wrap: anywhere;
+  }
 }
