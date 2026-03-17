@@ -2,84 +2,106 @@
   <div
     class="ls-mcp-workbench relative flex h-full flex-col overflow-hidden bg-white text-slate-900"
   >
-    <div class="flex flex-1 overflow-hidden">
-      <StageSidebar
-        :tabs="tabs"
-        :active-stage="store.state.activeStage"
-        :get-tab-status-class="tabStatusClass"
-        @change-stage="store.state.activeStage = $event"
-      />
-
-      <main class="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <ConnectStage
-          v-if="store.state.activeStage === 'connect'"
-          :draft="draft"
-          :state="store.state"
-          :transport-options="transportOptions"
-          @update:draft="updateDraft"
-          @reset-draft="resetDraft"
-          @save-preset="handleSavePreset"
-          @connect-draft="connectDraft"
-          @disconnect="store.disconnect"
-          @load-preset="loadPreset"
-          @connect-preset="store.connectPreset"
-          @delete-preset="store.deletePreset"
-        />
-
-        <ToolsStage
-          v-else-if="store.state.activeStage === 'tools'"
-          :state="store.state"
-          :active-tool="store.activeTool"
-          :right-panel-width="rightPanelWidth"
-          :is-dragging="isDragging"
-          :tool-prompt-preview="toolPromptPreview"
-          :tool-hint="toolHint"
-          @select-tool="store.state.selectedToolName = $event"
-          @change-tools-mode="store.state.toolsMode = $event"
-          @start-resize="startResize"
-        />
-
-        <PromptsStage
-          v-else-if="store.state.activeStage === 'prompts'"
-          :prompt-args="promptArgs"
-          :state="store.state"
-          :active-prompt="store.activePrompt"
-          @update:prompt-args="updatePromptArgs"
-          @select-prompt="selectPrompt"
-          @change-prompts-mode="store.state.promptsMode = $event"
-          @render-prompt="store.renderPrompt(promptArgs)"
-        />
-
-        <ResourcesStage
-          v-else-if="store.state.activeStage === 'resources'"
-          :state="store.state"
-          :active-resource="store.activeResource"
-          @select-resource="selectResource"
-          @change-resources-mode="store.state.resourcesMode = $event"
-          @load-resource="store.loadResource"
-        />
-
-        <ExecuteStage
-          v-else
-          :tool-args="toolArgs"
-          :raw-tool-args="rawToolArgs"
-          :state="store.state"
-          :active-tool="store.activeTool"
-          :visual-tool-fields="visualToolFields"
-          :boolean-options="booleanOptions"
-          @update:tool-args="updateToolArgs"
-          @update:raw-tool-args="updateRawToolArgs"
-          @execute-tool="executeTool"
-        />
-      </main>
+    <div class="border-b border-slate-200 px-6 py-4">
+      <div class="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          :class="subviewClass('workbench')"
+          @click="activeSubview = 'workbench'"
+        >
+          MCP 调试工作台
+        </button>
+        <button type="button" :class="subviewClass('chat')" @click="activeSubview = 'chat'">
+          MCP 对话面板
+        </button>
+      </div>
+      <p class="mt-2 text-sm text-slate-500">
+        调试工作台保留原始连接 / schema / trace 视角；对话面板用于按工具树限制能力并发起流式问答。
+      </p>
     </div>
 
-    <TracePanel
-      :is-open="store.state.rawTraceOpen"
-      :outgoing-trace="outgoingTrace"
-      :incoming-trace="incomingTrace"
-      @toggle="store.state.rawTraceOpen = !store.state.rawTraceOpen"
-    />
+    <template v-if="activeSubview === 'workbench'">
+      <div class="flex flex-1 overflow-hidden">
+        <StageSidebar
+          :tabs="tabs"
+          :active-stage="store.state.activeStage"
+          :get-tab-status-class="tabStatusClass"
+          @change-stage="store.state.activeStage = $event"
+        />
+
+        <main class="flex min-w-0 flex-1 flex-col overflow-hidden">
+          <ConnectStage
+            v-if="store.state.activeStage === 'connect'"
+            :draft="draft"
+            :state="store.state"
+            :transport-options="transportOptions"
+            @update:draft="updateDraft"
+            @reset-draft="resetDraft"
+            @save-preset="handleSavePreset"
+            @connect-draft="connectDraft"
+            @disconnect="store.disconnect"
+            @load-preset="loadPreset"
+            @connect-preset="store.connectPreset"
+            @delete-preset="store.deletePreset"
+          />
+
+          <ToolsStage
+            v-else-if="store.state.activeStage === 'tools'"
+            :state="store.state"
+            :active-tool="store.activeTool"
+            :right-panel-width="rightPanelWidth"
+            :is-dragging="isDragging"
+            :tool-prompt-preview="toolPromptPreview"
+            :tool-hint="toolHint"
+            @select-tool="store.state.selectedToolName = $event"
+            @change-tools-mode="store.state.toolsMode = $event"
+            @start-resize="startResize"
+          />
+
+          <PromptsStage
+            v-else-if="store.state.activeStage === 'prompts'"
+            :prompt-args="promptArgs"
+            :state="store.state"
+            :active-prompt="store.activePrompt"
+            @update:prompt-args="updatePromptArgs"
+            @select-prompt="selectPrompt"
+            @change-prompts-mode="store.state.promptsMode = $event"
+            @render-prompt="store.renderPrompt(promptArgs)"
+          />
+
+          <ResourcesStage
+            v-else-if="store.state.activeStage === 'resources'"
+            :state="store.state"
+            :active-resource="store.activeResource"
+            @select-resource="selectResource"
+            @change-resources-mode="store.state.resourcesMode = $event"
+            @load-resource="store.loadResource"
+          />
+
+          <ExecuteStage
+            v-else
+            :tool-args="toolArgs"
+            :raw-tool-args="rawToolArgs"
+            :state="store.state"
+            :active-tool="store.activeTool"
+            :visual-tool-fields="visualToolFields"
+            :boolean-options="booleanOptions"
+            @update:tool-args="updateToolArgs"
+            @update:raw-tool-args="updateRawToolArgs"
+            @execute-tool="executeTool"
+          />
+        </main>
+      </div>
+
+      <TracePanel
+        :is-open="store.state.rawTraceOpen"
+        :outgoing-trace="outgoingTrace"
+        :incoming-trace="incomingTrace"
+        @toggle="store.state.rawTraceOpen = !store.state.rawTraceOpen"
+      />
+    </template>
+
+    <McpChatStage v-else class="flex-1 px-6 py-6" />
   </div>
 </template>
 
@@ -96,6 +118,7 @@ import ResourcesStage from './components/ResourcesStage/index.vue'
 import StageSidebar from './components/StageSidebar/index.vue'
 import ToolsStage from './components/ToolsStage/index.vue'
 import TracePanel from './components/TracePanel/index.vue'
+import McpChatStage from './components/McpChatStage/index.vue'
 
 interface StageTabItem {
   id: McpStage
@@ -112,6 +135,7 @@ interface VisualToolField {
 }
 
 const store = useMcpStore()
+const activeSubview = ref<'workbench' | 'chat'>('workbench')
 
 function makeId(): string {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`
@@ -383,5 +407,11 @@ function tabStatusClass(tabId: string): string {
   }
 
   return 'bg-emerald-500'
+}
+
+function subviewClass(target: 'workbench' | 'chat'): string {
+  return target === activeSubview.value
+    ? 'rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white'
+    : 'rounded-full bg-slate-100 px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-200'
 }
 </script>

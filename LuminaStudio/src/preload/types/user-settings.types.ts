@@ -7,12 +7,31 @@ export interface ApiKeysConfig {
 }
 
 /**
+ * MCP Chat 全局设置。
+ */
+export interface McpChatSettings {
+  /**
+   * 新建 MCP 对话时默认保留多少轮上下文。
+   */
+  memoryRoundsDefault: number
+  /**
+   * 是否启用多轮 agent 模式。
+   */
+  enableAgentMode: boolean
+  /**
+   * 多轮 agent 模式下最多自主规划多少轮。
+   */
+  agentMaxRounds: number
+}
+
+/**
  * 用户设置数据结构
  */
 export interface UserSettings {
   version: number
   updatedAt: string
   apiKeys: ApiKeysConfig
+  mcpChat: McpChatSettings
 }
 
 /**
