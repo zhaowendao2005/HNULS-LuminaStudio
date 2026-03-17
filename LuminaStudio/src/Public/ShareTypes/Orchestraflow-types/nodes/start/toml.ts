@@ -31,5 +31,15 @@ export const startNodeTomlDefinition: OFNodeAuthoringTomlDefinition = {
       'description = "接收用户输入"',
       'inputs = [{ variable = "user_query", schema = { type = "string", default = "请总结下面内容" } }]'
     ].join('\n')
+  ],
+
+  // ===== 节点私域建议（Start） =====
+  suggestions: [
+    {
+      code: 'required-field-missing',
+      nodeType: 'start',
+      message:
+        'Start 节点常见必填字段：inputs。请补充 inputs = [{ variable, schema = { type, default? } }]。'
+    }
   ]
 }

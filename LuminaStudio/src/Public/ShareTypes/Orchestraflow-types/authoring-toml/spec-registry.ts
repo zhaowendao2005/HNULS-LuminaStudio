@@ -27,7 +27,25 @@ export function listAllTomlSuggestionSpecs(): TomlDiagnosticSuggestionSpec[] {
  * 为某条 diagnostic 解析建议文案。
  * 注意：A 方案只返回“文本建议”，不做自动修复/替换。
  */
-export function resolveDiagnosticSuggestions(diagnostic: Pick<CheckDiagnostic, 'code'>): string[] {
+export function resolveDiagnosticSuggestions(
+  diagnostic: Pick<CheckDiagnostic, 'code' | 'nodeId'> & { context?: Record<string, unknown> }
+): string[] {
   const all = listAllTomlSuggestionSpecs()
-  return all.filter((s) => s.code === diagnostic.code).map((s) => s.message)
+
+  // 说明：
+  // - 基座建议：只匹配 code
+  // - 节点私域建议：同时要求 nodeType 匹配（通过 diagnostic.context.nodeType）
+  const nodeType = String(diagnostic.context?.nodeType || '')
+
+  return all
+    .filter((s) => {
+      if (s.code !== diagnostic.code) {
+        return false
+      }
+      if (!s.nodeType) {
+        return true
+      }
+      return Boolean(nodeType) && s.nodeType === nodeType
+    })
+    .map((s) => s.message)
 }

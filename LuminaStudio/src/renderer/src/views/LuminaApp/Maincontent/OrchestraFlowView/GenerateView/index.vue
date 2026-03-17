@@ -173,6 +173,12 @@ async function handleAnalysisDocumentChange(content: string): Promise<void> {
 
 async function handleDesignContentChange(content: string): Promise<void> {
   if (!generationStore.activeDesignDocument) return
+
+  // 用户编辑时：
+  // - 持久化保存到 session/designDocument
+  // - 同时触发本地静态检查（debounce），用于 DSL/diagnostics 的即时标红
+  generationStore.scheduleDesignDocumentCheck()
+
   await generationStore.saveDesignDocument({
     ...generationStore.activeDesignDocument,
     content,

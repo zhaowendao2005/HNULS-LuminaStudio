@@ -12,5 +12,17 @@ export const ofTopologySuggestionSpecs: TomlDiagnosticSuggestionSpec[] = [
   {
     code: 'end-node-missing',
     message: '工作流至少需要一个 end 节点；请在末尾增加 end 节点并连线到它。'
+  },
+  {
+    code: 'subgraph-required',
+    nodeType: 'iter',
+    message:
+      'Iter 节点必须提供 subgraph。可以先写一个最小子图：subgraph = { nodes = [...], edges = [...] }。'
+  },
+  {
+    code: 'subgraph-required',
+    nodeType: 'loop',
+    message:
+      'Loop 节点必须提供 subgraph。可以先写一个最小子图：subgraph = { nodes = [...], edges = [...] }。'
   }
 ]

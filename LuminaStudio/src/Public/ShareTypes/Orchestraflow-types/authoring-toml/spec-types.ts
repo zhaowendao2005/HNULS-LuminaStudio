@@ -8,6 +8,14 @@
 export interface TomlDiagnosticSuggestionSpec {
   /** 对应 CheckDiagnostic.code 或旧 validator 的 diagnostic.code */
   code: string
+
+  /**
+   * 建议的生效范围：节点私域时，通常会绑定到某个 nodeType。
+   * - 不填：表示“基座建议”，对所有节点生效
+   * - 填了：只对该 nodeType 的 diagnostic 生效
+   */
+  nodeType?: string
+
   /** 给用户展示的建议文本（中文） */
   message: string
 }

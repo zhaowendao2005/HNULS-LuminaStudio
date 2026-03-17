@@ -40,5 +40,15 @@ export const llmNodeTomlDefinition: OFNodeAuthoringTomlDefinition = {
       '"""',
       'struct = "summary:string score:number"'
     ].join('\n')
+  ],
+
+  // ===== 节点私域建议（LLM） =====
+  suggestions: [
+    {
+      code: 'required-field-missing',
+      nodeType: 'llm',
+      message:
+        'LLM 节点常见必填字段：model 与 prompt。请确认 model="provider/model"，prompt 使用 """ 多行字符串更清晰。'
+    }
   ]
 }

@@ -18,7 +18,7 @@ export const iterationNodeTomlDefinition: OFNodeAuthoringTomlDefinition = {
       key: 'iterator_selector',
       required: true,
       summary: '迭代数组来源。',
-      example: 'iterator_selector = ["start", "items"]'
+      example: 'iterator_selector = ["items"]'
     },
     {
       key: 'subgraph',
@@ -34,10 +34,20 @@ export const iterationNodeTomlDefinition: OFNodeAuthoringTomlDefinition = {
       'id = "loop_items"',
       'type = "iter"',
       'title = "逐项处理"',
-      'iterator_selector = ["start", "items"]',
+      'iterator_selector = ["items"]',
       'output_selector = ["child_end", "result"]',
       'flatten_output = true',
       'subgraph = { nodes = [{ id = "child_end", type = "end", title = "结束", outputs = [{ variable_selector = ["item"] }] }], edges = [] }'
     ].join('\n')
+  ],
+
+  // ===== 节点私域建议（Iter） =====
+  suggestions: [
+    {
+      code: 'subgraph-required',
+      nodeType: 'iter',
+      message:
+        'Iter 节点必须提供 subgraph（子图）。建议先写一个最小子图：subgraph = { nodes = [...], edges = [...] }。'
+    }
   ]
 }

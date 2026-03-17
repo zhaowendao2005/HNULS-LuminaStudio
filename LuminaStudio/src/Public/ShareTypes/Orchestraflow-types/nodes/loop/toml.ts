@@ -34,5 +34,15 @@ export const loopNodeTomlDefinition: OFNodeAuthoringTomlDefinition = {
       'loop_variables = [{ variable = "retry_reason", value_type = "constant", value = "校验失败，继续修复" }]',
       'subgraph = { nodes = [{ id = "child_end", type = "end", title = "结束", outputs = [{ variable_selector = ["retry_reason"] }] }], edges = [] }'
     ].join('\n')
+  ],
+
+  // ===== 节点私域建议（Loop） =====
+  suggestions: [
+    {
+      code: 'subgraph-required',
+      nodeType: 'loop',
+      message:
+        'Loop 节点必须提供 subgraph（子图）。如果只是做一个固定次数循环，也需要写一个最小 subgraph。'
+    }
   ]
 }

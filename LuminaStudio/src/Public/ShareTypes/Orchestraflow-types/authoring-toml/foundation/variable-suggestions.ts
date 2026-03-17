@@ -8,14 +8,20 @@ export const ofVariableSuggestionSpecs: TomlDiagnosticSuggestionSpec[] = [
   {
     code: 'selector-format-invalid',
     message:
-      'selector 建议使用数组格式： ["nodeId", "field"]。例如：variable_selector = ["summarize", "score"]。'
+      'selector 必须是数组： ["nodeId", "field"]。例如：variable_selector = ["summarize", "llmoutput"]。'
   },
   {
     code: 'selector-node-not-found',
-    message: 'selector[0] 必须引用已存在的 nodeId；请确认节点 id 是否拼写正确。'
+    message:
+      'selector 第一段并不是“节点 id”，而是变量存储的 key（变量根）。例如 start 输入变量会直接发布为 key=变量名，所以通常写 ["max_rounds"] 而不是 ["start", "max_rounds"]。'
   },
   {
     code: 'selector-field-not-found',
-    message: 'selector[1] 必须是上游节点可产出的变量字段；请检查上游节点是否真的输出了该字段。'
+    message:
+      'selector 第二段必须是“该变量根对象”里的字段名；如果你引用的是 start 输入变量，通常根本不需要第二段，直接用 ["变量名"]。例如 max_rounds 就写 ["max_rounds"]。'
+  },
+  {
+    code: 'selector-empty',
+    message: 'selector 不能为空；至少需要 ["nodeId", "field"] 两段。'
   }
 ]

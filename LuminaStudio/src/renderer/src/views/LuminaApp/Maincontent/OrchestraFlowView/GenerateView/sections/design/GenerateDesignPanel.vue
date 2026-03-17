@@ -140,15 +140,49 @@
             </template>
 
             <template v-else-if="viewMode === 'dsl'">
-              <div class="flex-1 bg-[#fbfbfc] p-4">
-                <textarea
-                  :value="activeDocument.content"
-                  class="h-full min-h-[520px] w-full resize-none border-none bg-transparent font-mono text-[12px] leading-6 text-gray-800 outline-none"
-                  placeholder="在这里编辑规划设计稿 TOML..."
-                  @input="
-                    emit('update:design-content', ($event.target as HTMLTextAreaElement).value)
-                  "
-                ></textarea>
+              <!--
+                DSL 编辑视图：
+                - 左侧行号 gutter
+                - 右侧 textarea
+                - 若某行存在 error/warning，则 gutter 与对应行号高亮
+              -->
+              <div class="flex flex-1 bg-[#fbfbfc]">
+                <!-- 行号 gutter -->
+                <div
+                  class="w-12 shrink-0 overflow-hidden border-r border-gray-200 bg-white text-right font-mono text-[12px] leading-6"
+                >
+                  <div
+                    v-for="(lineText, idx) in tomlLines"
+                    :key="`gutter-${idx}`"
+                    :class="[
+                      'select-none px-2 py-0.5 text-gray-400',
+                      lineAnnotationMap[idx + 1]?.severity === 'error'
+                        ? 'bg-rose-100 text-rose-600'
+                        : lineAnnotationMap[idx + 1]?.severity === 'warning'
+                          ? 'bg-amber-100 text-amber-700'
+                          : ''
+                    ]"
+                  >
+                    {{ idx + 1 }}
+                  </div>
+                </div>
+
+                <!--
+                  编辑区：
+                  - textarea 自己不再承担滚动
+                  - 高度随内容撑开，统一交给外层容器滚动，避免出现双滚动条
+                -->
+                <div class="flex-1 p-4">
+                  <textarea
+                    :value="activeDocument.content"
+                    class="min-h-[520px] w-full resize-none overflow-hidden border-none bg-transparent font-mono text-[12px] leading-6 text-gray-800 outline-none"
+                    style="field-sizing: content"
+                    placeholder="在这里编辑规划设计稿 TOML..."
+                    @input="
+                      emit('update:design-content', ($event.target as HTMLTextAreaElement).value)
+                    "
+                  ></textarea>
+                </div>
               </div>
             </template>
 
@@ -374,8 +408,8 @@ const lineAnnotationMap = computed(() => {
   return map
 })
 
-function getSuggestions(diagnostic: Pick<CheckDiagnostic, 'code'>): string[] {
-  return resolveDiagnosticSuggestions(diagnostic)
+function getSuggestions(diagnostic: Pick<CheckDiagnostic, 'code' | 'context'>): string[] {
+  return resolveDiagnosticSuggestions({ code: diagnostic.code, context: diagnostic.context })
 }
 
 function handleCompile(): void {

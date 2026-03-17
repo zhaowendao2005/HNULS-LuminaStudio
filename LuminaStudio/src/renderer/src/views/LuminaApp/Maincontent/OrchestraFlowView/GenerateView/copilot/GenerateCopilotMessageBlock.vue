@@ -38,6 +38,19 @@
         <div class="relative mt-2 rounded-lg" :class="message.role === 'assistant' ? 'pr-2' : ''">
           <GenerateMessageActionToolbar @copy="$emit('copy')" @inspect="$emit('inspect')" />
 
+          <!--
+            规划设计（design-planner）阶段的 assistant 消息：
+            - 不在 message block 里直接展示“规划设计稿/TOML”正文（太长、也影响阅读）
+            - message block 只负责展示进度 + 状态提示
+            - 需要看原文时，走“查看详情”（inspect）
+          -->
+          <div
+            v-if="shouldCollapseDesignContent"
+            class="rounded-lg border border-dashed border-gray-200 bg-white/60 px-3 py-2 text-[12px] leading-6 text-gray-700"
+          >
+            {{ collapsedDesignHint }}
+          </div>
+
           <!-- streaming 时，在消息块内部显示暂停按钮（按你的交互要求） -->
           <button
             v-if="showAbortButton"
@@ -48,10 +61,12 @@
             暂停
           </button>
 
-          <pre class="whitespace-pre-wrap break-words font-mono text-[12px] leading-6 text-gray-800"
-            >{{ message.content || '...' }}
-</pre
+          <pre
+            v-if="!shouldCollapseDesignContent"
+            class="whitespace-pre-wrap break-words font-mono text-[12px] leading-6 text-gray-800"
           >
+            {{ message.content || '...' }}
+          </pre>
         </div>
       </div>
 
@@ -76,6 +91,31 @@ import GenerateMessageActionToolbar from '../overlays/message-detail/GenerateMes
 const props = defineProps<{
   message: GenerationMessage
 }>()
+
+// ===================== “规划设计稿内容折叠显示”开关（仅 UI 层） =====================
+// 需求：规划设计面板里的 message block 不要直接把规划设计稿（通常是大段 TOML）塞进来展示。
+// 方案：当消息属于 design-planner 且为 assistant 时，在 block 内只给一个提示文案 + 进度。
+//      用户如果需要看原文，通过“查看详情（inspect）”打开详情面板。
+const shouldCollapseDesignContent = computed(() => {
+  return props.message.role === 'assistant' && props.message.channelKey === 'design-planner'
+})
+
+const collapsedDesignHint = computed(() => {
+  if (!shouldCollapseDesignContent.value) return ''
+  if (props.message.status === 'streaming') {
+    return '正在生成规划设计稿…（此处仅显示进度，原文请点右上角“查看详情”）'
+  }
+  if (props.message.status === 'completed') {
+    return '规划设计稿已生成。（此处不直接展示正文，原文请点右上角“查看详情”）'
+  }
+  if (props.message.status === 'failed') {
+    return '规划设计稿生成失败。（可点“查看详情”查看错误上下文）'
+  }
+  if (props.message.status === 'aborted') {
+    return '规划设计稿已暂停。（可点“查看详情”查看已输出的内容）'
+  }
+  return '规划设计消息（正文已折叠，可点“查看详情”查看）'
+})
 
 defineEmits<{
   (e: 'copy'): void

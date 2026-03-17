@@ -373,40 +373,31 @@ export const useOrchestflowGenerationEditorStore = defineStore(
     /**
      * 从“需求规划输出（analysis-planner 的结构化规划块）”进入规划设计。
      *
-     * 交互目标：
-     * - 把 planningMessageId 作为 design document 的 planningSourceMessageId
-     * - 这样能形成“快照 --- 设计稿”一对绑定关系，切换规划输出时也能切换到对应设计稿。
+     * 当前产品规则：
+     * - 每次点击都强制新建一份新的规划设计稿
+     * - 仍然把 planningMessageId 记录到 planningSourceMessageId，保留“快照来源”绑定
+     * - 不再复用同一条规划输出之前已经创建过的设计稿
      */
     async function startDesignFromPlanningMessage(planningMessageId: string): Promise<void> {
       if (!currentSession.value) return
 
-      // 1) 先尝试在当前会话里找“已经绑定过”的设计稿
-      const existing = currentSession.value.designDocuments.find(
-        (doc) => doc.planningSourceMessageId === planningMessageId
+      // 每次都按“第一次点击”的语义新建设计稿，避免因为已有绑定稿件而直接复用旧版本。
+      requireData(
+        await OrchestflowGenerationEditorDataSource.createDesignDocument({
+          sessionId: currentSession.value.id,
+          title: '设计稿',
+          planningSourceMessageId: planningMessageId
+        })
       )
+      await refreshCurrentSession()
 
-      if (existing) {
-        await selectDesignDocument(existing.id)
-      } else {
-        // 2) 没有的话，新建一个并绑定 planningSourceMessageId
-        requireData(
-          await OrchestflowGenerationEditorDataSource.createDesignDocument({
-            sessionId: currentSession.value.id,
-            title: '设计稿',
-            planningSourceMessageId: planningMessageId
-          })
-        )
-        await refreshCurrentSession()
-
-        const created = currentSession.value.designDocuments.find(
-          (doc) => doc.planningSourceMessageId === planningMessageId
-        )
-        if (created) {
-          await selectDesignDocument(created.id)
-        }
+      // 新建后优先选中“刚创建的最新版本”，避免继续停留在旧设计稿上。
+      const created = currentSession.value.designDocuments[0]
+      if (created) {
+        await selectDesignDocument(created.id)
       }
 
-      // 3) 切到“规划设计稿”主面板，并打开右侧 design copilot
+      // 切到“规划设计稿”主面板，并打开右侧 design copilot。
       activeMenu.value = 'design'
       designDocumentViewMode.value = 'preview'
       openCopilotPanel('design')
@@ -442,6 +433,30 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       if (!currentSession.value || !currentStageConfig.value) return
       const trimmed = text.trim()
       if (!trimmed) return
+
+      // ===================== 设计稿“重新规划设计”调试开关 =====================
+      // 需求：当同一份规划设计快照不是第一次进行规划设计时，先把原稿清空，再重新追加生成内容。
+      // 说明：
+      // - run-start 里我们会把前端 textarea 清空，但后端文档内容仍可能保留旧版本
+      // - 这里提前把 designDocument.content 落库清空，便于调试“本次生成到底产出了什么”
+      if (channelKey === 'design-planner') {
+        const doc = activeDesignDocument.value
+        if (doc && doc.content.trim()) {
+          requireData(
+            await OrchestflowGenerationEditorDataSource.saveDesignDocument({
+              sessionId: currentSession.value.id,
+              document: {
+                ...doc,
+                content: '',
+                summary: '',
+                status: 'draft'
+              }
+            })
+          )
+          await refreshCurrentSession()
+        }
+      }
+
       const designDocumentId =
         channelKey === 'design-planner' ? activeDesignDocument.value?.id || null : null
       requireData(

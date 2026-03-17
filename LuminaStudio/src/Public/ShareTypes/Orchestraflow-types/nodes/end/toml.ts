@@ -24,5 +24,14 @@ export const endNodeTomlDefinition: OFNodeAuthoringTomlDefinition = {
       'title = "结束"',
       'outputs = [{ variable = "summary", variable_selector = ["shape_output", "final_summary"] }]'
     ].join('\n')
+  ],
+
+  // ===== 节点私域建议（End） =====
+  suggestions: [
+    {
+      code: 'required-field-missing',
+      nodeType: 'end',
+      message: 'End 节点必填字段：outputs。每个 outputs 项至少包含 variable 与 variable_selector。'
+    }
   ]
 }
