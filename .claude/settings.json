@@ -1,4 +1,14 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(pnpm -C LuminaStudio lint)",
+      "Bash(pnpm -C LuminaStudio exec prettier -w \"src/renderer/src/views/LuminaApp/Maincontent/OrchestraFlowView/GenerateView/copilot/GenerateCopilotMessageBlock.vue\" \"src/renderer/src/stores/orchestraflow/generation-editor/generation-editor.store.ts\")",
+      "Bash(pnpm -C LuminaStudio exec prettier -w \"src/main/services/orchestflow-generation-editor/orchestflow-generation-editor-service.ts\")",
+      "Bash(pnpm -C LuminaStudio exec tsc -p tsconfig.web.json --noEmit)",
+      "Bash(pnpm -C LuminaStudio typecheck:web)",
+      "Bash(pnpm -C LuminaStudio exec prettier -w \"src/renderer/src/views/LuminaApp/Maincontent/OrchestraFlowView/GenerateView/layout/GenerateWorkspace.vue\")"
+    ]
+  },
   "enabledPlugins": {
     "frontend-design@claude-plugins-official": true,
     "code-simplifier@claude-plugins-official": true,

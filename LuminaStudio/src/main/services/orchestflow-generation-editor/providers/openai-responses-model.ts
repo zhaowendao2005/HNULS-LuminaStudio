@@ -32,8 +32,8 @@ export function createOpenAIResponsesModel(config: GenerationModelProviderConfig
     if (typeof input === 'string') return input
     if (Array.isArray(input)) {
       // LangChain message array: pick content and concat.
-      return (input as Array<{ content?: unknown }>).
-        map((m) => (typeof m?.content === 'string' ? m.content : ''))
+      return (input as Array<{ content?: unknown }>)
+        .map((m) => (typeof m?.content === 'string' ? m.content : ''))
         .join('\n')
     }
     return String(input ?? '')

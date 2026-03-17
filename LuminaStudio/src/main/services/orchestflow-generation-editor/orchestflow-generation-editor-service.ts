@@ -47,7 +47,7 @@ import type { ActiveGenerationRun, GenerationEventSink } from './runtime/types/r
 import { compileDesignDocumentTomlToWorkflow } from './toml/compiler'
 import { runFormatValidation } from './validation/format-validator'
 import { mapAuthoringDiagnostics } from './validation/diagnostics'
-import { validateOFAuthoringToml } from '@shared/Orchestraflow-types'
+import { parseOFPlanningPatchToml, validateOFAuthoringToml } from '@shared/Orchestraflow-types'
 
 const log = logger.scope('OrchestflowGenerationEditorService')
 
@@ -110,7 +110,10 @@ export class OrchestflowGenerationEditorService implements GenerationEventSink {
       this.traceBuffer.append(event.runId, event)
     }
     for (const run of this.activeRuns.values()) {
-      if (run.runId === event.runId && (run as ActiveGenerationRun & { sender?: WebContents }).sender) {
+      if (
+        run.runId === event.runId &&
+        (run as ActiveGenerationRun & { sender?: WebContents }).sender
+      ) {
         ;(run as ActiveGenerationRun & { sender?: WebContents }).sender?.send(
           'orchestflowGenerationEditor:stream',
           event
@@ -188,7 +191,9 @@ export class OrchestflowGenerationEditorService implements GenerationEventSink {
     request: GenerationCompileDesignDocumentToWorkflowRequest
   ): Promise<GenerationCompileDesignDocumentToWorkflowResult> {
     const detail = this.repository.getSessionDetail(request.sessionId)
-    const designDocument = detail.designDocuments.find((item) => item.id === request.designDocumentId)
+    const designDocument = detail.designDocuments.find(
+      (item) => item.id === request.designDocumentId
+    )
     if (!designDocument) {
       throw new Error('设计稿不存在，无法编译。')
     }
@@ -233,12 +238,24 @@ export class OrchestflowGenerationEditorService implements GenerationEventSink {
     const detail = this.repository.getSessionDetail(request.sessionId)
     const stageConfig = this.getStageConfig(detail, stageKey)
 
+    // 让 design copilot 的消息“跟随设计稿版本切换”。
+    // 做法：在 message.metaJson 里写入 artifactDocumentId（即 designDocumentId）。
+    // 这样前端就能按 activeDesignDocument.id 过滤消息列表。
+    const artifactDocumentId =
+      request.channelKey === 'design-planner'
+        ? request.designDocumentId || detail.selectedDesignDocumentId || null
+        : null
+
     const userMessage = this.repository.insertMessage({
       sessionId: request.sessionId,
       channelKey: request.channelKey,
       role: 'user',
       status: 'completed',
-      content: request.text
+      content: request.text,
+      meta: {
+        stageKey,
+        artifactDocumentId: artifactDocumentId || undefined
+      }
     })
 
     const assistantMessage = this.repository.insertMessage({
@@ -248,7 +265,8 @@ export class OrchestflowGenerationEditorService implements GenerationEventSink {
       status: 'streaming',
       content: '',
       meta: {
-        stageKey
+        stageKey,
+        artifactDocumentId: artifactDocumentId || undefined
       }
     })
 
@@ -358,24 +376,34 @@ export class OrchestflowGenerationEditorService implements GenerationEventSink {
 
             try {
               const asAsyncIterable = (value: unknown): AsyncIterable<unknown> => {
-                if (value && typeof (value as { [Symbol.asyncIterator]?: unknown })[Symbol.asyncIterator] === 'function') {
+                if (
+                  value &&
+                  typeof (value as { [Symbol.asyncIterator]?: unknown })[Symbol.asyncIterator] ===
+                    'function'
+                ) {
                   return value as AsyncIterable<unknown>
                 }
-                if (value && typeof (value as { [Symbol.iterator]?: unknown })[Symbol.iterator] === 'function') {
+                if (
+                  value &&
+                  typeof (value as { [Symbol.iterator]?: unknown })[Symbol.iterator] === 'function'
+                ) {
                   const iterable = value as Iterable<unknown>
                   return (async function* () {
                     yield* iterable
                   })()
                 }
-                const maybeReaderFactory = (value as { getReader?: unknown } | null | undefined)?.getReader
+                const maybeReaderFactory = (value as { getReader?: unknown } | null | undefined)
+                  ?.getReader
                 if (value && typeof maybeReaderFactory === 'function') {
                   return (async function* () {
-                    const reader = (value as {
-                      getReader: () => {
-                        read: () => Promise<{ value?: unknown; done: boolean }>
-                        releaseLock: () => void
+                    const reader = (
+                      value as {
+                        getReader: () => {
+                          read: () => Promise<{ value?: unknown; done: boolean }>
+                          releaseLock: () => void
+                        }
                       }
-                    }).getReader()
+                    ).getReader()
                     try {
                       while (true) {
                         const { value, done } = await reader.read()
@@ -425,9 +453,11 @@ export class OrchestflowGenerationEditorService implements GenerationEventSink {
                 return { content: fullText }
               }
 
-              const response = (await (rawModel as {
-                invoke: (i: unknown, o?: unknown) => Promise<{ content: unknown }>
-              }).invoke(input, options)) as { content: unknown }
+              const response = (await (
+                rawModel as {
+                  invoke: (i: unknown, o?: unknown) => Promise<{ content: unknown }>
+                }
+              ).invoke(input, options)) as { content: unknown }
 
               llmLog.info('invoke:finish', {
                 runId: activeRun.runId,
@@ -477,8 +507,18 @@ export class OrchestflowGenerationEditorService implements GenerationEventSink {
             workflowSpec
           }
         })
-        bridge.emit({ type: 'prompt-snapshot', stepKey: 'analysis-planner', title: 'Analysis Prompt', prompt: result.prompt })
-        bridge.emit({ type: 'context-snapshot', stepKey: 'analysis-planner', title: 'Analysis Context', context: result.context })
+        bridge.emit({
+          type: 'prompt-snapshot',
+          stepKey: 'analysis-planner',
+          title: 'Analysis Prompt',
+          prompt: result.prompt
+        })
+        bridge.emit({
+          type: 'context-snapshot',
+          stepKey: 'analysis-planner',
+          title: 'Analysis Context',
+          context: result.context
+        })
         const spentTokens = budget.add(estimateTokenUsage(result.prompt + result.markdown))
         bridge.emit({
           type: 'budget-update',
@@ -507,8 +547,18 @@ export class OrchestflowGenerationEditorService implements GenerationEventSink {
             memoryWindow
           }
         })
-        bridge.emit({ type: 'prompt-snapshot', stepKey: 'planning-copilot', title: 'Planning Copilot Prompt', prompt: result.prompt })
-        bridge.emit({ type: 'context-snapshot', stepKey: 'planning-copilot', title: 'Planning Copilot Context', context: result.context })
+        bridge.emit({
+          type: 'prompt-snapshot',
+          stepKey: 'planning-copilot',
+          title: 'Planning Copilot Prompt',
+          prompt: result.prompt
+        })
+        bridge.emit({
+          type: 'context-snapshot',
+          stepKey: 'planning-copilot',
+          title: 'Planning Copilot Context',
+          context: result.context
+        })
         const spentTokens = budget.add(estimateTokenUsage(result.prompt + result.patchToml))
         bridge.emit({
           type: 'budget-update',
@@ -517,9 +567,10 @@ export class OrchestflowGenerationEditorService implements GenerationEventSink {
           maxIterations: budget.getMaxIterations()
         })
         this.repository.updateMessageContent(activeRun.messageId, result.patchToml)
-        const patch = require('@shared/Orchestraflow-types').parseOFPlanningPatchToml(
-          result.patchToml
-        ) as { action: 'replace-analysis' | 'append-analysis'; content: string }
+        const patch = parseOFPlanningPatchToml(result.patchToml) as {
+          action: 'replace-analysis' | 'append-analysis'
+          content: string
+        }
         const analysisDocument = this.repository.saveAnalysisDocument(
           request.sessionId,
           applyPlanningPatch(detail.analysisDocument, patch)
@@ -532,7 +583,9 @@ export class OrchestflowGenerationEditorService implements GenerationEventSink {
         })
       } else {
         const designDocument =
-          detail.designDocuments.find((item) => item.id === (request.designDocumentId || detail.selectedDesignDocumentId)) ||
+          detail.designDocuments.find(
+            (item) => item.id === (request.designDocumentId || detail.selectedDesignDocumentId)
+          ) ||
           this.repository.createDesignDocument({
             sessionId: request.sessionId,
             title: '设计稿',
@@ -554,8 +607,18 @@ export class OrchestflowGenerationEditorService implements GenerationEventSink {
               validationReport: lastValidation
             }
           })
-          bridge.emit({ type: 'prompt-snapshot', stepKey: 'design-planner', title: `Design Prompt #${iteration}`, prompt: result.prompt })
-          bridge.emit({ type: 'context-snapshot', stepKey: 'design-planner', title: `Design Context #${iteration}`, context: result.context })
+          bridge.emit({
+            type: 'prompt-snapshot',
+            stepKey: 'design-planner',
+            title: `Design Prompt #${iteration}`,
+            prompt: result.prompt
+          })
+          bridge.emit({
+            type: 'context-snapshot',
+            stepKey: 'design-planner',
+            title: `Design Context #${iteration}`,
+            context: result.context
+          })
           const spentTokens = budget.add(estimateTokenUsage(result.prompt + result.toml))
           bridge.emit({
             type: 'budget-update',
@@ -691,9 +754,7 @@ export class OrchestflowGenerationEditorService implements GenerationEventSink {
     const provider = resolveProvider()
     if (!provider) {
       throw new Error(
-        providerId
-          ? `模型 provider 不存在：${providerId}`
-          : '未配置可用的模型 provider'
+        providerId ? `模型 provider 不存在：${providerId}` : '未配置可用的模型 provider'
       )
     }
 

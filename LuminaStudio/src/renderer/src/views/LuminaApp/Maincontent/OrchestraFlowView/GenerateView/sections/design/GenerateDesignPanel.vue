@@ -131,7 +131,7 @@
                   <button
                     type="button"
                     class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
-                    @click="$emit('open-copilot')"
+                    @click="$emit('start-design')"
                   >
                     {{ activeDocument.content.trim() ? '继续设计' : '开始设计' }}
                   </button>
@@ -265,6 +265,7 @@ defineEmits<{
   (e: 'create-design'): void
   (e: 'compile-workflow'): void
   (e: 'open-copilot'): void
+  (e: 'start-design'): void
   (e: 'open-sessions'): void
   (e: 'open-design-manager'): void
   (e: 'select-diagnostic', index: number): void

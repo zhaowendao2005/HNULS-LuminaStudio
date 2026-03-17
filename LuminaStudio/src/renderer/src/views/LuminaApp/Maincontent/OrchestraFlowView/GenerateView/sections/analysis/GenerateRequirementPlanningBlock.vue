@@ -1,5 +1,7 @@
 <template>
-  <div class="of-generate-requirement-planning mt-1 rounded-xl border border-cyan-200 bg-cyan-50/70 p-4">
+  <div
+    class="of-generate-requirement-planning mt-1 rounded-xl border border-cyan-200 bg-cyan-50/70 p-4"
+  >
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div class="min-w-0 flex-1">
         <div class="flex flex-wrap items-center gap-2">
@@ -49,5 +51,6 @@ defineProps<{
 }>()
 
 // 用固定顺序渲染 4 个核心标题，保证用户每次看到的布局稳定一致。
-const sectionTitles = REQUIREMENT_PLANNING_SECTION_TITLES as readonly RequirementPlanningSectionTitle[]
+const sectionTitles =
+  REQUIREMENT_PLANNING_SECTION_TITLES as readonly RequirementPlanningSectionTitle[]
 </script>

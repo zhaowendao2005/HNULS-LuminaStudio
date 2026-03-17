@@ -143,7 +143,9 @@ export class GenerationEditorRepository {
         ORDER BY s.updated_at DESC
       `
       )
-      .all() as Array<GenerationSessionRow & { analysis_turn_count: number; design_version_count: number }>
+      .all() as Array<
+      GenerationSessionRow & { analysis_turn_count: number; design_version_count: number }
+    >
 
     return rows.map((row) => ({
       id: row.id,
@@ -346,7 +348,9 @@ export class GenerationEditorRepository {
     planningSourceMessageId?: string | null
   }): GenerationDesignDocument {
     const existingVersion = this.db
-      .prepare('SELECT MAX(version) as version FROM generation_design_documents WHERE session_id = ?')
+      .prepare(
+        'SELECT MAX(version) as version FROM generation_design_documents WHERE session_id = ?'
+      )
       .get(params.sessionId) as { version: number | null }
     const version = (existingVersion.version || 0) + 1
     const documentId = randomUUID()
@@ -362,10 +366,20 @@ export class GenerationEditorRepository {
           ) VALUES (?, ?, ?, '', 'of-workflow-toml-v1', '', 'draft', NULL, ?, NULL, NULL, ?, ?, ?)
         `
       )
-      .run(documentId, params.sessionId, params.title, params.planningSourceMessageId || null, version, timestamp, timestamp)
+      .run(
+        documentId,
+        params.sessionId,
+        params.title,
+        params.planningSourceMessageId || null,
+        version,
+        timestamp,
+        timestamp
+      )
 
     this.db
-      .prepare('UPDATE generation_sessions SET selected_design_document_id = ?, updated_at = ? WHERE id = ?')
+      .prepare(
+        'UPDATE generation_sessions SET selected_design_document_id = ?, updated_at = ? WHERE id = ?'
+      )
       .run(documentId, timestamp, params.sessionId)
 
     return mapDesignDocument(
@@ -375,7 +389,10 @@ export class GenerationEditorRepository {
     )
   }
 
-  saveDesignDocument(sessionId: string, document: GenerationDesignDocument): GenerationDesignDocument {
+  saveDesignDocument(
+    sessionId: string,
+    document: GenerationDesignDocument
+  ): GenerationDesignDocument {
     const updatedAt = nowIso()
     this.db
       .prepare(
@@ -418,17 +435,23 @@ export class GenerationEditorRepository {
 
   selectDesignDocument(sessionId: string, designDocumentId: string): GenerationSessionDetail {
     this.db
-      .prepare('UPDATE generation_sessions SET selected_design_document_id = ?, updated_at = ? WHERE id = ?')
+      .prepare(
+        'UPDATE generation_sessions SET selected_design_document_id = ?, updated_at = ? WHERE id = ?'
+      )
       .run(designDocumentId, nowIso(), sessionId)
     return this.getSessionDetail(sessionId)
   }
 
   deleteDesignDocument(sessionId: string, designDocumentId: string): void {
-    this.db.prepare('DELETE FROM generation_design_documents WHERE id = ? AND session_id = ?').run(designDocumentId, sessionId)
+    this.db
+      .prepare('DELETE FROM generation_design_documents WHERE id = ? AND session_id = ?')
+      .run(designDocumentId, sessionId)
     const detail = this.getSessionDetail(sessionId)
     const fallbackId = detail.designDocuments[0]?.id || null
     this.db
-      .prepare('UPDATE generation_sessions SET selected_design_document_id = ?, updated_at = ? WHERE id = ?')
+      .prepare(
+        'UPDATE generation_sessions SET selected_design_document_id = ?, updated_at = ? WHERE id = ?'
+      )
       .run(fallbackId, nowIso(), sessionId)
   }
 
@@ -474,14 +497,16 @@ export class GenerationEditorRepository {
       )
     this.touchSession(params.sessionId)
     return mapMessage(
-      this.db.prepare('SELECT * FROM generation_messages WHERE id = ?').get(id) as GenerationMessageRow
+      this.db
+        .prepare('SELECT * FROM generation_messages WHERE id = ?')
+        .get(id) as GenerationMessageRow
     )
   }
 
   getMessageById(messageId: string): GenerationMessage {
-    const row = this.db
-      .prepare('SELECT * FROM generation_messages WHERE id = ?')
-      .get(messageId) as GenerationMessageRow | undefined
+    const row = this.db.prepare('SELECT * FROM generation_messages WHERE id = ?').get(messageId) as
+      | GenerationMessageRow
+      | undefined
     if (!row) {
       throw new Error(`Generate 消息不存在：${messageId}`)
     }
@@ -502,7 +527,10 @@ export class GenerationEditorRepository {
     return this.getMessageById(messageId)
   }
 
-  finishMessage(messageId: string, status: Extract<GenerationMessageStatus, 'completed' | 'aborted'>): GenerationMessage {
+  finishMessage(
+    messageId: string,
+    status: Extract<GenerationMessageStatus, 'completed' | 'aborted'>
+  ): GenerationMessage {
     this.db
       .prepare('UPDATE generation_messages SET status = ?, updated_at = ? WHERE id = ?')
       .run(status, nowIso(), messageId)
@@ -512,7 +540,9 @@ export class GenerationEditorRepository {
   failMessage(messageId: string, errorMessage: string): GenerationMessage {
     const current = this.getMessageById(messageId)
     this.db
-      .prepare('UPDATE generation_messages SET status = ?, content = ?, updated_at = ? WHERE id = ?')
+      .prepare(
+        'UPDATE generation_messages SET status = ?, content = ?, updated_at = ? WHERE id = ?'
+      )
       .run('failed', current.content || errorMessage, nowIso(), messageId)
     return this.getMessageById(messageId)
   }

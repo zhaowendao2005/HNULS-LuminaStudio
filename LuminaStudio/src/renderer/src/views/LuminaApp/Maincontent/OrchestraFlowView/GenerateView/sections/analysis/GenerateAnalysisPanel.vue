@@ -67,10 +67,23 @@
               @copy="handleCopyMessage(entry.message)"
               @inspect="openMessageDetail(entry.message)"
             />
-            <GenerateRequirementPlanningBlock
-              v-if="entry.planningBlock"
-              :block="entry.planningBlock"
-            />
+            <div v-if="entry.planningBlock" class="relative">
+              <GenerateRequirementPlanningBlock :block="entry.planningBlock" />
+              <!--
+                规划设计：
+                - 这个按钮位于“需求规划输出块”右下角
+                - 点击后，把这条规划输出（message.id）作为 planningSourceMessageId，进入规划设计稿面板
+              -->
+              <div class="mt-3 flex justify-end">
+                <button
+                  type="button"
+                  class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
+                  @click="$emit('start-design', entry.message.id)"
+                >
+                  规划设计
+                </button>
+              </div>
+            </div>
             <template v-else>
               {{ entry.message.content || '...' }}
               <span
@@ -158,6 +171,7 @@ const messageDetail = reactive<{
 defineEmits<{
   (e: 'open-sessions'): void
   (e: 'open-copilot'): void
+  (e: 'start-design', messageId: string): void
   (e: 'update:document', value: string): void
   (e: 'update:analysis-input', value: string): void
   (e: 'send-analysis'): void

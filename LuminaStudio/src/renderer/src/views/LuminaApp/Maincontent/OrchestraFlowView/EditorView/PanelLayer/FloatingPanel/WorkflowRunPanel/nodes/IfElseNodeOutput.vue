@@ -88,8 +88,8 @@ const haloClass = computed(() =>
 
 const caseEvaluations = computed(
   () =>
-    ((props.tracing.outputs?.caseEvaluations as
+    (props.tracing.outputs?.caseEvaluations as
       | Array<{ caseId: string; label: string; passed: boolean }>
-      | undefined) || [])
+      | undefined) || []
 )
 </script>

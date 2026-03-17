@@ -200,7 +200,11 @@ import WhiteSelect, {
   type WhiteSelectOption
 } from '@renderer/views/LuminaApp/Maincontent/NormalChat/components/WhiteSelect.vue'
 import StartNodeSchemaEditor from '../StartNodeSchemaEditor/index.vue'
-import type { OFJsonSchemaProperty, OFStructuredJsonSchema, OFVariable } from '@shared/Orchestraflow-types'
+import type {
+  OFJsonSchemaProperty,
+  OFStructuredJsonSchema,
+  OFVariable
+} from '@shared/Orchestraflow-types'
 import { OFVarType } from '@shared/Orchestraflow-types'
 const fieldTypeOptions: WhiteSelectOption[] = [
   { label: 'string', value: OFVarType.String },
@@ -351,7 +355,10 @@ function confirm() {
     errorMessage.value = '变量名称不能为空'
     return
   }
-  if (selectedType.value === OFVarType.Object && (!currentSchema.value || currentSchema.value.type !== 'object')) {
+  if (
+    selectedType.value === OFVarType.Object &&
+    (!currentSchema.value || currentSchema.value.type !== 'object')
+  ) {
     errorMessage.value = 'object 类型必须先配置 Schema'
     return
   }

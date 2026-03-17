@@ -1,7 +1,7 @@
 <template>
   <div
     :class="[
-      'of-generate-right-panel flex shrink-0 flex-col border-l border-gray-200 bg-white transition-all duration-300 ease-in-out',
+      'of-generate-right-panel flex h-full min-h-0 shrink-0 flex-col border-l border-gray-200 bg-white transition-all duration-300 ease-in-out',
       visible
         ? isFullscreen
           ? 'absolute inset-0 z-20 w-full'
@@ -10,7 +10,7 @@
     ]"
   >
     <template v-if="visible">
-      <div class="z-20 flex h-full flex-col bg-white shadow-[-4px_0_24px_rgba(0,0,0,0.03)]">
+      <div class="z-20 flex h-full min-h-0 flex-col bg-white shadow-[-4px_0_24px_rgba(0,0,0,0.03)]">
         <div
           class="flex h-12 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4"
         >
@@ -49,7 +49,7 @@
         >
           <div
             :class="[
-              'flex flex-col bg-white',
+              'flex min-h-0 flex-col bg-white',
               isFullscreen ? 'w-1/2 border-r border-gray-200' : 'h-1/2 border-b border-gray-200'
             ]"
           >
@@ -71,7 +71,7 @@
             </div>
           </div>
 
-          <div :class="['flex flex-col bg-white', isFullscreen ? 'w-1/2' : 'h-1/2']">
+          <div :class="['flex min-h-0 flex-col bg-white', isFullscreen ? 'w-1/2' : 'h-1/2']">
             <div class="border-b border-gray-100 bg-gray-50/80 px-4 py-2">
               <span
                 class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-gray-500"
@@ -95,47 +95,14 @@
               </div>
 
               <div v-else class="space-y-4">
-                <div v-for="message in messages" :key="message.id" class="flex gap-3">
-                  <div
-                    v-if="message.role === 'user'"
-                    class="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-gray-100"
-                  >
-                    <UserCircle :size="14" class="text-gray-500" />
-                  </div>
-                  <div
-                    v-else
-                    class="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm border border-violet-100 bg-violet-50"
-                  >
-                    <Bot :size="14" class="text-violet-600" />
-                  </div>
-
-                  <div
-                    :class="[
-                      'group w-full rounded-md text-[13px] text-gray-800',
-                      message.role === 'user'
-                        ? 'rounded-bl-md rounded-r-md bg-gray-50 p-2'
-                        : 'p-0.5'
-                    ]"
-                  >
-                    <div
-                      class="relative rounded-xl"
-                      :class="message.role === 'assistant' ? 'pr-2' : ''"
-                    >
-                      <GenerateMessageActionToolbar
-                        @copy="handleCopyMessage(message)"
-                        @inspect="openMessageDetail(message)"
-                      />
-                      <pre
-                        class="whitespace-pre-wrap break-words font-mono text-[12px] leading-6 text-gray-800"
-                        >{{ message.content || '...' }}</pre
-                      >
-                      <span
-                        v-if="message.status === 'streaming'"
-                        class="ml-1 inline-block h-3 w-1 animate-pulse bg-violet-500 align-middle"
-                      ></span>
-                    </div>
-                  </div>
-                </div>
+                <GenerateCopilotMessageBlock
+                  v-for="message in messages"
+                  :key="message.id"
+                  :message="message"
+                  @copy="handleCopyMessage(message)"
+                  @inspect="openMessageDetail(message)"
+                  @abort="handleAbortMessage(message)"
+                />
               </div>
             </div>
 
@@ -165,7 +132,7 @@
           </div>
         </div>
 
-        <div v-else class="flex flex-1 flex-col">
+        <div v-else class="flex min-h-0 flex-1 flex-col">
           <div class="border-b border-gray-100 bg-gray-50/80 px-4 py-2">
             <span
               class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-gray-500"
@@ -190,45 +157,14 @@
             </div>
 
             <div v-else class="space-y-4">
-              <div v-for="message in messages" :key="message.id" class="flex gap-3">
-                <div
-                  v-if="message.role === 'user'"
-                  class="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-gray-100"
-                >
-                  <UserCircle :size="14" class="text-gray-500" />
-                </div>
-                <div
-                  v-else
-                  class="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm border border-violet-100 bg-violet-50"
-                >
-                  <Bot :size="14" class="text-violet-600" />
-                </div>
-
-                <div
-                  :class="[
-                    'group w-full rounded-md text-[13px] text-gray-800',
-                    message.role === 'user' ? 'rounded-bl-md rounded-r-md bg-gray-50 p-2' : 'p-0.5'
-                  ]"
-                >
-                  <div
-                    class="relative rounded-xl"
-                    :class="message.role === 'assistant' ? 'pr-2' : ''"
-                  >
-                    <GenerateMessageActionToolbar
-                      @copy="handleCopyMessage(message)"
-                      @inspect="openMessageDetail(message)"
-                    />
-                    <pre
-                      class="whitespace-pre-wrap break-words font-mono text-[12px] leading-6 text-gray-800"
-                      >{{ message.content || '...' }}</pre
-                    >
-                    <span
-                      v-if="message.status === 'streaming'"
-                      class="ml-1 inline-block h-3 w-1 animate-pulse bg-violet-500 align-middle"
-                    ></span>
-                  </div>
-                </div>
-              </div>
+              <GenerateCopilotMessageBlock
+                v-for="message in messages"
+                :key="message.id"
+                :message="message"
+                @copy="handleCopyMessage(message)"
+                @inspect="openMessageDetail(message)"
+                @abort="handleAbortMessage(message)"
+              />
             </div>
           </div>
 
@@ -272,23 +208,13 @@
 
 <script setup lang="ts">
 import { computed, reactive } from 'vue'
-import {
-  Bot,
-  FileText,
-  GitBranch,
-  Maximize2,
-  Minimize2,
-  RefreshCw,
-  Send,
-  UserCircle,
-  X
-} from 'lucide-vue-next'
+import { FileText, GitBranch, Maximize2, Minimize2, RefreshCw, Send, X } from 'lucide-vue-next'
 import type { GenerationMessage } from '@preload/types'
 import { useGenerationRunInspectorStore } from '@renderer/stores/orchestraflow/generation-editor/inspector/run-inspector.store'
 import type { RunInspectorRecord } from '@renderer/stores/orchestraflow/generation-editor/inspector/run-inspector.types'
 import type { CopilotMode } from '../generate-view.types'
-import GenerateMessageActionToolbar from '../overlays/message-detail/GenerateMessageActionToolbar.vue'
 import GenerateMessageDetailPanel from '../overlays/message-detail/GenerateMessageDetailPanel.vue'
+import GenerateCopilotMessageBlock from './GenerateCopilotMessageBlock.vue'
 
 const props = defineProps<{
   visible: boolean
@@ -315,11 +241,12 @@ const messageDetail = reactive<{
   run: null
 })
 
-defineEmits<{
+const emit = defineEmits<{
   (e: 'toggle-fullscreen'): void
   (e: 'close'): void
   (e: 'update:copilot-input', value: string): void
   (e: 'send-copilot-message'): void
+  (e: 'abort-message', message: GenerationMessage): void
 }>()
 
 const panelTitle = computed(() => {
@@ -341,6 +268,10 @@ const showDocumentPreview = computed(() => props.mode === 'analysis')
 
 function handleCopyMessage(message: GenerationMessage): void {
   void navigator.clipboard.writeText(message.content || '')
+}
+
+function handleAbortMessage(message: GenerationMessage): void {
+  emit('abort-message', message)
 }
 
 function findRelatedUserMessage(message: GenerationMessage): GenerationMessage | null {

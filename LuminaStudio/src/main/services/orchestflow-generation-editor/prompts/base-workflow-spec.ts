@@ -14,9 +14,7 @@ export function buildBaseWorkflowSpecPrompt(): string {
     ].join('\n')
   })
 
-  return [
-    '你正在生成 OrchestraFlow 标准 TOML。',
-    '请严格遵守以下节点作者态结构：',
-    ...blocks
-  ].join('\n\n')
+  return ['你正在生成 OrchestraFlow 标准 TOML。', '请严格遵守以下节点作者态结构：', ...blocks].join(
+    '\n\n'
+  )
 }

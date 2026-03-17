@@ -1,5 +1,5 @@
 <template>
-  <div class="relative flex flex-1 overflow-hidden">
+  <div class="relative flex flex-1 min-h-0 overflow-hidden">
     <GenerateSidebar
       :collapsed="generationStore.isLeftSidebarCollapsed"
       :active-menu="generationStore.activeMenu"
@@ -26,7 +26,7 @@
         />
 
         <GenerateSessionsPanel
-          v-else-if="generationStore.activeMenu === 'sessions'"
+          v-else-if="generationStore.activeMenu === 'sessions' && generationStore.currentSession"
           :sessions="generationStore.sessions"
           :selected-session-id="generationStore.currentSession.id"
           :stage-order="stageOrder"
@@ -38,7 +38,7 @@
         />
 
         <GenerateAnalysisPanel
-          v-else-if="generationStore.activeMenu === 'analysis'"
+          v-else-if="generationStore.activeMenu === 'analysis' && generationStore.currentSession"
           :session-title="generationStore.currentSession.title"
           :session-summary="generationStore.currentSession.summary"
           :current-session-stage-label="generationStore.currentSessionStageLabel"
@@ -48,15 +48,16 @@
           :is-analysis-streaming="generationStore.isAnalysisStreaming"
           @open-sessions="generationStore.activeMenu = 'sessions'"
           @open-copilot="generationStore.openCopilotPanel('analysis')"
+          @start-design="generationStore.startDesignFromPlanningMessage($event)"
           @update:document="$emit('update-analysis-document', $event)"
           @update:analysis-input="generationStore.analysisInput = $event"
           @send-analysis="generationStore.sendAnalysisMessage()"
         />
 
         <GenerateDesignPanel
-          v-else-if="generationStore.activeMenu === 'design'"
+          v-else-if="generationStore.activeMenu === 'design' && generationStore.currentSession"
           :session-title="generationStore.currentSession.title"
-          :source-preview="generationStore.currentSession.analysisDocument.content"
+          :source-preview="designSourcePreview"
           :active-document="generationStore.activeDesignDocument"
           :design-count="generationStore.currentSession.designDocuments.length"
           :view-mode="generationStore.designDocumentViewMode"
@@ -68,6 +69,7 @@
           @update:view-mode="generationStore.designDocumentViewMode = $event"
           @compile-workflow="$emit('compile-workflow')"
           @open-copilot="generationStore.openCopilotPanel('design')"
+          @start-design="generationStore.startDesignFromDesignPanel()"
           @open-sessions="generationStore.activeMenu = 'sessions'"
           @open-design-manager="generationStore.openDesignManager()"
           @select-diagnostic="generationStore.selectedDesignDiagnosticIndex = $event"
@@ -81,6 +83,7 @@
       </div>
 
       <GeneratePlanDesignPanel
+        v-if="generationStore.currentSession"
         :visible="generationStore.activeRightPanel !== null"
         :is-fullscreen="generationStore.isRightPanelFullscreen"
         :mode="generationStore.activeRightPanel || 'analysis'"
@@ -96,12 +99,14 @@
         @close="generationStore.closeRightPanel()"
         @update:copilot-input="generationStore.copilotInput = $event"
         @send-copilot-message="generationStore.sendCopilotMessage()"
+        @abort-message="generationStore.abortStreamingMessage($event)"
       />
     </main>
   </div>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { GenerationValidationDiagnostic } from '@preload/types'
 import { useOrchestflowGenerationEditorStore } from '@renderer/stores/orchestraflow/generation-editor/generation-editor.store'
 import type { MenuItem, StageKey } from '../generate-view.types'
@@ -132,4 +137,19 @@ defineEmits<{
 }>()
 
 const generationStore = useOrchestflowGenerationEditorStore()
+
+// 设计稿快照：优先展示“绑定的规划输出 message”，找不到再回退 analysisDocument。
+// 这样能实现你说的“快照---规划设计稿对绑定”。
+const designSourcePreview = computed(() => {
+  const session = generationStore.currentSession
+  if (!session) return ''
+  const sourceMessageId = generationStore.activeDesignDocument?.planningSourceMessageId
+  if (sourceMessageId) {
+    const sourceMessage = session.messages.find((item) => item.id === sourceMessageId)
+    if (sourceMessage?.content?.trim()) {
+      return sourceMessage.content
+    }
+  }
+  return session.analysisDocument.content
+})
 </script>

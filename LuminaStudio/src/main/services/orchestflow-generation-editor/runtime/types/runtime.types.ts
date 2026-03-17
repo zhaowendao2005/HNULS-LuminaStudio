@@ -1,4 +1,8 @@
-import type { GenerationChannelKey, GenerationStageKey, GenerationStreamEvent } from '@preload/types'
+import type {
+  GenerationChannelKey,
+  GenerationStageKey,
+  GenerationStreamEvent
+} from '@preload/types'
 
 export interface ActiveGenerationRun {
   runId: string
