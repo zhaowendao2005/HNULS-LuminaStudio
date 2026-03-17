@@ -62,6 +62,7 @@
           :design-count="generationStore.currentSession.designDocuments.length"
           :view-mode="generationStore.designDocumentViewMode"
           :diagnostics="currentDesignDiagnostics"
+          :local-check-result="generationStore.localCheckResult"
           :selected-diagnostic-index="generationStore.selectedDesignDiagnosticIndex"
           :is-copilot-streaming="generationStore.isActiveCopilotStreaming"
           @create-design="$emit('create-design-document')"

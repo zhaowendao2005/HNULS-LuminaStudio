@@ -1,4 +1,5 @@
 import type { OFBlueprintNode } from './blueprint'
+import type { TomlDiagnosticSuggestionSpec } from './authoring-toml/spec-types'
 import type {
   OFIfElseCondition,
   OFIterationBranchOutputRef,
@@ -46,6 +47,12 @@ export interface OFNodeAuthoringTomlDefinition {
   optionalFields: string[]
   fields: OFNodeAuthoringTomlFieldDefinition[]
   exampleBlocks: string[]
+  /**
+   * 建议 spec（节点私域）。
+   * 说明：只提供“建议文案”，不提供校验逻辑。
+   * 未来如果要增强（条件过滤/上下文匹配），再扩展 spec-types.ts。
+   */
+  suggestions?: TomlDiagnosticSuggestionSpec[]
 }
 
 export interface OFNodeAuthoringDefinition {

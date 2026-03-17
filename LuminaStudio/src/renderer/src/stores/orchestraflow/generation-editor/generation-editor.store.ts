@@ -1,5 +1,7 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
+import { checkOFAuthoringToml } from '@shared/Orchestraflow-types'
+import type { CheckResult } from '@shared/Orchestraflow-types'
 import type {
   GenerationAnalysisDocument,
   GenerationChannelKey,
@@ -50,6 +52,39 @@ export const useOrchestflowGenerationEditorStore = defineStore(
     const newSessionTitle = ref('新建工作流方案')
     const designDocumentViewMode = ref<'preview' | 'dsl' | 'diagnostics'>('preview')
     const selectedDesignDiagnosticIndex = ref<number | null>(null)
+
+    // ===================== 规划设计稿静态检查（纯前端本地状态，不落库） =====================
+
+    /**
+     * 本地静态检查结果。
+     * 说明：只用于 UI 标红/提示，不影响后端存储与 agent 侧的 validate/self-repair 流程。
+     */
+    const localCheckResult = ref<CheckResult | null>(null)
+
+    let designCheckTimer: ReturnType<typeof setTimeout> | null = null
+
+    /** 立即执行一次静态检查（无 debounce） */
+    function checkDesignDocument(): void {
+      const raw = activeDesignDocument.value?.content || ''
+      if (!raw.trim()) {
+        localCheckResult.value = null
+        return
+      }
+      localCheckResult.value = checkOFAuthoringToml(raw)
+    }
+
+    /**
+     * 触发一次静态检查（500ms debounce）。
+     * 用在用户编辑 TOML 的输入事件上，避免每个按键都重新检查。
+     */
+    function scheduleDesignDocumentCheck(delayMs = 500): void {
+      if (designCheckTimer) {
+        clearTimeout(designCheckTimer)
+      }
+      designCheckTimer = setTimeout(() => {
+        checkDesignDocument()
+      }, delayMs)
+    }
 
     // ===================== 流式控制（用于“流式同步”与“暂停丢弃本次内容”） =====================
 
@@ -695,6 +730,12 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       newSessionName: newSessionTitle,
       designDocumentViewMode,
       selectedDesignDiagnosticIndex,
+
+      // 本地静态检查（规划设计稿）
+      localCheckResult,
+      checkDesignDocument,
+      scheduleDesignDocumentCheck,
+
       activeDesignDocument,
       currentStageConfig,
       currentModelLabel,
