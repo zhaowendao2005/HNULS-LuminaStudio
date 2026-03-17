@@ -42,9 +42,9 @@
         ></textarea>
       </div>
 
-      <div v-for="message in messages" :key="message.id" class="flex gap-4">
+      <div v-for="entry in decoratedMessages" :key="entry.message.id" class="flex gap-4">
         <div
-          v-if="message.role === 'user'"
+          v-if="entry.message.role === 'user'"
           class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100"
         >
           <UserCircle :size="18" class="text-gray-500" />
@@ -58,20 +58,26 @@
 
         <div class="w-full space-y-1.5 pt-1.5">
           <div class="text-xs font-semibold text-gray-800">
-            {{ message.role === 'user' ? 'User' : 'Lumina Agent' }}
+            {{ entry.message.role === 'user' ? 'User' : 'Lumina Agent' }}
           </div>
           <div
             class="group relative rounded-xl bg-white px-4 py-3 text-[13px] leading-relaxed text-gray-800"
           >
             <GenerateMessageActionToolbar
-              @copy="handleCopyMessage(message)"
-              @inspect="openMessageDetail(message)"
+              @copy="handleCopyMessage(entry.message)"
+              @inspect="openMessageDetail(entry.message)"
             />
-            {{ message.content || '...' }}
-            <span
-              v-if="message.status === 'streaming'"
-              class="ml-1 inline-block h-3 w-1 animate-pulse bg-cyan-500 align-middle"
-            ></span>
+            <GenerateRequirementPlanningBlock
+              v-if="entry.planningBlock"
+              :block="entry.planningBlock"
+            />
+            <template v-else>
+              {{ entry.message.content || '...' }}
+              <span
+                v-if="entry.message.status === 'streaming'"
+                class="ml-1 inline-block h-3 w-1 animate-pulse bg-cyan-500 align-middle"
+              ></span>
+            </template>
           </div>
         </div>
       </div>
@@ -116,10 +122,15 @@
 import { computed, reactive } from 'vue'
 import { Bot, FolderKanban, MessageSquare, Send, UserCircle } from 'lucide-vue-next'
 import type { GenerationAnalysisDocument, GenerationMessage } from '@preload/types'
+import {
+  getRequirementPlanningBlock,
+  type RequirementPlanningBlockViewModel
+} from '@renderer/stores/orchestraflow/generation-editor/generation-editor.types'
 import { useGenerationRunInspectorStore } from '@renderer/stores/orchestraflow/generation-editor/inspector/run-inspector.store'
 import type { RunInspectorRecord } from '@renderer/stores/orchestraflow/generation-editor/inspector/run-inspector.types'
 import GenerateMessageActionToolbar from '../../overlays/message-detail/GenerateMessageActionToolbar.vue'
 import GenerateMessageDetailPanel from '../../overlays/message-detail/GenerateMessageDetailPanel.vue'
+import GenerateRequirementPlanningBlock from './GenerateRequirementPlanningBlock.vue'
 
 const props = defineProps<{
   sessionTitle: string
@@ -154,6 +165,16 @@ defineEmits<{
 
 const analysisInputPlaceholder = computed(() => {
   return props.isAnalysisStreaming ? '消息已发出，等待 AI 回复中...' : '输入补充需求或修改意见...'
+})
+
+// 这里先把 message 和“是否可识别成需求规划块”整理好，模板层保持简单。
+const decoratedMessages = computed<
+  Array<{ message: GenerationMessage; planningBlock: RequirementPlanningBlockViewModel | null }>
+>(() => {
+  return props.messages.map((message) => ({
+    message,
+    planningBlock: getRequirementPlanningBlock(message)
+  }))
 })
 
 function handleCopyMessage(message: GenerationMessage): void {
