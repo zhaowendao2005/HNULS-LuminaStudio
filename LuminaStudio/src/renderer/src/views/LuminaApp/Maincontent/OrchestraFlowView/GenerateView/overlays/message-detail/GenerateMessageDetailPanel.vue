@@ -3,12 +3,11 @@
     v-if="visible"
     class="fixed inset-0 z-50 flex items-center justify-center bg-black/20 p-6 backdrop-blur-[1px]"
   >
-    <div
-      class="absolute inset-0"
-      @click="$emit('close')"
-    ></div>
+    <div class="absolute inset-0" @click="$emit('close')"></div>
 
-    <section class="relative flex h-[82vh] w-full max-w-6xl flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl">
+    <section
+      class="relative flex h-[82vh] w-full max-w-6xl flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl"
+    >
       <header class="flex items-center justify-between border-b border-gray-200 px-5 py-3">
         <div class="min-w-0">
           <div class="text-sm font-semibold text-gray-900">消息详情</div>
@@ -66,15 +65,20 @@
           </div>
 
           <div class="h-full overflow-auto bg-[#fbfbfc] p-5">
-            <div v-if="rawTab === 'rendered'" class="rounded-xl border border-gray-200 bg-white p-4">
-              <pre class="whitespace-pre-wrap break-words font-mono text-[12px] leading-6 text-gray-800">{{
-                renderedText
-              }}</pre>
+            <div
+              v-if="rawTab === 'rendered'"
+              class="rounded-xl border border-gray-200 bg-white p-4"
+            >
+              <pre
+                class="whitespace-pre-wrap break-words font-mono text-[12px] leading-6 text-gray-800"
+                >{{ renderedText }}</pre
+              >
             </div>
             <div v-else class="rounded-xl border border-gray-200 bg-white p-4">
-              <pre class="whitespace-pre-wrap break-words font-mono text-[12px] leading-6 text-gray-800">{{
-                rawJson
-              }}</pre>
+              <pre
+                class="whitespace-pre-wrap break-words font-mono text-[12px] leading-6 text-gray-800"
+                >{{ rawJson }}</pre
+              >
             </div>
           </div>
         </template>
@@ -94,9 +98,10 @@
                   </div>
                 </button>
                 <div v-if="sections.system" class="px-4 py-4">
-                  <pre class="whitespace-pre-wrap break-words font-mono text-[12px] leading-6 text-gray-800">{{
-                    systemPromptText
-                  }}</pre>
+                  <pre
+                    class="whitespace-pre-wrap break-words font-mono text-[12px] leading-6 text-gray-800"
+                    >{{ systemPromptText }}</pre
+                  >
                 </div>
               </section>
 
@@ -112,9 +117,10 @@
                   </div>
                 </button>
                 <div v-if="sections.user" class="px-4 py-4">
-                  <pre class="whitespace-pre-wrap break-words font-mono text-[12px] leading-6 text-gray-800">{{
-                    userPromptText
-                  }}</pre>
+                  <pre
+                    class="whitespace-pre-wrap break-words font-mono text-[12px] leading-6 text-gray-800"
+                    >{{ userPromptText }}</pre
+                  >
                 </div>
               </section>
             </div>
@@ -212,6 +218,8 @@ const userPromptText = computed(() => {
   if (promptTexts.length) {
     return promptTexts.join('\n\n')
   }
-  return props.relatedUserMessage?.content || props.message?.content || '当前没有捕获到 user prompt。'
+  return (
+    props.relatedUserMessage?.content || props.message?.content || '当前没有捕获到 user prompt。'
+  )
 })
 </script>

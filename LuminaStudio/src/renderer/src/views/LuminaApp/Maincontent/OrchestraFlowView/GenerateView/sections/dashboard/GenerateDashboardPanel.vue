@@ -58,7 +58,7 @@
 </template>
 
 <script setup lang="ts">
-import type { DashboardStageCard } from './generate-view.types'
+import type { DashboardStageCard } from '../../generate-view.types'
 
 defineProps<{
   sessionsCount: number

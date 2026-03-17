@@ -117,7 +117,10 @@
                         : 'p-0.5'
                     ]"
                   >
-                    <div class="relative rounded-xl" :class="message.role === 'assistant' ? 'pr-2' : ''">
+                    <div
+                      class="relative rounded-xl"
+                      :class="message.role === 'assistant' ? 'pr-2' : ''"
+                    >
                       <GenerateMessageActionToolbar
                         @copy="handleCopyMessage(message)"
                         @inspect="openMessageDetail(message)"
@@ -207,7 +210,10 @@
                     message.role === 'user' ? 'rounded-bl-md rounded-r-md bg-gray-50 p-2' : 'p-0.5'
                   ]"
                 >
-                  <div class="relative rounded-xl" :class="message.role === 'assistant' ? 'pr-2' : ''">
+                  <div
+                    class="relative rounded-xl"
+                    :class="message.role === 'assistant' ? 'pr-2' : ''"
+                  >
                     <GenerateMessageActionToolbar
                       @copy="handleCopyMessage(message)"
                       @inspect="openMessageDetail(message)"
@@ -280,9 +286,9 @@ import {
 import type { GenerationMessage } from '@preload/types'
 import { useGenerationRunInspectorStore } from '@renderer/stores/orchestraflow/generation-editor/inspector/run-inspector.store'
 import type { RunInspectorRecord } from '@renderer/stores/orchestraflow/generation-editor/inspector/run-inspector.types'
-import type { CopilotMode } from './generate-view.types'
-import GenerateMessageActionToolbar from './GenerateMessageActionToolbar.vue'
-import GenerateMessageDetailPanel from './GenerateMessageDetailPanel.vue'
+import type { CopilotMode } from '../generate-view.types'
+import GenerateMessageActionToolbar from '../overlays/message-detail/GenerateMessageActionToolbar.vue'
+import GenerateMessageDetailPanel from '../overlays/message-detail/GenerateMessageDetailPanel.vue'
 
 const props = defineProps<{
   visible: boolean

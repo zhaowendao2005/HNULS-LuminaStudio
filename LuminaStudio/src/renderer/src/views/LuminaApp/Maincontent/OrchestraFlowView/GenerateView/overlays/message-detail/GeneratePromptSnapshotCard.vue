@@ -1,15 +1,22 @@
 <template>
   <div class="gv-prompt-t28 rounded-2xl border border-slate-200 bg-white p-4">
     <div class="mb-2 text-sm font-semibold text-slate-900">Prompt / Context</div>
-    <div v-for="prompt in prompts" :key="`${prompt.runId}-${prompt.stepKey}`" class="mb-3 last:mb-0">
+    <div
+      v-for="prompt in prompts"
+      :key="`${prompt.runId}-${prompt.stepKey}`"
+      class="mb-3 last:mb-0"
+    >
       <div class="mb-1 text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
         {{ prompt.title }}
       </div>
-      <pre class="whitespace-pre-wrap rounded-xl bg-slate-50 p-3 text-xs text-slate-700">{{ prompt.prompt }}</pre>
+      <pre class="whitespace-pre-wrap rounded-xl bg-slate-50 p-3 text-xs text-slate-700">{{
+        prompt.prompt
+      }}</pre>
       <pre
         v-if="contexts[prompt.stepKey]"
         class="mt-2 whitespace-pre-wrap rounded-xl bg-slate-950 p-3 text-xs text-slate-200"
-      >{{ contexts[prompt.stepKey].context }}</pre>
+        >{{ contexts[prompt.stepKey].context }}</pre
+      >
     </div>
   </div>
 </template>

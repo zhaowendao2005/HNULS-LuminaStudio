@@ -72,7 +72,7 @@
 
 <script setup lang="ts">
 import type { GenerationSessionSummary, GenerationStageKey } from '@preload/types'
-import type { StageKey } from './generate-view.types'
+import type { StageKey } from '../../generate-view.types'
 
 defineProps<{
   sessions: GenerationSessionSummary[]

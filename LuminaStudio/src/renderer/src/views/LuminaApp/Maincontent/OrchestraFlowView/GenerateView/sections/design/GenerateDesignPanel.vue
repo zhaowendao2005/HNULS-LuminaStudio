@@ -126,8 +126,7 @@
               <div class="border-t border-gray-100 bg-white px-4 py-3">
                 <div class="flex items-center justify-between gap-4">
                   <div class="text-[11px] leading-5 text-gray-500">
-                    这里保留旧版的“快照视图”使用感，但底层已经切到当前新的 analysis / design
-                    主链。
+                    这里保留旧版的“快照视图”使用感，但底层已经切到当前新的 analysis / design 主链。
                   </div>
                   <button
                     type="button"
@@ -162,7 +161,9 @@
                     这里展示当前设计稿的校验诊断，数据直接来自新主链的 `validationJson`。
                   </div>
                   <div class="flex-1 overflow-auto p-4 font-mono text-[12px] leading-6">
-                    <pre class="whitespace-pre-wrap text-gray-800">{{ activeDocument.content }}</pre>
+                    <pre class="whitespace-pre-wrap text-gray-800">{{
+                      activeDocument.content
+                    }}</pre>
                   </div>
                 </div>
 
@@ -171,7 +172,9 @@
                     <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">
                       错误详情
                     </div>
-                    <div class="mt-1 text-[11px] text-gray-400">共 {{ diagnostics.length }} 条诊断</div>
+                    <div class="mt-1 text-[11px] text-gray-400">
+                      共 {{ diagnostics.length }} 条诊断
+                    </div>
                   </div>
                   <div class="flex-1 overflow-auto p-3">
                     <div v-if="diagnostics.length" class="flex flex-col gap-2">
@@ -200,7 +203,10 @@
                         <div class="mt-2 text-[12px] font-medium leading-5 text-gray-800">
                           {{ diagnostic.message }}
                         </div>
-                        <div v-if="diagnostic.path" class="mt-1 text-[11px] leading-5 text-gray-500">
+                        <div
+                          v-if="diagnostic.path"
+                          class="mt-1 text-[11px] leading-5 text-gray-500"
+                        >
                           路径：{{ diagnostic.path }}
                         </div>
                       </button>

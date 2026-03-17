@@ -53,7 +53,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { MenuItem } from './generate-view.types'
+import type { MenuItem } from '../generate-view.types'
 
 const props = defineProps<{
   collapsed: boolean

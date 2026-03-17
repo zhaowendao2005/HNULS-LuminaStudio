@@ -60,7 +60,9 @@
           <div class="text-xs font-semibold text-gray-800">
             {{ message.role === 'user' ? 'User' : 'Lumina Agent' }}
           </div>
-          <div class="group relative rounded-xl bg-white px-4 py-3 text-[13px] leading-relaxed text-gray-800">
+          <div
+            class="group relative rounded-xl bg-white px-4 py-3 text-[13px] leading-relaxed text-gray-800"
+          >
             <GenerateMessageActionToolbar
               @copy="handleCopyMessage(message)"
               @inspect="openMessageDetail(message)"
@@ -116,8 +118,8 @@ import { Bot, FolderKanban, MessageSquare, Send, UserCircle } from 'lucide-vue-n
 import type { GenerationAnalysisDocument, GenerationMessage } from '@preload/types'
 import { useGenerationRunInspectorStore } from '@renderer/stores/orchestraflow/generation-editor/inspector/run-inspector.store'
 import type { RunInspectorRecord } from '@renderer/stores/orchestraflow/generation-editor/inspector/run-inspector.types'
-import GenerateMessageActionToolbar from './GenerateMessageActionToolbar.vue'
-import GenerateMessageDetailPanel from './GenerateMessageDetailPanel.vue'
+import GenerateMessageActionToolbar from '../../overlays/message-detail/GenerateMessageActionToolbar.vue'
+import GenerateMessageDetailPanel from '../../overlays/message-detail/GenerateMessageDetailPanel.vue'
 
 const props = defineProps<{
   sessionTitle: string

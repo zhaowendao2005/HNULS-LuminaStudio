@@ -39,7 +39,9 @@
           type="number"
           class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2"
           :value="config.budgetLimitTokens"
-          @input="$emit('update:budget-limit-tokens', Number(($event.target as HTMLInputElement).value))"
+          @input="
+            $emit('update:budget-limit-tokens', Number(($event.target as HTMLInputElement).value))
+          "
         />
       </label>
     </div>
