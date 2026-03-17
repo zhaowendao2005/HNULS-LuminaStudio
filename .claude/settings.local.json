@@ -5,7 +5,8 @@
       "mcp__smart-edit-mcp__read_file",
       "mcp__smart-edit-mcp__edit_file",
       "mcp__repgrep__list_searchable_files",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(git worktree:*)"
     ]
   }
 }

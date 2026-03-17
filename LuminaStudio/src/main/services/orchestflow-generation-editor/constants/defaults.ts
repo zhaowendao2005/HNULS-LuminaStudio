@@ -12,16 +12,16 @@ export const DEFAULT_GLOBAL_SETTINGS: GenerationGlobalSettings = {
 export const DEFAULT_STAGE_CONFIGS: Record<GenerationStageKey, GenerationStageConfig> = {
   analysis: {
     stageKey: 'analysis',
-    providerId: 'openai',
-    modelId: 'gpt-4.1-mini',
+    providerId: '',
+    modelId: '',
     memoryRounds: 6,
     maxRepairIterations: 1,
     budgetLimitTokens: 12000
   },
   design: {
     stageKey: 'design',
-    providerId: 'openai',
-    modelId: 'gpt-4.1-mini',
+    providerId: '',
+    modelId: '',
     memoryRounds: 4,
     maxRepairIterations: 4,
     budgetLimitTokens: 20000

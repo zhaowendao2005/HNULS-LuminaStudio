@@ -105,7 +105,10 @@ export class OrchestflowGenerationEditorService implements GenerationEventSink {
   }
 
   emit(event: GenerationStreamEvent): void {
-    this.traceBuffer.append(event.runId, event)
+    // text-delta 可能非常高频，不进入 traceBuffer，避免运行时内存膨胀
+    if (event.type !== 'text-delta') {
+      this.traceBuffer.append(event.runId, event)
+    }
     for (const run of this.activeRuns.values()) {
       if (run.runId === event.runId && (run as ActiveGenerationRun & { sender?: WebContents }).sender) {
         ;(run as ActiveGenerationRun & { sender?: WebContents }).sender?.send(
@@ -294,12 +297,164 @@ export class OrchestflowGenerationEditorService implements GenerationEventSink {
     stageConfig: GenerationStageConfig,
     userText: string
   ): Promise<void> {
+    const startedAt = Date.now()
     const bridge = new GenerationCallbackBridge(this, activeRun.runId)
     const budget = new GenerationBudgetController(stageConfig.maxRepairIterations)
 
+    const llmLog = logger.scope('OrchestflowGenerationLLMClient')
+    let runOutcome: 'completed' | 'aborted' | 'failed' = 'failed'
+
     try {
       const provider = await this.resolveProviderConfig(request.providerId, request.modelId)
-      const model = createGenerationChatModel(provider)
+      const rawModel = createGenerationChatModel(provider)
+
+      const extractChunkText = (chunk: unknown): string => {
+        const content = (chunk as { content?: unknown } | null | undefined)?.content
+        if (typeof content === 'string') return content
+        if (Array.isArray(content)) {
+          return content
+            .map((part) => {
+              if (typeof part === 'string') return part
+              if (part && typeof part === 'object') {
+                const maybeText = (part as { text?: unknown }).text
+                if (typeof maybeText === 'string') return maybeText
+              }
+              return ''
+            })
+            .join('')
+        }
+        return ''
+      }
+
+      const createLoggedModel = (stepKey: string) => {
+        return {
+          invoke: async (input: unknown, options?: unknown): Promise<{ content: unknown }> => {
+            const invokeStartedAt = Date.now()
+            const summarizeInput = () => {
+              if (Array.isArray(input)) {
+                const contents = (input as Array<{ content?: unknown }>).map((m) =>
+                  typeof m?.content === 'string' ? m.content : ''
+                )
+                const approxChars = contents.reduce((acc, cur) => acc + cur.length, 0)
+                return { kind: 'messages', messageCount: input.length, approxChars }
+              }
+              if (typeof input === 'string') {
+                return { kind: 'string', approxChars: input.length }
+              }
+              return { kind: typeof input }
+            }
+
+            llmLog.info('invoke:start', {
+              runId: activeRun.runId,
+              requestId: activeRun.requestId,
+              sessionId: request.sessionId,
+              channelKey: request.channelKey,
+              stepKey,
+              providerId: provider.providerId,
+              modelId: provider.modelId,
+              baseUrl: provider.baseUrl || null,
+              input: summarizeInput()
+            })
+
+            try {
+              const asAsyncIterable = (value: unknown): AsyncIterable<unknown> => {
+                if (value && typeof (value as { [Symbol.asyncIterator]?: unknown })[Symbol.asyncIterator] === 'function') {
+                  return value as AsyncIterable<unknown>
+                }
+                if (value && typeof (value as { [Symbol.iterator]?: unknown })[Symbol.iterator] === 'function') {
+                  const iterable = value as Iterable<unknown>
+                  return (async function* () {
+                    yield* iterable
+                  })()
+                }
+                const maybeReaderFactory = (value as { getReader?: unknown } | null | undefined)?.getReader
+                if (value && typeof maybeReaderFactory === 'function') {
+                  return (async function* () {
+                    const reader = (value as {
+                      getReader: () => {
+                        read: () => Promise<{ value?: unknown; done: boolean }>
+                        releaseLock: () => void
+                      }
+                    }).getReader()
+                    try {
+                      while (true) {
+                        const { value, done } = await reader.read()
+                        if (done) break
+                        yield value
+                      }
+                    } finally {
+                      reader.releaseLock()
+                    }
+                  })()
+                }
+                throw new Error('stream() did not return an async iterable')
+              }
+
+              const maybeStream = (rawModel as unknown as { stream?: unknown }).stream
+              if (typeof maybeStream === 'function') {
+                const streamResult = await Promise.resolve(
+                  (maybeStream as (i: unknown, o?: unknown) => unknown).call(
+                    rawModel,
+                    input,
+                    options
+                  )
+                )
+
+                let fullText = ''
+                for await (const chunk of asAsyncIterable(streamResult)) {
+                  const delta = extractChunkText(chunk)
+                  if (!delta) continue
+                  fullText += delta
+                  bridge.emit({
+                    type: 'text-delta',
+                    messageId: activeRun.messageId,
+                    delta
+                  })
+                }
+
+                llmLog.info('invoke:finish', {
+                  runId: activeRun.runId,
+                  requestId: activeRun.requestId,
+                  sessionId: request.sessionId,
+                  channelKey: request.channelKey,
+                  stepKey,
+                  durationMs: Date.now() - invokeStartedAt,
+                  outputChars: fullText.length
+                })
+
+                return { content: fullText }
+              }
+
+              const response = (await (rawModel as {
+                invoke: (i: unknown, o?: unknown) => Promise<{ content: unknown }>
+              }).invoke(input, options)) as { content: unknown }
+
+              llmLog.info('invoke:finish', {
+                runId: activeRun.runId,
+                requestId: activeRun.requestId,
+                sessionId: request.sessionId,
+                channelKey: request.channelKey,
+                stepKey,
+                durationMs: Date.now() - invokeStartedAt,
+                outputChars: String(response?.content ?? '').length
+              })
+
+              return response
+            } catch (error) {
+              llmLog.error('invoke:error', error, {
+                runId: activeRun.runId,
+                requestId: activeRun.requestId,
+                sessionId: request.sessionId,
+                channelKey: request.channelKey,
+                stepKey,
+                durationMs: Date.now() - invokeStartedAt
+              })
+              throw error
+            }
+          }
+        }
+      }
+
       const memoryWindow = this.memory.read(request.sessionId, stageConfig.memoryRounds)
       const workflowSpec = buildBaseWorkflowSpecPrompt()
       const nodePrompt = buildCompressedNodePrompt()
@@ -314,7 +469,7 @@ export class OrchestflowGenerationEditorService implements GenerationEventSink {
 
       if (request.channelKey === 'analysis-planner') {
         const result = await runAnalysisPlanner({
-          model,
+          model: createLoggedModel('analysis-planner'),
           context: {
             analysisDocument: detail.analysisDocument.content,
             userText,
@@ -345,7 +500,7 @@ export class OrchestflowGenerationEditorService implements GenerationEventSink {
         })
       } else if (request.channelKey === 'planning-copilot') {
         const result = await runPlanningCopilot({
-          model,
+          model: createLoggedModel('planning-copilot'),
           context: {
             analysisDocument: detail.analysisDocument.content,
             userText,
@@ -390,7 +545,7 @@ export class OrchestflowGenerationEditorService implements GenerationEventSink {
 
         for (let iteration = 1; iteration <= stageConfig.maxRepairIterations; iteration += 1) {
           const result = await runDesignPlanner({
-            model,
+            model: createLoggedModel('design-planner'),
             context: {
               analysisDocument: detail.analysisDocument.content,
               currentToml,
@@ -457,6 +612,7 @@ export class OrchestflowGenerationEditorService implements GenerationEventSink {
       }
 
       if (activeRun.aborted) {
+        runOutcome = 'aborted'
         this.repository.finishMessage(activeRun.messageId, 'aborted')
         this.emit({
           type: 'run-finish',
@@ -468,6 +624,7 @@ export class OrchestflowGenerationEditorService implements GenerationEventSink {
         return
       }
 
+      runOutcome = 'completed'
       const assistantMessage = this.repository.finishMessage(activeRun.messageId, 'completed')
       this.memory.push(request.sessionId, `user:${userText}`)
       this.memory.push(request.sessionId, `assistant:${assistantMessage.content}`)
@@ -479,6 +636,7 @@ export class OrchestflowGenerationEditorService implements GenerationEventSink {
         finishedAt: nowIso()
       })
     } catch (error) {
+      runOutcome = 'failed'
       log.error('Generate run failed', error)
       this.repository.failMessage(
         activeRun.messageId,
@@ -491,6 +649,14 @@ export class OrchestflowGenerationEditorService implements GenerationEventSink {
         error: error instanceof Error ? error.message : '生成失败'
       })
     } finally {
+      llmLog.info('run:finalize', {
+        runId: activeRun.runId,
+        requestId: activeRun.requestId,
+        sessionId: request.sessionId,
+        channelKey: request.channelKey,
+        outcome: runOutcome,
+        durationMs: Date.now() - startedAt
+      })
       this.activeRuns.delete(activeRun.requestId)
       this.traceBuffer.clear(activeRun.runId)
     }
@@ -511,17 +677,38 @@ export class OrchestflowGenerationEditorService implements GenerationEventSink {
     modelId: string
   ): Promise<GenerationModelProviderConfig> {
     const config = (await this.modelConfigService.getConfig()) as ModelConfig
-    const provider = config.providers.find((item) => item.id === providerId)
+
+    const resolveProvider = () => {
+      if (providerId) {
+        return config.providers.find((item) => item.id === providerId)
+      }
+      const active = config.activeProviderId
+        ? config.providers.find((item) => item.id === config.activeProviderId)
+        : undefined
+      return active || config.providers.find((item) => item.enabled)
+    }
+
+    const provider = resolveProvider()
     if (!provider) {
-      throw new Error(`模型 provider 不存在：${providerId}`)
+      throw new Error(
+        providerId
+          ? `模型 provider 不存在：${providerId}`
+          : '未配置可用的模型 provider'
+      )
+    }
+
+    const resolvedModelId = modelId || provider.models[0]?.id
+    if (!resolvedModelId) {
+      throw new Error('当前 provider 未配置任何模型')
     }
 
     return {
-      providerId,
-      modelId,
+      providerId: provider.id,
+      modelId: resolvedModelId,
       protocol: provider.protocol,
       baseUrl: provider.baseUrl,
-      apiKey: provider.apiKey
+      apiKey: provider.apiKey,
+      defaultHeaders: provider.defaultHeaders
     }
   }
 }

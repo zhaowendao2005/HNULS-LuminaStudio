@@ -27,7 +27,13 @@ export const useOrchestflowGenerationEditorStore = defineStore(
 
     const sessions = ref<GenerationSessionSummary[]>([])
     const currentSession = ref<GenerationSessionDetail | null>(null)
-    const activeMenu = ref<'sessions' | 'analysis' | 'design' | 'settings'>('sessions')
+    // 这些状态只负责当前页面壳层，不额外引入新的业务状态源。
+    const activeMenu = ref<'dashboard' | 'sessions' | 'analysis' | 'design' | 'settings'>(
+      'dashboard'
+    )
+    const activeRightPanel = ref<'analysis' | 'design' | null>(null)
+    const isLeftSidebarCollapsed = ref(false)
+    const isRightPanelFullscreen = ref(false)
     const analysisInput = ref('')
     const planningCopilotInput = ref('')
     const designInput = ref('')
@@ -35,10 +41,14 @@ export const useOrchestflowGenerationEditorStore = defineStore(
     const errorMessage = ref<string | null>(null)
     const showModelSelector = ref(false)
     const showConfigDrawer = ref(false)
+    const showCreateSessionModal = ref(false)
+    const showDesignManagerModal = ref(false)
     const globalSettings = ref<GenerationGlobalSettings>({
       persistRawLlmData: false
     })
     const newSessionTitle = ref('新建工作流方案')
+    const designDocumentViewMode = ref<'preview' | 'dsl' | 'diagnostics'>('preview')
+    const selectedDesignDiagnosticIndex = ref<number | null>(null)
 
     const activeDesignDocument = computed<GenerationDesignDocument | null>(() => {
       if (!currentSession.value) return null
@@ -77,20 +87,70 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       )
     })
 
-    const dashboardStageCards = computed(() => {
-      if (!currentSession.value) {
-        return []
+    const isAnalysisStreaming = computed(() => {
+      return analysisMessages.value.some((item) => item.status === 'streaming')
+    })
+
+    const isPlanningCopilotStreaming = computed(() => {
+      return planningCopilotMessages.value.some((item) => item.status === 'streaming')
+    })
+
+    const isDesignStreaming = computed(() => {
+      return designMessages.value.some((item) => item.status === 'streaming')
+    })
+
+    const currentModelLabel = computed(() => {
+      const config = currentStageConfig.value
+      if (!config?.modelId) return '选择模型'
+      return config.providerId ? `${config.providerId} / ${config.modelId}` : config.modelId
+    })
+
+    const currentSessionStageLabel = computed(() => {
+      return currentSession.value ? getStageLabel(currentSession.value.currentStage) : '未进入流程'
+    })
+
+    const copilotInput = computed<string>({
+      get() {
+        return activeRightPanel.value === 'design' ? designInput.value : planningCopilotInput.value
+      },
+      set(value) {
+        if (activeRightPanel.value === 'design') {
+          designInput.value = value
+          return
+        }
+        planningCopilotInput.value = value
       }
+    })
+
+    const activeCopilotMessages = computed(() => {
+      return activeRightPanel.value === 'design'
+        ? designMessages.value
+        : planningCopilotMessages.value
+    })
+
+    const isActiveCopilotStreaming = computed(() => {
+      return activeRightPanel.value === 'design'
+        ? isDesignStreaming.value
+        : isPlanningCopilotStreaming.value
+    })
+
+    const plannedSessionsCount = computed(() => {
+      return sessions.value.filter((item) => item.designVersionCount > 0).length
+    })
+
+    const dashboardStageCards = computed(() => {
       return [
         {
           stageKey: 'analysis' as const,
           title: '需求分析',
-          summary: currentSession.value.analysisDocument.summary
+          count: sessions.value.filter((item) => item.currentStage === 'analysis').length,
+          color: 'bg-cyan-500'
         },
         {
           stageKey: 'design' as const,
           title: '设计生成',
-          summary: activeDesignDocument.value?.summary || '尚未生成设计稿。'
+          count: sessions.value.filter((item) => item.currentStage === 'design').length,
+          color: 'bg-emerald-500'
         }
       ]
     })
@@ -129,6 +189,9 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       currentSession.value = requireData(
         await OrchestflowGenerationEditorDataSource.getSessionDetail(sessionId)
       )
+      // 从会话管理进入后，直接跳到该会话当前对应的主面板，减少一次额外点击。
+      activeMenu.value = currentSession.value.currentStage === 'design' ? 'design' : 'analysis'
+      showDesignManagerModal.value = false
     }
 
     async function createSession(): Promise<void> {
@@ -140,6 +203,7 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       sessions.value = requireData(await OrchestflowGenerationEditorDataSource.listSessions())
       currentSession.value = created
       activeMenu.value = 'analysis'
+      showCreateSessionModal.value = false
     }
 
     async function deleteSession(sessionId: string): Promise<void> {
@@ -198,6 +262,8 @@ export const useOrchestflowGenerationEditorStore = defineStore(
         })
       )
       await refreshCurrentSession()
+      designDocumentViewMode.value = 'dsl'
+      selectedDesignDiagnosticIndex.value = null
     }
 
     async function selectDesignDocument(designDocumentId: string): Promise<void> {
@@ -208,6 +274,8 @@ export const useOrchestflowGenerationEditorStore = defineStore(
           designDocumentId
         })
       )
+      designDocumentViewMode.value = 'preview'
+      selectedDesignDiagnosticIndex.value = null
     }
 
     async function createDesignDocument(title = '设计稿'): Promise<void> {
@@ -219,6 +287,8 @@ export const useOrchestflowGenerationEditorStore = defineStore(
         })
       )
       await refreshCurrentSession()
+      designDocumentViewMode.value = 'preview'
+      selectedDesignDiagnosticIndex.value = null
     }
 
     async function deleteDesignDocument(designDocumentId: string): Promise<void> {
@@ -228,6 +298,7 @@ export const useOrchestflowGenerationEditorStore = defineStore(
         designDocumentId
       })
       await refreshCurrentSession()
+      selectedDesignDiagnosticIndex.value = null
     }
 
     async function sendMessage(channelKey: GenerationChannelKey, text: string): Promise<void> {
@@ -274,9 +345,49 @@ export const useOrchestflowGenerationEditorStore = defineStore(
 
     function bindStreamListener(): () => void {
       return OrchestflowGenerationEditorDataSource.onStream((event) => {
-        inspectorStore.appendEvent(event)
+        // text-delta 高频事件不写入 inspector，避免详情面板事件列表爆炸
+        if (event.type !== 'text-delta') {
+          inspectorStore.appendEvent(event)
+        }
 
-        if (event.type === 'artifact-replace' && currentSession.value) {
+        if (!currentSession.value) return
+
+        // 流式增量：直接拼到对应的 assistant message 上
+        if (event.type === 'text-delta') {
+          const targetMessage = currentSession.value.messages.find((item) => item.id === event.messageId)
+          if (targetMessage) {
+            targetMessage.content = `${targetMessage.content || ''}${event.delta}`
+            targetMessage.status = 'streaming'
+          }
+          return
+        }
+
+        // 结束：刷新一次会话，拿到最终 content/status（以及后端落库后的任何修正）
+        if (event.type === 'run-finish') {
+          const belongsToCurrentSession = currentSession.value.messages.some(
+            (item) => item.id === event.messageId
+          )
+          if (belongsToCurrentSession) {
+            void refreshCurrentSession()
+          }
+          return
+        }
+
+        // 错误：不要刷新（刷新会把流式内容覆盖成后端 error 文本），直接标记失败并附加错误信息
+        if (event.type === 'run-error') {
+          const targetMessage = currentSession.value.messages.find((item) => item.id === event.messageId)
+          if (targetMessage) {
+            targetMessage.status = 'failed'
+            if (!targetMessage.content?.trim()) {
+              targetMessage.content = event.error
+            } else {
+              targetMessage.content = `${targetMessage.content}\n\n[Error] ${event.error}`
+            }
+          }
+          return
+        }
+
+        if (event.type === 'artifact-replace') {
           if (event.artifact === 'analysis-document') {
             currentSession.value.analysisDocument.content = event.content
             currentSession.value.analysisDocument.summary = event.summary
@@ -294,26 +405,100 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       })
     }
 
+    async function sendAnalysisMessage(): Promise<void> {
+      await sendMessage('analysis-planner', analysisInput.value)
+    }
+
+    async function sendCopilotMessage(): Promise<void> {
+      if (activeRightPanel.value === 'design') {
+        await sendMessage('design-planner', designInput.value)
+        return
+      }
+      await sendMessage('planning-copilot', planningCopilotInput.value)
+    }
+
+    function openCopilotPanel(mode: 'analysis' | 'design'): void {
+      activeRightPanel.value = mode
+    }
+
+    function closeRightPanel(): void {
+      activeRightPanel.value = null
+      isRightPanelFullscreen.value = false
+    }
+
+    function openDesignManager(): void {
+      showDesignManagerModal.value = true
+    }
+
+    function closeDesignManager(): void {
+      showDesignManagerModal.value = false
+    }
+
+    async function handleStageModelSelect(payload: {
+      provider: { id: string }
+      model: { id: string }
+    }): Promise<void> {
+      if (!currentStageConfig.value) return
+      await updateStageConfig({
+        ...currentStageConfig.value,
+        providerId: payload.provider.id,
+        modelId: payload.model.id
+      })
+    }
+
+    function getStageLabel(stage: GenerationStageKey): string {
+      if (stage === 'analysis') return '需求分析中'
+      if (stage === 'design') return '设计生成中'
+      return '进行中'
+    }
+
+    function getSessionStageDotClass(currentStage: string, stage: string): string {
+      if (currentStage === stage) {
+        if (stage === 'analysis') return 'h-3 w-3 rounded-full bg-cyan-500'
+        if (stage === 'design') return 'h-3 w-3 rounded-full bg-emerald-500'
+      }
+      if (stage === 'analysis') return 'h-2 w-2 rounded-full bg-cyan-200'
+      if (stage === 'design') return 'h-2 w-2 rounded-full bg-emerald-200'
+      return 'h-2 w-2 rounded-full bg-slate-200'
+    }
+
     return {
       inspectorStore,
       sessions,
       currentSession,
       activeMenu,
+      activeRightPanel,
+      isLeftSidebarCollapsed,
+      isRightPanelFullscreen,
       analysisInput,
       planningCopilotInput,
       designInput,
+      copilotInput,
+      isAnalysisStreaming,
+      isPlanningCopilotStreaming,
+      isDesignStreaming,
+      isActiveCopilotStreaming,
       isLoading,
       errorMessage,
       showModelSelector,
       showConfigDrawer,
+      showCreateSessionModal,
+      showDesignManagerModal,
       globalSettings,
       newSessionTitle,
+      newSessionName: newSessionTitle,
+      designDocumentViewMode,
+      selectedDesignDiagnosticIndex,
       activeDesignDocument,
       currentStageConfig,
+      currentModelLabel,
+      currentSessionStageLabel,
       analysisMessages,
       planningCopilotMessages,
       designMessages,
+      activeCopilotMessages,
       dashboardStageCards,
+      plannedSessionsCount,
       initialize,
       refreshCurrentSession,
       selectSession,
@@ -327,9 +512,18 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       createDesignDocument,
       deleteDesignDocument,
       sendMessage,
+      sendAnalysisMessage,
+      sendCopilotMessage,
       compileDesignDocumentToWorkflow,
       updateGlobalSettings,
-      bindStreamListener
+      bindStreamListener,
+      openCopilotPanel,
+      closeRightPanel,
+      openDesignManager,
+      closeDesignManager,
+      handleStageModelSelect,
+      getStageLabel,
+      getSessionStageDotClass
     }
   }
 )

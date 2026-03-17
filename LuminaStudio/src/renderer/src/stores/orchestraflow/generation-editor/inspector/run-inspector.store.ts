@@ -6,6 +6,8 @@ import type { RunInspectorRecord } from './run-inspector.types'
 export const useGenerationRunInspectorStore = defineStore('generation-run-inspector', () => {
   const runs = ref<Record<string, RunInspectorRecord>>({})
   const selectedRunId = ref<string | null>(null)
+  const messageIdToRunId = ref<Record<string, string>>({})
+  const requestIdToRunId = ref<Record<string, string>>({})
 
   const selectedRun = computed(() => {
     if (!selectedRunId.value) return null
@@ -17,6 +19,7 @@ export const useGenerationRunInspectorStore = defineStore('generation-run-inspec
       runs.value[event.runId] ||
       ({
         runId: event.runId,
+        runStart: null,
         status: 'running',
         events: [],
         prompts: [],
@@ -28,6 +31,11 @@ export const useGenerationRunInspectorStore = defineStore('generation-run-inspec
       } satisfies RunInspectorRecord)
 
     current.events.push(event)
+    if (event.type === 'run-start') {
+      current.runStart = event
+      messageIdToRunId.value[event.messageId] = event.runId
+      requestIdToRunId.value[event.requestId] = event.runId
+    }
     if (event.type === 'prompt-snapshot') current.prompts.push(event)
     if (event.type === 'context-snapshot') current.contexts.push(event)
     if (event.type === 'memory-snapshot') current.memories.push(event)
@@ -44,10 +52,26 @@ export const useGenerationRunInspectorStore = defineStore('generation-run-inspec
     selectedRunId.value = event.runId
   }
 
+  function findRunByMessageId(messageId: string | null | undefined): RunInspectorRecord | null {
+    if (!messageId) return null
+    const runId = messageIdToRunId.value[messageId]
+    return runId ? runs.value[runId] || null : null
+  }
+
+  function findRunByRequestId(requestId: string | null | undefined): RunInspectorRecord | null {
+    if (!requestId) return null
+    const runId = requestIdToRunId.value[requestId]
+    return runId ? runs.value[runId] || null : null
+  }
+
   return {
     runs,
     selectedRunId,
+    messageIdToRunId,
+    requestIdToRunId,
     selectedRun,
-    appendEvent
+    appendEvent,
+    findRunByMessageId,
+    findRunByRequestId
   }
 })

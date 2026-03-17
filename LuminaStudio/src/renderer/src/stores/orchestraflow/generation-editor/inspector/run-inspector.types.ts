@@ -2,6 +2,7 @@ import type {
   GenerationBudgetEvent,
   GenerationContextSnapshotEvent,
   GenerationMemorySnapshotEvent,
+  GenerationRunStartEvent,
   GenerationPromptSnapshotEvent,
   GenerationStreamEvent,
   GenerationValidationReportEvent
@@ -9,6 +10,7 @@ import type {
 
 export interface RunInspectorRecord {
   runId: string
+  runStart: GenerationRunStartEvent | null
   status: 'running' | 'completed' | 'failed' | 'aborted'
   events: GenerationStreamEvent[]
   prompts: GenerationPromptSnapshotEvent[]

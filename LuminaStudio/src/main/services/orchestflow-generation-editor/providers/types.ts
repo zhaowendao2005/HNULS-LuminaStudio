@@ -6,6 +6,7 @@ export interface GenerationModelProviderConfig {
   protocol: string
   baseUrl: string
   apiKey: string
+  defaultHeaders?: Record<string, string>
 }
 
 export interface ResolvedGenerationModel {
