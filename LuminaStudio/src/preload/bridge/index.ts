@@ -14,6 +14,7 @@ import { userSettingsAPI } from '../api/user-settings-api'
 import { orchestraflowAPI } from '../api/orchestraflow-api'
 import { orchestflowGenerationEditorAPI } from '../api/orchestflow-generation-editor-api'
 import { mcpAPI } from '../api/mcp-api'
+import { mcpChatAPI } from '../api/mcp-chat-api'
 
 const api = {
   utils: utilsAPI,
@@ -25,7 +26,8 @@ const api = {
   userSettings: userSettingsAPI,
   orchestraflow: orchestraflowAPI,
   orchestflowGenerationEditor: orchestflowGenerationEditorAPI,
-  mcp: mcpAPI
+  mcp: mcpAPI,
+  mcpChat: mcpChatAPI
 }
 
 contextBridge.exposeInMainWorld('api', api)

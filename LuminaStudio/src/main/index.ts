@@ -25,6 +25,8 @@ import { orchestraflowBridge } from './services/orchestraflow-bridge'
 import { logger } from './services/logger'
 import { McpService } from './services/mcp'
 import { McpIPCHandler } from './ipc/mcp-handler'
+import { McpChatService } from './services/mcp-chat'
+import { McpChatIPCHandler } from './ipc/mcp-chat-handler'
 
 const log = logger.scope('Main')
 let orchestflowGenerationEditorService: OrchestflowGenerationEditorService | null = null
@@ -118,6 +120,8 @@ app.whenReady().then(() => {
   // 初始化 MCP Service 和 IPC Handler
   const mcpService = new McpService()
   new McpIPCHandler(mcpService)
+  const mcpChatService = new McpChatService(mcpService, modelConfigService, userSettingsService)
+  new McpChatIPCHandler(mcpChatService)
 
   // 初始化 OrchestraFlow Workflow Service 和 IPC Handler
   const orchestraflowWorkflowService = new OrchestraflowWorkflowService()

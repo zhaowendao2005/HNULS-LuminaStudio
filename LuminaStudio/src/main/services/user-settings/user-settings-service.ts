@@ -14,12 +14,31 @@ export interface ApiKeysConfig {
 }
 
 /**
+ * MCP Chat 全局设置。
+ */
+export interface McpChatSettings {
+  /**
+   * 新建 MCP 会话时默认保留多少轮上下文。
+   */
+  memoryRoundsDefault: number
+  /**
+   * 是否启用多轮 agent 模式。
+   */
+  enableAgentMode: boolean
+  /**
+   * 多轮 agent 模式下最多自主规划多少轮。
+   */
+  agentMaxRounds: number
+}
+
+/**
  * 用户设置数据结构
  */
 export interface UserSettings {
   version: number
   updatedAt: string
   apiKeys: ApiKeysConfig
+  mcpChat: McpChatSettings
 }
 
 /**
@@ -28,7 +47,12 @@ export interface UserSettings {
 const DEFAULT_USER_SETTINGS: UserSettings = {
   version: 1,
   updatedAt: new Date().toISOString(),
-  apiKeys: {}
+  apiKeys: {},
+  mcpChat: {
+    memoryRoundsDefault: 10,
+    enableAgentMode: false,
+    agentMaxRounds: 3
+  }
 }
 
 /**
@@ -80,7 +104,19 @@ export class UserSettingsService {
       }
 
       const data = fs.readFileSync(this.settingsPath, 'utf-8')
-      this.settings = JSON.parse(data) as UserSettings
+      const parsed = JSON.parse(data) as Partial<UserSettings>
+      this.settings = {
+        ...DEFAULT_USER_SETTINGS,
+        ...parsed,
+        apiKeys: {
+          ...DEFAULT_USER_SETTINGS.apiKeys,
+          ...(parsed.apiKeys || {})
+        },
+        mcpChat: {
+          ...DEFAULT_USER_SETTINGS.mcpChat,
+          ...(parsed.mcpChat || {})
+        }
+      }
 
       // 版本校验（如果需要迁移逻辑，可在此处理）
       if (this.settings.version !== DEFAULT_USER_SETTINGS.version) {
@@ -143,6 +179,14 @@ export class UserSettingsService {
         this.settings.apiKeys = {
           ...this.settings.apiKeys,
           ...patch.apiKeys
+        }
+      }
+
+      // MCP Chat 配置也采用部分合并，避免未来继续扩展时覆盖其他字段。
+      if (patch.mcpChat) {
+        this.settings.mcpChat = {
+          ...this.settings.mcpChat,
+          ...patch.mcpChat
         }
       }
 

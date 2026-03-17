@@ -1,7 +1,7 @@
+import { randomUUID } from 'crypto'
 import { app } from 'electron'
 import fs from 'fs'
 import path from 'path'
-import { randomUUID } from 'crypto'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
@@ -69,6 +69,7 @@ class TracedTransport implements Transport {
 }
 
 export class McpService {
+  private readonly dataDir: string
   private readonly configPath: string
   private config: McpPersistedConfig = DEFAULT_CONFIG
   private client: Client | null = null
@@ -80,11 +81,13 @@ export class McpService {
 
   constructor() {
     const userDataPath = app.getPath('userData')
-    const dataDir = path.join(userDataPath, 'databases')
-    this.configPath = path.join(dataDir, 'mcp.json')
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true })
-    }
+    const userDatabaseDir = path.join(userDataPath, 'UserData')
+
+    // MCP workbench 的 JSON 持久化目录只放在你指定的 UserData 下。
+    this.dataDir = path.join(userDatabaseDir, 'mcpworkbench')
+    this.configPath = path.join(this.dataDir, 'presets.json')
+
+    this.ensureDataDir()
     this.loadConfig()
   }
 
@@ -265,6 +268,7 @@ export class McpService {
 
   private loadConfig(): void {
     try {
+      this.ensureDataDir()
       if (!fs.existsSync(this.configPath)) {
         this.saveConfig()
         return
@@ -285,8 +289,15 @@ export class McpService {
   }
 
   private saveConfig(): void {
+    this.ensureDataDir()
     this.config.updatedAt = new Date().toISOString()
     fs.writeFileSync(this.configPath, JSON.stringify(this.config, null, 2), 'utf-8')
+  }
+
+  private ensureDataDir(): void {
+    if (!fs.existsSync(this.dataDir)) {
+      fs.mkdirSync(this.dataDir, { recursive: true })
+    }
   }
 
   private normalizePreset(preset: McpServerPreset): McpServerPreset {
