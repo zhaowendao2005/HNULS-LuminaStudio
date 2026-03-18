@@ -11,6 +11,7 @@ import type {
   GenerationDesignDocument,
   GenerationGlobalSettings,
   GenerationListMessagesRequest,
+  GenerationMessageMetaPayload,
   GenerationSaveAnalysisDocumentRequest,
   GenerationSaveDesignDocumentRequest,
   GenerationSaveStageConfigRequest,
@@ -82,6 +83,61 @@ function applyPlanningPatch(
     content: nextContent,
     summary: buildAnalysisSummary(nextContent),
     updatedAt: nowIso()
+  }
+}
+
+function shouldPromoteAnalysisChatToPlanner(request: GenerationSendMessageRequest): boolean {
+  if (request.channelKey !== 'analysis-chat') {
+    return false
+  }
+  if (request.meta?.finalizeIntent === 'force-chat') {
+    return false
+  }
+  if (request.meta?.finalizeIntent === 'force-result') {
+    return true
+  }
+
+  const normalizedText = request.text.trim().toLowerCase()
+  if (!normalizedText) {
+    return false
+  }
+
+  // 中文关键词优先覆盖“按这个定稿 / 输出计划 / 整理成正式规划”这类高意图表达。
+  // 这里故意保持规则较保守，避免普通讨论被误判成正式产出请求。
+  return [
+    '定稿',
+    '输出计划',
+    '生成计划',
+    '正式规划',
+    '整理成规划',
+    '整理成正式规划',
+    '按这个方案',
+    '按这个来',
+    '就这么定',
+    '确定方案'
+  ].some((keyword) => normalizedText.includes(keyword))
+}
+
+function buildAnalysisMessageMeta(params: {
+  stageKey: GenerationStageKey
+  request: GenerationSendMessageRequest
+  effectiveChannelKey?: 'analysis-chat' | 'analysis-planner'
+  finalizeIntentDetected?: boolean
+  promotedFromChannelKey?: 'analysis-chat'
+}): GenerationMessageMetaPayload {
+  return {
+    stageKey: params.stageKey,
+    requestedChannelKey: params.request.channelKey,
+    effectiveChannelKey: params.effectiveChannelKey,
+    branchMode:
+      params.effectiveChannelKey === 'analysis-planner'
+        ? 'result'
+        : params.effectiveChannelKey === 'analysis-chat'
+          ? 'chat'
+          : undefined,
+    triggerSource: params.request.meta?.triggerSource,
+    finalizeIntentDetected: params.finalizeIntentDetected,
+    promotedFromChannelKey: params.promotedFromChannelKey
   }
 }
 
@@ -233,6 +289,14 @@ export class OrchestflowGenerationEditorService implements GenerationEventSink {
     const stageKey = request.channelKey === 'design-planner' ? 'design' : 'analysis'
     const detail = this.repository.getSessionDetail(request.sessionId)
     const stageConfig = this.getStageConfig(detail, stageKey)
+    const effectiveAnalysisChannelKey =
+      stageKey === 'analysis' && shouldPromoteAnalysisChatToPlanner(request)
+        ? 'analysis-planner'
+        : stageKey === 'analysis' && request.channelKey === 'analysis-chat'
+          ? 'analysis-chat'
+          : stageKey === 'analysis'
+            ? 'analysis-planner'
+            : undefined
 
     // 让 design copilot 的消息“跟随设计稿版本切换”。
     // 做法：在 message.metaJson 里写入 artifactDocumentId（即 designDocumentId）。
@@ -240,6 +304,20 @@ export class OrchestflowGenerationEditorService implements GenerationEventSink {
     const artifactDocumentId =
       request.channelKey === 'design-planner'
         ? request.designDocumentId || detail.selectedDesignDocumentId || null
+        : null
+
+    const baseAnalysisMeta =
+      stageKey === 'analysis'
+        ? buildAnalysisMessageMeta({
+            stageKey,
+            request,
+            effectiveChannelKey: effectiveAnalysisChannelKey,
+            finalizeIntentDetected: effectiveAnalysisChannelKey === 'analysis-planner',
+            promotedFromChannelKey:
+              request.channelKey === 'analysis-chat' && effectiveAnalysisChannelKey === 'analysis-planner'
+                ? 'analysis-chat'
+                : undefined
+          })
         : null
 
     const userMessage = this.repository.insertMessage({
@@ -250,25 +328,33 @@ export class OrchestflowGenerationEditorService implements GenerationEventSink {
       content: request.text,
       meta: {
         stageKey,
-        artifactDocumentId: artifactDocumentId || undefined
+        artifactDocumentId: artifactDocumentId || undefined,
+        ...(baseAnalysisMeta || {})
       }
     })
 
     const assistantMessage = this.repository.insertMessage({
       sessionId: request.sessionId,
-      channelKey: request.channelKey,
+      channelKey:
+        stageKey === 'analysis' && effectiveAnalysisChannelKey
+          ? effectiveAnalysisChannelKey
+          : request.channelKey,
       role: 'assistant',
       status: 'streaming',
       content: '',
       meta: {
         stageKey,
-        artifactDocumentId: artifactDocumentId || undefined
+        artifactDocumentId: artifactDocumentId || undefined,
+        ...(baseAnalysisMeta || {})
       }
     })
 
     const activeRun = createActiveGenerationRun({
       sessionId: request.sessionId,
-      channelKey: request.channelKey,
+      channelKey:
+        stageKey === 'analysis' && effectiveAnalysisChannelKey
+          ? effectiveAnalysisChannelKey
+          : request.channelKey,
       stageKey,
       messageId: assistantMessage.id
     }) as ActiveGenerationRun & { sender?: WebContents }
@@ -281,7 +367,7 @@ export class OrchestflowGenerationEditorService implements GenerationEventSink {
       requestId: activeRun.requestId,
       messageId: assistantMessage.id,
       sessionId: request.sessionId,
-      channelKey: request.channelKey,
+      channelKey: activeRun.channelKey,
       stageKey,
       startedAt: nowIso()
     })
@@ -362,7 +448,7 @@ export class OrchestflowGenerationEditorService implements GenerationEventSink {
               runId: activeRun.runId,
               requestId: activeRun.requestId,
               sessionId: request.sessionId,
-              channelKey: request.channelKey,
+              channelKey: activeRun.channelKey,
               stepKey,
               providerId: provider.providerId,
               modelId: provider.modelId,
@@ -440,7 +526,7 @@ export class OrchestflowGenerationEditorService implements GenerationEventSink {
                   runId: activeRun.runId,
                   requestId: activeRun.requestId,
                   sessionId: request.sessionId,
-                  channelKey: request.channelKey,
+                  channelKey: activeRun.channelKey,
                   stepKey,
                   durationMs: Date.now() - invokeStartedAt,
                   outputChars: fullText.length
@@ -459,7 +545,7 @@ export class OrchestflowGenerationEditorService implements GenerationEventSink {
                 runId: activeRun.runId,
                 requestId: activeRun.requestId,
                 sessionId: request.sessionId,
-                channelKey: request.channelKey,
+                channelKey: activeRun.channelKey,
                 stepKey,
                 durationMs: Date.now() - invokeStartedAt,
                 outputChars: String(response?.content ?? '').length
@@ -471,7 +557,7 @@ export class OrchestflowGenerationEditorService implements GenerationEventSink {
                 runId: activeRun.runId,
                 requestId: activeRun.requestId,
                 sessionId: request.sessionId,
-                channelKey: request.channelKey,
+                channelKey: activeRun.channelKey,
                 stepKey,
                 durationMs: Date.now() - invokeStartedAt
               })
@@ -487,13 +573,13 @@ export class OrchestflowGenerationEditorService implements GenerationEventSink {
 
       bridge.emit({
         type: 'memory-snapshot',
-        stepKey: request.channelKey,
+        stepKey: activeRun.channelKey,
         memory: {
           memoryWindow
         }
       })
 
-      if (request.channelKey === 'analysis-planner') {
+      if (activeRun.channelKey === 'analysis-planner') {
         const result = await runAnalysisPlanner({
           model: createLoggedModel('analysis-planner'),
           context: {
@@ -501,8 +587,12 @@ export class OrchestflowGenerationEditorService implements GenerationEventSink {
             userText,
             memoryWindow,
             workflowSpec
-          }
+          },
+          mode: 'result'
         })
+        if (result.branch !== 'result') {
+          throw new Error('analysis-planner(result) 返回了错误分支')
+        }
         bridge.emit({
           type: 'prompt-snapshot',
           stepKey: 'analysis-planner',
@@ -534,6 +624,115 @@ export class OrchestflowGenerationEditorService implements GenerationEventSink {
           content: analysisDocument.content,
           summary: analysisDocument.summary
         })
+      } else if (activeRun.channelKey === 'analysis-chat') {
+        const result = await runAnalysisPlanner({
+          model: createLoggedModel('analysis-chat'),
+          context: {
+            analysisDocument: detail.analysisDocument.content,
+            userText,
+            memoryWindow,
+            workflowSpec
+          },
+          mode: 'chat'
+        })
+        if (result.branch !== 'chat') {
+          throw new Error('analysis-planner(chat) 返回了错误分支')
+        }
+        bridge.emit({
+          type: 'prompt-snapshot',
+          stepKey: 'analysis-chat',
+          title: 'Analysis Chat Prompt',
+          prompt: result.prompt
+        })
+        bridge.emit({
+          type: 'context-snapshot',
+          stepKey: 'analysis-chat',
+          title: 'Analysis Chat Context',
+          context: result.context
+        })
+        const spentTokens = budget.add(estimateTokenUsage(result.prompt + result.reply))
+        bridge.emit({
+          type: 'budget-update',
+          spentTokens,
+          iteration: 1,
+          maxIterations: budget.getMaxIterations()
+        })
+        this.repository.updateMessageContent(activeRun.messageId, result.reply)
+        const currentAssistantMeta = this.repository.getMessageById(activeRun.messageId).metaJson
+        this.repository.updateMessageMeta(activeRun.messageId, {
+          ...(currentAssistantMeta
+            ? (JSON.parse(currentAssistantMeta) as GenerationMessageMetaPayload)
+            : {}),
+          stageKey: 'analysis',
+          requestedChannelKey: request.channelKey,
+          effectiveChannelKey: 'analysis-chat',
+          branchMode: 'chat',
+          triggerSource: request.meta?.triggerSource,
+          finalizeIntentDetected: result.intent.finalizeAnalysis,
+          promotedFromChannelKey: undefined
+        })
+
+        if (result.intent.finalizeAnalysis) {
+          const promotedAssistantMeta = this.repository.getMessageById(activeRun.messageId).metaJson
+          const plannerResult = await runAnalysisPlanner({
+            model: createLoggedModel('analysis-planner'),
+            context: {
+              analysisDocument: detail.analysisDocument.content,
+              userText,
+              memoryWindow,
+              workflowSpec
+            },
+            mode: 'result'
+          })
+          if (plannerResult.branch !== 'result') {
+            throw new Error('analysis-planner(promoted result) 返回了错误分支')
+          }
+          bridge.emit({
+            type: 'prompt-snapshot',
+            stepKey: 'analysis-planner',
+            title: 'Analysis Prompt (Promoted)',
+            prompt: plannerResult.prompt
+          })
+          bridge.emit({
+            type: 'context-snapshot',
+            stepKey: 'analysis-planner',
+            title: 'Analysis Context (Promoted)',
+            context: plannerResult.context
+          })
+          const promotedSpentTokens = budget.add(
+            estimateTokenUsage(plannerResult.prompt + plannerResult.markdown)
+          )
+          bridge.emit({
+            type: 'budget-update',
+            spentTokens: promotedSpentTokens,
+            iteration: 2,
+            maxIterations: budget.getMaxIterations()
+          })
+          this.repository.updateMessageContent(activeRun.messageId, plannerResult.markdown)
+          this.repository.updateMessageMeta(activeRun.messageId, {
+            ...(promotedAssistantMeta
+              ? (JSON.parse(promotedAssistantMeta) as GenerationMessageMetaPayload)
+              : {}),
+            stageKey: 'analysis',
+            requestedChannelKey: request.channelKey,
+            effectiveChannelKey: 'analysis-planner',
+            branchMode: 'result',
+            triggerSource: request.meta?.triggerSource,
+            finalizeIntentDetected: true,
+            promotedFromChannelKey: 'analysis-chat'
+          })
+          const analysisDocument = this.repository.saveAnalysisDocument(request.sessionId, {
+            ...detail.analysisDocument,
+            content: plannerResult.markdown,
+            summary: buildAnalysisSummary(plannerResult.markdown)
+          })
+          bridge.emit({
+            type: 'artifact-replace',
+            artifact: 'analysis-document',
+            content: analysisDocument.content,
+            summary: analysisDocument.summary
+          })
+        }
       } else if (request.channelKey === 'planning-copilot') {
         const result = await runPlanningCopilot({
           model: createLoggedModel('planning-copilot'),

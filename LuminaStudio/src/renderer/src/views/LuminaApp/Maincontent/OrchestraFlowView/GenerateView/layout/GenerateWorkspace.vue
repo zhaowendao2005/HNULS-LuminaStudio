@@ -51,7 +51,8 @@
           @start-design="generationStore.startDesignFromPlanningMessage($event)"
           @update:document="$emit('update-analysis-document', $event)"
           @update:analysis-input="generationStore.analysisInput = $event"
-          @send-analysis="generationStore.sendAnalysisMessage()"
+          @send-analysis-chat="generationStore.sendAnalysisChatMessage()"
+          @send-analysis-result="generationStore.sendAnalysisResultMessage()"
         />
 
         <GenerateDesignPanel

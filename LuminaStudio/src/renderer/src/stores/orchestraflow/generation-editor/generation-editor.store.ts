@@ -127,11 +127,14 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       )
     })
 
-    const planningCopilotMessages = computed(() => {
+    const analysisChatMessages = computed(() => {
       return (
-        currentSession.value?.messages.filter((item) => item.channelKey === 'planning-copilot') ||
-        []
+        currentSession.value?.messages.filter((item) => item.channelKey === 'analysis-chat') || []
       )
+    })
+
+    const planningCopilotMessages = computed(() => {
+      return currentSession.value?.messages.filter((item) => item.channelKey === 'planning-copilot') || []
     })
 
     function parseMessageMeta(metaJson: string | null): GenerationMessageMetaPayload | null {
@@ -162,7 +165,9 @@ export const useOrchestflowGenerationEditorStore = defineStore(
     })
 
     const isAnalysisStreaming = computed(() => {
-      return analysisMessages.value.some((item) => item.status === 'streaming')
+      return [...analysisMessages.value, ...analysisChatMessages.value].some(
+        (item) => item.status === 'streaming'
+      )
     })
 
     const isPlanningCopilotStreaming = computed(() => {
@@ -185,27 +190,23 @@ export const useOrchestflowGenerationEditorStore = defineStore(
 
     const copilotInput = computed<string>({
       get() {
-        return activeRightPanel.value === 'design' ? designInput.value : planningCopilotInput.value
+        return activeRightPanel.value === 'design' ? designInput.value : analysisInput.value
       },
       set(value) {
         if (activeRightPanel.value === 'design') {
           designInput.value = value
           return
         }
-        planningCopilotInput.value = value
+        analysisInput.value = value
       }
     })
 
     const activeCopilotMessages = computed(() => {
-      return activeRightPanel.value === 'design'
-        ? designMessages.value
-        : planningCopilotMessages.value
+      return activeRightPanel.value === 'design' ? designMessages.value : analysisChatMessages.value
     })
 
     const isActiveCopilotStreaming = computed(() => {
-      return activeRightPanel.value === 'design'
-        ? isDesignStreaming.value
-        : isPlanningCopilotStreaming.value
+      return activeRightPanel.value === 'design' ? isDesignStreaming.value : isAnalysisStreaming.value
     })
 
     const plannedSessionsCount = computed(() => {
@@ -429,7 +430,15 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       selectedDesignDiagnosticIndex.value = null
     }
 
-    async function sendMessage(channelKey: GenerationChannelKey, text: string): Promise<void> {
+    async function sendMessage(
+      channelKey: GenerationChannelKey,
+      text: string,
+      meta?: {
+        requestedMode?: 'chat' | 'result'
+        triggerSource?: string
+        finalizeIntent?: 'auto' | 'force-chat' | 'force-result'
+      }
+    ): Promise<void> {
       if (!currentSession.value || !currentStageConfig.value) return
       const trimmed = text.trim()
       if (!trimmed) return
@@ -466,11 +475,12 @@ export const useOrchestflowGenerationEditorStore = defineStore(
           text: trimmed,
           providerId: currentStageConfig.value.providerId,
           modelId: currentStageConfig.value.modelId,
-          designDocumentId
+          designDocumentId,
+          meta
         })
       )
       await refreshCurrentSession()
-      if (channelKey === 'analysis-planner') analysisInput.value = ''
+      if (channelKey === 'analysis-planner' || channelKey === 'analysis-chat') analysisInput.value = ''
       if (channelKey === 'planning-copilot') planningCopilotInput.value = ''
       if (channelKey === 'design-planner') designInput.value = ''
     }
@@ -661,8 +671,20 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       })
     }
 
-    async function sendAnalysisMessage(): Promise<void> {
-      await sendMessage('analysis-planner', analysisInput.value)
+    async function sendAnalysisResultMessage(): Promise<void> {
+      await sendMessage('analysis-planner', analysisInput.value, {
+        requestedMode: 'result',
+        triggerSource: 'analysis-panel-result-button',
+        finalizeIntent: 'force-result'
+      })
+    }
+
+    async function sendAnalysisChatMessage(): Promise<void> {
+      await sendMessage('analysis-chat', analysisInput.value, {
+        requestedMode: 'chat',
+        triggerSource: 'analysis-panel-chat-button',
+        finalizeIntent: 'auto'
+      })
     }
 
     async function sendCopilotMessage(): Promise<void> {
@@ -670,7 +692,11 @@ export const useOrchestflowGenerationEditorStore = defineStore(
         await sendMessage('design-planner', designInput.value)
         return
       }
-      await sendMessage('planning-copilot', planningCopilotInput.value)
+      await sendMessage('analysis-chat', analysisInput.value, {
+        requestedMode: 'chat',
+        triggerSource: 'analysis-copilot-panel',
+        finalizeIntent: 'auto'
+      })
     }
 
     function openCopilotPanel(mode: 'analysis' | 'design'): void {
@@ -756,6 +782,7 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       currentModelLabel,
       currentSessionStageLabel,
       analysisMessages,
+      analysisChatMessages,
       planningCopilotMessages,
       designMessages,
       activeCopilotMessages,
@@ -777,7 +804,8 @@ export const useOrchestflowGenerationEditorStore = defineStore(
       deleteDesignDocument,
       sendMessage,
       abortStreamingMessage,
-      sendAnalysisMessage,
+      sendAnalysisResultMessage,
+      sendAnalysisChatMessage,
       sendCopilotMessage,
       compileDesignDocumentToWorkflow,
       updateGlobalSettings,

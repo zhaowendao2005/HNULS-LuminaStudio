@@ -1,7 +1,11 @@
 import type { ApiResponse } from './base.types'
 
 export type GenerationStageKey = 'analysis' | 'design'
-export type GenerationChannelKey = 'analysis-planner' | 'planning-copilot' | 'design-planner'
+export type GenerationChannelKey =
+  | 'analysis-planner'
+  | 'analysis-chat'
+  | 'planning-copilot'
+  | 'design-planner'
 export type GenerationChatRole = 'user' | 'assistant' | 'system'
 export type GenerationMessageStatus = 'pending' | 'streaming' | 'completed' | 'failed' | 'aborted'
 export type GenerationSdkVendor = 'openai' | 'anthropic' | 'google'
@@ -67,6 +71,18 @@ export interface GenerationMessageMetaPayload {
   stageKey?: GenerationStageKey
   vendor?: GenerationSdkVendor
   artifactDocumentId?: string
+  requestedChannelKey?: GenerationChannelKey
+  effectiveChannelKey?: GenerationChannelKey
+  branchMode?: 'chat' | 'result'
+  triggerSource?: string
+  finalizeIntentDetected?: boolean
+  promotedFromChannelKey?: GenerationChannelKey
+}
+
+export interface GenerationSendMessageMeta {
+  requestedMode?: 'chat' | 'result'
+  triggerSource?: string
+  finalizeIntent?: 'auto' | 'force-chat' | 'force-result'
 }
 
 export interface GenerationMessage {
@@ -163,6 +179,7 @@ export interface GenerationSendMessageRequest {
   providerId: string
   modelId: string
   designDocumentId?: string | null
+  meta?: GenerationSendMessageMeta
 }
 
 export interface GenerationAbortMessageRequest {

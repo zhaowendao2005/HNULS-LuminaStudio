@@ -98,7 +98,7 @@
 
     <div class="shrink-0 border-t border-gray-100 bg-white p-4">
       <div
-        class="relative flex items-center rounded-md border border-gray-200 bg-gray-50 px-3 py-2 transition-all focus-within:border-cyan-400 focus-within:ring-1 focus-within:ring-cyan-400"
+        class="relative flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 transition-all focus-within:border-cyan-400 focus-within:ring-1 focus-within:ring-cyan-400"
       >
         <input
           :value="analysisInput"
@@ -107,15 +107,24 @@
           :placeholder="analysisInputPlaceholder"
           class="flex-1 border-none bg-transparent text-[13px] text-gray-800 placeholder-gray-400 focus:outline-none"
           @input="$emit('update:analysis-input', ($event.target as HTMLInputElement).value)"
-          @keydown.enter="$emit('send-analysis')"
+          @keydown.enter="$emit('send-analysis-result')"
         />
         <button
           type="button"
-          class="p-1.5 text-gray-400 transition-colors hover:text-cyan-600 disabled:cursor-not-allowed disabled:text-gray-300"
+          class="rounded-md border border-gray-200 px-3 py-1.5 text-[12px] font-medium text-gray-600 transition-colors hover:border-cyan-200 hover:bg-cyan-50 hover:text-cyan-700 disabled:cursor-not-allowed disabled:text-gray-300"
           :disabled="isAnalysisStreaming || !analysisInput.trim()"
-          @click="$emit('send-analysis')"
+          @click="$emit('send-analysis-chat')"
         >
-          <Send :size="16" />
+          聊天讨论
+        </button>
+        <button
+          type="button"
+          class="flex items-center gap-1 rounded-md bg-cyan-600 px-3 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-cyan-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+          :disabled="isAnalysisStreaming || !analysisInput.trim()"
+          @click="$emit('send-analysis-result')"
+        >
+          <Send :size="14" />
+          输出计划
         </button>
       </div>
     </div>
@@ -174,11 +183,14 @@ defineEmits<{
   (e: 'start-design', messageId: string): void
   (e: 'update:document', value: string): void
   (e: 'update:analysis-input', value: string): void
-  (e: 'send-analysis'): void
+  (e: 'send-analysis-chat'): void
+  (e: 'send-analysis-result'): void
 }>()
 
 const analysisInputPlaceholder = computed(() => {
-  return props.isAnalysisStreaming ? '消息已发出，等待 AI 回复中...' : '输入补充需求或修改意见...'
+  return props.isAnalysisStreaming
+    ? '消息已发出，等待 AI 回复中...'
+    : '先聊天讨论，确认后再输出正式计划...'
 })
 
 // 这里先把 message 和“是否可识别成需求规划块”整理好，模板层保持简单。

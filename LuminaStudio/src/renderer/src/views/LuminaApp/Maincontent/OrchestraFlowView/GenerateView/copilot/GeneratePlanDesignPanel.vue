@@ -255,13 +255,13 @@ const panelTitle = computed(() => {
 
 const helperText = computed(() => {
   return props.mode === 'analysis'
-    ? '这里是 analysis copilot 对话，负责承接当前新主链里的 planning-copilot。'
+    ? '这里是 analysis chat 对话支路，用来和用户讨论方案，确认后再进入正式规划输出。'
     : '这里是 design copilot 面板，负责承接当前新主链里的 design-planner。'
 })
 
 const inputPlaceholder = computed(() => {
   if (props.isStreaming) return '消息已发出，等待 AI 回复中...'
-  return props.mode === 'analysis' ? '补充需求分析要求...' : '补充设计约束或修订要求...'
+  return props.mode === 'analysis' ? '继续讨论方案，或直接要求定稿输出计划...' : '补充设计约束或修订要求...'
 })
 
 const showDocumentPreview = computed(() => props.mode === 'analysis')
