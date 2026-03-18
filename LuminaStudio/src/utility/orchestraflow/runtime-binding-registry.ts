@@ -10,6 +10,8 @@ import { LoopNode } from './nodes/loop-node'
 import { LoopStartNode } from './nodes/loop-start-node'
 import { StartNode } from './nodes/start-node'
 import { VariableAssignNode } from './nodes/variable-assign-node'
+import { KnowledgeRetrievalNode } from './nodes/knowledge-retrieval-node'
+import { PaperRetrievalNode } from './nodes/paper-retrieval-node'
 import { VariableStore } from './services/variable-store'
 
 type RuntimeNodeConstructor = new (node: OFNode, variableStore: VariableStore) => BaseNode
@@ -28,6 +30,8 @@ const RUNTIME_BINDINGS = new Map<OFBlockEnum, RuntimeNodeConstructor>([
   [OFBlockEnum.Loop, LoopNode],
   [OFBlockEnum.LoopStart, LoopStartNode],
   [OFBlockEnum.VariableAssign, VariableAssignNode],
+  [OFBlockEnum.KnowledgeRetrieval, KnowledgeRetrievalNode],
+  [OFBlockEnum.PaperRetrieval, PaperRetrievalNode],
   [OFBlockEnum.End, EndNode]
 ])
 

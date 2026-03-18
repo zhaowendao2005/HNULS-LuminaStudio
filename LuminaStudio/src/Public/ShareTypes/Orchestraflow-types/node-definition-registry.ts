@@ -10,9 +10,11 @@ import {
   ifNodeDefinition,
   iterationNodeDefinition,
   iterationStartNodeDefinition,
+  knowledgeRetrievalNodeDefinition,
   llmNodeDefinition,
   loopNodeDefinition,
   loopStartNodeDefinition,
+  paperRetrievalNodeDefinition,
   startNodeDefinition,
   variableAssignNodeDefinition
 } from './nodes'
@@ -57,6 +59,8 @@ function registerNodeDefinition(definition: OFNodeDefinition): void {
   loopNodeDefinition,
   loopStartNodeDefinition,
   variableAssignNodeDefinition,
+  knowledgeRetrievalNodeDefinition,
+  paperRetrievalNodeDefinition,
   endNodeDefinition
 ].forEach(registerNodeDefinition)
 

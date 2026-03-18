@@ -25,6 +25,8 @@ export enum PanelType {
   LoopNode = 'loop-node',
   IfElseNode = 'ifelse-node',
   VariableAssignNode = 'variable-assign-node',
+  KnowledgeRetrievalNode = 'knowledge-retrieval-node',
+  PaperRetrievalNode = 'paper-retrieval-node',
   EndNode = 'end-node'
 }
 
@@ -156,6 +158,10 @@ export const useWorkflowEditorUIStore = defineStore('orchestraflow-workflow-edit
         return PanelType.IfElseNode
       case OFBlockEnum.VariableAssign:
         return PanelType.VariableAssignNode
+      case OFBlockEnum.KnowledgeRetrieval:
+        return PanelType.KnowledgeRetrievalNode
+      case OFBlockEnum.PaperRetrieval:
+        return PanelType.PaperRetrievalNode
       case OFBlockEnum.End:
         return PanelType.EndNode
       default:
@@ -269,8 +275,11 @@ export const useWorkflowEditorUIStore = defineStore('orchestraflow-workflow-edit
       currentPanelType.value === PanelType.StartNode ||
       currentPanelType.value === PanelType.LLMNode ||
       currentPanelType.value === PanelType.IterationNode ||
+      currentPanelType.value === PanelType.LoopNode ||
       currentPanelType.value === PanelType.IfElseNode ||
       currentPanelType.value === PanelType.VariableAssignNode ||
+      currentPanelType.value === PanelType.KnowledgeRetrievalNode ||
+      currentPanelType.value === PanelType.PaperRetrievalNode ||
       currentPanelType.value === PanelType.EndNode
     ) {
       currentPanelType.value = null

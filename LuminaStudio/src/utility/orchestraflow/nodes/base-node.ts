@@ -14,6 +14,8 @@ import type {
   OFLoopNodeData,
   OFLoopStartNodeData,
   OFVariableAssignNodeData,
+  OFKnowledgeRetrievalNodeData,
+  OFPaperRetrievalNodeData,
   OFEndNodeData
 } from '@shared/Orchestraflow-types'
 import type { ExecutionContext, NodeResult } from './types'
@@ -82,6 +84,8 @@ export abstract class BaseNode {
     | OFLoopNodeData
     | OFLoopStartNodeData
     | OFVariableAssignNodeData
+    | OFKnowledgeRetrievalNodeData
+    | OFPaperRetrievalNodeData
     | OFEndNodeData {
     return this.context.node.data as any
   }

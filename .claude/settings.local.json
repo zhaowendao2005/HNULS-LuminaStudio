@@ -6,7 +6,9 @@
       "mcp__smart-edit-mcp__edit_file",
       "mcp__repgrep__list_searchable_files",
       "Bash(npm run:*)",
-      "Bash(git worktree:*)"
+      "Bash(git worktree:*)",
+      "Bash(pnpm lint:orchestraflow)",
+      "Bash(pnpm exec:*)"
     ]
   }
 }

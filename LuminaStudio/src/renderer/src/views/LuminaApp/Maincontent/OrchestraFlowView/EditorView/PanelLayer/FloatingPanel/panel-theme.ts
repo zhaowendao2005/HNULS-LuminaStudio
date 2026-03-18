@@ -7,7 +7,15 @@ export type OFPanelTheme = {
 }
 
 export const OF_PANEL_THEME: Record<
-  'start' | 'llm' | 'iteration' | 'loop' | 'ifelse' | 'variableAssign' | 'end',
+  | 'start'
+  | 'llm'
+  | 'iteration'
+  | 'loop'
+  | 'ifelse'
+  | 'variableAssign'
+  | 'knowledgeRetrieval'
+  | 'paperRetrieval'
+  | 'end',
   OFPanelTheme
 > = {
   start: {
@@ -51,6 +59,20 @@ export const OF_PANEL_THEME: Record<
     tabActiveClass: 'border-sky-500 text-gray-900',
     controlFocusClass: 'of-theme-control-focus',
     softBadgeClass: 'text-sky-700 bg-sky-50 border-sky-200'
+  },
+  knowledgeRetrieval: {
+    panelClass: 'of-panel-theme-knowledge-retrieval',
+    iconBgClass: 'bg-blue-500',
+    tabActiveClass: 'border-blue-500 text-gray-900',
+    controlFocusClass: 'of-theme-control-focus',
+    softBadgeClass: 'text-blue-700 bg-blue-50 border-blue-200'
+  },
+  paperRetrieval: {
+    panelClass: 'of-panel-theme-paper-retrieval',
+    iconBgClass: 'bg-emerald-500',
+    tabActiveClass: 'border-emerald-500 text-gray-900',
+    controlFocusClass: 'of-theme-control-focus',
+    softBadgeClass: 'text-emerald-700 bg-emerald-50 border-emerald-200'
   },
   end: {
     panelClass: 'of-panel-theme-end',

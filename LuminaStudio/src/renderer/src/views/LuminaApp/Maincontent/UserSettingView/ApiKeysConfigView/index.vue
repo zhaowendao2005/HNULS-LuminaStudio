@@ -1,8 +1,7 @@
 <template>
   <div class="us-apikeys-view flex flex-col h-full overflow-hidden bg-slate-50">
-    <!-- Header -->
     <div class="apikeys-header border-b border-slate-200 bg-white p-6 shadow-sm">
-      <div class="max-w-4xl mx-auto">
+      <div class="max-w-5xl mx-auto">
         <button
           type="button"
           class="apikeys-back-button inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 transition-colors mb-4"
@@ -21,90 +20,192 @@
         </button>
         <h1 class="apikeys-title text-2xl font-bold text-slate-900">秘钥管理</h1>
         <p class="apikeys-subtitle text-sm text-slate-500 mt-2">
-          配置与管理外部服务 API 密钥，如 PubMed、Arxiv 等文献检索服务
+          统一管理 API Key registry。这里可以为同一个 provider
+          保存多条可引用密钥，供后续节点通过引用 ID 使用。
         </p>
       </div>
     </div>
 
-    <!-- Content -->
     <div class="apikeys-content flex-1 overflow-auto p-6">
-      <div class="max-w-4xl mx-auto">
-        <!-- Loading State -->
-        <div v-if="isLoading" class="flex items-center justify-center py-12">
-          <div class="text-slate-500">加载中...</div>
+      <div class="max-w-5xl mx-auto space-y-6">
+        <div v-if="isLoading" class="flex items-center justify-center py-12 text-slate-500">
+          加载中...
         </div>
 
-        <!-- API Keys Form -->
-        <div v-else class="space-y-6">
-          <!-- PubMed API Key -->
-          <div class="apikeys-section bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-            <div class="flex items-start justify-between mb-4">
-              <div>
-                <h3 class="text-base font-semibold text-slate-800">PubMed API Key</h3>
-                <p class="text-xs text-slate-500 mt-1">
-                  用于访问 NCBI PubMed E-utilities API
-                  <a
-                    href="https://www.ncbi.nlm.nih.gov/account/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="text-blue-600 hover:underline ml-1"
-                  >
-                    获取 API Key
-                  </a>
-                </p>
-              </div>
-            </div>
-
-            <div class="space-y-3">
-              <div class="relative">
-                <input
-                  v-model="formData.pubmed"
-                  :type="showPubmedKey ? 'text' : 'password'"
-                  placeholder="请输入 PubMed API Key"
-                  class="w-full px-4 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10"
-                  @input="markAsModified"
-                />
+        <template v-else>
+          <div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_280px]">
+            <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <h2 class="text-lg font-semibold text-slate-900">API Key 条目列表</h2>
+                  <p class="mt-1 text-sm text-slate-500">
+                    每条 entry 都有独立 id，可按 provider_id 归类，并单独启用或停用。
+                  </p>
+                </div>
                 <button
                   type="button"
-                  class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-                  @click="showPubmedKey = !showPubmedKey"
+                  class="inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700"
+                  @click="handleAddEntry"
                 >
-                  <svg
-                    v-if="showPubmedKey"
-                    class="w-5 h-5"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <path
-                      d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"
-                    />
-                    <line x1="1" y1="1" x2="23" y2="23" />
-                  </svg>
-                  <svg
-                    v-else
-                    class="w-5 h-5"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                    <circle cx="12" cy="12" r="3" />
-                  </svg>
+                  新增条目
                 </button>
               </div>
 
-              <p class="text-xs text-slate-500">
-                注意：API Key 将以明文形式存储在本地。请妥善保管，不要泄露给他人。
-              </p>
-            </div>
+              <div
+                v-if="filteredEntries.length === 0"
+                class="mt-6 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center"
+              >
+                <p class="text-sm font-medium text-slate-700">当前没有匹配的 API Key 条目</p>
+                <p class="mt-2 text-xs text-slate-500">
+                  可以先新增一条 entry，或切换右侧 provider 筛选查看其他条目。
+                </p>
+              </div>
+
+              <div v-else class="mt-6 space-y-4">
+                <article
+                  v-for="entry in filteredEntries"
+                  :key="entry.id"
+                  class="rounded-2xl border border-slate-200 bg-slate-50/70 p-5"
+                >
+                  <div class="grid gap-4 lg:grid-cols-2">
+                    <div>
+                      <label
+                        class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      >
+                        条目标签
+                      </label>
+                      <input
+                        v-model="entry.label"
+                        type="text"
+                        placeholder="例如：PubMed 主账号 / 备用 key"
+                        class="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        @input="markAsModified"
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      >
+                        Provider ID
+                      </label>
+                      <select
+                        v-model="entry.provider_id"
+                        class="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        @change="handleProviderChange(entry)"
+                      >
+                        <option
+                          v-for="option in providerOptions"
+                          :key="option.value"
+                          :value="option.value"
+                        >
+                          {{ option.label }}
+                        </option>
+                      </select>
+                    </div>
+
+                    <div class="lg:col-span-2">
+                      <div class="mb-1.5 flex items-center justify-between gap-3">
+                        <label
+                          class="block text-xs font-semibold uppercase tracking-wide text-slate-500"
+                        >
+                          API Key
+                        </label>
+                        <button
+                          type="button"
+                          class="text-xs text-slate-500 transition hover:text-slate-700"
+                          @click="toggleEntryVisibility(entry.id)"
+                        >
+                          {{ visibleEntryIds.has(entry.id) ? '隐藏明文' : '显示明文' }}
+                        </button>
+                      </div>
+                      <input
+                        v-model="entry.api_key"
+                        :type="visibleEntryIds.has(entry.id) ? 'text' : 'password'"
+                        placeholder="请输入 API Key"
+                        class="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        @input="markAsModified"
+                      />
+                      <p class="mt-2 text-xs text-slate-500">
+                        明文 key 只在当前设置页维护。节点面板后续应只保存
+                        api_key_ref_id，不直接编辑明文。
+                      </p>
+                    </div>
+                  </div>
+
+                  <div
+                    class="mt-4 flex flex-col gap-3 border-t border-slate-200 pt-4 md:flex-row md:items-center md:justify-between"
+                  >
+                    <div class="flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                      <span class="rounded-full bg-slate-200 px-2.5 py-1 font-mono text-slate-700">
+                        {{ entry.id }}
+                      </span>
+                      <span>创建：{{ formatTimestamp(entry.created_at) }}</span>
+                      <span>更新：{{ formatTimestamp(entry.updated_at) }}</span>
+                    </div>
+
+                    <div class="flex items-center gap-3">
+                      <label class="inline-flex items-center gap-2 text-sm text-slate-700">
+                        <input
+                          v-model="entry.enabled"
+                          type="checkbox"
+                          class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                          @change="markAsModified"
+                        />
+                        启用此条目
+                      </label>
+                      <button
+                        type="button"
+                        class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-600 transition hover:bg-rose-100"
+                        @click="handleRemoveEntry(entry.id)"
+                      >
+                        删除
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              </div>
+            </section>
+
+            <aside class="space-y-4">
+              <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <h3 class="text-base font-semibold text-slate-900">Provider 筛选</h3>
+                <p class="mt-1 text-xs leading-5 text-slate-500">
+                  现有接口直接返回完整 registry，当前页面在前端按 provider_id
+                  做筛选与分组，足够支持引用选择场景。
+                </p>
+                <div class="mt-4 space-y-2">
+                  <button
+                    v-for="item in filterOptions"
+                    :key="item.value"
+                    type="button"
+                    class="flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-sm transition"
+                    :class="
+                      selectedProviderFilter === item.value
+                        ? 'border-blue-200 bg-blue-50 text-blue-700'
+                        : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                    "
+                    @click="selectedProviderFilter = item.value"
+                  >
+                    <span>{{ item.label }}</span>
+                    <span class="rounded-full bg-white px-2 py-0.5 text-xs text-slate-500">
+                      {{ item.count }}
+                    </span>
+                  </button>
+                </div>
+              </section>
+
+              <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <h3 class="text-base font-semibold text-slate-900">使用说明</h3>
+                <ul class="mt-3 space-y-2 text-xs leading-5 text-slate-500">
+                  <li>1. provider_id 用来标识密钥归属，例如 pubmed。</li>
+                  <li>2. label 用来区分同一 provider 下的多条 key。</li>
+                  <li>3. 保存时会统一写入 entries 数组，并由主进程补齐更新时间。</li>
+                </ul>
+              </section>
+            </aside>
           </div>
 
-          <!-- More API Keys can be added here in the future -->
-
-          <!-- Action Buttons -->
           <div class="flex items-center gap-3 justify-end">
             <button
               type="button"
@@ -124,7 +225,6 @@
             </button>
           </div>
 
-          <!-- Success Message -->
           <div
             v-if="showSuccessMessage"
             class="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-700"
@@ -140,19 +240,29 @@
             </svg>
             保存成功
           </div>
-        </div>
+        </template>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useUserConfigStore } from '@renderer/stores/user-config/store'
+import type { ApiKeyEntry } from '@preload/types'
 
 defineEmits<{
   (e: 'back'): void
 }>()
+
+interface ApiKeyEntryForm extends ApiKeyEntry {}
+
+const providerOptions = [
+  { value: 'pubmed', label: 'PubMed' },
+  { value: 'arxiv', label: 'Arxiv' },
+  { value: 'crossref', label: 'Crossref' },
+  { value: 'custom', label: '自定义 / 其他' }
+] as const
 
 const userConfigStore = useUserConfigStore()
 
@@ -161,82 +271,167 @@ const isLoading = computed(() => userConfigStore.isLoading)
 const isSaving = computed(() => userConfigStore.isSaving)
 const isModified = ref(false)
 const showSuccessMessage = ref(false)
-const showPubmedKey = ref(false)
+const selectedProviderFilter = ref<'all' | string>('all')
+const visibleEntryIds = ref<Set<string>>(new Set())
 
 // 表单数据
-const formData = ref({
-  pubmed: ''
-})
+const formEntries = ref<ApiKeyEntryForm[]>([])
+const originalEntries = ref<ApiKeyEntryForm[]>([])
 
-// 原始数据（用于重置）
-const originalData = ref({
-  pubmed: ''
-})
+function cloneEntries(entries: ApiKeyEntry[]): ApiKeyEntryForm[] {
+  return entries.map((entry) => ({ ...entry }))
+}
 
-// 加载 API Keys
-async function loadApiKeys(): Promise<void> {
-  try {
-    await userConfigStore.fetchApiKeys()
-    formData.value.pubmed = userConfigStore.apiKeys.pubmed || ''
-    originalData.value.pubmed = userConfigStore.apiKeys.pubmed || ''
-  } catch (error) {
-    console.error('Failed to load API keys:', error)
-    // TODO: 显示错误提示
+function createEntryId(): string {
+  return `apikey_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
+}
+
+function createDraftEntry(providerId = 'pubmed'): ApiKeyEntryForm {
+  const now = new Date().toISOString()
+  const matchedProvider = providerOptions.find((item) => item.value === providerId)
+
+  return {
+    id: createEntryId(),
+    provider_id: providerId,
+    label: matchedProvider ? `${matchedProvider.label} 新条目` : '新条目',
+    api_key: '',
+    enabled: true,
+    created_at: now,
+    updated_at: now
   }
 }
 
-// 标记为已修改
+const filterOptions = computed(() => {
+  const providerCounts = new Map<string, number>()
+
+  userConfigStore.apiKeyEntries.forEach((entry) => {
+    providerCounts.set(entry.provider_id, (providerCounts.get(entry.provider_id) || 0) + 1)
+  })
+
+  return [
+    {
+      value: 'all',
+      label: '全部 provider',
+      count: userConfigStore.apiKeyEntries.length
+    },
+    ...Array.from(providerCounts.entries())
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([providerId, count]) => ({
+        value: providerId,
+        label: providerId,
+        count
+      }))
+  ]
+})
+
+const filteredEntries = computed(() => {
+  if (selectedProviderFilter.value === 'all') {
+    return formEntries.value
+  }
+
+  return formEntries.value.filter((entry) => entry.provider_id === selectedProviderFilter.value)
+})
+
+async function loadApiKeys(): Promise<void> {
+  await userConfigStore.fetchApiKeys()
+  formEntries.value = cloneEntries(userConfigStore.apiKeyEntries)
+  originalEntries.value = cloneEntries(userConfigStore.apiKeyEntries)
+}
+
 function markAsModified(): void {
   isModified.value = true
   showSuccessMessage.value = false
 }
 
-// 保存
-async function handleSave(): Promise<void> {
-  try {
-    await userConfigStore.updateApiKeys({
-      pubmed: formData.value.pubmed || undefined
-    })
-
-    // 更新原始数据
-    originalData.value.pubmed = formData.value.pubmed
-
-    isModified.value = false
-    showSuccessMessage.value = true
-
-    // 3秒后隐藏成功消息
-    setTimeout(() => {
-      showSuccessMessage.value = false
-    }, 3000)
-  } catch (error) {
-    console.error('Failed to save API keys:', error)
-    // TODO: 显示错误提示
-  }
+function handleAddEntry(): void {
+  formEntries.value.unshift(createDraftEntry())
+  markAsModified()
 }
 
-// 重置
+function handleRemoveEntry(entryId: string): void {
+  formEntries.value = formEntries.value.filter((entry) => entry.id !== entryId)
+  visibleEntryIds.value.delete(entryId)
+  markAsModified()
+}
+
+function handleProviderChange(entry: ApiKeyEntryForm): void {
+  // 当用户只改了 provider，自动补一个更容易识别的默认标签，
+  // 但如果他已经自定义过标签，就保留原值不覆盖。
+  const matchedProvider = providerOptions.find((item) => item.value === entry.provider_id)
+  if (!entry.label.trim() || entry.label.endsWith('新条目')) {
+    entry.label = matchedProvider ? `${matchedProvider.label} 新条目` : '新条目'
+  }
+  markAsModified()
+}
+
+function toggleEntryVisibility(entryId: string): void {
+  const nextVisibleIds = new Set(visibleEntryIds.value)
+  if (nextVisibleIds.has(entryId)) {
+    nextVisibleIds.delete(entryId)
+  } else {
+    nextVisibleIds.add(entryId)
+  }
+  visibleEntryIds.value = nextVisibleIds
+}
+
+function buildPayloadEntries(): ApiKeyEntry[] {
+  const now = new Date().toISOString()
+
+  return formEntries.value
+    .map((entry) => ({
+      ...entry,
+      provider_id: entry.provider_id.trim(),
+      label: entry.label.trim(),
+      api_key: entry.api_key.trim(),
+      updated_at: now
+    }))
+    .filter((entry) => entry.provider_id && entry.api_key)
+}
+
+async function handleSave(): Promise<void> {
+  await userConfigStore.updateApiKeys({
+    entries: buildPayloadEntries()
+  })
+
+  formEntries.value = cloneEntries(userConfigStore.apiKeyEntries)
+  originalEntries.value = cloneEntries(userConfigStore.apiKeyEntries)
+  isModified.value = false
+  showSuccessMessage.value = true
+
+  window.setTimeout(() => {
+    showSuccessMessage.value = false
+  }, 3000)
+}
+
 function handleReset(): void {
-  formData.value.pubmed = originalData.value.pubmed
+  formEntries.value = cloneEntries(originalEntries.value)
   isModified.value = false
   showSuccessMessage.value = false
 }
 
-// 组件挂载时加载数据
+function formatTimestamp(value: string): string {
+  if (!value) return '-'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleString()
+}
+
 onMounted(() => {
   loadApiKeys()
 })
 
 watch(
-  () => userConfigStore.apiKeys.pubmed,
-  (next) => {
+  () => userConfigStore.apiKeyEntries,
+  (nextEntries) => {
     if (!isModified.value) {
-      formData.value.pubmed = next || ''
-      originalData.value.pubmed = next || ''
+      formEntries.value = cloneEntries(nextEntries)
+      originalEntries.value = cloneEntries(nextEntries)
     }
-  }
+  },
+  { deep: true }
 )
 </script>
 
 <style scoped>
-/* Component-specific styles (if needed) will go here */
+/* 当前页面样式主要由 Tailwind 承担，这里暂不补充额外样式。 */
 </style>

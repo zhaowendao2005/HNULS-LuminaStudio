@@ -48,6 +48,12 @@
       <template #node-variable-assign="nodeProps">
         <VariableAssignNode v-bind="nodeProps" />
       </template>
+      <template #node-knowledge-retrieval="nodeProps">
+        <KnowledgeRetrievalNode v-bind="nodeProps" />
+      </template>
+      <template #node-paper-retrieval="nodeProps">
+        <PaperRetrievalNode v-bind="nodeProps" />
+      </template>
       <template #node-end="nodeProps">
         <EndNode v-bind="nodeProps" />
       </template>
@@ -88,6 +94,8 @@ import IterationNode from './Nodes/IterationNode/index.vue'
 import LoopNode from './Nodes/LoopNode/index.vue'
 import IfElseNode from './Nodes/IfElseNode/index.vue'
 import VariableAssignNode from './Nodes/VariableAssignNode/index.vue'
+import KnowledgeRetrievalNode from './Nodes/KnowledgeRetrievalNode/index.vue'
+import PaperRetrievalNode from './Nodes/PaperRetrievalNode/index.vue'
 import EndNode from './Nodes/EndNode/index.vue'
 
 // 导入 VueFlow 核心样式
@@ -163,6 +171,12 @@ function getPanelType(nodeType: string): PanelType | null {
     case 'variable-assign':
     case OFBlockEnum.VariableAssign:
       return PanelType.VariableAssignNode
+    case 'knowledge-retrieval':
+    case OFBlockEnum.KnowledgeRetrieval:
+      return PanelType.KnowledgeRetrievalNode
+    case 'paper-retrieval':
+    case OFBlockEnum.PaperRetrieval:
+      return PanelType.PaperRetrievalNode
     case 'end':
     case OFBlockEnum.End:
       return PanelType.EndNode
@@ -206,6 +220,12 @@ function handleNodeClick(event: { node: Node }) {
       break
     case 'variable-assign':
       ofBlockEnum = OFBlockEnum.VariableAssign
+      break
+    case 'knowledge-retrieval':
+      ofBlockEnum = OFBlockEnum.KnowledgeRetrieval
+      break
+    case 'paper-retrieval':
+      ofBlockEnum = OFBlockEnum.PaperRetrieval
       break
     case 'end':
       ofBlockEnum = OFBlockEnum.End

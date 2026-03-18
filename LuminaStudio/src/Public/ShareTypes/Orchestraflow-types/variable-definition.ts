@@ -6,6 +6,11 @@ import type {
   OFVariableAssignRule
 } from './core-types'
 import {
+  knowledgeRetrievalItemSchema,
+  knowledgeRetrievalResultSchema
+} from '../knowledge-retrieval.types'
+import { paperRetrievalItemSchema, paperRetrievalResultSchema } from '../paper-retrieval.types'
+import {
   getOFVarTypeFromSchema,
   normalizeOFVariableNamespace,
   OF_LLM_STRUCTURED_OUTPUT_NAME,
@@ -316,6 +321,208 @@ export const variableAssignOutputVariableDefinition: OFVariableDefinition<{
     })
 
     return Array.from(outputMap.values())
+  }
+}
+
+export const knowledgeRetrievalOutputVariableDefinition: OFVariableDefinition<{
+  namespace: string
+  fallbackNodeId?: string
+}> = {
+  id: 'knowledge-retrieval-output',
+  build: ({ namespace, fallbackNodeId }) => {
+    const resolvedNamespace = normalizeOFVariableNamespace(
+      namespace,
+      fallbackNodeId || 'knowledge_retrieval'
+    )
+
+    const resultSchema = cloneOFValue(knowledgeRetrievalResultSchema)
+    const itemsSchema = cloneOFValue(knowledgeRetrievalItemSchema)
+
+    return [
+      {
+        variable: 'query',
+        label: 'query',
+        type: OFVarType.String,
+        required: true,
+        value_ref: {
+          selector: [`${resolvedNamespace}.query`],
+          path: `${resolvedNamespace}.query`,
+          label: 'query',
+          type: OFVarType.String
+        }
+      },
+      {
+        variable: 'total_scopes',
+        label: 'total_scopes',
+        type: OFVarType.Number,
+        required: true,
+        value_ref: {
+          selector: [`${resolvedNamespace}.total_scopes`],
+          path: `${resolvedNamespace}.total_scopes`,
+          label: 'total_scopes',
+          type: OFVarType.Number
+        }
+      },
+      {
+        variable: 'total_hits',
+        label: 'total_hits',
+        type: OFVarType.Number,
+        required: true,
+        value_ref: {
+          selector: [`${resolvedNamespace}.total_hits`],
+          path: `${resolvedNamespace}.total_hits`,
+          label: 'total_hits',
+          type: OFVarType.Number
+        }
+      },
+      {
+        variable: 'partial_failure',
+        label: 'partial_failure',
+        type: OFVarType.Boolean,
+        required: true,
+        value_ref: {
+          selector: [`${resolvedNamespace}.partial_failure`],
+          path: `${resolvedNamespace}.partial_failure`,
+          label: 'partial_failure',
+          type: OFVarType.Boolean
+        }
+      },
+      {
+        variable: 'items',
+        label: 'items',
+        type: OFVarType.Array,
+        required: true,
+        schema: itemsSchema,
+        value_ref: {
+          selector: [`${resolvedNamespace}.items`],
+          path: `${resolvedNamespace}.items`,
+          label: 'items',
+          type: OFVarType.Array,
+          schema: itemsSchema
+        }
+      },
+      {
+        variable: 'result',
+        label: 'result',
+        type: OFVarType.Object,
+        required: true,
+        schema: resultSchema,
+        value_ref: {
+          selector: [`${resolvedNamespace}.result`],
+          path: `${resolvedNamespace}.result`,
+          label: 'result',
+          type: OFVarType.Object,
+          schema: resultSchema
+        }
+      }
+    ]
+  }
+}
+
+export const paperRetrievalOutputVariableDefinition: OFVariableDefinition<{
+  namespace: string
+  fallbackNodeId?: string
+}> = {
+  id: 'paper-retrieval-output',
+  build: ({ namespace, fallbackNodeId }) => {
+    const resolvedNamespace = normalizeOFVariableNamespace(
+      namespace,
+      fallbackNodeId || 'paper_retrieval'
+    )
+
+    const resultSchema = cloneOFValue(paperRetrievalResultSchema)
+    const itemsSchema = cloneOFValue(paperRetrievalItemSchema)
+
+    return [
+      {
+        variable: 'query',
+        label: 'query',
+        type: OFVarType.String,
+        required: true,
+        value_ref: {
+          selector: [`${resolvedNamespace}.query`],
+          path: `${resolvedNamespace}.query`,
+          label: 'query',
+          type: OFVarType.String
+        }
+      },
+      {
+        variable: 'provider',
+        label: 'provider',
+        type: OFVarType.String,
+        required: true,
+        value_ref: {
+          selector: [`${resolvedNamespace}.provider`],
+          path: `${resolvedNamespace}.provider`,
+          label: 'provider',
+          type: OFVarType.String
+        }
+      },
+      {
+        variable: 'total_found',
+        label: 'total_found',
+        type: OFVarType.Number,
+        required: true,
+        value_ref: {
+          selector: [`${resolvedNamespace}.total_found`],
+          path: `${resolvedNamespace}.total_found`,
+          label: 'total_found',
+          type: OFVarType.Number
+        }
+      },
+      {
+        variable: 'returned_count',
+        label: 'returned_count',
+        type: OFVarType.Number,
+        required: true,
+        value_ref: {
+          selector: [`${resolvedNamespace}.returned_count`],
+          path: `${resolvedNamespace}.returned_count`,
+          label: 'returned_count',
+          type: OFVarType.Number
+        }
+      },
+      {
+        variable: 'items',
+        label: 'items',
+        type: OFVarType.Array,
+        required: true,
+        schema: itemsSchema,
+        value_ref: {
+          selector: [`${resolvedNamespace}.items`],
+          path: `${resolvedNamespace}.items`,
+          label: 'items',
+          type: OFVarType.Array,
+          schema: itemsSchema
+        }
+      },
+      {
+        variable: 'latency_ms',
+        label: 'latency_ms',
+        type: OFVarType.Number,
+        required: true,
+        value_ref: {
+          selector: [`${resolvedNamespace}.latency_ms`],
+          path: `${resolvedNamespace}.latency_ms`,
+          label: 'latency_ms',
+          type: OFVarType.Number
+        }
+      },
+      {
+        variable: 'result',
+        label: 'result',
+        type: OFVarType.Object,
+        required: true,
+        schema: resultSchema,
+        value_ref: {
+          selector: [`${resolvedNamespace}.result`],
+          path: `${resolvedNamespace}.result`,
+          label: 'result',
+          type: OFVarType.Object,
+          schema: resultSchema
+        }
+      }
+    ]
   }
 }
 

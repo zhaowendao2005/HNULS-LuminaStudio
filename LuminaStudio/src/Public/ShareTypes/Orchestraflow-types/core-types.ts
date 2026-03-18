@@ -4,6 +4,7 @@
  */
 
 import type { XYPosition } from '@vue-flow/core'
+import type { OFKnowledgePermissionTree } from '../knowledge-retrieval.types'
 
 // ===== 节点类型枚举 =====
 export enum OFBlockEnum {
@@ -15,6 +16,8 @@ export enum OFBlockEnum {
   Loop = 'loop',
   LoopStart = 'loop-start',
   VariableAssign = 'variable-assign',
+  KnowledgeRetrieval = 'knowledge-retrieval',
+  PaperRetrieval = 'paper-retrieval',
   End = 'end'
 }
 
@@ -515,6 +518,35 @@ export type OFVariableAssignNodeData = OFCommonNodeType & {
   output: OFNodeOutput
 }
 
+export type OFPaperRetrievalSortBy = 'relevance' | 'date_desc' | 'date_asc'
+
+export type OFKnowledgeRetrievalNodeData = OFCommonNodeType & {
+  type: OFBlockEnum.KnowledgeRetrieval
+  query_template: OFPromptItem[]
+  permission_tree: OFKnowledgePermissionTree
+  top_k: number
+  ef: number | null
+  rerank_enabled: boolean
+  rerank_model_id: string | null
+  rerank_top_n: number | null
+  output_namespace: string
+  output: OFNodeOutput
+}
+
+export type OFPaperRetrievalNodeData = OFCommonNodeType & {
+  type: OFBlockEnum.PaperRetrieval
+  query_template: OFPromptItem[]
+  provider_id: string
+  api_key_ref_id: string | null
+  top_k: number
+  sort_by: OFPaperRetrievalSortBy
+  date_from: string | null
+  date_to: string | null
+  provider_options: Record<string, string | number | boolean | null>
+  output_namespace: string
+  output: OFNodeOutput
+}
+
 export type OFEndNodeData = OFCommonNodeType & {
   type: OFBlockEnum.End
   output: OFNodeOutput
@@ -536,6 +568,8 @@ export type OFNode = {
     | OFLoopNodeData
     | OFLoopStartNodeData
     | OFVariableAssignNodeData
+    | OFKnowledgeRetrievalNodeData
+    | OFPaperRetrievalNodeData
     | OFEndNodeData
 }
 
@@ -749,6 +783,37 @@ export interface OFVariableAssignNodeConfig {
   title: string
   desc: string
   rules: OFVariableAssignRule[]
+  output: OFNodeOutput
+}
+
+export interface OFKnowledgeRetrievalNodeConfig {
+  nodeId: string
+  title: string
+  desc: string
+  query_template: OFPromptItem[]
+  permission_tree: OFKnowledgePermissionTree
+  top_k: number
+  ef: number | null
+  rerank_enabled: boolean
+  rerank_model_id: string | null
+  rerank_top_n: number | null
+  output_namespace: string
+  output: OFNodeOutput
+}
+
+export interface OFPaperRetrievalNodeConfig {
+  nodeId: string
+  title: string
+  desc: string
+  query_template: OFPromptItem[]
+  provider_id: string
+  api_key_ref_id: string | null
+  top_k: number
+  sort_by: OFPaperRetrievalSortBy
+  date_from: string | null
+  date_to: string | null
+  provider_options: Record<string, string | number | boolean | null>
+  output_namespace: string
   output: OFNodeOutput
 }
 

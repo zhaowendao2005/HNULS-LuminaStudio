@@ -64,6 +64,60 @@ export interface OFNodeExecutionOutput {
   outputs: Record<string, unknown>
 }
 
+// ==================== Private RPC Types ====================
+
+export interface OFPrivateRpcRequestMap {
+  'knowledge:retrieve': {
+    query: string
+    knowledgeBaseId: number
+    permissionTree?: unknown
+    k?: number
+    ef?: number
+    rerank?: {
+      modelId?: string | null
+      topN?: number | null
+    }
+  }
+  'paper:retrieve': {
+    provider_id: string
+    api_key_ref_id: string | null
+    provider_options: Record<string, unknown>
+  }
+}
+
+export interface OFPrivateRpcResponseMap {
+  'knowledge:retrieve': unknown
+  'paper:retrieve': unknown
+}
+
+export type OFPrivateRpcChannel = keyof OFPrivateRpcRequestMap
+
+export type OFPrivateRpcRequestMessage<TChannel extends OFPrivateRpcChannel = OFPrivateRpcChannel> =
+  {
+    type: 'private-rpc:request'
+    requestId: string
+    channel: TChannel
+    payload: OFPrivateRpcRequestMap[TChannel]
+  }
+
+export type OFPrivateRpcResponseMessage<
+  TChannel extends OFPrivateRpcChannel = OFPrivateRpcChannel
+> =
+  | {
+      type: 'private-rpc:response'
+      requestId: string
+      channel: TChannel
+      success: true
+      payload: OFPrivateRpcResponseMap[TChannel]
+    }
+  | {
+      type: 'private-rpc:response'
+      requestId: string
+      channel: TChannel
+      success: false
+      error: string
+    }
+
 // ==================== Main -> Utility ====================
 
 export type MainToOFMessage =
@@ -94,6 +148,7 @@ export type MainToOFMessage =
       scopePath?: string[]
       providerConfigs?: OFProviderConfigsMap
     }
+  | OFPrivateRpcResponseMessage
 
 // ==================== Utility -> Main ====================
 
@@ -111,3 +166,4 @@ export type OFToMainMessage =
   | { type: 'workflow:error'; runId: string; error: string }
   | { type: 'node:debug-result'; requestId: string; result: OFNodeDebugResult }
   | { type: 'node:debug-error'; requestId: string; error: string }
+  | OFPrivateRpcRequestMessage

@@ -4,13 +4,35 @@ import fs from 'fs'
 import { logger } from '../logger'
 
 const log = logger.scope('UserSettingsService')
+const CURRENT_SETTINGS_VERSION = 2
 
 /**
- * API Keys 配置
+ * 单条 API Key 注册项。
+ */
+export interface ApiKeyEntry {
+  id: string
+  provider_id: string
+  label: string
+  api_key: string
+  enabled: boolean
+  created_at: string
+  updated_at: string
+}
+
+/**
+ * 兼容旧版本磁盘结构时使用的临时类型。
+ *
+ * 旧结构只有 apiKeys.pubmed，一个 provider 只能放一条 key。
+ */
+interface LegacyApiKeysConfig {
+  pubmed?: string
+}
+
+/**
+ * API Keys 配置。
  */
 export interface ApiKeysConfig {
-  pubmed?: string
-  // 可扩展其他 API keys
+  entries: ApiKeyEntry[]
 }
 
 /**
@@ -42,17 +64,142 @@ export interface UserSettings {
 }
 
 /**
+ * 旧版用户设置结构。
+ */
+interface LegacyUserSettings extends Omit<Partial<UserSettings>, 'apiKeys'> {
+  apiKeys?: LegacyApiKeysConfig | ApiKeysConfig
+}
+
+/**
  * 默认配置
  */
 const DEFAULT_USER_SETTINGS: UserSettings = {
-  version: 1,
+  version: CURRENT_SETTINGS_VERSION,
   updatedAt: new Date().toISOString(),
-  apiKeys: {},
+  apiKeys: {
+    entries: []
+  },
   mcpChat: {
     memoryRoundsDefault: 10,
     enableAgentMode: false,
     agentMaxRounds: 3
   }
+}
+
+/**
+ * 生成一条标准化 entry。
+ *
+ * 这里统一补齐 id、时间、label 等字段，避免 renderer / main 各自拼装出不同结构。
+ */
+function createNormalizedApiKeyEntry(
+  partial: Partial<ApiKeyEntry> & Pick<ApiKeyEntry, 'provider_id'>,
+  fallbackTimestamp: string
+): ApiKeyEntry {
+  const trimmedProviderId = partial.provider_id.trim()
+  const createdAt = partial.created_at || fallbackTimestamp
+  const updatedAt = partial.updated_at || fallbackTimestamp
+  const label = partial.label?.trim() || `${trimmedProviderId.toUpperCase()} 默认密钥`
+
+  return {
+    id: partial.id?.trim() || `apikey_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
+    provider_id: trimmedProviderId,
+    label,
+    api_key: partial.api_key?.trim() || '',
+    enabled: partial.enabled ?? true,
+    created_at: createdAt,
+    updated_at: updatedAt
+  }
+}
+
+/**
+ * 标准化 registry 配置。
+ *
+ * - 过滤 provider_id 为空的脏数据
+ * - 过滤 api_key 为空的空壳条目
+ * - 保留已有 id 与时间，便于后续节点引用稳定
+ */
+function normalizeApiKeysConfig(input: unknown, fallbackTimestamp: string): ApiKeysConfig {
+  if (!input || typeof input !== 'object') {
+    return { entries: [] }
+  }
+
+  const candidateEntries = (input as { entries?: unknown[] }).entries
+  if (!Array.isArray(candidateEntries)) {
+    return { entries: [] }
+  }
+
+  const entries = candidateEntries
+    .filter((entry): entry is Partial<ApiKeyEntry> & { provider_id: string } => {
+      return Boolean(
+        entry &&
+        typeof entry === 'object' &&
+        typeof (entry as { provider_id?: unknown }).provider_id === 'string'
+      )
+    })
+    .map((entry) => createNormalizedApiKeyEntry(entry, fallbackTimestamp))
+    .filter((entry) => entry.provider_id && entry.api_key)
+
+  return { entries }
+}
+
+/**
+ * 执行 v1 -> v2 迁移。
+ *
+ * 迁移规则：
+ * - 旧的 apiKeys.pubmed 自动迁移成一条 provider_id='pubmed' 的默认 entry
+ * - version 升级到 2
+ */
+function migrateLegacySettings(parsed: LegacyUserSettings): {
+  settings: UserSettings
+  migrated: boolean
+} {
+  const fallbackTimestamp = parsed.updatedAt || new Date().toISOString()
+  const normalizedApiKeys = normalizeApiKeysConfig(parsed.apiKeys, fallbackTimestamp)
+  let migrated = false
+
+  const legacyPubmedKey =
+    parsed.apiKeys && 'pubmed' in parsed.apiKeys
+      ? (parsed.apiKeys as LegacyApiKeysConfig).pubmed
+      : undefined
+
+  if (
+    normalizedApiKeys.entries.length === 0 &&
+    typeof legacyPubmedKey === 'string' &&
+    legacyPubmedKey.trim()
+  ) {
+    normalizedApiKeys.entries.push(
+      createNormalizedApiKeyEntry(
+        {
+          provider_id: 'pubmed',
+          label: 'PubMed 默认密钥',
+          api_key: legacyPubmedKey.trim(),
+          enabled: true,
+          created_at: fallbackTimestamp,
+          updated_at: fallbackTimestamp
+        },
+        fallbackTimestamp
+      )
+    )
+    migrated = true
+  }
+
+  const settings: UserSettings = {
+    ...DEFAULT_USER_SETTINGS,
+    ...parsed,
+    version: CURRENT_SETTINGS_VERSION,
+    updatedAt: parsed.updatedAt || fallbackTimestamp,
+    apiKeys: normalizedApiKeys,
+    mcpChat: {
+      ...DEFAULT_USER_SETTINGS.mcpChat,
+      ...(parsed.mcpChat || {})
+    }
+  }
+
+  if (parsed.version !== CURRENT_SETTINGS_VERSION) {
+    migrated = true
+  }
+
+  return { settings, migrated }
 }
 
 /**
@@ -98,38 +245,32 @@ export class UserSettingsService {
     try {
       if (!fs.existsSync(this.settingsPath)) {
         log.info('Settings file not found, creating default', { path: this.settingsPath })
-        this.settings = DEFAULT_USER_SETTINGS
+        this.settings = structuredClone(DEFAULT_USER_SETTINGS)
         this.saveSettings()
         return
       }
 
       const data = fs.readFileSync(this.settingsPath, 'utf-8')
-      const parsed = JSON.parse(data) as Partial<UserSettings>
-      this.settings = {
-        ...DEFAULT_USER_SETTINGS,
-        ...parsed,
-        apiKeys: {
-          ...DEFAULT_USER_SETTINGS.apiKeys,
-          ...(parsed.apiKeys || {})
-        },
-        mcpChat: {
-          ...DEFAULT_USER_SETTINGS.mcpChat,
-          ...(parsed.mcpChat || {})
-        }
+      const parsed = JSON.parse(data) as LegacyUserSettings
+      const { settings, migrated } = migrateLegacySettings(parsed)
+
+      this.settings = settings
+
+      if (migrated) {
+        log.info('User settings migrated to registry api keys structure', {
+          version: this.settings.version,
+          entries: this.settings.apiKeys.entries.length
+        })
+        this.saveSettings()
       }
 
-      // 版本校验（如果需要迁移逻辑，可在此处理）
-      if (this.settings.version !== DEFAULT_USER_SETTINGS.version) {
-        log.warn(
-          `Settings version mismatch: expected ${DEFAULT_USER_SETTINGS.version}, got ${this.settings.version}`
-        )
-        // TODO: 版本迁移逻辑
-      }
-
-      log.info('Settings loaded successfully', { version: this.settings.version })
+      log.info('Settings loaded successfully', {
+        version: this.settings.version,
+        entries: this.settings.apiKeys.entries.length
+      })
     } catch (error) {
       log.error('Failed to load settings, using default', error)
-      this.settings = DEFAULT_USER_SETTINGS
+      this.settings = structuredClone(DEFAULT_USER_SETTINGS)
       this.saveSettings()
     }
   }
@@ -160,7 +301,7 @@ export class UserSettingsService {
     if (!this.settings) {
       throw new Error('Settings not initialized')
     }
-    return { ...this.settings }
+    return structuredClone(this.settings)
   }
 
   /**
@@ -172,17 +313,18 @@ export class UserSettingsService {
         throw new Error('Settings not initialized')
       }
 
-      log.debug('Updating settings', { patch })
+      log.debug('Updating settings', { patchKeys: Object.keys(patch) })
 
-      // 深度合并 apiKeys
       if (patch.apiKeys) {
-        this.settings.apiKeys = {
-          ...this.settings.apiKeys,
-          ...patch.apiKeys
-        }
+        // API Key registry 使用整包标准化替换，
+        // 这样能避免按索引合并时把旧 entry 残留在本地。
+        this.settings.apiKeys = normalizeApiKeysConfig(
+          patch.apiKeys,
+          this.settings.updatedAt || new Date().toISOString()
+        )
       }
 
-      // MCP Chat 配置也采用部分合并，避免未来继续扩展时覆盖其他字段。
+      // MCP Chat 配置仍然使用部分合并，避免覆盖未来扩展字段。
       if (patch.mcpChat) {
         this.settings.mcpChat = {
           ...this.settings.mcpChat,
@@ -190,8 +332,12 @@ export class UserSettingsService {
         }
       }
 
+      this.settings.version = CURRENT_SETTINGS_VERSION
       this.saveSettings()
-      log.info('Settings updated successfully')
+      log.info('Settings updated successfully', {
+        version: this.settings.version,
+        entries: this.settings.apiKeys.entries.length
+      })
 
       return this.getSettings()
     } catch (error) {

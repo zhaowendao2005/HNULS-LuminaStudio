@@ -7,7 +7,9 @@ const log = logger.scope('UserSettingsIPCHandler')
 /**
  * UserSettingsIPCHandler
  *
- * 处理用户设置相关的 IPC 通信
+ * 处理用户设置相关的 IPC 通信。
+ * 当前 API 仍复用原有 get/update 接口，
+ * renderer 拿到完整 registry 后可自行做 provider 过滤。
  */
 export class UserSettingsIPCHandler {
   constructor(private userSettingsService: UserSettingsService) {
@@ -29,7 +31,7 @@ export class UserSettingsIPCHandler {
     // 更新用户设置
     ipcMain.handle('userSettings:updateSettings', async (_, patch: Partial<UserSettings>) => {
       try {
-        log.debug('IPC: updateSettings', { patch })
+        log.debug('IPC: updateSettings', { patchKeys: Object.keys(patch) })
         return await this.userSettingsService.updateSettings(patch)
       } catch (error) {
         log.error('Failed to update user settings', error)
@@ -51,7 +53,10 @@ export class UserSettingsIPCHandler {
     // 更新 API Keys
     ipcMain.handle('userSettings:updateApiKeys', async (_, keys: Partial<ApiKeysConfig>) => {
       try {
-        log.debug('IPC: updateApiKeys', { keys: Object.keys(keys) })
+        log.debug('IPC: updateApiKeys', {
+          hasEntries: Array.isArray(keys.entries),
+          entryCount: Array.isArray(keys.entries) ? keys.entries.length : 0
+        })
         return await this.userSettingsService.updateApiKeys(keys)
       } catch (error) {
         log.error('Failed to update API keys', error)

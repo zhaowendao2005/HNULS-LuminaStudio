@@ -17,6 +17,9 @@ import { RerankModelIPCHandler } from './ipc/rerank-model-handler'
 import { langchainClientBridge } from './services/langchain-client-bridge'
 import { UserSettingsService } from './services/user-settings'
 import { UserSettingsIPCHandler } from './ipc/user-settings-handler'
+import { PaperRetrievalService } from './services/paper-retrieval'
+import { PaperRetrievalIPCHandler } from './ipc/paper-retrieval-handler'
+import { KnowledgeRetrievalService } from './services/knowledge-retrieval'
 import { OrchestraflowWorkflowService } from './services/orchestraflow/orchestraflow-workflow-service'
 import { OrchestraflowIPCHandler } from './ipc/orchestraflow-handler'
 import { OrchestflowGenerationEditorService } from './services/orchestflow-generation-editor'
@@ -117,6 +120,11 @@ app.whenReady().then(() => {
   userSettingsService.initialize()
   new UserSettingsIPCHandler(userSettingsService)
 
+  const paperRetrievalService = new PaperRetrievalService(userSettingsService)
+  new PaperRetrievalIPCHandler(paperRetrievalService)
+
+  const knowledgeRetrievalService = new KnowledgeRetrievalService(knowledgeDatabaseService)
+
   // 初始化 MCP Service 和 IPC Handler
   const mcpService = new McpService()
   new McpIPCHandler(mcpService)
@@ -137,6 +145,10 @@ app.whenReady().then(() => {
   // 启动 OrchestraFlow Bridge（按需启动，延迟初始化）
   setTimeout(async () => {
     try {
+      orchestraflowBridge.configureServices({
+        knowledgeRetrievalService,
+        paperRetrievalService
+      })
       await orchestraflowBridge.spawn()
       orchestraflowBridge.init()
     } catch (err) {

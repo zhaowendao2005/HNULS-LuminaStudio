@@ -8,7 +8,8 @@ import { logger } from '../logger'
 import type {
   KnowledgeBaseInfo,
   ExternalApiResponse,
-  ListDocumentsData
+  ListDocumentsData,
+  DocumentInfo
 } from '@shared/knowledge-database-api.types'
 
 const log = logger.scope('KnowledgeDatabaseBridgeService')
@@ -42,6 +43,13 @@ export class KnowledgeDatabaseBridgeService {
   constructor(config?: Partial<KnowledgeDatabaseServiceConfig>) {
     this.config = { ...DEFAULT_CONFIG, ...config }
     log.info('Initialized with config', { baseUrl: this.config.baseUrl })
+  }
+
+  /**
+   * 暴露当前 baseUrl，供上层服务复用统一配置。
+   */
+  getBaseUrl(): string {
+    return this.config.baseUrl
   }
 
   /**
@@ -143,6 +151,36 @@ export class KnowledgeDatabaseBridgeService {
     return (
       response.data || { documents: [], pagination: { total: 0, page: 1, pageSize, totalPages: 0 } }
     )
+  }
+
+  /**
+   * 拉取整个知识库下的全部文档。
+   *
+   * 说明：知识检索权限展开需要完整文档树，
+   * 因此这里通过分页循环拉全量数据，避免把分页逻辑散落到上层服务域。
+   */
+  async listAllDocuments(params: {
+    knowledgeBaseId: number
+    pageSize?: number
+  }): Promise<DocumentInfo[]> {
+    const { knowledgeBaseId, pageSize = 200 } = params
+    const documents: DocumentInfo[] = []
+    let page = 1
+    let totalPages = 1
+
+    while (page <= totalPages) {
+      const response = await this.listDocuments({ knowledgeBaseId, page, pageSize })
+      documents.push(...response.documents)
+      totalPages = Math.max(1, response.pagination.totalPages)
+      page += 1
+    }
+
+    log.info('All documents fetched', {
+      knowledgeBaseId,
+      count: documents.length
+    })
+
+    return documents
   }
 
   /**

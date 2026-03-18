@@ -1,9 +1,24 @@
 /**
- * API Keys 配置
+ * 单条 API Key 注册项。
+ *
+ * 这里使用 registry 结构，而不是旧的 apiKeys.pubmed 单字段，
+ * 方便后续一个 provider 维护多条 key，并支持节点只保存引用 id。
+ */
+export interface ApiKeyEntry {
+  id: string
+  provider_id: string
+  label: string
+  api_key: string
+  enabled: boolean
+  created_at: string
+  updated_at: string
+}
+
+/**
+ * API Keys 配置。
  */
 export interface ApiKeysConfig {
-  pubmed?: string
-  // 可扩展其他 API keys
+  entries: ApiKeyEntry[]
 }
 
 /**

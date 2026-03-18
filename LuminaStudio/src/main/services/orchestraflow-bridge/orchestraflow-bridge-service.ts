@@ -20,8 +20,14 @@ import type {
   OFNodeTracing,
   OFNodeDebugResult
 } from '@shared/Orchestraflow-types'
-import type { OFToMainMessage } from '@utility/orchestraflow/messages.types'
+import type {
+  OFPrivateRpcRequestMessage,
+  OFPrivateRpcResponseMessage,
+  OFToMainMessage
+} from '@utility/orchestraflow/messages.types'
 import type { MainToOFMessage } from '@utility/orchestraflow/messages.types'
+import type { KnowledgeRetrievalService } from '@main/services/knowledge-retrieval'
+import type { PaperRetrievalService } from '@main/services/paper-retrieval'
 
 const log = logger.scope('OrchestraflowBridge')
 
@@ -35,6 +41,25 @@ export class OrchestraflowBridgeService {
   private process: UtilityProcess | null = null
   private readyPromise: Promise<void> | null = null
   private readyResolve: (() => void) | null = null
+
+  private knowledgeRetrievalService?: KnowledgeRetrievalService
+  private paperRetrievalService?: PaperRetrievalService
+
+  constructor(
+    knowledgeRetrievalService?: KnowledgeRetrievalService,
+    paperRetrievalService?: PaperRetrievalService
+  ) {
+    this.knowledgeRetrievalService = knowledgeRetrievalService
+    this.paperRetrievalService = paperRetrievalService
+  }
+
+  configureServices(params: {
+    knowledgeRetrievalService?: KnowledgeRetrievalService
+    paperRetrievalService?: PaperRetrievalService
+  }): void {
+    this.knowledgeRetrievalService = params.knowledgeRetrievalService
+    this.paperRetrievalService = params.paperRetrievalService
+  }
 
   private pendingRuns: Map<string, PendingRequest<OFWorkflowRunResult>> = new Map()
   private pendingNodeDebugs: Map<string, PendingRequest<OFNodeDebugResult>> = new Map()
@@ -202,6 +227,46 @@ export class OrchestraflowBridgeService {
     this.process.postMessage(msg)
   }
 
+  private async respondPrivateRpc(request: OFPrivateRpcRequestMessage): Promise<void> {
+    try {
+      const payload = await this.executePrivateRpc(request)
+      this.send({
+        type: 'private-rpc:response',
+        requestId: request.requestId,
+        channel: request.channel,
+        success: true,
+        payload
+      } satisfies OFPrivateRpcResponseMessage)
+    } catch (error) {
+      this.send({
+        type: 'private-rpc:response',
+        requestId: request.requestId,
+        channel: request.channel,
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      } satisfies OFPrivateRpcResponseMessage)
+    }
+  }
+
+  private async executePrivateRpc(request: OFPrivateRpcRequestMessage): Promise<unknown> {
+    switch (request.channel) {
+      case 'knowledge:retrieve': {
+        if (!this.knowledgeRetrievalService) {
+          throw new Error('KnowledgeRetrievalService 未注入，无法执行 knowledge:retrieve')
+        }
+        return await this.knowledgeRetrievalService.search(request.payload)
+      }
+      case 'paper:retrieve': {
+        if (!this.paperRetrievalService) {
+          throw new Error('PaperRetrievalService 未注入，无法执行 paper:retrieve')
+        }
+        return await this.paperRetrievalService.search(request.payload)
+      }
+      default:
+        throw new Error(`未知 private RPC channel: ${String(request.channel)}`)
+    }
+  }
+
   private handleMessage(msg: OFToMainMessage): void {
     // Notify external subscribers first
     for (const handler of this.messageHandlers) {
@@ -307,6 +372,11 @@ export class OrchestraflowBridgeService {
           this.pendingNodeDebugs.delete(msg.requestId)
           pending.reject(new Error(msg.error))
         }
+        break
+      }
+
+      case 'private-rpc:request': {
+        void this.respondPrivateRpc(msg)
         break
       }
 

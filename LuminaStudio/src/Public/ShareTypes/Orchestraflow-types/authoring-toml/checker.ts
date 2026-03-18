@@ -378,6 +378,27 @@ function getNodeOutputFieldNames(node: OFAuthoringTomlDocument['nodes'][number])
       return set
     }
 
+    case 'knowledge-retrieval': {
+      set.add('query')
+      set.add('total_scopes')
+      set.add('total_hits')
+      set.add('partial_failure')
+      set.add('items')
+      set.add('result')
+      return set
+    }
+
+    case 'paper-retrieval': {
+      set.add('query')
+      set.add('provider')
+      set.add('total_found')
+      set.add('returned_count')
+      set.add('items')
+      set.add('latency_ms')
+      set.add('result')
+      return set
+    }
+
     default:
       return set
   }

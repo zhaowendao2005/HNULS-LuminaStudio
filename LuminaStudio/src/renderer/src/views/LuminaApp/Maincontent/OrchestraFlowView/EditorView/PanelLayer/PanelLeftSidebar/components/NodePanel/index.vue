@@ -138,6 +138,57 @@
         </div>
       </div>
 
+      <div class="mb-3">
+        <div class="px-2 py-1 text-xs font-medium text-gray-500 uppercase tracking-wide">检索</div>
+        <div class="mt-1 flex flex-col gap-1">
+          <div
+            class="flex cursor-pointer items-center gap-2 rounded px-2 py-2 text-sm text-gray-700 hover:bg-blue-50"
+            @click="handleAddNode(OFBlockEnum.KnowledgeRetrieval)"
+          >
+            <div class="flex h-5 w-5 items-center justify-center rounded bg-blue-100">
+              <svg
+                class="h-3 w-3 text-blue-600"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M10.5 18a7.5 7.5 0 1 1 5.303-2.197L21 21"
+                />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h5M8 13h3" />
+              </svg>
+            </div>
+            知识检索
+          </div>
+          <div
+            class="flex cursor-pointer items-center gap-2 rounded px-2 py-2 text-sm text-gray-700 hover:bg-emerald-50"
+            @click="handleAddNode(OFBlockEnum.PaperRetrieval)"
+          >
+            <div class="flex h-5 w-5 items-center justify-center rounded bg-emerald-100">
+              <svg
+                class="h-3 w-3 text-emerald-600"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M7 4.75h7.25L19 9.5v9.75A1.75 1.75 0 0 1 17.25 21h-10.5A1.75 1.75 0 0 1 5 19.25v-12.5A1.75 1.75 0 0 1 6.75 5h.25"
+                />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M14 5v5h5" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h8M8 15.5h6" />
+              </svg>
+            </div>
+            论文检索
+          </div>
+        </div>
+      </div>
+
       <!-- 结束节点 -->
       <div class="mb-3">
         <div class="px-2 py-1 text-xs font-medium text-gray-500 uppercase tracking-wide">结束</div>

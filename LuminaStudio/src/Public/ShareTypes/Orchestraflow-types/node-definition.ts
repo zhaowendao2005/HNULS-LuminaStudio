@@ -15,7 +15,16 @@ import { OFBlockEnum, normalizeOFVariableNamespace } from './core-types'
 
 export type OFNodeDefinitionCategory = 'start' | 'llm' | 'logic' | 'end' | 'internal'
 export type OFNodeDefinitionKind = 'standard' | 'container' | 'internal-start'
-export type OFNodeAuthoringToken = 'start' | 'llm' | 'if' | 'iter' | 'loop' | 'set' | 'end'
+export type OFNodeAuthoringToken =
+  | 'start'
+  | 'llm'
+  | 'if'
+  | 'iter'
+  | 'loop'
+  | 'set'
+  | 'knowledge-retrieval'
+  | 'paper-retrieval'
+  | 'end'
 
 export interface OFNodeAuthoringExample {
   label: string
@@ -289,6 +298,10 @@ export function getOFDefaultNodeTitle(type: OFBlockEnum): string {
       return '循环开始'
     case OFBlockEnum.VariableAssign:
       return '变量赋值'
+    case OFBlockEnum.KnowledgeRetrieval:
+      return '知识检索'
+    case OFBlockEnum.PaperRetrieval:
+      return '论文检索'
     case OFBlockEnum.End:
       return '结束'
     default:
@@ -306,6 +319,12 @@ export function normalizeOFNodeTitle(type: OFBlockEnum, raw: string | undefined)
   }
   if (type === OFBlockEnum.LoopStart) {
     return trimmed || '循环开始'
+  }
+  if (type === OFBlockEnum.KnowledgeRetrieval) {
+    return normalizeOFVariableNamespace(trimmed, 'knowledge_retrieval')
+  }
+  if (type === OFBlockEnum.PaperRetrieval) {
+    return normalizeOFVariableNamespace(trimmed, 'paper_retrieval')
   }
   return trimmed || getOFDefaultNodeTitle(type)
 }

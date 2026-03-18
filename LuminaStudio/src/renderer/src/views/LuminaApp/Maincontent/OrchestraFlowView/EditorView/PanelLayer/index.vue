@@ -47,6 +47,10 @@
         <LoopNodePanel v-else-if="uiStore.currentPanelType === 'loop-node'" />
         <IfElseNodePanel v-else-if="uiStore.currentPanelType === 'ifelse-node'" />
         <VariableAssignNodePanel v-else-if="uiStore.currentPanelType === 'variable-assign-node'" />
+        <KnowledgeRetrievalNodePanel
+          v-else-if="uiStore.currentPanelType === 'knowledge-retrieval-node'"
+        />
+        <PaperRetrievalNodePanel v-else-if="uiStore.currentPanelType === 'paper-retrieval-node'" />
         <EndNodePanel v-else-if="uiStore.currentPanelType === 'end-node'" />
       </FloatingPanel>
 
@@ -79,6 +83,8 @@ import IterationNodePanel from './FloatingPanel/IterationNodePanel.vue'
 import LoopNodePanel from './FloatingPanel/LoopNodePanel/index.vue'
 import IfElseNodePanel from './FloatingPanel/IfElseNodePanel.vue'
 import VariableAssignNodePanel from './FloatingPanel/VariableAssignNodePanel.vue'
+import KnowledgeRetrievalNodePanel from './FloatingPanel/KnowledgeRetrievalNodePanel/index.vue'
+import PaperRetrievalNodePanel from './FloatingPanel/PaperRetrievalNodePanel/index.vue'
 import EndNodePanel from './FloatingPanel/EndNodePanel.vue'
 import VariableSelector from './FloatingPanel/VariableSelector/index.vue'
 import WorkflowRunPanel from './FloatingPanel/WorkflowRunPanel/index.vue'
@@ -112,6 +118,10 @@ const nodeConfigPanelThemeClass = computed(() => {
       return OF_PANEL_THEME.ifelse.panelClass
     case PanelType.VariableAssignNode:
       return OF_PANEL_THEME.variableAssign.panelClass
+    case PanelType.KnowledgeRetrievalNode:
+      return OF_PANEL_THEME.knowledgeRetrieval.panelClass
+    case PanelType.PaperRetrievalNode:
+      return OF_PANEL_THEME.paperRetrieval.panelClass
     case PanelType.EndNode:
       return OF_PANEL_THEME.end.panelClass
     default:
@@ -132,6 +142,10 @@ const panelTitle = computed(() => {
       return '条件分支'
     case PanelType.VariableAssignNode:
       return '变量赋值'
+    case PanelType.KnowledgeRetrievalNode:
+      return '知识检索'
+    case PanelType.PaperRetrievalNode:
+      return '论文检索'
     case PanelType.EndNode:
       return '结束'
     case PanelType.LoopNode:
@@ -154,6 +168,10 @@ const panelDescription = computed(() => {
       return '按 IF / ELIF / ELSE 规则判断条件并放行命中的分支'
     case PanelType.VariableAssignNode:
       return '对变量做赋值、类型转换和新变量生成'
+    case PanelType.KnowledgeRetrievalNode:
+      return '按知识库权限范围执行语义检索，并向下游输出命中结果'
+    case PanelType.PaperRetrievalNode:
+      return '按 provider 配置执行论文检索，并输出结构化论文结果'
     case PanelType.EndNode:
       return '工作流结束节点，用于输出结果'
     case PanelType.LoopNode:

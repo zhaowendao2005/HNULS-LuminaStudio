@@ -42,6 +42,48 @@ function toPromptItems(text: string): OFPromptItem[] {
   ]
 }
 
+function buildKnowledgePermissionTreeFromAuthoringScopes(source: unknown): Record<string, unknown> {
+  if (!Array.isArray(source)) {
+    return {
+      providers: [],
+      knowledgeBaseId: null
+    }
+  }
+
+  const scopes = source.filter((item): item is Record<string, unknown> =>
+    Boolean(item && typeof item === 'object')
+  )
+  const firstKnowledgeBaseId = scopes.find(
+    (scope) =>
+      typeof scope.knowledge_base_id === 'number' &&
+      Number.isInteger(scope.knowledge_base_id) &&
+      scope.knowledge_base_id > 0
+  )?.knowledge_base_id
+
+  const documents = scopes.flatMap((scope) => {
+    const fileKeys = Array.isArray(scope.file_keys) ? scope.file_keys.filter(Boolean) : []
+    return fileKeys.map((fileKey) => ({
+      fileKey,
+      effect: 'allow'
+    }))
+  })
+
+  return {
+    providers: [],
+    knowledgeBaseId: typeof firstKnowledgeBaseId === 'number' ? firstKnowledgeBaseId : null,
+    effect: documents.length > 0 || typeof firstKnowledgeBaseId === 'number' ? 'allow' : undefined,
+    documents
+  }
+}
+
+function normalizeAuthoringYearBoundary(value: unknown, boundary: 'start' | 'end'): string | null {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
+    return null
+  }
+
+  return boundary === 'start' ? `${value}-01-01` : `${value}-12-31`
+}
+
 function parseStructSpec(spec: string | undefined): OFStructuredOutputConfig {
   if (!spec?.trim()) {
     return { enabled: false, schema: null }
@@ -292,6 +334,23 @@ function compileNodeRecord(
     data.subgraph = subgraph
   } else if (record.type === 'set') {
     data.rules = compileAssignRules(record.rules)
+  } else if (record.type === 'knowledge-retrieval') {
+    data.query_template = toPromptItems(String(record.query || ''))
+    data.permission_tree = buildKnowledgePermissionTreeFromAuthoringScopes(record.scopes)
+    data.top_k = Number(record.top_k || 5)
+    data.ef = null
+    data.rerank_enabled = record.rerank_top_n !== undefined
+    data.rerank_model_id = null
+    data.rerank_top_n = record.rerank_top_n === undefined ? 3 : Number(record.rerank_top_n)
+  } else if (record.type === 'paper-retrieval') {
+    data.query_template = toPromptItems(String(record.query || ''))
+    data.provider_id = String(record.provider || 'pubmed')
+    data.api_key_ref_id = null
+    data.top_k = record.limit === undefined ? 5 : Number(record.limit)
+    data.sort_by = 'relevance'
+    data.date_from = normalizeAuthoringYearBoundary(record.year_from, 'start')
+    data.date_to = normalizeAuthoringYearBoundary(record.year_to, 'end')
+    data.provider_options = record.author ? { author: String(record.author) } : {}
   } else if (record.type === 'end') {
     data.output = { variables: compileEndOutputs(record.outputs) }
   }

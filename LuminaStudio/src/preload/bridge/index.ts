@@ -15,6 +15,7 @@ import { orchestraflowAPI } from '../api/orchestraflow-api'
 import { orchestflowGenerationEditorAPI } from '../api/orchestflow-generation-editor-api'
 import { mcpAPI } from '../api/mcp-api'
 import { mcpChatAPI } from '../api/mcp-chat-api'
+import { paperRetrievalAPI } from '../api/paper-retrieval-api'
 
 const api = {
   utils: utilsAPI,
@@ -27,7 +28,8 @@ const api = {
   orchestraflow: orchestraflowAPI,
   orchestflowGenerationEditor: orchestflowGenerationEditorAPI,
   mcp: mcpAPI,
-  mcpChat: mcpChatAPI
+  mcpChat: mcpChatAPI,
+  paperRetrieval: paperRetrievalAPI
 }
 
 contextBridge.exposeInMainWorld('api', api)
