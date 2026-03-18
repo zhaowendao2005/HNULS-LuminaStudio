@@ -218,7 +218,9 @@
                               ? 'border-amber-200 bg-amber-100 text-amber-700'
                               : 'border-gray-100'
                         ]"
-                      >{{ idx + 1 }}</span>
+                      >
+                        {{ idx + 1 }}
+                      </span>
                       <pre class="flex-1 whitespace-pre-wrap px-3 py-0.5">{{ lineText }}</pre>
                     </div>
                   </div>
@@ -230,7 +232,9 @@
                     <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">
                       错误详情
                     </div>
-                    <div class="mt-1 text-[11px] text-gray-400">共 {{ diagnostics.length }} 条诊断</div>
+                    <div class="mt-1 text-[11px] text-gray-400">
+                      共 {{ diagnostics.length }} 条诊断
+                    </div>
                   </div>
                   <div class="flex-1 overflow-auto p-3">
                     <div v-if="diagnostics.length" class="flex flex-col gap-2">
@@ -273,7 +277,10 @@
                           路径：{{ diagnostic.path }}
                         </div>
 
-                        <div v-if="getSuggestions(diagnostic).length" class="mt-2 rounded border border-emerald-200 bg-emerald-50 p-2">
+                        <div
+                          v-if="getSuggestions(diagnostic).length"
+                          class="mt-2 rounded border border-emerald-200 bg-emerald-50 p-2"
+                        >
                           <div class="text-[11px] font-semibold text-emerald-700">建议</div>
                           <ul class="mt-1 list-disc pl-4 text-[11px] leading-5 text-emerald-800">
                             <li v-for="(s, si) in getSuggestions(diagnostic)" :key="si">{{ s }}</li>
@@ -401,7 +408,7 @@ const tomlLines = computed(() => {
 })
 
 const lineAnnotationMap = computed(() => {
-  const map = new Map<number, (CheckResult['lineAnnotations'][number])>()
+  const map = new Map<number, CheckResult['lineAnnotations'][number]>()
   for (const a of props.localCheckResult?.lineAnnotations || []) {
     map.set(a.line, a)
   }

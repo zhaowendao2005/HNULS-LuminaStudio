@@ -175,7 +175,9 @@
                       <div class="flex flex-wrap items-center justify-between gap-2">
                         <div class="min-w-0">
                           <div class="text-xs font-semibold text-gray-800">{{ p.title }}</div>
-                          <div class="mt-0.5 text-[11px] text-gray-500">stepKey：{{ p.stepKey }}</div>
+                          <div class="mt-0.5 text-[11px] text-gray-500">
+                            stepKey：{{ p.stepKey }}
+                          </div>
                         </div>
                         <button
                           type="button"
@@ -191,7 +193,9 @@
                       >
                     </div>
                   </div>
-                  <div v-else class="text-xs text-gray-500">当前 run 没有捕获到 prompt-snapshot。</div>
+                  <div v-else class="text-xs text-gray-500">
+                    当前 run 没有捕获到 prompt-snapshot。
+                  </div>
                 </div>
               </section>
 
@@ -219,7 +223,9 @@
                       <div class="flex flex-wrap items-center justify-between gap-2">
                         <div class="min-w-0">
                           <div class="text-xs font-semibold text-gray-800">{{ c.title }}</div>
-                          <div class="mt-0.5 text-[11px] text-gray-500">stepKey：{{ c.stepKey }}</div>
+                          <div class="mt-0.5 text-[11px] text-gray-500">
+                            stepKey：{{ c.stepKey }}
+                          </div>
                         </div>
                         <button
                           type="button"
@@ -235,7 +241,9 @@
                       >
                     </div>
                   </div>
-                  <div v-else class="text-xs text-gray-500">当前 run 没有捕获到 context-snapshot。</div>
+                  <div v-else class="text-xs text-gray-500">
+                    当前 run 没有捕获到 context-snapshot。
+                  </div>
                 </div>
               </section>
 
@@ -260,7 +268,9 @@
                     >
                       <div class="flex flex-wrap items-center justify-between gap-2">
                         <div class="min-w-0">
-                          <div class="text-xs font-semibold text-gray-800">stepKey：{{ m.stepKey }}</div>
+                          <div class="text-xs font-semibold text-gray-800">
+                            stepKey：{{ m.stepKey }}
+                          </div>
                         </div>
                         <button
                           type="button"
@@ -276,7 +286,9 @@
                       >
                     </div>
                   </div>
-                  <div v-else class="text-xs text-gray-500">当前 run 没有捕获到 memory-snapshot。</div>
+                  <div v-else class="text-xs text-gray-500">
+                    当前 run 没有捕获到 memory-snapshot。
+                  </div>
                 </div>
               </section>
 
@@ -287,7 +299,9 @@
                   @click="sections.validations = !sections.validations"
                 >
                   <div class="flex items-center gap-2">
-                    <span class="text-xs text-gray-400">{{ sections.validations ? '^' : '>' }}</span>
+                    <span class="text-xs text-gray-400">
+                      {{ sections.validations ? '^' : '>' }}
+                    </span>
                     <span class="text-sm font-semibold text-gray-800">validation reports</span>
                   </div>
                   <span class="text-xs text-gray-400">{{ validationReports.length }} 条</span>
@@ -317,7 +331,9 @@
                       >
                     </div>
                   </div>
-                  <div v-else class="text-xs text-gray-500">当前 run 没有捕获到 validation-report。</div>
+                  <div v-else class="text-xs text-gray-500">
+                    当前 run 没有捕获到 validation-report。
+                  </div>
                 </div>
               </section>
 
@@ -340,10 +356,14 @@
                       :key="`${b.runId}-${idx}`"
                       class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700"
                     >
-                      iteration {{ b.iteration }}/{{ b.maxIterations }} · spentTokens={{ b.spentTokens }}
+                      iteration {{ b.iteration }}/{{ b.maxIterations }} · spentTokens={{
+                        b.spentTokens
+                      }}
                     </div>
                   </div>
-                  <div v-else class="text-xs text-gray-500">当前 run 没有捕获到 budget-update。</div>
+                  <div v-else class="text-xs text-gray-500">
+                    当前 run 没有捕获到 budget-update。
+                  </div>
                 </div>
               </section>
             </div>
@@ -463,9 +483,10 @@ const userPromptText = computed(() => {
 })
 
 const payloadCopyText = computed(() => {
-  return [`[system prompt]\n${systemPromptText.value}`, `[user prompt]\n${userPromptText.value}`].join(
-    '\n\n'
-  )
+  return [
+    `[system prompt]\n${systemPromptText.value}`,
+    `[user prompt]\n${userPromptText.value}`
+  ].join('\n\n')
 })
 
 const promptCopyText = computed(() => {
