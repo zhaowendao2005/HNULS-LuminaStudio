@@ -21,16 +21,13 @@ import type {
   GenerationStageKey,
   GenerationStreamEvent,
   GenerationUpdateSessionStateRequest,
-  GenerationValidationReport,
   ModelConfig
 } from '@preload/types'
 import { logger } from '@main/services/logger'
 import type { DatabaseManager } from '../database-sqlite/database-manager'
 import { OrchestraflowWorkflowService } from '../orchestraflow/orchestraflow-workflow-service'
 import type { ModelConfigService } from '../model-config'
-import { runAnalysisPlanner } from './agents/analysis-planner/graph'
-import { runDesignPlanner } from './agents/design-planner/graph'
-import { runPlanningCopilot } from './agents/planning-copilot/graph'
+import { runAnalysisPlanner, runDesignPlanner, runPlanningCopilot } from './agents'
 import { estimateTokenUsage } from './agents/shared/trace-helpers'
 import { DEFAULT_STAGE_CONFIGS, createDefaultAnalysisDocument } from './constants/defaults'
 import { createGenerationChatModel } from './providers/chat-model-factory'
@@ -46,7 +43,6 @@ import { GenerationTraceBuffer } from './runtime/trace-buffer'
 import type { ActiveGenerationRun, GenerationEventSink } from './runtime/types/runtime.types'
 import { compileDesignDocumentTomlToWorkflow } from './toml/compiler'
 import { runFormatValidation } from './validation/format-validator'
-import { mapAuthoringDiagnostics } from './validation/diagnostics'
 import { parseOFPlanningPatchToml, validateOFAuthoringToml } from '@shared/Orchestraflow-types'
 
 const log = logger.scope('OrchestflowGenerationEditorService')
@@ -592,76 +588,51 @@ export class OrchestflowGenerationEditorService implements GenerationEventSink {
             planningSourceMessageId: null
           })
 
-        let currentToml = designDocument.content
-        let lastValidation: GenerationValidationReport | null = null
-        let finalToml = currentToml
-
-        for (let iteration = 1; iteration <= stageConfig.maxRepairIterations; iteration += 1) {
-          const result = await runDesignPlanner({
-            model: createLoggedModel('design-planner'),
-            context: {
-              analysisDocument: detail.analysisDocument.content,
-              currentToml,
-              workflowSpec,
-              nodePrompt,
-              validationReport: lastValidation
-            }
-          })
-          bridge.emit({
-            type: 'prompt-snapshot',
-            stepKey: 'design-planner',
-            title: `Design Prompt #${iteration}`,
-            prompt: result.prompt
-          })
-          bridge.emit({
-            type: 'context-snapshot',
-            stepKey: 'design-planner',
-            title: `Design Context #${iteration}`,
-            context: result.context
-          })
-          const spentTokens = budget.add(estimateTokenUsage(result.prompt + result.toml))
-          bridge.emit({
-            type: 'budget-update',
-            spentTokens,
-            iteration,
-            maxIterations: budget.getMaxIterations()
-          })
-
-          finalToml = result.toml
-          const parsed = runFormatValidation(result.toml)
-          if (!parsed.document) {
-            lastValidation = {
-              valid: false,
-              diagnostics: mapAuthoringDiagnostics(parsed.diagnostics)
-            }
-            bridge.emit({ type: 'validation-report', report: lastValidation })
-            currentToml = result.toml
-            continue
+        const result = await runDesignPlanner({
+          model: createLoggedModel('design-planner'),
+          context: {
+            analysisDocument: detail.analysisDocument.content,
+            currentToml: designDocument.content,
+            workflowSpec,
+            nodePrompt,
+            validationReport: null
+          },
+          maxRepairIterations: stageConfig.maxRepairIterations,
+          onIteration: ({ iteration, prompt, context, toml, validationReport }) => {
+            bridge.emit({
+              type: 'prompt-snapshot',
+              stepKey: 'design-planner',
+              title: `Design Prompt #${iteration}`,
+              prompt
+            })
+            bridge.emit({
+              type: 'context-snapshot',
+              stepKey: 'design-planner',
+              title: `Design Context #${iteration}`,
+              context
+            })
+            bridge.emit({ type: 'validation-report', report: validationReport })
+            const spentTokens = budget.add(estimateTokenUsage(prompt + toml))
+            bridge.emit({
+              type: 'budget-update',
+              spentTokens,
+              iteration,
+              maxIterations: budget.getMaxIterations()
+            })
           }
+        })
 
-          const validation = validateOFAuthoringToml(parsed.document)
-          lastValidation = {
-            valid: validation.valid,
-            diagnostics: mapAuthoringDiagnostics(validation.diagnostics)
-          }
-          bridge.emit({ type: 'validation-report', report: lastValidation })
-          currentToml = result.toml
-          if (validation.valid) {
-            break
-          }
-        }
-
-        this.repository.updateMessageContent(activeRun.messageId, finalToml)
+        this.repository.updateMessageContent(activeRun.messageId, result.toml)
         const savedDocument = this.repository.saveDesignDocument(request.sessionId, {
           ...designDocument,
-          content: finalToml,
+          content: result.toml,
           contentFormat: 'of-workflow-toml-v1',
-          status: lastValidation?.valid ? 'valid' : 'invalid',
+          status: result.validationReport.valid ? 'valid' : 'invalid',
           summary: buildDesignSummary({
             ...designDocument,
-            status: lastValidation?.valid ? 'valid' : 'invalid'
+            status: result.validationReport.valid ? 'valid' : 'invalid'
           } as GenerationDesignDocument),
-          validationJson: JSON.stringify(lastValidation),
+          validationJson: JSON.stringify(result.validationReport),
           updatedAt: nowIso()
         })
         bridge.emit({
