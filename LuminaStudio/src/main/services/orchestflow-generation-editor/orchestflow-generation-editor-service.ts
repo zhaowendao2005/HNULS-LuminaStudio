@@ -314,7 +314,8 @@ export class OrchestflowGenerationEditorService implements GenerationEventSink {
             effectiveChannelKey: effectiveAnalysisChannelKey,
             finalizeIntentDetected: effectiveAnalysisChannelKey === 'analysis-planner',
             promotedFromChannelKey:
-              request.channelKey === 'analysis-chat' && effectiveAnalysisChannelKey === 'analysis-planner'
+              request.channelKey === 'analysis-chat' &&
+              effectiveAnalysisChannelKey === 'analysis-planner'
                 ? 'analysis-chat'
                 : undefined
           })

@@ -134,7 +134,10 @@ export const useOrchestflowGenerationEditorStore = defineStore(
     })
 
     const planningCopilotMessages = computed(() => {
-      return currentSession.value?.messages.filter((item) => item.channelKey === 'planning-copilot') || []
+      return (
+        currentSession.value?.messages.filter((item) => item.channelKey === 'planning-copilot') ||
+        []
+      )
     })
 
     function parseMessageMeta(metaJson: string | null): GenerationMessageMetaPayload | null {
@@ -206,7 +209,9 @@ export const useOrchestflowGenerationEditorStore = defineStore(
     })
 
     const isActiveCopilotStreaming = computed(() => {
-      return activeRightPanel.value === 'design' ? isDesignStreaming.value : isAnalysisStreaming.value
+      return activeRightPanel.value === 'design'
+        ? isDesignStreaming.value
+        : isAnalysisStreaming.value
     })
 
     const plannedSessionsCount = computed(() => {
@@ -480,7 +485,8 @@ export const useOrchestflowGenerationEditorStore = defineStore(
         })
       )
       await refreshCurrentSession()
-      if (channelKey === 'analysis-planner' || channelKey === 'analysis-chat') analysisInput.value = ''
+      if (channelKey === 'analysis-planner' || channelKey === 'analysis-chat')
+        analysisInput.value = ''
       if (channelKey === 'planning-copilot') planningCopilotInput.value = ''
       if (channelKey === 'design-planner') designInput.value = ''
     }

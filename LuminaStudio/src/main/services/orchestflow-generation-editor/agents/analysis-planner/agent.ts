@@ -93,7 +93,10 @@ export class AnalysisPlannerAgent {
    * 唯一公开入口。
    * 外部只需要传入上下文和模式，不需要关心内部如何组织 prompt 和解析结果。
    */
-  async run(context: AnalysisPlannerContext, mode: AnalysisPlannerMode): Promise<AnalysisPlannerResult> {
+  async run(
+    context: AnalysisPlannerContext,
+    mode: AnalysisPlannerMode
+  ): Promise<AnalysisPlannerResult> {
     const contextText = this.buildContextText(context)
     const prompt = this.buildPrompt(mode, contextText)
     const rawText = await this.invokeModel(prompt)
@@ -197,7 +200,11 @@ export class AnalysisPlannerAgent {
   /**
    * 构造 chat 分支最终返回值，避免 run 方法里塞太多对象拼装细节。
    */
-  private buildChatResult(rawText: string, prompt: string, contextText: string): AnalysisPlannerResult {
+  private buildChatResult(
+    rawText: string,
+    prompt: string,
+    contextText: string
+  ): AnalysisPlannerResult {
     const parsed = this.parseChatResult(rawText)
 
     return {
@@ -213,7 +220,11 @@ export class AnalysisPlannerAgent {
   /**
    * 构造 result 分支最终返回值。
    */
-  private buildResultResult(rawText: string, prompt: string, contextText: string): AnalysisPlannerResult {
+  private buildResultResult(
+    rawText: string,
+    prompt: string,
+    contextText: string
+  ): AnalysisPlannerResult {
     return {
       branch: 'result',
       markdown: this.parseResultMarkdown(rawText),
@@ -228,7 +239,9 @@ export class AnalysisPlannerAgent {
  * 保留原来的函数式出口，避免现有调用方全部跟着改。
  * 外部依然可以继续调用 runAnalysisPlanner，但内部已经切到面向对象实现。
  */
-export async function runAnalysisPlanner(params: RunAnalysisPlannerParams): Promise<AnalysisPlannerResult> {
+export async function runAnalysisPlanner(
+  params: RunAnalysisPlannerParams
+): Promise<AnalysisPlannerResult> {
   const agent = new AnalysisPlannerAgent(params.model)
   return agent.run(params.context, params.mode)
 }

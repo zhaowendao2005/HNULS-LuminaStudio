@@ -261,7 +261,9 @@ const helperText = computed(() => {
 
 const inputPlaceholder = computed(() => {
   if (props.isStreaming) return '消息已发出，等待 AI 回复中...'
-  return props.mode === 'analysis' ? '继续讨论方案，或直接要求定稿输出计划...' : '补充设计约束或修订要求...'
+  return props.mode === 'analysis'
+    ? '继续讨论方案，或直接要求定稿输出计划...'
+    : '补充设计约束或修订要求...'
 })
 
 const showDocumentPreview = computed(() => props.mode === 'analysis')
