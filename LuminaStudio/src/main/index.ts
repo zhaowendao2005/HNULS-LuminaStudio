@@ -116,7 +116,7 @@ app.whenReady().then(() => {
   new RerankModelIPCHandler(rerankModelService)
 
   // 初始化 UserSettings Service 和 IPC Handler
-  const userSettingsService = new UserSettingsService()
+  const userSettingsService = new UserSettingsService(databaseManager)
   userSettingsService.initialize()
   new UserSettingsIPCHandler(userSettingsService)
 

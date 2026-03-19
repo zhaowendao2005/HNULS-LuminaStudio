@@ -13,6 +13,9 @@ import type {
 } from '../messages.types'
 import type { KnowledgeRetrievalSearchResultDto } from '@main/services/knowledge-retrieval'
 
+// 知识检索节点固定走 knowledge:retrieve 私有 RPC 通道。
+const KNOWLEDGE_RPC_CHANNEL: OFPrivateRpcChannel = 'knowledge:retrieve'
+
 interface PrivateRpcPortLike {
   postMessage: (message: unknown) => void
   on: (event: 'message', listener: (event: { data: unknown } | unknown) => void) => void

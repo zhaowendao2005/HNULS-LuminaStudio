@@ -259,20 +259,36 @@
                     class="of-declare-text-input mt-1 w-full"
                   />
                 </div>
-                <div class="w-full max-w-[188px]">
+                <div class="w-full max-w-[320px]">
                   <div class="system-sm-semibold-uppercase text-gray-700">排序方式</div>
-                  <div class="mt-1">
-                    <WhiteSelect
-                      :model-value="sortByModel"
-                      :options="sortOptions"
-                      placeholder="请选择排序方式"
-                      @update:model-value="
-                        sortByModel = String(
-                          $event || 'relevance'
-                        ) as OFPaperRetrievalNodeData['sort_by']
-                      "
-                    />
+                  <!-- 当前值保持纯文本，点击后再浮出横向选择条，复用 IfElse 的选择器样式思路。 -->
+                  <div ref="sortChoiceAnchorRef" class="of-choice-anchor mt-1 inline-flex">
+                    <button
+                      type="button"
+                      class="text-sm font-semibold text-gray-600 transition hover:text-gray-900"
+                      @click.stop="toggleSortChoicePopup"
+                    >
+                      {{ currentSortOption?.label || '相关度' }}
+                    </button>
                   </div>
+                  <Teleport to="body">
+                    <div
+                      v-if="sortChoicePopupOpen"
+                      class="of-choice-popup of-choice-popup-fixed"
+                      :style="sortChoicePopupStyle"
+                    >
+                      <button
+                        v-for="option in sortOptions"
+                        :key="option.value"
+                        type="button"
+                        class="of-choice-option"
+                        :class="option.value === sortByModel ? 'of-choice-option-active' : ''"
+                        @click.stop="selectSortOption(option.value)"
+                      >
+                        {{ option.label }}
+                      </button>
+                    </div>
+                  </Teleport>
                 </div>
               </div>
               <div class="of-declare-text-right"></div>
@@ -441,7 +457,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import type {
   ApiKeyEntry,
   PaperRetrievalAPI,
@@ -476,6 +492,9 @@ const promptEditorRefs = new Map<string, { getCursorPosition: () => number }>()
 const activePromptTarget = ref<{ promptId: string; cursorPosition: number } | null>(null)
 const providerOptions = ref<PaperRetrievalProviderDescriptor[]>([])
 const providerLoadError = ref('')
+const sortChoiceAnchorRef = ref<HTMLElement | null>(null)
+const sortChoicePopupOpen = ref(false)
+const sortChoicePopupPosition = ref<{ top: number; left: number } | null>(null)
 
 const promptRoleOptions = [
   { label: 'SYSTEM', value: 'system', activeClass: 'bg-emerald-50 text-emerald-700' },
@@ -579,7 +598,8 @@ const providerSelectOptions = computed<Array<WhiteSelectOption<string>>>(() =>
 const selectedProviderLabel = computed(() => selectedProvider.value?.label || '')
 const descriptorFields = computed(() => {
   return (selectedProvider.value?.fields || []).filter(
-    (field) => !['limit', 'sort', 'start_date', 'end_date'].includes(field.key)
+    // 查询词统一只走“查询模板”，这里不再暴露 provider_options.query 供用户编辑。
+    (field) => !['query', 'limit', 'sort', 'start_date', 'end_date'].includes(field.key)
   )
 })
 
@@ -603,6 +623,23 @@ const sortOptions: Array<WhiteSelectOption<string>> = [
   { label: '最新优先', value: 'date_desc' },
   { label: '最早优先', value: 'date_asc' }
 ]
+const currentSortOption = computed(
+  () => sortOptions.find((option) => option.value === sortByModel.value) || sortOptions[0]
+)
+const sortChoicePopupStyle = computed(() => {
+  if (!sortChoicePopupPosition.value) {
+    return {
+      top: '-9999px',
+      left: '-9999px'
+    }
+  }
+
+  return {
+    top: `${sortChoicePopupPosition.value.top}px`,
+    left: `${sortChoicePopupPosition.value.left}px`,
+    transform: 'translate(-50%, -100%)'
+  }
+})
 
 const apiKeyStateSummary = computed(() => {
   if (!selectedProvider.value) return '请先选择 Provider。'
@@ -793,6 +830,10 @@ function buildProviderOptionsFromDescriptor(
 
   const nextOptions: Record<string, string | number | boolean | null> = {}
   descriptor.fields.forEach((field) => {
+    // 查询词统一由查询模板渲染后注入，避免和 Provider 参数区双入口冲突。
+    if (field.key === 'query') {
+      return
+    }
     if (field.key === 'limit') {
       if (!currentOptions.limit && field.default_value !== undefined) {
         nextOptions.limit = normalizeFieldValue(field, field.default_value)
@@ -857,6 +898,55 @@ function resolveApiKeyLabel(refId: string): string {
   return userConfigStore.apiKeyEntries.find((entry) => entry.id === refId)?.label || refId
 }
 
+/**
+ * 排序方式改成文本触发器，弹层位置跟随触发点更新。
+ */
+function updateSortChoicePopupPosition() {
+  const rect = sortChoiceAnchorRef.value?.getBoundingClientRect()
+  if (!rect) return
+  sortChoicePopupPosition.value = {
+    top: rect.top - 8,
+    left: rect.left + rect.width / 2
+  }
+}
+
+function toggleSortChoicePopup() {
+  if (sortChoicePopupOpen.value) {
+    sortChoicePopupOpen.value = false
+    return
+  }
+  sortChoicePopupOpen.value = true
+  void nextTick(() => updateSortChoicePopupPosition())
+}
+
+function selectSortOption(value: string) {
+  sortByModel.value = value as OFPaperRetrievalNodeData['sort_by']
+  sortChoicePopupOpen.value = false
+}
+
+function closeSortChoicePopup() {
+  sortChoicePopupOpen.value = false
+}
+
+function handleGlobalPointerDown(event: Event) {
+  const target = event.target as HTMLElement | null
+  if (target?.closest('.of-choice-anchor') || target?.closest('.of-choice-popup')) {
+    return
+  }
+  closeSortChoicePopup()
+}
+
+function handleGlobalKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') {
+    closeSortChoicePopup()
+  }
+}
+
+function handleWindowLayoutChange() {
+  if (!sortChoicePopupOpen.value) return
+  updateSortChoicePopupPosition()
+}
+
 function formatDateInputValue(value: string | null): string {
   if (!value) return ''
   return value.replace(/\//g, '-')
@@ -915,10 +1005,18 @@ async function loadProviders() {
 onMounted(async () => {
   await Promise.all([loadProviders(), userConfigStore.fetchApiKeys()])
   window.addEventListener('of:variable-select', handleVariableSelect as EventListener)
+  window.addEventListener('pointerdown', handleGlobalPointerDown)
+  window.addEventListener('keydown', handleGlobalKeydown)
+  window.addEventListener('scroll', handleWindowLayoutChange, true)
+  window.addEventListener('resize', handleWindowLayoutChange)
 })
 
 onUnmounted(() => {
   window.removeEventListener('of:variable-select', handleVariableSelect as EventListener)
+  window.removeEventListener('pointerdown', handleGlobalPointerDown)
+  window.removeEventListener('keydown', handleGlobalKeydown)
+  window.removeEventListener('scroll', handleWindowLayoutChange, true)
+  window.removeEventListener('resize', handleWindowLayoutChange)
 })
 </script>
 

@@ -28,13 +28,6 @@ const PUBMED_DESCRIPTOR: PaperRetrievalProviderDescriptor = {
   supports_date_range: true,
   fields: [
     {
-      key: 'query',
-      label: '检索词',
-      description: 'PubMed 检索表达式，支持关键词、布尔运算与字段限定。',
-      type: 'string',
-      required: true
-    },
-    {
       key: 'limit',
       label: '返回条数',
       description: '本次最多返回多少条结果，范围 1-20。',
