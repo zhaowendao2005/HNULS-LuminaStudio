@@ -46,6 +46,7 @@ onMounted(() => {
 })
 
 const leftTabOptions: WhiteSelectOption[] = [
+  { label: '会话管理', value: 'conversation' },
   { label: '来源', value: 'sources' },
   { label: '设置', value: 'settings' },
   { label: '历史', value: 'history' }

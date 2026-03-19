@@ -7,6 +7,6 @@ import type { NormalChatLayoutSnapshot } from './layout-shell.types'
 export const layoutShellMock: NormalChatLayoutSnapshot = {
   leftCollapsed: true,
   rightCollapsed: true,
-  leftTab: 'sources',
+  leftTab: 'conversation',
   rightPage: 'studio'
 }

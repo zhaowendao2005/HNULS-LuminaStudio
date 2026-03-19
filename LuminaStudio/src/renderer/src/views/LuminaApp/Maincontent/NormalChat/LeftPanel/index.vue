@@ -31,8 +31,11 @@
       v-if="!collapsed"
       class="nc_NormalChat_LeftContent_a8d3 flex-1 overflow-y-auto px-4 py-4 space-y-4"
     >
+      <!-- Tab: 会话管理 -->
+      <ConversationManagePage v-if="currentTab === 'conversation'" />
+
       <!-- Tab: 来源 -->
-      <SourcesTab v-if="currentTab === 'sources'" />
+      <SourcesTab v-else-if="currentTab === 'sources'" />
 
       <!-- Tab: 设置 -->
       <div v-else-if="currentTab === 'settings'" class="space-y-4">
@@ -76,6 +79,7 @@
 
 <script setup lang="ts">
 import WhiteSelect, { type WhiteSelectOption } from '../components/WhiteSelect.vue'
+import ConversationManagePage from './components/ConversationManagePage.vue'
 import SourcesTab from './SourcesTab.vue'
 
 defineProps<{
