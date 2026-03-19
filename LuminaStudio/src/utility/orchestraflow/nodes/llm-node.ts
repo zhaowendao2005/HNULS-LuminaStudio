@@ -20,7 +20,7 @@ import type { ExecutionContext, NodeResult } from './types'
 import { VariableStore } from '../services/variable-store'
 import { ChatOpenAI } from '@langchain/openai'
 import { AIMessage, HumanMessage, SystemMessage } from '@langchain/core/messages'
-import { normalizeOpenAICompatibleBaseUrl } from '@utility/langchain-client/model-factory'
+import { normalizeOpenAICompatibleBaseUrl } from '@main/services/orchestraflow/utils/openai-compatible-url'
 
 type StructuredResult = {
   raw: AIMessage

@@ -3,90 +3,37 @@
     <!-- nc = NormalChat -->
     <!-- nc_NormalChat_Root_a8d3: 页面根容器 -->
     <!-- nc_NormalChat_LeftPanel_a8d3: 左侧来源面板 -->
-    <!-- nc_NormalChat_Center_a8d3: 中间对话区 -->
+    <!-- nc_NormalChat_Center_a8d3: 中间壳体内容 -->
     <!-- nc_NormalChat_RightPanel_a8d3: 右侧工具面板 -->
-
-    <!-- Left Panel -->
     <LeftPanel
       v-model:collapsed="leftCollapsed"
       v-model:current-tab="currentTab"
       :tab-options="leftTabOptions"
-      :sources-disabled="inputBarStore.mode === 'normal'"
-      @open-config="handleOpenConfig"
     />
-
-    <!-- Center Chat -->
-    <ChatMain
-      v-model:user-input="userInput"
-      :messages="messages"
-      :is-generating="isGenerating"
-      :display-provider-id="displayProviderId"
-      :display-model-id="displayModelId"
-      @send="handleSend"
-      @abort="handleAbort"
-      @show-conversation-list="showConversationList = true"
-      @show-model-selector="showModelSelector = true"
-    />
-
-    <!-- Right Panel -->
+    <ChatMain />
     <RightPanel v-model:collapsed="rightCollapsed" :tools="tools" :notes="notes" />
-
-    <!-- Modals -->
-    <ModelSelectorModal
-      v-model:visible="showModelSelector"
-      :current-provider-id="currentProviderId"
-      :current-model-id="currentModelId"
-      @select="handleModelSelect"
-    />
-
-    <ConversationListModal v-model:visible="showConversationList" />
-
-    <LangchainModelConfig v-model:visible="showConfigDialog" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { ref } from 'vue'
 import LeftPanel from './LeftPanel/index.vue'
 import RightPanel from './RightPanel/index.vue'
 import ChatMain from './NormalChat-Maincontent/ChatMain.vue'
-import ModelSelectorModal from './NormalChat-Maincontent/ModelSelectorModal.vue'
-import ConversationListModal from './NormalChat-Maincontent/ConversationListModal.vue'
-import LangchainModelConfig from './NormalChat-Maincontent/LangchainModel-Config/index.vue'
 import { type WhiteSelectOption } from './components/WhiteSelect.vue'
-import { useAiChatStore } from '@renderer/stores/ai-chat/store'
-import { useModelConfigStore } from '@renderer/stores/model-config/store'
-import { useInputBarStore } from '@renderer/stores/ai-chat/input-bar.store'
 
-const chatStore = useAiChatStore()
-const modelConfigStore = useModelConfigStore()
-const inputBarStore = useInputBarStore()
-
-// ===== 面板控制 =====
-const leftCollapsed = ref(true) // 默认折叠左侧栏
-const rightCollapsed = ref(true) // 默认折叠右侧栏
-
-// ===== Tab 控制 =====
+// 仅保留壳体控制状态，不再依赖 chat/agent store
+const leftCollapsed = ref(true)
+const rightCollapsed = ref(true)
 const currentTab = ref<string>('sources')
+
 const leftTabOptions: WhiteSelectOption[] = [
   { label: '来源', value: 'sources' },
-  { label: 'Agent设置', value: 'agent-settings' },
   { label: '设置', value: 'settings' },
   { label: '历史', value: 'history' }
 ]
 
-// ===== 模态框控制 =====
-const showModelSelector = ref(false)
-const showConversationList = ref(false)
-const showConfigDialog = ref(false)
-
-const handleOpenConfig = (type: string) => {
-  if (type === 'knowledge-qa') {
-    showConfigDialog.value = true
-  }
-}
-
-// ===== 静态数据 =====
+// 右侧面板继续展示静态内容，保持视觉壳子不变
 const tools = [
   {
     id: 'audio',
@@ -140,53 +87,4 @@ const notes = [
   { id: 3, title: '细胞生物学复习提纲', time: '51 天前' },
   { id: 4, title: '细胞工程原理与应用概论', time: '53 天前' }
 ]
-
-const userInput = ref('')
-
-const messages = computed(() => chatStore.currentMessages)
-const isGenerating = computed(() => chatStore.isGenerating)
-
-const currentProviderId = computed(() => chatStore.currentProviderId)
-const currentModelId = computed(() => chatStore.currentModelId)
-const displayProviderId = computed(() => currentProviderId.value || 'provider')
-const displayModelId = computed(() => currentModelId.value || 'model')
-
-const handleModelSelect = (provider: any, model: any) => {
-  chatStore.setCurrentModel(provider.id, model.id)
-}
-
-// ===== 发送消息 =====
-const handleSend = async () => {
-  const input = userInput.value.trim()
-  if (!input || isGenerating.value) return
-
-  try {
-    await chatStore.sendMessage(input)
-    userInput.value = ''
-  } catch (error) {
-    console.error('AI 生成失败:', error)
-  }
-}
-
-// ===== 中断生成 =====
-const handleAbort = async () => {
-  await chatStore.abortGeneration()
-}
-
-// 初始化模型配置
-modelConfigStore.fetchProviders().catch(() => {})
-chatStore.loadPresets().catch(() => {})
-
-watch(
-  () => modelConfigStore.providers,
-  (providers) => {
-    if (chatStore.currentProviderId || providers.length === 0) return
-    const firstProvider = providers[0]
-    const firstModel = firstProvider.models[0]
-    if (firstModel) {
-      chatStore.setCurrentModel(firstProvider.id, firstModel.id)
-    }
-  },
-  { deep: true, immediate: true }
-)
 </script>

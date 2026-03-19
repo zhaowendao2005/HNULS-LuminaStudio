@@ -19,7 +19,6 @@ export default defineConfig({
       rollupOptions: {
         input: {
           index: resolve('src/main/index.ts'),
-          'utility/langchain-client': resolve('src/utility/langchain-client/entry.ts'),
           'utility/orchestraflow': resolve('src/utility/orchestraflow/entry.ts')
         }
       }

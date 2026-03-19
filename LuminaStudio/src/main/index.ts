@@ -8,13 +8,10 @@ import { sqliteTestService } from './services/base-service/sqlite-test-service'
 import { databaseManager } from './services/database-sqlite'
 import { ModelConfigService } from './services/model-config'
 import { ModelConfigIPCHandler } from './ipc/model-config-handler'
-import { AiChatService } from './services/ai-chat/ai-chat-service'
-import { AiChatIPCHandler } from './ipc/ai-chat-handler'
 import { KnowledgeDatabaseBridgeService } from './services/knowledge-database-bridge'
 import { KnowledgeDatabaseIPCHandler } from './ipc/knowledge-database-handler'
 import { RerankModelService } from './services/rerank-model'
 import { RerankModelIPCHandler } from './ipc/rerank-model-handler'
-import { langchainClientBridge } from './services/langchain-client-bridge'
 import { UserSettingsService } from './services/user-settings'
 import { UserSettingsIPCHandler } from './ipc/user-settings-handler'
 import { PaperRetrievalService } from './services/paper-retrieval'
@@ -99,14 +96,6 @@ app.whenReady().then(() => {
   const modelConfigService = new ModelConfigService(databaseManager)
   new ModelConfigIPCHandler(modelConfigService)
 
-  // 初始化 AI Chat Service 和 IPC Handler
-  const aiChatService = new AiChatService(
-    databaseManager,
-    modelConfigService,
-    langchainClientBridge
-  )
-  new AiChatIPCHandler(aiChatService)
-
   // 初始化 KnowledgeDatabase Bridge Service 和 IPC Handler
   const knowledgeDatabaseService = new KnowledgeDatabaseBridgeService()
   new KnowledgeDatabaseIPCHandler(knowledgeDatabaseService)
@@ -161,8 +150,6 @@ app.whenReady().then(() => {
 
   createWindow()
 
-  // LangChain Agent runs on-demand via aiChat:start (mode='agent')
-
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
@@ -182,7 +169,6 @@ app.on('window-all-closed', () => {
 // 应用退出前清理数据库连接
 app.on('before-quit', () => {
   orchestflowGenerationEditorService?.shutdown()
-  langchainClientBridge.kill()
   orchestraflowBridge.kill()
   sqliteTestService.close()
   databaseManager.close()
