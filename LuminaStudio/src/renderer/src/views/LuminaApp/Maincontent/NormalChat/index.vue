@@ -1,37 +1,63 @@
 <template>
-  <div class="nc_NormalChat_Root_a8d3 flex h-full w-full gap-4">
+  <div class="nc_NormalChat_Root_a9k2 nc-normalchat-theme-a9k2 flex h-full w-full gap-4">
     <!-- nc = NormalChat -->
-    <!-- nc_NormalChat_Root_a8d3: 页面根容器 -->
-    <!-- nc_NormalChat_LeftPanel_a8d3: 左侧来源面板 -->
-    <!-- nc_NormalChat_Center_a8d3: 中间壳体内容 -->
-    <!-- nc_NormalChat_RightPanel_a8d3: 右侧工具面板 -->
+    <!-- nc_NormalChat_Root_a9k2: 页面根容器 -->
+    <!-- nc_NormalChat_LeftPanel_a9k2: 左侧来源面板 -->
+    <!-- nc_NormalChat_Center_a9k2: 中间聊天内容 -->
+    <!-- nc_NormalChat_RightPanel_a9k2: 右侧工具面板 -->
     <LeftPanel
-      v-model:collapsed="leftCollapsed"
-      v-model:current-tab="currentTab"
+      :collapsed="leftCollapsed"
+      :current-tab="leftTab"
       :tab-options="leftTabOptions"
+      @update:collapsed="layoutStore.setLeftCollapsed"
+      @update:current-tab="onLeftTabUpdate"
     />
     <ChatMain />
-    <RightPanel v-model:collapsed="rightCollapsed" :tools="tools" :notes="notes" />
+    <RightPanel
+      :collapsed="rightCollapsed"
+      :current-page="rightPage"
+      :tools="tools"
+      :notes="notes"
+      @update:collapsed="layoutStore.setRightCollapsed"
+      @update:current-page="onRightPageUpdate"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted } from 'vue'
+import { storeToRefs } from 'pinia'
 import LeftPanel from './LeftPanel/index.vue'
 import RightPanel from './RightPanel/index.vue'
 import ChatMain from './NormalChat-Maincontent/ChatMain.vue'
 import { type WhiteSelectOption } from './components/WhiteSelect.vue'
+import { useNormalChatLayoutShellStore } from '@renderer/stores/normal-chat/layout-shell/layout-shell.store'
+import type {
+  NormalChatLeftTab,
+  NormalChatRightPage
+} from '@renderer/stores/normal-chat/layout-shell/layout-shell.types'
 
-// 仅保留壳体控制状态，不再依赖 chat/agent store
-const leftCollapsed = ref(true)
-const rightCollapsed = ref(true)
-const currentTab = ref<string>('sources')
+const layoutStore = useNormalChatLayoutShellStore()
+const { leftCollapsed, rightCollapsed, leftTab, rightPage } = storeToRefs(layoutStore)
+
+onMounted(() => {
+  // 布局状态统一走全局 store，避免页面局部状态分裂
+  void layoutStore.initialize()
+})
 
 const leftTabOptions: WhiteSelectOption[] = [
   { label: '来源', value: 'sources' },
   { label: '设置', value: 'settings' },
   { label: '历史', value: 'history' }
 ]
+
+const onLeftTabUpdate = (value: string) => {
+  void layoutStore.setLeftTab(value as NormalChatLeftTab)
+}
+
+const onRightPageUpdate = (value: string) => {
+  void layoutStore.setRightPage(value as NormalChatRightPage)
+}
 
 // 右侧面板继续展示静态内容，保持视觉壳子不变
 const tools = [
@@ -88,3 +114,7 @@ const notes = [
   { id: 4, title: '细胞工程原理与应用概论', time: '53 天前' }
 ]
 </script>
+
+<style scoped lang="scss">
+@use './normal-chat-theme.scss' as *;
+</style>

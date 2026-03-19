@@ -10,15 +10,15 @@
       <div v-if="!collapsed" class="flex items-center gap-2">
         <div class="w-2 h-2 rounded-full bg-blue-500"></div>
         <WhiteSelect
-          v-model="currentPage"
+          :model-value="currentPage"
           :options="pageOptions"
           style="min-width: 100px"
-          @change="handlePageChange"
+          @update:model-value="handlePageChange"
         />
       </div>
       <button
         class="w-7 h-7 rounded-lg border border-slate-200 text-slate-500 hover:text-emerald-600 hover:border-emerald-200 transition-colors flex items-center justify-center"
-        @click="$emit('update:collapsed', !collapsed)"
+        @click="emit('update:collapsed', !collapsed)"
       >
         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path v-if="collapsed" d="M15 6l-6 6 6 6" />
@@ -39,28 +39,28 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
 import WhiteSelect from '../components/WhiteSelect.vue'
 import StudioPage from './StudioPage.vue'
 import DevPage from './DevPage.vue'
 
 defineProps<{
   collapsed: boolean
+  currentPage: string
   tools: any[]
   notes: any[]
 }>()
 
-defineEmits<{
-  (e: 'update:collapsed', value: boolean): void
-}>()
-
-const currentPage = ref('studio')
 const pageOptions = [
   { label: 'Studio', value: 'studio' },
   { label: 'Dev', value: 'dev' }
 ]
 
+const emit = defineEmits<{
+  (e: 'update:collapsed', value: boolean): void
+  (e: 'update:currentPage', value: string): void
+}>()
+
 const handlePageChange = (value: string | number | null) => {
-  currentPage.value = String(value ?? 'studio')
+  emit('update:currentPage', String(value ?? 'studio'))
 }
 </script>

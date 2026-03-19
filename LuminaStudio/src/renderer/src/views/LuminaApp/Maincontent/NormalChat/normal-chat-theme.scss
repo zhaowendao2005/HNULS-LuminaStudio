@@ -1,0 +1,77 @@
+.nc-normalchat-theme-a9k2 {
+  --nc-bg-main: #f3f4f6;
+  --nc-panel-bg: #ffffff;
+  --nc-border: #e5e7eb;
+  --nc-border-soft: #f1f5f9;
+  --nc-text-main: #1f2937;
+  --nc-text-secondary: #6b7280;
+  --nc-text-light: #9ca3af;
+  --nc-accent: #10b981;
+  --nc-accent-hover: #0ea5e9;
+  --nc-error-bg: #fff5f5;
+  --nc-error-border: #f8d4d4;
+  --nc-shadow-soft: 0 4px 20px rgba(15, 23, 42, 0.08);
+  --nc-shadow-dialog: 0 24px 60px rgba(15, 23, 42, 0.24);
+}
+
+@keyframes nc-dialog-slide-up-a9k2 {
+  0% {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes nc-backdrop-fade-in-a9k2 {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.nc-backdrop-fade-in-a9k2 {
+  animation: nc-backdrop-fade-in-a9k2 0.3s ease-out forwards;
+}
+
+.nc-dialog-slide-up-a9k2 {
+  animation: nc-dialog-slide-up-a9k2 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.nc-default-assistant-avatar-a9k2 {
+  width: 24px;
+  height: 24px;
+  border-radius: 9999px;
+  border: 1px solid #fecdd3;
+  background: #ffe4e6;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.nc-qwen-icon-a9k2 {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  background: #4f46e5;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.nc-message-action-btn-a9k2 {
+  color: #6b7280;
+  transition: all 0.2s ease;
+}
+
+.nc-message-action-btn-a9k2:hover {
+  color: #111827;
+  background: #f3f4f6;
+}
