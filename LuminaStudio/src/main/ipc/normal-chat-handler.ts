@@ -1,7 +1,11 @@
 import type {
+  NormalChatAssignLabelRequest,
+  NormalChatCreateLabelRequest,
   NormalChatCreateAssistantRequest,
   NormalChatCreateTopicRequest,
+  NormalChatDeleteLabelRequest,
   NormalChatDeleteTopicRequest,
+  NormalChatRenameLabelRequest,
   NormalChatRenameTopicRequest,
   NormalChatSetActiveAssistantRequest,
   NormalChatSetActiveTopicRequest,
@@ -53,6 +57,62 @@ export class NormalChatIPCHandler extends BaseIPCHandler {
     return {
       success: true,
       data: await this.normalChatService.updateAssistant(request)
+    }
+  }
+
+  async handleAssignLabel(
+    _event: unknown,
+    request: NormalChatAssignLabelRequest
+  ): Promise<{ success: true; data: unknown } | { success: false; error: string }> {
+    if (!request?.assistantId) {
+      return { success: false, error: 'Missing assistantId' }
+    }
+
+    return {
+      success: true,
+      data: await this.normalChatService.assignLabel(request)
+    }
+  }
+
+  async handleCreateLabel(
+    _event: unknown,
+    request: NormalChatCreateLabelRequest
+  ): Promise<{ success: true; data: unknown } | { success: false; error: string }> {
+    if (!request?.name) {
+      return { success: false, error: 'Missing label name' }
+    }
+
+    return {
+      success: true,
+      data: await this.normalChatService.createLabel(request.name)
+    }
+  }
+
+  async handleRenameLabel(
+    _event: unknown,
+    request: NormalChatRenameLabelRequest
+  ): Promise<{ success: true; data: unknown } | { success: false; error: string }> {
+    if (!request?.labelId || !request?.name) {
+      return { success: false, error: 'Missing labelId or name' }
+    }
+
+    return {
+      success: true,
+      data: await this.normalChatService.renameLabel(request)
+    }
+  }
+
+  async handleDeleteLabel(
+    _event: unknown,
+    request: NormalChatDeleteLabelRequest
+  ): Promise<{ success: true; data: unknown } | { success: false; error: string }> {
+    if (!request?.labelId) {
+      return { success: false, error: 'Missing labelId' }
+    }
+
+    return {
+      success: true,
+      data: await this.normalChatService.deleteLabel(request.labelId)
     }
   }
 

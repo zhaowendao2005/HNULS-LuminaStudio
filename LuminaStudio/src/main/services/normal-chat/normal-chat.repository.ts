@@ -1,15 +1,23 @@
 import type Database from 'better-sqlite3'
 import type {
+  NormalChatLabel,
   NormalChatAssistant,
   NormalChatTopic,
   NormalChatTopicPromptMode
 } from '@preload/types'
+
+interface LabelRow {
+  id: string
+  name: string
+  sort_order: number
+}
 
 interface AssistantRow {
   id: string
   template_key: string
   name: string
   emoji: string
+  label_id: string | null
   default_system_prompt: string
   sort_order: number
 }
@@ -35,11 +43,83 @@ export class NormalChatRepository {
     return this.db.transaction(callback)()
   }
 
+  listLabels(): NormalChatLabel[] {
+    const rows = this.db
+      .prepare(
+        `
+          SELECT id, name, sort_order
+          FROM normal_chat_labels
+          ORDER BY sort_order ASC, created_at ASC
+        `
+      )
+      .all() as LabelRow[]
+
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      sortOrder: row.sort_order
+    }))
+  }
+
+  getLabelById(labelId: string): NormalChatLabel | null {
+    const row = this.db
+      .prepare(
+        `
+          SELECT id, name, sort_order
+          FROM normal_chat_labels
+          WHERE id = ?
+        `
+      )
+      .get(labelId) as LabelRow | undefined
+
+    if (!row) {
+      return null
+    }
+
+    return {
+      id: row.id,
+      name: row.name,
+      sortOrder: row.sort_order
+    }
+  }
+
+  insertLabel(label: NormalChatLabel): void {
+    this.db
+      .prepare(
+        `
+          INSERT INTO normal_chat_labels (
+            id,
+            name,
+            sort_order
+          ) VALUES (?, ?, ?)
+        `
+      )
+      .run(label.id, label.name, label.sortOrder)
+  }
+
+  updateLabel(label: NormalChatLabel): void {
+    this.db
+      .prepare(
+        `
+          UPDATE normal_chat_labels
+          SET
+            name = ?,
+            updated_at = datetime('now')
+          WHERE id = ?
+        `
+      )
+      .run(label.name, label.id)
+  }
+
+  deleteLabel(labelId: string): void {
+    this.db.prepare(`DELETE FROM normal_chat_labels WHERE id = ?`).run(labelId)
+  }
+
   listAssistants(): NormalChatAssistant[] {
     const rows = this.db
       .prepare(
         `
-          SELECT id, template_key, name, emoji, default_system_prompt, sort_order
+          SELECT id, template_key, name, emoji, label_id, default_system_prompt, sort_order
           FROM normal_chat_assistants
           ORDER BY sort_order ASC, created_at ASC
         `
@@ -51,6 +131,7 @@ export class NormalChatRepository {
       templateKey: row.template_key,
       name: row.name,
       emoji: row.emoji,
+      labelId: row.label_id,
       defaultSystemPrompt: row.default_system_prompt,
       sortOrder: row.sort_order
     }))
@@ -60,7 +141,7 @@ export class NormalChatRepository {
     const row = this.db
       .prepare(
         `
-          SELECT id, template_key, name, emoji, default_system_prompt, sort_order
+          SELECT id, template_key, name, emoji, label_id, default_system_prompt, sort_order
           FROM normal_chat_assistants
           WHERE id = ?
         `
@@ -76,6 +157,7 @@ export class NormalChatRepository {
       templateKey: row.template_key,
       name: row.name,
       emoji: row.emoji,
+      labelId: row.label_id,
       defaultSystemPrompt: row.default_system_prompt,
       sortOrder: row.sort_order
     }
@@ -90,9 +172,10 @@ export class NormalChatRepository {
             template_key,
             name,
             emoji,
+            label_id,
             default_system_prompt,
             sort_order
-          ) VALUES (?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)
         `
       )
       .run(
@@ -100,6 +183,7 @@ export class NormalChatRepository {
         assistant.templateKey,
         assistant.name,
         assistant.emoji,
+        assistant.labelId,
         assistant.defaultSystemPrompt,
         assistant.sortOrder
       )
@@ -112,12 +196,13 @@ export class NormalChatRepository {
           UPDATE normal_chat_assistants
           SET
             name = ?,
+            label_id = ?,
             default_system_prompt = ?,
             updated_at = datetime('now')
           WHERE id = ?
         `
       )
-      .run(assistant.name, assistant.defaultSystemPrompt, assistant.id)
+      .run(assistant.name, assistant.labelId, assistant.defaultSystemPrompt, assistant.id)
   }
 
   listAllTopics(): NormalChatTopic[] {

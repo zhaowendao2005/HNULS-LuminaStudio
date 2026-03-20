@@ -4,7 +4,6 @@ import type {
   NormalChatAgentTemplate,
   NormalChatAssistant,
   NormalChatTopic,
-  NormalChatTopicPromptMode,
   NormalChatWorkspaceSnapshot
 } from '@preload/types'
 import {
@@ -19,6 +18,15 @@ export interface AssistantSettingsNavItem {
   label: string
 }
 
+export type PromptEditorScope = 'assistant' | 'topic'
+
+export interface AssistantGroupItem {
+  key: string
+  labelId: string | null
+  label: string
+  assistants: NormalChatAssistant[]
+}
+
 export const NORMAL_CHAT_SETTINGS_NAV_ITEMS: AssistantSettingsNavItem[] = [
   { id: 'model', label: '模型设置' },
   { id: 'prompt', label: '提示词设置' },
@@ -30,6 +38,7 @@ export const NORMAL_CHAT_SETTINGS_NAV_ITEMS: AssistantSettingsNavItem[] = [
 
 function createEmptyWorkspaceSnapshot(): NormalChatWorkspaceSnapshot {
   return {
+    labels: [],
     assistants: [],
     topicsByAssistantId: {},
     activeAssistantId: '',
@@ -83,11 +92,11 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
   const selectedTemplateKey = ref('')
   const assistantSettingsOpen = ref(false)
   const activeSettingsTab = ref<AssistantSettingsTab>('prompt')
+  const promptEditorScope = ref<PromptEditorScope>('assistant')
 
   const assistantNameDraft = ref('')
   const assistantDefaultPromptDraft = ref('')
-  const topicPromptModeDraft = ref<NormalChatTopicPromptMode>('inherit')
-  const topicPromptOverrideDraft = ref('')
+  const topicPromptDraft = ref('')
 
   const editingTopicId = ref('')
   const topicRenameDraft = ref('')
@@ -122,7 +131,51 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
     return resolveEffectiveSystemPrompt(currentAssistant.value, currentTopic.value)
   })
 
+  const currentTopicUsesAssistantPrompt = computed(() => {
+    return currentTopic.value?.systemPromptMode !== 'override'
+  })
+
+  const promptEditorIsInherited = computed(() => {
+    if (promptEditorScope.value !== 'topic') {
+      return false
+    }
+
+    return topicPromptDraft.value === (currentAssistant.value?.defaultSystemPrompt ?? '')
+  })
+
+  const assistantGroups = computed<AssistantGroupItem[]>(() => {
+    const orderedGroups: AssistantGroupItem[] = [
+      {
+        key: 'uncategorized',
+        labelId: null,
+        label: '未分类',
+        assistants: []
+      }
+    ]
+
+    snapshot.value.labels.forEach((label) => {
+      orderedGroups.push({
+        key: label.id,
+        labelId: label.id,
+        label: label.name,
+        assistants: []
+      })
+    })
+
+    snapshot.value.assistants.forEach((assistant) => {
+      const targetGroup =
+        orderedGroups.find((group) => group.labelId === assistant.labelId) ?? orderedGroups[0]
+      targetGroup.assistants.push(assistant)
+    })
+
+    return orderedGroups.filter((group) => group.assistants.length > 0 || group.labelId === null)
+  })
+
   const currentSettingsLabel = computed(() => {
+    if (promptEditorScope.value === 'topic') {
+      return '当前话题提示词'
+    }
+
     return (
       NORMAL_CHAT_SETTINGS_NAV_ITEMS.find((item) => item.id === activeSettingsTab.value)?.label ??
       '提示词设置'
@@ -137,8 +190,10 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
   function syncPromptDraftsFromSelection(): void {
     assistantNameDraft.value = currentAssistant.value?.name ?? ''
     assistantDefaultPromptDraft.value = currentAssistant.value?.defaultSystemPrompt ?? ''
-    topicPromptModeDraft.value = currentTopic.value?.systemPromptMode ?? 'inherit'
-    topicPromptOverrideDraft.value = currentTopic.value?.systemPromptOverride ?? ''
+    topicPromptDraft.value =
+      currentTopic.value?.systemPromptMode === 'override'
+        ? (currentTopic.value.systemPromptOverride ?? '')
+        : (currentAssistant.value?.defaultSystemPrompt ?? '')
   }
 
   async function initialize() {
@@ -175,8 +230,12 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
     createAssistantDialogOpen.value = false
   }
 
-  function openAssistantSettings(tab: AssistantSettingsTab = 'prompt'): void {
+  function openAssistantSettings(
+    tab: AssistantSettingsTab = 'prompt',
+    scope: PromptEditorScope = 'assistant'
+  ): void {
     activeSettingsTab.value = tab
+    promptEditorScope.value = scope
     assistantSettingsOpen.value = true
     syncPromptDraftsFromSelection()
   }
@@ -189,7 +248,11 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
       const nextSnapshot = await datasource.setActiveAssistant({ assistantId })
       applyWorkspaceSnapshot(nextSnapshot)
     }
-    openAssistantSettings(tab)
+    openAssistantSettings(tab, 'assistant')
+  }
+
+  function openTopicPromptEditor(): void {
+    openAssistantSettings('prompt', 'topic')
   }
 
   function closeAssistantSettings(): void {
@@ -208,12 +271,8 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
     assistantDefaultPromptDraft.value = value
   }
 
-  function setTopicPromptModeDraft(value: NormalChatTopicPromptMode): void {
-    topicPromptModeDraft.value = value
-  }
-
-  function setTopicPromptOverrideDraft(value: string): void {
-    topicPromptOverrideDraft.value = value
+  function setTopicPromptDraft(value: string): void {
+    topicPromptDraft.value = value
   }
 
   async function savePromptSettings() {
@@ -221,22 +280,50 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
       return
     }
 
-    let nextSnapshot = await datasource.updateAssistant({
-      assistantId: currentAssistant.value.id,
-      name: assistantNameDraft.value,
-      defaultSystemPrompt: assistantDefaultPromptDraft.value
-    })
+    let nextSnapshot = snapshot.value
 
-    nextSnapshot = await datasource.updateTopicPrompt({
-      assistantId: currentAssistant.value.id,
-      topicId: currentTopic.value.id,
-      mode: topicPromptModeDraft.value,
-      promptOverride:
-        topicPromptModeDraft.value === 'override' ? topicPromptOverrideDraft.value : null
-    })
+    if (promptEditorScope.value === 'assistant') {
+      nextSnapshot = await datasource.updateAssistant({
+        assistantId: currentAssistant.value.id,
+        name: assistantNameDraft.value,
+        defaultSystemPrompt: assistantDefaultPromptDraft.value
+      })
+    } else {
+      const nextTopicPrompt = topicPromptDraft.value
+      const shouldInherit =
+        nextTopicPrompt.trim().length === 0 ||
+        nextTopicPrompt === currentAssistant.value.defaultSystemPrompt
+
+      nextSnapshot = await datasource.updateTopicPrompt({
+        assistantId: currentAssistant.value.id,
+        topicId: currentTopic.value.id,
+        mode: shouldInherit ? 'inherit' : 'override',
+        promptOverride: shouldInherit ? null : nextTopicPrompt
+      })
+    }
 
     applyWorkspaceSnapshot(nextSnapshot)
     assistantSettingsOpen.value = false
+  }
+
+  async function assignAssistantLabel(assistantId: string, labelId: string | null) {
+    const nextSnapshot = await datasource.assignLabel({ assistantId, labelId })
+    applyWorkspaceSnapshot(nextSnapshot)
+  }
+
+  async function createLabel(name: string) {
+    const nextSnapshot = await datasource.createLabel({ name })
+    applyWorkspaceSnapshot(nextSnapshot)
+  }
+
+  async function renameLabel(labelId: string, name: string) {
+    const nextSnapshot = await datasource.renameLabel({ labelId, name })
+    applyWorkspaceSnapshot(nextSnapshot)
+  }
+
+  async function deleteLabel(labelId: string) {
+    const nextSnapshot = await datasource.deleteLabel({ labelId })
+    applyWorkspaceSnapshot(nextSnapshot)
   }
 
   async function setActiveAssistant(assistantId: string) {
@@ -333,10 +420,10 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
     selectedTemplateKey,
     assistantSettingsOpen,
     activeSettingsTab,
+    promptEditorScope,
     assistantNameDraft,
     assistantDefaultPromptDraft,
-    topicPromptModeDraft,
-    topicPromptOverrideDraft,
+    topicPromptDraft,
     editingTopicId,
     topicRenameDraft,
     currentAssistant,
@@ -344,6 +431,9 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
     currentTopic,
     currentAssistantTemplate,
     effectiveSystemPrompt,
+    currentTopicUsesAssistantPrompt,
+    promptEditorIsInherited,
+    assistantGroups,
     currentSettingsLabel,
     settingsNavItems: NORMAL_CHAT_SETTINGS_NAV_ITEMS,
     initialize,
@@ -353,13 +443,17 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
     confirmCreateAssistant,
     openAssistantSettings,
     openAssistantSettingsForAssistant,
+    openTopicPromptEditor,
     closeAssistantSettings,
     setActiveSettingsTab,
     setAssistantNameDraft,
     setAssistantDefaultPromptDraft,
-    setTopicPromptModeDraft,
-    setTopicPromptOverrideDraft,
+    setTopicPromptDraft,
     savePromptSettings,
+    assignAssistantLabel,
+    createLabel,
+    renameLabel,
+    deleteLabel,
     setActiveAssistant,
     setActiveTopic,
     createTopic,

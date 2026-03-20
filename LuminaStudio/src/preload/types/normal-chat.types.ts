@@ -2,6 +2,12 @@ import type { ApiResponse } from './base.types'
 
 export type NormalChatTopicPromptMode = 'inherit' | 'override'
 
+export interface NormalChatLabel {
+  id: string
+  name: string
+  sortOrder: number
+}
+
 export interface NormalChatAgentTemplate {
   key: string
   title: string
@@ -14,6 +20,7 @@ export interface NormalChatAssistant {
   templateKey: string
   name: string
   emoji: string
+  labelId: string | null
   defaultSystemPrompt: string
   sortOrder: number
 }
@@ -28,6 +35,7 @@ export interface NormalChatTopic {
 }
 
 export interface NormalChatWorkspaceSnapshot {
+  labels: NormalChatLabel[]
   assistants: NormalChatAssistant[]
   topicsByAssistantId: Record<string, NormalChatTopic[]>
   activeAssistantId: string
@@ -47,6 +55,24 @@ export interface NormalChatUpdateAssistantRequest {
   assistantId: string
   name?: string
   defaultSystemPrompt?: string
+}
+
+export interface NormalChatAssignLabelRequest {
+  assistantId: string
+  labelId: string | null
+}
+
+export interface NormalChatCreateLabelRequest {
+  name: string
+}
+
+export interface NormalChatRenameLabelRequest {
+  labelId: string
+  name: string
+}
+
+export interface NormalChatDeleteLabelRequest {
+  labelId: string
 }
 
 export interface NormalChatSetActiveAssistantRequest {
@@ -87,6 +113,18 @@ export interface NormalChatAPI {
   ) => Promise<ApiResponse<NormalChatWorkspaceSnapshot>>
   updateAssistant: (
     request: NormalChatUpdateAssistantRequest
+  ) => Promise<ApiResponse<NormalChatWorkspaceSnapshot>>
+  assignLabel: (
+    request: NormalChatAssignLabelRequest
+  ) => Promise<ApiResponse<NormalChatWorkspaceSnapshot>>
+  createLabel: (
+    request: NormalChatCreateLabelRequest
+  ) => Promise<ApiResponse<NormalChatWorkspaceSnapshot>>
+  renameLabel: (
+    request: NormalChatRenameLabelRequest
+  ) => Promise<ApiResponse<NormalChatWorkspaceSnapshot>>
+  deleteLabel: (
+    request: NormalChatDeleteLabelRequest
   ) => Promise<ApiResponse<NormalChatWorkspaceSnapshot>>
   setActiveAssistant: (
     request: NormalChatSetActiveAssistantRequest

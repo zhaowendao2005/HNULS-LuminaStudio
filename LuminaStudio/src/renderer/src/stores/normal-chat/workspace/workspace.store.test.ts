@@ -19,12 +19,14 @@ function createBootstrap(): NormalChatBootstrap {
       }
     ],
     workspace: {
+      labels: [],
       assistants: [
         {
           id: 'assistant-1',
           templateKey: 'base-agent',
           name: '基础助手',
           emoji: '🤖',
+          labelId: null,
           defaultSystemPrompt: '默认提示词',
           sortOrder: 0
         }
@@ -62,6 +64,10 @@ describe('NormalChat workspace store', () => {
       getBootstrap: vi.fn().mockResolvedValue(createBootstrap()),
       createAssistant: vi.fn(),
       updateAssistant: vi.fn(),
+      assignLabel: vi.fn(),
+      createLabel: vi.fn(),
+      renameLabel: vi.fn(),
+      deleteLabel: vi.fn(),
       setActiveAssistant: vi.fn(),
       createTopic: vi.fn(),
       renameTopic: vi.fn(),
@@ -101,6 +107,10 @@ describe('NormalChat workspace store', () => {
       getBootstrap: vi.fn().mockResolvedValue(createBootstrap()),
       createAssistant: vi.fn(),
       updateAssistant: vi.fn(),
+      assignLabel: vi.fn(),
+      createLabel: vi.fn(),
+      renameLabel: vi.fn(),
+      deleteLabel: vi.fn(),
       setActiveAssistant: vi.fn(),
       createTopic: vi.fn(),
       renameTopic,
@@ -147,6 +157,10 @@ describe('NormalChat workspace store', () => {
       getBootstrap: vi.fn().mockResolvedValue(createBootstrap()),
       createAssistant: vi.fn(),
       updateAssistant,
+      assignLabel: vi.fn(),
+      createLabel: vi.fn(),
+      renameLabel: vi.fn(),
+      deleteLabel: vi.fn(),
       setActiveAssistant: vi.fn(),
       createTopic: vi.fn(),
       renameTopic: vi.fn(),
@@ -158,9 +172,10 @@ describe('NormalChat workspace store', () => {
     const store = useNormalChatWorkspaceStore()
     await store.initialize()
     store.setAssistantDefaultPromptDraft('更新后的默认提示词')
-    store.setTopicPromptModeDraft('override')
-    store.setTopicPromptOverrideDraft('当前话题覆盖提示词')
+    await store.savePromptSettings()
 
+    store.openTopicPromptEditor()
+    store.setTopicPromptDraft('当前话题覆盖提示词')
     await store.savePromptSettings()
 
     expect(updateAssistant).toHaveBeenCalledWith({
@@ -175,6 +190,61 @@ describe('NormalChat workspace store', () => {
       promptOverride: '当前话题覆盖提示词'
     })
     expect(store.effectiveSystemPrompt).toBe('当前话题覆盖提示词')
+  })
+
+  it('groups assistants by label and keeps unclassified first', async () => {
+    const bootstrap = createBootstrap()
+    bootstrap.workspace.labels = [
+      { id: 'label-1', name: '学习', sortOrder: 0 },
+      { id: 'label-2', name: '写作', sortOrder: 1 }
+    ]
+    bootstrap.workspace.assistants = [
+      {
+        id: 'assistant-1',
+        templateKey: 'base-agent',
+        name: '基础助手',
+        emoji: '🤖',
+        labelId: null,
+        defaultSystemPrompt: '默认提示词',
+        sortOrder: 0
+      },
+      {
+        id: 'assistant-2',
+        templateKey: 'base-agent',
+        name: '学习助手',
+        emoji: '🧠',
+        labelId: 'label-1',
+        defaultSystemPrompt: '学习提示词',
+        sortOrder: 1
+      }
+    ]
+
+    setNormalChatWorkspaceDatasourceForTesting({
+      getBootstrap: vi.fn().mockResolvedValue(bootstrap),
+      createAssistant: vi.fn(),
+      updateAssistant: vi.fn(),
+      assignLabel: vi.fn(),
+      createLabel: vi.fn(),
+      renameLabel: vi.fn(),
+      deleteLabel: vi.fn(),
+      setActiveAssistant: vi.fn(),
+      createTopic: vi.fn(),
+      renameTopic: vi.fn(),
+      deleteTopic: vi.fn(),
+      setActiveTopic: vi.fn(),
+      updateTopicPrompt: vi.fn()
+    })
+
+    const store = useNormalChatWorkspaceStore()
+    await store.initialize()
+
+    expect(store.assistantGroups.map((group) => group.label)).toEqual(['未分类', '学习'])
+    expect(store.assistantGroups[0].assistants.map((assistant) => assistant.name)).toEqual([
+      '基础助手'
+    ])
+    expect(store.assistantGroups[1].assistants.map((assistant) => assistant.name)).toEqual([
+      '学习助手'
+    ])
   })
 
   it('prefers topic override prompt over assistant default prompt', () => {

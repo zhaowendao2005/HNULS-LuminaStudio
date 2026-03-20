@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto'
 import type {
   NormalChatBootstrap,
+  NormalChatLabel,
   NormalChatTopic,
   NormalChatTopicPromptMode,
   NormalChatWorkspaceSnapshot
@@ -49,6 +50,7 @@ export class NormalChatService {
           template.title
         ),
         emoji: template.emoji,
+        labelId: null,
         defaultSystemPrompt: template.defaultSystemPrompt,
         sortOrder: assistants.length
       }
@@ -86,6 +88,78 @@ export class NormalChatService {
       })
 
       log.info('Assistant updated', { assistantId: params.assistantId })
+      return this.buildWorkspaceSnapshot()
+    })
+  }
+
+  async assignLabel(params: {
+    assistantId: string
+    labelId: string | null
+  }): Promise<NormalChatWorkspaceSnapshot> {
+    return this.repository.runInTransaction(() => {
+      this.ensureWorkspaceReady()
+      const assistant = this.requireAssistant(params.assistantId)
+      if (params.labelId) {
+        this.requireLabel(params.labelId)
+      }
+
+      this.repository.updateAssistant({
+        ...assistant,
+        labelId: params.labelId
+      })
+
+      return this.buildWorkspaceSnapshot()
+    })
+  }
+
+  async createLabel(name: string): Promise<NormalChatWorkspaceSnapshot> {
+    return this.repository.runInTransaction(() => {
+      this.ensureWorkspaceReady()
+      const nextName = name.trim()
+      if (!nextName) {
+        throw new Error('标签名称不能为空')
+      }
+
+      this.assertLabelNameAvailable(nextName)
+
+      const labels = this.repository.listLabels()
+      this.repository.insertLabel({
+        id: randomUUID(),
+        name: nextName,
+        sortOrder: labels.length
+      })
+
+      return this.buildWorkspaceSnapshot()
+    })
+  }
+
+  async renameLabel(params: {
+    labelId: string
+    name: string
+  }): Promise<NormalChatWorkspaceSnapshot> {
+    return this.repository.runInTransaction(() => {
+      this.ensureWorkspaceReady()
+      const label = this.requireLabel(params.labelId)
+      const nextName = params.name.trim()
+      if (!nextName) {
+        throw new Error('标签名称不能为空')
+      }
+
+      this.assertLabelNameAvailable(nextName, label.id)
+      this.repository.updateLabel({
+        ...label,
+        name: nextName
+      })
+
+      return this.buildWorkspaceSnapshot()
+    })
+  }
+
+  async deleteLabel(labelId: string): Promise<NormalChatWorkspaceSnapshot> {
+    return this.repository.runInTransaction(() => {
+      this.ensureWorkspaceReady()
+      this.requireLabel(labelId)
+      this.repository.deleteLabel(labelId)
       return this.buildWorkspaceSnapshot()
     })
   }
@@ -246,6 +320,7 @@ export class NormalChatService {
         templateKey: template.key,
         name: template.title,
         emoji: template.emoji,
+        labelId: null,
         defaultSystemPrompt: template.defaultSystemPrompt,
         sortOrder: 0
       })
@@ -257,6 +332,7 @@ export class NormalChatService {
   }
 
   private buildWorkspaceSnapshot(): NormalChatWorkspaceSnapshot {
+    const labels = this.repository.listLabels()
     const assistants = this.repository.listAssistants()
     const topics = this.repository.listAllTopics()
     const workspaceState = this.repository.getWorkspaceState()
@@ -278,6 +354,7 @@ export class NormalChatService {
     )
 
     return {
+      labels,
       assistants,
       topicsByAssistantId,
       activeAssistantId,
@@ -321,6 +398,14 @@ export class NormalChatService {
     return assistant
   }
 
+  private requireLabel(labelId: string): NormalChatLabel {
+    const label = this.repository.getLabelById(labelId)
+    if (!label) {
+      throw new Error(`标签不存在: ${labelId}`)
+    }
+    return label
+  }
+
   private requireTopic(topicId: string, assistantId: string) {
     const topic = this.repository.getTopicById(topicId)
     if (!topic || topic.assistantId !== assistantId) {
@@ -353,6 +438,20 @@ export class NormalChatService {
 
   private buildNextTopicTitle(existingTitles: string[]): string {
     return this.buildNextAutoName(existingTitles, DEFAULT_TOPIC_TITLE)
+  }
+
+  private assertLabelNameAvailable(nextName: string, currentLabelId?: string): void {
+    const duplicatedLabel = this.repository
+      .listLabels()
+      .find(
+        (label) =>
+          label.id !== currentLabelId &&
+          label.name.localeCompare(nextName, 'zh-CN', { sensitivity: 'accent' }) === 0
+      )
+
+    if (duplicatedLabel) {
+      throw new Error(`标签名称已存在: ${nextName}`)
+    }
   }
 
   private buildNextAutoName(existingNames: string[], baseName: string): string {

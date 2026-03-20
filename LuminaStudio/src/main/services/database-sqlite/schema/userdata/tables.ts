@@ -29,13 +29,32 @@ export const NORMAL_CHAT_ASSISTANTS_TABLE: TableDefinition = {
       name TEXT NOT NULL,
       template_key TEXT NOT NULL,
       emoji TEXT NOT NULL,
+      label_id TEXT,
       default_system_prompt TEXT NOT NULL DEFAULT '',
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (label_id) REFERENCES normal_chat_labels(id) ON DELETE SET NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_normal_chat_assistants_sort
+      ON normal_chat_assistants(sort_order, created_at);
+    CREATE INDEX IF NOT EXISTS idx_normal_chat_assistants_label
+      ON normal_chat_assistants(label_id, sort_order, created_at);
+  `
+}
+
+export const NORMAL_CHAT_LABELS_TABLE: TableDefinition = {
+  name: 'normal_chat_labels',
+  createSQL: `
+    CREATE TABLE IF NOT EXISTS normal_chat_labels (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE COLLATE NOCASE,
       sort_order INTEGER NOT NULL DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     );
-    CREATE INDEX IF NOT EXISTS idx_normal_chat_assistants_sort
-      ON normal_chat_assistants(sort_order, created_at);
+    CREATE INDEX IF NOT EXISTS idx_normal_chat_labels_sort
+      ON normal_chat_labels(sort_order, created_at);
   `
 }
 
@@ -73,6 +92,7 @@ export const NORMAL_CHAT_WORKSPACE_STATE_TABLE: TableDefinition = {
 
 export const USERDATA_TABLES: TableDefinition[] = [
   SCHEMA_VERSION_TABLE,
+  NORMAL_CHAT_LABELS_TABLE,
   NORMAL_CHAT_ASSISTANTS_TABLE,
   NORMAL_CHAT_TOPICS_TABLE,
   NORMAL_CHAT_WORKSPACE_STATE_TABLE

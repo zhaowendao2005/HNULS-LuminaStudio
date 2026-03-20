@@ -36,14 +36,7 @@
     </div>
 
     <div class="h-[calc(100%-44px)] overflow-y-auto">
-      <LeftSidebarAssistantsTab
-        v-if="leftSidebarSnapshot.activeTab === 'assistants'"
-        :active-assistant-id="workspaceSnapshot.activeAssistantId"
-        :assistants="workspaceSnapshot.assistants"
-        @create-assistant="workspaceStore.openCreateAssistantDialog"
-        @open-settings="workspaceStore.openAssistantSettingsForAssistant"
-        @select-assistant="workspaceStore.setActiveAssistant"
-      />
+      <LeftSidebarAssistantsTab v-if="leftSidebarSnapshot.activeTab === 'assistants'" />
       <LeftSidebarTopicsTab
         v-else
         :active-topic-id="workspaceSnapshot.activeTopicId"

@@ -39,12 +39,14 @@ describe('NormalChatService', () => {
     const bootstrap = await service.getBootstrap()
 
     expect(bootstrap.templates.map((template) => template.key)).toEqual(['base-agent'])
+    expect(bootstrap.workspace.labels).toEqual([])
     expect(bootstrap.workspace.assistants).toHaveLength(1)
 
     const assistant = bootstrap.workspace.assistants[0]
     const topics = bootstrap.workspace.topicsByAssistantId[assistant.id]
 
     expect(assistant.templateKey).toBe('base-agent')
+    expect(assistant.labelId).toBeNull()
     expect(topics).toHaveLength(1)
     expect(topics[0].title).toBe('默认话题')
     expect(bootstrap.workspace.activeAssistantId).toBe(assistant.id)
@@ -128,5 +130,25 @@ describe('NormalChatService', () => {
       system_prompt_mode: 'override',
       system_prompt_override: '只给当前话题使用的覆盖提示词'
     })
+  })
+
+  it('creates labels, assigns assistants to labels, and resets them after label deletion', async () => {
+    const bootstrap = await service.getBootstrap()
+    const assistantId = getOnlyAssistantId(bootstrap.workspace)
+
+    const withLabel = await service.createLabel('学习')
+    const labelId = withLabel.labels[0].id
+
+    const assigned = await service.assignLabel({
+      assistantId,
+      labelId
+    })
+
+    expect(assigned.labels.map((label) => label.name)).toEqual(['学习'])
+    expect(assigned.assistants[0].labelId).toBe(labelId)
+
+    const afterDelete = await service.deleteLabel(labelId)
+    expect(afterDelete.labels).toEqual([])
+    expect(afterDelete.assistants[0].labelId).toBeNull()
   })
 })

@@ -4,11 +4,15 @@
     class="nc-assistant-settings-modal-a9k2 nc-backdrop-fade-in-a9k2 fixed inset-0 z-50 flex items-center justify-center bg-black/15 backdrop-blur-[1px]"
   >
     <div
-      class="nc-dialog-slide-up-a9k2 flex h-[720px] w-[920px] flex-col overflow-hidden rounded-xl bg-white shadow-[var(--nc-shadow-dialog)]"
+      class="nc-dialog-slide-up-a9k2 flex h-[680px] w-[900px] flex-col overflow-hidden rounded-xl bg-white shadow-[var(--nc-shadow-dialog)]"
     >
       <div class="flex items-center justify-between border-b border-gray-100 px-6 py-4">
         <h2 class="text-[16px] font-semibold text-gray-900">
-          {{ workspaceStore.currentAssistant?.name ?? '未选择助手' }}
+          {{
+            workspaceStore.promptEditorScope === 'assistant'
+              ? (workspaceStore.currentAssistant?.name ?? '未选择助手')
+              : (workspaceStore.currentTopic?.title ?? '当前话题提示词')
+          }}
         </h2>
         <button
           class="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
@@ -20,7 +24,10 @@
       </div>
 
       <div class="flex flex-1 overflow-hidden">
-        <aside class="flex w-[180px] flex-col gap-1 border-r border-gray-100 bg-[#fafafa] py-3">
+        <aside
+          v-if="workspaceStore.promptEditorScope === 'assistant'"
+          class="flex w-[180px] flex-col gap-1 border-r border-gray-100 bg-[#fafafa] py-3"
+        >
           <button
             v-for="item in workspaceStore.settingsNavItems"
             :key="item.id"
@@ -38,8 +45,13 @@
         </aside>
 
         <section class="flex flex-1 flex-col overflow-y-auto bg-white p-6">
-          <template v-if="workspaceStore.activeSettingsTab === 'prompt'">
-            <div class="mb-6">
+          <template
+            v-if="
+              workspaceStore.promptEditorScope === 'topic' ||
+              workspaceStore.activeSettingsTab === 'prompt'
+            "
+          >
+            <div v-if="workspaceStore.promptEditorScope === 'assistant'" class="mb-6">
               <label class="mb-2 block text-[14px] font-semibold text-gray-900">名称</label>
               <div class="flex w-full items-center gap-3 rounded-lg border border-gray-200 p-1">
                 <div
@@ -57,57 +69,27 @@
 
             <div class="flex min-h-0 flex-1 flex-col">
               <div class="mb-2 flex items-center gap-1.5">
-                <label class="text-[14px] font-semibold text-gray-900">助手默认提示词</label>
+                <label class="text-[14px] font-semibold text-gray-900">
+                  {{ workspaceStore.currentSettingsLabel }}
+                </label>
                 <HelpCircle class="h-3.5 w-3.5 cursor-help text-gray-400" />
               </div>
+              <p
+                v-if="workspaceStore.promptEditorScope === 'topic'"
+                class="mb-3 text-[13px] leading-6 text-gray-500"
+              >
+                当前话题未单独配置时，会直接继承助手默认提示词。现在这里显示的是当前生效内容。
+              </p>
               <textarea
                 v-model="promptTextModel"
-                class="min-h-[220px] w-full resize-none rounded-lg border border-gray-200 bg-[#fafafa] p-4 font-mono text-[14px] text-gray-700 outline-none focus:ring-1 focus:ring-emerald-500/50"
-                placeholder="在这里输入助手默认 system prompt..."
+                class="flex-1 w-full resize-none rounded-lg border border-gray-200 bg-[#fafafa] p-4 font-mono text-[14px] outline-none focus:ring-1 focus:ring-emerald-500/50"
+                :class="workspaceStore.promptEditorIsInherited ? 'text-gray-400' : 'text-gray-700'"
+                :placeholder="
+                  workspaceStore.promptEditorScope === 'assistant'
+                    ? '在这里输入助手默认 system prompt...'
+                    : '在这里输入当前话题的 system prompt...'
+                "
               />
-
-              <div class="mt-4 rounded-2xl border border-gray-200 bg-gray-50/70 p-4">
-                <div class="mb-3">
-                  <h3 class="text-[14px] font-semibold text-gray-900">当前话题提示词</h3>
-                  <p class="mt-1 text-[13px] leading-6 text-gray-500">
-                    当前话题可以继承助手默认提示词，也可以单独写一份覆盖。
-                  </p>
-                </div>
-
-                <div class="mb-4 flex flex-wrap gap-2">
-                  <button
-                    class="rounded-full px-3 py-1.5 text-[13px] transition-colors"
-                    :class="
-                      workspaceStore.topicPromptModeDraft === 'inherit'
-                        ? 'bg-emerald-100 text-emerald-700'
-                        : 'bg-white text-gray-600 hover:bg-gray-100'
-                    "
-                    type="button"
-                    @click="workspaceStore.setTopicPromptModeDraft('inherit')"
-                  >
-                    跟随助手默认
-                  </button>
-                  <button
-                    class="rounded-full px-3 py-1.5 text-[13px] transition-colors"
-                    :class="
-                      workspaceStore.topicPromptModeDraft === 'override'
-                        ? 'bg-emerald-100 text-emerald-700'
-                        : 'bg-white text-gray-600 hover:bg-gray-100'
-                    "
-                    type="button"
-                    @click="workspaceStore.setTopicPromptModeDraft('override')"
-                  >
-                    当前话题覆盖
-                  </button>
-                </div>
-
-                <textarea
-                  v-model="topicPromptOverrideModel"
-                  :disabled="workspaceStore.topicPromptModeDraft !== 'override'"
-                  class="min-h-[180px] w-full resize-none rounded-lg border border-gray-200 bg-white p-4 font-mono text-[14px] text-gray-700 outline-none focus:ring-1 focus:ring-emerald-500/50 disabled:cursor-not-allowed disabled:bg-gray-100"
-                  placeholder="为当前话题输入单独的 system prompt..."
-                />
-              </div>
 
               <div class="mt-4 flex items-center justify-between">
                 <span class="text-[13px] text-gray-500">Tokens: {{ promptTokenCount }}</span>
@@ -147,26 +129,26 @@ const assistantNameModel = computed({
 })
 
 const promptTextModel = computed({
-  get: () => workspaceStore.assistantDefaultPromptDraft,
+  get: () =>
+    workspaceStore.promptEditorScope === 'assistant'
+      ? workspaceStore.assistantDefaultPromptDraft
+      : workspaceStore.topicPromptDraft,
   set: (value: string) => {
-    workspaceStore.setAssistantDefaultPromptDraft(value)
-  }
-})
+    if (workspaceStore.promptEditorScope === 'assistant') {
+      workspaceStore.setAssistantDefaultPromptDraft(value)
+      return
+    }
 
-const topicPromptOverrideModel = computed({
-  get: () => workspaceStore.topicPromptOverrideDraft,
-  set: (value: string) => {
-    workspaceStore.setTopicPromptOverrideDraft(value)
+    workspaceStore.setTopicPromptDraft(value)
   }
 })
 
 const promptTokenCount = computed(() => {
-  const content = workspaceStore.assistantDefaultPromptDraft.trim()
+  const content = promptTextModel.value.trim()
   if (!content) {
     return 0
   }
 
-  // 这里先按空白做近似 token 统计，后续如果接真实 tokenizer 再替换。
   return content.split(/\s+/).length
 })
 </script>

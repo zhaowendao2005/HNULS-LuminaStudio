@@ -1,9 +1,13 @@
 import { ipcRenderer } from 'electron'
 import type {
   NormalChatAPI,
+  NormalChatAssignLabelRequest,
+  NormalChatCreateLabelRequest,
   NormalChatCreateAssistantRequest,
   NormalChatCreateTopicRequest,
+  NormalChatDeleteLabelRequest,
   NormalChatDeleteTopicRequest,
+  NormalChatRenameLabelRequest,
   NormalChatRenameTopicRequest,
   NormalChatSetActiveAssistantRequest,
   NormalChatSetActiveTopicRequest,
@@ -17,6 +21,14 @@ export const normalChatAPI: NormalChatAPI = {
     ipcRenderer.invoke('normalChat:createAssistant', request),
   updateAssistant: (request: NormalChatUpdateAssistantRequest) =>
     ipcRenderer.invoke('normalChat:updateAssistant', request),
+  assignLabel: (request: NormalChatAssignLabelRequest) =>
+    ipcRenderer.invoke('normalChat:assignLabel', request),
+  createLabel: (request: NormalChatCreateLabelRequest) =>
+    ipcRenderer.invoke('normalChat:createLabel', request),
+  renameLabel: (request: NormalChatRenameLabelRequest) =>
+    ipcRenderer.invoke('normalChat:renameLabel', request),
+  deleteLabel: (request: NormalChatDeleteLabelRequest) =>
+    ipcRenderer.invoke('normalChat:deleteLabel', request),
   setActiveAssistant: (request: NormalChatSetActiveAssistantRequest) =>
     ipcRenderer.invoke('normalChat:setActiveAssistant', request),
   createTopic: (request: NormalChatCreateTopicRequest) =>
