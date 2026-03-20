@@ -523,6 +523,7 @@ export type OFPaperRetrievalSortBy = 'relevance' | 'date_desc' | 'date_asc'
 export type OFKnowledgeRetrievalNodeData = OFCommonNodeType & {
   type: OFBlockEnum.KnowledgeRetrieval
   query_template: OFPromptItem[]
+  // 兼容旧单 knowledgeBaseId / providers 树，同时支持新多知识库规则结构。
   permission_tree: OFKnowledgePermissionTree
   top_k: number
   ef: number | null
@@ -791,6 +792,7 @@ export interface OFKnowledgeRetrievalNodeConfig {
   title: string
   desc: string
   query_template: OFPromptItem[]
+  // 与节点运行时保持同一 permission_tree 契约，避免 editor/runtime 分叉。
   permission_tree: OFKnowledgePermissionTree
   top_k: number
   ef: number | null

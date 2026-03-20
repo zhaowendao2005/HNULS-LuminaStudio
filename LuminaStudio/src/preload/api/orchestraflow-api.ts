@@ -6,6 +6,10 @@ import { ipcRenderer } from 'electron'
 import type { OFWorkflowAPI } from '../types/orchestraflow.types'
 
 export const orchestraflowAPI: OFWorkflowAPI = {
+  listRerankModels: () => {
+    return ipcRenderer.invoke('orchestraflow:rerank-model-list')
+  },
+
   list: (params) => {
     return ipcRenderer.invoke('orchestraflow:workflow-list', params)
   },

@@ -36,6 +36,11 @@ function createNode(overrides: Record<string, unknown> = {}): OFNode {
       type: 'knowledge-retrieval',
       title: 'Knowledge Retrieval',
       desc: '',
+      permission_tree: {
+        providers: [],
+        knowledgeBaseId: 1,
+        effect: 'allow'
+      },
       output: { variables: [] },
       ...overrides
     }
@@ -86,18 +91,19 @@ describe('KnowledgeRetrievalNode', () => {
     expect(request.type).toBe('private-rpc:request')
     expect(request.channel).toBe('knowledge:retrieve')
     expect(request.payload.query).toBe('lumina studio')
+    expect(request.payload.knowledgeBaseIds).toEqual([1])
+    expect(request.payload.knowledgeBaseId).toBe(1)
 
     port.emit({
       type: 'private-rpc:response',
       requestId: request.requestId,
+      channel: 'knowledge:retrieve',
       success: true,
       payload: {
         query: 'lumina studio',
-        total_scopes: 2,
-        total_hits: 3,
-        partial_failure: true,
-        items: [{ id: 'hit-1' }, { id: 'hit-2' }],
-        result: 'knowledge-result'
+        resolvedScopes: [{ scope: 'a' }, { scope: 'b' }],
+        hits: [{ id: 'hit-1' }, { id: 'hit-2' }],
+        errors: [{ code: 'PARTIAL', message: 'partial failed' }]
       }
     })
 
@@ -107,10 +113,16 @@ describe('KnowledgeRetrievalNode', () => {
     expect(result.outputs).toEqual({
       query: 'lumina studio',
       total_scopes: 2,
-      total_hits: 3,
+      total_hits: 2,
       partial_failure: true,
       items: [{ id: 'hit-1' }, { id: 'hit-2' }],
-      result: 'knowledge-result'
+      result: {
+        query: 'lumina studio',
+        total_scopes: 2,
+        total_hits: 2,
+        partial_failure: true,
+        items: [{ id: 'hit-1' }, { id: 'hit-2' }]
+      }
     })
     expect(store.get('query')).toBe('lumina studio')
     expect(store.get('total_scopes')).toBe(2)
@@ -133,9 +145,10 @@ describe('KnowledgeRetrievalNode', () => {
     port.emit({
       type: 'private-rpc:response',
       requestId: request.requestId,
+      channel: 'knowledge:retrieve',
       success: true,
       payload: {
-        items: [{ id: 'hit-1' }]
+        hits: [{ id: 'hit-1' }]
       }
     })
 
@@ -147,6 +160,12 @@ describe('KnowledgeRetrievalNode', () => {
     expect(result.outputs.total_hits).toBe(1)
     expect(result.outputs.partial_failure).toBe(false)
     expect(result.outputs.items).toEqual([{ id: 'hit-1' }])
-    expect(typeof result.outputs.result).toBe('string')
+    expect(result.outputs.result).toEqual({
+      query: 'lumina studio',
+      total_scopes: 0,
+      total_hits: 1,
+      partial_failure: false,
+      items: [{ id: 'hit-1' }]
+    })
   })
 })

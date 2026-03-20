@@ -1,7 +1,7 @@
 import type { KnowledgeDatabaseBridgeService } from '@main/services/knowledge-database-bridge'
 import { createKnowledgeRetrievalError, normalizeKnowledgeRetrievalError } from './errors'
 import { executeKnowledgeRetrievalSearch, normalizeRetrievalExecutionParams } from './executor'
-import { resolveKnowledgeRetrievalScopes } from './permissions'
+import { collectKnowledgeBaseIdsFromPermissionTree, resolveKnowledgeRetrievalScopes } from './permissions'
 import type {
   KnowledgeRetrievalResolveScopesRequest,
   KnowledgeRetrievalResolveScopesResultDto,
@@ -26,21 +26,32 @@ export class KnowledgeRetrievalService {
   async resolveScopes(
     request: KnowledgeRetrievalResolveScopesRequest
   ): Promise<KnowledgeRetrievalResolveScopesResultDto> {
-    this.validateKnowledgeBaseId(request.knowledgeBaseId)
+    const knowledgeBaseIds = this.resolveTargetKnowledgeBaseIds(request)
 
     try {
-      const documents = await this.knowledgeDatabaseBridge.listAllDocuments({
-        knowledgeBaseId: request.knowledgeBaseId
-      })
+      const scopeResults = await Promise.all(
+        knowledgeBaseIds.map(async (knowledgeBaseId) => {
+          const documents = await this.knowledgeDatabaseBridge.listAllDocuments({
+            knowledgeBaseId
+          })
 
-      return resolveKnowledgeRetrievalScopes({
-        knowledgeBaseId: request.knowledgeBaseId,
-        documents,
-        permissionTree: request.permissionTree
-      })
+          return resolveKnowledgeRetrievalScopes({
+            knowledgeBaseId,
+            documents,
+            permissionTree: request.permissionTree
+          })
+        })
+      )
+
+      return {
+        knowledgeBaseId: knowledgeBaseIds[0] ?? null,
+        knowledgeBaseIds,
+        resolvedScopes: scopeResults.flatMap((item) => item.resolvedScopes),
+        warnings: scopeResults.flatMap((item) => item.warnings)
+      }
     } catch (error) {
       throw normalizeKnowledgeRetrievalError(error, 'KNOWLEDGE_BASE_LOAD_FAILED', {
-        knowledgeBaseId: request.knowledgeBaseId
+        knowledgeBaseIds
       })
     }
   }
@@ -56,9 +67,10 @@ export class KnowledgeRetrievalService {
     if (!request.query?.trim()) {
       throw createKnowledgeRetrievalError('INVALID_REQUEST', 'query 不能为空')
     }
+    const knowledgeBaseIds = this.resolveTargetKnowledgeBaseIds(request)
 
     const scopeResult = await this.resolveScopes({
-      knowledgeBaseId: request.knowledgeBaseId,
+      knowledgeBaseIds,
       permissionTree: request.permissionTree
     })
 
@@ -71,7 +83,8 @@ export class KnowledgeRetrievalService {
     if (scopeResult.resolvedScopes.length === 0) {
       return {
         query: request.query,
-        knowledgeBaseId: request.knowledgeBaseId,
+        knowledgeBaseId: knowledgeBaseIds[0] ?? null,
+        knowledgeBaseIds,
         k: executionParams.k,
         ef: executionParams.ef,
         rerankModelId: executionParams.rerankModelId,
@@ -102,7 +115,8 @@ export class KnowledgeRetrievalService {
 
     return {
       query: request.query,
-      knowledgeBaseId: request.knowledgeBaseId,
+      knowledgeBaseId: knowledgeBaseIds[0] ?? null,
+      knowledgeBaseIds,
       k: executionParams.k,
       ef: executionParams.ef,
       rerankModelId: executionParams.rerankModelId,
@@ -115,11 +129,35 @@ export class KnowledgeRetrievalService {
     }
   }
 
-  private validateKnowledgeBaseId(knowledgeBaseId: number): void {
-    if (!Number.isInteger(knowledgeBaseId) || knowledgeBaseId <= 0) {
-      throw createKnowledgeRetrievalError('INVALID_REQUEST', 'knowledgeBaseId 必须是正整数', {
-        knowledgeBaseId
-      })
+  private resolveTargetKnowledgeBaseIds(params: {
+    knowledgeBaseId?: number | null
+    knowledgeBaseIds?: number[] | null
+    permissionTree?: KnowledgeRetrievalSearchRequest['permissionTree']
+  }): number[] {
+    const ids = new Set<number>()
+    const append = (value: unknown): void => {
+      if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
+        ids.add(value)
+      }
     }
+
+    for (const value of params.knowledgeBaseIds ?? []) {
+      append(value)
+    }
+    append(params.knowledgeBaseId)
+
+    for (const value of collectKnowledgeBaseIdsFromPermissionTree(params.permissionTree)) {
+      append(value)
+    }
+
+    const result = [...ids]
+    if (result.length === 0) {
+      throw createKnowledgeRetrievalError(
+        'INVALID_REQUEST',
+        'knowledgeBaseId / knowledgeBaseIds 至少需要提供一个正整数'
+      )
+    }
+
+    return result
   }
 }

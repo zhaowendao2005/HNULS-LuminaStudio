@@ -52,17 +52,21 @@ export class KnowledgeRetrievalNode extends BaseNode {
       if (!query) {
         throw new Error('知识检索节点缺少 query 输入')
       }
+      const knowledgeBaseIds = this.resolveKnowledgeBaseIds(nodeData)
 
       const payload = await this.invokePrivateRpc(KNOWLEDGE_RPC_CHANNEL, {
         query,
-        knowledgeBaseId: this.resolveKnowledgeBaseId(nodeData),
+        // 兼容旧字段：保留首个 knowledgeBaseId，避免旧 main 侧实现失配。
+        knowledgeBaseId: knowledgeBaseIds[0],
+        // 新字段：支持跨知识库并行检索。
+        knowledgeBaseIds,
         permissionTree: nodeData.permission_tree,
         k: this.normalizePositiveInteger(nodeData.top_k),
         ef: this.normalizeOptionalPositiveInteger(nodeData.ef),
         rerank: this.buildRerankConfig(nodeData)
       })
 
-      const normalized = this.normalizeResponse(payload, query)
+      const normalized = this.normalizeResponse(payload as KnowledgeRetrievalSearchResultDto, query)
       this.persistOutputs(normalized)
 
       return {
@@ -113,19 +117,104 @@ export class KnowledgeRetrievalNode extends BaseNode {
     })
   }
 
-  private resolveKnowledgeBaseId(nodeData: OFKnowledgeRetrievalNodeData): number {
-    const runtimeValue = this.context.inputs.knowledgeBaseId
-    if (typeof runtimeValue === 'number' && Number.isInteger(runtimeValue) && runtimeValue > 0) {
-      return runtimeValue
+  private resolveKnowledgeBaseIds(nodeData: OFKnowledgeRetrievalNodeData): number[] {
+    const ids = new Set<number>()
+
+    const appendId = (value: unknown): void => {
+      if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
+        ids.add(value)
+      }
     }
 
-    const candidate = (nodeData.permission_tree as { knowledgeBaseId?: unknown } | null | undefined)
-      ?.knowledgeBaseId
-    if (typeof candidate === 'number' && Number.isInteger(candidate) && candidate > 0) {
-      return candidate
+    const appendIdArray = (value: unknown): void => {
+      if (!Array.isArray(value)) {
+        return
+      }
+      for (const item of value) {
+        appendId(item)
+      }
     }
 
-    throw new Error('知识检索节点缺少 knowledgeBaseId')
+    appendIdArray(this.context.inputs.knowledgeBaseIds)
+    appendId(this.context.inputs.knowledgeBaseId)
+
+    const permissionTree = nodeData.permission_tree as
+      | {
+          knowledgeBaseId?: unknown
+          knowledgeBaseIds?: unknown
+          knowledgeBases?: unknown
+          knowledge_base_rules?: unknown
+          providers?: unknown
+        }
+      | null
+      | undefined
+
+    appendId(permissionTree?.knowledgeBaseId)
+    appendIdArray(permissionTree?.knowledgeBaseIds)
+
+    for (const rule of this.normalizeObjectArray(permissionTree?.knowledgeBases)) {
+      appendId((rule as { knowledgeBaseId?: unknown }).knowledgeBaseId)
+      appendId((rule as { knowledge_base_id?: unknown }).knowledge_base_id)
+    }
+    for (const rule of this.normalizeObjectArray(permissionTree?.knowledge_base_rules)) {
+      appendId((rule as { knowledgeBaseId?: unknown }).knowledgeBaseId)
+      appendId((rule as { knowledge_base_id?: unknown }).knowledge_base_id)
+    }
+
+    for (const node of this.normalizeObjectArray(permissionTree?.providers)) {
+      this.collectKnowledgeBaseIdsFromLegacyTree(node, ids)
+    }
+
+    const result = [...ids]
+    if (result.length === 0) {
+      throw new Error('知识检索节点缺少 knowledgeBaseId / knowledgeBaseIds')
+    }
+
+    return result
+  }
+
+  private normalizeObjectArray(value: unknown): Record<string, unknown>[] {
+    if (!Array.isArray(value)) {
+      return []
+    }
+    return value.filter((item): item is Record<string, unknown> =>
+      Boolean(item && typeof item === 'object')
+    )
+  }
+
+  private collectKnowledgeBaseIdsFromLegacyTree(
+    node: Record<string, unknown>,
+    ids: Set<number>
+  ): void {
+    const appendFromUnknown = (value: unknown): void => {
+      if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
+        ids.add(value)
+      }
+      if (typeof value === 'string' && /^\\d+$/.test(value.trim())) {
+        const parsed = Number(value.trim())
+        if (Number.isInteger(parsed) && parsed > 0) {
+          ids.add(parsed)
+        }
+      }
+    }
+
+    appendFromUnknown(node.knowledgeBaseId)
+    appendFromUnknown(node.knowledge_base_id)
+    if (typeof node.id === 'string') {
+      const fromId = node.id.match(/(\\d+)/)?.[1]
+      appendFromUnknown(fromId)
+    }
+
+    const metadata = node.metadata
+    if (metadata && typeof metadata === 'object') {
+      appendFromUnknown((metadata as { knowledgeBaseId?: unknown }).knowledgeBaseId)
+      appendFromUnknown((metadata as { knowledge_base_id?: unknown }).knowledge_base_id)
+    }
+
+    const children = this.normalizeObjectArray(node.children)
+    for (const child of children) {
+      this.collectKnowledgeBaseIdsFromLegacyTree(child, ids)
+    }
   }
 
   private buildRerankConfig(

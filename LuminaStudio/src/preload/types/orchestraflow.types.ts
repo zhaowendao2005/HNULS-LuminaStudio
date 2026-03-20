@@ -16,8 +16,18 @@ import type {
   OFNodeDebugRunParams,
   OFNodeDebugResult
 } from '@shared/Orchestraflow-types'
+import type { RerankModelListResponse } from './rerank-model.types'
 
 export interface OFWorkflowAPI {
+  /**
+   * OrchestraFlow 专用：拉取可用重排模型列表。
+   */
+  listRerankModels(): Promise<{
+    success: boolean
+    data?: RerankModelListResponse
+    error?: string
+  }>
+
   list(params?: { keyword?: string; page?: number; pageSize?: number }): Promise<{
     success: boolean
     data?: { workflows: OFWorkflowMeta[]; total: number }

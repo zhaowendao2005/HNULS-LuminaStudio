@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolveKnowledgeRetrievalScopes } from './permissions'
+import { collectKnowledgeBaseIdsFromPermissionTree, resolveKnowledgeRetrievalScopes } from './permissions'
 import type { DocumentInfo } from '@shared/knowledge-database-api.types'
 
 const documents: DocumentInfo[] = [
@@ -126,5 +126,110 @@ describe('resolveKnowledgeRetrievalScopes', () => {
       'DOCUMENT_RULE_TARGET_NOT_FOUND',
       'EMBEDDING_RULE_TARGET_NOT_FOUND'
     ])
+  })
+
+  it('支持按 knowledgeBases 分层规则解析，并在仅选中知识库时默认全量文档', () => {
+    const permissionTree = {
+      effect: 'deny' as const,
+      knowledgeBases: [
+        {
+          knowledgeBaseId: 1,
+          effect: 'allow' as const,
+          documents: [
+            {
+              fileKey: 'docs/a.md',
+              effect: 'allow' as const
+            }
+          ]
+        },
+        {
+          knowledgeBaseId: 2,
+          effect: 'allow' as const
+        }
+      ]
+    }
+
+    const resultForKb1 = resolveKnowledgeRetrievalScopes({
+      knowledgeBaseId: 1,
+      documents,
+      permissionTree
+    })
+
+    expect(resultForKb1.resolvedScopes).toHaveLength(2)
+    expect([...new Set(resultForKb1.resolvedScopes.map((item) => item.fileKey))]).toEqual([
+      'docs/a.md'
+    ])
+
+    const resultForKb2 = resolveKnowledgeRetrievalScopes({
+      knowledgeBaseId: 2,
+      documents,
+      permissionTree
+    })
+
+    expect(resultForKb2.resolvedScopes).toHaveLength(3)
+    expect([...new Set(resultForKb2.resolvedScopes.map((item) => item.fileKey))]).toEqual([
+      'docs/a.md',
+      'docs/b.md'
+    ])
+  })
+
+  it('兼容旧 providers 树结构并解析为文档级 allow 规则', () => {
+    const result = resolveKnowledgeRetrievalScopes({
+      knowledgeBaseId: 1,
+      documents,
+      permissionTree: {
+        effect: 'deny',
+        providers: [
+          {
+            id: 'provider-1',
+            kind: 'provider',
+            checked: true,
+            children: [
+              {
+                id: 'kb-1',
+                kind: 'knowledge-base',
+                checked: true,
+                knowledgeBaseId: 1,
+                children: [
+                  {
+                    id: 'docs/b.md',
+                    kind: 'file',
+                    checked: true,
+                    fileKey: 'docs/b.md'
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    })
+
+    expect(result.resolvedScopes).toHaveLength(1)
+    expect(result.resolvedScopes[0]).toEqual(
+      expect.objectContaining({
+        fileKey: 'docs/b.md',
+        embeddingConfigId: '1',
+        dimensions: 1536
+      })
+    )
+  })
+
+  it('可从 permission tree 新旧字段提取并去重 knowledgeBaseIds', () => {
+    const ids = collectKnowledgeBaseIdsFromPermissionTree({
+      knowledgeBaseId: 1,
+      knowledgeBaseIds: [2, 2],
+      knowledge_base_rules: [{ knowledge_base_id: 3 }],
+      providers: [
+        {
+          id: 'kb-4',
+          kind: 'knowledge-base',
+          checked: true,
+          knowledgeBaseId: 4
+        }
+      ]
+    })
+
+    expect(ids.sort((a, b) => a - b)).toEqual([1, 2, 3, 4])
   })
 })

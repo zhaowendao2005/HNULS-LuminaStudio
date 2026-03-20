@@ -29,6 +29,34 @@ export interface KnowledgeRetrievalDocumentRule {
 }
 
 /**
+ * 新结构：按知识库拆分的规则节点。
+ * 兼容 snake_case / camelCase 两种知识库 id 字段。
+ */
+export interface KnowledgeRetrievalKnowledgeBaseRule {
+  knowledgeBaseId?: number | null
+  knowledge_base_id?: number | null
+  effect?: KnowledgeRetrievalPermissionEffect
+  documents?: KnowledgeRetrievalDocumentRule[]
+}
+
+/**
+ * 旧结构：renderer permission tree 的树节点（providers/knowledge-base/file）。
+ * main 仅做兼容解析，不强耦合 UI 细节。
+ */
+export interface KnowledgeRetrievalLegacyPermissionTreeNode {
+  id: string
+  label?: string
+  kind?: 'provider' | 'knowledge-base' | 'scope' | 'file' | string
+  checked?: boolean
+  knowledgeBaseId?: number | null
+  knowledge_base_id?: number | null
+  fileKey?: string | null
+  file_key?: string | null
+  metadata?: Record<string, unknown>
+  children?: KnowledgeRetrievalLegacyPermissionTreeNode[]
+}
+
+/**
  * 知识库粒度规则树。
  *
  * 注意：根节点不信任 renderer 传来的 tableName，
@@ -37,6 +65,26 @@ export interface KnowledgeRetrievalDocumentRule {
 export interface KnowledgeRetrievalPermissionTree {
   effect?: KnowledgeRetrievalPermissionEffect
   documents?: KnowledgeRetrievalDocumentRule[]
+  /**
+   * 新结构：多知识库目标。
+   */
+  knowledgeBaseIds?: number[]
+  /**
+   * 旧结构：单知识库目标。
+   */
+  knowledgeBaseId?: number | null
+  /**
+   * 新结构：按知识库规则分层。
+   */
+  knowledgeBases?: KnowledgeRetrievalKnowledgeBaseRule[]
+  /**
+   * 兼容字段：部分旧序列化使用 snake_case。
+   */
+  knowledge_base_rules?: KnowledgeRetrievalKnowledgeBaseRule[]
+  /**
+   * 旧结构：UI 权限树（provider -> knowledge-base -> file）。
+   */
+  providers?: KnowledgeRetrievalLegacyPermissionTreeNode[]
 }
 
 /**
@@ -88,20 +136,29 @@ export interface KnowledgeRetrievalErrorDto {
 }
 
 export interface KnowledgeRetrievalResolveScopesRequest {
-  knowledgeBaseId: number
-  permissionTree?: KnowledgeRetrievalPermissionTree | null
+  knowledgeBaseId?: number
+  knowledgeBaseIds?: number[]
+  permissionTree?: unknown
 }
 
 export interface KnowledgeRetrievalResolveScopesResultDto {
-  knowledgeBaseId: number
+  /**
+   * 兼容字段：保留主知识库 id（取 knowledgeBaseIds[0]）。
+   */
+  knowledgeBaseId: number | null
+  /**
+   * 新字段：本次参与解析的知识库列表（去重后）。
+   */
+  knowledgeBaseIds: number[]
   resolvedScopes: KnowledgeRetrievalResolvedScopeDto[]
   warnings: KnowledgeRetrievalWarningDto[]
 }
 
 export interface KnowledgeRetrievalSearchRequest {
-  knowledgeBaseId: number
+  knowledgeBaseId?: number
+  knowledgeBaseIds?: number[]
   query: string
-  permissionTree?: KnowledgeRetrievalPermissionTree | null
+  permissionTree?: unknown
   k?: number
   ef?: number
   rerank?: {
@@ -130,7 +187,8 @@ export interface KnowledgeRetrievalScopeResultDto {
 
 export interface KnowledgeRetrievalSearchResultDto {
   query: string
-  knowledgeBaseId: number
+  knowledgeBaseId: number | null
+  knowledgeBaseIds: number[]
   k: number
   ef?: number
   rerankModelId?: string
