@@ -4,9 +4,9 @@
       class="flex flex-col rounded-2xl border border-gray-200 bg-white transition-all focus-within:ring-1 focus-within:ring-gray-300"
     >
       <textarea
-        :value="conversationSnapshot.composerText"
+        :value="conversationStore.composerText"
         class="min-h-[60px] max-h-[200px] w-full resize-none bg-transparent p-4 pb-2 text-[15px] text-gray-800 outline-none placeholder:text-gray-400"
-        :placeholder="conversationSnapshot.textareaPlaceholder"
+        :placeholder="conversationStore.composerPlaceholder"
         rows="1"
         @input="onInput"
       />
@@ -37,18 +37,19 @@
           <button
             class="rounded-full p-1.5 text-white transition-colors"
             :class="
-              canSend
+              canSend && sendEnabled
                 ? 'bg-[var(--nc-accent)] hover:bg-[var(--nc-accent-hover)]'
                 : 'cursor-not-allowed bg-gray-300'
             "
+            :title="sendDisabledReason"
             type="button"
-            @click="conversationStore.sendMockMessage"
           >
             <ArrowUp class="h-4 w-4 stroke-[3]" />
           </button>
         </div>
       </div>
     </div>
+    <p class="mt-2 px-1 text-[12px] text-gray-400">{{ pendingNotice }}</p>
   </footer>
 </template>
 
@@ -74,12 +75,8 @@ import type { ComposerToolIcon } from '@renderer/stores/normal-chat/conversation
 import { useNormalChatConversationShellStore } from '@renderer/stores/normal-chat/conversation-shell/conversation-shell.store'
 
 const conversationStore = useNormalChatConversationShellStore()
-const {
-  snapshot: conversationSnapshot,
-  leftTools,
-  rightTools,
-  canSend
-} = storeToRefs(conversationStore)
+const { leftTools, rightTools, canSend, sendEnabled, pendingNotice } =
+  storeToRefs(conversationStore)
 
 const iconMap: Record<ComposerToolIcon, LucideIcon> = {
   'plus-square': PlusSquare,
@@ -99,9 +96,10 @@ const iconMap: Record<ComposerToolIcon, LucideIcon> = {
 const resolveToolIcon = (icon: ComposerToolIcon): LucideIcon => iconMap[icon]
 
 const onInput = (event: Event) => {
-  const value = (event.target as HTMLTextAreaElement).value
-  void conversationStore.setComposerText(value)
+  conversationStore.setComposerText((event.target as HTMLTextAreaElement).value)
 }
+
+const sendDisabledReason = '消息发送链路待接入，本批先完成助手、话题和 system prompt。'
 </script>
 
 <style scoped lang="scss">

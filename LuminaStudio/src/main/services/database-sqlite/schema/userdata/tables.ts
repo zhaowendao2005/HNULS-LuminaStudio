@@ -3,11 +3,10 @@ import type { TableDefinition } from '../../types'
 /**
  * Userdata 数据库表结构定义
  *
- * 包含：
- * - _schema_version: 版本元数据表
- * - conversations: 对话表
- * - messages: 消息表
- * - message_usage: 消息 token 使用统计表
+ * 当前仅保留 Normal Chat 第一批业务真正需要的持久化结构：
+ * - 助手
+ * - 话题
+ * - 当前工作区 active 状态
  */
 
 export const SCHEMA_VERSION_TABLE: TableDefinition = {
@@ -22,78 +21,59 @@ export const SCHEMA_VERSION_TABLE: TableDefinition = {
   `
 }
 
-export const PRESETS_TABLE: TableDefinition = {
-  name: 'presets',
+export const NORMAL_CHAT_ASSISTANTS_TABLE: TableDefinition = {
+  name: 'normal_chat_assistants',
   createSQL: `
-    CREATE TABLE IF NOT EXISTS presets (
+    CREATE TABLE IF NOT EXISTS normal_chat_assistants (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
-      description TEXT,
+      template_key TEXT NOT NULL,
+      emoji TEXT NOT NULL,
+      default_system_prompt TEXT NOT NULL DEFAULT '',
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_normal_chat_assistants_sort
+      ON normal_chat_assistants(sort_order, created_at);
+  `
+}
+
+export const NORMAL_CHAT_TOPICS_TABLE: TableDefinition = {
+  name: 'normal_chat_topics',
+  createSQL: `
+    CREATE TABLE IF NOT EXISTS normal_chat_topics (
+      id TEXT PRIMARY KEY,
+      assistant_id TEXT NOT NULL,
+      title TEXT NOT NULL,
+      system_prompt_mode TEXT NOT NULL DEFAULT 'inherit' CHECK (system_prompt_mode IN ('inherit', 'override')),
+      system_prompt_override TEXT,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (assistant_id) REFERENCES normal_chat_assistants(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_normal_chat_topics_assistant_sort
+      ON normal_chat_topics(assistant_id, sort_order, created_at);
+  `
+}
+
+export const NORMAL_CHAT_WORKSPACE_STATE_TABLE: TableDefinition = {
+  name: 'normal_chat_workspace_state',
+  createSQL: `
+    CREATE TABLE IF NOT EXISTS normal_chat_workspace_state (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      active_assistant_id TEXT NOT NULL,
+      active_topic_id TEXT NOT NULL,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     );
   `
 }
 
-export const CONVERSATIONS_TABLE: TableDefinition = {
-  name: 'conversations',
-  createSQL: `
-    CREATE TABLE IF NOT EXISTS conversations (
-      id TEXT PRIMARY KEY,
-      preset_id TEXT NOT NULL,
-      title TEXT,
-      provider_id TEXT NOT NULL,
-      model_id TEXT NOT NULL,
-      enable_thinking INTEGER NOT NULL DEFAULT 0,
-      memory_rounds INTEGER NOT NULL DEFAULT 10,
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (preset_id) REFERENCES presets(id) ON DELETE CASCADE
-    );
-    CREATE INDEX IF NOT EXISTS idx_conversations_preset_time 
-      ON conversations(preset_id, updated_at);
-  `
-}
-
-export const MESSAGES_TABLE: TableDefinition = {
-  name: 'messages',
-  createSQL: `
-    CREATE TABLE IF NOT EXISTS messages (
-      id TEXT PRIMARY KEY,
-      conversation_id TEXT NOT NULL,
-      role TEXT NOT NULL,
-      text TEXT,
-      reasoning TEXT,
-      content_json TEXT,
-      status TEXT DEFAULT 'final',
-      error TEXT,
-      created_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
-    );
-    CREATE INDEX IF NOT EXISTS idx_messages_conversation_time 
-      ON messages(conversation_id, created_at);
-  `
-}
-
-export const MESSAGE_USAGE_TABLE: TableDefinition = {
-  name: 'message_usage',
-  createSQL: `
-    CREATE TABLE IF NOT EXISTS message_usage (
-      message_id TEXT PRIMARY KEY,
-      input_tokens INTEGER,
-      output_tokens INTEGER,
-      reasoning_tokens INTEGER,
-      total_tokens INTEGER,
-      provider_metadata_json TEXT,
-      FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE
-    );
-  `
-}
-
 export const USERDATA_TABLES: TableDefinition[] = [
   SCHEMA_VERSION_TABLE,
-  PRESETS_TABLE,
-  CONVERSATIONS_TABLE,
-  MESSAGES_TABLE,
-  MESSAGE_USAGE_TABLE
+  NORMAL_CHAT_ASSISTANTS_TABLE,
+  NORMAL_CHAT_TOPICS_TABLE,
+  NORMAL_CHAT_WORKSPACE_STATE_TABLE
 ]

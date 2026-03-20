@@ -15,13 +15,13 @@
         <button
           class="flex items-center gap-1.5 rounded-md bg-gray-50 px-2 py-1 transition-colors hover:bg-gray-100"
           type="button"
-          @click="assistantStore.openSettings('prompt')"
+          @click="workspaceStore.openAssistantSettings('prompt')"
         >
           <span class="nc-default-assistant-avatar-a9k2 text-sm">
-            {{ assistantSnapshot.assistant.emoji }}
+            {{ currentAssistant?.emoji ?? '🤖' }}
           </span>
           <span class="text-[14px] font-medium text-gray-700">
-            {{ assistantSnapshot.assistant.name }}
+            {{ currentAssistant?.name ?? '未选择助手' }}
           </span>
         </button>
 
@@ -44,7 +44,7 @@
             </svg>
           </span>
           <span class="text-[14px] font-medium text-gray-600">
-            {{ assistantSnapshot.modelMeta.label }}
+            {{ currentAssistantTemplate?.title ?? '未选择模板' }}
           </span>
           <ChevronDown class="ml-1 h-3.5 w-3.5 text-gray-400" />
         </div>
@@ -55,7 +55,7 @@
       <button
         class="rounded-md p-1.5 transition-colors hover:bg-gray-100"
         type="button"
-        @click="assistantStore.openSettings('model')"
+        @click="workspaceStore.openAssistantSettings('model')"
       >
         <Settings2 class="h-5 w-5 stroke-[1.5]" />
       </button>
@@ -79,13 +79,13 @@ import {
   Settings2,
   SplitSquareHorizontal
 } from 'lucide-vue-next'
-import { useNormalChatAssistantShellStore } from '@renderer/stores/normal-chat/assistant-shell/assistant-shell.store'
 import { useNormalChatLayoutShellStore } from '@renderer/stores/normal-chat/layout-shell/layout-shell.store'
+import { useNormalChatWorkspaceStore } from '@renderer/stores/normal-chat/workspace/workspace.store'
 
-const assistantStore = useNormalChatAssistantShellStore()
 const layoutStore = useNormalChatLayoutShellStore()
+const workspaceStore = useNormalChatWorkspaceStore()
 
-const { snapshot: assistantSnapshot } = storeToRefs(assistantStore)
+const { currentAssistant, currentAssistantTemplate } = storeToRefs(workspaceStore)
 </script>
 
 <style scoped lang="scss">

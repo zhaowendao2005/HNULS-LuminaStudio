@@ -9,7 +9,7 @@
             : 'text-gray-500 hover:text-gray-800'
         "
         type="button"
-        @click="leftSidebarStore.setActiveTab('assistants')"
+        @click="setActiveTab('assistants')"
       >
         助手
         <span
@@ -25,7 +25,7 @@
             : 'text-gray-500 hover:text-gray-800'
         "
         type="button"
-        @click="leftSidebarStore.setActiveTab('topics')"
+        @click="setActiveTab('topics')"
       >
         话题
         <span
@@ -38,41 +38,51 @@
     <div class="h-[calc(100%-44px)] overflow-y-auto">
       <LeftSidebarAssistantsTab
         v-if="leftSidebarSnapshot.activeTab === 'assistants'"
-        :assistants="leftSidebarSnapshot.assistants"
-        :draw-section-label="leftSidebarSnapshot.drawSectionLabel"
-        :tools="leftSidebarSnapshot.tools"
-        :tools-section-label="leftSidebarSnapshot.toolsSectionLabel"
-        @open-settings="assistantStore.openSettings('prompt')"
-        @select-assistant="leftSidebarStore.setActiveAssistant"
+        :active-assistant-id="workspaceSnapshot.activeAssistantId"
+        :assistants="workspaceSnapshot.assistants"
+        @create-assistant="workspaceStore.openCreateAssistantDialog"
+        @open-settings="workspaceStore.openAssistantSettingsForAssistant"
+        @select-assistant="workspaceStore.setActiveAssistant"
       />
       <LeftSidebarTopicsTab
         v-else
-        :active-topic-id="leftSidebarSnapshot.activeTopicId"
-        :topics="leftSidebarSnapshot.topics"
-        @add-topic="leftSidebarStore.addTopic"
-        @select-topic="leftSidebarStore.setActiveTopic"
-        @remove-topic="leftSidebarStore.removeTopic"
+        :active-topic-id="workspaceSnapshot.activeTopicId"
+        :editing-topic-id="workspaceStore.editingTopicId"
+        :rename-draft="workspaceStore.topicRenameDraft"
+        :topics="workspaceStore.currentTopics"
+        @add-topic="workspaceStore.createTopic"
+        @cancel-rename="workspaceStore.cancelTopicRename"
+        @commit-rename="workspaceStore.commitTopicRename"
+        @remove-topic="workspaceStore.deleteTopic"
+        @select-topic="workspaceStore.setActiveTopic"
+        @start-rename="workspaceStore.startTopicRename"
+        @update:rename-draft="workspaceStore.setTopicRenameDraft"
       />
     </div>
+    <CreateAssistantDialog />
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import LeftSidebarAssistantsTab from './LeftSidebarAssistantsTab.vue'
 import LeftSidebarTopicsTab from './LeftSidebarTopicsTab.vue'
-import { useNormalChatAssistantShellStore } from '@renderer/stores/normal-chat/assistant-shell/assistant-shell.store'
-import { useNormalChatLeftSidebarShellStore } from '@renderer/stores/normal-chat/left-sidebar-shell/left-sidebar-shell.store'
+import CreateAssistantDialog from './CreateAssistantDialog.vue'
+import { useNormalChatWorkspaceStore } from '@renderer/stores/normal-chat/workspace/workspace.store'
 
-const assistantStore = useNormalChatAssistantShellStore()
-const leftSidebarStore = useNormalChatLeftSidebarShellStore()
-const { snapshot: leftSidebarSnapshot } = storeToRefs(leftSidebarStore)
+type LeftSidebarTab = 'assistants' | 'topics'
 
-onMounted(() => {
-  // 会话管理页独立初始化自身状态组
-  void leftSidebarStore.initialize()
+const workspaceStore = useNormalChatWorkspaceStore()
+const { snapshot: workspaceSnapshot } = storeToRefs(workspaceStore)
+
+const leftSidebarSnapshot = ref<{ activeTab: LeftSidebarTab }>({
+  activeTab: 'assistants'
 })
+
+const setActiveTab = (value: LeftSidebarTab) => {
+  leftSidebarSnapshot.value.activeTab = value
+}
 </script>
 
 <style scoped lang="scss">

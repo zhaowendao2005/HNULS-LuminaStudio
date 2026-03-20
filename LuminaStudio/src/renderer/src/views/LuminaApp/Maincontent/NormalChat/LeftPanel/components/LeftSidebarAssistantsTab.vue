@@ -3,6 +3,7 @@
     <button
       class="mx-2 mb-2 flex items-center gap-2 rounded-lg px-4 py-2 text-[14px] text-gray-600 transition-colors hover:bg-gray-200/50"
       type="button"
+      @click="emit('create-assistant')"
     >
       <Plus class="h-4 w-4" />
       添加助手
@@ -12,7 +13,12 @@
       <div
         v-for="assistant in assistants"
         :key="assistant.id"
-        class="mb-4 flex cursor-pointer items-center justify-between rounded-lg border border-gray-100 bg-white p-2 shadow-sm"
+        class="mb-4 flex cursor-pointer items-center justify-between rounded-lg border p-2 shadow-sm transition-colors"
+        :class="
+          assistant.id === activeAssistantId
+            ? 'border-emerald-200 bg-emerald-50/70'
+            : 'border-gray-100 bg-white hover:border-gray-200'
+        "
         @click="emit('select-assistant', assistant.id)"
       >
         <div class="flex items-center gap-3">
@@ -22,7 +28,7 @@
         <button
           class="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
           type="button"
-          @click.stop="emit('open-settings')"
+          @click.stop="emit('open-settings', assistant.id)"
         >
           <MoreVertical class="h-4 w-4" />
         </button>
@@ -33,14 +39,14 @@
       class="flex cursor-pointer items-center gap-1 px-4 py-2 text-[13px] text-gray-500 hover:text-gray-800"
     >
       <ChevronRight class="h-3.5 w-3.5" />
-      {{ drawSectionLabel }}
+      绘图
     </div>
 
     <div
       class="flex cursor-pointer items-center gap-1 px-4 py-2 text-[13px] text-gray-500 hover:text-gray-800"
     >
       <ChevronDown class="h-3.5 w-3.5" />
-      {{ toolsSectionLabel }}
+      tools
     </div>
 
     <div class="mt-1 flex flex-col gap-1 px-2">
@@ -58,21 +64,24 @@
 
 <script setup lang="ts">
 import { ChevronDown, ChevronRight, MoreVertical, Plus } from 'lucide-vue-next'
-import type {
-  LeftSidebarAssistant,
-  LeftSidebarToolItem
-} from '@renderer/stores/normal-chat/left-sidebar-shell/left-sidebar-shell.types'
+import type { NormalChatAssistant } from '@preload/types'
 import LeftSidebarSparkleIcon from './LeftSidebarSparkleIcon.vue'
 
 defineProps<{
-  assistants: LeftSidebarAssistant[]
-  drawSectionLabel: string
-  toolsSectionLabel: string
-  tools: LeftSidebarToolItem[]
+  assistants: NormalChatAssistant[]
+  activeAssistantId: string
 }>()
 
+const tools = [
+  { id: 'tool-1', title: '排版为表格' },
+  { id: 'tool-2', title: '排版英语习题' },
+  { id: 'tool-3', title: '内容校对' },
+  { id: 'tool-4', title: '排版为表格-v2' }
+]
+
 const emit = defineEmits<{
-  (e: 'open-settings'): void
+  (e: 'create-assistant'): void
+  (e: 'open-settings', assistantId: string): void
   (e: 'select-assistant', assistantId: string): void
 }>()
 </script>
