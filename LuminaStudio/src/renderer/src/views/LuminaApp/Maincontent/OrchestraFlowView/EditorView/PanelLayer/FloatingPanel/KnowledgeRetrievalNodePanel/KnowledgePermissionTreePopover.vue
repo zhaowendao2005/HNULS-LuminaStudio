@@ -113,6 +113,12 @@
                       {{ getKnowledgeBaseSubLabel(knowledgeBase) }}
                     </div>
                   </div>
+                  <div
+                    class="shrink-0 rounded-md border px-1.5 py-0.5 text-[10px] font-semibold"
+                    :class="getKnowledgeBaseEmbeddingSummaryClass(knowledgeBase)"
+                  >
+                    {{ getKnowledgeBaseEmbeddingSummary(knowledgeBase) }}
+                  </div>
                 </div>
 
                 <div
@@ -134,7 +140,8 @@
                   <div
                     v-for="document in getVisibleDocuments(knowledgeBase)"
                     :key="`${knowledgeBase.id}-${document.fileKey}`"
-                    class="mb-1 flex items-center gap-1.5 px-7 py-1"
+                    class="mb-1 flex items-start gap-1.5 rounded-md px-7 py-1.5"
+                    :class="getDocumentRowClass(document)"
                   >
                     <input
                       type="checkbox"
@@ -149,8 +156,21 @@
                       "
                     />
                     <div class="min-w-0 flex-1 text-[12px] text-gray-700">
-                      <div class="truncate">{{ document.fileName }}</div>
-                      <div class="truncate text-[10px] text-gray-400">{{ document.fileKey }}</div>
+                      <div class="flex items-center gap-1.5">
+                        <div class="truncate">{{ document.fileName }}</div>
+                        <span
+                          class="shrink-0 rounded-md border px-1.5 py-0.5 text-[10px] font-semibold"
+                          :class="getDocumentEmbeddingClass(document)"
+                        >
+                          {{ getDocumentEmbeddingLabel(document) }}
+                        </span>
+                      </div>
+                      <div class="mt-0.5 truncate text-[10px] text-gray-400">
+                        {{ document.fileKey }}
+                      </div>
+                      <div class="mt-0.5 text-[10px] text-gray-500">
+                        {{ getDocumentEmbeddingMeta(document) }}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -170,6 +190,9 @@ interface KnowledgeTreeDocumentOption {
   id: string
   fileKey: string
   fileName: string
+  embeddingCount: number
+  completedEmbeddingCount: number
+  embeddingState: 'completed' | 'partial' | 'pending' | 'failed' | 'empty'
 }
 
 interface KnowledgeTreeBaseOption {
@@ -331,6 +354,88 @@ function getKnowledgeBaseSubLabel(knowledgeBase: KnowledgeTreeBaseOption): strin
   }
 
   return `${knowledgeBase.docCount} 个文档`
+}
+
+function getKnowledgeBaseEmbeddingSummary(knowledgeBase: KnowledgeTreeBaseOption): string {
+  if (!knowledgeBase.documentsLoaded) {
+    return '嵌入状态待加载'
+  }
+
+  const embeddedDocumentCount = knowledgeBase.documents.filter(
+    (document) => document.completedEmbeddingCount > 0
+  ).length
+
+  return `已嵌入 ${embeddedDocumentCount}/${knowledgeBase.documents.length}`
+}
+
+function getKnowledgeBaseEmbeddingSummaryClass(knowledgeBase: KnowledgeTreeBaseOption): string {
+  if (!knowledgeBase.documentsLoaded) {
+    return 'border-slate-200 bg-slate-50 text-slate-500'
+  }
+
+  const embeddedDocumentCount = knowledgeBase.documents.filter(
+    (document) => document.completedEmbeddingCount > 0
+  ).length
+  if (embeddedDocumentCount === 0) {
+    return 'border-rose-200 bg-rose-50 text-rose-700'
+  }
+  if (embeddedDocumentCount === knowledgeBase.documents.length) {
+    return 'border-emerald-200 bg-emerald-50 text-emerald-700'
+  }
+  return 'border-amber-200 bg-amber-50 text-amber-700'
+}
+
+function getDocumentEmbeddingLabel(document: KnowledgeTreeDocumentOption): string {
+  switch (document.embeddingState) {
+    case 'completed':
+      return '已嵌入'
+    case 'partial':
+      return '部分嵌入'
+    case 'pending':
+      return '嵌入中'
+    case 'failed':
+      return '嵌入失败'
+    default:
+      return '未嵌入'
+  }
+}
+
+function getDocumentEmbeddingClass(document: KnowledgeTreeDocumentOption): string {
+  switch (document.embeddingState) {
+    case 'completed':
+      return 'border-emerald-200 bg-emerald-50 text-emerald-700'
+    case 'partial':
+      return 'border-amber-200 bg-amber-50 text-amber-700'
+    case 'pending':
+      return 'border-sky-200 bg-sky-50 text-sky-700'
+    case 'failed':
+      return 'border-rose-200 bg-rose-50 text-rose-700'
+    default:
+      return 'border-slate-200 bg-slate-50 text-slate-500'
+  }
+}
+
+function getDocumentEmbeddingMeta(document: KnowledgeTreeDocumentOption): string {
+  if (document.embeddingCount === 0) {
+    return '没有任何 embedding 记录，当前不会参与检索'
+  }
+
+  return `completed ${document.completedEmbeddingCount} / total ${document.embeddingCount}`
+}
+
+function getDocumentRowClass(document: KnowledgeTreeDocumentOption): string {
+  switch (document.embeddingState) {
+    case 'completed':
+      return 'bg-emerald-50/55'
+    case 'partial':
+      return 'bg-amber-50/55'
+    case 'pending':
+      return 'bg-sky-50/55'
+    case 'failed':
+      return 'bg-rose-50/55'
+    default:
+      return 'bg-slate-50/70'
+  }
 }
 
 function isDocumentChecked(knowledgeBase: KnowledgeTreeBaseOption, fileKey: string): boolean {

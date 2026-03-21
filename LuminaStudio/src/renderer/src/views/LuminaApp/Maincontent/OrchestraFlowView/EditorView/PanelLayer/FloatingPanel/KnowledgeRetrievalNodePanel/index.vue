@@ -402,6 +402,9 @@ interface PermissionDocumentNode {
   id: string
   fileKey: string
   fileName: string
+  embeddingCount: number
+  completedEmbeddingCount: number
+  embeddingState: 'completed' | 'partial' | 'pending' | 'failed' | 'empty'
 }
 
 interface PermissionKnowledgeBaseNode {
@@ -448,6 +451,13 @@ const descModel = computed({
   set: (value: string) => patchNode({ desc: value })
 })
 
+function normalizeRerankTopN(value: number | null | undefined): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+    return null
+  }
+  return Math.floor(value)
+}
+
 const topKModel = computed({
   get: () => Math.max(1, Math.min(20, Number(nodeData.value?.top_k || 5))),
   set: (value: number) => {
@@ -466,7 +476,16 @@ const efModel = computed({
 
 const rerankEnabledModel = computed({
   get: () => Boolean(nodeData.value?.rerank_enabled),
-  set: (value: boolean) => patchNode({ rerank_enabled: value })
+  set: (value: boolean) => {
+    if (!value) {
+      patchNode({ rerank_enabled: false })
+      return
+    }
+    patchNode({
+      rerank_enabled: true,
+      rerank_top_n: normalizeRerankTopN(nodeData.value?.rerank_top_n) ?? topKModel.value
+    })
+  }
 })
 
 const rerankModelIdModel = computed({
@@ -479,7 +498,12 @@ const rerankModelDisplay = computed(() => rerankModelIdModel.value || '选择模
 const rerankTopNModel = computed({
   get: () => (nodeData.value?.rerank_top_n ?? '') as number | '',
   set: (value: number | '') => {
-    const normalized = value === '' ? null : Math.max(1, Number(value || 1))
+    const normalized =
+      value === ''
+        ? nodeData.value?.rerank_enabled
+          ? topKModel.value
+          : null
+        : normalizeRerankTopN(Number(value || topKModel.value))
     patchNode({ rerank_top_n: normalized })
   }
 })
@@ -951,10 +975,39 @@ async function loadDocumentsByKnowledgeBaseId(knowledgeBaseId: number, forceRefr
       }
       totalPages = Math.max(response.data.totalPages || 1, 1)
       response.data.documents.forEach((document) => {
+        const embeddingCount = Array.isArray(document.embeddings) ? document.embeddings.length : 0
+        const completedEmbeddingCount = Array.isArray(document.embeddings)
+          ? document.embeddings.filter((embedding) => embedding.status === 'completed').length
+          : 0
+        const hasRunningEmbedding =
+          Array.isArray(document.embeddings) &&
+          document.embeddings.some(
+            (embedding) => embedding.status === 'pending' || embedding.status === 'running'
+          )
+        const hasFailedEmbedding =
+          Array.isArray(document.embeddings) &&
+          document.embeddings.some((embedding) => embedding.status === 'failed')
+
+        // 中文注释：这里按“是否存在 completed embedding”给文档打状态，
+        // 这样权限弹层里可以直接看出哪些文档能参与检索，哪些只是挂了文档但还没向量化。
+        const embeddingState: PermissionDocumentNode['embeddingState'] =
+          completedEmbeddingCount > 0
+            ? completedEmbeddingCount === embeddingCount
+              ? 'completed'
+              : 'partial'
+            : hasRunningEmbedding
+              ? 'pending'
+              : hasFailedEmbedding
+                ? 'failed'
+                : 'empty'
+
         documents.push({
           id: document.id,
           fileKey: document.fileKey,
-          fileName: document.fileName
+          fileName: document.fileName,
+          embeddingCount,
+          completedEmbeddingCount,
+          embeddingState
         })
       })
       page += 1

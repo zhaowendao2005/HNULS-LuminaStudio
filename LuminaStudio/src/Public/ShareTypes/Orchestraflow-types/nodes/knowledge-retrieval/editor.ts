@@ -40,7 +40,8 @@ function createDefaultConfig(): KnowledgeRetrievalNodeConfigDTO {
     ef: null,
     rerank_enabled: false,
     rerank_model_id: null,
-    rerank_top_n: 3
+    // 中文注释：默认让重排数量与检索数量对齐，避免一启用 rerank 就出现 topN < k 的非法组合。
+    rerank_top_n: 5
   }
 }
 
@@ -266,6 +267,12 @@ export const knowledgeRetrievalNodeEditor = {
   normalizeData({ node }: OFNodeEditorNormalizeParams): KnowledgeRetrievalNodeData {
     const data = node.data as Partial<KnowledgeRetrievalNodeData>
     const title = normalizeTitle(data.title)
+    const normalizedTopK =
+      typeof data.top_k === 'number' && data.top_k > 0 ? Math.floor(data.top_k) : 5
+    const normalizedEf =
+      typeof data.ef === 'number' && Number.isFinite(data.ef) && data.ef > 0
+        ? Math.floor(data.ef)
+        : null
     const outputNamespace =
       resolveOFNodeOutputNamespace(
         { runtime: knowledgeRetrievalNodeRuntimeDefinition },
@@ -289,11 +296,8 @@ export const knowledgeRetrievalNodeEditor = {
             ? { scopes: (data as unknown as { scopes?: unknown }).scopes }
             : undefined)
       ),
-      top_k: typeof data.top_k === 'number' && data.top_k > 0 ? Math.floor(data.top_k) : 5,
-      ef:
-        typeof data.ef === 'number' && Number.isFinite(data.ef) && data.ef > 0
-          ? Math.floor(data.ef)
-          : null,
+      top_k: normalizedTopK,
+      ef: normalizedEf,
       rerank_enabled: Boolean(data.rerank_enabled),
       rerank_model_id:
         typeof data.rerank_model_id === 'string' && data.rerank_model_id.trim()

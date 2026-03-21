@@ -225,7 +225,11 @@ export class KnowledgeRetrievalNode extends BaseNode {
     }
 
     return {
-      modelId: nodeData.rerank_model_id,
+      modelId:
+        typeof nodeData.rerank_model_id === 'string' && nodeData.rerank_model_id.trim()
+          ? nodeData.rerank_model_id.trim()
+          : null,
+      // 中文注释：topN 允许小于 top_k，语义是“先召回更多候选，再仅保留重排后的前 N 条”。
       topN: this.normalizeOptionalPositiveInteger(nodeData.rerank_top_n)
     }
   }

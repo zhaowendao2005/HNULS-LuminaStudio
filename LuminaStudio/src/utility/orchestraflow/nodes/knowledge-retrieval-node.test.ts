@@ -44,7 +44,7 @@ function createNode(overrides: Record<string, unknown> = {}): OFNode {
       output: { variables: [] },
       ...overrides
     }
-  } as OFNode
+  } as unknown as OFNode
 }
 
 function createContext(node: OFNode, variableStore: VariableStore): ExecutionContext {
@@ -167,5 +167,51 @@ describe('KnowledgeRetrievalNode', () => {
       partial_failure: false,
       items: [{ id: 'hit-1' }]
     })
+  })
+
+  it('启用 rerank 时允许 topN 小于 top_k 并原样透传', async () => {
+    const port = new MockParentPort()
+    Object.defineProperty(process, 'parentPort', {
+      value: port,
+      configurable: true
+    })
+
+    const store = new VariableStore()
+    const node = createNode({
+      top_k: 5,
+      rerank_enabled: true,
+      rerank_model_id: 'rerank-model-1',
+      rerank_top_n: 3
+    })
+    const runtimeNode = new KnowledgeRetrievalNode(node, store)
+    const execution = runtimeNode.execute(createContext(node, store))
+
+    const request = port.sentMessages[0] as {
+      requestId: string
+      payload: {
+        rerank?: {
+          modelId?: string | null
+          topN?: number | null
+        }
+      }
+    }
+
+    expect(request.payload.rerank).toEqual({
+      modelId: 'rerank-model-1',
+      topN: 3
+    })
+
+    port.emit({
+      type: 'private-rpc:response',
+      requestId: request.requestId,
+      channel: 'knowledge:retrieve',
+      success: true,
+      payload: {
+        query: 'lumina studio',
+        hits: []
+      }
+    })
+
+    await execution
   })
 })

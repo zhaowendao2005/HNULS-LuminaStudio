@@ -25,7 +25,8 @@ function createDefaultConfig(): KnowledgeRetrievalNodeConfigDTO {
     ef: null,
     rerank_enabled: false,
     rerank_model_id: null,
-    rerank_top_n: 3
+    // 中文注释：默认值和 editor 保持一致，避免编译阶段重新引入非法的 topN < k 组合。
+    rerank_top_n: 5
   }
 }
 
@@ -233,19 +234,21 @@ export const knowledgeRetrievalNodeCompiler = {
     const legacyScopes = Array.isArray((node.config as { scopes?: unknown } | undefined)?.scopes)
       ? ((node.config as { scopes?: KnowledgeRetrievalScopeInput[] }).scopes ?? [])
       : []
+    const normalizedTopK =
+      typeof config.top_k === 'number' && Number.isFinite(config.top_k) && config.top_k > 0
+        ? Math.floor(config.top_k)
+        : defaultConfig.top_k
+    const normalizedEf =
+      typeof config.ef === 'number' && Number.isFinite(config.ef) && config.ef > 0
+        ? Math.floor(config.ef)
+        : defaultConfig.ef
     const mergedConfig = {
       ...defaultConfig,
       ...config,
       query_template: normalizePromptItems(config.query_template),
       permission_tree: normalizePermissionTree(config.permission_tree, legacyScopes),
-      top_k:
-        typeof config.top_k === 'number' && Number.isFinite(config.top_k) && config.top_k > 0
-          ? Math.floor(config.top_k)
-          : defaultConfig.top_k,
-      ef:
-        typeof config.ef === 'number' && Number.isFinite(config.ef) && config.ef > 0
-          ? Math.floor(config.ef)
-          : defaultConfig.ef,
+      top_k: normalizedTopK,
+      ef: normalizedEf,
       rerank_enabled: Boolean(config.rerank_enabled),
       rerank_model_id:
         typeof config.rerank_model_id === 'string' && config.rerank_model_id.trim()

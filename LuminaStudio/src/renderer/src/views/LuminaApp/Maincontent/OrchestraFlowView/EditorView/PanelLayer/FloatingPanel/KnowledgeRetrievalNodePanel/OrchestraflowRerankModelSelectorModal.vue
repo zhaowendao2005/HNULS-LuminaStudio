@@ -1,5 +1,8 @@
 <template>
-  <div v-if="visible" class="of-kr-rerank-selector fixed inset-0 z-[70] flex items-center justify-center p-4">
+  <div
+    v-if="visible"
+    class="of-kr-rerank-selector fixed inset-0 z-[70] flex items-center justify-center p-4"
+  >
     <div
       class="absolute inset-0 bg-black/20 backdrop-blur-sm"
       style="animation: fadeIn 0.2s ease-out"
@@ -57,14 +60,23 @@
 
         <div v-else-if="errorMessage" class="py-8 text-center text-red-500">
           <p class="text-sm">{{ errorMessage }}</p>
-          <button class="mt-2 text-xs text-blue-600 hover:underline" @click="loadRerankModels(true)">
+          <button
+            class="mt-2 text-xs text-blue-600 hover:underline"
+            @click="loadRerankModels(true)"
+          >
             重试
           </button>
         </div>
 
         <template v-else-if="Object.keys(filteredGroups).length > 0">
-          <div v-for="(groupModels, groupName) in filteredGroups" :key="groupName" class="mb-2 last:mb-0">
-            <div class="flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+          <div
+            v-for="(groupModels, groupName) in filteredGroups"
+            :key="groupName"
+            class="mb-2 last:mb-0"
+          >
+            <div
+              class="flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400"
+            >
               <span>{{ groupName }}</span>
               <span class="h-px flex-1 bg-slate-100"></span>
             </div>
@@ -219,4 +231,3 @@ watch(
   }
 )
 </script>
-

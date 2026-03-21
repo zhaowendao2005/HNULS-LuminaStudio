@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { collectKnowledgeBaseIdsFromPermissionTree, resolveKnowledgeRetrievalScopes } from './permissions'
+import {
+  collectKnowledgeBaseIdsFromPermissionTree,
+  resolveKnowledgeRetrievalScopes
+} from './permissions'
 import type { DocumentInfo } from '@shared/knowledge-database-api.types'
 
 const documents: DocumentInfo[] = [

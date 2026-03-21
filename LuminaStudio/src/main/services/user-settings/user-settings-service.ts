@@ -210,7 +210,7 @@ export class UserSettingsService {
       const data = JSON.stringify(this.settings, null, 2)
       this.db
         .prepare(
-          'INSERT OR REPLACE INTO app_settings (key, value, updated_at) VALUES (?, ?, datetime(\'now\'))'
+          "INSERT OR REPLACE INTO app_settings (key, value, updated_at) VALUES (?, ?, datetime('now'))"
         )
         .run(UserSettingsService.SETTINGS_KEY, data)
       log.debug('Settings saved', { key: UserSettingsService.SETTINGS_KEY })

@@ -279,9 +279,7 @@ function collectLegacyKnowledgeBaseSelection(
  * 3. 新结构 knowledgeBases / knowledge_base_rules
  * 4. 旧 providers 树
  */
-export function collectKnowledgeBaseIdsFromPermissionTree(
-  permissionTree?: unknown
-): number[] {
+export function collectKnowledgeBaseIdsFromPermissionTree(permissionTree?: unknown): number[] {
   if (!permissionTree || typeof permissionTree !== 'object') {
     return []
   }

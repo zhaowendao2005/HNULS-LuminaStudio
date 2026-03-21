@@ -1,7 +1,15 @@
 import type { KnowledgeDatabaseBridgeService } from '@main/services/knowledge-database-bridge'
 import { createKnowledgeRetrievalError, normalizeKnowledgeRetrievalError } from './errors'
-import { executeKnowledgeRetrievalSearch, normalizeRetrievalExecutionParams } from './executor'
-import { collectKnowledgeBaseIdsFromPermissionTree, resolveKnowledgeRetrievalScopes } from './permissions'
+import {
+  executeKnowledgeRetrievalSearch,
+  limitKnowledgeRetrievalHits,
+  normalizeRetrievalExecutionParams,
+  sortKnowledgeRetrievalHits
+} from './executor'
+import {
+  collectKnowledgeBaseIdsFromPermissionTree,
+  resolveKnowledgeRetrievalScopes
+} from './permissions'
 import type {
   KnowledgeRetrievalResolveScopesRequest,
   KnowledgeRetrievalResolveScopesResultDto,
@@ -108,7 +116,18 @@ export class KnowledgeRetrievalService {
       abortSignal: request.abortSignal
     })
 
-    const hits = scopeResults.flatMap((scopeResultItem) => scopeResultItem.hits)
+    const sortedHits = sortKnowledgeRetrievalHits(
+      scopeResults.flatMap((scopeResultItem) => scopeResultItem.hits),
+      {
+        useRerank: Boolean(executionParams.rerankModelId)
+      }
+    )
+    const limitedResults = limitKnowledgeRetrievalHits({
+      hits: sortedHits,
+      scopeResults,
+      useRerank: Boolean(executionParams.rerankModelId),
+      rerankTopN: executionParams.rerankTopN
+    })
     const errors = scopeResults.flatMap((scopeResultItem) =>
       scopeResultItem.error ? [scopeResultItem.error] : []
     )
@@ -122,8 +141,8 @@ export class KnowledgeRetrievalService {
       rerankModelId: executionParams.rerankModelId,
       rerankTopN: executionParams.rerankTopN,
       resolvedScopes: scopeResult.resolvedScopes,
-      scopeResults,
-      hits,
+      scopeResults: limitedResults.scopeResults,
+      hits: limitedResults.hits,
       warnings: scopeResult.warnings,
       errors
     }

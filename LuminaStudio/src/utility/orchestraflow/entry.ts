@@ -167,6 +167,12 @@ parentPort.on('message', async (event: { data: MainToOFMessage }) => {
         break
       }
 
+      case 'private-rpc:response': {
+        // 中文注释：真正等待 RPC 响应的是各个节点自己挂到 parentPort 上的监听器，
+        // entry 这里只需要识别该消息并跳过，避免把合法响应误报成 Unknown message type。
+        break
+      }
+
       default: {
         const unknownType = (msg as any)?.type
         log.warn('Unknown message type', { type: unknownType })

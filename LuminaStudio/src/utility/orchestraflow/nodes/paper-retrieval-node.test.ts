@@ -36,11 +36,18 @@ function createNode(overrides: Record<string, unknown> = {}): OFNode {
       type: 'paper-retrieval',
       title: 'Paper Retrieval',
       desc: '',
-      provider: 'pubmed',
+      query_template: [],
+      provider_id: 'pubmed',
+      api_key_ref_id: null,
+      top_k: 5,
+      sort_by: 'relevance',
+      date_from: null,
+      date_to: null,
+      provider_options: {},
       output: { variables: [] },
       ...overrides
     }
-  } as OFNode
+  } as unknown as OFNode
 }
 
 function createContext(node: OFNode, variableStore: VariableStore): ExecutionContext {
@@ -82,26 +89,32 @@ describe('PaperRetrievalNode', () => {
       type: string
       requestId: string
       channel: string
-      payload: Record<string, unknown>
+      payload: {
+        provider_id?: string
+        provider_options?: {
+          query?: string
+        }
+      }
     }
 
     expect(request.type).toBe('private-rpc:request')
     expect(request.channel).toBe('paper:retrieve')
-    expect(request.payload.query).toBe('cancer biomarkers')
-    expect(request.payload.provider).toBe('pubmed')
+    expect(request.payload.provider_id).toBe('pubmed')
+    expect(request.payload.provider_options?.query).toBe('cancer biomarkers')
 
     port.emit({
       type: 'private-rpc:response',
       requestId: request.requestId,
+      channel: 'paper:retrieve',
       success: true,
       payload: {
         query: 'cancer biomarkers',
-        provider: 'pubmed',
+        provider_id: 'pubmed',
         total_found: 18,
-        returned_count: 5,
         items: [{ uid: '1' }, { uid: '2' }],
-        latency_ms: 123,
-        result: 'paper-result'
+        meta: {
+          latency_ms: 123
+        }
       }
     })
 
@@ -112,10 +125,17 @@ describe('PaperRetrievalNode', () => {
       query: 'cancer biomarkers',
       provider: 'pubmed',
       total_found: 18,
-      returned_count: 5,
+      returned_count: 2,
       items: [{ uid: '1' }, { uid: '2' }],
       latency_ms: 123,
-      result: 'paper-result'
+      result: {
+        query: 'cancer biomarkers',
+        provider: 'pubmed',
+        total_found: 18,
+        returned_count: 2,
+        items: [{ uid: '1' }, { uid: '2' }],
+        latency_ms: 123
+      }
     })
     expect(store.get('provider')).toBe('pubmed')
     expect(store.get('latency_ms')).toBe(123)
@@ -129,7 +149,7 @@ describe('PaperRetrievalNode', () => {
     })
 
     const store = new VariableStore()
-    const node = createNode({ provider: 'semantic-scholar' })
+    const node = createNode({ provider_id: 'semantic-scholar' })
     const context = createContext(node, store)
     context.inputs = {
       query: 'graph neural networks'
@@ -142,9 +162,10 @@ describe('PaperRetrievalNode', () => {
     port.emit({
       type: 'private-rpc:response',
       requestId: request.requestId,
+      channel: 'paper:retrieve',
       success: true,
       payload: {
-        provider: 'semantic-scholar',
+        provider_id: 'semantic-scholar',
         items: [{ uid: 'a' }, { uid: 'b' }]
       }
     })
@@ -157,6 +178,13 @@ describe('PaperRetrievalNode', () => {
     expect(result.outputs.total_found).toBe(2)
     expect(result.outputs.returned_count).toBe(2)
     expect(result.outputs.latency_ms).toBe(0)
-    expect(typeof result.outputs.result).toBe('string')
+    expect(result.outputs.result).toEqual({
+      query: 'graph neural networks',
+      provider: 'semantic-scholar',
+      total_found: 2,
+      returned_count: 2,
+      items: [{ uid: 'a' }, { uid: 'b' }],
+      latency_ms: 0
+    })
   })
 })

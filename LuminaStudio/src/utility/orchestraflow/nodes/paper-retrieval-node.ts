@@ -67,7 +67,10 @@ export class PaperRetrievalNode extends BaseNode {
         }
       })
 
-      const normalized = this.normalizeResponse(payload, { query, provider: nodeData.provider_id })
+      const normalized = this.normalizeResponse(payload as PaperRetrievalSearchResult, {
+        query,
+        provider: nodeData.provider_id
+      })
       this.persistOutputs(normalized)
 
       return {

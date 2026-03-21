@@ -3,7 +3,14 @@ import type { OFNodeAuthoringTomlDefinition } from '../../node-definition'
 export const knowledgeRetrievalNodeTomlDefinition: OFNodeAuthoringTomlDefinition = {
   sectionTemplate: '[[nodes]]',
   requiredFields: ['id', 'type', 'title', 'query', 'scopes'],
-  optionalFields: ['description', 'provider', 'top_k', 'rerank_top_n', 'include_metadata'],
+  optionalFields: [
+    'description',
+    'provider',
+    'top_k',
+    'rerank_model_id',
+    'rerank_top_n',
+    'include_metadata'
+  ],
   fields: [
     { key: 'id', required: true, summary: '节点唯一 id。', example: 'id = "knowledge_lookup"' },
     {
@@ -33,9 +40,15 @@ export const knowledgeRetrievalNodeTomlDefinition: OFNodeAuthoringTomlDefinition
     },
     { key: 'top_k', required: false, summary: '返回条数上限。', example: 'top_k = 5' },
     {
+      key: 'rerank_model_id',
+      required: false,
+      summary: '可选重排模型 id。启用 rerank 时建议显式填写。',
+      example: 'rerank_model_id = "example-rerank-model"'
+    },
+    {
       key: 'rerank_top_n',
       required: false,
-      summary: '重排保留数量。',
+      summary: '重排后最终保留数量；允许小于 top_k。',
       example: 'rerank_top_n = 3'
     },
     {
@@ -54,6 +67,7 @@ export const knowledgeRetrievalNodeTomlDefinition: OFNodeAuthoringTomlDefinition
       'query = "肝癌免疫治疗最新进展"',
       'provider = "knowledge-base"',
       'top_k = 5',
+      'rerank_model_id = "example-rerank-model"',
       'rerank_top_n = 3',
       'include_metadata = true',
       'scopes = [{ scope_id = "kb_liver", knowledge_base_id = 1, table_name = "chunks" }]'
