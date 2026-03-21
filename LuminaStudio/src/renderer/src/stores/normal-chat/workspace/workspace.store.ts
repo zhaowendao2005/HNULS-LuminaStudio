@@ -1,11 +1,12 @@
 import { defineStore } from 'pinia'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type {
   NormalChatAgentTemplate,
   NormalChatAssistant,
-  NormalChatTopic,
   NormalChatWorkspaceSnapshot
 } from '@preload/types'
+import { useModelConfigStore } from '../../model-config/store'
+import type { Model, ModelProvider } from '../../model-config/types'
 import {
   NormalChatWorkspaceDatasource,
   type NormalChatWorkspaceDatasourceLike
@@ -27,7 +28,19 @@ export interface AssistantGroupItem {
   assistants: NormalChatAssistant[]
 }
 
-export const NORMAL_CHAT_SETTINGS_NAV_ITEMS: AssistantSettingsNavItem[] = [
+interface TopicModelSelection {
+  providerId: string
+  modelId: string
+}
+
+interface ResolvedTopicModelSelection {
+  provider: ModelProvider
+  model: Model
+}
+
+type TopicModelSelectionMap = Record<string, TopicModelSelection>
+
+const NORMAL_CHAT_SETTINGS_NAV_ITEMS: AssistantSettingsNavItem[] = [
   { id: 'model', label: '模型设置' },
   { id: 'prompt', label: '提示词设置' },
   { id: 'kb', label: '知识库设置' },
@@ -35,6 +48,8 @@ export const NORMAL_CHAT_SETTINGS_NAV_ITEMS: AssistantSettingsNavItem[] = [
   { id: 'phrases', label: '常用短语' },
   { id: 'memory', label: '全局记忆' }
 ]
+
+const MODEL_SELECTION_STORAGE_KEY = 'normal-chat:model-selection:v1'
 
 function createEmptyWorkspaceSnapshot(): NormalChatWorkspaceSnapshot {
   return {
@@ -65,6 +80,92 @@ export function resolveEffectiveSystemPrompt(
   return assistant.defaultSystemPrompt
 }
 
+function getTopicModelSelectionKey(assistantId: string, topicId: string): string {
+  return `${assistantId}::${topicId}`
+}
+
+function readModelSelectionMap(): TopicModelSelectionMap {
+  if (typeof localStorage === 'undefined') {
+    return {}
+  }
+
+  try {
+    const raw = localStorage.getItem(MODEL_SELECTION_STORAGE_KEY)
+    if (!raw) {
+      return {}
+    }
+
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return {}
+    }
+
+    const result: TopicModelSelectionMap = {}
+    Object.entries(parsed).forEach(([key, value]) => {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        return
+      }
+
+      const nextValue = value as { providerId?: unknown; modelId?: unknown }
+      if (typeof nextValue.providerId !== 'string' || typeof nextValue.modelId !== 'string') {
+        return
+      }
+
+      result[key] = {
+        providerId: nextValue.providerId,
+        modelId: nextValue.modelId
+      }
+    })
+    return result
+  } catch {
+    return {}
+  }
+}
+
+function persistModelSelectionMap(map: TopicModelSelectionMap): void {
+  if (typeof localStorage === 'undefined') {
+    return
+  }
+
+  try {
+    localStorage.setItem(MODEL_SELECTION_STORAGE_KEY, JSON.stringify(map))
+  } catch {
+    // 本地存储不可用时不阻塞 Normal Chat。
+  }
+}
+
+function resolveModelSelection(
+  providers: ModelProvider[],
+  selection: TopicModelSelection | undefined
+): ResolvedTopicModelSelection | null {
+  if (!selection) {
+    return null
+  }
+
+  const provider = providers.find((item) => item.id === selection.providerId)
+  if (!provider) {
+    return null
+  }
+
+  const model = provider.models.find((item) => item.id === selection.modelId)
+  if (!model) {
+    return null
+  }
+
+  return {
+    provider,
+    model
+  }
+}
+
+function buildModelLabel(selection: ResolvedTopicModelSelection | null): string {
+  if (!selection) {
+    return '未选择模型'
+  }
+
+  return `${selection.model.name || selection.model.id} · ${selection.model.id}`
+}
+
 let datasource: NormalChatWorkspaceDatasourceLike = NormalChatWorkspaceDatasource
 
 export function setNormalChatWorkspaceDatasourceForTesting(
@@ -82,15 +183,19 @@ export function resetNormalChatWorkspaceDatasourceForTesting(): void {
  * 说明：
  * - 助手、话题、prompt 归属和 active 状态统一放这里
  * - 组件只消费 selector 和派发动作，不再各自维护业务 ref
+ * - 当前话题的模型选择放在这里做本地持久化和后端校准
  */
 export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', () => {
+  const modelConfigStore = useModelConfigStore()
   const initialized = ref(false)
   const templates = ref<NormalChatAgentTemplate[]>([])
   const snapshot = ref<NormalChatWorkspaceSnapshot>(createEmptyWorkspaceSnapshot())
+  const modelSelectionMap = ref<TopicModelSelectionMap>({})
 
   const createAssistantDialogOpen = ref(false)
   const selectedTemplateKey = ref('')
   const assistantSettingsOpen = ref(false)
+  const modelSelectorOpen = ref(false)
   const activeSettingsTab = ref<AssistantSettingsTab>('prompt')
   const promptEditorScope = ref<PromptEditorScope>('assistant')
 
@@ -125,6 +230,31 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
       templates.value.find((template) => template.key === currentAssistant.value?.templateKey) ??
       null
     )
+  })
+
+  const currentConversationLabel = computed(() => {
+    return `${currentAssistant.value?.name ?? '未选择助手'}--${currentTopic.value?.title ?? '未选择话题'}`
+  })
+
+  const currentTopicModelSelection = computed<ResolvedTopicModelSelection | null>(() => {
+    if (!currentAssistant.value || !currentTopic.value) {
+      return null
+    }
+
+    const topicKey = getTopicModelSelectionKey(currentAssistant.value.id, currentTopic.value.id)
+    return resolveModelSelection(modelConfigStore.providers, modelSelectionMap.value[topicKey])
+  })
+
+  const currentTopicModelProviderId = computed(() => {
+    return currentTopicModelSelection.value?.provider.id ?? null
+  })
+
+  const currentTopicModelId = computed(() => {
+    return currentTopicModelSelection.value?.model.id ?? null
+  })
+
+  const currentTopicModelLabel = computed(() => {
+    return buildModelLabel(currentTopicModelSelection.value)
   })
 
   const effectiveSystemPrompt = computed(() => {
@@ -182,9 +312,65 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
     )
   })
 
+  function syncCurrentTopicModelSelection(): void {
+    if (!currentAssistant.value || !currentTopic.value) {
+      return
+    }
+
+    const topicKey = getTopicModelSelectionKey(currentAssistant.value.id, currentTopic.value.id)
+    const storedSelection = modelSelectionMap.value[topicKey]
+    const resolvedSelection = resolveModelSelection(modelConfigStore.providers, storedSelection)
+
+    if (resolvedSelection) {
+      if (
+        storedSelection?.providerId !== resolvedSelection.provider.id ||
+        storedSelection?.modelId !== resolvedSelection.model.id
+      ) {
+        modelSelectionMap.value = {
+          ...modelSelectionMap.value,
+          [topicKey]: {
+            providerId: resolvedSelection.provider.id,
+            modelId: resolvedSelection.model.id
+          }
+        }
+        persistModelSelectionMap(modelSelectionMap.value)
+      }
+      return
+    }
+
+    const fallbackProvider =
+      modelConfigStore.selectedProvider?.models.length &&
+      modelConfigStore.selectedProvider.models.length > 0
+        ? modelConfigStore.selectedProvider
+        : (modelConfigStore.providers.find((provider) => provider.models.length > 0) ?? null)
+    const fallbackModel = fallbackProvider?.models[0] ?? null
+    if (!fallbackProvider || !fallbackModel) {
+      return
+    }
+
+    const nextSelection = {
+      providerId: fallbackProvider.id,
+      modelId: fallbackModel.id
+    }
+
+    if (
+      storedSelection?.providerId === nextSelection.providerId &&
+      storedSelection?.modelId === nextSelection.modelId
+    ) {
+      return
+    }
+
+    modelSelectionMap.value = {
+      ...modelSelectionMap.value,
+      [topicKey]: nextSelection
+    }
+    persistModelSelectionMap(modelSelectionMap.value)
+  }
+
   function applyWorkspaceSnapshot(nextSnapshot: NormalChatWorkspaceSnapshot): void {
     snapshot.value = nextSnapshot
     syncPromptDraftsFromSelection()
+    syncCurrentTopicModelSelection()
   }
 
   function syncPromptDraftsFromSelection(): void {
@@ -200,9 +386,18 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
     const bootstrap = await datasource.getBootstrap()
     templates.value = bootstrap.templates
     snapshot.value = bootstrap.workspace
+    modelSelectionMap.value = readModelSelectionMap()
+
+    try {
+      await modelConfigStore.fetchProviders()
+    } catch {
+      // 模型配置后端暂时不可用时，Normal Chat 先按本地状态继续运行。
+    }
+
     initialized.value = true
     selectedTemplateKey.value = bootstrap.templates[0]?.key ?? ''
     syncPromptDraftsFromSelection()
+    syncCurrentTopicModelSelection()
   }
 
   function openCreateAssistantDialog(): void {
@@ -238,6 +433,39 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
     promptEditorScope.value = scope
     assistantSettingsOpen.value = true
     syncPromptDraftsFromSelection()
+  }
+
+  function openModelSelector(): void {
+    syncCurrentTopicModelSelection()
+    modelSelectorOpen.value = true
+  }
+
+  function closeModelSelector(): void {
+    modelSelectorOpen.value = false
+  }
+
+  function selectCurrentTopicModel(providerId: string, modelId: string): void {
+    if (!currentAssistant.value || !currentTopic.value) {
+      return
+    }
+
+    const resolvedSelection = resolveModelSelection(modelConfigStore.providers, {
+      providerId,
+      modelId
+    })
+    if (!resolvedSelection) {
+      return
+    }
+
+    const topicKey = getTopicModelSelectionKey(currentAssistant.value.id, currentTopic.value.id)
+    modelSelectionMap.value = {
+      ...modelSelectionMap.value,
+      [topicKey]: {
+        providerId: resolvedSelection.provider.id,
+        modelId: resolvedSelection.model.id
+      }
+    }
+    persistModelSelectionMap(modelSelectionMap.value)
   }
 
   async function openAssistantSettingsForAssistant(
@@ -412,6 +640,18 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
     cancelTopicRename()
   }
 
+  watch(
+    () => modelConfigStore.providers,
+    () => {
+      if (!initialized.value) {
+        return
+      }
+
+      syncCurrentTopicModelSelection()
+    },
+    { deep: true }
+  )
+
   return {
     initialized,
     templates,
@@ -419,6 +659,7 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
     createAssistantDialogOpen,
     selectedTemplateKey,
     assistantSettingsOpen,
+    modelSelectorOpen,
     activeSettingsTab,
     promptEditorScope,
     assistantNameDraft,
@@ -430,6 +671,11 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
     currentTopics,
     currentTopic,
     currentAssistantTemplate,
+    currentConversationLabel,
+    currentTopicModelSelection,
+    currentTopicModelProviderId,
+    currentTopicModelId,
+    currentTopicModelLabel,
     effectiveSystemPrompt,
     currentTopicUsesAssistantPrompt,
     promptEditorIsInherited,
@@ -442,6 +688,9 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
     setSelectedTemplateKey,
     confirmCreateAssistant,
     openAssistantSettings,
+    openModelSelector,
+    closeModelSelector,
+    selectCurrentTopicModel,
     openAssistantSettingsForAssistant,
     openTopicPromptEditor,
     closeAssistantSettings,
