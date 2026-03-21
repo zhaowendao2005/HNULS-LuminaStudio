@@ -20,10 +20,11 @@ import type {
 /**
  * OrchestraFlow knowledge-retrieval 节点的主进程服务。
  *
- * 这里只做三件事：
- * 1. 从知识库桥接层拉取文档与 embeddings 真相。
+ * 当前版本的职责拆分为：
+ * 1. 从知识库 REST client 拉取文档与 embeddings 真相。
  * 2. 按 permission tree 解析出最终 scope。
- * 3. 用标准 DTO 执行并返回检索结果。
+ * 3. 按真实 `/api/v1/retrieval/search` 契约执行检索。
+ * 4. 把上游结果稳定映射成节点消费 DTO。
  */
 export class KnowledgeRetrievalService {
   constructor(private readonly knowledgeDatabaseBridge: KnowledgeDatabaseBridgeService) {}
@@ -66,8 +67,6 @@ export class KnowledgeRetrievalService {
 
   /**
    * 主检索入口。
-   *
-   * 后续 private RPC 只需要透传这个方法的入参与返回值即可。
    */
   async search(
     request: KnowledgeRetrievalSearchRequest
@@ -75,8 +74,8 @@ export class KnowledgeRetrievalService {
     if (!request.query?.trim()) {
       throw createKnowledgeRetrievalError('INVALID_REQUEST', 'query 不能为空')
     }
-    const knowledgeBaseIds = this.resolveTargetKnowledgeBaseIds(request)
 
+    const knowledgeBaseIds = this.resolveTargetKnowledgeBaseIds(request)
     const scopeResult = await this.resolveScopes({
       knowledgeBaseIds,
       permissionTree: request.permissionTree
@@ -106,14 +105,13 @@ export class KnowledgeRetrievalService {
     }
 
     const scopeResults = await executeKnowledgeRetrievalSearch({
-      apiBaseUrl: this.knowledgeDatabaseBridge.getBaseUrl(),
+      bridge: this.knowledgeDatabaseBridge,
       query: request.query,
       scopes: scopeResult.resolvedScopes,
       k: executionParams.k,
       ef: executionParams.ef,
       rerankModelId: executionParams.rerankModelId,
-      rerankTopN: executionParams.rerankTopN,
-      abortSignal: request.abortSignal
+      rerankTopN: executionParams.rerankTopN
     })
 
     const sortedHits = sortKnowledgeRetrievalHits(

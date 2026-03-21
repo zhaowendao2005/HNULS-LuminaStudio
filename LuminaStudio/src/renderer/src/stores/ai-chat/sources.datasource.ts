@@ -49,6 +49,23 @@ function mapEmbeddingConfig(
   }
 }
 
+function normalizeDocumentEmbeddings(document: DocumentInfo): DocumentEmbeddingItem[] {
+  const rawEmbeddings = (document as DocumentInfo & { embeddings?: unknown }).embeddings
+
+  if (Array.isArray(rawEmbeddings)) {
+    return rawEmbeddings.filter((item): item is DocumentEmbeddingItem =>
+      Boolean(item && typeof item === 'object')
+    )
+  }
+
+  // 中文注释：正常服务端一定返回数组，这里的单对象兜底只是为了避免异常数据把文档面板直接打崩。
+  if (rawEmbeddings && typeof rawEmbeddings === 'object') {
+    return [rawEmbeddings as DocumentEmbeddingItem]
+  }
+
+  return []
+}
+
 /**
  * 计算推荐的默认嵌入配置（用于 UI 默认展示顺序/标记，不会自动选中）
  * 优先级：completed > dimensions 大 > updatedAt 新
@@ -93,8 +110,9 @@ function computeStatusSummary(embeddings: EmbeddingConfigStatus[]): DocumentStat
  * 映射外部 API 文档到 UI 文档模型
  */
 function mapDocument(doc: DocumentInfo): SourceDocument {
-  const defaultEmbedding = determineDefaultEmbedding(doc.embeddings)
-  const embeddings = doc.embeddings
+  const normalizedEmbeddings = normalizeDocumentEmbeddings(doc)
+  const defaultEmbedding = determineDefaultEmbedding(normalizedEmbeddings)
+  const embeddings = normalizedEmbeddings
     .map((item) =>
       mapEmbeddingConfig(
         item,

@@ -1,21 +1,12 @@
-import type { ExternalApiResponse } from '@shared/knowledge-database-api.types'
-import { createKnowledgeRetrievalError, normalizeKnowledgeRetrievalError } from './errors'
+import type { ExternalApiResponse, RetrievalHit } from '@shared/knowledge-database-api.types'
+import type { KnowledgeDatabaseBridgeService } from '@main/services/knowledge-database-bridge'
+import { createKnowledgeRetrievalError } from './errors'
 import type {
   KnowledgeRetrievalErrorDto,
   KnowledgeRetrievalHitDto,
   KnowledgeRetrievalResolvedScopeDto,
   KnowledgeRetrievalScopeResultDto
 } from './types'
-
-interface UpstreamRetrievalHit {
-  id: string
-  content: string
-  chunk_index?: number
-  file_key?: string
-  file_name?: string
-  distance?: number
-  rerank_score?: number
-}
 
 interface KnowledgeRetrievalScopeGroup {
   knowledgeBaseId: number
@@ -99,6 +90,40 @@ function compareNullableNumberDesc(left?: number, right?: number): number {
   return right - left
 }
 
+function isNoRecallResultsResponse(response: ExternalApiResponse<unknown>): boolean {
+  return (
+    !response.success &&
+    response.error.code === 'RETRIEVAL_FAILED' &&
+    /no recall results/i.test(response.error.message || '')
+  )
+}
+
+function mapUpstreamErrorToRetrievalError(
+  response: ExternalApiResponse<unknown>,
+  details?: Record<string, unknown>
+): KnowledgeRetrievalErrorDto {
+  if (response.success) {
+    return createKnowledgeRetrievalError(
+      'UPSTREAM_RESPONSE_INVALID',
+      '知识检索接口返回了无效响应',
+      details
+    )
+  }
+
+  const code =
+    response.error.code === 'NETWORK_ERROR' || response.error.code === 'TIMEOUT'
+      ? 'NETWORK_ERROR'
+      : response.error.code === 'INVALID_RESPONSE'
+        ? 'UPSTREAM_RESPONSE_INVALID'
+        : 'UPSTREAM_HTTP_ERROR'
+
+  return createKnowledgeRetrievalError(code, response.error.message || '知识检索接口请求失败', {
+    ...details,
+    upstreamCode: response.error.code,
+    upstreamDetails: response.error.details
+  })
+}
+
 export function sortKnowledgeRetrievalHits(
   hits: KnowledgeRetrievalHitDto[],
   params: {
@@ -175,7 +200,7 @@ function buildScopeErrorResults(
 
 function buildScopeResultsFromHits(params: {
   group: KnowledgeRetrievalScopeGroup
-  hits: UpstreamRetrievalHit[]
+  hits: RetrievalHit[]
 }): KnowledgeRetrievalScopeResultDto[] {
   const scopeByFileKey = new Map(
     params.group.scopes.map((scope) => [scope.fileKey, scope] as const)
@@ -228,7 +253,9 @@ export function normalizeRetrievalExecutionParams(params: {
   rerankModelId?: string
   rerankTopN?: number
 } {
-  const k = assertPositiveInteger('k', params.k, 3)
+  // 中文注释：这里取 5 是为了与知识检索节点编辑器默认值保持一致，
+  // 避免 node 配置缺失时退回到与 UI 不同的隐藏默认值。
+  const k = assertPositiveInteger('k', params.k, 5)
   const ef = params.ef === undefined ? undefined : assertPositiveInteger('ef', params.ef, params.ef)
   const rerankModelId = params.rerank?.modelId?.trim() || undefined
   const rerankTopN =
@@ -255,105 +282,74 @@ export function normalizeRetrievalExecutionParams(params: {
 }
 
 async function searchScopeGroup(params: {
-  apiBaseUrl: string
+  bridge: KnowledgeDatabaseBridgeService
   query: string
   group: KnowledgeRetrievalScopeGroup
   k: number
   ef?: number
   rerankModelId?: string
   rerankTopN?: number
-  abortSignal?: AbortSignal
 }): Promise<KnowledgeRetrievalScopeResultDto[]> {
-  const url = `${params.apiBaseUrl.replace(/\/$/, '')}/api/v1/retrieval/search`
+  const response = await params.bridge.retrievalSearch({
+    knowledgeBaseId: params.group.knowledgeBaseId,
+    tableName: params.group.tableName,
+    queryText: params.query,
+    // 中文注释：把同知识库 + 同 embedding 表的 fileKey 合并成一次请求，
+    // 让知识库后端可以在同一批候选上完成召回和可选 rerank。
+    fileKeys: params.group.fileKeys,
+    k: params.k,
+    ef: params.ef,
+    rerankModelId: params.rerankModelId,
+    rerankTopN: params.rerankTopN
+  })
 
-  try {
-    const response = await globalThis.fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        knowledgeBaseId: params.group.knowledgeBaseId,
-        tableName: params.group.tableName,
-        queryText: params.query,
-        // 中文注释：把同知识库 + 同 embedding 表的 fileKey 合并成一次请求，让上游可以对整批候选做一次 rerank。
-        fileKeys: params.group.fileKeys,
-        k: params.k,
-        ef: params.ef,
-        rerankModelId: params.rerankModelId,
-        rerankTopN: params.rerankTopN
-      }),
-      signal: params.abortSignal
-    })
-
-    let payload: ExternalApiResponse<UpstreamRetrievalHit[]> | null = null
-    try {
-      payload = (await response.json()) as ExternalApiResponse<UpstreamRetrievalHit[]>
-    } catch {
-      payload = null
+  if (!response.success) {
+    if (isNoRecallResultsResponse(response)) {
+      return buildScopeResultsFromHits({
+        group: params.group,
+        hits: []
+      })
     }
 
-    if (!response.ok || !payload?.success) {
-      const error: KnowledgeRetrievalErrorDto = payload?.success
-        ? createKnowledgeRetrievalError('UPSTREAM_RESPONSE_INVALID', '知识检索接口返回了无效响应', {
-            tableName: params.group.tableName,
-            fileKeys: params.group.fileKeys
-          })
-        : createKnowledgeRetrievalError(
-            payload?.error?.code === 'NETWORK_ERROR' ? 'NETWORK_ERROR' : 'UPSTREAM_HTTP_ERROR',
-            payload?.error?.message || `知识检索接口请求失败: HTTP_${response.status}`,
-            {
-              httpStatus: response.status,
-              fileKeys: params.group.fileKeys,
-              tableName: params.group.tableName,
-              upstreamCode: payload?.success ? undefined : payload?.error.code,
-              upstreamDetails: payload?.success ? undefined : payload?.error.details
-            }
-          )
-
-      return buildScopeErrorResults(params.group.scopes, error)
-    }
-
-    return buildScopeResultsFromHits({
-      group: params.group,
-      hits: payload.data ?? []
-    })
-  } catch (error) {
     return buildScopeErrorResults(
       params.group.scopes,
-      normalizeKnowledgeRetrievalError(error, 'NETWORK_ERROR', {
-        fileKeys: params.group.fileKeys,
-        tableName: params.group.tableName
+      mapUpstreamErrorToRetrievalError(response, {
+        knowledgeBaseId: params.group.knowledgeBaseId,
+        tableName: params.group.tableName,
+        fileKeys: params.group.fileKeys
       })
     )
   }
+
+  return buildScopeResultsFromHits({
+    group: params.group,
+    hits: Array.isArray(response.data) ? response.data : []
+  })
 }
 
 /**
  * 并发执行多个 scope 检索。
  */
 export async function executeKnowledgeRetrievalSearch(params: {
-  apiBaseUrl: string
+  bridge: KnowledgeDatabaseBridgeService
   query: string
   scopes: KnowledgeRetrievalResolvedScopeDto[]
   k: number
   ef?: number
   rerankModelId?: string
   rerankTopN?: number
-  abortSignal?: AbortSignal
 }): Promise<KnowledgeRetrievalScopeResultDto[]> {
   const groupedScopes = groupScopesByRequest(params.scopes)
   const groupedResults = await Promise.all(
     groupedScopes.map(async (group) => {
       return await searchScopeGroup({
-        apiBaseUrl: params.apiBaseUrl,
+        bridge: params.bridge,
         query: params.query,
         group,
         k: params.k,
         ef: params.ef,
         rerankModelId: params.rerankModelId,
-        rerankTopN: params.rerankTopN,
-        abortSignal: params.abortSignal
+        rerankTopN: params.rerankTopN
       })
     })
   )

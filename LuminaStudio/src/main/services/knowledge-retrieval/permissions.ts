@@ -1,4 +1,4 @@
-import type { DocumentInfo } from '@shared/knowledge-database-api.types'
+import type { DocumentEmbeddingItem, DocumentInfo } from '@shared/knowledge-database-api.types'
 import type {
   KnowledgeRetrievalDocumentRule,
   KnowledgeRetrievalDocumentEmbeddingContext,
@@ -9,6 +9,23 @@ import type {
   KnowledgeRetrievalResolvedScopeDto,
   KnowledgeRetrievalWarningDto
 } from './types'
+
+function normalizeDocumentEmbeddings(document: DocumentInfo): DocumentEmbeddingItem[] {
+  const rawEmbeddings = (document as DocumentInfo & { embeddings?: unknown }).embeddings
+
+  if (Array.isArray(rawEmbeddings)) {
+    return rawEmbeddings.filter((item): item is DocumentEmbeddingItem =>
+      Boolean(item && typeof item === 'object')
+    )
+  }
+
+  // 中文注释：真实 REST 契约是数组，这里的单对象兜底只是为了防止历史数据或异常代理层把数组折叠。
+  if (rawEmbeddings && typeof rawEmbeddings === 'object') {
+    return [rawEmbeddings as DocumentEmbeddingItem]
+  }
+
+  return []
+}
 
 /**
  * 只把已完成的 embedding 暴露给检索执行层。
@@ -22,7 +39,7 @@ function collectCompletedEmbeddings(documents: DocumentInfo[]): {
   const warnings: KnowledgeRetrievalWarningDto[] = []
 
   for (const document of documents) {
-    const completedEmbeddings = document.embeddings.filter(
+    const completedEmbeddings = normalizeDocumentEmbeddings(document).filter(
       (embedding) => embedding.status === 'completed'
     )
 
