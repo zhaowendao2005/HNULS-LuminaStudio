@@ -13,6 +13,9 @@ import type {
 } from '../messages.types'
 import type { PaperRetrievalSearchResult } from '@preload/types'
 
+// 论文检索节点固定走 paper:retrieve 私有 RPC 通道。
+const PAPER_RPC_CHANNEL: OFPrivateRpcChannel = 'paper:retrieve'
+
 interface PrivateRpcPortLike {
   postMessage: (message: unknown) => void
   on: (event: 'message', listener: (event: { data: unknown } | unknown) => void) => void
@@ -64,7 +67,10 @@ export class PaperRetrievalNode extends BaseNode {
         }
       })
 
-      const normalized = this.normalizeResponse(payload, { query, provider: nodeData.provider_id })
+      const normalized = this.normalizeResponse(payload as PaperRetrievalSearchResult, {
+        query,
+        provider: nodeData.provider_id
+      })
       this.persistOutputs(normalized)
 
       return {

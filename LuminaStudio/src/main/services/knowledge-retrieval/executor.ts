@@ -1,5 +1,6 @@
-import type { ExternalApiResponse } from '@shared/knowledge-database-api.types'
-import { createKnowledgeRetrievalError, normalizeKnowledgeRetrievalError } from './errors'
+import type { ExternalApiResponse, RetrievalHit } from '@shared/knowledge-database-api.types'
+import type { KnowledgeDatabaseBridgeService } from '@main/services/knowledge-database-bridge'
+import { createKnowledgeRetrievalError } from './errors'
 import type {
   KnowledgeRetrievalErrorDto,
   KnowledgeRetrievalHitDto,
@@ -7,14 +8,11 @@ import type {
   KnowledgeRetrievalScopeResultDto
 } from './types'
 
-interface UpstreamRetrievalHit {
-  id: string
-  content: string
-  chunk_index?: number
-  file_key?: string
-  file_name?: string
-  distance?: number
-  rerank_score?: number
+interface KnowledgeRetrievalScopeGroup {
+  knowledgeBaseId: number
+  tableName: string
+  fileKeys: string[]
+  scopes: KnowledgeRetrievalResolvedScopeDto[]
 }
 
 function assertPositiveInteger(
@@ -29,6 +27,214 @@ function assertPositiveInteger(
     })
   }
   return finalValue
+}
+
+function buildScopeKey(scope: KnowledgeRetrievalResolvedScopeDto): string {
+  return `${scope.knowledgeBaseId}::${scope.tableName}::${scope.fileKey}`
+}
+
+function buildScopeGroupKey(scope: KnowledgeRetrievalResolvedScopeDto): string {
+  return `${scope.knowledgeBaseId}::${scope.tableName}`
+}
+
+function groupScopesByRequest(
+  scopes: KnowledgeRetrievalResolvedScopeDto[]
+): KnowledgeRetrievalScopeGroup[] {
+  const groups = new Map<string, KnowledgeRetrievalScopeGroup>()
+
+  for (const scope of scopes) {
+    const groupKey = buildScopeGroupKey(scope)
+    const matchedGroup = groups.get(groupKey)
+    if (matchedGroup) {
+      matchedGroup.scopes.push(scope)
+      if (!matchedGroup.fileKeys.includes(scope.fileKey)) {
+        matchedGroup.fileKeys.push(scope.fileKey)
+      }
+      continue
+    }
+
+    groups.set(groupKey, {
+      knowledgeBaseId: scope.knowledgeBaseId,
+      tableName: scope.tableName,
+      fileKeys: [scope.fileKey],
+      scopes: [scope]
+    })
+  }
+
+  return [...groups.values()]
+}
+
+function compareNullableNumberAsc(left?: number, right?: number): number {
+  if (left === undefined && right === undefined) {
+    return 0
+  }
+  if (left === undefined) {
+    return 1
+  }
+  if (right === undefined) {
+    return -1
+  }
+  return left - right
+}
+
+function compareNullableNumberDesc(left?: number, right?: number): number {
+  if (left === undefined && right === undefined) {
+    return 0
+  }
+  if (left === undefined) {
+    return 1
+  }
+  if (right === undefined) {
+    return -1
+  }
+  return right - left
+}
+
+function isNoRecallResultsResponse(response: ExternalApiResponse<unknown>): boolean {
+  return (
+    !response.success &&
+    response.error.code === 'RETRIEVAL_FAILED' &&
+    /no recall results/i.test(response.error.message || '')
+  )
+}
+
+function mapUpstreamErrorToRetrievalError(
+  response: ExternalApiResponse<unknown>,
+  details?: Record<string, unknown>
+): KnowledgeRetrievalErrorDto {
+  if (response.success) {
+    return createKnowledgeRetrievalError(
+      'UPSTREAM_RESPONSE_INVALID',
+      '知识检索接口返回了无效响应',
+      details
+    )
+  }
+
+  const code =
+    response.error.code === 'NETWORK_ERROR' || response.error.code === 'TIMEOUT'
+      ? 'NETWORK_ERROR'
+      : response.error.code === 'INVALID_RESPONSE'
+        ? 'UPSTREAM_RESPONSE_INVALID'
+        : 'UPSTREAM_HTTP_ERROR'
+
+  return createKnowledgeRetrievalError(code, response.error.message || '知识检索接口请求失败', {
+    ...details,
+    upstreamCode: response.error.code,
+    upstreamDetails: response.error.details
+  })
+}
+
+export function sortKnowledgeRetrievalHits(
+  hits: KnowledgeRetrievalHitDto[],
+  params: {
+    useRerank: boolean
+  }
+): KnowledgeRetrievalHitDto[] {
+  return [...hits].sort((left, right) => {
+    if (params.useRerank) {
+      const rerankOrder = compareNullableNumberDesc(left.rerankScore, right.rerankScore)
+      if (rerankOrder !== 0) {
+        return rerankOrder
+      }
+    }
+
+    const distanceOrder = compareNullableNumberAsc(left.distance, right.distance)
+    if (distanceOrder !== 0) {
+      return distanceOrder
+    }
+
+    if (left.scope.knowledgeBaseId !== right.scope.knowledgeBaseId) {
+      return left.scope.knowledgeBaseId - right.scope.knowledgeBaseId
+    }
+    if (left.fileKey !== right.fileKey) {
+      return left.fileKey.localeCompare(right.fileKey)
+    }
+
+    const chunkIndexOrder = compareNullableNumberAsc(left.chunkIndex, right.chunkIndex)
+    if (chunkIndexOrder !== 0) {
+      return chunkIndexOrder
+    }
+
+    return left.id.localeCompare(right.id)
+  })
+}
+
+export function limitKnowledgeRetrievalHits(params: {
+  hits: KnowledgeRetrievalHitDto[]
+  scopeResults: KnowledgeRetrievalScopeResultDto[]
+  useRerank: boolean
+  rerankTopN?: number
+}): {
+  hits: KnowledgeRetrievalHitDto[]
+  scopeResults: KnowledgeRetrievalScopeResultDto[]
+} {
+  if (!params.useRerank || params.rerankTopN === undefined) {
+    return {
+      hits: params.hits,
+      scopeResults: params.scopeResults
+    }
+  }
+
+  const limitedHits = params.hits.slice(0, params.rerankTopN)
+  const allowedHits = new Set(limitedHits)
+
+  return {
+    hits: limitedHits,
+    scopeResults: params.scopeResults.map((scopeResult) => ({
+      ...scopeResult,
+      hits: scopeResult.hits.filter((hit) => allowedHits.has(hit))
+    }))
+  }
+}
+
+function buildScopeErrorResults(
+  scopes: KnowledgeRetrievalResolvedScopeDto[],
+  error: KnowledgeRetrievalErrorDto
+): KnowledgeRetrievalScopeResultDto[] {
+  return scopes.map((scope) => ({
+    scope,
+    hits: [],
+    error
+  }))
+}
+
+function buildScopeResultsFromHits(params: {
+  group: KnowledgeRetrievalScopeGroup
+  hits: RetrievalHit[]
+}): KnowledgeRetrievalScopeResultDto[] {
+  const scopeByFileKey = new Map(
+    params.group.scopes.map((scope) => [scope.fileKey, scope] as const)
+  )
+  const hitsByScopeKey = new Map<string, KnowledgeRetrievalHitDto[]>()
+
+  for (const scope of params.group.scopes) {
+    hitsByScopeKey.set(buildScopeKey(scope), [])
+  }
+
+  for (const hit of params.hits) {
+    const matchedScope =
+      (hit.file_key ? scopeByFileKey.get(hit.file_key) : undefined) ?? params.group.scopes[0]
+
+    // 中文注释：上游偶尔可能不回 file_key，这里退回当前分组的首个 scope，保证结果结构稳定。
+    const normalizedHit: KnowledgeRetrievalHitDto = {
+      id: hit.id,
+      content: hit.content,
+      chunkIndex: hit.chunk_index,
+      fileKey: hit.file_key || matchedScope.fileKey,
+      fileName: hit.file_name || matchedScope.fileName,
+      distance: hit.distance,
+      rerankScore: hit.rerank_score,
+      scope: matchedScope
+    }
+
+    const scopeKey = buildScopeKey(matchedScope)
+    hitsByScopeKey.get(scopeKey)?.push(normalizedHit)
+  }
+
+  return params.group.scopes.map((scope) => ({
+    scope,
+    hits: hitsByScopeKey.get(buildScopeKey(scope)) ?? []
+  }))
 }
 
 /**
@@ -47,7 +253,9 @@ export function normalizeRetrievalExecutionParams(params: {
   rerankModelId?: string
   rerankTopN?: number
 } {
-  const k = assertPositiveInteger('k', params.k, 3)
+  // 中文注释：这里取 5 是为了与知识检索节点编辑器默认值保持一致，
+  // 避免 node 配置缺失时退回到与 UI 不同的隐藏默认值。
+  const k = assertPositiveInteger('k', params.k, 5)
   const ef = params.ef === undefined ? undefined : assertPositiveInteger('ef', params.ef, params.ef)
   const rerankModelId = params.rerank?.modelId?.trim() || undefined
   const rerankTopN =
@@ -65,17 +273,6 @@ export function normalizeRetrievalExecutionParams(params: {
     )
   }
 
-  if (rerankTopN !== undefined && rerankTopN < k) {
-    throw createKnowledgeRetrievalError(
-      'INVALID_RERANK_CONFIG',
-      'rerank.topN 不能小于 k，否则会在重排前截断召回结果',
-      {
-        k,
-        rerankTopN
-      }
-    )
-  }
-
   return {
     k,
     ef,
@@ -84,122 +281,92 @@ export function normalizeRetrievalExecutionParams(params: {
   }
 }
 
-async function searchSingleScope(params: {
-  apiBaseUrl: string
+async function searchScopeGroup(params: {
+  bridge: KnowledgeDatabaseBridgeService
   query: string
-  scope: KnowledgeRetrievalResolvedScopeDto
+  group: KnowledgeRetrievalScopeGroup
   k: number
   ef?: number
   rerankModelId?: string
   rerankTopN?: number
-  abortSignal?: AbortSignal
-}): Promise<KnowledgeRetrievalScopeResultDto> {
-  const url = `${params.apiBaseUrl.replace(/\/$/, '')}/api/v1/retrieval/search`
+}): Promise<KnowledgeRetrievalScopeResultDto[]> {
+  const response = await params.bridge.retrievalSearch({
+    knowledgeBaseId: params.group.knowledgeBaseId,
+    tableName: params.group.tableName,
+    queryText: params.query,
+    // 中文注释：把同知识库 + 同 embedding 表的 fileKey 合并成一次请求，
+    // 让知识库后端可以在同一批候选上完成召回和可选 rerank。
+    fileKeys: params.group.fileKeys,
+    k: params.k,
+    ef: params.ef,
+    rerankModelId: params.rerankModelId,
+    rerankTopN: params.rerankTopN
+  })
 
-  try {
-    const response = await globalThis.fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        knowledgeBaseId: params.scope.knowledgeBaseId,
-        tableName: params.scope.tableName,
-        queryText: params.query,
-        fileKeys: [params.scope.fileKey],
-        k: params.k,
-        ef: params.ef,
-        rerankModelId: params.rerankModelId,
-        rerankTopN: params.rerankTopN
-      }),
-      signal: params.abortSignal
-    })
-
-    let payload: ExternalApiResponse<UpstreamRetrievalHit[]> | null = null
-    try {
-      payload = (await response.json()) as ExternalApiResponse<UpstreamRetrievalHit[]>
-    } catch {
-      payload = null
-    }
-
-    if (!response.ok || !payload?.success) {
-      const error: KnowledgeRetrievalErrorDto = payload?.success
-        ? createKnowledgeRetrievalError('UPSTREAM_RESPONSE_INVALID', '知识检索接口返回了无效响应', {
-            tableName: params.scope.tableName,
-            fileKey: params.scope.fileKey
-          })
-        : createKnowledgeRetrievalError(
-            payload?.error?.code === 'NETWORK_ERROR' ? 'NETWORK_ERROR' : 'UPSTREAM_HTTP_ERROR',
-            payload?.error?.message || `知识检索接口请求失败: HTTP_${response.status}`,
-            {
-              httpStatus: response.status,
-              fileKey: params.scope.fileKey,
-              tableName: params.scope.tableName,
-              upstreamCode: payload?.success ? undefined : payload?.error.code,
-              upstreamDetails: payload?.success ? undefined : payload?.error.details
-            }
-          )
-
-      return {
-        scope: params.scope,
-        hits: [],
-        error
-      }
-    }
-
-    const hits: KnowledgeRetrievalHitDto[] = (payload.data ?? []).map((hit) => ({
-      id: hit.id,
-      content: hit.content,
-      chunkIndex: hit.chunk_index,
-      fileKey: hit.file_key || params.scope.fileKey,
-      fileName: hit.file_name || params.scope.fileName,
-      distance: hit.distance,
-      rerankScore: hit.rerank_score,
-      scope: params.scope
-    }))
-
-    return {
-      scope: params.scope,
-      hits
-    }
-  } catch (error) {
-    return {
-      scope: params.scope,
-      hits: [],
-      error: normalizeKnowledgeRetrievalError(error, 'NETWORK_ERROR', {
-        fileKey: params.scope.fileKey,
-        tableName: params.scope.tableName
+  if (!response.success) {
+    if (isNoRecallResultsResponse(response)) {
+      return buildScopeResultsFromHits({
+        group: params.group,
+        hits: []
       })
     }
+
+    return buildScopeErrorResults(
+      params.group.scopes,
+      mapUpstreamErrorToRetrievalError(response, {
+        knowledgeBaseId: params.group.knowledgeBaseId,
+        tableName: params.group.tableName,
+        fileKeys: params.group.fileKeys
+      })
+    )
   }
+
+  return buildScopeResultsFromHits({
+    group: params.group,
+    hits: Array.isArray(response.data) ? response.data : []
+  })
 }
 
 /**
  * 并发执行多个 scope 检索。
  */
 export async function executeKnowledgeRetrievalSearch(params: {
-  apiBaseUrl: string
+  bridge: KnowledgeDatabaseBridgeService
   query: string
   scopes: KnowledgeRetrievalResolvedScopeDto[]
   k: number
   ef?: number
   rerankModelId?: string
   rerankTopN?: number
-  abortSignal?: AbortSignal
 }): Promise<KnowledgeRetrievalScopeResultDto[]> {
-  return await Promise.all(
-    params.scopes.map(
-      async (scope) =>
-        await searchSingleScope({
-          apiBaseUrl: params.apiBaseUrl,
-          query: params.query,
-          scope,
-          k: params.k,
-          ef: params.ef,
-          rerankModelId: params.rerankModelId,
-          rerankTopN: params.rerankTopN,
-          abortSignal: params.abortSignal
-        })
-    )
+  const groupedScopes = groupScopesByRequest(params.scopes)
+  const groupedResults = await Promise.all(
+    groupedScopes.map(async (group) => {
+      return await searchScopeGroup({
+        bridge: params.bridge,
+        query: params.query,
+        group,
+        k: params.k,
+        ef: params.ef,
+        rerankModelId: params.rerankModelId,
+        rerankTopN: params.rerankTopN
+      })
+    })
   )
+
+  const scopeResultMap = new Map<string, KnowledgeRetrievalScopeResultDto>()
+  for (const results of groupedResults) {
+    for (const result of results) {
+      scopeResultMap.set(buildScopeKey(result.scope), result)
+    }
+  }
+
+  return params.scopes.map((scope) => {
+    return (
+      scopeResultMap.get(buildScopeKey(scope)) ?? {
+        scope,
+        hits: []
+      }
+    )
+  })
 }

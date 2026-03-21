@@ -7,6 +7,7 @@ import { OrchestraflowWorkflowService } from '../services/orchestraflow/orchestr
 import { orchestraflowBridge } from '../services/orchestraflow-bridge'
 import { logger } from '../services/logger'
 import { ModelConfigService } from '../services/model-config'
+import type { OrchestraflowRerankModelService } from '../services/orchestraflow/orchestraflow-rerank-model-service'
 import type { OFNodeTracing, OFNodeDebugRunParams } from '@shared/Orchestraflow-types'
 import type { PersistedModelProviderConfig } from '../services/model-config'
 
@@ -15,7 +16,8 @@ const log = logger.scope('OrchestraflowIPCHandler')
 export class OrchestraflowIPCHandler {
   constructor(
     private readonly service: OrchestraflowWorkflowService,
-    private readonly modelConfigService: ModelConfigService
+    private readonly modelConfigService: ModelConfigService,
+    private readonly orchestraflowRerankModelService: OrchestraflowRerankModelService
   ) {
     this.register()
     this.registerProgressHandler()
@@ -141,6 +143,17 @@ export class OrchestraflowIPCHandler {
         return { success: true }
       } catch (e) {
         log.error('Failed to stop workflow', e)
+        return { success: false, error: String(e) }
+      }
+    })
+
+    // OrchestraFlow 专用：获取重排模型列表
+    ipcMain.handle('orchestraflow:rerank-model-list', async () => {
+      try {
+        const models = await this.orchestraflowRerankModelService.listRerankModels()
+        return { success: true, data: { models } }
+      } catch (e) {
+        log.error('Failed to list orchestraflow rerank models', e)
         return { success: false, error: String(e) }
       }
     })

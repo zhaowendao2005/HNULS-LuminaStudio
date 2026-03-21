@@ -335,13 +335,29 @@ function compileNodeRecord(
   } else if (record.type === 'set') {
     data.rules = compileAssignRules(record.rules)
   } else if (record.type === 'knowledge-retrieval') {
+    const topK =
+      typeof record.top_k === 'number' && Number.isFinite(record.top_k) && record.top_k > 0
+        ? Math.floor(record.top_k)
+        : 5
+    const rerankModelId =
+      typeof record.rerank_model_id === 'string' && record.rerank_model_id.trim()
+        ? record.rerank_model_id.trim()
+        : null
+    const rerankTopN =
+      typeof record.rerank_top_n === 'number' &&
+      Number.isFinite(record.rerank_top_n) &&
+      record.rerank_top_n > 0
+        ? Math.floor(record.rerank_top_n)
+        : topK
+
     data.query_template = toPromptItems(String(record.query || ''))
     data.permission_tree = buildKnowledgePermissionTreeFromAuthoringScopes(record.scopes)
-    data.top_k = Number(record.top_k || 5)
+    data.top_k = topK
     data.ef = null
-    data.rerank_enabled = record.rerank_top_n !== undefined
-    data.rerank_model_id = null
-    data.rerank_top_n = record.rerank_top_n === undefined ? 3 : Number(record.rerank_top_n)
+    // 中文注释：只要显式给了模型或 topN，就认为作者想启用 rerank；同时保留模型 id，不再在编译时清空。
+    data.rerank_enabled = rerankModelId !== null || record.rerank_top_n !== undefined
+    data.rerank_model_id = rerankModelId
+    data.rerank_top_n = rerankTopN
   } else if (record.type === 'paper-retrieval') {
     data.query_template = toPromptItems(String(record.query || ''))
     data.provider_id = String(record.provider || 'pubmed')

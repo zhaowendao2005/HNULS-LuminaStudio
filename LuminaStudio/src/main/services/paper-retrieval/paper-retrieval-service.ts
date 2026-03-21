@@ -222,7 +222,16 @@ export class PaperRetrievalService {
   }
 
   private extractSecretValue(entry: ApiKeyRegistryEntryLike): string | null {
-    const candidateValues = [entry.value, entry.apiKey, entry.secret, entry.token]
+    // 兼容不同历史字段命名：
+    // - 新版 user-settings registry: api_key
+    // - 其他可能来源: value / apiKey / secret / token
+    const candidateValues = [
+      (entry as ApiKeyRegistryEntryLike & { api_key?: unknown }).api_key,
+      entry.value,
+      entry.apiKey,
+      entry.secret,
+      entry.token
+    ]
     for (const candidateValue of candidateValues) {
       if (typeof candidateValue === 'string' && candidateValue.trim()) {
         return candidateValue.trim()

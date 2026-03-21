@@ -69,7 +69,16 @@ export interface OFNodeExecutionOutput {
 export interface OFPrivateRpcRequestMap {
   'knowledge:retrieve': {
     query: string
-    knowledgeBaseId: number
+    /**
+     * 旧字段：单知识库目标。
+     * 为兼容历史节点数据与旧 worker 请求，继续保留。
+     */
+    knowledgeBaseId?: number
+    /**
+     * 新字段：多知识库目标。
+     * main service 会优先按该数组执行，并与旧字段做并集去重。
+     */
+    knowledgeBaseIds?: number[]
     permissionTree?: unknown
     k?: number
     ef?: number
@@ -99,7 +108,6 @@ export type OFPrivateRpcRequestMessage<TChannel extends OFPrivateRpcChannel = OF
     channel: TChannel
     payload: OFPrivateRpcRequestMap[TChannel]
   }
-
 export type OFPrivateRpcResponseMessage<
   TChannel extends OFPrivateRpcChannel = OFPrivateRpcChannel
 > =

@@ -21,6 +21,7 @@ import type {
   OFNodeDebugResult
 } from '@shared/Orchestraflow-types'
 import type {
+  OFPrivateRpcRequestMap,
   OFPrivateRpcRequestMessage,
   OFPrivateRpcResponseMessage,
   OFToMainMessage
@@ -254,13 +255,17 @@ export class OrchestraflowBridgeService {
         if (!this.knowledgeRetrievalService) {
           throw new Error('KnowledgeRetrievalService 未注入，无法执行 knowledge:retrieve')
         }
-        return await this.knowledgeRetrievalService.search(request.payload)
+        return await this.knowledgeRetrievalService.search(
+          request.payload as OFPrivateRpcRequestMap['knowledge:retrieve']
+        )
       }
       case 'paper:retrieve': {
         if (!this.paperRetrievalService) {
           throw new Error('PaperRetrievalService 未注入，无法执行 paper:retrieve')
         }
-        return await this.paperRetrievalService.search(request.payload)
+        return await this.paperRetrievalService.search(
+          request.payload as OFPrivateRpcRequestMap['paper:retrieve']
+        )
       }
       default:
         throw new Error(`未知 private RPC channel: ${String(request.channel)}`)

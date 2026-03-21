@@ -86,54 +86,60 @@
     </div>
 
     <div class="of-panel-shell-body">
-      <div v-if="activeTab === 'settings' && !debugMode" class="of-panel-shell-body-inner">
-        <section class="of-panel-section of-panel-container-section">
+      <div
+        v-if="activeTab === 'settings' && !debugMode"
+        class="of-panel-shell-body-inner of-doc-block"
+      >
+        <section class="of-doc-section">
           <div class="of-doc-title-strong">基础信息</div>
-          <div class="mt-2 space-y-2 text-xs leading-5 text-gray-500">
-            <div>该节点会把查询模板渲染成最终检索词，再按所选 provider 发起论文检索。</div>
-            <div class="flex flex-wrap gap-1.5">
-              <span
-                class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700"
-              >
-                {{ selectedProviderLabel || '未选择 Provider' }}
-              </span>
-              <span
-                class="rounded-md border border-cyan-200 bg-cyan-50 px-2 py-0.5 text-[10px] font-medium text-cyan-700"
-              >
-                TOP {{ topKModel }}
-              </span>
-              <span
-                class="rounded-md border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-700"
-              >
-                {{ sortSummary }}
-              </span>
-            </div>
+          <div class="of-state-hint">
+            该节点会把查询模板渲染成最终检索词，再按所选 provider 发起论文检索。
+          </div>
+          <div class="flex flex-wrap gap-1.5">
+            <span
+              class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700"
+            >
+              {{ selectedProviderLabel || '未选择 Provider' }}
+            </span>
+            <span
+              class="rounded-md border border-cyan-200 bg-cyan-50 px-2 py-0.5 text-[10px] font-medium text-cyan-700"
+            >
+              TOP {{ topKModel }}
+            </span>
+            <span
+              class="rounded-md border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-700"
+            >
+              {{ sortSummary }}
+            </span>
           </div>
         </section>
 
-        <section class="of-panel-section of-panel-container-section">
+        <div class="of-doc-divider"></div>
+
+        <section class="of-doc-section">
           <div class="flex items-center justify-between gap-3">
-            <div class="of-doc-title-strong">查询模板</div>
+            <div class="of-doc-title-row">
+              <div class="of-doc-title-strong">查询模板</div>
+            </div>
             <button class="of-state-inline-action" @click="addPrompt">添加消息</button>
           </div>
 
-          <div v-if="promptItems.length === 0" class="of-state-empty mt-2">
+          <div v-if="promptItems.length === 0" class="of-state-empty">
             暂无查询模板，至少添加一条消息来描述检索意图。
           </div>
 
-          <div
-            v-for="item in promptItems"
-            :key="item.id"
-            class="mt-2 rounded-xl border border-[#e5e7eb] bg-[#f8fafc] p-3"
-          >
-            <div class="mb-2 flex items-center justify-between gap-2">
-              <div class="flex items-center gap-1.5">
+          <div v-for="item in promptItems" :key="item.id" class="of-doc-message-item">
+            <div class="of-doc-message-head">
+              <div class="of-doc-role-switch">
                 <button
                   v-for="option in promptRoleOptions"
                   :key="option.value"
                   type="button"
-                  class="rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase transition"
-                  :class="item.role === option.value ? option.activeClass : 'text-gray-400'"
+                  class="of-doc-role-option"
+                  :class="[
+                    `of-doc-role-option-${String(option.value)}`,
+                    { 'is-active': item.role === option.value }
+                  ]"
                   @click="updatePromptRole(item.id, option.value)"
                 >
                   {{ option.label }}
@@ -165,7 +171,9 @@
           </div>
         </section>
 
-        <section class="of-panel-section of-panel-container-section">
+        <div class="of-doc-divider"></div>
+
+        <section class="of-doc-section">
           <div class="of-doc-title-strong">Provider 选择</div>
 
           <div
@@ -175,109 +183,138 @@
             {{ providerLoadError }}
           </div>
 
-          <div class="mt-2 grid grid-cols-1 gap-2">
-            <button
-              v-for="provider in providerOptions"
-              :key="provider.id"
-              class="rounded-xl border px-3 py-2 text-left transition"
-              :class="
-                providerIdModel === provider.id
-                  ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
-                  : 'border-[#e5e7eb] bg-[#f3f4f6] text-gray-700 hover:border-emerald-200 hover:bg-white'
-              "
-              @click="selectProvider(provider.id)"
-            >
-              <div class="flex items-center justify-between gap-3">
-                <div class="min-w-0">
-                  <div class="truncate text-[13px] font-semibold leading-[18px]">
-                    {{ provider.label }}
-                  </div>
-                  <div class="mt-1 text-xs leading-5 text-gray-500">{{ provider.description }}</div>
-                </div>
-                <div class="shrink-0 text-[10px] uppercase tracking-wide text-gray-400">
-                  {{ provider.id }}
-                </div>
-              </div>
-            </button>
+          <div class="mt-2">
+            <WhiteSelect
+              :model-value="providerIdModel"
+              :options="providerSelectOptions"
+              placeholder="请选择 Provider"
+              @update:model-value="selectProvider(String($event || ''))"
+            />
+          </div>
+          <div v-if="selectedProvider?.description" class="of-state-hint">
+            {{ selectedProvider.description }}
           </div>
         </section>
 
-        <section class="of-panel-section of-panel-container-section">
+        <div class="of-doc-divider"></div>
+
+        <section class="of-doc-section">
           <div class="flex items-center justify-between gap-3">
             <div class="of-doc-title-strong">API Key 引用区</div>
             <button class="of-state-inline-action" @click="openSettingsEntry">打开设置</button>
           </div>
 
-          <div class="mt-2 text-xs leading-5 text-gray-500">
-            面板只保存 API Key 引用 id，不在这里展示或输入明文 key。
+          <div class="of-state-hint">面板只保存 API Key 引用 id，不在这里展示或输入明文 key。</div>
+
+          <div class="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
+            <div>
+              <div class="of-doc-title">当前状态</div>
+              <div class="of-state-hint">
+                {{ apiKeyStateSummary }}
+              </div>
+            </div>
+            <span
+              class="rounded-md px-2 py-0.5 text-[10px] font-medium"
+              :class="
+                selectedProvider?.requires_api_key
+                  ? 'bg-rose-50 text-rose-700'
+                  : 'bg-emerald-50 text-emerald-700'
+              "
+            >
+              {{ selectedProvider?.requires_api_key ? 'REQUIRED' : 'OPTIONAL' }}
+            </span>
           </div>
 
-          <div class="mt-3 rounded-xl border border-[#e5e7eb] bg-[#f8fafc] p-3">
-            <div class="flex items-center justify-between gap-3">
-              <div>
-                <div class="text-[13px] font-semibold leading-[18px] text-gray-800">当前状态</div>
-                <div class="mt-1 text-xs text-gray-500">
-                  {{ apiKeyStateSummary }}
-                </div>
-              </div>
-              <span
-                class="rounded-md px-2 py-0.5 text-[10px] font-medium"
-                :class="
-                  selectedProvider?.requires_api_key
-                    ? 'bg-rose-50 text-rose-700'
-                    : 'bg-emerald-50 text-emerald-700'
-                "
-              >
-                {{ selectedProvider?.requires_api_key ? 'REQUIRED' : 'OPTIONAL' }}
-              </span>
-            </div>
-
-            <select v-model="apiKeyRefIdModel" class="of-panel-input mt-3 h-10">
-              <option value="">
-                {{ selectedProvider?.requires_api_key ? '请选择 API Key 引用' : '不使用 API Key' }}
-              </option>
-              <option v-for="entry in selectableApiKeyEntries" :key="entry.id" :value="entry.id">
-                {{ entry.label }}
-              </option>
-            </select>
+          <div class="mt-3">
+            <WhiteSelect
+              :model-value="apiKeyRefIdModel"
+              :options="apiKeySelectOptions"
+              :placeholder="
+                selectedProvider?.requires_api_key ? '请选择 API Key 引用' : '不使用 API Key'
+              "
+              @update:model-value="apiKeyRefIdModel = String($event || '')"
+            />
           </div>
         </section>
 
-        <section class="of-panel-section of-panel-container-section">
+        <div class="of-doc-divider"></div>
+
+        <section class="of-doc-section">
           <div class="flex items-center justify-between gap-3">
             <div class="of-doc-title-strong">Provider 参数区</div>
-            <div class="text-xs text-gray-500">动态随 descriptor 变化</div>
+            <div class="of-state-hint">动态随 descriptor 变化</div>
           </div>
 
-          <div class="mt-3 grid grid-cols-2 gap-2">
-            <div class="of-panel-field-stack">
-              <div class="system-sm-semibold-uppercase text-gray-700">返回条数</div>
-              <input
-                v-model.number="topKModel"
-                type="number"
-                min="1"
-                max="20"
-                class="of-panel-input h-10"
-              />
+          <div class="of-panel-section">
+            <div class="of-declare-text-row">
+              <span class="of-declare-text-label">参数</span>
+              <div class="of-declare-text-left">
+                <div class="w-full max-w-[132px]">
+                  <div class="system-sm-semibold-uppercase text-gray-700">返回条数</div>
+                  <input
+                    v-model.number="topKModel"
+                    type="number"
+                    min="1"
+                    max="20"
+                    class="of-declare-text-input mt-1 w-full"
+                  />
+                </div>
+                <div class="w-full max-w-[320px]">
+                  <div class="system-sm-semibold-uppercase text-gray-700">排序方式</div>
+                  <!-- 当前值保持纯文本，点击后再浮出横向选择条，复用 IfElse 的选择器样式思路。 -->
+                  <div ref="sortChoiceAnchorRef" class="of-choice-anchor mt-1 inline-flex">
+                    <button
+                      type="button"
+                      class="text-sm font-semibold text-gray-600 transition hover:text-gray-900"
+                      @click.stop="toggleSortChoicePopup"
+                    >
+                      {{ currentSortOption?.label || '相关度' }}
+                    </button>
+                  </div>
+                  <Teleport to="body">
+                    <div
+                      v-if="sortChoicePopupOpen"
+                      class="of-choice-popup of-choice-popup-fixed"
+                      :style="sortChoicePopupStyle"
+                    >
+                      <button
+                        v-for="option in sortOptions"
+                        :key="option.value"
+                        type="button"
+                        class="of-choice-option"
+                        :class="option.value === sortByModel ? 'of-choice-option-active' : ''"
+                        @click.stop="selectSortOption(option.value)"
+                      >
+                        {{ option.label }}
+                      </button>
+                    </div>
+                  </Teleport>
+                </div>
+              </div>
+              <div class="of-declare-text-right"></div>
             </div>
-            <div class="of-panel-field-stack">
-              <div class="system-sm-semibold-uppercase text-gray-700">排序方式</div>
-              <select v-model="sortByModel" class="of-panel-input h-10">
-                <option value="relevance">相关度</option>
-                <option value="date_desc">最新优先</option>
-                <option value="date_asc">最早优先</option>
-              </select>
-            </div>
-          </div>
 
-          <div v-if="selectedProvider?.supports_date_range" class="mt-3 grid grid-cols-2 gap-2">
-            <div class="of-panel-field-stack">
-              <div class="system-sm-semibold-uppercase text-gray-700">起始日期</div>
-              <input v-model="dateFromModel" type="date" class="of-panel-input h-10" />
-            </div>
-            <div class="of-panel-field-stack">
-              <div class="system-sm-semibold-uppercase text-gray-700">结束日期</div>
-              <input v-model="dateToModel" type="date" class="of-panel-input h-10" />
+            <div v-if="selectedProvider?.supports_date_range" class="of-declare-text-row">
+              <span class="of-declare-text-label">日期</span>
+              <div class="of-declare-text-left">
+                <div class="w-full max-w-[132px]">
+                  <div class="system-sm-semibold-uppercase text-gray-700">起始日期</div>
+                  <input
+                    v-model="dateFromModel"
+                    type="date"
+                    class="of-declare-text-input mt-1 w-full"
+                  />
+                </div>
+                <div class="w-full max-w-[132px]">
+                  <div class="system-sm-semibold-uppercase text-gray-700">结束日期</div>
+                  <input
+                    v-model="dateToModel"
+                    type="date"
+                    class="of-declare-text-input mt-1 w-full"
+                  />
+                </div>
+              </div>
+              <div class="of-declare-text-right"></div>
             </div>
           </div>
 
@@ -288,94 +325,112 @@
             当前 provider 没有额外字段。
           </div>
 
-          <div v-else class="mt-3 space-y-3">
-            <div v-for="field in descriptorFields" :key="field.key" class="of-panel-field-stack">
-              <div class="flex items-center gap-1.5">
-                <div class="system-sm-semibold-uppercase text-gray-700">{{ field.label }}</div>
-                <span v-if="field.required" class="text-xs font-semibold text-rose-500">*</span>
-              </div>
+          <div v-else class="mt-3">
+            <div v-for="field in descriptorFields" :key="field.key" class="of-declare-text-row">
+              <span class="of-declare-text-label">
+                {{ field.required ? '必填' : '参数' }}
+              </span>
+              <div class="of-declare-text-left">
+                <div class="w-full">
+                  <div class="flex items-center gap-1.5">
+                    <div class="system-sm-semibold-uppercase text-gray-700">{{ field.label }}</div>
+                    <span v-if="field.required" class="text-xs font-semibold text-rose-500">*</span>
+                  </div>
 
-              <textarea
-                v-if="field.type === 'string' && isLongTextField(field.key)"
-                :value="getProviderFieldDisplayValue(field.key)"
-                rows="3"
-                class="of-panel-input min-h-[88px] py-2"
-                :placeholder="field.description || '请输入'"
-                @input="
-                  updateProviderOption(field.key, ($event.target as HTMLTextAreaElement).value)
-                "
-              />
+                  <PromptTextarea
+                    v-if="field.type === 'string' && isLongTextField(field.key)"
+                    :model-value="getProviderFieldDisplayValue(field.key)"
+                    :height="96"
+                    :placeholder="field.description || '请输入'"
+                    @update:model-value="updateProviderOption(field.key, $event)"
+                  />
 
-              <button
-                v-else-if="field.type === 'boolean'"
-                type="button"
-                class="inline-flex h-8 max-w-full items-center overflow-hidden rounded-lg border border-gray-200 bg-white p-0.5 shadow-sm"
-              >
-                <span
-                  class="min-w-[54px] rounded-[5px] px-2 text-center text-xs font-semibold leading-7 transition"
-                  :class="
-                    providerOptionsModel[field.key] === true
-                      ? 'bg-green-50 text-green-700 shadow-sm'
-                      : 'text-gray-400'
-                  "
-                  @click="updateProviderOption(field.key, true)"
-                >
-                  TRUE
-                </span>
-                <span
-                  class="min-w-[54px] rounded-[5px] px-2 text-center text-xs font-semibold leading-7 transition"
-                  :class="
-                    providerOptionsModel[field.key] === false
-                      ? 'bg-rose-50 text-rose-700 shadow-sm'
-                      : 'text-gray-400'
-                  "
-                  @click="updateProviderOption(field.key, false)"
-                >
-                  FALSE
-                </span>
-              </button>
+                  <button
+                    v-else-if="field.type === 'boolean'"
+                    type="button"
+                    class="mt-1 inline-flex h-8 max-w-full items-center overflow-hidden rounded-lg border border-gray-200 bg-white p-0.5 shadow-sm"
+                  >
+                    <span
+                      class="min-w-[54px] rounded-[5px] px-2 text-center text-xs font-semibold leading-7 transition"
+                      :class="
+                        providerOptionsModel[field.key] === true
+                          ? 'bg-green-50 text-green-700 shadow-sm'
+                          : 'text-gray-400'
+                      "
+                      @click="updateProviderOption(field.key, true)"
+                    >
+                      TRUE
+                    </span>
+                    <span
+                      class="min-w-[54px] rounded-[5px] px-2 text-center text-xs font-semibold leading-7 transition"
+                      :class="
+                        providerOptionsModel[field.key] === false
+                          ? 'bg-rose-50 text-rose-700 shadow-sm'
+                          : 'text-gray-400'
+                      "
+                      @click="updateProviderOption(field.key, false)"
+                    >
+                      FALSE
+                    </span>
+                  </button>
 
-              <input
-                v-else
-                :value="getProviderFieldDisplayValue(field.key)"
-                :type="field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'"
-                class="of-panel-input h-10"
-                :placeholder="field.description || '请输入'"
-                @input="updateProviderOption(field.key, ($event.target as HTMLInputElement).value)"
-              />
+                  <input
+                    v-else
+                    :value="getProviderFieldDisplayValue(field.key)"
+                    :type="
+                      field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'
+                    "
+                    class="of-declare-text-input mt-1 w-full"
+                    :placeholder="field.description || '请输入'"
+                    @input="
+                      updateProviderOption(field.key, ($event.target as HTMLInputElement).value)
+                    "
+                  />
 
-              <div class="text-xs leading-5 text-gray-500">{{ field.description }}</div>
-            </div>
-          </div>
-        </section>
-
-        <section class="of-panel-section of-panel-container-section">
-          <div class="of-doc-title-strong">输出说明</div>
-
-          <div class="mt-3 rounded-xl border border-[#e5e7eb] bg-[#f8fafc] p-3">
-            <div class="text-xs leading-5 text-gray-500">
-              该节点会输出 query、provider、total_found、returned_count、items、latency_ms 与完整
-              result。
-            </div>
-
-            <div class="mt-3 space-y-2">
-              <div
-                v-for="item in outputPreviewItems"
-                :key="item.name"
-                class="flex items-center justify-between gap-3 rounded-lg bg-white/80 px-3 py-2"
-              >
-                <div class="text-[13px] font-semibold leading-[18px] text-gray-800">
-                  {{ item.name }}
+                  <div
+                    v-if="field.description && !isLongTextField(field.key)"
+                    class="of-state-hint mt-1"
+                  >
+                    {{ field.description }}
+                  </div>
                 </div>
-                <div class="text-xs text-gray-500">{{ item.type }}</div>
               </div>
+              <div class="of-declare-text-right"></div>
             </div>
           </div>
         </section>
 
-        <section class="of-panel-section of-panel-container-section">
+        <div class="of-doc-divider"></div>
+
+        <section class="of-doc-section">
+          <div class="of-doc-title-strong">输出说明</div>
+          <div class="of-state-hint">
+            该节点会输出 query、provider、total_found、returned_count、items、latency_ms 与完整
+            result。
+          </div>
+          <div class="of-output-tree">
+            <div class="of-output-tree-root">
+              <span class="of-output-tree-root-label">Output</span>
+            </div>
+
+            <div
+              v-for="(item, index) in outputPreviewItems"
+              :key="item.name"
+              class="of-output-tree-item of-output-tree-branch"
+              :class="{ 'of-output-tree-item-last': index === outputPreviewItems.length - 1 }"
+            >
+              <span class="of-output-tree-prop">{{ item.name }}</span>
+              <span>:</span>
+              <span class="of-output-tree-type">{{ item.type }}</span>
+            </div>
+          </div>
+        </section>
+
+        <div class="of-doc-divider"></div>
+
+        <section class="of-doc-section">
           <div class="of-doc-title-strong">调试</div>
-          <div class="mt-2 text-xs leading-5 text-gray-500">
+          <div class="of-state-hint">
             调试时只需要补充查询模板里引用到的变量。点击右上角运行按钮即可进入调试输入表单。
           </div>
         </section>
@@ -402,7 +457,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import type {
   ApiKeyEntry,
   PaperRetrievalAPI,
@@ -421,6 +476,7 @@ import { OF_PANEL_THEME } from '../panel-theme'
 import PromptTextarea from '../PromptTextarea/index.vue'
 import NodeDebugForm from '../NodeDebug/NodeDebugForm.vue'
 import PaperRetrievalDebugResult from './components/PaperRetrievalDebugResult.vue'
+import WhiteSelect, { type WhiteSelectOption } from '@renderer/components/WhiteSelect/index.vue'
 
 const uiStore = useWorkflowEditorUIStore()
 const editorStore = useWorkflowEditorStore()
@@ -436,6 +492,9 @@ const promptEditorRefs = new Map<string, { getCursorPosition: () => number }>()
 const activePromptTarget = ref<{ promptId: string; cursorPosition: number } | null>(null)
 const providerOptions = ref<PaperRetrievalProviderDescriptor[]>([])
 const providerLoadError = ref('')
+const sortChoiceAnchorRef = ref<HTMLElement | null>(null)
+const sortChoicePopupOpen = ref(false)
+const sortChoicePopupPosition = ref<{ top: number; left: number } | null>(null)
 
 const promptRoleOptions = [
   { label: 'SYSTEM', value: 'system', activeClass: 'bg-emerald-50 text-emerald-700' },
@@ -530,10 +589,17 @@ const providerOptionsModel = computed(() => nodeData.value?.provider_options || 
 const selectedProvider = computed(() => {
   return providerOptions.value.find((item) => item.id === providerIdModel.value) || null
 })
+const providerSelectOptions = computed<Array<WhiteSelectOption<string>>>(() =>
+  providerOptions.value.map((provider) => ({
+    label: provider.label,
+    value: provider.id
+  }))
+)
 const selectedProviderLabel = computed(() => selectedProvider.value?.label || '')
 const descriptorFields = computed(() => {
   return (selectedProvider.value?.fields || []).filter(
-    (field) => !['limit', 'sort', 'start_date', 'end_date'].includes(field.key)
+    // 查询词统一只走“查询模板”，这里不再暴露 provider_options.query 供用户编辑。
+    (field) => !['query', 'limit', 'sort', 'start_date', 'end_date'].includes(field.key)
   )
 })
 
@@ -541,6 +607,38 @@ const selectableApiKeyEntries = computed<ApiKeyEntry[]>(() => {
   return userConfigStore
     .getEntriesByProvider(providerIdModel.value)
     .filter((entry) => entry.enabled && entry.api_key.trim())
+})
+const apiKeySelectOptions = computed<Array<WhiteSelectOption<string>>>(() => [
+  {
+    label: selectedProvider.value?.requires_api_key ? '请选择 API Key 引用' : '不使用 API Key',
+    value: ''
+  },
+  ...selectableApiKeyEntries.value.map((entry) => ({
+    label: entry.label,
+    value: entry.id
+  }))
+])
+const sortOptions: Array<WhiteSelectOption<string>> = [
+  { label: '相关度', value: 'relevance' },
+  { label: '最新优先', value: 'date_desc' },
+  { label: '最早优先', value: 'date_asc' }
+]
+const currentSortOption = computed(
+  () => sortOptions.find((option) => option.value === sortByModel.value) || sortOptions[0]
+)
+const sortChoicePopupStyle = computed(() => {
+  if (!sortChoicePopupPosition.value) {
+    return {
+      top: '-9999px',
+      left: '-9999px'
+    }
+  }
+
+  return {
+    top: `${sortChoicePopupPosition.value.top}px`,
+    left: `${sortChoicePopupPosition.value.left}px`,
+    transform: 'translate(-50%, -100%)'
+  }
 })
 
 const apiKeyStateSummary = computed(() => {
@@ -720,6 +818,7 @@ function handleVariableSelect(event: Event) {
 }
 
 function selectProvider(providerId: string) {
+  if (!providerId) return
   providerIdModel.value = providerId
 }
 
@@ -731,6 +830,10 @@ function buildProviderOptionsFromDescriptor(
 
   const nextOptions: Record<string, string | number | boolean | null> = {}
   descriptor.fields.forEach((field) => {
+    // 查询词统一由查询模板渲染后注入，避免和 Provider 参数区双入口冲突。
+    if (field.key === 'query') {
+      return
+    }
     if (field.key === 'limit') {
       if (!currentOptions.limit && field.default_value !== undefined) {
         nextOptions.limit = normalizeFieldValue(field, field.default_value)
@@ -795,6 +898,55 @@ function resolveApiKeyLabel(refId: string): string {
   return userConfigStore.apiKeyEntries.find((entry) => entry.id === refId)?.label || refId
 }
 
+/**
+ * 排序方式改成文本触发器，弹层位置跟随触发点更新。
+ */
+function updateSortChoicePopupPosition() {
+  const rect = sortChoiceAnchorRef.value?.getBoundingClientRect()
+  if (!rect) return
+  sortChoicePopupPosition.value = {
+    top: rect.top - 8,
+    left: rect.left + rect.width / 2
+  }
+}
+
+function toggleSortChoicePopup() {
+  if (sortChoicePopupOpen.value) {
+    sortChoicePopupOpen.value = false
+    return
+  }
+  sortChoicePopupOpen.value = true
+  void nextTick(() => updateSortChoicePopupPosition())
+}
+
+function selectSortOption(value: string) {
+  sortByModel.value = value as OFPaperRetrievalNodeData['sort_by']
+  sortChoicePopupOpen.value = false
+}
+
+function closeSortChoicePopup() {
+  sortChoicePopupOpen.value = false
+}
+
+function handleGlobalPointerDown(event: Event) {
+  const target = event.target as HTMLElement | null
+  if (target?.closest('.of-choice-anchor') || target?.closest('.of-choice-popup')) {
+    return
+  }
+  closeSortChoicePopup()
+}
+
+function handleGlobalKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') {
+    closeSortChoicePopup()
+  }
+}
+
+function handleWindowLayoutChange() {
+  if (!sortChoicePopupOpen.value) return
+  updateSortChoicePopupPosition()
+}
+
 function formatDateInputValue(value: string | null): string {
   if (!value) return ''
   return value.replace(/\//g, '-')
@@ -853,10 +1005,18 @@ async function loadProviders() {
 onMounted(async () => {
   await Promise.all([loadProviders(), userConfigStore.fetchApiKeys()])
   window.addEventListener('of:variable-select', handleVariableSelect as EventListener)
+  window.addEventListener('pointerdown', handleGlobalPointerDown)
+  window.addEventListener('keydown', handleGlobalKeydown)
+  window.addEventListener('scroll', handleWindowLayoutChange, true)
+  window.addEventListener('resize', handleWindowLayoutChange)
 })
 
 onUnmounted(() => {
   window.removeEventListener('of:variable-select', handleVariableSelect as EventListener)
+  window.removeEventListener('pointerdown', handleGlobalPointerDown)
+  window.removeEventListener('keydown', handleGlobalKeydown)
+  window.removeEventListener('scroll', handleWindowLayoutChange, true)
+  window.removeEventListener('resize', handleWindowLayoutChange)
 })
 </script>
 

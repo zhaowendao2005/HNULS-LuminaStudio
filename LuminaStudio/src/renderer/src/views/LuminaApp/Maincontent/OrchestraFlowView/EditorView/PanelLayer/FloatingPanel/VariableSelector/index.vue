@@ -38,6 +38,7 @@
                 :notes="store.selectorMechanismGuidance.contextNotes"
                 :example="store.selectorMechanismGuidance.examples[0]"
                 :warning="store.selectorMechanismGuidance.failureModes[0]"
+                :collapsible="false"
               />
             </div>
             <div v-if="rows.length === 0" class="px-4 py-8 text-center text-sm text-gray-400">

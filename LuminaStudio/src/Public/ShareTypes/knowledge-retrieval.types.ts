@@ -47,12 +47,25 @@ export interface KnowledgeRetrievalPermissionTreeNode {
   checked?: boolean
   disabled?: boolean
   description?: string
+  knowledgeBaseId?: number | null
+  knowledge_base_id?: number | null
+  fileKey?: string | null
+  file_key?: string | null
+  metadata?: Record<string, unknown>
   children?: KnowledgeRetrievalPermissionTreeNode[]
 }
 
 export interface KnowledgeRetrievalPermissionTree {
   providers: KnowledgeRetrievalPermissionTreeNode[]
+  /**
+   * 旧结构：单知识库目标。
+   * 仍然保留，避免历史工作流数据失效。
+   */
   knowledgeBaseId?: number | null
+  /**
+   * 新结构：显式多知识库目标（仅目标，不含文档细粒度规则）。
+   */
+  knowledgeBaseIds?: number[]
 }
 
 /**
@@ -77,9 +90,29 @@ export interface OFKnowledgeRetrievalDocumentRule {
   embeddings?: OFKnowledgeRetrievalEmbeddingRule[]
 }
 
+/**
+ * 新结构：按知识库分层声明 permission 规则。
+ * - effect/documents 规则优先应用在 knowledgeBaseId 对应的库上
+ * - 若只选中知识库但不配 documents，执行层默认该库全量文档可检索
+ */
+export interface OFKnowledgeRetrievalKnowledgeBaseRule {
+  knowledgeBaseId?: number | null
+  knowledge_base_id?: number | null
+  effect?: KnowledgeRetrievalPermissionEffect
+  documents?: OFKnowledgeRetrievalDocumentRule[]
+}
+
 export interface OFKnowledgePermissionTree extends KnowledgeRetrievalPermissionTree {
   effect?: KnowledgeRetrievalPermissionEffect
   documents?: OFKnowledgeRetrievalDocumentRule[]
+  /**
+   * 新结构：按知识库拆分规则。
+   */
+  knowledgeBases?: OFKnowledgeRetrievalKnowledgeBaseRule[]
+  /**
+   * 兼容字段：部分旧序列化可能使用 snake_case。
+   */
+  knowledge_base_rules?: OFKnowledgeRetrievalKnowledgeBaseRule[]
 }
 
 /**

@@ -18,6 +18,7 @@ import { PaperRetrievalService } from './services/paper-retrieval'
 import { PaperRetrievalIPCHandler } from './ipc/paper-retrieval-handler'
 import { KnowledgeRetrievalService } from './services/knowledge-retrieval'
 import { OrchestraflowWorkflowService } from './services/orchestraflow/orchestraflow-workflow-service'
+import { OrchestraflowRerankModelService } from './services/orchestraflow/orchestraflow-rerank-model-service'
 import { OrchestraflowIPCHandler } from './ipc/orchestraflow-handler'
 import { OrchestflowGenerationEditorService } from './services/orchestflow-generation-editor'
 import { OrchestflowGenerationEditorIPCHandler } from './ipc/orchestflow-generation-editor-handler'
@@ -107,7 +108,7 @@ app.whenReady().then(() => {
   new RerankModelIPCHandler(rerankModelService)
 
   // 初始化 UserSettings Service 和 IPC Handler
-  const userSettingsService = new UserSettingsService()
+  const userSettingsService = new UserSettingsService(databaseManager)
   userSettingsService.initialize()
   new UserSettingsIPCHandler(userSettingsService)
 
@@ -115,6 +116,7 @@ app.whenReady().then(() => {
   new PaperRetrievalIPCHandler(paperRetrievalService)
 
   const knowledgeRetrievalService = new KnowledgeRetrievalService(knowledgeDatabaseService)
+  const orchestraflowRerankModelService = new OrchestraflowRerankModelService()
 
   // 初始化 MCP Service 和 IPC Handler
   const mcpService = new McpService()
@@ -126,7 +128,11 @@ app.whenReady().then(() => {
 
   // 初始化 OrchestraFlow Workflow Service 和 IPC Handler
   const orchestraflowWorkflowService = new OrchestraflowWorkflowService()
-  new OrchestraflowIPCHandler(orchestraflowWorkflowService, modelConfigService)
+  new OrchestraflowIPCHandler(
+    orchestraflowWorkflowService,
+    modelConfigService,
+    orchestraflowRerankModelService
+  )
 
   // GenerateView 现在直接在主进程里完成流式调用与持久化，不再额外预热专用 utility bridge。
   orchestflowGenerationEditorService = new OrchestflowGenerationEditorService(

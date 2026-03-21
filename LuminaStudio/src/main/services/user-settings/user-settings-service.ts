@@ -1,7 +1,6 @@
-import { app } from 'electron'
-import path from 'path'
-import fs from 'fs'
+import type Database from 'better-sqlite3'
 import { logger } from '../logger'
+import type { DatabaseManager } from '../database-sqlite'
 
 const log = logger.scope('UserSettingsService')
 const CURRENT_SETTINGS_VERSION = 2
@@ -17,15 +16,6 @@ export interface ApiKeyEntry {
   enabled: boolean
   created_at: string
   updated_at: string
-}
-
-/**
- * 兼容旧版本磁盘结构时使用的临时类型。
- *
- * 旧结构只有 apiKeys.pubmed，一个 provider 只能放一条 key。
- */
-interface LegacyApiKeysConfig {
-  pubmed?: string
 }
 
 /**
@@ -61,13 +51,6 @@ export interface UserSettings {
   updatedAt: string
   apiKeys: ApiKeysConfig
   mcpChat: McpChatSettings
-}
-
-/**
- * 旧版用户设置结构。
- */
-interface LegacyUserSettings extends Omit<Partial<UserSettings>, 'apiKeys'> {
-  apiKeys?: LegacyApiKeysConfig | ApiKeysConfig
 }
 
 /**
@@ -143,86 +126,19 @@ function normalizeApiKeysConfig(input: unknown, fallbackTimestamp: string): ApiK
 }
 
 /**
- * 执行 v1 -> v2 迁移。
- *
- * 迁移规则：
- * - 旧的 apiKeys.pubmed 自动迁移成一条 provider_id='pubmed' 的默认 entry
- * - version 升级到 2
- */
-function migrateLegacySettings(parsed: LegacyUserSettings): {
-  settings: UserSettings
-  migrated: boolean
-} {
-  const fallbackTimestamp = parsed.updatedAt || new Date().toISOString()
-  const normalizedApiKeys = normalizeApiKeysConfig(parsed.apiKeys, fallbackTimestamp)
-  let migrated = false
-
-  const legacyPubmedKey =
-    parsed.apiKeys && 'pubmed' in parsed.apiKeys
-      ? (parsed.apiKeys as LegacyApiKeysConfig).pubmed
-      : undefined
-
-  if (
-    normalizedApiKeys.entries.length === 0 &&
-    typeof legacyPubmedKey === 'string' &&
-    legacyPubmedKey.trim()
-  ) {
-    normalizedApiKeys.entries.push(
-      createNormalizedApiKeyEntry(
-        {
-          provider_id: 'pubmed',
-          label: 'PubMed 默认密钥',
-          api_key: legacyPubmedKey.trim(),
-          enabled: true,
-          created_at: fallbackTimestamp,
-          updated_at: fallbackTimestamp
-        },
-        fallbackTimestamp
-      )
-    )
-    migrated = true
-  }
-
-  const settings: UserSettings = {
-    ...DEFAULT_USER_SETTINGS,
-    ...parsed,
-    version: CURRENT_SETTINGS_VERSION,
-    updatedAt: parsed.updatedAt || fallbackTimestamp,
-    apiKeys: normalizedApiKeys,
-    mcpChat: {
-      ...DEFAULT_USER_SETTINGS.mcpChat,
-      ...(parsed.mcpChat || {})
-    }
-  }
-
-  if (parsed.version !== CURRENT_SETTINGS_VERSION) {
-    migrated = true
-  }
-
-  return { settings, migrated }
-}
-
-/**
  * UserSettingsService
  *
  * 负责用户设置的业务逻辑：
- * - 从 JSON 文件读取/写入配置
- * - 数据存储在 {userData}/databases/user.json
+ * - 从 BaseConfig 数据库读取/写入配置
+ * - 数据存储在 BaseConfig.app_settings 表
  */
 export class UserSettingsService {
-  private settingsPath: string
+  private db: Database.Database
   private settings: UserSettings | null = null
+  private static readonly SETTINGS_KEY = 'userSettings'
 
-  constructor() {
-    const userDataPath = app.getPath('userData')
-    const dataDir = path.join(userDataPath, 'databases')
-    this.settingsPath = path.join(dataDir, 'user.json')
-
-    // 确保 databases 目录存在
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true })
-      log.info('Databases directory created', { path: dataDir })
-    }
+  constructor(databaseManager: DatabaseManager) {
+    this.db = databaseManager.getDatabase('BaseConfig')
   }
 
   /**
@@ -243,25 +159,31 @@ export class UserSettingsService {
    */
   private loadSettings(): void {
     try {
-      if (!fs.existsSync(this.settingsPath)) {
-        log.info('Settings file not found, creating default', { path: this.settingsPath })
+      const row = this.db
+        .prepare('SELECT value FROM app_settings WHERE key = ?')
+        .get(UserSettingsService.SETTINGS_KEY) as { value: string } | undefined
+
+      if (!row?.value) {
         this.settings = structuredClone(DEFAULT_USER_SETTINGS)
         this.saveSettings()
+        log.info('User settings initialized in BaseConfig', {
+          key: UserSettingsService.SETTINGS_KEY
+        })
         return
       }
 
-      const data = fs.readFileSync(this.settingsPath, 'utf-8')
-      const parsed = JSON.parse(data) as LegacyUserSettings
-      const { settings, migrated } = migrateLegacySettings(parsed)
-
-      this.settings = settings
-
-      if (migrated) {
-        log.info('User settings migrated to registry api keys structure', {
-          version: this.settings.version,
-          entries: this.settings.apiKeys.entries.length
-        })
-        this.saveSettings()
+      const parsed = JSON.parse(row.value) as Partial<UserSettings>
+      const fallbackTimestamp = parsed.updatedAt || new Date().toISOString()
+      this.settings = {
+        ...DEFAULT_USER_SETTINGS,
+        ...parsed,
+        version: CURRENT_SETTINGS_VERSION,
+        updatedAt: fallbackTimestamp,
+        apiKeys: normalizeApiKeysConfig(parsed.apiKeys, fallbackTimestamp),
+        mcpChat: {
+          ...DEFAULT_USER_SETTINGS.mcpChat,
+          ...(parsed.mcpChat || {})
+        }
       }
 
       log.info('Settings loaded successfully', {
@@ -269,7 +191,7 @@ export class UserSettingsService {
         entries: this.settings.apiKeys.entries.length
       })
     } catch (error) {
-      log.error('Failed to load settings, using default', error)
+      log.error('Failed to load settings from BaseConfig, using default', error)
       this.settings = structuredClone(DEFAULT_USER_SETTINGS)
       this.saveSettings()
     }
@@ -286,8 +208,12 @@ export class UserSettingsService {
 
       this.settings.updatedAt = new Date().toISOString()
       const data = JSON.stringify(this.settings, null, 2)
-      fs.writeFileSync(this.settingsPath, data, 'utf-8')
-      log.debug('Settings saved', { path: this.settingsPath })
+      this.db
+        .prepare(
+          "INSERT OR REPLACE INTO app_settings (key, value, updated_at) VALUES (?, ?, datetime('now'))"
+        )
+        .run(UserSettingsService.SETTINGS_KEY, data)
+      log.debug('Settings saved', { key: UserSettingsService.SETTINGS_KEY })
     } catch (error) {
       log.error('Failed to save settings', error)
       throw error

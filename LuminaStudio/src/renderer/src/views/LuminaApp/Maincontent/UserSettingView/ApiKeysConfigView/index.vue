@@ -89,19 +89,15 @@
                       >
                         Provider ID
                       </label>
-                      <select
+                      <WhiteSelect
                         v-model="entry.provider_id"
-                        class="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        :options="providerOptions"
+                        placeholder="请选择 Provider"
+                        trigger-class="rounded-lg border-slate-300 px-4 py-2.5 text-sm text-slate-800 focus:ring-2 focus:ring-blue-500"
+                        panel-class="rounded-lg"
+                        teleport-to="body"
                         @change="handleProviderChange(entry)"
-                      >
-                        <option
-                          v-for="option in providerOptions"
-                          :key="option.value"
-                          :value="option.value"
-                        >
-                          {{ option.label }}
-                        </option>
-                      </select>
+                      />
                     </div>
 
                     <div class="lg:col-span-2">
@@ -174,24 +170,15 @@
                   现有接口直接返回完整 registry，当前页面在前端按 provider_id
                   做筛选与分组，足够支持引用选择场景。
                 </p>
-                <div class="mt-4 space-y-2">
-                  <button
-                    v-for="item in filterOptions"
-                    :key="item.value"
-                    type="button"
-                    class="flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-sm transition"
-                    :class="
-                      selectedProviderFilter === item.value
-                        ? 'border-blue-200 bg-blue-50 text-blue-700'
-                        : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
-                    "
-                    @click="selectedProviderFilter = item.value"
-                  >
-                    <span>{{ item.label }}</span>
-                    <span class="rounded-full bg-white px-2 py-0.5 text-xs text-slate-500">
-                      {{ item.count }}
-                    </span>
-                  </button>
+                <div class="mt-4">
+                  <WhiteSelect
+                    v-model="selectedProviderFilter"
+                    :options="filterSelectOptions"
+                    placeholder="请选择 Provider"
+                    trigger-class="rounded-xl border-slate-300 px-3 py-2.5 text-sm text-slate-800"
+                    panel-class="rounded-xl"
+                    teleport-to="body"
+                  />
                 </div>
               </section>
 
@@ -248,6 +235,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
+import WhiteSelect from '@renderer/components/WhiteSelect/index.vue'
 import { useUserConfigStore } from '@renderer/stores/user-config/store'
 import type { ApiKeyEntry } from '@preload/types'
 
@@ -262,7 +250,7 @@ const providerOptions = [
   { value: 'arxiv', label: 'Arxiv' },
   { value: 'crossref', label: 'Crossref' },
   { value: 'custom', label: '自定义 / 其他' }
-] as const
+]
 
 const userConfigStore = useUserConfigStore()
 
@@ -301,7 +289,7 @@ function createDraftEntry(providerId = 'pubmed'): ApiKeyEntryForm {
   }
 }
 
-const filterOptions = computed(() => {
+const filterSelectOptions = computed(() => {
   const providerCounts = new Map<string, number>()
 
   userConfigStore.apiKeyEntries.forEach((entry) => {
@@ -311,15 +299,14 @@ const filterOptions = computed(() => {
   return [
     {
       value: 'all',
-      label: '全部 provider',
-      count: userConfigStore.apiKeyEntries.length
+      label: `全部 provider (${userConfigStore.apiKeyEntries.length})`
     },
     ...Array.from(providerCounts.entries())
       .sort(([left], [right]) => left.localeCompare(right))
       .map(([providerId, count]) => ({
         value: providerId,
-        label: providerId,
-        count
+        // WhiteSelect 只认 label/value，所以这里把数量直接拼进展示文案里。
+        label: `${providerId} (${count})`
       }))
   ]
 })
