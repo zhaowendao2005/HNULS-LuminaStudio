@@ -7,7 +7,12 @@
       <div class="flex h-[calc(100vh-32px)] w-full flex-1">
         <Sidebar :active-tab="activeTab" @change-tab="handleChangeTab" />
         <div class="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-          <TopBar :active-tab="activeTabLabelMap[activeTab] || activeTab" />
+          <TopBar
+            :active-tab="activeTabLabelMap[activeTab] || activeTab"
+            :show-debug-button="activeTab === 'settings'"
+            :debug-button-active="activeTab === 'settings' && settingsView === 'devpage'"
+            @debug-click="handleEnterSettingsDevPage"
+          />
           <main
             :class="[
               'relative flex-1 min-h-0 overflow-x-hidden overflow-y-auto',
@@ -21,7 +26,11 @@
               :reset-token="orchestraflowResetToken"
             />
             <McpWorkbenchView v-else-if="activeTab === 'mcp-workbench'" />
-            <UserSettingView v-else-if="activeTab === 'settings'" />
+            <UserSettingView
+              v-else-if="activeTab === 'settings'"
+              v-model:view="settingsView"
+              @back="handleSettingsBack"
+            />
             <DashboardView v-else />
           </main>
         </div>
@@ -46,10 +55,15 @@ import OrchestraFlowView from './Maincontent/OrchestraFlowView/index.vue'
 import UserSettingView from './Maincontent/UserSettingView/index.vue'
 import McpWorkbenchView from './Maincontent/McpWorkbenchView/index.vue'
 
+type LuminaAppTabId = 'dashboard' | 'normal-chat' | 'orchestraflow' | 'mcp-workbench' | 'settings'
+type UserSettingViewId = 'main' | 'model-config' | 'api-keys' | 'devpage'
+
 const hasStarted = ref(false)
-const activeTab = ref('dashboard')
+const activeTab = ref<LuminaAppTabId>('dashboard')
+const settingsView = ref<UserSettingViewId>('main')
 const orchestraflowResetToken = ref(0)
-const activeTabLabelMap: Record<string, string> = {
+
+const activeTabLabelMap: Record<LuminaAppTabId, string> = {
   dashboard: 'dashboard',
   'normal-chat': 'normal chat',
   orchestraflow: 'orchestraflow',
@@ -63,7 +77,21 @@ function handleChangeTab(nextTab: string) {
     return
   }
 
-  activeTab.value = nextTab
+  if (nextTab === 'settings') {
+    activeTab.value = 'settings'
+    return
+  }
+
+  activeTab.value = nextTab as LuminaAppTabId
+}
+
+function handleEnterSettingsDevPage() {
+  activeTab.value = 'settings'
+  settingsView.value = 'devpage'
+}
+
+function handleSettingsBack() {
+  settingsView.value = 'main'
 }
 </script>
 
@@ -81,13 +109,16 @@ function handleChangeTab(nextTab: string) {
 ::-webkit-scrollbar {
   width: 6px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
   background: #d1fae5;
   border-radius: 3px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: #10b981;
 }

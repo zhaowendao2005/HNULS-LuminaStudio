@@ -1,5 +1,10 @@
 import { ipcRenderer } from 'electron'
-import type { KnowledgeDatabaseAPI, KnowledgeDatabaseListDocsRequest } from '../types'
+import type {
+  KnowledgeDatabaseAPI,
+  KnowledgeDatabaseListDocsRequest,
+  KnowledgeDatabaseResolveKnowledgeRetrievalScopesRequest,
+  KnowledgeDatabaseSearchKnowledgeRetrievalRequest
+} from '../types'
 
 /**
  * Knowledge Database API
@@ -17,5 +22,15 @@ export const knowledgeDatabaseAPI: KnowledgeDatabaseAPI = {
 
   listDocuments: (request: KnowledgeDatabaseListDocsRequest) => {
     return ipcRenderer.invoke('knowledgeDatabase:listDocuments', request)
+  },
+
+  resolveKnowledgeRetrievalScopes: (
+    request: KnowledgeDatabaseResolveKnowledgeRetrievalScopesRequest
+  ) => {
+    return ipcRenderer.invoke('knowledgeDatabase:resolveKnowledgeRetrievalScopes', request)
+  },
+
+  searchKnowledgeRetrieval: (request: KnowledgeDatabaseSearchKnowledgeRetrievalRequest) => {
+    return ipcRenderer.invoke('knowledgeDatabase:searchKnowledgeRetrieval', request)
   }
 }

@@ -101,7 +101,6 @@ app.whenReady().then(() => {
 
   // 初始化 KnowledgeDatabase Bridge Service 和 IPC Handler
   const knowledgeDatabaseService = new KnowledgeDatabaseBridgeService()
-  new KnowledgeDatabaseIPCHandler(knowledgeDatabaseService)
 
   // 初始化 RerankModel Service 和 IPC Handler
   const rerankModelService = new RerankModelService()
@@ -116,6 +115,7 @@ app.whenReady().then(() => {
   new PaperRetrievalIPCHandler(paperRetrievalService)
 
   const knowledgeRetrievalService = new KnowledgeRetrievalService(knowledgeDatabaseService)
+  new KnowledgeDatabaseIPCHandler(knowledgeDatabaseService, knowledgeRetrievalService)
   const orchestraflowRerankModelService = new OrchestraflowRerankModelService()
 
   // 初始化 MCP Service 和 IPC Handler

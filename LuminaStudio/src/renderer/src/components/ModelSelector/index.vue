@@ -158,6 +158,8 @@ const props = withDefaults(
     visible: boolean
     currentProviderId: string | null
     currentModelId: string | null
+    /** 外部 providers 数据源；传入后会跳过 model-config store 读取 */
+    providers?: ModelProvider[]
     /** 标题文案，默认“切换模型” */
     title?: string
     /** 搜索框 placeholder */
@@ -193,13 +195,15 @@ const emit = defineEmits<{
 const searchQuery = ref('')
 
 const modelConfigStore = useModelConfigStore()
-const providers = computed<ModelProvider[]>(() => modelConfigStore.providers)
+const sourceProviders = computed<ModelProvider[]>(
+  () => props.providers ?? modelConfigStore.providers
+)
 
 const filteredProviders = computed(() => {
-  if (!searchQuery.value) return providers.value
+  if (!searchQuery.value) return sourceProviders.value
 
   const query = searchQuery.value.toLowerCase()
-  return providers.value
+  return sourceProviders.value
     .map((provider) => ({
       ...provider,
       models: provider.models.filter((model) => {
@@ -239,7 +243,7 @@ watch(
   () => props.visible,
   async (visible) => {
     if (!visible) return
-    if (props.autoFetchProviders) {
+    if (props.autoFetchProviders && props.providers == null) {
       await modelConfigStore.fetchProviders()
     }
   }
