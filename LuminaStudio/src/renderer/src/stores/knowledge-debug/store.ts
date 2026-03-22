@@ -196,6 +196,8 @@ export const useKnowledgeDebugStore = defineStore('knowledge-debug', () => {
           base.selected = true
         }
       }
+
+      await preloadSelectedKnowledgeBaseDocuments()
     } catch (error) {
       knowledgeBasesError.value = error instanceof Error ? error.message : '获取知识库失败'
     } finally {
@@ -208,7 +210,11 @@ export const useKnowledgeDebugStore = defineStore('knowledge-debug', () => {
     forceRefresh = false
   ): Promise<void> {
     const knowledgeBase = knowledgeBases.value.find((item) => item.id === knowledgeBaseId)
-    if (!knowledgeBase || (knowledgeBase.documentsLoaded && !forceRefresh)) {
+    if (
+      !knowledgeBase ||
+      (knowledgeBase.documentsLoaded && !forceRefresh) ||
+      (knowledgeBase.loadingDocuments && !forceRefresh)
+    ) {
       return
     }
 
@@ -241,6 +247,23 @@ export const useKnowledgeDebugStore = defineStore('knowledge-debug', () => {
     }
   }
 
+  async function preloadSelectedKnowledgeBaseDocuments(): Promise<void> {
+    const targetKnowledgeBaseIds = knowledgeBases.value
+      .filter((knowledgeBase) => knowledgeBase.selected)
+      .map((knowledgeBase) => knowledgeBase.id)
+
+    // 中文注释：选中的知识库默认就把文档状态补齐，避免“没手动展开就没有文档状态”的空窗期。
+    await Promise.all(
+      targetKnowledgeBaseIds.map(async (knowledgeBaseId) => {
+        const knowledgeBase = knowledgeBases.value.find((item) => item.id === knowledgeBaseId)
+        if (!knowledgeBase || knowledgeBase.documentsLoaded || knowledgeBase.loadingDocuments) {
+          return
+        }
+        await loadDocumentsForKnowledgeBase(knowledgeBaseId)
+      })
+    )
+  }
+
   async function refreshKnowledgeBases(): Promise<void> {
     await loadKnowledgeBases(true)
 
@@ -271,6 +294,10 @@ export const useKnowledgeDebugStore = defineStore('knowledge-debug', () => {
       for (const document of knowledgeBase.documents) {
         document.selected = nextSelected
       }
+    }
+
+    if (nextSelected && !knowledgeBase.documentsLoaded) {
+      void loadDocumentsForKnowledgeBase(knowledgeBaseId)
     }
   }
 

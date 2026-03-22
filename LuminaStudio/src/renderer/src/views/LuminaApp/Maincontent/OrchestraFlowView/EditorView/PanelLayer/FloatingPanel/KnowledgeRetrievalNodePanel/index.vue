@@ -748,6 +748,48 @@ function parsePermissionSelectionFromNodeData(
 
   const selectedKnowledgeBaseIds = new Set<number>()
   const selectedDocumentsByBase: Record<number, Set<string>> = {}
+  const structuredKnowledgeBaseRules = [
+    ...(permissionTree.knowledgeBases || []),
+    ...(permissionTree.knowledge_base_rules || [])
+  ]
+
+  if (structuredKnowledgeBaseRules.length > 0) {
+    // 中文注释：新结构优先按“每个知识库一条规则”反读，
+    // 这样多知识库 + 各自文档选择不会被压扁成单个 knowledgeBaseId。
+    for (const rule of structuredKnowledgeBaseRules) {
+      const knowledgeBaseId = Number(rule.knowledgeBaseId ?? rule.knowledge_base_id)
+      if (!Number.isInteger(knowledgeBaseId) || knowledgeBaseId <= 0) {
+        continue
+      }
+
+      const documentRules = Array.isArray(rule.documents) ? rule.documents : []
+      if (documentRules.length === 0) {
+        if (rule.effect !== 'deny') {
+          selectedKnowledgeBaseIds.add(knowledgeBaseId)
+        }
+        continue
+      }
+
+      if (!selectedDocumentsByBase[knowledgeBaseId]) {
+        selectedDocumentsByBase[knowledgeBaseId] = new Set<string>()
+      }
+
+      for (const documentRule of documentRules) {
+        if (!documentRule.fileKey) continue
+        selectedDocumentsByBase[knowledgeBaseId].add(documentRule.fileKey)
+      }
+    }
+
+    const normalizedSelection: PermissionSelectionModel = {
+      selectedKnowledgeBaseIds: Array.from(selectedKnowledgeBaseIds).sort((a, b) => a - b),
+      selectedDocumentsByBase: {}
+    }
+    Object.entries(selectedDocumentsByBase).forEach(([key, fileKeys]) => {
+      if (!fileKeys.size) return
+      normalizedSelection.selectedDocumentsByBase[Number(key)] = Array.from(fileKeys).sort()
+    })
+    return normalizedSelection
+  }
 
   const runtimeKnowledgeBaseId = permissionTree.knowledgeBaseId
   if (
@@ -764,6 +806,16 @@ function parsePermissionSelectionFromNodeData(
         selectedDocumentsByBase[runtimeKnowledgeBaseId] = new Set<string>()
       }
       selectedDocumentsByBase[runtimeKnowledgeBaseId].add(documentRule.fileKey)
+    }
+  }
+
+  for (const knowledgeBaseId of permissionTree.knowledgeBaseIds || []) {
+    if (
+      typeof knowledgeBaseId === 'number' &&
+      Number.isInteger(knowledgeBaseId) &&
+      knowledgeBaseId > 0
+    ) {
+      selectedKnowledgeBaseIds.add(knowledgeBaseId)
     }
   }
 
@@ -852,6 +904,49 @@ function buildPermissionTreePatch(selection: PermissionSelectionModel): OFKnowle
   const currentPermissionTree = nodeData.value?.permission_tree
   const runtimeKnowledgeBaseId = resolveRuntimeKnowledgeBaseId(selection, currentPermissionTree)
   const selectedDocumentsByBase = selection.selectedDocumentsByBase || {}
+  const knowledgeBaseRules = knowledgeBaseTree.value
+    .filter(
+      (knowledgeBase) =>
+        (selection.selectedKnowledgeBaseIds || []).includes(knowledgeBase.id) ||
+        (selectedDocumentsByBase[knowledgeBase.id] || []).length > 0
+    )
+    .map((knowledgeBase) => {
+      const selectedDocuments = Array.from(
+        new Set(selectedDocumentsByBase[knowledgeBase.id] || [])
+      ).sort()
+      const totalDocuments = knowledgeBase.documentsLoaded
+        ? knowledgeBase.documents.length
+        : knowledgeBase.docCount
+      const useDocumentRules =
+        selectedDocuments.length > 0 &&
+        (totalDocuments === 0 || selectedDocuments.length < totalDocuments)
+
+      if (!useDocumentRules) {
+        return {
+          knowledgeBaseId: knowledgeBase.id,
+          effect: 'allow' as const
+        }
+      }
+
+      return {
+        knowledgeBaseId: knowledgeBase.id,
+        effect: 'deny' as const,
+        documents: selectedDocuments.map((fileKey) => ({
+          fileKey,
+          effect: 'allow' as const
+        }))
+      }
+    })
+  const knowledgeBaseIds = Array.from(
+    new Set(
+      knowledgeBaseRules
+        .map((rule) => rule.knowledgeBaseId)
+        .filter(
+          (value): value is number =>
+            typeof value === 'number' && Number.isInteger(value) && value > 0
+        )
+    )
+  ).sort((a, b) => a - b)
   const runtimeSelectedDocuments = runtimeKnowledgeBaseId
     ? selectedDocumentsByBase[runtimeKnowledgeBaseId] || []
     : []
@@ -874,6 +969,9 @@ function buildPermissionTreePatch(selection: PermissionSelectionModel): OFKnowle
     ...(currentPermissionTree || { providers: [] }),
     providers: buildPermissionProviders(selection),
     knowledgeBaseId: runtimeKnowledgeBaseId,
+    knowledgeBaseIds,
+    knowledgeBases: knowledgeBaseRules,
+    knowledge_base_rules: knowledgeBaseRules,
     effect: runtimeKnowledgeBaseId ? (useDocumentRules ? 'deny' : 'allow') : 'deny',
     documents: useDocumentRules
       ? runtimeSelectedDocuments.map((fileKey) => ({
@@ -896,6 +994,36 @@ function patchKnowledgeBaseTreeNode(
 ) {
   knowledgeBaseTree.value = knowledgeBaseTree.value.map((knowledgeBase) =>
     knowledgeBase.id === knowledgeBaseId ? patcher(knowledgeBase) : knowledgeBase
+  )
+}
+
+async function preloadSelectedKnowledgeBaseDocuments(
+  selection: PermissionSelectionModel = permissionSelection.value
+) {
+  const knowledgeBaseIds = new Set<number>(selection.selectedKnowledgeBaseIds || [])
+
+  Object.keys(selection.selectedDocumentsByBase || {}).forEach((key) => {
+    const knowledgeBaseId = Number(key)
+    if (Number.isInteger(knowledgeBaseId) && knowledgeBaseId > 0) {
+      knowledgeBaseIds.add(knowledgeBaseId)
+    }
+  })
+
+  // 中文注释：选中的知识库和文档必须提前把状态补齐，这样不手动展开也能直接检索。
+  await Promise.all(
+    Array.from(knowledgeBaseIds).map(async (knowledgeBaseId) => {
+      const targetKnowledgeBase = knowledgeBaseTree.value.find(
+        (item) => item.id === knowledgeBaseId
+      )
+      if (
+        !targetKnowledgeBase ||
+        targetKnowledgeBase.loadingDocuments ||
+        targetKnowledgeBase.documentsLoaded
+      ) {
+        return
+      }
+      await loadDocumentsByKnowledgeBaseId(knowledgeBaseId)
+    })
   )
 }
 
@@ -939,6 +1067,8 @@ async function loadKnowledgeBaseList(refresh = false) {
       permissionSelection.value = normalizedSelection
       patchPermissionTreeBySelection(permissionSelection.value)
     }
+
+    await preloadSelectedKnowledgeBaseDocuments()
   } catch (error) {
     console.error('[KnowledgeRetrievalNodePanel] 加载知识库列表失败', error)
   } finally {
@@ -1051,11 +1181,13 @@ function syncPermissionSelectionFromNode() {
     return
   }
   permissionSelection.value = parsedSelection
+  void preloadSelectedKnowledgeBaseDocuments(parsedSelection)
 }
 
 function handlePermissionSelectionChange(nextSelection: PermissionSelectionModel) {
   permissionSelection.value = normalizePermissionSelection(nextSelection)
   patchPermissionTreeBySelection(permissionSelection.value)
+  void preloadSelectedKnowledgeBaseDocuments(permissionSelection.value)
 }
 
 function openPermissionSelector(event: MouseEvent) {

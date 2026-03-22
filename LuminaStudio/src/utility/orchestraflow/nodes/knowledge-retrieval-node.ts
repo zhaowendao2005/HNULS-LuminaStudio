@@ -26,6 +26,37 @@ interface PrivateRpcPortLike {
   ) => void
 }
 
+function toSerializableValue<T>(value: T): T {
+  if (value === undefined) {
+    return value
+  }
+  const seen = new WeakSet<object>()
+  return JSON.parse(
+    JSON.stringify(value, (_key, currentValue) => {
+      if (typeof currentValue === 'bigint') {
+        return currentValue.toString()
+      }
+      if (typeof currentValue === 'function' || typeof currentValue === 'symbol') {
+        return undefined
+      }
+      if (currentValue instanceof Error) {
+        return {
+          name: currentValue.name,
+          message: currentValue.message,
+          stack: currentValue.stack
+        }
+      }
+      if (currentValue && typeof currentValue === 'object') {
+        if (seen.has(currentValue)) {
+          return '[Circular]'
+        }
+        seen.add(currentValue)
+      }
+      return currentValue
+    })
+  ) as T
+}
+
 export class KnowledgeRetrievalNode extends BaseNode {
   readonly nodeType: OFBlockEnum.KnowledgeRetrieval
 
@@ -242,6 +273,9 @@ export class KnowledgeRetrievalNode extends BaseNode {
     const totalScopes = Array.isArray(payload?.resolvedScopes) ? payload.resolvedScopes.length : 0
     const totalHits = items.length
     const partialFailure = Array.isArray(payload?.errors) && payload.errors.length > 0
+    // 中文注释：这里必须把 result.items 做成独立副本，不能复用同一个数组引用。
+    // 否则主进程在做可序列化转换时，会把重复引用标成 [Circular]，调试面板看起来就像“只剩半截结果”。
+    const resultItems = items.map((item) => toSerializableValue(item))
 
     return {
       query: payload?.query ?? fallbackQuery,
@@ -254,7 +288,7 @@ export class KnowledgeRetrievalNode extends BaseNode {
         total_scopes: totalScopes,
         total_hits: totalHits,
         partial_failure: partialFailure,
-        items
+        items: resultItems
       }
     }
   }
