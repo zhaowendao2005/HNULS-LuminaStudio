@@ -1,24 +1,34 @@
 import type {
+  NormalChatAbortRequest,
   NormalChatAssignLabelRequest,
   NormalChatCreateLabelRequest,
   NormalChatCreateAssistantRequest,
   NormalChatCreateTopicRequest,
   NormalChatDeleteLabelRequest,
   NormalChatDeleteTopicRequest,
+  NormalChatGetConversationRequest,
   NormalChatRenameLabelRequest,
   NormalChatRenameTopicRequest,
+  NormalChatSendMessageRequest,
   NormalChatSetActiveAssistantRequest,
   NormalChatSetActiveTopicRequest,
   NormalChatUpdateAssistantRequest,
   NormalChatUpdateTopicPromptRequest
 } from '@preload/types'
 import { BaseIPCHandler } from './base-handler'
-import type { NormalChatService } from '../services/normal-chat'
+import type { NormalChatConversationService, NormalChatService } from '../services/normal-chat'
 
 export class NormalChatIPCHandler extends BaseIPCHandler {
-  constructor(private readonly normalChatService: NormalChatService) {
+  constructor(
+    private readonly normalChatService: NormalChatService,
+    private readonly normalChatConversationService: NormalChatConversationService
+  ) {
     super()
     this.register()
+
+    this.normalChatConversationService.onStream((event) => {
+      this.broadcastToAll('normalChat:stream', event)
+    })
   }
 
   protected getChannelPrefix(): string {
@@ -29,6 +39,20 @@ export class NormalChatIPCHandler extends BaseIPCHandler {
     return {
       success: true,
       data: await this.normalChatService.getBootstrap()
+    }
+  }
+
+  async handleGetConversation(
+    _event: unknown,
+    request: NormalChatGetConversationRequest
+  ): Promise<{ success: true; data: unknown } | { success: false; error: string }> {
+    if (!request?.topicId) {
+      return { success: false, error: 'Missing topicId' }
+    }
+
+    return {
+      success: true,
+      data: await this.normalChatConversationService.getConversation(request.topicId)
     }
   }
 
@@ -198,5 +222,38 @@ export class NormalChatIPCHandler extends BaseIPCHandler {
       success: true,
       data: await this.normalChatService.updateTopicPrompt(request)
     }
+  }
+
+  async handleSendMessage(
+    _event: unknown,
+    request: NormalChatSendMessageRequest
+  ): Promise<{ success: true; data: unknown } | { success: false; error: string }> {
+    if (
+      !request?.topicId ||
+      !request?.assistantId ||
+      !request?.providerId ||
+      !request?.modelId ||
+      !request?.messageId ||
+      !request?.input?.trim()
+    ) {
+      return { success: false, error: 'Missing topicId, assistantId, providerId, modelId, messageId or input' }
+    }
+
+    return {
+      success: true,
+      data: await this.normalChatConversationService.sendMessage(request)
+    }
+  }
+
+  async handleAbort(
+    _event: unknown,
+    request: NormalChatAbortRequest
+  ): Promise<{ success: true; data: undefined } | { success: false; error: string }> {
+    if (!request?.requestId) {
+      return { success: false, error: 'Missing requestId' }
+    }
+
+    await this.normalChatConversationService.abort(request.requestId)
+    return { success: true, data: undefined }
   }
 }

@@ -49,13 +49,21 @@ export const McpChatDataSource = {
       .then(unwrap)
   },
   deleteSession(sessionId: string): Promise<void> {
-    return window.api.mcpChat.deleteSession({ sessionId }).then(unwrap)
+    return window.api.mcpChat.deleteSession({ sessionId }).then((response) => {
+      if (!response.success) {
+        throw new Error(response.error || 'MCP Chat delete session request failed')
+      }
+    })
   },
   sendMessage(sessionId: string, input: string): Promise<{ requestId: string }> {
     return window.api.mcpChat.sendMessage({ sessionId, input }).then(unwrap)
   },
   abort(requestId: string): Promise<void> {
-    return window.api.mcpChat.abort({ requestId }).then(unwrap)
+    return window.api.mcpChat.abort({ requestId }).then((response) => {
+      if (!response.success) {
+        throw new Error(response.error || 'MCP Chat abort request failed')
+      }
+    })
   },
   saveSettings(payload: McpChatSettingsPayload): Promise<McpChatSettingsPayload> {
     return window.api.mcpChat.saveSettings(toPlainValue(payload)).then(unwrap)

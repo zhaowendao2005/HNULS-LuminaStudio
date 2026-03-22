@@ -33,6 +33,7 @@ import ChatMain from './NormalChat-Maincontent/ChatMain.vue'
 import { type WhiteSelectOption } from './components/WhiteSelect.vue'
 import { useNormalChatLayoutShellStore } from '@renderer/stores/normal-chat/layout-shell/layout-shell.store'
 import { useNormalChatWorkspaceStore } from '@renderer/stores/normal-chat/workspace/workspace.store'
+import { useNormalChatConversationStore } from '@renderer/stores/normal-chat/conversation/conversation.store'
 import type {
   NormalChatLeftTab,
   NormalChatRightPage
@@ -40,11 +41,15 @@ import type {
 
 const layoutStore = useNormalChatLayoutShellStore()
 const workspaceStore = useNormalChatWorkspaceStore()
+const conversationStore = useNormalChatConversationStore()
 const { leftCollapsed, rightCollapsed, leftTab, rightPage } = storeToRefs(layoutStore)
 
 onMounted(() => {
-  // 入口统一初始化布局和 Normal Chat 业务工作区，避免不同区域各自初始化造成竞态。
-  void Promise.all([layoutStore.initialize(), workspaceStore.initialize()])
+  // 入口统一初始化布局、工作区和真实会话层，避免不同区域各自初始化造成竞态。
+  void (async () => {
+    await Promise.all([layoutStore.initialize(), workspaceStore.initialize()])
+    await conversationStore.initialize()
+  })()
 })
 
 const leftTabOptions: WhiteSelectOption[] = [

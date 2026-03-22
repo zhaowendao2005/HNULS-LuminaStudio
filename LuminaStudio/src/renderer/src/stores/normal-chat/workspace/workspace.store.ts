@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import type {
   NormalChatAgentTemplate,
   NormalChatAssistant,
+  NormalChatTopic,
   NormalChatWorkspaceSnapshot
 } from '@preload/types'
 import { useModelConfigStore } from '../../model-config/store'

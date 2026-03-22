@@ -1,14 +1,18 @@
 import { ipcRenderer } from 'electron'
 import type {
+  NormalChatAbortRequest,
   NormalChatAPI,
   NormalChatAssignLabelRequest,
+  NormalChatConversationStreamEvent,
   NormalChatCreateLabelRequest,
   NormalChatCreateAssistantRequest,
   NormalChatCreateTopicRequest,
   NormalChatDeleteLabelRequest,
   NormalChatDeleteTopicRequest,
+  NormalChatGetConversationRequest,
   NormalChatRenameLabelRequest,
   NormalChatRenameTopicRequest,
+  NormalChatSendMessageRequest,
   NormalChatSetActiveAssistantRequest,
   NormalChatSetActiveTopicRequest,
   NormalChatUpdateAssistantRequest,
@@ -17,6 +21,16 @@ import type {
 
 export const normalChatAPI: NormalChatAPI = {
   getBootstrap: () => ipcRenderer.invoke('normalChat:getBootstrap'),
+  getConversation: (request: NormalChatGetConversationRequest) =>
+    ipcRenderer.invoke('normalChat:getConversation', request),
+  sendMessage: (request: NormalChatSendMessageRequest) =>
+    ipcRenderer.invoke('normalChat:sendMessage', request),
+  abort: (request: NormalChatAbortRequest) => ipcRenderer.invoke('normalChat:abort', request),
+  onStream: (handler: (event: NormalChatConversationStreamEvent) => void) => {
+    const listener = (_event: unknown, payload: NormalChatConversationStreamEvent) => handler(payload)
+    ipcRenderer.on('normalChat:stream', listener)
+    return () => ipcRenderer.off('normalChat:stream', listener)
+  },
   createAssistant: (request: NormalChatCreateAssistantRequest) =>
     ipcRenderer.invoke('normalChat:createAssistant', request),
   updateAssistant: (request: NormalChatUpdateAssistantRequest) =>

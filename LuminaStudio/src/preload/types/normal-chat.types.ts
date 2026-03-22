@@ -106,8 +106,100 @@ export interface NormalChatUpdateTopicPromptRequest {
   promptOverride?: string | null
 }
 
+export type NormalChatMessagePartKind = 'text'
+
+export interface NormalChatMessagePart {
+  kind: NormalChatMessagePartKind
+  text: string
+}
+
+export type NormalChatConversationMessageRole = 'user' | 'assistant'
+
+export interface NormalChatConversationMessage {
+  id: string
+  topicId: string
+  role: NormalChatConversationMessageRole
+  parts: NormalChatMessagePart[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface NormalChatConversationSnapshot {
+  topicId: string
+  messages: NormalChatConversationMessage[]
+}
+
+export interface NormalChatGetConversationRequest {
+  topicId: string
+}
+
+export interface NormalChatSendMessageRequest {
+  topicId: string
+  assistantId: string
+  providerId: string
+  modelId: string
+  effectiveSystemPrompt: string
+  input: string
+  messageId: string
+  requestId?: string
+}
+
+export interface NormalChatAbortRequest {
+  requestId: string
+}
+
+export type NormalChatConversationStatusPhase = 'sending' | 'thinking' | 'streaming' | 'done'
+
+interface NormalChatConversationBaseEvent {
+  requestId: string
+  topicId: string
+}
+
+export interface NormalChatConversationStatusEvent extends NormalChatConversationBaseEvent {
+  type: 'status'
+  phase: NormalChatConversationStatusPhase
+  message: string
+}
+
+export interface NormalChatConversationAssistantChunkEvent
+  extends NormalChatConversationBaseEvent {
+  type: 'assistant-chunk'
+  delta: string
+}
+
+export interface NormalChatConversationMessageCommittedEvent
+  extends NormalChatConversationBaseEvent {
+  type: 'message-committed'
+  message: NormalChatConversationMessage
+}
+
+export interface NormalChatConversationFinishEvent extends NormalChatConversationBaseEvent {
+  type: 'finish'
+  assistantMessageId: string | null
+}
+
+export interface NormalChatConversationErrorEvent extends NormalChatConversationBaseEvent {
+  type: 'error'
+  message: string
+}
+
+export type NormalChatConversationStreamEvent =
+  | NormalChatConversationStatusEvent
+  | NormalChatConversationAssistantChunkEvent
+  | NormalChatConversationMessageCommittedEvent
+  | NormalChatConversationFinishEvent
+  | NormalChatConversationErrorEvent
+
 export interface NormalChatAPI {
   getBootstrap: () => Promise<ApiResponse<NormalChatBootstrap>>
+  getConversation: (
+    request: NormalChatGetConversationRequest
+  ) => Promise<ApiResponse<NormalChatConversationSnapshot>>
+  sendMessage: (
+    request: NormalChatSendMessageRequest
+  ) => Promise<ApiResponse<{ requestId: string; messageId: string }>>
+  abort: (request: NormalChatAbortRequest) => Promise<ApiResponse<void>>
+  onStream: (handler: (event: NormalChatConversationStreamEvent) => void) => () => void
   createAssistant: (
     request: NormalChatCreateAssistantRequest
   ) => Promise<ApiResponse<NormalChatWorkspaceSnapshot>>

@@ -28,7 +28,7 @@ import { McpService } from './services/mcp'
 import { McpIPCHandler } from './ipc/mcp-handler'
 import { McpChatService } from './services/mcp-chat'
 import { McpChatIPCHandler } from './ipc/mcp-chat-handler'
-import { NormalChatService } from './services/normal-chat'
+import { NormalChatService, NormalChatConversationService } from './services/normal-chat'
 import { NormalChatIPCHandler } from './ipc/normal-chat-handler'
 
 const log = logger.scope('Main')
@@ -124,7 +124,11 @@ app.whenReady().then(() => {
   const mcpChatService = new McpChatService(mcpService, modelConfigService, userSettingsService)
   new McpChatIPCHandler(mcpChatService)
   const normalChatService = new NormalChatService(databaseManager)
-  new NormalChatIPCHandler(normalChatService)
+  const normalChatConversationService = new NormalChatConversationService(
+    databaseManager,
+    modelConfigService
+  )
+  new NormalChatIPCHandler(normalChatService, normalChatConversationService)
 
   // 初始化 OrchestraFlow Workflow Service 和 IPC Handler
   const orchestraflowWorkflowService = new OrchestraflowWorkflowService()

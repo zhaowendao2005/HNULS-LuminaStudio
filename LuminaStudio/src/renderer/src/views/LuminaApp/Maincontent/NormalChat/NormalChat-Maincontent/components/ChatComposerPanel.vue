@@ -4,11 +4,14 @@
       class="flex flex-col rounded-2xl border border-gray-200 bg-white transition-all focus-within:ring-1 focus-within:ring-gray-300"
     >
       <textarea
-        :value="conversationStore.composerText"
+        :value="conversationStore.currentDraft"
         class="min-h-[60px] max-h-[200px] w-full resize-none bg-transparent p-4 pb-2 text-[15px] text-gray-800 outline-none placeholder:text-gray-400"
+        :class="conversationStore.isCurrentTopicStreaming ? 'cursor-not-allowed opacity-80' : ''"
         :placeholder="conversationStore.composerPlaceholder"
+        :readonly="conversationStore.isCurrentTopicStreaming"
         rows="1"
         @input="onInput"
+        @keydown="onKeydown"
       />
 
       <div class="flex items-center justify-between px-3 pb-3">
@@ -36,20 +39,20 @@
 
           <button
             class="rounded-full p-1.5 text-white transition-colors"
-            :class="
-              canSend && sendEnabled
-                ? 'bg-[var(--nc-accent)] hover:bg-[var(--nc-accent-hover)]'
-                : 'cursor-not-allowed bg-gray-300'
-            "
-            :title="sendDisabledReason"
+            :class="sendButtonClass"
+            :disabled="!canClickButton"
+            :title="sendButtonTitle"
             type="button"
+            @click="handlePrimaryAction"
           >
-            <ArrowUp class="h-4 w-4 stroke-[3]" />
+            <component :is="sendButtonIcon" class="h-4 w-4 stroke-[3]" />
           </button>
         </div>
       </div>
     </div>
-    <p class="mt-2 px-1 text-[12px] text-gray-400">{{ pendingNotice }}</p>
+    <p class="mt-2 px-1 text-[12px] text-gray-400">
+      {{ statusLine }}
+    </p>
   </footer>
 </template>
 
@@ -67,16 +70,33 @@ import {
   Paperclip,
   PanelTop,
   PlusSquare,
+  Square,
   Zap,
   type LucideIcon
 } from 'lucide-vue-next'
-import { storeToRefs } from 'pinia'
+import { computed } from 'vue'
 import type { ComposerToolIcon } from '@renderer/stores/normal-chat/conversation-shell/conversation-shell.types'
-import { useNormalChatConversationShellStore } from '@renderer/stores/normal-chat/conversation-shell/conversation-shell.store'
+import { useNormalChatConversationStore } from '@renderer/stores/normal-chat/conversation/conversation.store'
+import { useNormalChatWorkspaceStore } from '@renderer/stores/normal-chat/workspace/workspace.store'
 
-const conversationStore = useNormalChatConversationShellStore()
-const { leftTools, rightTools, canSend, sendEnabled, pendingNotice } =
-  storeToRefs(conversationStore)
+const conversationStore = useNormalChatConversationStore()
+const workspaceStore = useNormalChatWorkspaceStore()
+
+const leftTools = [
+  { id: 'tool-plus-square', icon: 'plus-square', side: 'left' as const },
+  { id: 'tool-paperclip', icon: 'paperclip', side: 'left' as const },
+  { id: 'tool-globe', icon: 'globe', side: 'left' as const },
+  { id: 'tool-file-text', icon: 'file-text', side: 'left' as const },
+  { id: 'tool-hammer', icon: 'hammer', side: 'left' as const },
+  { id: 'tool-at-sign', icon: 'at-sign', side: 'left' as const },
+  { id: 'tool-zap', icon: 'zap', side: 'left' as const },
+  { id: 'tool-panel-top', icon: 'panel-top', side: 'left' as const },
+  { id: 'tool-maximize', icon: 'maximize', side: 'left' as const },
+  { id: 'tool-eraser', icon: 'eraser', side: 'left' as const },
+  { id: 'tool-clock', icon: 'clock', side: 'left' as const }
+]
+
+const rightTools = [{ id: 'tool-languages', icon: 'languages', side: 'right' as const }]
 
 const iconMap: Record<ComposerToolIcon, LucideIcon> = {
   'plus-square': PlusSquare,
@@ -95,11 +115,79 @@ const iconMap: Record<ComposerToolIcon, LucideIcon> = {
 
 const resolveToolIcon = (icon: ComposerToolIcon): LucideIcon => iconMap[icon]
 
+const sendButtonIcon = computed(() =>
+  conversationStore.isCurrentTopicStreaming ? Square : ArrowUp
+)
+
+const sendButtonClass = computed(() => {
+  if (conversationStore.isCurrentTopicStreaming) {
+    return 'bg-rose-500 hover:bg-rose-600'
+  }
+
+  return conversationStore.canSend ? 'bg-[var(--nc-accent)] hover:bg-[var(--nc-accent-hover)]' : 'cursor-not-allowed bg-gray-300'
+})
+
+const canClickButton = computed(() =>
+  conversationStore.isCurrentTopicStreaming ? conversationStore.canStop : conversationStore.canSend
+)
+
+const sendButtonTitle = computed(() => {
+  if (conversationStore.isCurrentTopicStreaming) {
+    return '停止当前生成'
+  }
+
+  if (!workspaceStore.currentTopicModelProviderId || !workspaceStore.currentTopicModelId) {
+    return '请先选择模型'
+  }
+
+  if (!conversationStore.currentDraft.trim()) {
+    return '请输入内容'
+  }
+
+  return '发送消息'
+})
+
+const statusLine = computed(() => {
+  if (conversationStore.currentLastError) {
+    return conversationStore.currentLastError
+  }
+
+  if (conversationStore.currentStatusText) {
+    return conversationStore.currentStatusText
+  }
+
+  if (!workspaceStore.currentTopicModelProviderId || !workspaceStore.currentTopicModelId) {
+    return '请先选择模型后再发送'
+  }
+
+  return 'Enter 发送，Shift+Enter 换行'
+})
+
 const onInput = (event: Event) => {
-  conversationStore.setComposerText((event.target as HTMLTextAreaElement).value)
+  conversationStore.setDraftText((event.target as HTMLTextAreaElement).value)
 }
 
-const sendDisabledReason = '消息发送链路待接入，本批先完成助手、话题和 system prompt。'
+const onKeydown = (event: KeyboardEvent) => {
+  if (event.key !== 'Enter' || event.shiftKey) {
+    return
+  }
+
+  event.preventDefault()
+  void handlePrimaryAction()
+}
+
+const handlePrimaryAction = async () => {
+  if (conversationStore.isCurrentTopicStreaming) {
+    await conversationStore.abortCurrentRequest()
+    return
+  }
+
+  if (!conversationStore.canSend) {
+    return
+  }
+
+  await conversationStore.sendCurrentDraft().catch(() => undefined)
+}
 </script>
 
 <style scoped lang="scss">

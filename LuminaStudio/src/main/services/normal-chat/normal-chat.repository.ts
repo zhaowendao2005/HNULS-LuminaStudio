@@ -1,5 +1,6 @@
 import type Database from 'better-sqlite3'
 import type {
+  NormalChatConversationMessage,
   NormalChatLabel,
   NormalChatAssistant,
   NormalChatTopic,
@@ -34,6 +35,16 @@ interface TopicRow {
 interface WorkspaceStateRow {
   active_assistant_id: string
   active_topic_id: string
+}
+
+interface MessageRow {
+  id: string
+  topic_id: string
+  message_role: 'user' | 'assistant'
+  parts_json: string
+  sort_order: number
+  created_at: string
+  updated_at: string
 }
 
 export class NormalChatRepository {
@@ -317,6 +328,44 @@ export class NormalChatRepository {
     this.db.prepare(`DELETE FROM normal_chat_topics WHERE id = ?`).run(topicId)
   }
 
+  listMessagesByTopicId(topicId: string): NormalChatConversationMessage[] {
+    const rows = this.db
+      .prepare(
+        `
+          SELECT id, topic_id, message_role, parts_json, sort_order, created_at, updated_at
+          FROM normal_chat_messages
+          WHERE topic_id = ?
+          ORDER BY sort_order ASC, created_at ASC
+        `
+      )
+      .all(topicId) as MessageRow[]
+
+    return rows.map((row) => ({
+      id: row.id,
+      topicId: row.topic_id,
+      role: row.message_role,
+      parts: this.parseMessageParts(row.parts_json),
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    }))
+  }
+
+  insertMessage(message: NormalChatConversationMessage, sortOrder: number): void {
+    this.db
+      .prepare(
+        `
+          INSERT INTO normal_chat_messages (
+            id,
+            topic_id,
+            message_role,
+            parts_json,
+            sort_order
+          ) VALUES (?, ?, ?, ?, ?)
+        `
+      )
+      .run(message.id, message.topicId, message.role, JSON.stringify(message.parts), sortOrder)
+  }
+
   getWorkspaceState(): WorkspaceStateRow | null {
     const row = this.db
       .prepare(
@@ -349,5 +398,34 @@ export class NormalChatRepository {
         `
       )
       .run(activeAssistantId, activeTopicId)
+  }
+
+  private parseMessageParts(partsJson: string): NormalChatConversationMessage['parts'] {
+    try {
+      const parsed = JSON.parse(partsJson) as unknown
+      if (!Array.isArray(parsed)) {
+        return []
+      }
+
+      return parsed
+        .map((part) => {
+          if (!part || typeof part !== 'object') {
+            return null
+          }
+
+          const nextPart = part as { kind?: unknown; text?: unknown }
+          if (nextPart.kind !== 'text' || typeof nextPart.text !== 'string') {
+            return null
+          }
+
+          return {
+            kind: 'text' as const,
+            text: nextPart.text
+          }
+        })
+        .filter((part): part is { kind: 'text'; text: string } => part !== null)
+    } catch {
+      return []
+    }
   }
 }
