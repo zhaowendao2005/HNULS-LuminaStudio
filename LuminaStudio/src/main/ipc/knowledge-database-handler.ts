@@ -2,11 +2,13 @@ import { BaseIPCHandler } from './base-handler'
 import { logger } from '../services/logger'
 import type { KnowledgeRetrievalService } from '../services/knowledge-retrieval'
 import type { KnowledgeDatabaseBridgeService } from '../services/knowledge-database-bridge'
+import type { KGRetrievalService } from '../services/kg-retrieval/kg-retrieval-service'
 import type {
   KnowledgeDatabaseListDocsRequest,
   KnowledgeDatabaseResolveKnowledgeRetrievalScopesRequest,
   KnowledgeDatabaseSearchKnowledgeRetrievalRequest
 } from '@preload/types'
+import type { KGRetrievalSearchRequest } from '@shared/knowledge-database-api.types'
 
 /**
  * KnowledgeDatabaseIPCHandler
@@ -19,13 +21,18 @@ import type {
  * - knowledgeDatabase:listDocuments
  * - knowledgeDatabase:resolveKnowledgeRetrievalScopes
  * - knowledgeDatabase:searchKnowledgeRetrieval
+ * - knowledgeDatabase:getKGConfigs
+ * - knowledgeDatabase:getKGGraphTables
+ * - knowledgeDatabase:listKGModels
+ * - knowledgeDatabase:kgRetrievalSearch
  */
 export class KnowledgeDatabaseIPCHandler extends BaseIPCHandler {
   private readonly log = logger.scope('KnowledgeDatabaseIPCHandler')
 
   constructor(
     private readonly service: KnowledgeDatabaseBridgeService,
-    private readonly knowledgeRetrievalService: KnowledgeRetrievalService
+    private readonly knowledgeRetrievalService: KnowledgeRetrievalService,
+    private readonly kgRetrievalService?: KGRetrievalService
   ) {
     super()
     this.register()
@@ -155,6 +162,102 @@ export class KnowledgeDatabaseIPCHandler extends BaseIPCHandler {
       const result = await this.knowledgeRetrievalService.search(request)
       return { success: true, data: result }
     } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }
+    }
+  }
+
+  // ==========================================================================
+  // 知识图谱（KG）检索
+  // ==========================================================================
+
+  /**
+   * 获取知识库的 KG 配置
+   */
+  async handleGetKGConfigs(
+    _event: unknown,
+    knowledgeBaseId: number
+  ): Promise<{ success: true; data: unknown } | { success: false; error: string }> {
+    try {
+      if (typeof knowledgeBaseId !== 'number' || knowledgeBaseId <= 0) {
+        return { success: false, error: 'Invalid knowledgeBaseId' }
+      }
+      const result = await this.service.getKGConfigs(knowledgeBaseId)
+      return { success: true, data: result }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }
+    }
+  }
+
+  /**
+   * 获取知识库的图谱表信息
+   */
+  async handleGetKGGraphTables(
+    _event: unknown,
+    knowledgeBaseId: number
+  ): Promise<{ success: true; data: unknown } | { success: false; error: string }> {
+    try {
+      if (typeof knowledgeBaseId !== 'number' || knowledgeBaseId <= 0) {
+        return { success: false, error: 'Invalid knowledgeBaseId' }
+      }
+      const result = await this.service.getKGGraphTables(knowledgeBaseId)
+      return { success: true, data: result }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }
+    }
+  }
+
+  /**
+   * 获取可用的 KG 模型列表
+   */
+  async handleListKGModels(): Promise<
+    { success: true; data: unknown } | { success: false; error: string }
+  > {
+    try {
+      const result = await this.service.listKGModels()
+      return { success: true, data: result }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }
+    }
+  }
+
+  /**
+   * 执行知识图谱检索
+   */
+  async handleKgRetrievalSearch(
+    _event: unknown,
+    request: KGRetrievalSearchRequest
+  ): Promise<{ success: true; data: unknown } | { success: false; error: string }> {
+    try {
+      if (!request || typeof request.query !== 'string') {
+        return { success: false, error: 'Invalid query' }
+      }
+      if (!this.kgRetrievalService) {
+        return { success: false, error: 'KGRetrievalService not initialized' }
+      }
+
+      this.log.debug('kgRetrievalSearch request', {
+        query: request.query?.slice(0, 60),
+        mode: request.mode,
+        knowledgeBaseId: request.knowledgeBaseId,
+        graphTableBase: request.graphTableBase
+      })
+
+      const result = await this.kgRetrievalService.search(request)
+      return { success: true, data: result }
+    } catch (error) {
+      this.log.error('kgRetrievalSearch failed', error)
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'

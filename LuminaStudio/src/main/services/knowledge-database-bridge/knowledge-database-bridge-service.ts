@@ -17,7 +17,10 @@ import type {
   KnowledgeDatabaseStatusData,
   ListDocumentsData,
   RetrievalHit,
-  RetrievalSearchParams
+  RetrievalSearchParams,
+  KGGraphTablesResponse,
+  KGModelInfo,
+  KGRetrievalSearchResult
 } from '@shared/knowledge-database-api.types'
 
 const log = logger.scope('KnowledgeDatabaseBridgeService')
@@ -245,6 +248,76 @@ export class KnowledgeDatabaseBridgeService {
         message: '知识检索接口返回了无效响应',
         details: {
           path: '/api/v1/retrieval/search',
+          status: response.status
+        }
+      }
+    }
+  }
+
+  // ==========================================================================
+  // 知识图谱（KG）检索 API
+  // ==========================================================================
+
+  /**
+   * 获取知识库的 KG 配置。
+   */
+  async getKGConfigs(knowledgeBaseId: number): Promise<{ knowledgeGraph: unknown }> {
+    log.debug('Fetching KG configs', { knowledgeBaseId })
+    return await this.requestOrThrow<{ knowledgeGraph: unknown }>(
+      `/api/v1/kg/knowledge-bases/${knowledgeBaseId}/configs`,
+      'Failed to fetch KG configs'
+    )
+  }
+
+  /**
+   * 获取知识库的图谱表信息（含实体/关系计数）。
+   */
+  async getKGGraphTables(knowledgeBaseId: number): Promise<KGGraphTablesResponse> {
+    log.debug('Fetching KG graph tables', { knowledgeBaseId })
+    return await this.requestOrThrow<KGGraphTablesResponse>(
+      `/api/v1/kg/knowledge-bases/${knowledgeBaseId}/graph-tables`,
+      'Failed to fetch KG graph tables'
+    )
+  }
+
+  /**
+   * 获取可用的 KG 模型列表。
+   */
+  async listKGModels(): Promise<KGModelInfo[]> {
+    log.debug('Fetching KG models')
+    return await this.requestOrThrow<KGModelInfo[]>('/api/v1/kg/models', 'Failed to list KG models')
+  }
+
+  /**
+   * 执行知识图谱检索。
+   *
+   * 注意：这里接收的是已经由 KGRetrievalService 补全了 credentials 的完整参数，
+   * 直接转发到 KnowledgeDatabase 的 `/api/v1/kg/retrieval`。
+   */
+  async kgRetrievalSearch(
+    params: Record<string, unknown>
+  ): Promise<ExternalApiResponse<KGRetrievalSearchResult>> {
+    const response = await this.request<KGRetrievalSearchResult>('/api/v1/kg/retrieval', {
+      method: 'POST',
+      body: JSON.stringify(params)
+    })
+
+    if (response.payload) {
+      log.debug('KG retrieval search completed', {
+        mode: params.mode,
+        status: response.status,
+        success: response.payload.success
+      })
+      return response.payload
+    }
+
+    return {
+      success: false,
+      error: {
+        code: 'INVALID_RESPONSE',
+        message: 'KG 检索接口返回了无效响应',
+        details: {
+          path: '/api/v1/kg/retrieval',
           status: response.status
         }
       }

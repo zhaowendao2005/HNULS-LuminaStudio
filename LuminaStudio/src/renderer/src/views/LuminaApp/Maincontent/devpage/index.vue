@@ -11,7 +11,7 @@
             </p>
             <h1 class="text-2xl font-semibold text-slate-900">用户设置调试工作台</h1>
             <p class="max-w-3xl text-sm leading-6 text-slate-500">
-              这里是设置域内的内部调试入口，首版先提供知识检索调试、服务健康和响应检查三个分区。
+              这里是设置域内的内部调试入口，提供知识检索调试、服务健康和知识图谱检索三个分区。
             </p>
           </div>
 

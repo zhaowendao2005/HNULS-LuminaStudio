@@ -3,7 +3,8 @@ import type {
   KnowledgeDatabaseAPI,
   KnowledgeDatabaseListDocsRequest,
   KnowledgeDatabaseResolveKnowledgeRetrievalScopesRequest,
-  KnowledgeDatabaseSearchKnowledgeRetrievalRequest
+  KnowledgeDatabaseSearchKnowledgeRetrievalRequest,
+  KGRetrievalSearchRequest
 } from '../types'
 
 /**
@@ -32,5 +33,23 @@ export const knowledgeDatabaseAPI: KnowledgeDatabaseAPI = {
 
   searchKnowledgeRetrieval: (request: KnowledgeDatabaseSearchKnowledgeRetrievalRequest) => {
     return ipcRenderer.invoke('knowledgeDatabase:searchKnowledgeRetrieval', request)
+  },
+
+  // ==================== 知识图谱（KG）检索 ====================
+
+  getKGConfigs: (knowledgeBaseId: number) => {
+    return ipcRenderer.invoke('knowledgeDatabase:getKGConfigs', knowledgeBaseId)
+  },
+
+  getKGGraphTables: (knowledgeBaseId: number) => {
+    return ipcRenderer.invoke('knowledgeDatabase:getKGGraphTables', knowledgeBaseId)
+  },
+
+  listKGModels: () => {
+    return ipcRenderer.invoke('knowledgeDatabase:listKGModels')
+  },
+
+  kgRetrievalSearch: (request: KGRetrievalSearchRequest) => {
+    return ipcRenderer.invoke('knowledgeDatabase:kgRetrievalSearch', request)
   }
 }

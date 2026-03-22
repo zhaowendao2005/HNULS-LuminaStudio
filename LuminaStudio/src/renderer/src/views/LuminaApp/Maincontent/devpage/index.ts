@@ -1,9 +1,9 @@
 import type { Component } from 'vue'
 import KnowledgeRetrievalDebugPage from './knowledge-retrieval-debug/index.vue'
-import ResponseInspectorPage from './response-inspector/index.vue'
+import KGRetrievalDebugPage from './kg-retrieval-debug/index.vue'
 import ServiceHealthPage from './service-health/index.vue'
 
-export type DevPageTabId = 'knowledge-retrieval-debug' | 'service-health' | 'response-inspector'
+export type DevPageTabId = 'knowledge-retrieval-debug' | 'service-health' | 'kg-retrieval-debug'
 
 export interface DevPageTabMeta {
   id: DevPageTabId
@@ -28,10 +28,10 @@ export const devPageTabs: DevPageTabMeta[] = [
     component: ServiceHealthPage
   },
   {
-    id: 'response-inspector',
-    label: '响应检查',
-    description: '响应结构与原始 payload 检查占位页。',
-    component: ResponseInspectorPage
+    id: 'kg-retrieval-debug',
+    label: '知识图谱检索',
+    description: '执行 KG 检索（local/global/hybrid/naive），调试实体、关系和 chunks 结果。',
+    component: KGRetrievalDebugPage
   }
 ]
 

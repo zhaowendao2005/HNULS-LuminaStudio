@@ -17,6 +17,7 @@ import { UserSettingsIPCHandler } from './ipc/user-settings-handler'
 import { PaperRetrievalService } from './services/paper-retrieval'
 import { PaperRetrievalIPCHandler } from './ipc/paper-retrieval-handler'
 import { KnowledgeRetrievalService } from './services/knowledge-retrieval'
+import { KGRetrievalService } from './services/kg-retrieval/kg-retrieval-service'
 import { OrchestraflowWorkflowService } from './services/orchestraflow/orchestraflow-workflow-service'
 import { OrchestraflowRerankModelService } from './services/orchestraflow/orchestraflow-rerank-model-service'
 import { OrchestraflowIPCHandler } from './ipc/orchestraflow-handler'
@@ -115,7 +116,12 @@ app.whenReady().then(() => {
   new PaperRetrievalIPCHandler(paperRetrievalService)
 
   const knowledgeRetrievalService = new KnowledgeRetrievalService(knowledgeDatabaseService)
-  new KnowledgeDatabaseIPCHandler(knowledgeDatabaseService, knowledgeRetrievalService)
+  const kgRetrievalService = new KGRetrievalService(knowledgeDatabaseService, modelConfigService)
+  new KnowledgeDatabaseIPCHandler(
+    knowledgeDatabaseService,
+    knowledgeRetrievalService,
+    kgRetrievalService
+  )
   const orchestraflowRerankModelService = new OrchestraflowRerankModelService()
 
   // 初始化 MCP Service 和 IPC Handler

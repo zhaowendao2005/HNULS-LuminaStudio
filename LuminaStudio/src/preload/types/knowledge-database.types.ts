@@ -10,7 +10,25 @@ import type { ApiResponse } from './base.types'
 import type {
   KnowledgeBaseInfo,
   DocumentInfo,
-  ExternalApiErrorInfo
+  ExternalApiErrorInfo,
+  KGGraphTablesResponse,
+  KGModelInfo,
+  KGRetrievalSearchRequest,
+  KGRetrievalSearchResult
+} from '@shared/knowledge-database-api.types'
+
+// 重新导出 KG 相关类型供渲染进程使用
+export type {
+  KGGraphTableInfo,
+  KGGraphTablesResponse,
+  KGModelInfo,
+  KGRetrievalMode,
+  KGRetrievalSearchRequest,
+  KGRetrievalEntity,
+  KGRetrievalRelation,
+  KGRetrievalChunk,
+  KGRetrievalMeta,
+  KGRetrievalSearchResult
 } from '@shared/knowledge-database-api.types'
 
 // ==================== 请求类型 ====================
@@ -291,4 +309,28 @@ export interface KnowledgeDatabaseAPI {
   searchKnowledgeRetrieval: (
     request: KnowledgeDatabaseSearchKnowledgeRetrievalRequest
   ) => Promise<ApiResponse<KnowledgeDatabaseSearchKnowledgeRetrievalResponse>>
+
+  // ==================== 知识图谱（KG）检索 ====================
+
+  /**
+   * 获取知识库的 KG 配置
+   */
+  getKGConfigs: (knowledgeBaseId: number) => Promise<ApiResponse<{ knowledgeGraph: unknown }>>
+
+  /**
+   * 获取知识库的图谱表信息（含实体/关系计数）
+   */
+  getKGGraphTables: (knowledgeBaseId: number) => Promise<ApiResponse<KGGraphTablesResponse>>
+
+  /**
+   * 获取可用的 KG 模型列表
+   */
+  listKGModels: () => Promise<ApiResponse<KGModelInfo[]>>
+
+  /**
+   * 执行知识图谱检索（local/global/hybrid/naive 四种模式）
+   */
+  kgRetrievalSearch: (
+    request: KGRetrievalSearchRequest
+  ) => Promise<ApiResponse<KGRetrievalSearchResult>>
 }
