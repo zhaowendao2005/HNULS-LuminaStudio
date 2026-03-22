@@ -13,6 +13,9 @@ import type {
   NormalChatConversationMessage,
   NormalChatConversationSnapshot,
   NormalChatConversationStreamEvent,
+  NormalChatConversationPromptMessage,
+  NormalChatConversationTurnRequestPayload,
+  NormalChatConversationTurnResponsePayload,
   NormalChatMessagePart,
   NormalChatSendMessageRequest,
   NormalChatTopic
@@ -25,6 +28,21 @@ import { NormalChatRepository } from '../../normal-chat.repository'
 interface ActiveRequestContext {
   topicId: string
   controller: AbortController
+  settled: Promise<void>
+  resolveSettled: () => void
+  trace: ConversationTraceState | null
+}
+
+interface ConversationTraceState {
+  requestId: string
+  topicId: string
+  assistantId: string
+  assistantName: string
+  assistantEmoji: string
+  topicTitle: string
+  saveFullConversationEnabled: boolean
+  requestPayload: NormalChatConversationTurnRequestPayload
+  responsePayload: NormalChatConversationTurnResponsePayload
 }
 
 type SupportedChatModel =
@@ -65,7 +83,7 @@ export class NormalChatConversationService {
   async sendMessage(
     payload: NormalChatSendMessageRequest
   ): Promise<{ requestId: string; messageId: string }> {
-    this.requireAssistant(payload.assistantId)
+    const assistant = this.requireAssistant(payload.assistantId)
     const topic = this.requireTopic(payload.topicId, payload.assistantId)
     const trimmed = payload.input.trim()
 
@@ -73,17 +91,29 @@ export class NormalChatConversationService {
       throw new Error('Message is empty')
     }
 
-    // 第一版严格保持全局单活跃请求。
+    // 如果同一个服务里还有旧请求在跑，先让它们自己收口，避免串台。
     await this.abortAllActiveRequests('已有对话正在进行，已自动中止旧请求。')
 
     const requestId = payload.requestId || randomUUID()
     const controller = new AbortController()
-    this.activeRequests.set(requestId, { topicId: topic.id, controller })
+    let resolveSettled: () => void = () => undefined
+    const settled = new Promise<void>((resolve) => {
+      resolveSettled = resolve
+    })
+
+    this.activeRequests.set(requestId, {
+      topicId: topic.id,
+      controller,
+      settled,
+      resolveSettled,
+      trace: null
+    })
 
     const now = new Date().toISOString()
     const userMessage: NormalChatConversationMessage = {
       id: payload.messageId,
       topicId: topic.id,
+      requestId,
       role: 'user',
       parts: this.createTextParts(trimmed),
       createdAt: now,
@@ -92,7 +122,7 @@ export class NormalChatConversationService {
     const sortOrder = this.repository.listMessagesByTopicId(topic.id).length
     this.repository.insertMessage(userMessage, sortOrder)
 
-    // 用户消息一旦收到就立即确认，便于 renderer 端做乐观更新后的收口。
+    // 用户消息一旦写入，就先通知前端更新，这样界面能尽快看到乐观结果。
     this.emit({
       type: 'message-committed',
       requestId,
@@ -103,13 +133,13 @@ export class NormalChatConversationService {
 
     void this.runConversation({
       requestId,
+      assistant,
       topic,
       providerId: payload.providerId,
       modelId: payload.modelId,
       systemPrompt: payload.effectiveSystemPrompt,
+      input: trimmed,
       signal: controller.signal
-    }).finally(() => {
-      this.activeRequests.delete(requestId)
     })
 
     return { requestId, messageId: userMessage.id }
@@ -121,30 +151,68 @@ export class NormalChatConversationService {
       return
     }
 
-    // 这里直接中断流式请求，不再继续写入 assistant 的 partial 内容。
+    // 这里先发出中断信号，再等待运行时把已输出内容收口。
+    // 这样 renderer 侧就能保留已经生成出来的文本，不会把半截回答直接丢掉。
     active.controller.abort()
-    this.activeRequests.delete(requestId)
+    await active.settled
   }
 
   private async runConversation(params: {
     requestId: string
+    assistant: NormalChatAssistant
     topic: NormalChatTopic
     providerId: string
     modelId: string
     systemPrompt: string
+    input: string
     signal: AbortSignal
   }): Promise<void> {
-    const { requestId, topic, providerId, modelId, systemPrompt, signal } = params
+    const { requestId, assistant, topic, providerId, modelId, systemPrompt, input, signal } = params
+    let assistantText = ''
 
     try {
       this.emitStatus(requestId, topic.id, 'thinking', '正在整理上下文并调用模型…')
       const model = await this.createChatModel(providerId, modelId)
       const conversationMessages = this.repository.listMessagesByTopicId(topic.id)
-      const promptMessages = this.buildPromptMessages(systemPrompt, conversationMessages)
+      const promptMessageRecords = this.buildPromptMessageRecords(
+        systemPrompt,
+        conversationMessages
+      )
+      const promptMessages = this.buildPromptMessages(promptMessageRecords)
+      const traceState = this.createConversationTraceState({
+        requestId,
+        assistant,
+        topic,
+        providerId,
+        modelId,
+        input,
+        systemPrompt,
+        promptMessages: promptMessageRecords
+      })
+      const active = this.activeRequests.get(requestId)
+      if (active) {
+        active.trace = traceState
+      }
+
+      if (traceState) {
+        this.repository.insertConversationTurnTrace({
+          requestId,
+          topicId: topic.id,
+          assistantId: assistant.id,
+          assistantName: assistant.name,
+          assistantEmoji: assistant.emoji,
+          topicTitle: topic.title,
+          saveFullConversationEnabled: true,
+          hasTrace: true,
+          requestPayload: traceState.requestPayload,
+          responsePayload: traceState.responsePayload,
+          messages: []
+        })
+      }
+
       const stream = await model.stream(promptMessages, { signal })
 
       this.emitStatus(requestId, topic.id, 'streaming', '模型正在输出回答…')
-      let assistantText = ''
       for await (const chunk of stream) {
         const delta = this.extractChunkText(chunk)
         if (!delta) {
@@ -152,6 +220,23 @@ export class NormalChatConversationService {
         }
 
         assistantText += delta
+        if (traceState) {
+          traceState.responsePayload.chunks.push(delta)
+          traceState.responsePayload.finalText = assistantText
+          this.repository.updateConversationTurnTrace({
+            requestId,
+            topicId: topic.id,
+            assistantId: assistant.id,
+            assistantName: assistant.name,
+            assistantEmoji: assistant.emoji,
+            topicTitle: topic.title,
+            saveFullConversationEnabled: true,
+            hasTrace: true,
+            requestPayload: traceState.requestPayload,
+            responsePayload: traceState.responsePayload,
+            messages: []
+          })
+        }
         this.emit({
           type: 'assistant-chunk',
           requestId,
@@ -160,15 +245,7 @@ export class NormalChatConversationService {
         })
       }
 
-      const now = new Date().toISOString()
-      const assistantMessage: NormalChatConversationMessage = {
-        id: randomUUID(),
-        topicId: topic.id,
-        role: 'assistant',
-        parts: this.createTextParts(assistantText || '模型未返回文本内容。'),
-        createdAt: now,
-        updatedAt: now
-      }
+      const assistantMessage = this.createAssistantMessage(topic.id, requestId, assistantText)
       const sortOrder = this.repository.listMessagesByTopicId(topic.id).length
       this.repository.insertMessage(assistantMessage, sortOrder)
 
@@ -179,6 +256,24 @@ export class NormalChatConversationService {
         message: assistantMessage
       })
       this.emitStatus(requestId, topic.id, 'done', '本轮回答已完成。')
+      if (traceState) {
+        traceState.responsePayload.finalText = assistantText
+        traceState.responsePayload.aborted = false
+        traceState.responsePayload.completedAt = new Date().toISOString()
+        this.repository.updateConversationTurnTrace({
+          requestId,
+          topicId: topic.id,
+          assistantId: assistant.id,
+          assistantName: assistant.name,
+          assistantEmoji: assistant.emoji,
+          topicTitle: topic.title,
+          saveFullConversationEnabled: true,
+          hasTrace: true,
+          requestPayload: traceState.requestPayload,
+          responsePayload: traceState.responsePayload,
+          messages: []
+        })
+      }
       this.emit({
         type: 'finish',
         requestId,
@@ -186,50 +281,207 @@ export class NormalChatConversationService {
         assistantMessageId: assistantMessage.id
       })
     } catch (error) {
-      const message =
-        signal.aborted && error instanceof Error
-          ? '对话已中止。'
-          : error instanceof Error
-            ? error.message
-            : String(error)
+      if (signal.aborted) {
+        const trimmedAssistantText = assistantText.trim()
+        let assistantMessageId: string | null = null
+
+        if (trimmedAssistantText) {
+          const assistantMessage = this.createAssistantMessage(topic.id, requestId, assistantText)
+          const sortOrder = this.repository.listMessagesByTopicId(topic.id).length
+          this.repository.insertMessage(assistantMessage, sortOrder)
+
+          this.emit({
+            type: 'message-committed',
+            requestId,
+            topicId: topic.id,
+            message: assistantMessage
+          })
+          assistantMessageId = assistantMessage.id
+        }
+
+        // 用户点“停止”时，不把它当成错误处理。
+        // 已经生成出来的部分会落成正式 assistant 消息，后面的内容直接舍弃。
+        if (traceState) {
+          traceState.responsePayload.finalText = assistantText
+          traceState.responsePayload.aborted = true
+          traceState.responsePayload.completedAt = new Date().toISOString()
+          this.repository.updateConversationTurnTrace({
+            requestId,
+            topicId: topic.id,
+            assistantId: assistant.id,
+            assistantName: assistant.name,
+            assistantEmoji: assistant.emoji,
+            topicTitle: topic.title,
+            saveFullConversationEnabled: true,
+            hasTrace: true,
+            requestPayload: traceState.requestPayload,
+            responsePayload: traceState.responsePayload,
+            messages: []
+          })
+        }
+        this.emit({
+          type: 'finish',
+          requestId,
+          topicId: topic.id,
+          assistantMessageId
+        })
+        return
+      }
+
+      const message = error instanceof Error ? error.message : String(error)
+      if (traceState) {
+        traceState.responsePayload.errorMessage = message
+        traceState.responsePayload.completedAt = new Date().toISOString()
+        this.repository.updateConversationTurnTrace({
+          requestId,
+          topicId: topic.id,
+          assistantId: assistant.id,
+          assistantName: assistant.name,
+          assistantEmoji: assistant.emoji,
+          topicTitle: topic.title,
+          saveFullConversationEnabled: true,
+          hasTrace: true,
+          requestPayload: traceState.requestPayload,
+          responsePayload: traceState.responsePayload,
+          messages: []
+        })
+      }
       this.emit({
         type: 'error',
         requestId,
         topicId: topic.id,
         message
       })
+    } finally {
+      const active = this.activeRequests.get(requestId)
+      if (active) {
+        active.resolveSettled()
+      }
+      this.activeRequests.delete(requestId)
     }
   }
 
   private buildPromptMessages(
+    promptMessageRecords: NormalChatConversationPromptMessage[]
+  ): Array<SystemMessage | HumanMessage | AIMessage> {
+    return promptMessageRecords.map((message) => {
+      if (message.role === 'system') {
+        return new SystemMessage(message.content)
+      }
+
+      if (message.role === 'assistant') {
+        return new AIMessage(message.content)
+      }
+
+      return new HumanMessage(message.content)
+    })
+  }
+
+  private buildPromptMessageRecords(
     systemPrompt: string,
     conversationMessages: NormalChatConversationMessage[]
-  ): Array<SystemMessage | HumanMessage | AIMessage> {
+  ): NormalChatConversationPromptMessage[] {
     const recentMessages = conversationMessages.slice(-DEFAULT_HISTORY_LIMIT)
-    const historyMessages = recentMessages.flatMap((message) => {
+    const recentHistory = recentMessages.flatMap((message) => {
       const text = this.extractMessageText(message)
       if (!text) {
         return []
       }
 
-      return message.role === 'user' ? [new HumanMessage(text)] : [new AIMessage(text)]
+      return [
+        {
+          role: message.role as 'user' | 'assistant',
+          content: text
+        }
+      ]
     })
 
     return [
-      new SystemMessage(
-        [
+      {
+        role: 'system',
+        content: [
           systemPrompt || '你是 LuminaStudio 内置的普通聊天助手。',
           '',
           '回答请直接、清晰、使用中文。',
           '如果上下文不足，请明确说明，不要编造。'
         ].join('\n')
-      ),
-      ...historyMessages
+      },
+      ...recentHistory
     ]
   }
 
   private createTextParts(text: string): NormalChatMessagePart[] {
     return [{ kind: 'text', text }]
+  }
+
+  private createAssistantMessage(
+    topicId: string,
+    requestId: string,
+    text: string
+  ): NormalChatConversationMessage {
+    const now = new Date().toISOString()
+    return {
+      id: randomUUID(),
+      topicId,
+      requestId,
+      role: 'assistant',
+      parts: this.createTextParts(text || '模型未返回文本内容。'),
+      createdAt: now,
+      updatedAt: now
+    }
+  }
+
+  private createConversationTraceState(params: {
+    requestId: string
+    assistant: NormalChatAssistant
+    topic: NormalChatTopic
+    providerId: string
+    modelId: string
+    input: string
+    systemPrompt: string
+    promptMessages: NormalChatConversationPromptMessage[]
+  }): ConversationTraceState | null {
+    if (!params.assistant.saveFullConversationEnabled) {
+      return null
+    }
+
+    return {
+      requestId: params.requestId,
+      topicId: params.topic.id,
+      assistantId: params.assistant.id,
+      assistantName: params.assistant.name,
+      assistantEmoji: params.assistant.emoji,
+      topicTitle: params.topic.title,
+      saveFullConversationEnabled: true,
+      requestPayload: {
+        assistant: {
+          id: params.assistant.id,
+          name: params.assistant.name,
+          emoji: params.assistant.emoji,
+          templateKey: params.assistant.templateKey,
+          defaultSystemPrompt: params.assistant.defaultSystemPrompt,
+          saveFullConversationEnabled: params.assistant.saveFullConversationEnabled
+        },
+        topic: {
+          id: params.topic.id,
+          title: params.topic.title,
+          systemPromptMode: params.topic.systemPromptMode,
+          systemPromptOverride: params.topic.systemPromptOverride
+        },
+        providerId: params.providerId,
+        modelId: params.modelId,
+        input: params.input,
+        effectiveSystemPrompt: params.systemPrompt,
+        promptMessages: params.promptMessages
+      },
+      responsePayload: {
+        chunks: [],
+        finalText: '',
+        aborted: false,
+        errorMessage: null,
+        completedAt: null
+      }
+    }
   }
 
   private extractMessageText(message: NormalChatConversationMessage): string {
@@ -389,14 +641,17 @@ export class NormalChatConversationService {
       return
     }
 
-    for (const [requestId, active] of this.activeRequests) {
+    const activeRequests = [...this.activeRequests.entries()]
+    for (const [requestId, active] of activeRequests) {
       log.debug('Aborting active normal chat request before starting a new one', {
         requestId,
         topicId: active.topicId,
         note
       })
       active.controller.abort()
-      this.activeRequests.delete(requestId)
     }
+
+    // 等待每个请求自己完成收口，避免把还没来得及写回的内容直接删掉。
+    await Promise.all(activeRequests.map(([, active]) => active.settled))
   }
 }

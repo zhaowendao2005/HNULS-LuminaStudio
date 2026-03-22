@@ -47,19 +47,77 @@
           :content="message.text"
           :is-pending="Boolean(message.isPending)"
         />
+
+        <div class="mt-4 flex items-center gap-2">
+          <div class="flex items-center gap-1.5">
+            <button
+              class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+              type="button"
+              title="更多"
+              @click="emit('more', message)"
+            >
+              <MoreHorizontal class="h-4 w-4" />
+            </button>
+          </div>
+
+          <div class="h-4 w-px bg-gray-200" />
+
+          <div class="ml-auto flex items-center gap-1.5">
+            <button
+              class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+              type="button"
+              title="复制为 Markdown"
+              @click="emit('copy', message)"
+            >
+              <Copy class="h-4 w-4" />
+            </button>
+
+            <button
+              class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-40"
+              :disabled="!canOperateTurn"
+              type="button"
+              title="删除这条对话"
+              @click="emit('delete', message)"
+            >
+              <Trash2 class="h-4 w-4" />
+            </button>
+
+            <button
+              class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-40"
+              :disabled="!canOperateTurn"
+              type="button"
+              title="查看完整会话"
+              @click="emit('open-session', message)"
+            >
+              <FileCode2 class="h-4 w-4" />
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </article>
 </template>
 
 <script setup lang="ts">
-import { UserRound } from 'lucide-vue-next'
+import { computed } from 'vue'
+import { Copy, FileCode2, MoreHorizontal, Trash2, UserRound } from 'lucide-vue-next'
 import type { NormalChatConversationDisplayMessage } from '@renderer/stores/normal-chat/conversation/conversation.types'
 import ChatMarkdownContent from './ChatMarkdownContent.vue'
 
-defineProps<{
+const props = defineProps<{
   message: NormalChatConversationDisplayMessage
 }>()
+
+const emit = defineEmits<{
+  more: [message: NormalChatConversationDisplayMessage]
+  copy: [message: NormalChatConversationDisplayMessage]
+  delete: [message: NormalChatConversationDisplayMessage]
+  'open-session': [message: NormalChatConversationDisplayMessage]
+}>()
+
+const canOperateTurn = computed(() => {
+  return Boolean(props.message.requestId) && !props.message.isPending
+})
 </script>
 
 <style scoped lang="scss">

@@ -30,6 +30,7 @@ function createBootstrap(): NormalChatBootstrap {
           emoji: '🤖',
           labelId: null,
           defaultSystemPrompt: '默认提示词',
+          saveFullConversationEnabled: false,
           sortOrder: 0
         }
       ],
@@ -333,7 +334,6 @@ describe('NormalChat workspace store', () => {
 
     expect(updateAssistant).toHaveBeenCalledWith({
       assistantId: 'assistant-1',
-      name: '基础助手',
       defaultSystemPrompt: '更新后的默认提示词'
     })
     expect(updateTopicPrompt).toHaveBeenCalledWith({
@@ -359,6 +359,7 @@ describe('NormalChat workspace store', () => {
         emoji: '🤖',
         labelId: null,
         defaultSystemPrompt: '默认提示词',
+        saveFullConversationEnabled: false,
         sortOrder: 0
       },
       {
@@ -368,6 +369,7 @@ describe('NormalChat workspace store', () => {
         emoji: '🧠',
         labelId: 'label-1',
         defaultSystemPrompt: '学习提示词',
+        saveFullConversationEnabled: false,
         sortOrder: 1
       }
     ]

@@ -31,7 +31,15 @@
 
     <div v-else class="flex min-h-full flex-col justify-end">
       <div class="space-y-1 py-4">
-        <ChatMessageItem v-for="message in currentMessages" :key="message.id" :message="message" />
+        <ChatMessageItem
+          v-for="message in currentMessages"
+          :key="message.id"
+          :message="message"
+          @copy="emit('copy-message', $event)"
+          @delete="emit('delete-message', $event)"
+          @more="emit('more-message', $event)"
+          @open-session="emit('open-message-session', $event)"
+        />
       </div>
     </div>
   </section>
@@ -42,12 +50,20 @@ import { computed, nextTick, ref, watch } from 'vue'
 import ChatMessageItem from './ChatMessageItem.vue'
 import { useNormalChatWorkspaceStore } from '@renderer/stores/normal-chat/workspace/workspace.store'
 import { useNormalChatConversationStore } from '@renderer/stores/normal-chat/conversation/conversation.store'
+import type { NormalChatConversationDisplayMessage } from '@renderer/stores/normal-chat/conversation/conversation.types'
 
 const workspaceStore = useNormalChatWorkspaceStore()
 const conversationStore = useNormalChatConversationStore()
 
 const currentMessages = computed(() => conversationStore.currentDisplayMessages)
 const viewportRef = ref<HTMLElement | null>(null)
+
+const emit = defineEmits<{
+  'copy-message': [message: NormalChatConversationDisplayMessage]
+  'delete-message': [message: NormalChatConversationDisplayMessage]
+  'more-message': [message: NormalChatConversationDisplayMessage]
+  'open-message-session': [message: NormalChatConversationDisplayMessage]
+}>()
 
 async function scrollToBottom(): Promise<void> {
   await nextTick()

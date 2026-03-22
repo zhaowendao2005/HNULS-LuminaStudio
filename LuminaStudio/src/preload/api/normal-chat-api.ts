@@ -7,8 +7,10 @@ import type {
   NormalChatCreateLabelRequest,
   NormalChatCreateAssistantRequest,
   NormalChatCreateTopicRequest,
+  NormalChatDeleteConversationTurnRequest,
   NormalChatDeleteLabelRequest,
   NormalChatDeleteTopicRequest,
+  NormalChatGetConversationTurnDetailRequest,
   NormalChatGetConversationRequest,
   NormalChatRenameLabelRequest,
   NormalChatRenameTopicRequest,
@@ -23,11 +25,16 @@ export const normalChatAPI: NormalChatAPI = {
   getBootstrap: () => ipcRenderer.invoke('normalChat:getBootstrap'),
   getConversation: (request: NormalChatGetConversationRequest) =>
     ipcRenderer.invoke('normalChat:getConversation', request),
+  getConversationTurnDetail: (request: NormalChatGetConversationTurnDetailRequest) =>
+    ipcRenderer.invoke('normalChat:getConversationTurnDetail', request),
   sendMessage: (request: NormalChatSendMessageRequest) =>
     ipcRenderer.invoke('normalChat:sendMessage', request),
+  deleteConversationTurn: (request: NormalChatDeleteConversationTurnRequest) =>
+    ipcRenderer.invoke('normalChat:deleteConversationTurn', request),
   abort: (request: NormalChatAbortRequest) => ipcRenderer.invoke('normalChat:abort', request),
   onStream: (handler: (event: NormalChatConversationStreamEvent) => void) => {
-    const listener = (_event: unknown, payload: NormalChatConversationStreamEvent) => handler(payload)
+    const listener = (_event: unknown, payload: NormalChatConversationStreamEvent) =>
+      handler(payload)
     ipcRenderer.on('normalChat:stream', listener)
     return () => ipcRenderer.off('normalChat:stream', listener)
   },

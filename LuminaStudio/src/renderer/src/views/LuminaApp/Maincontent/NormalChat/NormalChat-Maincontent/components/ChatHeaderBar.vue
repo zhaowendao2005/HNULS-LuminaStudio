@@ -7,7 +7,7 @@
         class="flex min-w-0 max-w-full items-center gap-1.5 rounded-md bg-gray-50 px-2 py-1 transition-colors hover:bg-gray-100"
         type="button"
         :title="workspaceStore.currentAssistant?.name ?? '未选择助手'"
-        @click="workspaceStore.openAssistantSettings('prompt')"
+        @click="workspaceStore.openAssistantSettings('basic')"
       >
         <span class="nc-default-assistant-avatar-a9k2 text-sm">
           {{ currentAssistant?.emoji ?? '🤖' }}

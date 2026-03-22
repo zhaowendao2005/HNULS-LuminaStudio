@@ -22,6 +22,7 @@ export interface NormalChatAssistant {
   emoji: string
   labelId: string | null
   defaultSystemPrompt: string
+  saveFullConversationEnabled: boolean
   sortOrder: number
 }
 
@@ -55,6 +56,7 @@ export interface NormalChatUpdateAssistantRequest {
   assistantId: string
   name?: string
   defaultSystemPrompt?: string
+  saveFullConversationEnabled?: boolean
 }
 
 export interface NormalChatAssignLabelRequest {
@@ -118,6 +120,7 @@ export type NormalChatConversationMessageRole = 'user' | 'assistant'
 export interface NormalChatConversationMessage {
   id: string
   topicId: string
+  requestId: string
   role: NormalChatConversationMessageRole
   parts: NormalChatMessagePart[]
   createdAt: string
@@ -131,6 +134,63 @@ export interface NormalChatConversationSnapshot {
 
 export interface NormalChatGetConversationRequest {
   topicId: string
+}
+
+export interface NormalChatConversationPromptMessage {
+  role: 'system' | 'user' | 'assistant'
+  content: string
+}
+
+export interface NormalChatConversationTurnRequestPayload {
+  assistant: {
+    id: string
+    name: string
+    emoji: string
+    templateKey: string
+    defaultSystemPrompt: string
+    saveFullConversationEnabled: boolean
+  }
+  topic: {
+    id: string
+    title: string
+    systemPromptMode: NormalChatTopicPromptMode
+    systemPromptOverride: string | null
+  }
+  providerId: string
+  modelId: string
+  input: string
+  effectiveSystemPrompt: string
+  promptMessages: NormalChatConversationPromptMessage[]
+}
+
+export interface NormalChatConversationTurnResponsePayload {
+  chunks: string[]
+  finalText: string
+  aborted: boolean
+  errorMessage: string | null
+  completedAt: string | null
+}
+
+export interface NormalChatConversationTurnDetail {
+  requestId: string
+  topicId: string
+  assistantId: string
+  assistantName: string
+  assistantEmoji: string
+  topicTitle: string
+  saveFullConversationEnabled: boolean
+  hasTrace: boolean
+  requestPayload: NormalChatConversationTurnRequestPayload | null
+  responsePayload: NormalChatConversationTurnResponsePayload | null
+  messages: NormalChatConversationMessage[]
+}
+
+export interface NormalChatGetConversationTurnDetailRequest {
+  requestId: string
+}
+
+export interface NormalChatDeleteConversationTurnRequest {
+  requestId: string
 }
 
 export interface NormalChatSendMessageRequest {
@@ -161,14 +221,12 @@ export interface NormalChatConversationStatusEvent extends NormalChatConversatio
   message: string
 }
 
-export interface NormalChatConversationAssistantChunkEvent
-  extends NormalChatConversationBaseEvent {
+export interface NormalChatConversationAssistantChunkEvent extends NormalChatConversationBaseEvent {
   type: 'assistant-chunk'
   delta: string
 }
 
-export interface NormalChatConversationMessageCommittedEvent
-  extends NormalChatConversationBaseEvent {
+export interface NormalChatConversationMessageCommittedEvent extends NormalChatConversationBaseEvent {
   type: 'message-committed'
   message: NormalChatConversationMessage
 }
@@ -198,6 +256,12 @@ export interface NormalChatAPI {
   sendMessage: (
     request: NormalChatSendMessageRequest
   ) => Promise<ApiResponse<{ requestId: string; messageId: string }>>
+  getConversationTurnDetail: (
+    request: NormalChatGetConversationTurnDetailRequest
+  ) => Promise<ApiResponse<NormalChatConversationTurnDetail | null>>
+  deleteConversationTurn: (
+    request: NormalChatDeleteConversationTurnRequest
+  ) => Promise<ApiResponse<void>>
   abort: (request: NormalChatAbortRequest) => Promise<ApiResponse<void>>
   onStream: (handler: (event: NormalChatConversationStreamEvent) => void) => () => void
   createAssistant: (

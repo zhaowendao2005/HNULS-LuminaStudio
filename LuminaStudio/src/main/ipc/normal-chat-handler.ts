@@ -5,7 +5,9 @@ import type {
   NormalChatCreateAssistantRequest,
   NormalChatCreateTopicRequest,
   NormalChatDeleteLabelRequest,
+  NormalChatDeleteConversationTurnRequest,
   NormalChatDeleteTopicRequest,
+  NormalChatGetConversationTurnDetailRequest,
   NormalChatGetConversationRequest,
   NormalChatRenameLabelRequest,
   NormalChatRenameTopicRequest,
@@ -54,6 +56,20 @@ export class NormalChatIPCHandler extends BaseIPCHandler {
     return {
       success: true,
       data: await this.normalChatConversationService.getConversation(request.topicId)
+    }
+  }
+
+  async handleGetConversationTurnDetail(
+    _event: unknown,
+    request: NormalChatGetConversationTurnDetailRequest
+  ): Promise<{ success: true; data: unknown } | { success: false; error: string }> {
+    if (!request?.requestId) {
+      return { success: false, error: 'Missing requestId' }
+    }
+
+    return {
+      success: true,
+      data: await this.normalChatService.getConversationTurnDetail(request.requestId)
     }
   }
 
@@ -195,6 +211,18 @@ export class NormalChatIPCHandler extends BaseIPCHandler {
       success: true,
       data: await this.normalChatService.deleteTopic(request)
     }
+  }
+
+  async handleDeleteConversationTurn(
+    _event: unknown,
+    request: NormalChatDeleteConversationTurnRequest
+  ): Promise<{ success: true; data: undefined } | { success: false; error: string }> {
+    if (!request?.requestId) {
+      return { success: false, error: 'Missing requestId' }
+    }
+
+    await this.normalChatService.deleteConversationTurn(request.requestId)
+    return { success: true, data: undefined }
   }
 
   async handleSetActiveTopic(

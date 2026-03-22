@@ -58,6 +58,7 @@ function createDisplayMessage(
 ): NormalChatConversationDisplayMessage {
   return {
     id: message.id,
+    requestId: message.requestId,
     role: message.role,
     author: message.role === 'user' ? '你' : assistantName,
     time: formatTime(message.createdAt),
@@ -128,6 +129,7 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
     if (pendingText) {
       displayMessages.push({
         id: `${currentTopic.value.id}-pending-assistant`,
+        requestId: state.value.currentRequestId ?? '',
         role: 'assistant',
         author: assistantName,
         time: '正在生成',
@@ -138,6 +140,25 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
 
     return displayMessages
   })
+
+  async function loadConversationTurnDetail(requestId: string) {
+    if (!requestId) {
+      return null
+    }
+
+    return NormalChatConversationDatasource.getConversationTurnDetail({ requestId })
+  }
+
+  async function deleteConversationTurn(requestId: string): Promise<void> {
+    if (!requestId) {
+      return
+    }
+
+    await NormalChatConversationDatasource.deleteConversationTurn({ requestId })
+    if (currentTopicId.value) {
+      await loadTopicConversation(currentTopicId.value)
+    }
+  }
 
   function ensureTopicMessageBucket(topicId: string): NormalChatConversationMessage[] {
     return state.value.messagesByTopicId[topicId] ?? []
@@ -384,6 +405,7 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
     const userMessage: NormalChatConversationMessage = {
       id: messageId,
       topicId: topic.id,
+      requestId,
       role: 'user',
       parts: [{ kind: 'text', text: input }],
       createdAt: new Date().toISOString(),
@@ -439,6 +461,8 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
     clearDraft,
     sendCurrentDraft,
     abortCurrentRequest,
-    loadTopicConversation
+    loadTopicConversation,
+    loadConversationTurnDetail,
+    deleteConversationTurn
   }
 })
