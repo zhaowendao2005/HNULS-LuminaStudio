@@ -15,8 +15,12 @@ function unwrap<T>(response: { success: boolean; data?: T; error?: string }): T 
 }
 
 export interface NormalChatConversationDatasourceLike {
-  getConversation(payload: NormalChatGetConversationRequest): Promise<NormalChatConversationSnapshot>
-  sendMessage(payload: NormalChatSendMessageRequest): Promise<{ requestId: string; messageId: string }>
+  getConversation(
+    payload: NormalChatGetConversationRequest
+  ): Promise<NormalChatConversationSnapshot>
+  sendMessage(
+    payload: NormalChatSendMessageRequest
+  ): Promise<{ requestId: string; messageId: string }>
   abort(payload: NormalChatAbortRequest): Promise<void>
   onStream(handler: (event: NormalChatConversationStreamEvent) => void): () => void
 }

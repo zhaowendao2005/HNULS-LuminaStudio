@@ -16,7 +16,8 @@ import type {
   NormalChatUpdateTopicPromptRequest
 } from '@preload/types'
 import { BaseIPCHandler } from './base-handler'
-import type { NormalChatConversationService, NormalChatService } from '../services/normal-chat'
+import type { NormalChatService } from '../services/normal-chat'
+import type { NormalChatConversationService } from '../services/normal-chat/agent/runtime'
 
 export class NormalChatIPCHandler extends BaseIPCHandler {
   constructor(
@@ -236,7 +237,10 @@ export class NormalChatIPCHandler extends BaseIPCHandler {
       !request?.messageId ||
       !request?.input?.trim()
     ) {
-      return { success: false, error: 'Missing topicId, assistantId, providerId, modelId, messageId or input' }
+      return {
+        success: false,
+        error: 'Missing topicId, assistantId, providerId, modelId, messageId or input'
+      }
     }
 
     return {

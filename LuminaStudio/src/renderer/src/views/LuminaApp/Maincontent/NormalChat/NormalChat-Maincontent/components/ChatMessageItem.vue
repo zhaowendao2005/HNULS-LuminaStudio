@@ -13,7 +13,11 @@
       >
         <div
           class="h-8 w-8 rounded-xl"
-          :class="message.isPending ? 'bg-gradient-to-br from-amber-200 via-orange-200 to-rose-300' : 'bg-gradient-to-br from-sky-200 via-cyan-200 to-blue-300'"
+          :class="
+            message.isPending
+              ? 'bg-gradient-to-br from-amber-200 via-orange-200 to-rose-300'
+              : 'bg-gradient-to-br from-sky-200 via-cyan-200 to-blue-300'
+          "
         />
       </div>
 
@@ -31,9 +35,18 @@
         </div>
         <p class="mt-1 text-xs text-gray-400">{{ message.time }}</p>
 
-        <div class="mt-4 whitespace-pre-wrap text-[14px] leading-[1.75] text-gray-800">
+        <div
+          v-if="message.role === 'user'"
+          class="mt-4 whitespace-pre-wrap text-[14px] leading-[1.75] text-gray-800"
+        >
           {{ message.text || ' ' }}
         </div>
+        <ChatMarkdownContent
+          v-else
+          class="mt-4"
+          :content="message.text"
+          :is-pending="Boolean(message.isPending)"
+        />
       </div>
     </div>
   </article>
@@ -42,6 +55,7 @@
 <script setup lang="ts">
 import { UserRound } from 'lucide-vue-next'
 import type { NormalChatConversationDisplayMessage } from '@renderer/stores/normal-chat/conversation/conversation.types'
+import ChatMarkdownContent from './ChatMarkdownContent.vue'
 
 defineProps<{
   message: NormalChatConversationDisplayMessage

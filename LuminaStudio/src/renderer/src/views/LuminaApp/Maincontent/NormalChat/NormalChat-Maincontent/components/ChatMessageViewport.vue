@@ -3,7 +3,10 @@
     ref="viewportRef"
     class="nc-chat-message-viewport-a9k2 flex-1 overflow-y-auto bg-[var(--nc-bg-main)]"
   >
-    <div v-if="currentMessages.length === 0" class="flex h-full items-center justify-center px-8 py-10">
+    <div
+      v-if="currentMessages.length === 0"
+      class="flex h-full items-center justify-center px-8 py-10"
+    >
       <div
         class="w-full max-w-2xl rounded-3xl border border-dashed border-gray-200 bg-white/80 p-8 text-center"
       >
@@ -28,11 +31,7 @@
 
     <div v-else class="flex min-h-full flex-col justify-end">
       <div class="space-y-1 py-4">
-        <ChatMessageItem
-          v-for="message in currentMessages"
-          :key="message.id"
-          :message="message"
-        />
+        <ChatMessageItem v-for="message in currentMessages" :key="message.id" :message="message" />
       </div>
     </div>
   </section>
@@ -56,7 +55,10 @@ async function scrollToBottom(): Promise<void> {
 }
 
 watch(
-  () => currentMessages.value.map((message) => `${message.id}:${message.text}:${message.isPending ? '1' : '0'}`).join('|'),
+  () =>
+    currentMessages.value
+      .map((message) => `${message.id}:${message.text}:${message.isPending ? '1' : '0'}`)
+      .join('|'),
   () => {
     void scrollToBottom()
   }

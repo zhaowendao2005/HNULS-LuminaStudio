@@ -11,7 +11,7 @@ import type { DatabaseManager } from '../database-sqlite'
 import {
   getNormalChatAgentTemplateDefinition,
   listNormalChatAgentTemplates
-} from './agent-template-registry'
+} from './agent/registry'
 import { NormalChatRepository } from './normal-chat.repository'
 
 const log = logger.scope('NormalChatService')

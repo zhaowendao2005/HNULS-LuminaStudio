@@ -82,21 +82,23 @@ import { useNormalChatWorkspaceStore } from '@renderer/stores/normal-chat/worksp
 const conversationStore = useNormalChatConversationStore()
 const workspaceStore = useNormalChatWorkspaceStore()
 
-const leftTools = [
-  { id: 'tool-plus-square', icon: 'plus-square', side: 'left' as const },
-  { id: 'tool-paperclip', icon: 'paperclip', side: 'left' as const },
-  { id: 'tool-globe', icon: 'globe', side: 'left' as const },
-  { id: 'tool-file-text', icon: 'file-text', side: 'left' as const },
-  { id: 'tool-hammer', icon: 'hammer', side: 'left' as const },
-  { id: 'tool-at-sign', icon: 'at-sign', side: 'left' as const },
-  { id: 'tool-zap', icon: 'zap', side: 'left' as const },
-  { id: 'tool-panel-top', icon: 'panel-top', side: 'left' as const },
-  { id: 'tool-maximize', icon: 'maximize', side: 'left' as const },
-  { id: 'tool-eraser', icon: 'eraser', side: 'left' as const },
-  { id: 'tool-clock', icon: 'clock', side: 'left' as const }
+const leftTools: Array<{ id: string; icon: ComposerToolIcon; side: 'left' }> = [
+  { id: 'tool-plus-square', icon: 'plus-square', side: 'left' },
+  { id: 'tool-paperclip', icon: 'paperclip', side: 'left' },
+  { id: 'tool-globe', icon: 'globe', side: 'left' },
+  { id: 'tool-file-text', icon: 'file-text', side: 'left' },
+  { id: 'tool-hammer', icon: 'hammer', side: 'left' },
+  { id: 'tool-at-sign', icon: 'at-sign', side: 'left' },
+  { id: 'tool-zap', icon: 'zap', side: 'left' },
+  { id: 'tool-panel-top', icon: 'panel-top', side: 'left' },
+  { id: 'tool-maximize', icon: 'maximize', side: 'left' },
+  { id: 'tool-eraser', icon: 'eraser', side: 'left' },
+  { id: 'tool-clock', icon: 'clock', side: 'left' }
 ]
 
-const rightTools = [{ id: 'tool-languages', icon: 'languages', side: 'right' as const }]
+const rightTools: Array<{ id: string; icon: ComposerToolIcon; side: 'right' }> = [
+  { id: 'tool-languages', icon: 'languages', side: 'right' }
+]
 
 const iconMap: Record<ComposerToolIcon, LucideIcon> = {
   'plus-square': PlusSquare,
@@ -124,7 +126,9 @@ const sendButtonClass = computed(() => {
     return 'bg-rose-500 hover:bg-rose-600'
   }
 
-  return conversationStore.canSend ? 'bg-[var(--nc-accent)] hover:bg-[var(--nc-accent-hover)]' : 'cursor-not-allowed bg-gray-300'
+  return conversationStore.canSend
+    ? 'bg-[var(--nc-accent)] hover:bg-[var(--nc-accent-hover)]'
+    : 'cursor-not-allowed bg-gray-300'
 })
 
 const canClickButton = computed(() =>

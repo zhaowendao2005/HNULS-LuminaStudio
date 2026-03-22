@@ -28,7 +28,8 @@ import { McpService } from './services/mcp'
 import { McpIPCHandler } from './ipc/mcp-handler'
 import { McpChatService } from './services/mcp-chat'
 import { McpChatIPCHandler } from './ipc/mcp-chat-handler'
-import { NormalChatService, NormalChatConversationService } from './services/normal-chat'
+import { NormalChatService } from './services/normal-chat'
+import { NormalChatConversationService } from './services/normal-chat/agent/runtime'
 import { NormalChatIPCHandler } from './ipc/normal-chat-handler'
 
 const log = logger.scope('Main')

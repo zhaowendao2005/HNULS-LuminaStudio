@@ -73,7 +73,9 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
   let disposeStream: (() => void) | null = null
 
   const currentTopic = computed<NormalChatTopic | null>(() => workspaceStore.currentTopic)
-  const currentAssistant = computed<NormalChatAssistant | null>(() => workspaceStore.currentAssistant)
+  const currentAssistant = computed<NormalChatAssistant | null>(
+    () => workspaceStore.currentAssistant
+  )
   const currentTopicId = computed(() => currentTopic.value?.id ?? '')
   const currentDraft = computed(() => {
     const topicId = currentTopicId.value
@@ -88,7 +90,9 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
     return topicId ? (state.value.lastErrorByTopicId[topicId] ?? '') : ''
   })
   const isCurrentTopicStreaming = computed(() => {
-    return Boolean(state.value.currentRequestId && state.value.streamingTopicId === currentTopicId.value)
+    return Boolean(
+      state.value.currentRequestId && state.value.streamingTopicId === currentTopicId.value
+    )
   })
   const canSend = computed(() => {
     return (
@@ -219,63 +223,65 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
       return
     }
 
-    disposeStream = NormalChatConversationDatasource.onStream((event: NormalChatConversationStreamEvent) => {
-      if (event.type === 'message-committed') {
-        upsertMessage(event.message)
-        if (event.message.role === 'assistant') {
+    disposeStream = NormalChatConversationDatasource.onStream(
+      (event: NormalChatConversationStreamEvent) => {
+        if (event.type === 'message-committed') {
+          upsertMessage(event.message)
+          if (event.message.role === 'assistant') {
+            clearPendingText(event.topicId)
+          }
+          return
+        }
+
+        if (event.type === 'assistant-chunk') {
+          if (state.value.currentRequestId !== event.requestId) {
+            return
+          }
+
+          appendPendingText(event.topicId, event.delta)
+          state.value.streamingTopicId = event.topicId
+          return
+        }
+
+        if (event.type === 'status') {
+          if (state.value.currentRequestId !== event.requestId) {
+            return
+          }
+
+          state.value.streamingTopicId = event.topicId
+          setStatusText(event.topicId, event.message)
+          return
+        }
+
+        if (event.type === 'finish') {
+          if (state.value.currentRequestId !== event.requestId) {
+            return
+          }
+
+          state.value.currentRequestId = null
+          if (state.value.streamingTopicId === event.topicId) {
+            state.value.streamingTopicId = null
+          }
           clearPendingText(event.topicId)
-        }
-        return
-      }
-
-      if (event.type === 'assistant-chunk') {
-        if (state.value.currentRequestId !== event.requestId) {
+          setStatusText(event.topicId, '')
           return
         }
 
-        appendPendingText(event.topicId, event.delta)
-        state.value.streamingTopicId = event.topicId
-        return
+        if (event.type === 'error') {
+          if (state.value.currentRequestId !== event.requestId) {
+            return
+          }
+
+          state.value.currentRequestId = null
+          if (state.value.streamingTopicId === event.topicId) {
+            state.value.streamingTopicId = null
+          }
+          clearPendingText(event.topicId)
+          setStatusText(event.topicId, '')
+          setLastError(event.topicId, event.message)
+        }
       }
-
-      if (event.type === 'status') {
-        if (state.value.currentRequestId !== event.requestId) {
-          return
-        }
-
-        state.value.streamingTopicId = event.topicId
-        setStatusText(event.topicId, event.message)
-        return
-      }
-
-      if (event.type === 'finish') {
-        if (state.value.currentRequestId !== event.requestId) {
-          return
-        }
-
-        state.value.currentRequestId = null
-        if (state.value.streamingTopicId === event.topicId) {
-          state.value.streamingTopicId = null
-        }
-        clearPendingText(event.topicId)
-        setStatusText(event.topicId, '')
-        return
-      }
-
-      if (event.type === 'error') {
-        if (state.value.currentRequestId !== event.requestId) {
-          return
-        }
-
-        state.value.currentRequestId = null
-        if (state.value.streamingTopicId === event.topicId) {
-          state.value.streamingTopicId = null
-        }
-        clearPendingText(event.topicId)
-        setStatusText(event.topicId, '')
-        setLastError(event.topicId, event.message)
-      }
-    })
+    )
   }
 
   async function initialize(): Promise<void> {
