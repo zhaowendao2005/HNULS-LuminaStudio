@@ -116,6 +116,262 @@ export interface OFKnowledgePermissionTree extends KnowledgeRetrievalPermissionT
 }
 
 /**
+ * 知识检索节点的显式选择状态。
+ *
+ * 这份状态是 renderer -> main -> utility 的主数据来源，
+ * 运行时不再依赖 permission_tree 去反推“选了哪些知识库 / 文档”。
+ */
+export interface OFKnowledgeRetrievalSelectionState {
+  knowledgeBaseIds: number[]
+  selectedKnowledgeBaseIds: number[]
+  selectedDocumentFileKeysByKnowledgeBase: Record<number, string[]>
+}
+
+function normalizeKnowledgeBaseId(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
+    return value
+  }
+  if (typeof value === 'string' && /^\d+$/.test(value.trim())) {
+    const parsed = Number(value.trim())
+    if (Number.isInteger(parsed) && parsed > 0) {
+      return parsed
+    }
+  }
+  return null
+}
+
+function normalizeStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  const items = new Set<string>()
+  for (const item of value) {
+    if (typeof item !== 'string') {
+      continue
+    }
+    const normalized = item.trim()
+    if (normalized) {
+      items.add(normalized)
+    }
+  }
+  return [...items]
+}
+
+function normalizeSelectionMap(
+  value: unknown,
+  validKnowledgeBaseIds?: Set<number>
+): Record<number, string[]> {
+  if (!value || typeof value !== 'object') {
+    return {}
+  }
+
+  const result: Record<number, string[]> = {}
+  for (const [key, rawFileKeys] of Object.entries(value as Record<string, unknown>)) {
+    const knowledgeBaseId = normalizeKnowledgeBaseId(key)
+    if (!knowledgeBaseId) {
+      continue
+    }
+    if (validKnowledgeBaseIds && !validKnowledgeBaseIds.has(knowledgeBaseId)) {
+      continue
+    }
+
+    const normalizedFileKeys = normalizeStringArray(rawFileKeys)
+    if (normalizedFileKeys.length === 0) {
+      continue
+    }
+    result[knowledgeBaseId] = normalizedFileKeys.sort()
+  }
+
+  return result
+}
+
+/**
+ * 统一归一化显式选择状态。
+ *
+ * 这里会同时清理知识库 id、文档 fileKey，并去重排序，
+ * 方便 renderer / compiler / runtime 共享同一份结果。
+ */
+export function normalizeKnowledgeRetrievalSelection(
+  input?: Partial<OFKnowledgeRetrievalSelectionState>,
+  validKnowledgeBaseIds?: Set<number>
+): OFKnowledgeRetrievalSelectionState {
+  const knowledgeBaseIds = new Set<number>()
+  const selectedKnowledgeBaseIds = new Set<number>()
+
+  for (const value of input?.knowledgeBaseIds || []) {
+    const knowledgeBaseId = normalizeKnowledgeBaseId(value)
+    if (!knowledgeBaseId) {
+      continue
+    }
+    if (validKnowledgeBaseIds && !validKnowledgeBaseIds.has(knowledgeBaseId)) {
+      continue
+    }
+    knowledgeBaseIds.add(knowledgeBaseId)
+  }
+
+  for (const value of input?.selectedKnowledgeBaseIds || []) {
+    const knowledgeBaseId = normalizeKnowledgeBaseId(value)
+    if (!knowledgeBaseId) {
+      continue
+    }
+    if (validKnowledgeBaseIds && !validKnowledgeBaseIds.has(knowledgeBaseId)) {
+      continue
+    }
+    knowledgeBaseIds.add(knowledgeBaseId)
+    selectedKnowledgeBaseIds.add(knowledgeBaseId)
+  }
+
+  const selectedDocumentFileKeysByKnowledgeBase = normalizeSelectionMap(
+    input?.selectedDocumentFileKeysByKnowledgeBase,
+    validKnowledgeBaseIds
+  )
+
+  for (const key of Object.keys(selectedDocumentFileKeysByKnowledgeBase)) {
+    const knowledgeBaseId = Number(key)
+    if (Number.isInteger(knowledgeBaseId) && knowledgeBaseId > 0) {
+      knowledgeBaseIds.add(knowledgeBaseId)
+      selectedKnowledgeBaseIds.add(knowledgeBaseId)
+    }
+  }
+
+  const normalizedSelection: OFKnowledgeRetrievalSelectionState = {
+    knowledgeBaseIds: [...knowledgeBaseIds].sort((left, right) => left - right),
+    selectedKnowledgeBaseIds: [...selectedKnowledgeBaseIds].sort((left, right) => left - right),
+    selectedDocumentFileKeysByKnowledgeBase
+  }
+
+  return normalizedSelection
+}
+
+/**
+ * 从 permission tree 反推出显式选择状态。
+ *
+ * 这是旧数据兼容入口，主要用于 editor/compiler 迁移旧 workflow。
+ * 运行时节点不再依赖它做主路径解析。
+ */
+export function buildKnowledgeRetrievalSelectionFromPermissionTree(
+  permissionTree: OFKnowledgePermissionTree | undefined
+): OFKnowledgeRetrievalSelectionState {
+  if (!permissionTree) {
+    return normalizeKnowledgeRetrievalSelection()
+  }
+
+  const knowledgeBaseIds = new Set<number>()
+  const selectedKnowledgeBaseIds = new Set<number>()
+  const selectedDocumentFileKeysByKnowledgeBase = new Map<number, Set<string>>()
+
+  const appendKnowledgeBaseId = (value: unknown): void => {
+    const knowledgeBaseId = normalizeKnowledgeBaseId(value)
+    if (!knowledgeBaseId) {
+      return
+    }
+    knowledgeBaseIds.add(knowledgeBaseId)
+    selectedKnowledgeBaseIds.add(knowledgeBaseId)
+  }
+
+  const appendDocumentFileKey = (knowledgeBaseId: number, fileKey: unknown): void => {
+    if (typeof fileKey !== 'string') {
+      return
+    }
+    const normalizedFileKey = fileKey.trim()
+    if (!normalizedFileKey) {
+      return
+    }
+
+    knowledgeBaseIds.add(knowledgeBaseId)
+    selectedKnowledgeBaseIds.add(knowledgeBaseId)
+    const selectedFileKeys =
+      selectedDocumentFileKeysByKnowledgeBase.get(knowledgeBaseId) ?? new Set<string>()
+    selectedFileKeys.add(normalizedFileKey)
+    selectedDocumentFileKeysByKnowledgeBase.set(knowledgeBaseId, selectedFileKeys)
+  }
+
+  appendKnowledgeBaseId(permissionTree.knowledgeBaseId)
+  for (const item of permissionTree.knowledgeBaseIds || []) {
+    appendKnowledgeBaseId(item)
+  }
+
+  const knowledgeBaseRules = [
+    ...(permissionTree.knowledgeBases || []),
+    ...(permissionTree.knowledge_base_rules || [])
+  ]
+
+  for (const rule of knowledgeBaseRules) {
+    const knowledgeBaseId = normalizeKnowledgeBaseId(
+      rule.knowledgeBaseId ?? rule.knowledge_base_id
+    )
+    if (!knowledgeBaseId) {
+      continue
+    }
+
+    appendKnowledgeBaseId(knowledgeBaseId)
+    const documentRules = Array.isArray(rule.documents) ? rule.documents : []
+    if (documentRules.length === 0 && rule.effect !== 'deny') {
+      continue
+    }
+
+    for (const documentRule of documentRules) {
+      appendDocumentFileKey(knowledgeBaseId, documentRule.fileKey)
+    }
+  }
+
+  const rootKnowledgeBaseId = normalizeKnowledgeBaseId(permissionTree.knowledgeBaseId)
+  if (rootKnowledgeBaseId) {
+    for (const documentRule of permissionTree.documents || []) {
+      appendDocumentFileKey(rootKnowledgeBaseId, documentRule.fileKey)
+    }
+  }
+
+  const walkLegacyTree = (
+    nodes: OFKnowledgePermissionTree['providers'],
+    currentKnowledgeBaseId?: number
+  ): void => {
+    for (const node of nodes || []) {
+      const nodeKnowledgeBaseId =
+        normalizeKnowledgeBaseId(node.knowledgeBaseId ?? node.knowledge_base_id) ??
+        currentKnowledgeBaseId
+
+      if ((node.kind === 'knowledge-base' || node.kind === 'scope') && nodeKnowledgeBaseId) {
+        knowledgeBaseIds.add(nodeKnowledgeBaseId)
+        selectedKnowledgeBaseIds.add(nodeKnowledgeBaseId)
+      }
+
+      if (node.kind === 'file' && node.checked !== false && nodeKnowledgeBaseId) {
+        const fileKey =
+          typeof node.fileKey === 'string'
+            ? node.fileKey
+            : typeof node.file_key === 'string'
+              ? node.file_key
+              : typeof node.id === 'string'
+                ? node.id
+                : null
+        if (fileKey) {
+          appendDocumentFileKey(nodeKnowledgeBaseId, fileKey)
+        }
+      }
+
+      if (Array.isArray(node.children) && node.children.length > 0) {
+        walkLegacyTree(node.children, nodeKnowledgeBaseId)
+      }
+    }
+  }
+
+  walkLegacyTree(permissionTree.providers || [])
+
+  return normalizeKnowledgeRetrievalSelection({
+    knowledgeBaseIds: [...knowledgeBaseIds],
+    selectedKnowledgeBaseIds: [...selectedKnowledgeBaseIds],
+    selectedDocumentFileKeysByKnowledgeBase: Object.fromEntries(
+      [...selectedDocumentFileKeysByKnowledgeBase.entries()].map(([knowledgeBaseId, fileKeys]) => [
+        knowledgeBaseId,
+        [...fileKeys].sort()
+      ])
+    )
+  })
+}
+
+/**
  * 节点配置里的检索 scope。
  */
 export interface KnowledgeRetrievalScopeInput {
@@ -140,6 +396,9 @@ export interface KnowledgeRetrievalPromptItem {
 export interface KnowledgeRetrievalNodeConfigDTO {
   query_template: KnowledgeRetrievalPromptItem[]
   permission_tree: OFKnowledgePermissionTree
+  knowledge_base_ids: number[]
+  selected_knowledge_base_ids: number[]
+  selected_document_file_keys_by_knowledge_base: Record<number, string[]>
   top_k: number
   ef: number | null
   rerank_enabled: boolean

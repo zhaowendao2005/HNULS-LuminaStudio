@@ -12,7 +12,9 @@ import type {
 import type { DocumentInfo, KnowledgeBaseInfo } from '@shared/knowledge-database-api.types'
 import type {
   KnowledgeDatabasePermissionTree,
+  KnowledgeDatabaseResolveKnowledgeRetrievalScopesRequest,
   KnowledgeDatabaseResolveKnowledgeRetrievalScopesResponse,
+  KnowledgeDatabaseSearchKnowledgeRetrievalRequest,
   KnowledgeDatabaseSearchKnowledgeRetrievalResponse
 } from '@preload/types'
 
@@ -99,6 +101,9 @@ export const useKnowledgeDebugStore = defineStore('knowledge-debug', () => {
   const searchError = ref<string | null>(null)
   const resolveResponse = ref<KnowledgeDatabaseResolveKnowledgeRetrievalScopesResponse | null>(null)
   const searchResponse = ref<KnowledgeDatabaseSearchKnowledgeRetrievalResponse | null>(null)
+  const lastResolveRequest =
+    ref<KnowledgeDatabaseResolveKnowledgeRetrievalScopesRequest | null>(null)
+  const lastSearchRequest = ref<KnowledgeDatabaseSearchKnowledgeRetrievalRequest | null>(null)
 
   const selectedKnowledgeBaseIds = computed(() =>
     knowledgeBases.value.filter((base) => base.selected).map((base) => base.id)
@@ -384,11 +389,31 @@ export const useKnowledgeDebugStore = defineStore('knowledge-debug', () => {
     }
   }
 
-  async function resolveSelectedScopes(): Promise<KnowledgeDatabaseResolveKnowledgeRetrievalScopesResponse> {
-    const response = await KnowledgeDebugDataSource.resolveKnowledgeRetrievalScopes({
-      knowledgeBaseIds: selectedKnowledgeBaseIds.value,
+  // 先统一生成一次请求体快照，避免“页面显示的参数”和“实际发出去的参数”不一致。
+  function buildKnowledgeRetrievalRequestBase(): {
+    knowledgeBaseId?: number
+    knowledgeBaseIds: number[]
+    selectedKnowledgeBaseIds: number[]
+    selectedDocumentFileKeysByKnowledgeBase: Record<number, string[]>
+    permissionTree: KnowledgeDatabasePermissionTree
+  } {
+    const selection = selectionState.value
+
+    return {
+      knowledgeBaseId: selection.selectedKnowledgeBaseIds[0],
+      knowledgeBaseIds: selection.selectedKnowledgeBaseIds,
+      selectedKnowledgeBaseIds: selection.selectedKnowledgeBaseIds,
+      selectedDocumentFileKeysByKnowledgeBase: selection.selectedDocumentsByBase,
       permissionTree: buildPermissionTree()
-    })
+    }
+  }
+
+  async function resolveSelectedScopes(
+    request?: KnowledgeDatabaseResolveKnowledgeRetrievalScopesRequest
+  ): Promise<KnowledgeDatabaseResolveKnowledgeRetrievalScopesResponse> {
+    const finalRequest = request ?? buildKnowledgeRetrievalRequestBase()
+    lastResolveRequest.value = finalRequest
+    const response = await KnowledgeDebugDataSource.resolveKnowledgeRetrievalScopes(finalRequest)
     resolveResponse.value = response
     return response
   }
@@ -410,10 +435,8 @@ export const useKnowledgeDebugStore = defineStore('knowledge-debug', () => {
     searchResponse.value = null
 
     try {
-      await resolveSelectedScopes()
-      searchResponse.value = await KnowledgeDebugDataSource.searchKnowledgeRetrieval({
-        knowledgeBaseIds: selectedKnowledgeBaseIds.value,
-        permissionTree: buildPermissionTree(),
+      const request: KnowledgeDatabaseSearchKnowledgeRetrievalRequest = {
+        ...buildKnowledgeRetrievalRequestBase(),
         query: query.value.trim(),
         k: k.value,
         ef: ef.value,
@@ -424,7 +447,10 @@ export const useKnowledgeDebugStore = defineStore('knowledge-debug', () => {
                 topN: rerankTopN.value
               }
             : undefined
-      })
+      }
+      await resolveSelectedScopes(request)
+      lastSearchRequest.value = request
+      searchResponse.value = await KnowledgeDebugDataSource.searchKnowledgeRetrieval(request)
     } catch (error) {
       searchError.value = error instanceof Error ? error.message : '执行检索失败'
     } finally {
@@ -464,6 +490,8 @@ export const useKnowledgeDebugStore = defineStore('knowledge-debug', () => {
     searchError,
     resolveResponse,
     searchResponse,
+    lastResolveRequest,
+    lastSearchRequest,
     selectedKnowledgeBaseIds,
     selectedDocumentsByBase,
     selectionState,

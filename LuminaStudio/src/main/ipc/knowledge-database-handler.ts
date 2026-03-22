@@ -1,4 +1,5 @@
 import { BaseIPCHandler } from './base-handler'
+import { logger } from '../services/logger'
 import type { KnowledgeRetrievalService } from '../services/knowledge-retrieval'
 import type { KnowledgeDatabaseBridgeService } from '../services/knowledge-database-bridge'
 import type {
@@ -20,6 +21,8 @@ import type {
  * - knowledgeDatabase:searchKnowledgeRetrieval
  */
 export class KnowledgeDatabaseIPCHandler extends BaseIPCHandler {
+  private readonly log = logger.scope('KnowledgeDatabaseIPCHandler')
+
   constructor(
     private readonly service: KnowledgeDatabaseBridgeService,
     private readonly knowledgeRetrievalService: KnowledgeRetrievalService
@@ -135,6 +138,19 @@ export class KnowledgeDatabaseIPCHandler extends BaseIPCHandler {
       if (!request || typeof request.query !== 'string') {
         return { success: false, error: 'Invalid query' }
       }
+
+      // 这里直接打印“实际进入 main 的请求体”，方便和前端 dev 页对照。
+      this.log.debug('searchKnowledgeRetrieval request', {
+        query: request.query,
+        knowledgeBaseId: request.knowledgeBaseId ?? null,
+        knowledgeBaseIds: request.knowledgeBaseIds ?? [],
+        selectedKnowledgeBaseIds: request.selectedKnowledgeBaseIds ?? [],
+        selectedDocumentFileKeysByKnowledgeBase:
+          request.selectedDocumentFileKeysByKnowledgeBase ?? {},
+        k: request.k,
+        ef: request.ef,
+        rerank: request.rerank
+      })
 
       const result = await this.knowledgeRetrievalService.search(request)
       return { success: true, data: result }

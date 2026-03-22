@@ -39,8 +39,21 @@ function createNode(overrides: Record<string, unknown> = {}): OFNode {
       permission_tree: {
         providers: [],
         knowledgeBaseId: 1,
-        effect: 'allow'
+        knowledgeBaseIds: [1],
+        effect: 'allow',
+        documents: [
+          {
+            fileKey: 'docs/a.md',
+            effect: 'allow'
+          }
+        ]
       },
+      knowledge_base_ids: [1],
+      selected_knowledge_base_ids: [1],
+      selected_document_file_keys_by_knowledge_base: {
+        1: ['docs/a.md']
+      },
+      output_namespace: 'kb-node',
       output: { variables: [] },
       ...overrides
     }
@@ -93,6 +106,11 @@ describe('KnowledgeRetrievalNode', () => {
     expect(request.payload.query).toBe('lumina studio')
     expect(request.payload.knowledgeBaseIds).toEqual([1])
     expect(request.payload.knowledgeBaseId).toBe(1)
+    expect(request.payload.selectedKnowledgeBaseIds).toEqual([1])
+    expect(request.payload.selectedDocumentFileKeysByKnowledgeBase).toEqual({
+      1: ['docs/a.md']
+    })
+    expect(request.payload.permissionTree).toBeUndefined()
 
     port.emit({
       type: 'private-rpc:response',
@@ -125,8 +143,11 @@ describe('KnowledgeRetrievalNode', () => {
       }
     })
     expect(store.get('query')).toBe('lumina studio')
-    expect(store.get('total_scopes')).toBe(2)
-    expect(store.get('partial_failure')).toBe(true)
+    expect(store.getByPath('kb-node.query')).toBe('lumina studio')
+    expect(store.getByPath('kb-node.total_scopes')).toBe(2)
+    expect(store.getByPath('kb-node.total_hits')).toBe(2)
+    expect(store.getByPath('kb-node.partial_failure')).toBe(true)
+    expect(store.get('kb-node')).toEqual(result.outputs)
   })
 
   it('缺少 result 时会基于固定字段生成兜底结果字符串', async () => {
@@ -167,6 +188,7 @@ describe('KnowledgeRetrievalNode', () => {
       partial_failure: false,
       items: [{ id: 'hit-1' }]
     })
+    expect(store.getByPath('kb-node.result.total_hits')).toBe(1)
   })
 
   it('启用 rerank 时允许 topN 小于 top_k 并原样透传', async () => {

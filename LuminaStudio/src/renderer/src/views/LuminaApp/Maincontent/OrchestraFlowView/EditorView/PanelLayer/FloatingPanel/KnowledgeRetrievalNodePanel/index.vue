@@ -366,7 +366,8 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { OFKnowledgeRetrievalNodeData, OFPromptItem } from '@shared/Orchestraflow-types'
 import type {
   KnowledgeRetrievalPermissionTreeNode,
-  OFKnowledgePermissionTree
+  OFKnowledgePermissionTree,
+  OFKnowledgeRetrievalSelectionState
 } from '@shared/knowledge-retrieval.types'
 import type { RerankModelInfo } from '@preload/types'
 import { useWorkflowEditorStore } from '@renderer/stores/orchestraflow/workflow-editor/workflow-editor.store'
@@ -416,15 +417,13 @@ interface PermissionKnowledgeBaseNode {
   documents: PermissionDocumentNode[]
 }
 
-interface PermissionSelectionModel {
-  selectedKnowledgeBaseIds: number[]
-  selectedDocumentsByBase: Record<number, string[]>
-}
+type PermissionSelectionModel = OFKnowledgeRetrievalSelectionState
 
 const knowledgeBaseTree = ref<PermissionKnowledgeBaseNode[]>([])
 const permissionSelection = ref<PermissionSelectionModel>({
+  knowledgeBaseIds: [],
   selectedKnowledgeBaseIds: [],
-  selectedDocumentsByBase: {}
+  selectedDocumentFileKeysByKnowledgeBase: {}
 })
 
 const promptRoleOptions = [
@@ -510,22 +509,25 @@ const rerankTopNModel = computed({
 
 const selectedKnowledgeBaseCount = computed(() => {
   const selectedIds = new Set(permissionSelection.value.selectedKnowledgeBaseIds)
-  Object.keys(permissionSelection.value.selectedDocumentsByBase || {}).forEach((key) => {
-    const knowledgeBaseId = Number(key)
-    if (Number.isInteger(knowledgeBaseId) && knowledgeBaseId > 0) {
-      selectedIds.add(knowledgeBaseId)
+  Object.keys(permissionSelection.value.selectedDocumentFileKeysByKnowledgeBase || {}).forEach(
+    (key) => {
+      const knowledgeBaseId = Number(key)
+      if (Number.isInteger(knowledgeBaseId) && knowledgeBaseId > 0) {
+        selectedIds.add(knowledgeBaseId)
+      }
     }
-  })
+  )
   return selectedIds.size
 })
 
 const selectedDocumentCount = computed(() => {
   const selectedKnowledgeBaseIds = new Set(permissionSelection.value.selectedKnowledgeBaseIds)
-  const selectedDocumentsByBase = permissionSelection.value.selectedDocumentsByBase || {}
+  const selectedDocumentFileKeysByKnowledgeBase =
+    permissionSelection.value.selectedDocumentFileKeysByKnowledgeBase || {}
   let totalCount = 0
 
   for (const knowledgeBase of knowledgeBaseTree.value) {
-    const partialSelectedDocuments = selectedDocumentsByBase[knowledgeBase.id] || []
+    const partialSelectedDocuments = selectedDocumentFileKeysByKnowledgeBase[knowledgeBase.id] || []
     if (selectedKnowledgeBaseIds.has(knowledgeBase.id) && partialSelectedDocuments.length === 0) {
       totalCount += knowledgeBase.documentsLoaded
         ? knowledgeBase.documents.length
@@ -554,8 +556,7 @@ const rerankSummary = computed(() => {
 })
 
 const runtimeKnowledgeBaseId = computed(() => {
-  const currentPermissionTree = nodeData.value?.permission_tree
-  return resolveRuntimeKnowledgeBaseId(permissionSelection.value, currentPermissionTree)
+  return resolveRuntimeKnowledgeBaseId(permissionSelection.value)
 })
 
 const runtimeKnowledgeBaseLabel = computed(() => {
@@ -644,7 +645,7 @@ function normalizePermissionSelection(
 ): PermissionSelectionModel {
   const selectedKnowledgeBaseIds = Array.from(
     new Set(
-      (input.selectedKnowledgeBaseIds || []).filter(
+      [...(input.knowledgeBaseIds || []), ...(input.selectedKnowledgeBaseIds || [])].filter(
         (value): value is number =>
           typeof value === 'number' &&
           Number.isInteger(value) &&
@@ -654,8 +655,9 @@ function normalizePermissionSelection(
     )
   ).sort((a, b) => a - b)
 
-  const selectedDocumentsByBase: Record<number, string[]> = {}
-  Object.entries(input.selectedDocumentsByBase || {}).forEach(([key, value]) => {
+  const selectedDocumentFileKeysByKnowledgeBase: Record<number, string[]> = {}
+  const rawDocumentMap = input.selectedDocumentFileKeysByKnowledgeBase || {}
+  Object.entries(rawDocumentMap).forEach(([key, value]) => {
     const knowledgeBaseId = Number(key)
     if (!Number.isInteger(knowledgeBaseId) || knowledgeBaseId <= 0) return
     if (validKnowledgeBaseIds && !validKnowledgeBaseIds.has(knowledgeBaseId)) return
@@ -664,40 +666,30 @@ function normalizePermissionSelection(
       new Set(Array.isArray(value) ? value.filter(Boolean) : [])
     ).sort()
     if (documentKeys.length > 0) {
-      selectedDocumentsByBase[knowledgeBaseId] = documentKeys
+      selectedDocumentFileKeysByKnowledgeBase[knowledgeBaseId] = documentKeys
     }
   })
 
   return {
+    knowledgeBaseIds: selectedKnowledgeBaseIds,
     selectedKnowledgeBaseIds,
-    selectedDocumentsByBase
+    selectedDocumentFileKeysByKnowledgeBase: selectedDocumentFileKeysByKnowledgeBase
   }
 }
 
-function resolveRuntimeKnowledgeBaseId(
-  selection: PermissionSelectionModel,
-  permissionTree: OFKnowledgePermissionTree | undefined
-): number | null {
-  const selectedKnowledgeBaseIds = new Set(selection.selectedKnowledgeBaseIds || [])
-  Object.keys(selection.selectedDocumentsByBase || {}).forEach((key) => {
-    const knowledgeBaseId = Number(key)
-    if (Number.isInteger(knowledgeBaseId) && knowledgeBaseId > 0) {
-      selectedKnowledgeBaseIds.add(knowledgeBaseId)
-    }
-  })
-
-  const preferredKnowledgeBaseId = permissionTree?.knowledgeBaseId
-  if (
-    typeof preferredKnowledgeBaseId === 'number' &&
-    Number.isInteger(preferredKnowledgeBaseId) &&
-    preferredKnowledgeBaseId > 0 &&
-    selectedKnowledgeBaseIds.has(preferredKnowledgeBaseId)
-  ) {
-    return preferredKnowledgeBaseId
+function resolveRuntimeKnowledgeBaseId(selection: PermissionSelectionModel): number | null {
+  if (selection.selectedKnowledgeBaseIds.length > 0) {
+    return selection.selectedKnowledgeBaseIds[0]
   }
 
-  const [firstKnowledgeBaseId] = Array.from(selectedKnowledgeBaseIds).sort((a, b) => a - b)
-  return firstKnowledgeBaseId || null
+  const [firstDocumentKnowledgeBaseId] = Object.keys(
+    selection.selectedDocumentFileKeysByKnowledgeBase || {}
+  )
+    .map((key) => Number(key))
+    .filter((value): value is number => Number.isInteger(value) && value > 0)
+    .sort((a, b) => a - b)
+
+  return firstDocumentKnowledgeBaseId || null
 }
 
 function extractKnowledgeBaseIdFromTreeNode(
@@ -741,13 +733,14 @@ function parsePermissionSelectionFromNodeData(
 ): PermissionSelectionModel {
   if (!permissionTree) {
     return {
+      knowledgeBaseIds: [],
       selectedKnowledgeBaseIds: [],
-      selectedDocumentsByBase: {}
+      selectedDocumentFileKeysByKnowledgeBase: {}
     }
   }
 
   const selectedKnowledgeBaseIds = new Set<number>()
-  const selectedDocumentsByBase: Record<number, Set<string>> = {}
+  const selectedDocumentFileKeysByKnowledgeBase: Record<number, Set<string>> = {}
   const structuredKnowledgeBaseRules = [
     ...(permissionTree.knowledgeBases || []),
     ...(permissionTree.knowledge_base_rules || [])
@@ -770,23 +763,25 @@ function parsePermissionSelectionFromNodeData(
         continue
       }
 
-      if (!selectedDocumentsByBase[knowledgeBaseId]) {
-        selectedDocumentsByBase[knowledgeBaseId] = new Set<string>()
+      if (!selectedDocumentFileKeysByKnowledgeBase[knowledgeBaseId]) {
+        selectedDocumentFileKeysByKnowledgeBase[knowledgeBaseId] = new Set<string>()
       }
 
       for (const documentRule of documentRules) {
         if (!documentRule.fileKey) continue
-        selectedDocumentsByBase[knowledgeBaseId].add(documentRule.fileKey)
+        selectedDocumentFileKeysByKnowledgeBase[knowledgeBaseId].add(documentRule.fileKey)
       }
     }
 
     const normalizedSelection: PermissionSelectionModel = {
+      knowledgeBaseIds: Array.from(selectedKnowledgeBaseIds).sort((a, b) => a - b),
       selectedKnowledgeBaseIds: Array.from(selectedKnowledgeBaseIds).sort((a, b) => a - b),
-      selectedDocumentsByBase: {}
+      selectedDocumentFileKeysByKnowledgeBase: {}
     }
-    Object.entries(selectedDocumentsByBase).forEach(([key, fileKeys]) => {
+    Object.entries(selectedDocumentFileKeysByKnowledgeBase).forEach(([key, fileKeys]) => {
       if (!fileKeys.size) return
-      normalizedSelection.selectedDocumentsByBase[Number(key)] = Array.from(fileKeys).sort()
+      normalizedSelection.selectedDocumentFileKeysByKnowledgeBase[Number(key)] =
+        Array.from(fileKeys).sort()
     })
     return normalizedSelection
   }
@@ -802,10 +797,10 @@ function parsePermissionSelectionFromNodeData(
     }
     for (const documentRule of permissionTree.documents || []) {
       if (!documentRule.fileKey) continue
-      if (!selectedDocumentsByBase[runtimeKnowledgeBaseId]) {
-        selectedDocumentsByBase[runtimeKnowledgeBaseId] = new Set<string>()
+      if (!selectedDocumentFileKeysByKnowledgeBase[runtimeKnowledgeBaseId]) {
+        selectedDocumentFileKeysByKnowledgeBase[runtimeKnowledgeBaseId] = new Set<string>()
       }
-      selectedDocumentsByBase[runtimeKnowledgeBaseId].add(documentRule.fileKey)
+      selectedDocumentFileKeysByKnowledgeBase[runtimeKnowledgeBaseId].add(documentRule.fileKey)
     }
   }
 
@@ -831,37 +826,67 @@ function parsePermissionSelectionFromNodeData(
 
     const fileKey = extractDocumentFileKey(node, parentKnowledgeBaseId)
     if (!fileKey) return
-    if (!selectedDocumentsByBase[parentKnowledgeBaseId]) {
-      selectedDocumentsByBase[parentKnowledgeBaseId] = new Set<string>()
+    if (!selectedDocumentFileKeysByKnowledgeBase[parentKnowledgeBaseId]) {
+      selectedDocumentFileKeysByKnowledgeBase[parentKnowledgeBaseId] = new Set<string>()
     }
-    selectedDocumentsByBase[parentKnowledgeBaseId].add(fileKey)
+    selectedDocumentFileKeysByKnowledgeBase[parentKnowledgeBaseId].add(fileKey)
   })
 
   const normalizedSelection: PermissionSelectionModel = {
+    knowledgeBaseIds: Array.from(selectedKnowledgeBaseIds).sort((a, b) => a - b),
     selectedKnowledgeBaseIds: Array.from(selectedKnowledgeBaseIds).sort((a, b) => a - b),
-    selectedDocumentsByBase: {}
+    selectedDocumentFileKeysByKnowledgeBase: {}
   }
-  Object.entries(selectedDocumentsByBase).forEach(([key, fileKeys]) => {
+  Object.entries(selectedDocumentFileKeysByKnowledgeBase).forEach(([key, fileKeys]) => {
     if (!fileKeys.size) return
-    normalizedSelection.selectedDocumentsByBase[Number(key)] = Array.from(fileKeys).sort()
+    normalizedSelection.selectedDocumentFileKeysByKnowledgeBase[Number(key)] =
+      Array.from(fileKeys).sort()
   })
   return normalizePermissionSelection(normalizedSelection)
+}
+
+function buildSelectionFromNodeData(
+  nodeData: Partial<OFKnowledgeRetrievalNodeData> | undefined
+): PermissionSelectionModel {
+  const explicitSelection = normalizePermissionSelection(
+    {
+      knowledgeBaseIds: nodeData?.knowledge_base_ids || [],
+      selectedKnowledgeBaseIds: nodeData?.selected_knowledge_base_ids || [],
+      selectedDocumentFileKeysByKnowledgeBase:
+        nodeData?.selected_document_file_keys_by_knowledge_base || {}
+    },
+    new Set(knowledgeBaseTree.value.map((knowledgeBase) => knowledgeBase.id))
+  )
+
+  if (
+    explicitSelection.knowledgeBaseIds.length > 0 ||
+    explicitSelection.selectedKnowledgeBaseIds.length > 0 ||
+    Object.keys(explicitSelection.selectedDocumentFileKeysByKnowledgeBase).length > 0
+  ) {
+    return explicitSelection
+  }
+
+  const legacySelection = parsePermissionSelectionFromNodeData(nodeData?.permission_tree)
+  return normalizePermissionSelection(legacySelection)
 }
 
 function buildPermissionProviders(
   selection: PermissionSelectionModel
 ): KnowledgeRetrievalPermissionTreeNode[] {
   const selectedKnowledgeBaseIds = new Set(selection.selectedKnowledgeBaseIds || [])
-  const selectedDocumentsByBase = selection.selectedDocumentsByBase || {}
+  const selectedDocumentFileKeysByKnowledgeBase =
+    selection.selectedDocumentFileKeysByKnowledgeBase || {}
 
   return knowledgeBaseTree.value
     .filter(
       (knowledgeBase) =>
         selectedKnowledgeBaseIds.has(knowledgeBase.id) ||
-        (selectedDocumentsByBase[knowledgeBase.id] || []).length > 0
+        (selectedDocumentFileKeysByKnowledgeBase[knowledgeBase.id] || []).length > 0
     )
     .map((knowledgeBase) => {
-      const selectedDocuments = new Set(selectedDocumentsByBase[knowledgeBase.id] || [])
+      const selectedDocuments = new Set(
+        selectedDocumentFileKeysByKnowledgeBase[knowledgeBase.id] || []
+      )
       const knowledgeBaseChecked = selectedKnowledgeBaseIds.has(knowledgeBase.id)
       const children: KnowledgeRetrievalPermissionTreeNode[] = []
 
@@ -902,26 +927,30 @@ function buildPermissionProviders(
 
 function buildPermissionTreePatch(selection: PermissionSelectionModel): OFKnowledgePermissionTree {
   const currentPermissionTree = nodeData.value?.permission_tree
-  const runtimeKnowledgeBaseId = resolveRuntimeKnowledgeBaseId(selection, currentPermissionTree)
-  const selectedDocumentsByBase = selection.selectedDocumentsByBase || {}
+  const runtimeKnowledgeBaseId = resolveRuntimeKnowledgeBaseId(selection)
+  const selectedDocumentFileKeysByKnowledgeBase =
+    selection.selectedDocumentFileKeysByKnowledgeBase || {}
   const knowledgeBaseRules = knowledgeBaseTree.value
     .filter(
       (knowledgeBase) =>
-        (selection.selectedKnowledgeBaseIds || []).includes(knowledgeBase.id) ||
-        (selectedDocumentsByBase[knowledgeBase.id] || []).length > 0
+        selection.selectedKnowledgeBaseIds.includes(knowledgeBase.id) ||
+        (selectedDocumentFileKeysByKnowledgeBase[knowledgeBase.id] || []).length > 0
     )
     .map((knowledgeBase) => {
       const selectedDocuments = Array.from(
-        new Set(selectedDocumentsByBase[knowledgeBase.id] || [])
+        new Set(selectedDocumentFileKeysByKnowledgeBase[knowledgeBase.id] || [])
       ).sort()
-      const totalDocuments = knowledgeBase.documentsLoaded
-        ? knowledgeBase.documents.length
-        : knowledgeBase.docCount
-      const useDocumentRules =
-        selectedDocuments.length > 0 &&
-        (totalDocuments === 0 || selectedDocuments.length < totalDocuments)
-
-      if (!useDocumentRules) {
+      const isKnowledgeBaseSelected = selection.selectedKnowledgeBaseIds.includes(knowledgeBase.id)
+      const effectiveDocuments =
+        selectedDocuments.length > 0
+          ? selectedDocuments
+          : isKnowledgeBaseSelected && knowledgeBase.documentsLoaded
+            ? knowledgeBase.documents
+                .map((document) => document.fileKey)
+                .filter(Boolean)
+                .sort()
+            : []
+      if (effectiveDocuments.length === 0) {
         return {
           knowledgeBaseId: knowledgeBase.id,
           effect: 'allow' as const
@@ -930,8 +959,8 @@ function buildPermissionTreePatch(selection: PermissionSelectionModel): OFKnowle
 
       return {
         knowledgeBaseId: knowledgeBase.id,
-        effect: 'deny' as const,
-        documents: selectedDocuments.map((fileKey) => ({
+        effect: 'allow' as const,
+        documents: effectiveDocuments.map((fileKey) => ({
           fileKey,
           effect: 'allow' as const
         }))
@@ -948,22 +977,9 @@ function buildPermissionTreePatch(selection: PermissionSelectionModel): OFKnowle
     )
   ).sort((a, b) => a - b)
   const runtimeSelectedDocuments = runtimeKnowledgeBaseId
-    ? selectedDocumentsByBase[runtimeKnowledgeBaseId] || []
+    ? selectedDocumentFileKeysByKnowledgeBase[runtimeKnowledgeBaseId] || []
     : []
-
-  const runtimeKnowledgeBase = knowledgeBaseTree.value.find(
-    (knowledgeBase) => knowledgeBase.id === runtimeKnowledgeBaseId
-  )
-  const runtimeTotalDocuments = runtimeKnowledgeBase
-    ? runtimeKnowledgeBase.documentsLoaded
-      ? runtimeKnowledgeBase.documents.length
-      : runtimeKnowledgeBase.docCount
-    : 0
-
-  const useDocumentRules =
-    Boolean(runtimeKnowledgeBaseId) &&
-    runtimeSelectedDocuments.length > 0 &&
-    (runtimeTotalDocuments === 0 || runtimeSelectedDocuments.length < runtimeTotalDocuments)
+  const useDocumentRules = Boolean(runtimeKnowledgeBaseId) && runtimeSelectedDocuments.length > 0
 
   return {
     ...(currentPermissionTree || { providers: [] }),
@@ -983,8 +999,13 @@ function buildPermissionTreePatch(selection: PermissionSelectionModel): OFKnowle
 }
 
 function patchPermissionTreeBySelection(selection: PermissionSelectionModel) {
+  const normalizedSelection = normalizePermissionSelection(selection)
   patchNode({
-    permission_tree: buildPermissionTreePatch(selection)
+    permission_tree: buildPermissionTreePatch(normalizedSelection),
+    knowledge_base_ids: normalizedSelection.knowledgeBaseIds,
+    selected_knowledge_base_ids: normalizedSelection.selectedKnowledgeBaseIds,
+    selected_document_file_keys_by_knowledge_base:
+      normalizedSelection.selectedDocumentFileKeysByKnowledgeBase
   })
 }
 
@@ -1002,7 +1023,7 @@ async function preloadSelectedKnowledgeBaseDocuments(
 ) {
   const knowledgeBaseIds = new Set<number>(selection.selectedKnowledgeBaseIds || [])
 
-  Object.keys(selection.selectedDocumentsByBase || {}).forEach((key) => {
+  Object.keys(selection.selectedDocumentFileKeysByKnowledgeBase || {}).forEach((key) => {
     const knowledgeBaseId = Number(key)
     if (Number.isInteger(knowledgeBaseId) && knowledgeBaseId > 0) {
       knowledgeBaseIds.add(knowledgeBaseId)
@@ -1157,6 +1178,10 @@ async function loadDocumentsByKnowledgeBaseId(knowledgeBaseId: number, forceRefr
         left.fileName.localeCompare(right.fileName)
       )
     }))
+
+    // 文档真正加载完成后，再把当前选择同步回权限树。
+    // 这样“先点知识库、后补文档”的场景也会把 fileKey 明确写入保存结果。
+    patchPermissionTreeBySelection(permissionSelection.value)
   } catch (error) {
     patchKnowledgeBaseTreeNode(knowledgeBaseId, (knowledgeBase) => ({
       ...knowledgeBase,
@@ -1176,7 +1201,7 @@ async function refreshKnowledgeBaseList() {
 }
 
 function syncPermissionSelectionFromNode() {
-  const parsedSelection = parsePermissionSelectionFromNodeData(nodeData.value?.permission_tree)
+  const parsedSelection = buildSelectionFromNodeData(nodeData.value)
   if (areSelectionsEqual(permissionSelection.value, parsedSelection)) {
     return
   }

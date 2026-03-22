@@ -4,7 +4,10 @@
  */
 
 import type { XYPosition } from '@vue-flow/core'
-import type { OFKnowledgePermissionTree } from '../knowledge-retrieval.types'
+import type {
+  OFKnowledgePermissionTree,
+  OFKnowledgeRetrievalSelectionState
+} from '../knowledge-retrieval.types'
 
 // ===== 节点类型枚举 =====
 export enum OFBlockEnum {
@@ -525,6 +528,9 @@ export type OFKnowledgeRetrievalNodeData = OFCommonNodeType & {
   query_template: OFPromptItem[]
   // 兼容旧单 knowledgeBaseId / providers 树，同时支持新多知识库规则结构。
   permission_tree: OFKnowledgePermissionTree
+  knowledge_base_ids: OFKnowledgeRetrievalSelectionState['knowledgeBaseIds']
+  selected_knowledge_base_ids: OFKnowledgeRetrievalSelectionState['selectedKnowledgeBaseIds']
+  selected_document_file_keys_by_knowledge_base: OFKnowledgeRetrievalSelectionState['selectedDocumentFileKeysByKnowledgeBase']
   top_k: number
   ef: number | null
   rerank_enabled: boolean
@@ -794,6 +800,9 @@ export interface OFKnowledgeRetrievalNodeConfig {
   query_template: OFPromptItem[]
   // 与节点运行时保持同一 permission_tree 契约，避免 editor/runtime 分叉。
   permission_tree: OFKnowledgePermissionTree
+  knowledge_base_ids: OFKnowledgeRetrievalSelectionState['knowledgeBaseIds']
+  selected_knowledge_base_ids: OFKnowledgeRetrievalSelectionState['selectedKnowledgeBaseIds']
+  selected_document_file_keys_by_knowledge_base: OFKnowledgeRetrievalSelectionState['selectedDocumentFileKeysByKnowledgeBase']
   top_k: number
   ef: number | null
   rerank_enabled: boolean

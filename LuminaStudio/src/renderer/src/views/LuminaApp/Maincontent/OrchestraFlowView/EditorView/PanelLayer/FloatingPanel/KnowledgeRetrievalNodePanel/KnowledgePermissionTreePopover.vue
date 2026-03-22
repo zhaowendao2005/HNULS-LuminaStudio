@@ -206,7 +206,7 @@ interface KnowledgeTreeBaseOption {
 
 interface PermissionSelectionModel {
   selectedKnowledgeBaseIds: number[]
-  selectedDocumentsByBase: Record<number, string[]>
+  selectedDocumentFileKeysByKnowledgeBase: Record<number, string[]>
 }
 
 const props = defineProps<{
@@ -287,30 +287,33 @@ function getSelectionSets() {
     )
   )
 
-  const selectedDocumentsByBase: Record<number, Set<string>> = {}
-  Object.entries(props.selection.selectedDocumentsByBase || {}).forEach(([key, documentKeys]) => {
-    const knowledgeBaseId = Number(key)
-    if (!Number.isInteger(knowledgeBaseId) || knowledgeBaseId <= 0) return
-    selectedDocumentsByBase[knowledgeBaseId] = new Set(
-      Array.isArray(documentKeys) ? documentKeys.filter(Boolean) : []
-    )
-  })
+  const selectedDocumentFileKeysByKnowledgeBase: Record<number, Set<string>> = {}
+  Object.entries(props.selection.selectedDocumentFileKeysByKnowledgeBase || {}).forEach(
+    ([key, documentKeys]) => {
+      const knowledgeBaseId = Number(key)
+      if (!Number.isInteger(knowledgeBaseId) || knowledgeBaseId <= 0) return
+      selectedDocumentFileKeysByKnowledgeBase[knowledgeBaseId] = new Set(
+        Array.isArray(documentKeys) ? documentKeys.filter(Boolean) : []
+      )
+    }
+  )
 
-  return { selectedKnowledgeBaseIds, selectedDocumentsByBase }
+  return { selectedKnowledgeBaseIds, selectedDocumentFileKeysByKnowledgeBase }
 }
 
 function emitSelectionChange(value: {
   selectedKnowledgeBaseIds: Set<number>
-  selectedDocumentsByBase: Record<number, Set<string>>
+  selectedDocumentFileKeysByKnowledgeBase: Record<number, Set<string>>
 }) {
   const nextSelection: PermissionSelectionModel = {
     selectedKnowledgeBaseIds: Array.from(value.selectedKnowledgeBaseIds).sort((a, b) => a - b),
-    selectedDocumentsByBase: {}
+    selectedDocumentFileKeysByKnowledgeBase: {}
   }
 
-  Object.entries(value.selectedDocumentsByBase).forEach(([key, documentKeys]) => {
+  Object.entries(value.selectedDocumentFileKeysByKnowledgeBase).forEach(([key, documentKeys]) => {
     if (!documentKeys.size) return
-    nextSelection.selectedDocumentsByBase[Number(key)] = Array.from(documentKeys).sort()
+    nextSelection.selectedDocumentFileKeysByKnowledgeBase[Number(key)] =
+      Array.from(documentKeys).sort()
   })
 
   emit('update:selection', nextSelection)
@@ -320,9 +323,9 @@ function getKnowledgeBaseCheckState(knowledgeBase: KnowledgeTreeBaseOption): {
   checked: boolean
   indeterminate: boolean
 } {
-  const { selectedKnowledgeBaseIds, selectedDocumentsByBase } = getSelectionSets()
+  const { selectedKnowledgeBaseIds, selectedDocumentFileKeysByKnowledgeBase } = getSelectionSets()
   const knowledgeBaseChecked = selectedKnowledgeBaseIds.has(knowledgeBase.id)
-  const documentSet = selectedDocumentsByBase[knowledgeBase.id] || new Set<string>()
+  const documentSet = selectedDocumentFileKeysByKnowledgeBase[knowledgeBase.id] || new Set<string>()
 
   if (knowledgeBaseChecked && documentSet.size === 0) {
     return { checked: true, indeterminate: false }
@@ -343,8 +346,8 @@ function getKnowledgeBaseCheckState(knowledgeBase: KnowledgeTreeBaseOption): {
 }
 
 function getKnowledgeBaseSubLabel(knowledgeBase: KnowledgeTreeBaseOption): string {
-  const { selectedKnowledgeBaseIds, selectedDocumentsByBase } = getSelectionSets()
-  const documentSet = selectedDocumentsByBase[knowledgeBase.id] || new Set<string>()
+  const { selectedKnowledgeBaseIds, selectedDocumentFileKeysByKnowledgeBase } = getSelectionSets()
+  const documentSet = selectedDocumentFileKeysByKnowledgeBase[knowledgeBase.id] || new Set<string>()
   if (selectedKnowledgeBaseIds.has(knowledgeBase.id) && documentSet.size === 0) {
     return `全选文档（${knowledgeBase.docCount}）`
   }
@@ -439,8 +442,8 @@ function getDocumentRowClass(document: KnowledgeTreeDocumentOption): string {
 }
 
 function isDocumentChecked(knowledgeBase: KnowledgeTreeBaseOption, fileKey: string): boolean {
-  const { selectedKnowledgeBaseIds, selectedDocumentsByBase } = getSelectionSets()
-  const documentSet = selectedDocumentsByBase[knowledgeBase.id] || new Set<string>()
+  const { selectedKnowledgeBaseIds, selectedDocumentFileKeysByKnowledgeBase } = getSelectionSets()
+  const documentSet = selectedDocumentFileKeysByKnowledgeBase[knowledgeBase.id] || new Set<string>()
 
   // 中文注释：当知识库被整库勾选且没有“局部文档集合”时，视为该知识库下文档全部选中。
   if (selectedKnowledgeBaseIds.has(knowledgeBase.id) && documentSet.size === 0) {
@@ -450,15 +453,15 @@ function isDocumentChecked(knowledgeBase: KnowledgeTreeBaseOption, fileKey: stri
 }
 
 function handleKnowledgeBaseCheck(knowledgeBase: KnowledgeTreeBaseOption, checked: boolean) {
-  const { selectedKnowledgeBaseIds, selectedDocumentsByBase } = getSelectionSets()
+  const { selectedKnowledgeBaseIds, selectedDocumentFileKeysByKnowledgeBase } = getSelectionSets()
   if (checked) {
     selectedKnowledgeBaseIds.add(knowledgeBase.id)
-    delete selectedDocumentsByBase[knowledgeBase.id]
+    // 整库选中时不再抹掉文档集合，方便外层把“选中的文档范围”原样带到 main。
   } else {
     selectedKnowledgeBaseIds.delete(knowledgeBase.id)
-    delete selectedDocumentsByBase[knowledgeBase.id]
+    delete selectedDocumentFileKeysByKnowledgeBase[knowledgeBase.id]
   }
-  emitSelectionChange({ selectedKnowledgeBaseIds, selectedDocumentsByBase })
+  emitSelectionChange({ selectedKnowledgeBaseIds, selectedDocumentFileKeysByKnowledgeBase })
 }
 
 function handleDocumentCheck(
@@ -466,10 +469,10 @@ function handleDocumentCheck(
   fileKey: string,
   checked: boolean
 ) {
-  const { selectedKnowledgeBaseIds, selectedDocumentsByBase } = getSelectionSets()
+  const { selectedKnowledgeBaseIds, selectedDocumentFileKeysByKnowledgeBase } = getSelectionSets()
   const wasKnowledgeBaseChecked = selectedKnowledgeBaseIds.has(knowledgeBase.id)
 
-  let documentSet = new Set(selectedDocumentsByBase[knowledgeBase.id] || [])
+  let documentSet = new Set(selectedDocumentFileKeysByKnowledgeBase[knowledgeBase.id] || [])
 
   // 中文注释：如果当前是“整库选中”状态，第一次改文档勾选要先展开为“显式文档集合”再做增删。
   if (wasKnowledgeBaseChecked && documentSet.size === 0) {
@@ -483,17 +486,18 @@ function handleDocumentCheck(
   }
 
   if (knowledgeBase.documents.length > 0 && documentSet.size >= knowledgeBase.documents.length) {
+    // 全选时也保留显式文档列表，避免请求体被压成“整库但没有文档范围”。
     selectedKnowledgeBaseIds.add(knowledgeBase.id)
-    delete selectedDocumentsByBase[knowledgeBase.id]
+    selectedDocumentFileKeysByKnowledgeBase[knowledgeBase.id] = documentSet
   } else if (documentSet.size === 0) {
     selectedKnowledgeBaseIds.delete(knowledgeBase.id)
-    delete selectedDocumentsByBase[knowledgeBase.id]
+    delete selectedDocumentFileKeysByKnowledgeBase[knowledgeBase.id]
   } else {
     selectedKnowledgeBaseIds.delete(knowledgeBase.id)
-    selectedDocumentsByBase[knowledgeBase.id] = documentSet
+    selectedDocumentFileKeysByKnowledgeBase[knowledgeBase.id] = documentSet
   }
 
-  emitSelectionChange({ selectedKnowledgeBaseIds, selectedDocumentsByBase })
+  emitSelectionChange({ selectedKnowledgeBaseIds, selectedDocumentFileKeysByKnowledgeBase })
 }
 
 function toggleExpandKnowledgeBase(knowledgeBase: KnowledgeTreeBaseOption) {

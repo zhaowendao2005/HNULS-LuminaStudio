@@ -7,6 +7,11 @@ import type {
   OFKnowledgePermissionTree
 } from '../../../knowledge-retrieval.types'
 import {
+  buildKnowledgeRetrievalSelectionFromPermissionTree,
+  normalizeKnowledgeRetrievalSelection,
+  type OFKnowledgeRetrievalSelectionState
+} from '../../../knowledge-retrieval.types'
+import {
   KNOWLEDGE_RETRIEVAL_BLOCK_TYPE,
   KNOWLEDGE_RETRIEVAL_DEFAULT_NAMESPACE,
   knowledgeRetrievalNodeRuntimeDefinition
@@ -36,6 +41,9 @@ function createDefaultConfig(): KnowledgeRetrievalNodeConfigDTO {
   return {
     query_template: [],
     permission_tree: createEmptyPermissionTree(),
+    knowledge_base_ids: [],
+    selected_knowledge_base_ids: [],
+    selected_document_file_keys_by_knowledge_base: {},
     top_k: 5,
     ef: null,
     rerank_enabled: false,
@@ -43,6 +51,28 @@ function createDefaultConfig(): KnowledgeRetrievalNodeConfigDTO {
     // 中文注释：默认让重排数量与检索数量对齐，避免一启用 rerank 就出现 topN < k 的非法组合。
     rerank_top_n: 5
   }
+}
+
+function resolveSelectionState(
+  data: Partial<KnowledgeRetrievalNodeData>,
+  permissionTree: OFKnowledgePermissionTree
+): OFKnowledgeRetrievalSelectionState {
+  const explicitSelection = normalizeKnowledgeRetrievalSelection({
+    knowledgeBaseIds: data.knowledge_base_ids,
+    selectedKnowledgeBaseIds: data.selected_knowledge_base_ids,
+    selectedDocumentFileKeysByKnowledgeBase:
+      data.selected_document_file_keys_by_knowledge_base
+  })
+
+  if (
+    explicitSelection.knowledgeBaseIds.length > 0 ||
+    explicitSelection.selectedKnowledgeBaseIds.length > 0 ||
+    Object.keys(explicitSelection.selectedDocumentFileKeysByKnowledgeBase).length > 0
+  ) {
+    return explicitSelection
+  }
+
+  return buildKnowledgeRetrievalSelectionFromPermissionTree(permissionTree)
 }
 
 function normalizePromptItems(input: unknown): KnowledgeRetrievalPromptItem[] {
@@ -283,6 +313,14 @@ export const knowledgeRetrievalNodeEditor = {
           fallback: KNOWLEDGE_RETRIEVAL_DEFAULT_NAMESPACE
         }
       ) || KNOWLEDGE_RETRIEVAL_DEFAULT_NAMESPACE
+    const permissionTree =
+      normalizePermissionTree(
+        data.permission_tree ||
+          ((data as unknown as { scopes?: unknown }).scopes
+            ? { scopes: (data as unknown as { scopes?: unknown }).scopes }
+            : undefined)
+      )
+    const selectionState = resolveSelectionState(data, permissionTree)
 
     return {
       ...buildOFCommonNodeShape(data, title),
@@ -290,12 +328,11 @@ export const knowledgeRetrievalNodeEditor = {
       ...data,
       type: KNOWLEDGE_RETRIEVAL_BLOCK_TYPE,
       query_template: normalizePromptItems(data.query_template),
-      permission_tree: normalizePermissionTree(
-        data.permission_tree ||
-          ((data as unknown as { scopes?: unknown }).scopes
-            ? { scopes: (data as unknown as { scopes?: unknown }).scopes }
-            : undefined)
-      ),
+      permission_tree: permissionTree,
+      knowledge_base_ids: selectionState.knowledgeBaseIds,
+      selected_knowledge_base_ids: selectionState.selectedKnowledgeBaseIds,
+      selected_document_file_keys_by_knowledge_base:
+        selectionState.selectedDocumentFileKeysByKnowledgeBase,
       top_k: normalizedTopK,
       ef: normalizedEf,
       rerank_enabled: Boolean(data.rerank_enabled),

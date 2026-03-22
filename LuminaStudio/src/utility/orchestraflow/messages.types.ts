@@ -79,6 +79,14 @@ export interface OFPrivateRpcRequestMap {
      * main service 会优先按该数组执行，并与旧字段做并集去重。
      */
     knowledgeBaseIds?: number[]
+    /**
+     * utility 节点会先从面板 selection 里算出显式的知识库选择，再交给 main 侧做收口。
+     */
+    selectedKnowledgeBaseIds?: number[]
+    /**
+     * 显式文档范围，key = knowledgeBaseId，value = 该知识库下选中的 fileKey 列表。
+     */
+    selectedDocumentFileKeysByKnowledgeBase?: Record<number, string[]>
     permissionTree?: unknown
     k?: number
     ef?: number

@@ -4,6 +4,11 @@ import type {
   KnowledgeRetrievalScopeInput,
   OFKnowledgePermissionTree
 } from '../../../knowledge-retrieval.types'
+import {
+  buildKnowledgeRetrievalSelectionFromPermissionTree,
+  normalizeKnowledgeRetrievalSelection,
+  type OFKnowledgeRetrievalSelectionState
+} from '../../../knowledge-retrieval.types'
 import type { KnowledgeRetrievalNodeData } from './editor'
 import {
   KNOWLEDGE_RETRIEVAL_BLOCK_TYPE,
@@ -21,6 +26,9 @@ function createDefaultConfig(): KnowledgeRetrievalNodeConfigDTO {
       effect: 'allow',
       documents: []
     },
+    knowledge_base_ids: [],
+    selected_knowledge_base_ids: [],
+    selected_document_file_keys_by_knowledge_base: {},
     top_k: 5,
     ef: null,
     rerank_enabled: false,
@@ -28,6 +36,62 @@ function createDefaultConfig(): KnowledgeRetrievalNodeConfigDTO {
     // 中文注释：默认值和 editor 保持一致，避免编译阶段重新引入非法的 topN < k 组合。
     rerank_top_n: 5
   }
+}
+
+function resolveSelectionState(
+  config: Partial<KnowledgeRetrievalNodeConfigDTO>,
+  permissionTree: OFKnowledgePermissionTree,
+  legacyScopes: KnowledgeRetrievalScopeInput[]
+): OFKnowledgeRetrievalSelectionState {
+  const explicitSelection = normalizeKnowledgeRetrievalSelection({
+    knowledgeBaseIds: config.knowledge_base_ids,
+    selectedKnowledgeBaseIds: config.selected_knowledge_base_ids,
+    selectedDocumentFileKeysByKnowledgeBase:
+      config.selected_document_file_keys_by_knowledge_base
+  })
+
+  if (
+    explicitSelection.knowledgeBaseIds.length > 0 ||
+    explicitSelection.selectedKnowledgeBaseIds.length > 0 ||
+    Object.keys(explicitSelection.selectedDocumentFileKeysByKnowledgeBase).length > 0
+  ) {
+    return explicitSelection
+  }
+
+  const legacySelection = buildKnowledgeRetrievalSelectionFromPermissionTree(permissionTree)
+  if (
+    legacySelection.knowledgeBaseIds.length > 0 ||
+    legacySelection.selectedKnowledgeBaseIds.length > 0 ||
+    Object.keys(legacySelection.selectedDocumentFileKeysByKnowledgeBase).length > 0
+  ) {
+    return legacySelection
+  }
+
+  return normalizeKnowledgeRetrievalSelection({
+    knowledgeBaseIds: legacyScopes
+      .map((scope) => scope.knowledge_base_id)
+      .filter((value): value is number => typeof value === 'number' && Number.isInteger(value)),
+    selectedKnowledgeBaseIds: legacyScopes
+      .map((scope) => scope.knowledge_base_id)
+      .filter((value): value is number => typeof value === 'number' && Number.isInteger(value)),
+    selectedDocumentFileKeysByKnowledgeBase: legacyScopes.reduce<
+      Record<number, string[]>
+    >((accumulator, scope) => {
+      if (
+        typeof scope.knowledge_base_id !== 'number' ||
+        !Number.isInteger(scope.knowledge_base_id) ||
+        scope.knowledge_base_id <= 0
+      ) {
+        return accumulator
+      }
+
+      const fileKeys = Array.isArray(scope.file_keys) ? scope.file_keys.filter(Boolean) : []
+      if (fileKeys.length > 0) {
+        accumulator[scope.knowledge_base_id] = fileKeys as string[]
+      }
+      return accumulator
+    }, {})
+  })
 }
 
 function buildPermissionTreeFromScopes(
@@ -242,11 +306,17 @@ export const knowledgeRetrievalNodeCompiler = {
       typeof config.ef === 'number' && Number.isFinite(config.ef) && config.ef > 0
         ? Math.floor(config.ef)
         : defaultConfig.ef
+    const permissionTree = normalizePermissionTree(config.permission_tree, legacyScopes)
+    const selectionState = resolveSelectionState(config, permissionTree, legacyScopes)
     const mergedConfig = {
       ...defaultConfig,
       ...config,
       query_template: normalizePromptItems(config.query_template),
-      permission_tree: normalizePermissionTree(config.permission_tree, legacyScopes),
+      permission_tree: permissionTree,
+      knowledge_base_ids: selectionState.knowledgeBaseIds,
+      selected_knowledge_base_ids: selectionState.selectedKnowledgeBaseIds,
+      selected_document_file_keys_by_knowledge_base:
+        selectionState.selectedDocumentFileKeysByKnowledgeBase,
       top_k: normalizedTopK,
       ef: normalizedEf,
       rerank_enabled: Boolean(config.rerank_enabled),
@@ -289,6 +359,10 @@ export const knowledgeRetrievalNodeCompiler = {
           ]
         : [],
       permission_tree: mergedConfig.permission_tree,
+      knowledge_base_ids: mergedConfig.knowledge_base_ids,
+      selected_knowledge_base_ids: mergedConfig.selected_knowledge_base_ids,
+      selected_document_file_keys_by_knowledge_base:
+        mergedConfig.selected_document_file_keys_by_knowledge_base,
       top_k: mergedConfig.top_k,
       ef: mergedConfig.ef,
       rerank_enabled: mergedConfig.rerank_enabled,

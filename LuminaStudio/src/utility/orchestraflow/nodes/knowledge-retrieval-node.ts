@@ -83,22 +83,22 @@ export class KnowledgeRetrievalNode extends BaseNode {
       if (!query) {
         throw new Error('知识检索节点缺少 query 输入')
       }
-      const knowledgeBaseIds = this.resolveKnowledgeBaseIds(nodeData)
 
+      const knowledgeSelection = this.resolveKnowledgeSelection(nodeData)
       const payload = await this.invokePrivateRpc(KNOWLEDGE_RPC_CHANNEL, {
         query,
-        // 兼容旧字段：保留首个 knowledgeBaseId，避免旧 main 侧实现失配。
-        knowledgeBaseId: knowledgeBaseIds[0],
-        // 新字段：支持跨知识库并行检索。
-        knowledgeBaseIds,
-        permissionTree: nodeData.permission_tree,
+        knowledgeBaseId: knowledgeSelection.knowledgeBaseIds[0],
+        knowledgeBaseIds: knowledgeSelection.knowledgeBaseIds,
+        selectedKnowledgeBaseIds: knowledgeSelection.selectedKnowledgeBaseIds,
+        selectedDocumentFileKeysByKnowledgeBase:
+          knowledgeSelection.selectedDocumentFileKeysByKnowledgeBase,
         k: this.normalizePositiveInteger(nodeData.top_k),
         ef: this.normalizeOptionalPositiveInteger(nodeData.ef),
         rerank: this.buildRerankConfig(nodeData)
       })
 
       const normalized = this.normalizeResponse(payload as KnowledgeRetrievalSearchResultDto, query)
-      this.persistOutputs(normalized)
+      this.persistOutputs(normalized, nodeData)
 
       return {
         outputs: normalized
@@ -148,104 +148,85 @@ export class KnowledgeRetrievalNode extends BaseNode {
     })
   }
 
-  private resolveKnowledgeBaseIds(nodeData: OFKnowledgeRetrievalNodeData): number[] {
-    const ids = new Set<number>()
+  private resolveKnowledgeSelection(nodeData: OFKnowledgeRetrievalNodeData): {
+    knowledgeBaseIds: number[]
+    selectedKnowledgeBaseIds: number[]
+    selectedDocumentFileKeysByKnowledgeBase: Record<number, string[]>
+  } {
+    const knowledgeBaseIds = this.normalizeKnowledgeBaseIds(nodeData.knowledge_base_ids)
+    const selectedKnowledgeBaseIds = this.normalizeKnowledgeBaseIds(
+      nodeData.selected_knowledge_base_ids
+    )
+    const selectedDocumentFileKeysByKnowledgeBase = this.normalizeDocumentSelection(
+      nodeData.selected_document_file_keys_by_knowledge_base
+    )
 
-    const appendId = (value: unknown): void => {
-      if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
-        ids.add(value)
+    const mergedKnowledgeBaseIds = new Set<number>(knowledgeBaseIds)
+    const mergedSelectedKnowledgeBaseIds = new Set<number>(selectedKnowledgeBaseIds)
+
+    for (const key of Object.keys(selectedDocumentFileKeysByKnowledgeBase)) {
+      const knowledgeBaseId = Number(key)
+      if (Number.isInteger(knowledgeBaseId) && knowledgeBaseId > 0) {
+        mergedKnowledgeBaseIds.add(knowledgeBaseId)
+        mergedSelectedKnowledgeBaseIds.add(knowledgeBaseId)
       }
     }
 
-    const appendIdArray = (value: unknown): void => {
-      if (!Array.isArray(value)) {
-        return
-      }
-      for (const item of value) {
-        appendId(item)
-      }
-    }
-
-    appendIdArray(this.context.inputs.knowledgeBaseIds)
-    appendId(this.context.inputs.knowledgeBaseId)
-
-    const permissionTree = nodeData.permission_tree as
-      | {
-          knowledgeBaseId?: unknown
-          knowledgeBaseIds?: unknown
-          knowledgeBases?: unknown
-          knowledge_base_rules?: unknown
-          providers?: unknown
-        }
-      | null
-      | undefined
-
-    appendId(permissionTree?.knowledgeBaseId)
-    appendIdArray(permissionTree?.knowledgeBaseIds)
-
-    for (const rule of this.normalizeObjectArray(permissionTree?.knowledgeBases)) {
-      appendId((rule as { knowledgeBaseId?: unknown }).knowledgeBaseId)
-      appendId((rule as { knowledge_base_id?: unknown }).knowledge_base_id)
-    }
-    for (const rule of this.normalizeObjectArray(permissionTree?.knowledge_base_rules)) {
-      appendId((rule as { knowledgeBaseId?: unknown }).knowledgeBaseId)
-      appendId((rule as { knowledge_base_id?: unknown }).knowledge_base_id)
-    }
-
-    for (const node of this.normalizeObjectArray(permissionTree?.providers)) {
-      this.collectKnowledgeBaseIdsFromLegacyTree(node, ids)
-    }
-
-    const result = [...ids]
+    const result = [...mergedKnowledgeBaseIds]
     if (result.length === 0) {
-      throw new Error('知识检索节点缺少 knowledgeBaseId / knowledgeBaseIds')
+      throw new Error('知识检索节点缺少显式知识库选择')
     }
 
-    return result
+    return {
+      knowledgeBaseIds: result,
+      selectedKnowledgeBaseIds: [...mergedSelectedKnowledgeBaseIds].sort(
+        (left, right) => left - right
+      ),
+      selectedDocumentFileKeysByKnowledgeBase
+    }
   }
 
-  private normalizeObjectArray(value: unknown): Record<string, unknown>[] {
+  private normalizeKnowledgeBaseIds(value: unknown): number[] {
     if (!Array.isArray(value)) {
       return []
     }
-    return value.filter((item): item is Record<string, unknown> =>
-      Boolean(item && typeof item === 'object')
-    )
+
+    const knowledgeBaseIds = new Set<number>()
+    for (const item of value) {
+      if (typeof item === 'number' && Number.isInteger(item) && item > 0) {
+        knowledgeBaseIds.add(item)
+      }
+    }
+
+    return [...knowledgeBaseIds].sort((left, right) => left - right)
   }
 
-  private collectKnowledgeBaseIdsFromLegacyTree(
-    node: Record<string, unknown>,
-    ids: Set<number>
-  ): void {
-    const appendFromUnknown = (value: unknown): void => {
-      if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
-        ids.add(value)
+  private normalizeDocumentSelection(value: unknown): Record<number, string[]> {
+    if (!value || typeof value !== 'object') {
+      return {}
+    }
+
+    const result: Record<number, string[]> = {}
+    for (const [key, rawFileKeys] of Object.entries(value as Record<string, unknown>)) {
+      const knowledgeBaseId = Number(key)
+      if (!Number.isInteger(knowledgeBaseId) || knowledgeBaseId <= 0) {
+        continue
       }
-      if (typeof value === 'string' && /^\\d+$/.test(value.trim())) {
-        const parsed = Number(value.trim())
-        if (Number.isInteger(parsed) && parsed > 0) {
-          ids.add(parsed)
-        }
+
+      const fileKeys = Array.isArray(rawFileKeys)
+        ? rawFileKeys
+            .filter((item): item is string => typeof item === 'string')
+            .map((item) => item.trim())
+            .filter(Boolean)
+        : []
+      if (fileKeys.length === 0) {
+        continue
       }
+
+      result[knowledgeBaseId] = [...new Set(fileKeys)].sort()
     }
 
-    appendFromUnknown(node.knowledgeBaseId)
-    appendFromUnknown(node.knowledge_base_id)
-    if (typeof node.id === 'string') {
-      const fromId = node.id.match(/(\\d+)/)?.[1]
-      appendFromUnknown(fromId)
-    }
-
-    const metadata = node.metadata
-    if (metadata && typeof metadata === 'object') {
-      appendFromUnknown((metadata as { knowledgeBaseId?: unknown }).knowledgeBaseId)
-      appendFromUnknown((metadata as { knowledge_base_id?: unknown }).knowledge_base_id)
-    }
-
-    const children = this.normalizeObjectArray(node.children)
-    for (const child of children) {
-      this.collectKnowledgeBaseIdsFromLegacyTree(child, ids)
-    }
+    return result
   }
 
   private buildRerankConfig(
@@ -293,10 +274,26 @@ export class KnowledgeRetrievalNode extends BaseNode {
     }
   }
 
-  private persistOutputs(outputs: Record<string, unknown>): void {
+  private persistOutputs(
+    outputs: Record<string, unknown>,
+    nodeData: OFKnowledgeRetrievalNodeData
+  ): void {
+    const namespace = this.resolveOutputNamespace(nodeData)
+
+    // 中文注释：先把整包结果挂到命名空间根节点，保证 `namespace.query` 这种 selector 可直接读到。
+    // 同时再补一份扁平字段，兼容旧工作流里还在用的 `query / total_hits` 直接引用方式。
+    this.setOutput(namespace, outputs)
     for (const [key, value] of Object.entries(outputs)) {
       this.setOutput(key, value)
     }
+  }
+
+  private resolveOutputNamespace(nodeData: OFKnowledgeRetrievalNodeData): string {
+    const rawNamespace =
+      typeof nodeData.output_namespace === 'string' && nodeData.output_namespace.trim()
+        ? nodeData.output_namespace.trim()
+        : ''
+    return rawNamespace || 'knowledge_retrieval'
   }
 
   private normalizePositiveInteger(value: unknown): number | undefined {

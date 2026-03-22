@@ -163,6 +163,14 @@ export interface KnowledgeDatabaseRetrievalScopeResult {
 export interface KnowledgeDatabaseResolveKnowledgeRetrievalScopesRequest {
   knowledgeBaseId?: number
   knowledgeBaseIds?: number[]
+  /**
+   * 前端显式传入的知识库选择，用于让 main 侧按“选定知识库”收口范围。
+   */
+  selectedKnowledgeBaseIds?: number[]
+  /**
+   * 前端显式传入的文档选择，用于让 main 侧在 scope 解析前先过滤文档。
+   */
+  selectedDocumentFileKeysByKnowledgeBase?: Record<number, string[]>
   permissionTree?: KnowledgeDatabasePermissionTree
 }
 
@@ -182,6 +190,14 @@ export interface KnowledgeDatabaseResolveKnowledgeRetrievalScopesResponse {
 export interface KnowledgeDatabaseSearchKnowledgeRetrievalRequest {
   knowledgeBaseId?: number
   knowledgeBaseIds?: number[]
+  /**
+   * 前端显式传入的知识库选择，用于把“选中的知识库”带到主进程。
+   */
+  selectedKnowledgeBaseIds?: number[]
+  /**
+   * 前端显式传入的文档选择，用于把“选中的文档范围”带到主进程。
+   */
+  selectedDocumentFileKeysByKnowledgeBase?: Record<number, string[]>
   query: string
   permissionTree?: KnowledgeDatabasePermissionTree
   k?: number
