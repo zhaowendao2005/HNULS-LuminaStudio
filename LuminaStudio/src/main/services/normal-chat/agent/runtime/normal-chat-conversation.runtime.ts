@@ -1,12 +1,5 @@
 import { randomUUID } from 'crypto'
 import { AIMessageChunk } from '@langchain/core/messages'
-import { ChatAnthropic } from '@langchain/anthropic'
-import { ChatGoogle } from '@langchain/google'
-import {
-  ChatOpenAI,
-  ChatOpenAICompletions,
-  type ClientOptions as OpenAIClientOptions
-} from '@langchain/openai'
 import type {
   NormalChatAssistant,
   NormalChatConversationMessage,
@@ -22,9 +15,9 @@ import type {
 } from '@preload/types'
 import type { PaperRetrievalService } from '../../../paper-retrieval'
 import type { DatabaseManager } from '../../../database-sqlite'
-import type { ModelConfigService } from '../../../model-config'
 import { logger } from '../../../logger'
 import { NormalChatRepository } from '../../normal-chat.repository'
+import type { NormalChatLlmClient } from '../../llm-client'
 import { createNormalChatAgentSuite } from '../registry'
 import { createNormalChatTraceRecorder } from '../trace'
 import type { NormalChatAgentGraphRuntimeBridge, NormalChatAgentTraceRecorder } from '../contracts'
@@ -49,7 +42,11 @@ interface ConversationTraceState {
   responsePayload: NormalChatConversationTurnResponsePayload
 }
 
-type SupportedChatModel = ChatOpenAI | ChatOpenAICompletions | ChatAnthropic | ChatGoogle
+interface ModelInvocationContext {
+  providerId: string
+  modelId: string
+  signal: AbortSignal
+}
 
 const log = logger.scope('NormalChatConversationService')
 
@@ -60,7 +57,7 @@ export class NormalChatConversationService {
 
   constructor(
     databaseManager: DatabaseManager,
-    private readonly modelConfigService: ModelConfigService,
+    private readonly llmClient: NormalChatLlmClient,
     private readonly paperRetrievalService: PaperRetrievalService
   ) {
     this.repository = new NormalChatRepository(databaseManager.getDatabase('userdata'))
@@ -437,7 +434,7 @@ export class NormalChatConversationService {
       })
       this.emitStatus(requestId, topic.id, 'streaming', '模型正在输出回答…')
 
-      const model = await this.createChatModel(providerId, modelId, signal)
+      const model = await this.llmClient.createChatModel(providerId, modelId, signal)
       const answerStream = await model.stream(graphResult.answerMessages, { signal })
 
       for await (const chunk of answerStream) {
@@ -560,7 +557,11 @@ export class NormalChatConversationService {
         return
       }
 
-      const message = error instanceof Error ? error.message : String(error)
+      const message = await this.normalizeModelInvocationErrorMessage(error, {
+        providerId,
+        modelId,
+        signal
+      })
 
       // graph 已经负责前半段错误埋点，这里只补最终流式阶段的错误。
       if (graphCompleted) {
@@ -603,7 +604,7 @@ export class NormalChatConversationService {
     return {
       getConversationMessages: (topicId) => this.repository.listMessagesByTopicId(topicId),
       createChatModel: (providerId, modelId, signal) =>
-        this.createChatModel(providerId, modelId, signal),
+        this.llmClient.createChatModel(providerId, modelId, signal),
       logger: log
     }
   }
@@ -742,87 +743,6 @@ export class NormalChatConversationService {
     }
   }
 
-  private async createChatModel(
-    providerId: string,
-    modelId: string,
-    signal: AbortSignal
-  ): Promise<SupportedChatModel> {
-    // 配置加载也要支持中断，避免用户点停止后还卡在 provider 读取阶段。
-    const config = await this.awaitWithAbort(signal, this.modelConfigService.getConfig())
-    this.throwIfAborted(signal)
-
-    const provider = config.providers.find((item) => item.id === providerId && item.enabled)
-    if (!provider) {
-      throw new Error(`Provider not found: ${providerId}`)
-    }
-
-    if (provider.protocol === 'claude') {
-      return new ChatAnthropic({
-        model: modelId,
-        apiKey: provider.apiKey,
-        anthropicApiUrl: provider.baseUrl || undefined
-      })
-    }
-
-    if (provider.protocol === 'gemini') {
-      const geminiConfig = this.parseGeminiBaseUrl(provider.baseUrl)
-      return new ChatGoogle({
-        model: modelId,
-        apiKey: provider.apiKey,
-        endpoint: geminiConfig.endpoint,
-        apiVersion: geminiConfig.apiVersion
-      })
-    }
-
-    const configuration: OpenAIClientOptions | undefined = provider.baseUrl
-      ? { baseURL: provider.baseUrl }
-      : undefined
-
-    if (provider.protocol === 'openai-response' || provider.protocol === 'openai') {
-      // 这里统一走 ChatOpenAI 的 Responses 模式，不直接依赖低层 Responses 包装。
-      // 这样 graph 里做结构化规划时，流事件和 function calling 的兼容性更稳。
-      return new ChatOpenAI({
-        model: modelId,
-        apiKey: provider.apiKey,
-        configuration,
-        useResponsesApi: true
-      })
-    }
-
-    if (provider.protocol === 'openai-completion') {
-      return new ChatOpenAICompletions({
-        model: modelId,
-        apiKey: provider.apiKey,
-        configuration
-      })
-    }
-
-    return new ChatOpenAI({
-      model: modelId,
-      apiKey: provider.apiKey,
-      configuration
-    })
-  }
-
-  private async awaitWithAbort<T>(signal: AbortSignal, task: Promise<T>): Promise<T> {
-    this.throwIfAborted(signal)
-
-    let rejectAbort: ((error: Error) => void) | null = null
-    const onAbort = () => {
-      rejectAbort?.(this.createAbortError())
-    }
-    const abortPromise = new Promise<never>((_, reject) => {
-      rejectAbort = reject
-      signal.addEventListener('abort', onAbort, { once: true })
-    })
-
-    try {
-      return await Promise.race([task, abortPromise])
-    } finally {
-      signal.removeEventListener('abort', onAbort)
-    }
-  }
-
   private throwIfAborted(signal: AbortSignal): void {
     if (!signal.aborted) {
       return
@@ -837,22 +757,36 @@ export class NormalChatConversationService {
     return error
   }
 
-  private parseGeminiBaseUrl(baseUrl: string): { endpoint?: string; apiVersion?: string } {
-    if (!baseUrl) {
-      return {}
+  private async normalizeModelInvocationErrorMessage(
+    error: unknown,
+    context: ModelInvocationContext
+  ): Promise<string> {
+    const rawMessage = error instanceof Error ? error.message : String(error)
+    if (!rawMessage.includes("Cannot read properties of undefined (reading 'message')")) {
+      return rawMessage
     }
 
+    // 这类报错常见于上游网关返回了非预期错误格式（例如 HTML 或非标准 JSON）。
+    // 这里补充 provider 协议和 baseUrl，方便快速判断是否“协议与端点不匹配”。
     try {
-      const url = new URL(baseUrl)
-      const parts = url.pathname.split('/').filter(Boolean)
-      const apiVersion = parts[0]
-      return {
-        endpoint: url.host,
-        apiVersion
+      const provider = await this.llmClient.getProviderProfile(context.providerId, context.signal)
+      if (provider) {
+        return (
+          `模型调用失败：上游返回了非标准错误格式（${rawMessage}）。` +
+          `当前 provider=${provider.name}(${provider.protocol})，baseUrl=${provider.baseUrl}，model=${context.modelId}。` +
+          '请确认协议与端点匹配：openai-completion→/v1/chat/completions，' +
+          'openai-response→/v1/responses，claude→Anthropic Messages API，gemini→Google Gemini API。'
+        )
       }
     } catch {
-      return {}
+      // 读取配置失败时回退到通用提示，避免吞掉原始异常。
     }
+
+    return (
+      `模型调用失败：上游返回了非标准错误格式（${rawMessage}）。` +
+      `当前 providerId=${context.providerId}，model=${context.modelId}。` +
+      '请检查 provider 协议与 baseUrl 是否匹配。'
+    )
   }
 
   private requireAssistant(assistantId: string): NormalChatAssistant {

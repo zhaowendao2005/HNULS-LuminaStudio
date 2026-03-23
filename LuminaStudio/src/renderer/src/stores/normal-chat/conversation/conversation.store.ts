@@ -102,11 +102,41 @@ function upsertPendingFunctionCallPart(
   part: NormalChatFunctionCallMessagePart
 ): NormalChatConversationMessage {
   const now = new Date().toISOString()
-  const nextParts = message.parts.filter(
-    (item): item is NormalChatMessagePart =>
-      item.kind !== 'functioncall' || item.callId !== part.callId
+  const existingIndex = message.parts.findIndex(
+    (item): item is NormalChatFunctionCallMessagePart =>
+      item.kind === 'functioncall' && item.callId === part.callId
   )
-  nextParts.push(part)
+
+  const nextPart: NormalChatFunctionCallMessagePart =
+    existingIndex >= 0
+      ? {
+          ...((message.parts[existingIndex] as NormalChatFunctionCallMessagePart) ?? {}),
+          ...part,
+          // 兼容 runtime 在 finish/error 阶段只更新状态，不重复携带 input/output。
+          input:
+            part.input !== ''
+              ? part.input
+              : (message.parts[existingIndex] as NormalChatFunctionCallMessagePart).input,
+          output:
+            part.output !== ''
+              ? part.output
+              : (message.parts[existingIndex] as NormalChatFunctionCallMessagePart).output,
+          errorMessage:
+            part.errorMessage ??
+            (message.parts[existingIndex] as NormalChatFunctionCallMessagePart).errorMessage,
+          isStreaming:
+            part.isStreaming ??
+            (message.parts[existingIndex] as NormalChatFunctionCallMessagePart).isStreaming
+        }
+      : part
+
+  const nextParts = [...message.parts]
+  if (existingIndex >= 0) {
+    nextParts[existingIndex] = nextPart
+  } else {
+    nextParts.push(nextPart)
+  }
+
   return {
     ...message,
     parts: nextParts,

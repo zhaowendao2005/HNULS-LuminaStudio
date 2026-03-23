@@ -105,6 +105,41 @@
             ></textarea>
           </label>
 
+          <div class="grid gap-3 sm:grid-cols-2">
+            <label class="space-y-2">
+              <span class="block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                高层级关键词
+              </span>
+              <textarea
+                v-model="highLevelKeywordsInput"
+                rows="2"
+                class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                placeholder="如：研究方向，核心议题（逗号或换行分隔）"
+              ></textarea>
+              <p class="text-[11px] leading-4 text-slate-400">
+                高层级关键词用于 global / hybrid 的关系检索，留空时回退到 Query。
+              </p>
+            </label>
+
+            <label class="space-y-2">
+              <span class="block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                低层级关键词
+              </span>
+              <textarea
+                v-model="lowLevelKeywordsInput"
+                rows="2"
+                class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                placeholder="如：模型名称，具体术语（逗号或换行分隔）"
+              ></textarea>
+              <p class="text-[11px] leading-4 text-slate-400">
+                低层级关键词用于 local / hybrid 的实体检索，留空时回退到 Query。
+              </p>
+            </label>
+          </div>
+          <p class="text-[11px] leading-4 text-slate-400">
+            两栏都留空时不会传关键词字段，后端会按 Query 自动 fallback。
+          </p>
+
           <!-- 重排配置：只在启用时出现，模型由知识库系统侧提供并调用 -->
           <div class="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 space-y-3">
             <div class="flex items-center justify-between gap-3">
@@ -563,6 +598,8 @@ const selectedGraphTableBase = ref('')
 
 const mode = ref<KGRetrievalMode>('hybrid')
 const query = ref('')
+const highLevelKeywordsInput = ref('')
+const lowLevelKeywordsInput = ref('')
 
 // 重排配置
 const kgModels = ref<KGModelInfo[]>([])
@@ -683,7 +720,7 @@ async function loadKnowledgeBases(): Promise<void> {
   try {
     const response = await window.api.knowledgeDatabase.listKnowledgeBases()
     if (response.success) {
-      knowledgeBases.value = response.data.knowledgeBases ?? []
+      knowledgeBases.value = response.data?.knowledgeBases ?? []
     }
   } catch {
     // 忽略
@@ -763,6 +800,14 @@ function handleGraphTableSelect(value: string | number | null): void {
   selectedGraphTableBase.value = typeof value === 'string' ? value : String(value || '')
 }
 
+function parseKeywordInput(rawValue: string): string[] {
+  // 中文注释：支持中文逗号、英文逗号和换行混输；每个词会 trim 后再去掉空项。
+  return rawValue
+    .split(/[,\n，]+/g)
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0)
+}
+
 async function handleSearch(): Promise<void> {
   if (!canSearch.value) return
 
@@ -771,6 +816,8 @@ async function handleSearch(): Promise<void> {
   searchResult.value = null
 
   try {
+    const highLevelKeywords = parseKeywordInput(highLevelKeywordsInput.value)
+    const lowLevelKeywords = parseKeywordInput(lowLevelKeywordsInput.value)
     const rerankConfig =
       rerankEnabled.value && selectedRerankModel.value
         ? {
@@ -784,6 +831,9 @@ async function handleSearch(): Promise<void> {
       query: query.value.trim(),
       mode: mode.value,
       graphTableBase: selectedGraphTableBase.value,
+      // 中文注释：关键词为空时不下发字段，确保服务端仍能识别“只传 query”的 fallback 语义。
+      ...(highLevelKeywords.length > 0 ? { highLevelKeywords } : {}),
+      ...(lowLevelKeywords.length > 0 ? { lowLevelKeywords } : {}),
       rerank: rerankConfig
     })
 
