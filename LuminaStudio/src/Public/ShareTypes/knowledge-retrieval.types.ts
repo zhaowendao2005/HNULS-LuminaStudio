@@ -298,9 +298,7 @@ export function buildKnowledgeRetrievalSelectionFromPermissionTree(
   ]
 
   for (const rule of knowledgeBaseRules) {
-    const knowledgeBaseId = normalizeKnowledgeBaseId(
-      rule.knowledgeBaseId ?? rule.knowledge_base_id
-    )
+    const knowledgeBaseId = normalizeKnowledgeBaseId(rule.knowledgeBaseId ?? rule.knowledge_base_id)
     if (!knowledgeBaseId) {
       continue
     }

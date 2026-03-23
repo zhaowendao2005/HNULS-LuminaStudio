@@ -101,8 +101,9 @@ export const useKnowledgeDebugStore = defineStore('knowledge-debug', () => {
   const searchError = ref<string | null>(null)
   const resolveResponse = ref<KnowledgeDatabaseResolveKnowledgeRetrievalScopesResponse | null>(null)
   const searchResponse = ref<KnowledgeDatabaseSearchKnowledgeRetrievalResponse | null>(null)
-  const lastResolveRequest =
-    ref<KnowledgeDatabaseResolveKnowledgeRetrievalScopesRequest | null>(null)
+  const lastResolveRequest = ref<KnowledgeDatabaseResolveKnowledgeRetrievalScopesRequest | null>(
+    null
+  )
   const lastSearchRequest = ref<KnowledgeDatabaseSearchKnowledgeRetrievalRequest | null>(null)
 
   const selectedKnowledgeBaseIds = computed(() =>

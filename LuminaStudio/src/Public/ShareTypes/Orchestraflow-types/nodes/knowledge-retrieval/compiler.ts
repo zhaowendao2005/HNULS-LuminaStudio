@@ -46,8 +46,7 @@ function resolveSelectionState(
   const explicitSelection = normalizeKnowledgeRetrievalSelection({
     knowledgeBaseIds: config.knowledge_base_ids,
     selectedKnowledgeBaseIds: config.selected_knowledge_base_ids,
-    selectedDocumentFileKeysByKnowledgeBase:
-      config.selected_document_file_keys_by_knowledge_base
+    selectedDocumentFileKeysByKnowledgeBase: config.selected_document_file_keys_by_knowledge_base
   })
 
   if (
@@ -74,23 +73,24 @@ function resolveSelectionState(
     selectedKnowledgeBaseIds: legacyScopes
       .map((scope) => scope.knowledge_base_id)
       .filter((value): value is number => typeof value === 'number' && Number.isInteger(value)),
-    selectedDocumentFileKeysByKnowledgeBase: legacyScopes.reduce<
-      Record<number, string[]>
-    >((accumulator, scope) => {
-      if (
-        typeof scope.knowledge_base_id !== 'number' ||
-        !Number.isInteger(scope.knowledge_base_id) ||
-        scope.knowledge_base_id <= 0
-      ) {
-        return accumulator
-      }
+    selectedDocumentFileKeysByKnowledgeBase: legacyScopes.reduce<Record<number, string[]>>(
+      (accumulator, scope) => {
+        if (
+          typeof scope.knowledge_base_id !== 'number' ||
+          !Number.isInteger(scope.knowledge_base_id) ||
+          scope.knowledge_base_id <= 0
+        ) {
+          return accumulator
+        }
 
-      const fileKeys = Array.isArray(scope.file_keys) ? scope.file_keys.filter(Boolean) : []
-      if (fileKeys.length > 0) {
-        accumulator[scope.knowledge_base_id] = fileKeys as string[]
-      }
-      return accumulator
-    }, {})
+        const fileKeys = Array.isArray(scope.file_keys) ? scope.file_keys.filter(Boolean) : []
+        if (fileKeys.length > 0) {
+          accumulator[scope.knowledge_base_id] = fileKeys as string[]
+        }
+        return accumulator
+      },
+      {}
+    )
   })
 }
 

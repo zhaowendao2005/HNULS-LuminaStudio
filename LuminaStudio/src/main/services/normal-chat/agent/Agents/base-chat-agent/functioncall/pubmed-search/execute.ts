@@ -5,8 +5,8 @@ import type {
 } from '../../../../contracts'
 import type { PubmedSearchArgs } from './schema'
 
-export type PubmedSearchExecutionResult =
-  NormalChatAgentToolExecuteResult & PaperRetrievalSearchResult
+export type PubmedSearchExecutionResult = NormalChatAgentToolExecuteResult &
+  PaperRetrievalSearchResult
 
 interface PubmedSearchRuntimeContext extends NormalChatAgentToolExecuteContext {
   paperRetrievalService: {

@@ -49,7 +49,10 @@
       </div>
 
       <div class="min-h-0 flex-1 overflow-y-auto bg-gray-50 px-6 py-5">
-        <div v-if="loading" class="flex h-full items-center justify-center text-[13px] text-gray-400">
+        <div
+          v-if="loading"
+          class="flex h-full items-center justify-center text-[13px] text-gray-400"
+        >
           正在加载完整会话...
         </div>
 
@@ -112,13 +115,17 @@
                 </div>
                 <div class="rounded-xl bg-gray-50 px-3 py-2">
                   <p class="text-[12px] text-gray-400">纯文本内容</p>
-                  <p class="mt-1 whitespace-pre-wrap break-words text-[13px] leading-6 text-gray-700">
+                  <p
+                    class="mt-1 whitespace-pre-wrap break-words text-[13px] leading-6 text-gray-700"
+                  >
                     {{ selectedMessage?.text || '无' }}
                   </p>
                 </div>
                 <div class="rounded-xl bg-gray-50 px-3 py-2">
                   <p class="text-[12px] text-gray-400">原始 JSON 摘要</p>
-                  <p class="mt-1 whitespace-pre-wrap break-words text-[13px] leading-6 text-gray-700">
+                  <p
+                    class="mt-1 whitespace-pre-wrap break-words text-[13px] leading-6 text-gray-700"
+                  >
                     {{ selectedMessageJsonSummary }}
                   </p>
                 </div>

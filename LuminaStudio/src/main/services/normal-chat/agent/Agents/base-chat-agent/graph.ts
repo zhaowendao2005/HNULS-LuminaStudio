@@ -1,11 +1,7 @@
 import { HumanMessage, SystemMessage, AIMessage, type BaseMessage } from '@langchain/core/messages'
 import { ChatAnthropic } from '@langchain/anthropic'
 import { ChatGoogle } from '@langchain/google'
-import {
-  ChatOpenAI,
-  ChatOpenAICompletions,
-  ChatOpenAIResponses
-} from '@langchain/openai'
+import { ChatOpenAI, ChatOpenAICompletions, ChatOpenAIResponses } from '@langchain/openai'
 import { z } from 'zod'
 import type {
   NormalChatConversationMessage,
@@ -155,9 +151,10 @@ export class BaseChatAgentGraph {
           requestId: context.requestId,
           topicId: context.topicId,
           nextStep: round < MAX_TOOL_ROUNDS ? 're-plan' : 'answer',
-          message: round < MAX_TOOL_ROUNDS
-            ? '工具结果已拿到，继续进入下一轮判断'
-            : '工具轮次已到上限，转入最终回答'
+          message:
+            round < MAX_TOOL_ROUNDS
+              ? '工具结果已拿到，继续进入下一轮判断'
+              : '工具轮次已到上限，转入最终回答'
         })
       }
 
@@ -216,7 +213,9 @@ export class BaseChatAgentGraph {
     )
 
     const messages: Array<SystemMessage | HumanMessage | AIMessage> = [system]
-    const historyMessages = promptMessages.slice(1).map((message) => this.toLangChainMessage(message))
+    const historyMessages = promptMessages
+      .slice(1)
+      .map((message) => this.toLangChainMessage(message))
     messages.push(...historyMessages)
 
     if (toolHistory.length > 0) {
@@ -260,13 +259,12 @@ export class BaseChatAgentGraph {
       ].join('\n')
     )
 
-    return [
-      system,
-      ...promptMessages.slice(1).map((message) => this.toLangChainMessage(message))
-    ]
+    return [system, ...promptMessages.slice(1).map((message) => this.toLangChainMessage(message))]
   }
 
-  private buildToolExecuteContext(context: NormalChatAgentRunContext): BaseChatAgentPubmedSearchContext {
+  private buildToolExecuteContext(
+    context: NormalChatAgentRunContext
+  ): BaseChatAgentPubmedSearchContext {
     return {
       signal: context.signal,
       trace: this.options.trace ?? this.createFallbackTraceRecorder(),

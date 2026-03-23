@@ -60,8 +60,7 @@ function resolveSelectionState(
   const explicitSelection = normalizeKnowledgeRetrievalSelection({
     knowledgeBaseIds: data.knowledge_base_ids,
     selectedKnowledgeBaseIds: data.selected_knowledge_base_ids,
-    selectedDocumentFileKeysByKnowledgeBase:
-      data.selected_document_file_keys_by_knowledge_base
+    selectedDocumentFileKeysByKnowledgeBase: data.selected_document_file_keys_by_knowledge_base
   })
 
   if (
@@ -313,13 +312,12 @@ export const knowledgeRetrievalNodeEditor = {
           fallback: KNOWLEDGE_RETRIEVAL_DEFAULT_NAMESPACE
         }
       ) || KNOWLEDGE_RETRIEVAL_DEFAULT_NAMESPACE
-    const permissionTree =
-      normalizePermissionTree(
-        data.permission_tree ||
-          ((data as unknown as { scopes?: unknown }).scopes
-            ? { scopes: (data as unknown as { scopes?: unknown }).scopes }
-            : undefined)
-      )
+    const permissionTree = normalizePermissionTree(
+      data.permission_tree ||
+        ((data as unknown as { scopes?: unknown }).scopes
+          ? { scopes: (data as unknown as { scopes?: unknown }).scopes }
+          : undefined)
+    )
     const selectionState = resolveSelectionState(data, permissionTree)
 
     return {

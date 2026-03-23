@@ -61,7 +61,9 @@
               :disabled="graphTableOptions.length === 0"
               @update:model-value="handleGraphTableSelect"
             />
-            <div class="rounded-xl border border-dashed border-slate-200 bg-slate-50/70 px-3 py-2 text-[10px] text-slate-500">
+            <div
+              class="rounded-xl border border-dashed border-slate-200 bg-slate-50/70 px-3 py-2 text-[10px] text-slate-500"
+            >
               <div>??????{{ selectedGraphTableBase || '???' }}</div>
               <div>??????{{ graphTables.length }}</div>
             </div>
@@ -620,8 +622,8 @@ const rerankModelOptions = computed<Array<WhiteSelectOption<string>>>(() =>
   }))
 )
 
-const selectedRerankModel = computed(() =>
-  kgModels.value.find((model) => model.id === rerankModelKey.value) ?? null
+const selectedRerankModel = computed(
+  () => kgModels.value.find((model) => model.id === rerankModelKey.value) ?? null
 )
 
 const canSearch = computed(() => {
@@ -661,7 +663,7 @@ const resultTabs = computed(() => [
   },
   { id: 'meta' as const, label: '元信息', count: undefined },
   { id: 'raw' as const, label: '原始JSON', count: undefined }
-  ])
+])
 const rawJson = computed(() => {
   if (!searchResult.value) return '暂无结果'
   return JSON.stringify(searchResult.value, null, 2)
