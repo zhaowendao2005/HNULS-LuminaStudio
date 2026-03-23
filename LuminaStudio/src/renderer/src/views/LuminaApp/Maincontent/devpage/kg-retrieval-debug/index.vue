@@ -150,18 +150,30 @@
             </div>
 
             <div v-if="rerankEnabled" class="space-y-3 border-t border-slate-200 pt-3">
-              <label class="space-y-2">
+              <div class="space-y-2">
                 <span class="block text-xs font-semibold uppercase tracking-wider text-slate-500">
                   重排模型
                 </span>
-                <WhiteSelect
-                  :model-value="rerankModelKey"
-                  :options="rerankModelOptions"
-                  placeholder="选择重排模型..."
-                  :disabled="rerankModelOptions.length === 0"
-                  @update:model-value="handleRerankModelSelect"
-                />
-              </label>
+                <button
+                  type="button"
+                  class="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  :disabled="rerankModelProviders.length === 0"
+                  @click="rerankSelectorVisible = true"
+                >
+                  <span class="truncate">
+                    {{ rerankModelLabel }}
+                  </span>
+                  <span class="text-xs text-slate-400">
+                    {{ rerankModelProviders.length === 0 ? '暂无模型' : '选择模型' }}
+                  </span>
+                </button>
+                <p
+                  v-if="rerankModelProviders.length === 0"
+                  class="text-xs leading-5 text-slate-500"
+                >
+                  当前没有可用的重排模型，请先在知识库系统里配置可用 provider / model。
+                </p>
+              </div>
 
               <label class="space-y-2">
                 <span class="block text-xs font-semibold uppercase tracking-wider text-slate-500">
@@ -174,10 +186,6 @@
                   class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
                 />
               </label>
-
-              <p v-if="rerankModelOptions.length === 0" class="text-xs leading-5 text-slate-500">
-                当前没有可用的重排模型，请先在知识库系统里配置可用 provider / model。
-              </p>
             </div>
 
             <p v-else class="text-xs leading-5 text-slate-500">
@@ -536,12 +544,27 @@
         </div>
       </section>
     </div>
+
+    <ModelSelector
+      v-model:visible="rerankSelectorVisible"
+      :current-provider-id="currentRerankModelProviderId"
+      :current-model-id="rerankModelKey"
+      :providers="rerankModelProviders"
+      :show-manage-button="false"
+      title="选择重排模型"
+      search-placeholder="搜索重排模型..."
+      empty-text="暂无可用重排模型"
+      hint-text="这里复用通用 ModelSelector，只喂外部 providers"
+      @select="handleRerankModelSelect"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import ModelSelector from '@renderer/components/ModelSelector/index.vue'
 import WhiteSelect, { type WhiteSelectOption } from '@renderer/components/WhiteSelect/index.vue'
+import type { ModelProvider } from '@renderer/stores/model-config/types'
 import type {
   KGGraphTableInfo,
   KGModelInfo,
@@ -567,6 +590,7 @@ const query = ref('')
 // 重排配置
 const kgModels = ref<KGModelInfo[]>([])
 const rerankEnabled = ref(false)
+const rerankSelectorVisible = ref(false)
 const rerankModelKey = ref('')
 const rerankTopN = ref(10)
 
@@ -615,16 +639,59 @@ const graphTableOptions = computed<Array<WhiteSelectOption<string>>>(() =>
   }))
 )
 
-const rerankModelOptions = computed<Array<WhiteSelectOption<string>>>(() =>
-  kgModels.value.map((model) => ({
-    label: `${model.providerName} / ${model.displayName}`,
-    value: model.id
-  }))
-)
+const rerankModelProviders = computed<ModelProvider[]>(() => {
+  const providerMap = new Map<string, ModelProvider>()
+
+  for (const model of kgModels.value) {
+    const providerId = model.providerId || model.providerName || 'default'
+    const providerName = model.providerName || providerId
+    const existingProvider = providerMap.get(providerId)
+
+    if (!existingProvider) {
+      providerMap.set(providerId, {
+        id: providerId,
+        type: 'openai-completion',
+        name: providerName,
+        apiKey: '',
+        baseUrl: '',
+        icon: 'server',
+        enabled: true,
+        models: []
+      })
+    }
+
+    providerMap.get(providerId)?.models.push({
+      id: model.id,
+      name: model.displayName,
+      group: model.group || model.protocol || providerName
+    })
+  }
+
+  return Array.from(providerMap.values())
+    .map((provider) => ({
+      ...provider,
+      models: [...provider.models].sort((left, right) => left.name.localeCompare(right.name))
+    }))
+    .sort((left, right) => left.name.localeCompare(right.name))
+})
 
 const selectedRerankModel = computed(
   () => kgModels.value.find((model) => model.id === rerankModelKey.value) ?? null
 )
+
+const currentRerankModelProviderId = computed(() => {
+  return selectedRerankModel.value?.providerId ?? rerankModelProviders.value[0]?.id ?? null
+})
+
+const rerankModelLabel = computed(() => {
+  if (!selectedRerankModel.value) {
+    return '选择重排模型'
+  }
+
+  return selectedRerankModel.value.providerName
+    ? `${selectedRerankModel.value.providerName} / ${selectedRerankModel.value.displayName}`
+    : selectedRerankModel.value.displayName
+})
 
 const canSearch = computed(() => {
   if (selectedGraphTableBase.value === '' || query.value.trim() === '') {
@@ -718,11 +785,11 @@ async function loadKGModels(): Promise<void> {
 }
 
 function ensureRerankModelSelected(): void {
-  if (selectedRerankModel.value || rerankModelOptions.value.length === 0) {
+  if (selectedRerankModel.value || kgModels.value.length === 0) {
     return
   }
 
-  rerankModelKey.value = rerankModelOptions.value[0]?.value ?? ''
+  rerankModelKey.value = kgModels.value[0]?.id ?? ''
 }
 
 function toggleRerank(): void {
@@ -732,8 +799,12 @@ function toggleRerank(): void {
   }
 }
 
-function handleRerankModelSelect(value: string | number | null): void {
-  rerankModelKey.value = typeof value === 'string' ? value : String(value || '')
+function handleRerankModelSelect(payload: {
+  provider: ModelProvider
+  model: { id: string }
+}): void {
+  // 中文注释：通用 ModelSelector 只负责 UI 选择，最终仍然只把 model id 写回当前页面状态。
+  rerankModelKey.value = payload.model.id
 }
 
 async function handleKnowledgeBaseSelect(value: string | number | null): Promise<void> {
@@ -807,10 +878,10 @@ async function handleSearch(): Promise<void> {
       }
       activeResultTab.value = 'entities'
     } else {
-      searchError.value = response.error || 'KG ???????'
+      searchError.value = response.error || 'KG 检索失败'
     }
   } catch (error) {
-    searchError.value = error instanceof Error ? error.message : '??????????'
+    searchError.value = error instanceof Error ? error.message : 'KG 检索执行失败'
   } finally {
     searching.value = false
   }
