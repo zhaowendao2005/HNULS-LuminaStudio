@@ -1,4 +1,4 @@
-import type { ExternalApiResponse, RetrievalHit } from '@shared/knowledge-database-api.types'
+import type { ExternalApiResponse } from '@shared/knowledge-database-api.types'
 import type { KnowledgeDatabaseBridgeService } from '@main/services/knowledge-database-bridge'
 import { createKnowledgeRetrievalError } from './errors'
 import type {
@@ -7,6 +7,16 @@ import type {
   KnowledgeRetrievalResolvedScopeDto,
   KnowledgeRetrievalScopeResultDto
 } from './types'
+
+interface RetrievalHit {
+  id: string
+  content: string
+  chunk_index?: number
+  file_key?: string
+  file_name?: string
+  distance?: number
+  rerank_score?: number
+}
 
 interface KnowledgeRetrievalScopeGroup {
   knowledgeBaseId: number

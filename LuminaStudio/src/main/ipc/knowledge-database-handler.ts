@@ -250,8 +250,10 @@ export class KnowledgeDatabaseIPCHandler extends BaseIPCHandler {
       this.log.debug('kgRetrievalSearch request', {
         query: request.query?.slice(0, 60),
         mode: request.mode,
-        knowledgeBaseId: request.knowledgeBaseId,
-        graphTableBase: request.graphTableBase
+        graphTableBase: request.graphTableBase,
+        rerankEnabled: Boolean(request.rerank?.enabled),
+        rerankModelId: request.rerank?.modelId ?? null,
+        rerankTopN: request.rerank?.topN ?? null
       })
 
       const result = await this.kgRetrievalService.search(request)

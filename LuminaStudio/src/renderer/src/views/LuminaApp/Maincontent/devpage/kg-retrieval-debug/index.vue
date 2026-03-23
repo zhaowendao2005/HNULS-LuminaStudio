@@ -41,16 +41,12 @@
             <span class="block text-xs font-semibold uppercase tracking-wider text-slate-500">
               知识库
             </span>
-            <select
-              v-model.number="selectedKnowledgeBaseId"
-              class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
-              @change="handleKnowledgeBaseChange"
-            >
-              <option :value="0" disabled>选择知识库...</option>
-              <option v-for="kb in knowledgeBases" :key="kb.id" :value="kb.id">
-                {{ kb.name }} (KB #{{ kb.id }})
-              </option>
-            </select>
+            <WhiteSelect
+              :model-value="selectedKnowledgeBaseId"
+              :options="knowledgeBaseOptions"
+              placeholder="选择知识库..."
+              @update:model-value="handleKnowledgeBaseSelect"
+            />
           </label>
 
           <!-- 图谱表选择 -->
@@ -58,17 +54,17 @@
             <span class="block text-xs font-semibold uppercase tracking-wider text-slate-500">
               图谱表
             </span>
-            <select
-              v-model="selectedGraphTableBase"
-              class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
-              :disabled="graphTables.length === 0"
-            >
-              <option value="" disabled>选择图谱表...</option>
-              <option v-for="gt in graphTables" :key="gt.graphTableBase" :value="gt.graphTableBase">
-                {{ gt.graphTableBase }} ({{ gt.entityCount }} entities, {{ gt.relationCount }}
-                relations)
-              </option>
-            </select>
+            <WhiteSelect
+              :model-value="selectedGraphTableBase"
+              :options="graphTableOptions"
+              placeholder="选择图谱表..."
+              :disabled="graphTableOptions.length === 0"
+              @update:model-value="handleGraphTableSelect"
+            />
+            <div class="rounded-xl border border-dashed border-slate-200 bg-slate-50/70 px-3 py-2 text-[10px] text-slate-500">
+              <div>??????{{ selectedGraphTableBase || '???' }}</div>
+              <div>??????{{ graphTables.length }}</div>
+            </div>
           </label>
 
           <!-- 检索模式 -->
@@ -107,47 +103,85 @@
             ></textarea>
           </label>
 
-          <!-- Embedding Provider / Model -->
-          <div class="grid grid-cols-2 gap-3">
-            <label class="space-y-2">
-              <span class="block text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Embedding Provider
-              </span>
-              <select
-                v-model="embeddingProviderId"
-                class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+          <!-- 重排配置：只在启用时出现，模型由知识库系统侧提供并调用 -->
+          <div class="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 space-y-3">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <div class="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  重排配置
+                </div>
+                <div class="mt-1 text-sm text-slate-600">
+                  只有启用重排时才会额外选择模型，知识库系统会自己去调用这个模型。
+                </div>
+              </div>
+              <button
+                type="button"
+                class="rounded-full border px-3 py-1 text-[10px] font-medium transition"
+                :class="
+                  rerankEnabled
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                    : 'border-slate-200 bg-white text-slate-600'
+                "
+                @click="toggleRerank"
               >
-                <option value="">选择 Provider...</option>
-                <option v-for="p in providers" :key="p.id" :value="p.id">
-                  {{ p.name }}
-                </option>
-              </select>
-            </label>
-            <label class="space-y-2">
-              <span class="block text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Embedding Model
-              </span>
-              <input
-                v-model="embeddingModelId"
-                type="text"
-                class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
-                placeholder="text-embedding-3-large"
-              />
-            </label>
-          </div>
+                {{ rerankEnabled ? '已开启' : '已关闭' }}
+              </button>
+            </div>
 
-          <label class="space-y-2">
-            <span class="block text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Embedding 维度
-            </span>
-            <input
-              v-model.number="embeddingDimensions"
-              type="number"
-              min="1"
-              class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
-              placeholder="3072"
-            />
-          </label>
+            <div class="grid grid-cols-2 gap-3 rounded-xl border border-white bg-white px-3 py-2">
+              <div>
+                <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                  知识库系统模型
+                </div>
+                <div class="mt-1 text-sm font-medium text-slate-900">
+                  {{ `${kgModels.length} 个可用模型` }}
+                </div>
+              </div>
+              <div>
+                <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                  图谱表维度
+                </div>
+                <div class="mt-1 text-sm font-medium text-slate-900">
+                  {{ selectedGraphTableBase || '???' }}
+                </div>
+              </div>
+            </div>
+
+            <div v-if="rerankEnabled" class="space-y-3 border-t border-slate-200 pt-3">
+              <label class="space-y-2">
+                <span class="block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  重排模型
+                </span>
+                <WhiteSelect
+                  :model-value="rerankModelKey"
+                  :options="rerankModelOptions"
+                  placeholder="选择重排模型..."
+                  :disabled="rerankModelOptions.length === 0"
+                  @update:model-value="handleRerankModelSelect"
+                />
+              </label>
+
+              <label class="space-y-2">
+                <span class="block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  rerank topN
+                </span>
+                <input
+                  v-model.number="rerankTopN"
+                  type="number"
+                  min="1"
+                  class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                />
+              </label>
+
+              <p v-if="rerankModelOptions.length === 0" class="text-xs leading-5 text-slate-500">
+                当前没有可用的重排模型，请先在知识库系统里配置可用 provider / model。
+              </p>
+            </div>
+
+            <p v-else class="text-xs leading-5 text-slate-500">
+              未启用重排时，这里不会把任何模型信息带到请求里。
+            </p>
+          </div>
 
           <!-- 高级参数折叠 -->
           <details class="rounded-2xl border border-slate-200 bg-white p-4">
@@ -505,14 +539,22 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import type { KGRetrievalMode, KGRetrievalSearchResult, KGGraphTableInfo } from '@preload/types'
+import WhiteSelect, { type WhiteSelectOption } from '@renderer/components/WhiteSelect/index.vue'
+import type {
+  KGGraphTableInfo,
+  KGModelInfo,
+  KGRetrievalMode,
+  KGRetrievalSearchResult
+} from '@preload/types'
+
+type KnowledgeBaseItem = { id: number; name: string; description: string }
 
 // ============================================================================
 // 状态
 // ============================================================================
 
 const connectionOk = ref(false)
-const knowledgeBases = ref<Array<{ id: number; name: string; description: string }>>([])
+const knowledgeBases = ref<KnowledgeBaseItem[]>([])
 const selectedKnowledgeBaseId = ref(0)
 const graphTables = ref<KGGraphTableInfo[]>([])
 const selectedGraphTableBase = ref('')
@@ -520,13 +562,11 @@ const selectedGraphTableBase = ref('')
 const mode = ref<KGRetrievalMode>('hybrid')
 const query = ref('')
 
-// Embedding 配置
-const embeddingProviderId = ref('')
-const embeddingModelId = ref('')
-const embeddingDimensions = ref(3072)
-
-// Provider 列表（从 modelConfig 获取）
-const providers = ref<Array<{ id: string; name: string }>>([])
+// 重排配置
+const kgModels = ref<KGModelInfo[]>([])
+const rerankEnabled = ref(false)
+const rerankModelKey = ref('')
+const rerankTopN = ref(10)
 
 // 高级参数
 const vectorSearch = reactive({
@@ -559,14 +599,41 @@ const copied = ref(false)
 // 计算属性
 // ============================================================================
 
+const knowledgeBaseOptions = computed<Array<WhiteSelectOption<number>>>(() =>
+  knowledgeBases.value.map((kb) => ({
+    label: `${kb.name} (KB #${kb.id})`,
+    value: kb.id
+  }))
+)
+
+const graphTableOptions = computed<Array<WhiteSelectOption<string>>>(() =>
+  graphTables.value.map((gt) => ({
+    label: `${gt.displayName || gt.graphTableBase} (${gt.entityCount} entities, ${gt.relationCount} relations)`,
+    value: gt.graphTableBase
+  }))
+)
+
+const rerankModelOptions = computed<Array<WhiteSelectOption<string>>>(() =>
+  kgModels.value.map((model) => ({
+    label: `${model.providerName} / ${model.displayName}`,
+    value: model.id
+  }))
+)
+
+const selectedRerankModel = computed(() =>
+  kgModels.value.find((model) => model.id === rerankModelKey.value) ?? null
+)
+
 const canSearch = computed(() => {
-  return (
-    selectedKnowledgeBaseId.value > 0 &&
-    selectedGraphTableBase.value !== '' &&
-    query.value.trim() !== '' &&
-    embeddingProviderId.value !== '' &&
-    embeddingModelId.value !== ''
-  )
+  if (selectedGraphTableBase.value === '' || query.value.trim() === '') {
+    return false
+  }
+
+  if (rerankEnabled.value && !selectedRerankModel.value) {
+    return false
+  }
+
+  return true
 })
 
 const modeOptions = [
@@ -577,13 +644,24 @@ const modeOptions = [
 ]
 
 const resultTabs = computed(() => [
-  { id: 'entities' as const, label: '实体', count: searchResult.value?.entities.length },
-  { id: 'relations' as const, label: '关系', count: searchResult.value?.relations.length },
-  { id: 'chunks' as const, label: 'Chunks', count: searchResult.value?.chunks.length },
+  {
+    id: 'entities' as const,
+    label: '实体',
+    count: searchResult.value?.entities?.length ?? 0
+  },
+  {
+    id: 'relations' as const,
+    label: '关系',
+    count: searchResult.value?.relations?.length ?? 0
+  },
+  {
+    id: 'chunks' as const,
+    label: 'Chunks',
+    count: searchResult.value?.chunks?.length ?? 0
+  },
   { id: 'meta' as const, label: '元信息', count: undefined },
   { id: 'raw' as const, label: '原始JSON', count: undefined }
-])
-
+  ])
 const rawJson = computed(() => {
   if (!searchResult.value) return '暂无结果'
   return JSON.stringify(searchResult.value, null, 2)
@@ -603,7 +681,7 @@ async function loadKnowledgeBases(): Promise<void> {
   try {
     const response = await window.api.knowledgeDatabase.listKnowledgeBases()
     if (response.success) {
-      knowledgeBases.value = response.data.knowledgeBases
+      knowledgeBases.value = response.data.knowledgeBases ?? []
     }
   } catch {
     // 忽略
@@ -613,45 +691,74 @@ async function loadKnowledgeBases(): Promise<void> {
 async function checkConnection(): Promise<void> {
   try {
     const response = await window.api.knowledgeDatabase.checkConnection()
-    connectionOk.value = response.success && response.data.connected
+    connectionOk.value = Boolean(response.success && response.data?.connected)
   } catch {
     connectionOk.value = false
   }
 }
 
-async function loadProviders(): Promise<void> {
+async function loadKGModels(): Promise<void> {
   try {
-    const response = await window.api.modelConfig.getConfig()
-    if (response.success) {
-      providers.value = response.data.providers.map((p) => ({
-        id: p.id,
-        name: p.name
-      }))
+    const response = await window.api.knowledgeDatabase.listKGModels()
+    if (!response.success) {
+      kgModels.value = []
+      return
+    }
+
+    kgModels.value = Array.isArray(response.data) ? response.data : []
+
+    if (rerankEnabled.value && !selectedRerankModel.value) {
+      rerankModelKey.value = kgModels.value[0]?.id ?? ''
     }
   } catch {
-    // 忽略
+    kgModels.value = []
   }
 }
 
-async function handleKnowledgeBaseChange(): Promise<void> {
+function ensureRerankModelSelected(): void {
+  if (selectedRerankModel.value || rerankModelOptions.value.length === 0) {
+    return
+  }
+
+  rerankModelKey.value = rerankModelOptions.value[0]?.value ?? ''
+}
+
+function toggleRerank(): void {
+  rerankEnabled.value = !rerankEnabled.value
+  if (rerankEnabled.value) {
+    ensureRerankModelSelected()
+  }
+}
+
+function handleRerankModelSelect(value: string | number | null): void {
+  rerankModelKey.value = typeof value === 'string' ? value : String(value || '')
+}
+
+async function handleKnowledgeBaseSelect(value: string | number | null): Promise<void> {
+  const nextKnowledgeBaseId = typeof value === 'number' ? value : Number(value || 0)
+  selectedKnowledgeBaseId.value = nextKnowledgeBaseId
   selectedGraphTableBase.value = ''
   graphTables.value = []
-  if (selectedKnowledgeBaseId.value <= 0) return
+
+  if (nextKnowledgeBaseId <= 0) {
+    return
+  }
 
   try {
-    const response = await window.api.knowledgeDatabase.getKGGraphTables(
-      selectedKnowledgeBaseId.value
-    )
+    const response = await window.api.knowledgeDatabase.getKGGraphTables(nextKnowledgeBaseId)
     if (response.success) {
-      graphTables.value = response.data.graphs || []
-      // 自动选择第一个图谱表
+      graphTables.value = Array.isArray(response.data) ? response.data : []
       if (graphTables.value.length > 0) {
         selectedGraphTableBase.value = graphTables.value[0].graphTableBase
       }
     }
   } catch {
-    // 忽略
+    // ???
   }
+}
+
+function handleGraphTableSelect(value: string | number | null): void {
+  selectedGraphTableBase.value = typeof value === 'string' ? value : String(value || '')
 }
 
 async function handleSearch(): Promise<void> {
@@ -662,27 +769,46 @@ async function handleSearch(): Promise<void> {
   searchResult.value = null
 
   try {
+    const rerankConfig =
+      rerankEnabled.value && selectedRerankModel.value
+        ? {
+            enabled: true,
+            modelId: selectedRerankModel.value.id,
+            topN: Number.isFinite(rerankTopN.value) ? Math.max(1, rerankTopN.value) : 1
+          }
+        : undefined
+
     const response = await window.api.knowledgeDatabase.kgRetrievalSearch({
       query: query.value.trim(),
       mode: mode.value,
-      knowledgeBaseId: selectedKnowledgeBaseId.value,
       graphTableBase: selectedGraphTableBase.value,
-      embeddingProviderId: embeddingProviderId.value,
-      embeddingModelId: embeddingModelId.value,
-      embeddingDimensions: embeddingDimensions.value,
-      vectorSearch: { ...vectorSearch },
-      graphTraversal: { ...graphTraversal },
-      tokenBudget: { ...tokenBudget }
+      rerank: rerankConfig
     })
 
     if (response.success) {
-      searchResult.value = response.data
+      searchResult.value = {
+        entities: Array.isArray(response.data?.entities) ? response.data.entities : [],
+        relations: Array.isArray(response.data?.relations) ? response.data.relations : [],
+        chunks: Array.isArray(response.data?.chunks) ? response.data.chunks : [],
+        meta: response.data?.meta ?? {
+          mode: mode.value,
+          extractedKeywords: {
+            highLevel: [],
+            lowLevel: []
+          },
+          entityCount: 0,
+          relationCount: 0,
+          chunkCount: 0,
+          durationMs: 0,
+          rerankApplied: false
+        }
+      }
       activeResultTab.value = 'entities'
     } else {
-      searchError.value = response.error || 'KG 检索失败'
+      searchError.value = response.error || 'KG ???????'
     }
   } catch (error) {
-    searchError.value = error instanceof Error ? error.message : '检索请求异常'
+    searchError.value = error instanceof Error ? error.message : '??????????'
   } finally {
     searching.value = false
   }
@@ -701,6 +827,12 @@ function handleCopyJson(): void {
 // ============================================================================
 
 onMounted(async () => {
-  await Promise.all([checkConnection(), loadKnowledgeBases(), loadProviders()])
+  await Promise.all([checkConnection(), loadKnowledgeBases(), loadKGModels()])
+  if (knowledgeBases.value.length > 0 && selectedKnowledgeBaseId.value === 0) {
+    await handleKnowledgeBaseSelect(knowledgeBases.value[0].id)
+  }
+  if (rerankEnabled.value) {
+    ensureRerankModelSelected()
+  }
 })
 </script>

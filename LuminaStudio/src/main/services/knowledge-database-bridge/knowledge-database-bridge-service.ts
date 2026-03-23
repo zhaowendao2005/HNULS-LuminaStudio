@@ -16,10 +16,11 @@ import type {
   KnowledgeBaseInfo,
   KnowledgeDatabaseStatusData,
   ListDocumentsData,
-  RetrievalHit,
-  RetrievalSearchParams,
+  KGGraphTableInfo,
   KGGraphTablesResponse,
   KGModelInfo,
+  KGModelsListResponse,
+  KGRetrievalSearchRequest,
   KGRetrievalSearchResult
 } from '@shared/knowledge-database-api.types'
 
@@ -38,6 +39,133 @@ export interface KnowledgeDatabaseServiceConfig {
 interface KnowledgeDatabaseRequestResult<T> {
   status: number | null
   payload: ExternalApiResponse<T> | null
+}
+
+interface RetrievalHit {
+  id: string
+  content: string
+  chunk_index?: number
+  file_key?: string
+  file_name?: string
+  distance?: number
+  rerank_score?: number
+}
+
+interface RetrievalSearchParams {
+  knowledgeBaseId: number
+  tableName: string
+  queryText: string
+  fileKey?: string
+  fileKeys?: string[]
+  k?: number
+  ef?: number
+  rerankModelId?: string
+  rerankTopN?: number
+}
+
+function normalizeKnowledgeBasesResponse(data: unknown): KnowledgeBaseInfo[] {
+  if (!Array.isArray(data)) {
+    return []
+  }
+
+  return data.filter((item): item is KnowledgeBaseInfo => {
+    if (!item || typeof item !== 'object') {
+      return false
+    }
+
+    const kb = item as Partial<KnowledgeBaseInfo>
+    return typeof kb.id === 'number' && typeof kb.name === 'string'
+  })
+}
+
+function normalizeKGGraphTablesResponse(data: unknown): KGGraphTablesResponse {
+  if (!Array.isArray(data)) {
+    return []
+  }
+
+  return data
+    .filter((item): item is KGGraphTableInfo => {
+      if (!item || typeof item !== 'object') {
+        return false
+      }
+
+      const graph = item as Partial<KGGraphTableInfo>
+      return typeof graph.graphTableBase === 'string' && graph.graphTableBase.trim().length > 0
+    })
+    .map((item) => ({
+      graphTableBase: item.graphTableBase.trim(),
+      displayName:
+        typeof item.displayName === 'string' && item.displayName.trim()
+          ? item.displayName.trim()
+          : undefined,
+      entityCount: typeof item.entityCount === 'number' ? item.entityCount : 0,
+      relationCount: typeof item.relationCount === 'number' ? item.relationCount : 0
+    }))
+}
+
+function normalizeKGModelInfo(item: unknown): KGModelInfo | null {
+  if (!item || typeof item !== 'object') {
+    return null
+  }
+
+  const model = item as Record<string, unknown>
+  const id =
+    typeof model.id === 'string' && model.id.trim()
+      ? model.id.trim()
+      : typeof model.modelId === 'string' && model.modelId.trim()
+        ? model.modelId.trim()
+        : typeof model.model_id === 'string' && model.model_id.trim()
+          ? model.model_id.trim()
+          : ''
+
+  const providerId =
+    typeof model.providerId === 'string' && model.providerId.trim()
+      ? model.providerId.trim()
+      : typeof model.provider_id === 'string' && model.provider_id.trim()
+        ? model.provider_id.trim()
+        : ''
+
+  const providerName =
+    typeof model.providerName === 'string' && model.providerName.trim()
+      ? model.providerName.trim()
+      : typeof model.provider_name === 'string' && model.provider_name.trim()
+        ? model.provider_name.trim()
+        : providerId
+
+  const displayName =
+    typeof model.displayName === 'string' && model.displayName.trim()
+      ? model.displayName.trim()
+      : typeof model.name === 'string' && model.name.trim()
+        ? model.name.trim()
+        : typeof model.modelName === 'string' && model.modelName.trim()
+          ? model.modelName.trim()
+          : id
+
+  if (!id || !providerId || !providerName) {
+    return null
+  }
+
+  return {
+    id,
+    displayName,
+    providerId,
+    providerName,
+    group: typeof model.group === 'string' && model.group.trim() ? model.group.trim() : undefined,
+    protocol:
+      typeof model.protocol === 'string' && model.protocol.trim()
+        ? model.protocol.trim()
+        : undefined,
+    dimensions: typeof model.dimensions === 'number' ? model.dimensions : undefined,
+    maxTokens: typeof model.maxTokens === 'number' ? model.maxTokens : undefined
+  }
+}
+
+function normalizeKGModelsListResponse(data: unknown): KGModelsListResponse {
+  if (!Array.isArray(data)) {
+    return []
+  }
+
+  return data.map(normalizeKGModelInfo).filter((item): item is KGModelInfo => item !== null)
 }
 
 /**
@@ -119,8 +247,9 @@ export class KnowledgeDatabaseBridgeService {
       '/api/v1/knowledge-bases',
       'Failed to fetch knowledge bases'
     )
-    log.info('Knowledge bases fetched', { count: data.length })
-    return data
+    const knowledgeBases = normalizeKnowledgeBasesResponse(data)
+    log.info('Knowledge bases fetched', { count: knowledgeBases.length })
+    return knowledgeBases
   }
 
   /**
@@ -274,28 +403,33 @@ export class KnowledgeDatabaseBridgeService {
    */
   async getKGGraphTables(knowledgeBaseId: number): Promise<KGGraphTablesResponse> {
     log.debug('Fetching KG graph tables', { knowledgeBaseId })
-    return await this.requestOrThrow<KGGraphTablesResponse>(
+    const data = await this.requestOrThrow<KGGraphTablesResponse>(
       `/api/v1/kg/knowledge-bases/${knowledgeBaseId}/graph-tables`,
       'Failed to fetch KG graph tables'
     )
+    return normalizeKGGraphTablesResponse(data)
   }
 
   /**
    * 获取可用的 KG 模型列表。
    */
-  async listKGModels(): Promise<KGModelInfo[]> {
+  async listKGModels(): Promise<KGModelsListResponse> {
     log.debug('Fetching KG models')
-    return await this.requestOrThrow<KGModelInfo[]>('/api/v1/kg/models', 'Failed to list KG models')
+    const data = await this.requestOrThrow<KGModelsListResponse>(
+      '/api/v1/kg/models',
+      'Failed to list KG models'
+    )
+    return normalizeKGModelsListResponse(data)
   }
 
   /**
    * 执行知识图谱检索。
    *
-   * 注意：这里接收的是已经由 KGRetrievalService 补全了 credentials 的完整参数，
-   * 直接转发到 KnowledgeDatabase 的 `/api/v1/kg/retrieval`。
+   * 这里不再自己拼接 embedding/model 相关字段，直接把 Lumina 侧传来的
+   * 检索请求转发给知识库系统。真正的 embedding / rerank 解析由知识库系统处理。
    */
   async kgRetrievalSearch(
-    params: Record<string, unknown>
+    params: KGRetrievalSearchRequest
   ): Promise<ExternalApiResponse<KGRetrievalSearchResult>> {
     const response = await this.request<KGRetrievalSearchResult>('/api/v1/kg/retrieval', {
       method: 'POST',
@@ -305,6 +439,7 @@ export class KnowledgeDatabaseBridgeService {
     if (response.payload) {
       log.debug('KG retrieval search completed', {
         mode: params.mode,
+        graphTableBase: params.graphTableBase,
         status: response.status,
         success: response.payload.success
       })

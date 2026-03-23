@@ -1,9 +1,9 @@
 /**
- * Knowledge Database 跨进程类型定义（Preload 权威来源）
+ * Knowledge Database 跨进程类型定义（Preload 侧聚合导出）
  *
  * 注意：
- * - 这些类型是 Renderer ↔ Preload ↔ Main 之间通信的契约
- * - 外部 API 的 DTO 定义在 @shared/knowledge-database-api.types.ts
+ * - 这里主要负责 Renderer ↔ Preload ↔ Main 的通信契约聚合
+ * - 核心 DTO 的单一事实来源在 `@shared/knowledge-database-api.types.ts`
  */
 
 import type { ApiResponse } from './base.types'
@@ -12,7 +12,7 @@ import type {
   DocumentInfo,
   ExternalApiErrorInfo,
   KGGraphTablesResponse,
-  KGModelInfo,
+  KGModelsListResponse,
   KGRetrievalSearchRequest,
   KGRetrievalSearchResult
 } from '@shared/knowledge-database-api.types'
@@ -22,6 +22,7 @@ export type {
   KGGraphTableInfo,
   KGGraphTablesResponse,
   KGModelInfo,
+  KGModelsListResponse,
   KGRetrievalMode,
   KGRetrievalSearchRequest,
   KGRetrievalEntity,
@@ -325,7 +326,7 @@ export interface KnowledgeDatabaseAPI {
   /**
    * 获取可用的 KG 模型列表
    */
-  listKGModels: () => Promise<ApiResponse<KGModelInfo[]>>
+  listKGModels: () => Promise<ApiResponse<KGModelsListResponse>>
 
   /**
    * 执行知识图谱检索（local/global/hybrid/naive 四种模式）

@@ -116,7 +116,8 @@ app.whenReady().then(() => {
   new PaperRetrievalIPCHandler(paperRetrievalService)
 
   const knowledgeRetrievalService = new KnowledgeRetrievalService(knowledgeDatabaseService)
-  const kgRetrievalService = new KGRetrievalService(knowledgeDatabaseService, modelConfigService)
+  // KG 检索服务现在只做透传，不再需要 main 侧补 embedding/model 配置。
+  const kgRetrievalService = new KGRetrievalService(knowledgeDatabaseService)
   new KnowledgeDatabaseIPCHandler(
     knowledgeDatabaseService,
     knowledgeRetrievalService,

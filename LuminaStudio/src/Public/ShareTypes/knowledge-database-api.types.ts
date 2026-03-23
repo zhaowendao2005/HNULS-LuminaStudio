@@ -126,145 +126,63 @@ export interface ListDocumentsData {
 // ============================
 
 /**
- * 与知识库 REST 服务端 `/api/v1/retrieval/search` 对齐的请求体。
+ * KG ??????
+ * ???????????????????????? `graphTableBase` ??????
  */
-export interface RetrievalSearchParams {
-  knowledgeBaseId: number
-  tableName: string
-  queryText: string
-  /**
-   * 单文件筛选。
-   * 服务端优先级高于 fileKeys。
-   */
-  fileKey?: string
-  /**
-   * 多文件筛选。
-   * 传空数组会被服务端判为 400。
-   */
-  fileKeys?: string[]
-  k?: number
-  ef?: number
-  rerankModelId?: string
-  rerankTopN?: number
-}
-
-/**
- * `/api/v1/retrieval/search` 返回的单条命中。
- */
-export interface RetrievalHit {
-  id: string
-  content: string
-  chunk_index?: number
-  file_key?: string
-  file_name?: string
-  distance?: number
-  rerank_score?: number
-}
-
-export interface RetrievalSearchResult {
-  hits: RetrievalHit[]
-}
-
-// ============================
-// 知识图谱（KG）检索
-// ============================
-
-/** KG 图谱表信息 */
 export interface KGGraphTableInfo {
   graphTableBase: string
+  displayName?: string
   entityCount: number
   relationCount: number
 }
 
-/** KG 图谱表响应 */
-export interface KGGraphTablesResponse {
-  targetNamespace: string
-  targetDatabase: string
-  graphs: KGGraphTableInfo[]
-}
+/**
+ * KG ????????????????????????
+ */
+export type KGGraphTablesResponse = KGGraphTableInfo[]
 
-/** KG 模型信息 */
+/**
+ * KG ?????
+ * `id` ???????????????? rerank ???????? provider / model?
+ */
 export interface KGModelInfo {
   id: string
-  name?: string
+  displayName: string
+  providerId: string
+  providerName: string
+  group?: string
+  protocol?: string
+  dimensions?: number
+  maxTokens?: number
 }
 
-/** KG 检索模式 */
+/**
+ * KG ????????????????
+ */
+export type KGModelsListResponse = KGModelInfo[]
+
+/**
+ * KG ????? */
 export type KGRetrievalMode = 'local' | 'global' | 'hybrid' | 'naive'
 
 /**
- * KG 检索请求（Lumina 前端 → Main 进程）。
- *
- * 与 KnowledgeDatabase 内部 KGRetrievalParams 不同：
- * - 用 knowledgeBaseId 代替 targetNamespace/targetDatabase（Main 侧自动解析）
- * - embeddingConfig 只传 providerId/modelId（Main 侧补全 credentials）
- * - rerank 只传 providerId/modelId（Main 侧补全 credentials）
+ * KG ?????
+ * ??????????????????????????? rerank ???
  */
 export interface KGRetrievalSearchRequest {
-  /** 用户查询文本 */
   query: string
-  /** 检索模式 */
   mode: KGRetrievalMode
-  /** 知识库 ID（Main 侧用于解析 targetNamespace/targetDatabase） */
-  knowledgeBaseId: number
-  /** 图谱表基名，如 'kg_emb_cfg_xxx_3072' */
   graphTableBase: string
-
-  // ========== Embedding 配置（Main 侧补全 apiKey/baseUrl） ==========
-  /** 嵌入 Provider ID */
-  embeddingProviderId: string
-  /** 嵌入 Model ID */
-  embeddingModelId: string
-  /** 嵌入向量维度 */
-  embeddingDimensions: number
-
-  // ========== 关键词提取配置（可选） ==========
-  keywordExtraction?: {
-    /** false = 跳过 LLM，使用手动关键词 */
-    useLLM: boolean
-    /** LLM 提供者（useLLM=true 时必填） */
-    llmProviderId?: string
-    llmModelId?: string
-    /** 手动关键词（useLLM=false 时使用） */
-    manualHighLevelKeywords?: string[]
-    manualLowLevelKeywords?: string[]
-  }
-
-  // ========== 向量搜索参数（可选） ==========
-  vectorSearch?: {
-    entityTopK?: number
-    relationTopK?: number
-    chunkTopK?: number
-    ef?: number
-  }
-
-  // ========== 图遍历参数（可选） ==========
-  graphTraversal?: {
-    maxDepth?: number
-    maxNeighbors?: number
-  }
-
-  // ========== Chunk 向量表（naive 模式必填） ==========
-  chunkTableName?: string
-
-  // ========== 重排配置（可选，Main 侧补全 credentials） ==========
   rerank?: {
     enabled: boolean
-    providerId?: string
     modelId?: string
     topN?: number
   }
-
-  // ========== Token 预算（可选） ==========
-  tokenBudget?: {
-    maxEntityDescTokens?: number
-    maxRelationDescTokens?: number
-    maxChunkTokens?: number
-    maxTotalTokens?: number
-  }
 }
 
-/** KG 检索实体 */
+/**
+ * KG ?????
+ */
 export interface KGRetrievalEntity {
   id: string
   name: string
@@ -273,7 +191,6 @@ export interface KGRetrievalEntity {
   score: number
 }
 
-/** KG 检索关系 */
 export interface KGRetrievalRelation {
   id: string
   source_name: string
@@ -283,7 +200,6 @@ export interface KGRetrievalRelation {
   score: number
 }
 
-/** KG 检索 Chunk */
 export interface KGRetrievalChunk {
   id: string
   content: string
@@ -294,7 +210,6 @@ export interface KGRetrievalChunk {
   source: 'entity_expansion' | 'relation_expansion' | 'direct_vector'
 }
 
-/** KG 检索元数据 */
 export interface KGRetrievalMeta {
   mode: KGRetrievalMode
   extractedKeywords: {
@@ -308,7 +223,6 @@ export interface KGRetrievalMeta {
   rerankApplied: boolean
 }
 
-/** KG 检索结果 */
 export interface KGRetrievalSearchResult {
   entities: KGRetrievalEntity[]
   relations: KGRetrievalRelation[]
