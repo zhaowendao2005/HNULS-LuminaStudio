@@ -27,7 +27,39 @@ export async function executePubmedSearch(
     throw new Error('PubMed 检索词不能为空')
   }
 
-  // 这里只调用主进程已经存在的 paperRetrieval 服务，不自己再造一套检索实现。
+  const title = 'PubMed 检索'
+  const input = JSON.stringify(
+    {
+      query,
+      topK: args.topK ?? 5,
+      sort: args.sort ?? 'relevance',
+      startDate: args.startDate ?? null,
+      endDate: args.endDate ?? null
+    },
+    null,
+    2
+  )
+
+  // 这里先把 functioncall 的开始和输入都记录下来，方便 runtime 组装成可回放的 block。
+  ctx.trace.record({
+    type: 'functioncall-start',
+    requestId: ctx.runContext.requestId,
+    topicId: ctx.runContext.topicId,
+    callId: ctx.callId,
+    functionCallName: 'pubmed-search',
+    title,
+    message: `开始执行 ${title}`
+  })
+  ctx.trace.record({
+    type: 'functioncall-input',
+    requestId: ctx.runContext.requestId,
+    topicId: ctx.runContext.topicId,
+    callId: ctx.callId,
+    functionCallName: 'pubmed-search',
+    title,
+    input,
+    message: `收到 ${title} 输入`
+  })
   ctx.trace.record({
     type: 'tool-start',
     requestId: ctx.runContext.requestId,
@@ -36,39 +68,74 @@ export async function executePubmedSearch(
     message: `开始执行 PubMed 检索：${query}`
   })
 
-  ctx.logger.info('Executing PubMed search through paperRetrieval service', {
-    requestId: ctx.runContext.requestId,
-    topicId: ctx.runContext.topicId,
-    query,
-    topK: args.topK ?? 5,
-    sort: args.sort ?? 'relevance'
-  })
-
-  const result = await ctx.paperRetrievalService.search({
-    provider_id: 'pubmed',
-    api_key_ref_id: null,
-    provider_options: {
+  try {
+    ctx.logger.info('Executing PubMed search through paperRetrieval service', {
+      requestId: ctx.runContext.requestId,
+      topicId: ctx.runContext.topicId,
       query,
-      limit: args.topK ?? 5,
-      sort: args.sort ?? 'relevance',
-      start_date: args.startDate ?? null,
-      end_date: args.endDate ?? null
+      topK: args.topK ?? 5,
+      sort: args.sort ?? 'relevance'
+    })
+
+    const result = await ctx.paperRetrievalService.search({
+      provider_id: 'pubmed',
+      api_key_ref_id: null,
+      provider_options: {
+        query,
+        limit: args.topK ?? 5,
+        sort: args.sort ?? 'relevance',
+        start_date: args.startDate ?? null,
+        end_date: args.endDate ?? null
+      }
+    })
+
+    const output = JSON.stringify(result)
+
+    ctx.trace.record({
+      type: 'functioncall-output',
+      requestId: ctx.runContext.requestId,
+      topicId: ctx.runContext.topicId,
+      callId: ctx.callId,
+      functionCallName: 'pubmed-search',
+      title,
+      output,
+      message: `${title} 输出已返回`
+    })
+    ctx.trace.record({
+      type: 'functioncall-finish',
+      requestId: ctx.runContext.requestId,
+      topicId: ctx.runContext.topicId,
+      callId: ctx.callId,
+      functionCallName: 'pubmed-search',
+      title,
+      status: 'success',
+      message: 'PubMed 检索完成'
+    })
+    ctx.trace.record({
+      type: 'tool-result',
+      requestId: ctx.runContext.requestId,
+      topicId: ctx.runContext.topicId,
+      toolName: 'pubmed-search',
+      output,
+      message: 'PubMed 检索完成'
+    })
+
+    return {
+      output,
+      ...result
     }
-  })
-
-  const output = JSON.stringify(result)
-
-  ctx.trace.record({
-    type: 'tool-result',
-    requestId: ctx.runContext.requestId,
-    topicId: ctx.runContext.topicId,
-    toolName: 'pubmed-search',
-    output,
-    message: 'PubMed 检索完成'
-  })
-
-  return {
-    output,
-    ...result
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    ctx.trace.record({
+      type: 'functioncall-error',
+      requestId: ctx.runContext.requestId,
+      topicId: ctx.runContext.topicId,
+      callId: ctx.callId,
+      functionCallName: 'pubmed-search',
+      title,
+      error: message,
+      message: `${title} 执行失败`
+    })
+    throw error
   }
 }

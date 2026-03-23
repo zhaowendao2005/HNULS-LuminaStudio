@@ -114,12 +114,9 @@
                   </p>
                 </div>
                 <div class="rounded-xl bg-gray-50 px-3 py-2">
-                  <p class="text-[12px] text-gray-400">纯文本内容</p>
-                  <p
-                    class="mt-1 whitespace-pre-wrap break-words text-[13px] leading-6 text-gray-700"
-                  >
-                    {{ selectedMessage?.text || '无' }}
-                  </p>
+                  <p class="text-[12px] text-gray-400">消息块</p>
+                  <ChatMessageParts v-if="selectedMessage" :message="selectedMessage" />
+                  <p v-else class="mt-1 text-[13px] text-gray-700">无</p>
                 </div>
                 <div class="rounded-xl bg-gray-50 px-3 py-2">
                   <p class="text-[12px] text-gray-400">原始 JSON 摘要</p>
@@ -168,6 +165,7 @@ import { X } from 'lucide-vue-next'
 import { useNormalChatConversationStore } from '@renderer/stores/normal-chat/conversation/conversation.store'
 import { useNormalChatWorkspaceStore } from '@renderer/stores/normal-chat/workspace/workspace.store'
 import ConversationDetailRawSection from './ConversationDetailRawSection.vue'
+import ChatMessageParts from './ChatMessageParts.vue'
 import type { NormalChatConversationDisplayMessage } from '@renderer/stores/normal-chat/conversation/conversation.types'
 import type { NormalChatConversationTurnDetail } from '@preload/types'
 
@@ -200,9 +198,7 @@ const selectedMessage = computed<NormalChatConversationDisplayMessage | null>(()
   }
 
   return {
-    id: message.id,
-    requestId: message.requestId,
-    role: message.role,
+    ...message,
     author: message.role === 'user' ? '用户' : detail.value.assistantName,
     time: message.createdAt,
     text: message.parts

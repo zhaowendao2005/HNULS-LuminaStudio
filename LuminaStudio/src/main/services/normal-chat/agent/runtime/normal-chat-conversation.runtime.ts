@@ -15,6 +15,7 @@ import type {
   NormalChatConversationPromptMessage,
   NormalChatConversationTurnRequestPayload,
   NormalChatConversationTurnResponsePayload,
+  NormalChatFunctionCallMessagePart,
   NormalChatMessagePart,
   NormalChatSendMessageRequest,
   NormalChatTopic
@@ -24,11 +25,9 @@ import type { DatabaseManager } from '../../../database-sqlite'
 import type { ModelConfigService } from '../../../model-config'
 import { logger } from '../../../logger'
 import { NormalChatRepository } from '../../normal-chat.repository'
-import { createNormalChatAgentGraph } from '../registry'
-import type { NormalChatAgentRuntimeBridge } from '../Agents/base-chat-agent/graph'
-import { executePubmedSearch } from '../Agents/base-chat-agent/functioncall/pubmed-search/execute'
+import { createNormalChatAgentSuite } from '../registry'
 import { createNormalChatTraceRecorder } from '../trace'
-import type { NormalChatAgentTraceRecorder } from '../contracts'
+import type { NormalChatAgentGraphRuntimeBridge, NormalChatAgentTraceRecorder } from '../contracts'
 
 interface ActiveRequestContext {
   topicId: string
@@ -168,18 +167,234 @@ export class NormalChatConversationService {
   }): Promise<void> {
     const { requestId, assistant, topic, providerId, modelId, systemPrompt, input, signal } = params
     const traceRecorder = createNormalChatTraceRecorder()
-    const graph = createNormalChatAgentGraph(assistant.templateKey, {
-      runtime: this.createGraphRuntimeBridge(),
-      trace: traceRecorder
-    })
+    const suite = createNormalChatAgentSuite(assistant.templateKey)
 
-    if (!graph) {
+    if (!suite) {
       throw new Error(`不支持的助手图谱: ${assistant.templateKey}`)
     }
 
+    const graph = suite.createGraph({
+      runtime: this.createGraphRuntimeBridge(),
+      trace: traceRecorder,
+      hostDependencies: {
+        paperRetrievalService: this.paperRetrievalService
+      }
+    })
+
     let traceState: ConversationTraceState | null = null
+    const assistantParts: NormalChatMessagePart[] = []
+    const functionCallPartIndexByCallId = new Map<string, number>()
     let assistantText = ''
+    let assistantTextPartIndex = -1
     let graphCompleted = false
+
+    const upsertAssistantTextPart = (text: string): void => {
+      assistantText = text
+      const nextText = text.trim() || '模型未返回文本内容。'
+      const nextPart: NormalChatMessagePart = {
+        kind: 'text',
+        text: nextText
+      }
+
+      if (assistantTextPartIndex >= 0 && assistantParts[assistantTextPartIndex]?.kind === 'text') {
+        assistantParts[assistantTextPartIndex] = nextPart
+        return
+      }
+
+      assistantTextPartIndex = assistantParts.push(nextPart) - 1
+    }
+
+    const upsertFunctionCallPart = (part: NormalChatFunctionCallMessagePart): void => {
+      const currentIndex = functionCallPartIndexByCallId.get(part.callId)
+      const existingPart =
+        currentIndex !== undefined
+          ? (assistantParts[currentIndex] as NormalChatFunctionCallMessagePart | undefined)
+          : undefined
+      const nextPart: NormalChatFunctionCallMessagePart = existingPart
+        ? {
+            ...existingPart,
+            ...part,
+            input: part.input !== '' ? part.input : existingPart.input,
+            output: part.output !== '' ? part.output : existingPart.output,
+            errorMessage: part.errorMessage ?? existingPart.errorMessage,
+            isStreaming: part.isStreaming ?? existingPart.isStreaming
+          }
+        : {
+            kind: 'functioncall',
+            callId: part.callId,
+            functionCallName: part.functionCallName,
+            title: part.title,
+            status: part.status,
+            input: part.input ?? '',
+            output: part.output ?? '',
+            errorMessage: part.errorMessage ?? null,
+            isStreaming: part.isStreaming ?? true
+          }
+
+      if (currentIndex !== undefined) {
+        assistantParts[currentIndex] = nextPart
+        return
+      }
+
+      functionCallPartIndexByCallId.set(part.callId, assistantParts.push(nextPart) - 1)
+    }
+
+    const disposeTraceSubscription = traceRecorder.subscribe((event) => {
+      if (event.type === 'functioncall-start') {
+        upsertFunctionCallPart({
+          kind: 'functioncall',
+          callId: event.callId,
+          functionCallName: event.functionCallName,
+          title: event.title,
+          status: 'running',
+          input: '',
+          output: '',
+          errorMessage: null,
+          isStreaming: true
+        })
+        this.emit({
+          type: 'assistant-part-upsert',
+          requestId,
+          topicId: topic.id,
+          part: {
+            kind: 'functioncall',
+            callId: event.callId,
+            functionCallName: event.functionCallName,
+            title: event.title,
+            status: 'running',
+            input: '',
+            output: '',
+            errorMessage: null,
+            isStreaming: true
+          }
+        })
+        return
+      }
+
+      if (event.type === 'functioncall-input') {
+        upsertFunctionCallPart({
+          kind: 'functioncall',
+          callId: event.callId,
+          functionCallName: event.functionCallName,
+          title: event.title,
+          status: 'running',
+          input: event.input,
+          output: '',
+          errorMessage: null,
+          isStreaming: true
+        })
+        this.emit({
+          type: 'assistant-part-upsert',
+          requestId,
+          topicId: topic.id,
+          part: {
+            kind: 'functioncall',
+            callId: event.callId,
+            functionCallName: event.functionCallName,
+            title: event.title,
+            status: 'running',
+            input: event.input,
+            output: '',
+            errorMessage: null,
+            isStreaming: true
+          }
+        })
+        return
+      }
+
+      if (event.type === 'functioncall-output') {
+        upsertFunctionCallPart({
+          kind: 'functioncall',
+          callId: event.callId,
+          functionCallName: event.functionCallName,
+          title: event.title,
+          status: 'running',
+          input: '',
+          output: event.output,
+          errorMessage: null,
+          isStreaming: true
+        })
+        this.emit({
+          type: 'assistant-part-upsert',
+          requestId,
+          topicId: topic.id,
+          part: {
+            kind: 'functioncall',
+            callId: event.callId,
+            functionCallName: event.functionCallName,
+            title: event.title,
+            status: 'running',
+            input: '',
+            output: event.output,
+            errorMessage: null,
+            isStreaming: true
+          }
+        })
+        return
+      }
+
+      if (event.type === 'functioncall-finish') {
+        const status = event.status === 'aborted' ? 'aborted' : 'success'
+        upsertFunctionCallPart({
+          kind: 'functioncall',
+          callId: event.callId,
+          functionCallName: event.functionCallName,
+          title: event.title,
+          status,
+          input: '',
+          output: '',
+          errorMessage: null,
+          isStreaming: false
+        })
+        this.emit({
+          type: 'assistant-part-upsert',
+          requestId,
+          topicId: topic.id,
+          part: {
+            kind: 'functioncall',
+            callId: event.callId,
+            functionCallName: event.functionCallName,
+            title: event.title,
+            status,
+            input: '',
+            output: '',
+            errorMessage: null,
+            isStreaming: false
+          }
+        })
+        return
+      }
+
+      if (event.type === 'functioncall-error') {
+        upsertFunctionCallPart({
+          kind: 'functioncall',
+          callId: event.callId,
+          functionCallName: event.functionCallName,
+          title: event.title,
+          status: 'error',
+          input: '',
+          output: '',
+          errorMessage: event.error,
+          isStreaming: false
+        })
+        this.emit({
+          type: 'assistant-part-upsert',
+          requestId,
+          topicId: topic.id,
+          part: {
+            kind: 'functioncall',
+            callId: event.callId,
+            functionCallName: event.functionCallName,
+            title: event.title,
+            status: 'error',
+            input: '',
+            output: '',
+            errorMessage: event.error,
+            isStreaming: false
+          }
+        })
+      }
+    })
 
     try {
       this.throwIfAborted(signal)
@@ -236,6 +451,7 @@ export class NormalChatConversationService {
         }
 
         assistantText += delta
+        upsertAssistantTextPart(assistantText)
         traceRecorder.record({
           type: 'answer-delta',
           requestId,
@@ -270,6 +486,7 @@ export class NormalChatConversationService {
         const assistantMessageId = this.commitAssistantMessageIfNeeded(
           topic.id,
           requestId,
+          assistantParts,
           assistantText
         )
 
@@ -297,7 +514,12 @@ export class NormalChatConversationService {
         message: 'BaseChatAgentGraph 执行结束'
       })
 
-      const assistantMessage = this.createAssistantMessage(topic.id, requestId, finalAnswerText)
+      const assistantMessage = this.createAssistantMessage(
+        topic.id,
+        requestId,
+        assistantParts,
+        finalAnswerText
+      )
       const sortOrder = this.repository.listMessagesByTopicId(topic.id).length
       this.repository.insertMessage(assistantMessage, sortOrder)
 
@@ -326,6 +548,7 @@ export class NormalChatConversationService {
         const assistantMessageId = this.commitAssistantMessageIfNeeded(
           topic.id,
           requestId,
+          assistantParts,
           assistantText
         )
         this.emit({
@@ -358,6 +581,8 @@ export class NormalChatConversationService {
         this.persistConversationTrace(traceState, 'update')
       }
 
+      this.commitAssistantMessageIfNeeded(topic.id, requestId, assistantParts, assistantText)
+
       this.emit({
         type: 'error',
         requestId,
@@ -365,6 +590,7 @@ export class NormalChatConversationService {
         message
       })
     } finally {
+      disposeTraceSubscription()
       const active = this.activeRequests.get(requestId)
       if (active) {
         active.resolveSettled()
@@ -373,20 +599,12 @@ export class NormalChatConversationService {
     }
   }
 
-  private createGraphRuntimeBridge(): NormalChatAgentRuntimeBridge {
+  private createGraphRuntimeBridge(): NormalChatAgentGraphRuntimeBridge {
     return {
       getConversationMessages: (topicId) => this.repository.listMessagesByTopicId(topicId),
       createChatModel: (providerId, modelId, signal) =>
         this.createChatModel(providerId, modelId, signal),
-      executePubmedSearch: (args, context) =>
-        executePubmedSearch(args, {
-          signal: context.signal,
-          trace: context.trace,
-          runContext: context.runContext,
-          modelContext: context.modelContext,
-          logger: log,
-          paperRetrievalService: this.paperRetrievalService
-        })
+      logger: log
     }
   }
 
@@ -397,15 +615,18 @@ export class NormalChatConversationService {
   private createAssistantMessage(
     topicId: string,
     requestId: string,
+    parts: NormalChatMessagePart[],
     text: string
   ): NormalChatConversationMessage {
     const now = new Date().toISOString()
+    const nextParts =
+      parts.length > 0 ? parts : this.createTextParts(text || '模型未返回文本内容。')
     return {
       id: randomUUID(),
       topicId,
       requestId,
       role: 'assistant',
-      parts: this.createTextParts(text || '模型未返回文本内容。'),
+      parts: nextParts,
       createdAt: now,
       updatedAt: now
     }
@@ -414,14 +635,15 @@ export class NormalChatConversationService {
   private commitAssistantMessageIfNeeded(
     topicId: string,
     requestId: string,
+    parts: NormalChatMessagePart[],
     text: string
   ): string | null {
     const assistantText = text.trim()
-    if (!assistantText) {
+    if (parts.length === 0 && !assistantText) {
       return null
     }
 
-    const assistantMessage = this.createAssistantMessage(topicId, requestId, assistantText)
+    const assistantMessage = this.createAssistantMessage(topicId, requestId, parts, assistantText)
     const sortOrder = this.repository.listMessagesByTopicId(topicId).length
     this.repository.insertMessage(assistantMessage, sortOrder)
 

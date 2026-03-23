@@ -73,7 +73,19 @@ async function scrollToBottom(): Promise<void> {
 watch(
   () =>
     currentMessages.value
-      .map((message) => `${message.id}:${message.text}:${message.isPending ? '1' : '0'}`)
+      .map((message) =>
+        [
+          message.id,
+          message.parts
+            .map((part) =>
+              part.kind === 'functioncall'
+                ? `${part.kind}:${part.callId}:${part.status}:${part.input}:${part.output}:${part.errorMessage ?? ''}`
+                : `${part.kind}:${part.text}`
+            )
+            .join('|'),
+          message.isPending ? '1' : '0'
+        ].join(':')
+      )
       .join('|'),
   () => {
     void scrollToBottom()

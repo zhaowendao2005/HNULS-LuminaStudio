@@ -57,15 +57,44 @@ function handleModelSelect(payload: { provider: ModelProvider; model: Model }): 
 }
 
 async function handleCopyMessage(message: NormalChatConversationDisplayMessage): Promise<void> {
-  if (!message.text) {
+  const textToCopy = serializeMessageForCopy(message)
+  if (!textToCopy) {
     return
   }
 
   try {
-    await navigator.clipboard.writeText(message.text)
+    await navigator.clipboard.writeText(textToCopy)
   } catch {
     // 剪贴板不可用时不阻断 Normal Chat。
   }
+}
+
+function serializeMessageForCopy(message: NormalChatConversationDisplayMessage): string {
+  if (message.parts.length === 0) {
+    return message.text
+  }
+
+  return message.parts
+    .map((part) => {
+      if (part.kind === 'text') {
+        return part.text
+      }
+
+      const sections = [
+        `FunctionCall: ${part.title}`,
+        `CallName: ${part.functionCallName}`,
+        `Input:\n${part.input || '无'}`,
+        `Output:\n${part.output || '无'}`
+      ]
+
+      if (part.errorMessage) {
+        sections.push(`Error:\n${part.errorMessage}`)
+      }
+
+      return sections.join('\n')
+    })
+    .join('\n\n')
+    .trim()
 }
 
 async function handleDeleteMessage(message: NormalChatConversationDisplayMessage): Promise<void> {

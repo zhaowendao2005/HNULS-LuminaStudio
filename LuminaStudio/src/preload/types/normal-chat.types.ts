@@ -108,12 +108,35 @@ export interface NormalChatUpdateTopicPromptRequest {
   promptOverride?: string | null
 }
 
-export type NormalChatMessagePartKind = 'text'
+export type NormalChatMessagePartKind = 'text' | 'functioncall'
 
-export interface NormalChatMessagePart {
-  kind: NormalChatMessagePartKind
+export type NormalChatFunctionCallMessagePartStatus =
+  | 'queued'
+  | 'running'
+  | 'success'
+  | 'error'
+  | 'aborted'
+
+export interface NormalChatTextMessagePart {
+  kind: 'text'
   text: string
 }
+
+export interface NormalChatFunctionCallMessagePart {
+  kind: 'functioncall'
+  // callId 只用于同一条消息内部唯一定位一个 functioncall block，方便流式更新和回放。
+  callId: string
+  // functionCallName 是技术名，title 是给 UI 看的标题。
+  functionCallName: string
+  title: string
+  status: NormalChatFunctionCallMessagePartStatus
+  input: string
+  output: string
+  errorMessage: string | null
+  isStreaming: boolean
+}
+
+export type NormalChatMessagePart = NormalChatTextMessagePart | NormalChatFunctionCallMessagePart
 
 export type NormalChatConversationMessageRole = 'user' | 'assistant'
 
@@ -226,6 +249,11 @@ export interface NormalChatConversationAssistantChunkEvent extends NormalChatCon
   delta: string
 }
 
+export interface NormalChatConversationAssistantPartUpsertEvent extends NormalChatConversationBaseEvent {
+  type: 'assistant-part-upsert'
+  part: NormalChatMessagePart
+}
+
 export interface NormalChatConversationMessageCommittedEvent extends NormalChatConversationBaseEvent {
   type: 'message-committed'
   message: NormalChatConversationMessage
@@ -244,6 +272,7 @@ export interface NormalChatConversationErrorEvent extends NormalChatConversation
 export type NormalChatConversationStreamEvent =
   | NormalChatConversationStatusEvent
   | NormalChatConversationAssistantChunkEvent
+  | NormalChatConversationAssistantPartUpsertEvent
   | NormalChatConversationMessageCommittedEvent
   | NormalChatConversationFinishEvent
   | NormalChatConversationErrorEvent
