@@ -10,4 +10,3 @@ export function normalizeOpenAICompatibleBaseUrl(baseUrl: string): string {
   const trimmed = baseUrl.trim().replace(/\/$/, '')
   return trimmed.endsWith('/v1') ? trimmed : `${trimmed}/v1`
 }
-

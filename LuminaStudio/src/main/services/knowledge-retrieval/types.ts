@@ -134,13 +134,15 @@ export interface KnowledgeRetrievalErrorDto {
   message: string
   retriable: boolean
   details?: Record<string, unknown>
-}export interface KnowledgeRetrievalResolveScopesRequest {
+}
+export interface KnowledgeRetrievalResolveScopesRequest {
   knowledgeBaseId?: number
   knowledgeBaseIds?: number[]
   selectedKnowledgeBaseIds?: number[]
   selectedDocumentFileKeysByKnowledgeBase?: Record<number, string[]>
   permissionTree?: unknown
-}export interface KnowledgeRetrievalResolveScopesResultDto {
+}
+export interface KnowledgeRetrievalResolveScopesResultDto {
   /**
    * 兼容字段：保留主知识库 id（取 knowledgeBaseIds[0]）。
    */
@@ -167,7 +169,8 @@ export interface KnowledgeRetrievalSearchRequest {
     topN?: number | null
   }
   abortSignal?: AbortSignal
-}export interface KnowledgeRetrievalHitDto {
+}
+export interface KnowledgeRetrievalHitDto {
   id: string
   content: string
   chunkIndex?: number

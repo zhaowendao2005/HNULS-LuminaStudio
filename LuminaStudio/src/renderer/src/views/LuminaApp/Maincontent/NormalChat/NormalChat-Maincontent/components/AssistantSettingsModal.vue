@@ -104,7 +104,9 @@
                   </button>
                 </div>
 
-                <div class="mt-4 rounded-xl border border-dashed border-gray-200 bg-white px-3 py-2">
+                <div
+                  class="mt-4 rounded-xl border border-dashed border-gray-200 bg-white px-3 py-2"
+                >
                   <p class="text-[12px] leading-5 text-gray-500">
                     当前状态：
                     <span
