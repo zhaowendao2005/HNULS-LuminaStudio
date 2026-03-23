@@ -9,9 +9,12 @@ export interface NormalChatAgentRunContext {
   requestId: string
   topicId: string
   assistantId: string
+  assistantTitle?: string
+  topicTitle?: string
   providerId: string
   modelId: string
   systemPrompt: string
+  input: string
   signal: AbortSignal
 }
 

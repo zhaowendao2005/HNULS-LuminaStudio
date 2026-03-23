@@ -1,5 +1,9 @@
 <template>
   <footer class="nc-chat-composer-a9k2 sticky bottom-0 bg-[var(--nc-bg-main)] px-6 pb-6 pt-2">
+    <p class="mb-2 px-1 text-[12px] leading-5 text-gray-400">
+      {{ statusLine }}
+    </p>
+
     <div
       class="flex flex-col rounded-2xl border border-gray-200 bg-white transition-all focus-within:ring-1 focus-within:ring-gray-300"
     >
@@ -50,9 +54,6 @@
         </div>
       </div>
     </div>
-    <p class="mt-2 px-1 text-[12px] text-gray-400">
-      {{ statusLine }}
-    </p>
   </footer>
 </template>
 

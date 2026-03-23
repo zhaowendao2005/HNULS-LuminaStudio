@@ -1,4 +1,6 @@
 import type { NormalChatAgentTemplate } from '@preload/types'
+import { BaseChatAgentGraph } from '../Agents/base-chat-agent'
+import type { BaseChatAgentGraphOptions } from '../Agents/base-chat-agent/graph'
 import type { NormalChatAgentTemplateDefinition } from '../contracts'
 
 const NORMAL_CHAT_AGENT_TEMPLATES: NormalChatAgentTemplateDefinition[] = [
@@ -23,4 +25,15 @@ export function getNormalChatAgentTemplateDefinition(
   templateKey: string
 ): NormalChatAgentTemplateDefinition | null {
   return NORMAL_CHAT_AGENT_TEMPLATES.find((template) => template.key === templateKey) ?? null
+}
+
+export function createNormalChatAgentGraph(
+  templateKey: string,
+  options: BaseChatAgentGraphOptions
+): BaseChatAgentGraph | null {
+  if (templateKey === 'base-agent') {
+    return new BaseChatAgentGraph(options)
+  }
+
+  return null
 }
