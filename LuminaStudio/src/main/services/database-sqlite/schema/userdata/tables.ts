@@ -3,9 +3,11 @@ import type { TableDefinition } from '../../types'
 /**
  * Userdata 数据库表结构定义
  *
- * 当前仅保留 Normal Chat 第一批业务真正需要的持久化结构：
+ * 当前仅保留 Normal Chat 业务真正需要的持久化结构：
  * - 助手
  * - 话题
+ * - 消息
+ * - 完整会话审计
  * - 当前工作区 active 状态
  */
 
@@ -31,6 +33,7 @@ export const NORMAL_CHAT_ASSISTANTS_TABLE: TableDefinition = {
       emoji TEXT NOT NULL,
       label_id TEXT,
       default_system_prompt TEXT NOT NULL DEFAULT '',
+      save_full_conversation_enabled INTEGER NOT NULL DEFAULT 0,
       sort_order INTEGER NOT NULL DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now')),
@@ -77,6 +80,47 @@ export const NORMAL_CHAT_TOPICS_TABLE: TableDefinition = {
   `
 }
 
+export const NORMAL_CHAT_MESSAGES_TABLE: TableDefinition = {
+  name: 'normal_chat_messages',
+  createSQL: `
+    CREATE TABLE IF NOT EXISTS normal_chat_messages (
+      id TEXT PRIMARY KEY,
+      topic_id TEXT NOT NULL,
+      request_id TEXT NOT NULL,
+      message_role TEXT NOT NULL CHECK (message_role IN ('user', 'assistant')),
+      parts_json TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (topic_id) REFERENCES normal_chat_topics(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_normal_chat_messages_topic_sort
+      ON normal_chat_messages(topic_id, sort_order, created_at);
+    CREATE INDEX IF NOT EXISTS idx_normal_chat_messages_request
+      ON normal_chat_messages(request_id, created_at);
+  `
+}
+
+export const NORMAL_CHAT_TURN_TRACES_TABLE: TableDefinition = {
+  name: 'normal_chat_turn_traces',
+  createSQL: `
+    CREATE TABLE IF NOT EXISTS normal_chat_turn_traces (
+      request_id TEXT PRIMARY KEY,
+      topic_id TEXT NOT NULL,
+      assistant_id TEXT NOT NULL,
+      assistant_name TEXT NOT NULL,
+      assistant_emoji TEXT NOT NULL,
+      topic_title TEXT NOT NULL,
+      save_full_conversation_enabled INTEGER NOT NULL DEFAULT 0,
+      request_payload_json TEXT NOT NULL,
+      response_payload_json TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (topic_id) REFERENCES normal_chat_topics(id) ON DELETE CASCADE
+    );
+  `
+}
+
 export const NORMAL_CHAT_WORKSPACE_STATE_TABLE: TableDefinition = {
   name: 'normal_chat_workspace_state',
   createSQL: `
@@ -95,5 +139,7 @@ export const USERDATA_TABLES: TableDefinition[] = [
   NORMAL_CHAT_LABELS_TABLE,
   NORMAL_CHAT_ASSISTANTS_TABLE,
   NORMAL_CHAT_TOPICS_TABLE,
+  NORMAL_CHAT_MESSAGES_TABLE,
+  NORMAL_CHAT_TURN_TRACES_TABLE,
   NORMAL_CHAT_WORKSPACE_STATE_TABLE
 ]

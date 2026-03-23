@@ -1,5 +1,9 @@
 import type Database from 'better-sqlite3'
 import type {
+  NormalChatConversationMessage,
+  NormalChatConversationTurnDetail,
+  NormalChatConversationTurnRequestPayload,
+  NormalChatConversationTurnResponsePayload,
   NormalChatLabel,
   NormalChatAssistant,
   NormalChatTopic,
@@ -19,6 +23,7 @@ interface AssistantRow {
   emoji: string
   label_id: string | null
   default_system_prompt: string
+  save_full_conversation_enabled: number
   sort_order: number
 }
 
@@ -34,6 +39,31 @@ interface TopicRow {
 interface WorkspaceStateRow {
   active_assistant_id: string
   active_topic_id: string
+}
+
+interface MessageRow {
+  id: string
+  topic_id: string
+  request_id: string
+  message_role: 'user' | 'assistant'
+  parts_json: string
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
+interface ConversationTurnTraceRow {
+  request_id: string
+  topic_id: string
+  assistant_id: string
+  assistant_name: string
+  assistant_emoji: string
+  topic_title: string
+  save_full_conversation_enabled: number
+  request_payload_json: string
+  response_payload_json: string
+  created_at: string
+  updated_at: string
 }
 
 export class NormalChatRepository {
@@ -119,7 +149,15 @@ export class NormalChatRepository {
     const rows = this.db
       .prepare(
         `
-          SELECT id, template_key, name, emoji, label_id, default_system_prompt, sort_order
+          SELECT
+            id,
+            template_key,
+            name,
+            emoji,
+            label_id,
+            default_system_prompt,
+            save_full_conversation_enabled,
+            sort_order
           FROM normal_chat_assistants
           ORDER BY sort_order ASC, created_at ASC
         `
@@ -133,6 +171,7 @@ export class NormalChatRepository {
       emoji: row.emoji,
       labelId: row.label_id,
       defaultSystemPrompt: row.default_system_prompt,
+      saveFullConversationEnabled: Boolean(row.save_full_conversation_enabled),
       sortOrder: row.sort_order
     }))
   }
@@ -141,7 +180,15 @@ export class NormalChatRepository {
     const row = this.db
       .prepare(
         `
-          SELECT id, template_key, name, emoji, label_id, default_system_prompt, sort_order
+          SELECT
+            id,
+            template_key,
+            name,
+            emoji,
+            label_id,
+            default_system_prompt,
+            save_full_conversation_enabled,
+            sort_order
           FROM normal_chat_assistants
           WHERE id = ?
         `
@@ -159,6 +206,7 @@ export class NormalChatRepository {
       emoji: row.emoji,
       labelId: row.label_id,
       defaultSystemPrompt: row.default_system_prompt,
+      saveFullConversationEnabled: Boolean(row.save_full_conversation_enabled),
       sortOrder: row.sort_order
     }
   }
@@ -174,8 +222,9 @@ export class NormalChatRepository {
             emoji,
             label_id,
             default_system_prompt,
+            save_full_conversation_enabled,
             sort_order
-          ) VALUES (?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `
       )
       .run(
@@ -185,6 +234,7 @@ export class NormalChatRepository {
         assistant.emoji,
         assistant.labelId,
         assistant.defaultSystemPrompt,
+        assistant.saveFullConversationEnabled ? 1 : 0,
         assistant.sortOrder
       )
   }
@@ -198,11 +248,18 @@ export class NormalChatRepository {
             name = ?,
             label_id = ?,
             default_system_prompt = ?,
+            save_full_conversation_enabled = ?,
             updated_at = datetime('now')
           WHERE id = ?
         `
       )
-      .run(assistant.name, assistant.labelId, assistant.defaultSystemPrompt, assistant.id)
+      .run(
+        assistant.name,
+        assistant.labelId,
+        assistant.defaultSystemPrompt,
+        assistant.saveFullConversationEnabled ? 1 : 0,
+        assistant.id
+      )
   }
 
   listAllTopics(): NormalChatTopic[] {
@@ -317,6 +374,195 @@ export class NormalChatRepository {
     this.db.prepare(`DELETE FROM normal_chat_topics WHERE id = ?`).run(topicId)
   }
 
+  listMessagesByTopicId(topicId: string): NormalChatConversationMessage[] {
+    const rows = this.db
+      .prepare(
+        `
+          SELECT
+            id,
+            topic_id,
+            request_id,
+            message_role,
+            parts_json,
+            sort_order,
+            created_at,
+            updated_at
+          FROM normal_chat_messages
+          WHERE topic_id = ?
+          ORDER BY sort_order ASC, created_at ASC
+        `
+      )
+      .all(topicId) as MessageRow[]
+
+    return rows.map((row) => ({
+      id: row.id,
+      topicId: row.topic_id,
+      requestId: row.request_id,
+      role: row.message_role,
+      parts: this.parseMessageParts(row.parts_json),
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    }))
+  }
+
+  listMessagesByRequestId(requestId: string): NormalChatConversationMessage[] {
+    const rows = this.db
+      .prepare(
+        `
+          SELECT id, topic_id, request_id, message_role, parts_json, sort_order, created_at, updated_at
+          FROM normal_chat_messages
+          WHERE request_id = ?
+          ORDER BY sort_order ASC, created_at ASC
+        `
+      )
+      .all(requestId) as MessageRow[]
+
+    return rows.map((row) => ({
+      id: row.id,
+      topicId: row.topic_id,
+      requestId: row.request_id,
+      role: row.message_role,
+      parts: this.parseMessageParts(row.parts_json),
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    }))
+  }
+
+  insertMessage(message: NormalChatConversationMessage, sortOrder: number): void {
+    this.db
+      .prepare(
+        `
+          INSERT INTO normal_chat_messages (
+            id,
+            topic_id,
+            request_id,
+            message_role,
+            parts_json,
+            sort_order
+          ) VALUES (?, ?, ?, ?, ?, ?)
+        `
+      )
+      .run(
+        message.id,
+        message.topicId,
+        message.requestId,
+        message.role,
+        JSON.stringify(message.parts),
+        sortOrder
+      )
+  }
+
+  deleteMessagesByRequestId(requestId: string): void {
+    this.db.prepare(`DELETE FROM normal_chat_messages WHERE request_id = ?`).run(requestId)
+  }
+
+  insertConversationTurnTrace(payload: NormalChatConversationTurnDetail): void {
+    this.db
+      .prepare(
+        `
+          INSERT INTO normal_chat_turn_traces (
+            request_id,
+            topic_id,
+            assistant_id,
+            assistant_name,
+            assistant_emoji,
+            topic_title,
+            save_full_conversation_enabled,
+            request_payload_json,
+            response_payload_json
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `
+      )
+      .run(
+        payload.requestId,
+        payload.topicId,
+        payload.assistantId,
+        payload.assistantName,
+        payload.assistantEmoji,
+        payload.topicTitle,
+        payload.saveFullConversationEnabled ? 1 : 0,
+        JSON.stringify(payload.requestPayload ?? null),
+        JSON.stringify(payload.responsePayload ?? null)
+      )
+  }
+
+  updateConversationTurnTrace(payload: NormalChatConversationTurnDetail): void {
+    this.db
+      .prepare(
+        `
+          UPDATE normal_chat_turn_traces
+          SET
+            topic_id = ?,
+            assistant_id = ?,
+            assistant_name = ?,
+            assistant_emoji = ?,
+            topic_title = ?,
+            save_full_conversation_enabled = ?,
+            request_payload_json = ?,
+            response_payload_json = ?,
+            updated_at = datetime('now')
+          WHERE request_id = ?
+        `
+      )
+      .run(
+        payload.topicId,
+        payload.assistantId,
+        payload.assistantName,
+        payload.assistantEmoji,
+        payload.topicTitle,
+        payload.saveFullConversationEnabled ? 1 : 0,
+        JSON.stringify(payload.requestPayload ?? null),
+        JSON.stringify(payload.responsePayload ?? null),
+        payload.requestId
+      )
+  }
+
+  getConversationTurnTrace(requestId: string): NormalChatConversationTurnDetail | null {
+    const row = this.db
+      .prepare(
+        `
+          SELECT
+            request_id,
+            topic_id,
+            assistant_id,
+            assistant_name,
+            assistant_emoji,
+            topic_title,
+            save_full_conversation_enabled,
+            request_payload_json,
+            response_payload_json,
+            created_at,
+            updated_at
+          FROM normal_chat_turn_traces
+          WHERE request_id = ?
+        `
+      )
+      .get(requestId) as ConversationTurnTraceRow | undefined
+
+    if (!row) {
+      return null
+    }
+
+    return {
+      requestId: row.request_id,
+      topicId: row.topic_id,
+      assistantId: row.assistant_id,
+      assistantName: row.assistant_name,
+      assistantEmoji: row.assistant_emoji,
+      topicTitle: row.topic_title,
+      saveFullConversationEnabled: Boolean(row.save_full_conversation_enabled),
+      hasTrace: Boolean(row.request_payload_json || row.response_payload_json),
+      requestPayload: this.parseConversationRequestPayload(row.request_payload_json),
+      responsePayload: this.parseConversationResponsePayload(row.response_payload_json),
+      messages: this.listMessagesByRequestId(requestId)
+    }
+  }
+
+  deleteConversationTurn(requestId: string): void {
+    this.deleteMessagesByRequestId(requestId)
+    this.db.prepare(`DELETE FROM normal_chat_turn_traces WHERE request_id = ?`).run(requestId)
+  }
+
   getWorkspaceState(): WorkspaceStateRow | null {
     const row = this.db
       .prepare(
@@ -349,5 +595,64 @@ export class NormalChatRepository {
         `
       )
       .run(activeAssistantId, activeTopicId)
+  }
+
+  private parseMessageParts(partsJson: string): NormalChatConversationMessage['parts'] {
+    try {
+      const parsed = JSON.parse(partsJson) as unknown
+      if (!Array.isArray(parsed)) {
+        return []
+      }
+
+      return parsed
+        .map((part) => {
+          if (!part || typeof part !== 'object') {
+            return null
+          }
+
+          const nextPart = part as { kind?: unknown; text?: unknown }
+          if (nextPart.kind !== 'text' || typeof nextPart.text !== 'string') {
+            return null
+          }
+
+          return {
+            kind: 'text' as const,
+            text: nextPart.text
+          }
+        })
+        .filter((part): part is { kind: 'text'; text: string } => part !== null)
+    } catch {
+      return []
+    }
+  }
+
+  private parseConversationRequestPayload(
+    payloadJson: string
+  ): NormalChatConversationTurnRequestPayload | null {
+    try {
+      const parsed = JSON.parse(payloadJson) as unknown
+      if (!parsed || typeof parsed !== 'object') {
+        return null
+      }
+
+      return parsed as NormalChatConversationTurnRequestPayload
+    } catch {
+      return null
+    }
+  }
+
+  private parseConversationResponsePayload(
+    payloadJson: string
+  ): NormalChatConversationTurnResponsePayload | null {
+    try {
+      const parsed = JSON.parse(payloadJson) as unknown
+      if (!parsed || typeof parsed !== 'object') {
+        return null
+      }
+
+      return parsed as NormalChatConversationTurnResponsePayload
+    } catch {
+      return null
+    }
   }
 }

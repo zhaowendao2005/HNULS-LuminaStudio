@@ -14,9 +14,9 @@
         <div
           class="h-8 w-8 rounded-xl"
           :class="
-            message.author.includes('GPT')
-              ? 'bg-gradient-to-br from-rose-300 via-orange-200 to-purple-400'
-              : 'bg-gradient-to-br from-emerald-200 via-sky-200 to-blue-300'
+            message.isPending
+              ? 'bg-gradient-to-br from-amber-200 via-orange-200 to-rose-300'
+              : 'bg-gradient-to-br from-sky-200 via-cyan-200 to-blue-300'
           "
         />
       </div>
@@ -26,31 +26,72 @@
           <h4 class="text-[14px] font-semibold leading-[1.25] text-gray-900">
             {{ message.author }}
           </h4>
+          <span
+            v-if="message.isPending"
+            class="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700"
+          >
+            生成中
+          </span>
         </div>
         <p class="mt-1 text-xs text-gray-400">{{ message.time }}</p>
 
-        <div class="mt-4 whitespace-pre-wrap text-[14px] leading-[1.75] text-gray-800">
-          {{ message.text }}
-        </div>
-        <p class="mt-3 text-xs text-gray-400">Tokens: {{ message.tokens }}</p>
-
         <div
-          v-if="message.errorNotice"
-          class="mt-4 flex items-center justify-between rounded-xl border border-[var(--nc-error-border)] bg-[var(--nc-error-bg)] px-4 py-3 text-[13px] text-gray-600"
+          v-if="message.role === 'user'"
+          class="mt-4 whitespace-pre-wrap text-[14px] leading-[1.75] text-gray-800"
         >
-          <span>{{ message.errorNotice }}</span>
-          <X class="h-4 w-4 text-gray-400" />
+          {{ message.text || ' ' }}
         </div>
+        <ChatMarkdownContent
+          v-else
+          class="mt-4"
+          :content="message.text"
+          :is-pending="Boolean(message.isPending)"
+        />
 
-        <div v-if="message.actions.length > 0" class="mt-4 flex items-center gap-1.5">
-          <button
-            v-for="action in message.actions"
-            :key="action.id"
-            class="nc-message-action-btn-a9k2 rounded-md p-1.5"
-            type="button"
-          >
-            <component :is="resolveActionIcon(action.icon)" class="h-4 w-4" />
-          </button>
+        <div class="mt-4 flex items-center gap-2">
+          <div class="flex items-center gap-1.5">
+            <button
+              class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+              type="button"
+              title="更多"
+              @click="emit('more', message)"
+            >
+              <MoreHorizontal class="h-4 w-4" />
+            </button>
+          </div>
+
+          <div class="h-4 w-px bg-gray-200" />
+
+          <div class="ml-auto flex items-center gap-1.5">
+            <button
+              class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+              type="button"
+              title="复制为 Markdown"
+              @click="emit('copy', message)"
+            >
+              <Copy class="h-4 w-4" />
+            </button>
+
+            <button
+              class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-40"
+              :disabled="!canOperateTurn"
+              type="button"
+              title="删除这条对话"
+              @click="emit('delete', message)"
+            >
+              <Trash2 class="h-4 w-4" />
+            </button>
+
+            <button
+              class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-40"
+              :disabled="!canOperateTurn"
+              type="button"
+              title="查看完整会话"
+              @click="emit('open-session', message)"
+            >
+              <FileCode2 class="h-4 w-4" />
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -58,38 +99,25 @@
 </template>
 
 <script setup lang="ts">
-import {
-  AtSign,
-  Copy,
-  Languages,
-  Menu,
-  PencilLine,
-  RefreshCw,
-  Trash2,
-  UserRound,
-  X,
-  type LucideIcon
-} from 'lucide-vue-next'
-import type {
-  ConversationActionIcon,
-  ConversationMessage
-} from '@renderer/stores/normal-chat/conversation-shell/conversation-shell.types'
+import { computed } from 'vue'
+import { Copy, FileCode2, MoreHorizontal, Trash2, UserRound } from 'lucide-vue-next'
+import type { NormalChatConversationDisplayMessage } from '@renderer/stores/normal-chat/conversation/conversation.types'
+import ChatMarkdownContent from './ChatMarkdownContent.vue'
 
-defineProps<{
-  message: ConversationMessage
+const props = defineProps<{
+  message: NormalChatConversationDisplayMessage
 }>()
 
-const iconMap: Record<ConversationActionIcon, LucideIcon> = {
-  copy: Copy,
-  retry: RefreshCw,
-  mention: AtSign,
-  translate: Languages,
-  edit: PencilLine,
-  delete: Trash2,
-  menu: Menu
-}
+const emit = defineEmits<{
+  more: [message: NormalChatConversationDisplayMessage]
+  copy: [message: NormalChatConversationDisplayMessage]
+  delete: [message: NormalChatConversationDisplayMessage]
+  'open-session': [message: NormalChatConversationDisplayMessage]
+}>()
 
-const resolveActionIcon = (icon: ConversationActionIcon): LucideIcon => iconMap[icon]
+const canOperateTurn = computed(() => {
+  return Boolean(props.message.requestId) && !props.message.isPending
+})
 </script>
 
 <style scoped lang="scss">

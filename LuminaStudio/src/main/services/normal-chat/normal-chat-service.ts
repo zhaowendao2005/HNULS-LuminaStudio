@@ -4,14 +4,15 @@ import type {
   NormalChatLabel,
   NormalChatTopic,
   NormalChatTopicPromptMode,
-  NormalChatWorkspaceSnapshot
+  NormalChatWorkspaceSnapshot,
+  NormalChatConversationTurnDetail
 } from '@preload/types'
 import { logger } from '../logger'
 import type { DatabaseManager } from '../database-sqlite'
 import {
   getNormalChatAgentTemplateDefinition,
   listNormalChatAgentTemplates
-} from './agent-template-registry'
+} from './agent/registry'
 import { NormalChatRepository } from './normal-chat.repository'
 
 const log = logger.scope('NormalChatService')
@@ -52,6 +53,7 @@ export class NormalChatService {
         emoji: template.emoji,
         labelId: null,
         defaultSystemPrompt: template.defaultSystemPrompt,
+        saveFullConversationEnabled: false,
         sortOrder: assistants.length
       }
 
@@ -67,6 +69,7 @@ export class NormalChatService {
     assistantId: string
     name?: string
     defaultSystemPrompt?: string
+    saveFullConversationEnabled?: boolean
   }): Promise<NormalChatWorkspaceSnapshot> {
     return this.repository.runInTransaction(() => {
       this.ensureWorkspaceReady()
@@ -80,11 +83,16 @@ export class NormalChatService {
         params.defaultSystemPrompt !== undefined
           ? params.defaultSystemPrompt
           : assistant.defaultSystemPrompt
+      const nextSaveFullConversationEnabled =
+        params.saveFullConversationEnabled !== undefined
+          ? params.saveFullConversationEnabled
+          : assistant.saveFullConversationEnabled
 
       this.repository.updateAssistant({
         ...assistant,
         name: nextName,
-        defaultSystemPrompt: nextPrompt
+        defaultSystemPrompt: nextPrompt,
+        saveFullConversationEnabled: nextSaveFullConversationEnabled
       })
 
       log.info('Assistant updated', { assistantId: params.assistantId })
@@ -277,6 +285,16 @@ export class NormalChatService {
     })
   }
 
+  async getConversationTurnDetail(
+    requestId: string
+  ): Promise<NormalChatConversationTurnDetail | null> {
+    return this.repository.getConversationTurnTrace(requestId)
+  }
+
+  async deleteConversationTurn(requestId: string): Promise<void> {
+    this.repository.deleteConversationTurn(requestId)
+  }
+
   private ensureWorkspaceReady(): void {
     const assistants = this.repository.listAssistants()
 
@@ -322,6 +340,7 @@ export class NormalChatService {
         emoji: template.emoji,
         labelId: null,
         defaultSystemPrompt: template.defaultSystemPrompt,
+        saveFullConversationEnabled: false,
         sortOrder: 0
       })
 
