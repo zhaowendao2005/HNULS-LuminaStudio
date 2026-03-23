@@ -1,4 +1,9 @@
-import type { NormalChatAgentTemplate } from '@preload/types'
+import type {
+  NormalChatAgentTemplate,
+  NormalChatConversationMessage,
+  NormalChatConversationPromptMessage
+} from '@preload/types'
+import type { AIMessage, HumanMessage, SystemMessage } from '@langchain/core/messages'
 
 export interface NormalChatAgentTemplateDefinition extends NormalChatAgentTemplate {
   // 这里只保存模板的默认 system prompt，方便后面把模板和运行时逻辑拆开。
@@ -16,6 +21,34 @@ export interface NormalChatAgentRunContext {
   systemPrompt: string
   input: string
   signal: AbortSignal
+}
+
+export interface NormalChatAgentGraphRuntimeBridge {
+  getConversationMessages(topicId: string): NormalChatConversationMessage[]
+  createChatModel(providerId: string, modelId: string, signal: AbortSignal): Promise<unknown>
+  logger: Pick<Console, 'debug' | 'info' | 'warn' | 'error'>
+}
+
+export interface NormalChatAgentGraphRunResult {
+  answerMessages: Array<SystemMessage | HumanMessage | AIMessage>
+  promptMessages: NormalChatConversationPromptMessage[]
+}
+
+export interface NormalChatAgentGraphRunner {
+  run(context: NormalChatAgentRunContext): Promise<NormalChatAgentGraphRunResult>
+}
+
+export interface NormalChatAgentSuiteContext<
+  THostDependencies extends object = Record<string, never>
+> {
+  runtime: NormalChatAgentGraphRuntimeBridge
+  trace?: NormalChatAgentTraceRecorder
+  hostDependencies: THostDependencies
+}
+
+export interface NormalChatAgentSuite<THostDependencies extends object = Record<string, never>> {
+  template: NormalChatAgentTemplateDefinition
+  createGraph(context: NormalChatAgentSuiteContext<THostDependencies>): NormalChatAgentGraphRunner
 }
 
 export interface NormalChatAgentModelContext {
@@ -58,6 +91,45 @@ export type NormalChatAgentTraceEvent =
       message: string
     })
   | (NormalChatAgentTraceEventBase & {
+      type: 'functioncall-start'
+      callId: string
+      functionCallName: string
+      title: string
+      message: string
+    })
+  | (NormalChatAgentTraceEventBase & {
+      type: 'functioncall-input'
+      callId: string
+      functionCallName: string
+      title: string
+      input: string
+      message: string
+    })
+  | (NormalChatAgentTraceEventBase & {
+      type: 'functioncall-output'
+      callId: string
+      functionCallName: string
+      title: string
+      output: string
+      message: string
+    })
+  | (NormalChatAgentTraceEventBase & {
+      type: 'functioncall-finish'
+      callId: string
+      functionCallName: string
+      title: string
+      status: 'success' | 'aborted'
+      message: string
+    })
+  | (NormalChatAgentTraceEventBase & {
+      type: 'functioncall-error'
+      callId: string
+      functionCallName: string
+      title: string
+      error: string
+      message: string
+    })
+  | (NormalChatAgentTraceEventBase & {
       type: 'loop-next'
       nextStep: string
       message: string
@@ -84,6 +156,7 @@ export type NormalChatAgentTraceEvent =
 export interface NormalChatAgentTraceRecorder {
   record(event: NormalChatAgentTraceEvent): void
   snapshot(): NormalChatAgentTraceEvent[]
+  subscribe(listener: (event: NormalChatAgentTraceEvent) => void): () => void
 }
 
 export interface NormalChatAgentToolExecuteContext {
@@ -93,6 +166,7 @@ export interface NormalChatAgentToolExecuteContext {
   trace: NormalChatAgentTraceRecorder
   runContext: NormalChatAgentRunContext
   modelContext: NormalChatAgentModelContext
+  callId: string
 }
 
 export interface NormalChatAgentToolExecuteResult {

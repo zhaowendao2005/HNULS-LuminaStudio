@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto'
 import { HumanMessage, SystemMessage, AIMessage, type BaseMessage } from '@langchain/core/messages'
 import { ChatAnthropic } from '@langchain/anthropic'
 import { ChatGoogle } from '@langchain/google'
@@ -8,42 +9,22 @@ import type {
   NormalChatConversationPromptMessage
 } from '@preload/types'
 import type {
-  NormalChatAgentModelContext,
+  NormalChatAgentGraphRunResult,
+  NormalChatAgentGraphRuntimeBridge,
+  NormalChatAgentGraphRunner,
   NormalChatAgentRunContext,
-  NormalChatAgentTraceRecorder
+  NormalChatAgentTraceRecorder,
+  NormalChatAgentToolExecuteContext
 } from '../../contracts'
-import type { PubmedSearchArgs } from './functioncall/pubmed-search/schema'
-import type { PubmedSearchExecutionResult } from './functioncall/pubmed-search/execute'
-
-export interface NormalChatAgentRuntimeBridge {
-  getConversationMessages(topicId: string): NormalChatConversationMessage[]
-  createChatModel(
-    providerId: string,
-    modelId: string,
-    signal: AbortSignal
-  ): Promise<SupportedChatModel>
-  executePubmedSearch(
-    args: PubmedSearchArgs,
-    context: BaseChatAgentPubmedSearchContext
-  ): Promise<PubmedSearchExecutionResult>
-}
-
-export interface BaseChatAgentPubmedSearchContext {
-  signal: AbortSignal
-  trace: NormalChatAgentTraceRecorder
-  runContext: NormalChatAgentRunContext
-  modelContext: NormalChatAgentModelContext
-}
-
-export interface BaseChatAgentGraphRunResult {
-  answerMessages: Array<SystemMessage | HumanMessage | AIMessage>
-  promptMessages: NormalChatConversationPromptMessage[]
-}
+import type { BaseChatAgentFunctioncallSuite, PubmedSearchExecutionResult } from './functioncall'
 
 export interface BaseChatAgentGraphOptions {
-  runtime: NormalChatAgentRuntimeBridge
+  runtime: NormalChatAgentGraphRuntimeBridge
+  functioncalls: BaseChatAgentFunctioncallSuite
   trace?: NormalChatAgentTraceRecorder
 }
+
+export type BaseChatAgentGraphRunResult = NormalChatAgentGraphRunResult
 
 const PUBMED_PLANNER_SCHEMA = z.object({
   mode: z.enum(['tool', 'answer']),
@@ -82,13 +63,15 @@ type FunctionCallingChatModel = SupportedChatModel & {
 
 const MAX_TOOL_ROUNDS = 2
 
-export class BaseChatAgentGraph {
+export class BaseChatAgentGraph implements NormalChatAgentGraphRunner {
   constructor(private readonly options: BaseChatAgentGraphOptions) {}
 
   async run(context: NormalChatAgentRunContext): Promise<BaseChatAgentGraphRunResult> {
     const trace = this.options.trace
+    // 先从 runtime 拉取当前话题历史，再把历史和 system prompt 组装成模型输入。
     const conversationMessages = this.options.runtime.getConversationMessages(context.topicId)
     const promptMessages = this.buildPromptMessages(context, conversationMessages)
+    // 这里用统一的模型工厂创建 chat model，graph 不直接关心 provider 的底层实现。
     const model = (await this.options.runtime.createChatModel(
       context.providerId,
       context.modelId,
@@ -109,10 +92,12 @@ export class BaseChatAgentGraph {
       method: 'functionCalling'
     })
 
+    // toolHistory 只保存“已经拿到的检索摘要”，避免把原始工具结果反复塞回模型。
     const toolHistory: string[] = []
     let finalPlan: PubmedPlannerOutput | null = null
 
     try {
+      // 这里是一个小型决策循环：先让模型判断要不要查，再根据工具结果决定是否继续补检索。
       for (let round = 1; round <= MAX_TOOL_ROUNDS && !context.signal.aborted; round += 1) {
         trace?.record({
           type: 'decision',
@@ -140,9 +125,11 @@ export class BaseChatAgentGraph {
           message: `准备调用 PubMed 检索，query=${plan.pubmed.query}`
         })
 
-        const toolResult = await this.options.runtime.executePubmedSearch(
+        // 真正的工具执行下沉到 agent-local functioncall facade，graph 只拿结果，不知道实现细节。
+        const callId = randomUUID()
+        const toolResult = await this.options.functioncalls.pubmedSearch(
           plan.pubmed,
-          this.buildToolExecuteContext(context)
+          this.buildToolExecuteContext(context, callId)
         )
         toolHistory.push(this.summarizePubmedResult(toolResult))
 
@@ -186,6 +173,7 @@ export class BaseChatAgentGraph {
     context: NormalChatAgentRunContext,
     conversationMessages: NormalChatConversationMessage[]
   ): NormalChatConversationPromptMessage[] {
+    // promptMessages 的第 0 条固定是 system prompt，后面才是历史消息。
     return [
       {
         role: 'system',
@@ -212,6 +200,7 @@ export class BaseChatAgentGraph {
       ].join('\n')
     )
 
+    // planner 阶段只做“是否调用工具”的判断，不直接输出最终答案。
     const messages: Array<SystemMessage | HumanMessage | AIMessage> = [system]
     const historyMessages = promptMessages
       .slice(1)
@@ -244,6 +233,7 @@ export class BaseChatAgentGraph {
       ? toolHistory.map((item, index) => `- 第 ${index + 1} 轮：${item}`).join('\n')
       : '本轮未调用 PubMed 检索。'
 
+    // answer 阶段把历史、工具摘要和规划结论一起交给模型，让它生成最终可读回答。
     const system = new SystemMessage(
       [
         promptMessages[0]?.content ?? this.buildBaseSystemPrompt(context),
@@ -263,8 +253,10 @@ export class BaseChatAgentGraph {
   }
 
   private buildToolExecuteContext(
-    context: NormalChatAgentRunContext
-  ): BaseChatAgentPubmedSearchContext {
+    context: NormalChatAgentRunContext,
+    callId: string
+  ): NormalChatAgentToolExecuteContext {
+    // 工具上下文只保留执行时真正需要的最小信息，避免把 runtime 的业务对象泄露出去。
     return {
       signal: context.signal,
       trace: this.options.trace ?? this.createFallbackTraceRecorder(),
@@ -272,11 +264,14 @@ export class BaseChatAgentGraph {
       modelContext: {
         providerId: context.providerId,
         modelId: context.modelId
-      }
+      },
+      logger: this.options.runtime.logger,
+      callId
     }
   }
 
   private buildBaseSystemPrompt(context: NormalChatAgentRunContext): string {
+    // 这一段是 base agent 的基础行为约束，后续如果换 agent，只需要换这里的 prompt 逻辑。
     const lines = [
       context.systemPrompt || '你是 LuminaStudio 的基础聊天 agent。',
       '',
@@ -300,6 +295,7 @@ export class BaseChatAgentGraph {
   private buildConversationHistory(
     conversationMessages: NormalChatConversationMessage[]
   ): NormalChatConversationPromptMessage[] {
+    // 只保留有文本内容的历史消息，并统一转换成 assistant / user 两种角色。
     return conversationMessages
       .map((message) => {
         const text = this.extractMessageText(message)
@@ -325,6 +321,7 @@ export class BaseChatAgentGraph {
       return `PubMed 未找到结果：${result.query}`
     }
 
+    // 这里只保留最前面的几条结果摘要，避免 prompt 被原始检索结果撑爆。
     const topItems = result.items.slice(0, 3).map((item, index) => {
       const authors = item.authors.length > 0 ? item.authors.join('，') : '未知作者'
       const date = item.pub_date || '未知日期'
@@ -344,6 +341,7 @@ export class BaseChatAgentGraph {
   private toLangChainMessage(
     message: NormalChatConversationPromptMessage
   ): SystemMessage | HumanMessage | AIMessage {
+    // 把内部 prompt DTO 转成 LangChain message，方便 planner / answer 阶段复用。
     if (message.role === 'system') {
       return new SystemMessage(message.content)
     }
@@ -356,6 +354,7 @@ export class BaseChatAgentGraph {
   }
 
   private toPromptMessage(message: BaseMessage): NormalChatConversationPromptMessage {
+    // 把模型输出再转回 normal-chat 自己的 prompt DTO，方便上层落库和 trace 复用。
     if (message instanceof SystemMessage) {
       return {
         role: 'system',
@@ -377,6 +376,7 @@ export class BaseChatAgentGraph {
   }
 
   private extractPromptMessageText(message: BaseMessage): string {
+    // LangChain 的 content 可能是 string，也可能是分段数组，这里统一压成纯文本。
     if (typeof message.content === 'string') {
       return message.content
     }
@@ -408,6 +408,9 @@ export class BaseChatAgentGraph {
       },
       snapshot() {
         return []
+      },
+      subscribe() {
+        return () => undefined
       }
     }
   }

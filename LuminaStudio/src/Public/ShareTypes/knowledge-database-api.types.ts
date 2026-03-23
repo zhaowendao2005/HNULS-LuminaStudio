@@ -173,6 +173,16 @@ export interface KGRetrievalSearchRequest {
   query: string
   mode: KGRetrievalMode
   graphTableBase: string
+  /**
+   * 高层级关键词（偏关系语义）。
+   * 常用于 global / hybrid 模式；留空时由服务端按 query 回退。
+   */
+  highLevelKeywords?: string[]
+  /**
+   * 低层级关键词（偏实体语义）。
+   * 常用于 local / hybrid 模式；留空时由服务端按 query 回退。
+   */
+  lowLevelKeywords?: string[]
   rerank?: {
     enabled: boolean
     modelId?: string

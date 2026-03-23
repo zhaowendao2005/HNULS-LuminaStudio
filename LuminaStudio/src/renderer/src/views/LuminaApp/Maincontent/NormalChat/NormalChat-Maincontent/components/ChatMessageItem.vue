@@ -35,18 +35,7 @@
         </div>
         <p class="mt-1 text-xs text-gray-400">{{ message.time }}</p>
 
-        <div
-          v-if="message.role === 'user'"
-          class="mt-4 whitespace-pre-wrap text-[14px] leading-[1.75] text-gray-800"
-        >
-          {{ message.text || ' ' }}
-        </div>
-        <ChatMarkdownContent
-          v-else
-          class="mt-4"
-          :content="message.text"
-          :is-pending="Boolean(message.isPending)"
-        />
+        <ChatMessageParts :message="message" />
 
         <div class="mt-4 flex items-center gap-2">
           <div class="flex items-center gap-1.5">
@@ -102,7 +91,7 @@
 import { computed } from 'vue'
 import { Copy, FileCode2, MoreHorizontal, Trash2, UserRound } from 'lucide-vue-next'
 import type { NormalChatConversationDisplayMessage } from '@renderer/stores/normal-chat/conversation/conversation.types'
-import ChatMarkdownContent from './ChatMarkdownContent.vue'
+import ChatMessageParts from './ChatMessageParts.vue'
 
 const props = defineProps<{
   message: NormalChatConversationDisplayMessage

@@ -1,7 +1,13 @@
 import type { NormalChatAgentTemplate } from '@preload/types'
-import { BaseChatAgentGraph } from '../Agents/base-chat-agent'
-import type { BaseChatAgentGraphOptions } from '../Agents/base-chat-agent/graph'
-import type { NormalChatAgentTemplateDefinition } from '../contracts'
+import type {
+  NormalChatAgentSuite,
+  NormalChatAgentTemplateDefinition
+} from '../contracts'
+import {
+  BaseChatAgentGraph,
+  createBaseChatAgentFunctioncallSuite,
+  type BaseChatAgentFunctioncallDependencies
+} from '../Agents/base-chat-agent'
 
 const NORMAL_CHAT_AGENT_TEMPLATES: NormalChatAgentTemplateDefinition[] = [
   {
@@ -11,14 +17,12 @@ const NORMAL_CHAT_AGENT_TEMPLATES: NormalChatAgentTemplateDefinition[] = [
     emoji: '🤖',
     defaultSystemPrompt: '你是一个通用中文助手，请直接、清晰地帮助用户完成当前任务。'
   }
-]
+] 
 
 export function listNormalChatAgentTemplates(): NormalChatAgentTemplate[] {
-  return NORMAL_CHAT_AGENT_TEMPLATES.map(
-    ({ defaultSystemPrompt: _defaultSystemPrompt, ...template }) => ({
-      ...template
-    })
-  )
+  return NORMAL_CHAT_AGENT_TEMPLATES.map(({ defaultSystemPrompt: _defaultSystemPrompt, ...template }) => ({
+    ...template
+  }))
 }
 
 export function getNormalChatAgentTemplateDefinition(
@@ -27,13 +31,27 @@ export function getNormalChatAgentTemplateDefinition(
   return NORMAL_CHAT_AGENT_TEMPLATES.find((template) => template.key === templateKey) ?? null
 }
 
-export function createNormalChatAgentGraph(
-  templateKey: string,
-  options: BaseChatAgentGraphOptions
-): BaseChatAgentGraph | null {
-  if (templateKey === 'base-agent') {
-    return new BaseChatAgentGraph(options)
+export function createNormalChatAgentSuite(
+  templateKey: string
+): NormalChatAgentSuite<BaseChatAgentFunctioncallDependencies> | null {
+  if (templateKey !== 'base-agent') {
+    return null
   }
 
-  return null
+  const template = getNormalChatAgentTemplateDefinition(templateKey)
+  if (!template) {
+    return null
+  }
+
+  return {
+    template,
+    createGraph(graphContext) {
+      const functioncalls = createBaseChatAgentFunctioncallSuite(graphContext.hostDependencies)
+      return new BaseChatAgentGraph({
+        runtime: graphContext.runtime,
+        functioncalls,
+        trace: graphContext.trace
+      })
+    }
+  }
 }
