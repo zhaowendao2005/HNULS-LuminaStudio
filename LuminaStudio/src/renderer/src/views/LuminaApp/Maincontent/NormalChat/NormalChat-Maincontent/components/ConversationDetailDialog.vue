@@ -114,11 +114,6 @@
                   </p>
                 </div>
                 <div class="rounded-xl bg-gray-50 px-3 py-2">
-                  <p class="text-[12px] text-gray-400">消息块</p>
-                  <ChatMessageParts v-if="selectedMessage" :message="selectedMessage" />
-                  <p v-else class="mt-1 text-[13px] text-gray-700">无</p>
->>>>>>> codex/merge-normalchat-merged
-=======
                   <p class="text-[12px] text-gray-400">纯文本内容</p>
                   <p
                     class="mt-1 whitespace-pre-wrap break-words text-[13px] leading-6 text-gray-700"
@@ -127,11 +122,7 @@
                   </p>
                   <p class="mt-3 text-[12px] text-gray-400">消息块</p>
                   <ChatMessageParts v-if="selectedMessage" :message="selectedMessage" />
-                  <p v-else class="mt-1 text-[13px] text-gray-700">无</p>=======
-                  <p class="text-[12px] text-gray-400">消息块</p>
-                  <ChatMessageParts v-if="selectedMessage" :message="selectedMessage" />
                   <p v-else class="mt-1 text-[13px] text-gray-700">无</p>
->>>>>>> codex/merge-normalchat-merged
                 </div>
                 <div class="rounded-xl bg-gray-50 px-3 py-2">
                   <p class="text-[12px] text-gray-400">原始 JSON 摘要</p>

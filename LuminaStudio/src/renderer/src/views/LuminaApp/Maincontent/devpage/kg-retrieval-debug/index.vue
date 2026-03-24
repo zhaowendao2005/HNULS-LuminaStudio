@@ -716,11 +716,6 @@ const selectedRerankModel = computed(
   () => kgModels.value.find((model) => model.id === rerankModelKey.value) ?? null
 )
 
-const selectedRerankModel = computed(
-  () => kgModels.value.find((model) => model.id === rerankModelKey.value) ?? null
-)
->>>>>>> codex/merge-normalchat-merged
-=======
 const currentRerankModelProviderId = computed(() => {
   return selectedRerankModel.value?.providerId ?? rerankModelProviders.value[0]?.id ?? null
 })
@@ -733,11 +728,7 @@ const rerankModelLabel = computed(() => {
   return selectedRerankModel.value.providerName
     ? `${selectedRerankModel.value.providerName} / ${selectedRerankModel.value.displayName}`
     : selectedRerankModel.value.displayName
-})=======
-const selectedRerankModel = computed(
-  () => kgModels.value.find((model) => model.id === rerankModelKey.value) ?? null
-)
->>>>>>> codex/merge-normalchat-merged
+})
 
 const canSearch = computed(() => {
   if (selectedGraphTableBase.value === '' || query.value.trim() === '') {
