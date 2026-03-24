@@ -35,7 +35,7 @@
         </div>
         <p class="mt-1 text-xs text-gray-400">{{ message.time }}</p>
 
-        <ChatMessageParts :message="message" />
+        <ChatMessageParts :message="message" @view-detail="emit('open-session', message)" />
 
         <div class="mt-4 flex items-center gap-2">
           <div class="flex items-center gap-1.5">

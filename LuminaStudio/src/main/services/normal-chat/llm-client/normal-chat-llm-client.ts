@@ -1,3 +1,6 @@
+import OpenAI from 'openai'
+import { z } from 'zod'
+import { zodToJsonSchema } from 'zod-to-json-schema'
 import { ChatAnthropic } from '@langchain/anthropic'
 import { ChatGoogle } from '@langchain/google'
 import {
@@ -20,6 +23,65 @@ export interface NormalChatProviderProfile {
   name: string
   protocol: ModelProviderProtocol
   baseUrl: string
+}
+
+function extractHttpStatusFromError(error: unknown): number | null {
+  if (!error || typeof error !== 'object') {
+    return null
+  }
+
+  const candidates = [
+    (error as { status?: unknown }).status,
+    (error as { statusCode?: unknown }).statusCode,
+    (error as { code?: unknown }).code,
+    (error as { response?: { status?: unknown; statusCode?: unknown } }).response?.status,
+    (error as { response?: { status?: unknown; statusCode?: unknown } }).response?.statusCode,
+    (error as { cause?: unknown }).cause
+  ]
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'number' && Number.isFinite(candidate)) {
+      return candidate
+    }
+    if (typeof candidate === 'string') {
+      const httpMatch = candidate.match(/HTTP[_\s:-]*(\d{3})/i)
+      if (httpMatch?.[1]) {
+        return Number(httpMatch[1])
+      }
+      if (/^\d{3}$/.test(candidate)) {
+        return Number(candidate)
+      }
+    }
+    if (candidate && typeof candidate === 'object') {
+      const nested = extractHttpStatusFromError(candidate)
+      if (nested) {
+        return nested
+      }
+    }
+  }
+
+  const rawMessage = error instanceof Error ? error.message : String(error)
+  const messageMatch = rawMessage.match(/\b(4\d{2}|5\d{2})\b/)
+  return messageMatch?.[1] ? Number(messageMatch[1]) : null
+}
+
+function formatUpstreamHttpError(error: unknown, fallbackMessage: string): string {
+  const status = extractHttpStatusFromError(error)
+  if (!status) {
+    return fallbackMessage
+  }
+
+  const rawMessage = error instanceof Error ? error.message : String(error)
+  const statusTextMatch = rawMessage.match(
+    /\b(?:HTTP\s*)?(4\d{2}|5\d{2})[:\s-]*([A-Za-z][A-Za-z\s-]{2,})?/i
+  )
+  const statusText = statusTextMatch?.[2]?.trim()
+
+  if (statusText) {
+    return `上游请求失败：HTTP ${status} ${statusText}`
+  }
+
+  return `上游请求失败：HTTP ${status}`
 }
 
 export class NormalChatLlmClient {
@@ -94,6 +156,87 @@ export class NormalChatLlmClient {
         const protocol = String((provider as { protocol?: unknown }).protocol ?? 'unknown')
         throw new Error(`Unsupported provider protocol: ${protocol}`)
       }
+    }
+  }
+
+  async invokeStructuredOutput(params: {
+    providerId: string
+    modelId: string
+    schema: unknown
+    schemaName: string
+    messages: Array<{ content?: unknown }>
+    signal: AbortSignal
+  }): Promise<unknown> {
+    const { providerId, modelId, schema, schemaName, messages, signal } = params
+    const provider = await this.resolveEnabledProvider(providerId, signal)
+
+    if (provider.protocol !== 'openai-response') {
+      throw new Error(`invokeStructuredOutput only supports openai-response, got ${provider.protocol}`)
+    }
+
+    const zodSchema = schema as z.ZodTypeAny
+    const jsonSchema = zodToJsonSchema(zodSchema, {
+      name: schemaName,
+      $refStrategy: 'none'
+    })
+
+    const input = messages
+      .map((message) => {
+        const content = message.content
+        if (typeof content === 'string') return content
+        if (Array.isArray(content)) {
+          return content
+            .map((item) => {
+              if (typeof item === 'string') return item
+              if (typeof item === 'object' && item && 'text' in item && typeof item.text === 'string') {
+                return item.text
+              }
+              return ''
+            })
+            .join('')
+        }
+        return String(content ?? '')
+      })
+      .filter(Boolean)
+      .join('\n')
+
+    const baseURL = this.normalizeOpenAIBaseUrl(provider.baseUrl)
+    const client = new OpenAI({
+      apiKey: provider.apiKey,
+      baseURL: baseURL || undefined
+    })
+
+    try {
+      const response = await client.responses.create({
+        model: modelId,
+        input,
+        response_format: {
+          type: 'json_schema',
+          json_schema: {
+            name: schemaName,
+            schema: jsonSchema,
+            strict: true
+          }
+        }
+      })
+
+      const outputText = (response as { output_text?: string }).output_text ?? ''
+      if (!outputText) {
+        throw new Error('Structured output is empty')
+      }
+
+      return JSON.parse(outputText)
+    } catch (error) {
+      const normalized = formatUpstreamHttpError(
+        error,
+        error instanceof Error ? error.message : String(error)
+      )
+      if (normalized !== (error instanceof Error ? error.message : String(error))) {
+        throw new Error(normalized)
+      }
+
+      const message = error instanceof Error ? error.message : String(error)
+      throw new Error(`Failed to parse structured output JSON: ${message}`)
     }
   }
 

@@ -48,6 +48,65 @@ interface ModelInvocationContext {
   signal: AbortSignal
 }
 
+function extractHttpStatusFromError(error: unknown): number | null {
+  if (!error || typeof error !== 'object') {
+    return null
+  }
+
+  const candidates = [
+    (error as { status?: unknown }).status,
+    (error as { statusCode?: unknown }).statusCode,
+    (error as { code?: unknown }).code,
+    (error as { response?: { status?: unknown; statusCode?: unknown } }).response?.status,
+    (error as { response?: { status?: unknown; statusCode?: unknown } }).response?.statusCode,
+    (error as { cause?: unknown }).cause
+  ]
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'number' && Number.isFinite(candidate)) {
+      return candidate
+    }
+    if (typeof candidate === 'string') {
+      const httpMatch = candidate.match(/HTTP[_\s:-]*(\d{3})/i)
+      if (httpMatch?.[1]) {
+        return Number(httpMatch[1])
+      }
+      if (/^\d{3}$/.test(candidate)) {
+        return Number(candidate)
+      }
+    }
+    if (candidate && typeof candidate === 'object') {
+      const nested = extractHttpStatusFromError(candidate)
+      if (nested) {
+        return nested
+      }
+    }
+  }
+
+  const rawMessage = error instanceof Error ? error.message : String(error)
+  const messageMatch = rawMessage.match(/\b(4\d{2}|5\d{2})\b/)
+  return messageMatch?.[1] ? Number(messageMatch[1]) : null
+}
+
+function formatUpstreamHttpError(error: unknown, fallbackMessage: string): string {
+  const status = extractHttpStatusFromError(error)
+  if (!status) {
+    return fallbackMessage
+  }
+
+  const rawMessage = error instanceof Error ? error.message : String(error)
+  const statusTextMatch = rawMessage.match(
+    /\b(?:HTTP\s*)?(4\d{2}|5\d{2})[:\s-]*([A-Za-z][A-Za-z\s-]{2,})?/i
+  )
+  const statusText = statusTextMatch?.[2]?.trim()
+
+  if (statusText) {
+    return `上游请求失败：HTTP ${status} ${statusText}`
+  }
+
+  return `上游请求失败：HTTP ${status}`
+}
+
 const log = logger.scope('NormalChatConversationService')
 
 export class NormalChatConversationService {
@@ -183,17 +242,23 @@ export class NormalChatConversationService {
     const functionCallPartIndexByCallId = new Map<string, number>()
     let assistantText = ''
     let assistantTextPartIndex = -1
+    let currentTextSegment = ''
+    let shouldStartNewTextSegment = false
     let graphCompleted = false
 
-    const upsertAssistantTextPart = (text: string): void => {
-      assistantText = text
+    const markNextTextSegmentStart = (): void => {
+      // 只要出现工具调用，后续文本就应该切到新的段落，形成“文本-工具调用-文本”的批次结构。
+      shouldStartNewTextSegment = true
+    }
+
+    const upsertAssistantTextPart = (text: string, forceNew: boolean): void => {
       const nextText = text.trim() || '模型未返回文本内容。'
       const nextPart: NormalChatMessagePart = {
         kind: 'text',
         text: nextText
       }
 
-      if (assistantTextPartIndex >= 0 && assistantParts[assistantTextPartIndex]?.kind === 'text') {
+      if (!forceNew && assistantTextPartIndex >= 0 && assistantParts[assistantTextPartIndex]?.kind === 'text') {
         assistantParts[assistantTextPartIndex] = nextPart
         return
       }
@@ -238,6 +303,7 @@ export class NormalChatConversationService {
 
     const disposeTraceSubscription = traceRecorder.subscribe((event) => {
       if (event.type === 'functioncall-start') {
+        markNextTextSegmentStart()
         upsertFunctionCallPart({
           kind: 'functioncall',
           callId: event.callId,
@@ -269,6 +335,7 @@ export class NormalChatConversationService {
       }
 
       if (event.type === 'functioncall-input') {
+        markNextTextSegmentStart()
         upsertFunctionCallPart({
           kind: 'functioncall',
           callId: event.callId,
@@ -300,6 +367,7 @@ export class NormalChatConversationService {
       }
 
       if (event.type === 'functioncall-output') {
+        markNextTextSegmentStart()
         upsertFunctionCallPart({
           kind: 'functioncall',
           callId: event.callId,
@@ -331,6 +399,7 @@ export class NormalChatConversationService {
       }
 
       if (event.type === 'functioncall-finish') {
+        markNextTextSegmentStart()
         const status = event.status === 'aborted' ? 'aborted' : 'success'
         upsertFunctionCallPart({
           kind: 'functioncall',
@@ -363,6 +432,7 @@ export class NormalChatConversationService {
       }
 
       if (event.type === 'functioncall-error') {
+        markNextTextSegmentStart()
         upsertFunctionCallPart({
           kind: 'functioncall',
           callId: event.callId,
@@ -447,8 +517,14 @@ export class NormalChatConversationService {
           continue
         }
 
+        const shouldCreateNewSegment = shouldStartNewTextSegment || assistantTextPartIndex < 0
+        if (shouldCreateNewSegment) {
+          currentTextSegment = ''
+        }
+        currentTextSegment += delta
         assistantText += delta
-        upsertAssistantTextPart(assistantText)
+        upsertAssistantTextPart(currentTextSegment, shouldCreateNewSegment)
+        shouldStartNewTextSegment = false
         traceRecorder.record({
           type: 'answer-delta',
           requestId,
@@ -605,6 +681,11 @@ export class NormalChatConversationService {
       getConversationMessages: (topicId) => this.repository.listMessagesByTopicId(topicId),
       createChatModel: (providerId, modelId, signal) =>
         this.llmClient.createChatModel(providerId, modelId, signal),
+      getProviderProtocol: async (providerId, signal) => {
+        const profile = await this.llmClient.getProviderProfile(providerId, signal)
+        return profile?.protocol ?? null
+      },
+      invokeStructuredOutput: (params) => this.llmClient.invokeStructuredOutput(params),
       logger: log
     }
   }
@@ -762,6 +843,11 @@ export class NormalChatConversationService {
     context: ModelInvocationContext
   ): Promise<string> {
     const rawMessage = error instanceof Error ? error.message : String(error)
+    const upstreamMessage = formatUpstreamHttpError(error, rawMessage)
+    if (upstreamMessage !== rawMessage) {
+      return upstreamMessage
+    }
+
     if (!rawMessage.includes("Cannot read properties of undefined (reading 'message')")) {
       return rawMessage
     }

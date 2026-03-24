@@ -83,18 +83,13 @@ function createPendingAssistantMessage(
   }
 }
 
-function upsertPendingAssistantText(
-  message: NormalChatConversationMessage,
-  text: string
-): NormalChatConversationMessage {
-  const now = new Date().toISOString()
-  const nextParts = message.parts.filter((part) => part.kind !== 'text')
-  nextParts.push({ kind: 'text', text })
-  return {
-    ...message,
-    parts: nextParts,
-    updatedAt: now
+function findLastTextPartIndex(parts: NormalChatMessagePart[]): number {
+  for (let index = parts.length - 1; index >= 0; index -= 1) {
+    if (parts[index]?.kind === 'text') {
+      return index
+    }
   }
+  return -1
 }
 
 function upsertPendingFunctionCallPart(
@@ -277,11 +272,38 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
 
   function appendPendingText(topicId: string, delta: string): void {
     upsertPendingAssistantMessage(topicId, (message) => {
-      const currentTextPart = message.parts.find(
-        (part): part is Extract<NormalChatMessagePart, { kind: 'text' }> => part.kind === 'text'
-      )
-      const currentText = currentTextPart?.text ?? ''
-      return upsertPendingAssistantText(message, `${currentText}${delta}`)
+      const now = new Date().toISOString()
+      const nextParts = [...message.parts]
+      const lastTextIndex = findLastTextPartIndex(nextParts)
+      const hasFunctionCallAfterText =
+        lastTextIndex >= 0 &&
+        nextParts.slice(lastTextIndex + 1).some((part) => part.kind === 'functioncall')
+
+      // 当工具调用已经插入到文本之后时，新的文本需要作为“下一段”追加，避免覆盖旧段落。
+      if (lastTextIndex === -1 || hasFunctionCallAfterText) {
+        nextParts.push({ kind: 'text', text: delta })
+        return {
+          ...message,
+          parts: nextParts,
+          updatedAt: now
+        }
+      }
+
+      // 仍在同一段文本输出时，继续拼接。
+      const currentTextPart = nextParts[lastTextIndex] as Extract<
+        NormalChatMessagePart,
+        { kind: 'text' }
+      >
+      nextParts[lastTextIndex] = {
+        kind: 'text',
+        text: `${currentTextPart.text ?? ''}${delta}`
+      }
+
+      return {
+        ...message,
+        parts: nextParts,
+        updatedAt: now
+      }
     })
   }
 

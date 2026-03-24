@@ -1,4 +1,5 @@
 import type {
+  ModelProviderProtocol,
   NormalChatAgentTemplate,
   NormalChatConversationMessage,
   NormalChatConversationPromptMessage
@@ -26,6 +27,15 @@ export interface NormalChatAgentRunContext {
 export interface NormalChatAgentGraphRuntimeBridge {
   getConversationMessages(topicId: string): NormalChatConversationMessage[]
   createChatModel(providerId: string, modelId: string, signal: AbortSignal): Promise<unknown>
+  getProviderProtocol(providerId: string, signal: AbortSignal): Promise<ModelProviderProtocol | null>
+  invokeStructuredOutput(params: {
+    providerId: string
+    modelId: string
+    schema: unknown
+    schemaName: string
+    messages: Array<{ content?: unknown }>
+    signal: AbortSignal
+  }): Promise<unknown>
   logger: Pick<Console, 'debug' | 'info' | 'warn' | 'error'>
 }
 

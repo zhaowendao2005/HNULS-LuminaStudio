@@ -71,12 +71,21 @@ export class BaseChatAgentGraph implements NormalChatAgentGraphRunner {
     // 先从 runtime 拉取当前话题历史，再把历史和 system prompt 组装成模型输入。
     const conversationMessages = this.options.runtime.getConversationMessages(context.topicId)
     const promptMessages = this.buildPromptMessages(context, conversationMessages)
-    // 这里用统一的模型工厂创建 chat model，graph 不直接关心 provider 的底层实现。
-    const model = (await this.options.runtime.createChatModel(
+    // 先判断 provider 协议，openai-response 走 Responses API 的结构化输出适配。
+    const providerProtocol = await this.options.runtime.getProviderProtocol(
       context.providerId,
-      context.modelId,
       context.signal
-    )) as FunctionCallingChatModel
+    )
+
+    // 这里用统一的模型工厂创建 chat model，graph 不直接关心 provider 的底层实现。
+    const model =
+      providerProtocol === 'openai-response'
+        ? null
+        : ((await this.options.runtime.createChatModel(
+            context.providerId,
+            context.modelId,
+            context.signal
+          )) as FunctionCallingChatModel)
 
     trace?.record({
       type: 'run-start',
@@ -87,10 +96,13 @@ export class BaseChatAgentGraph implements NormalChatAgentGraphRunner {
       message: 'BaseChatAgentGraph 开始执行'
     })
 
-    const planner = model.withStructuredOutput(PUBMED_PLANNER_SCHEMA, {
-      name: 'normal_chat_pubmed_planner',
-      method: 'functionCalling'
-    })
+    const planner =
+      providerProtocol === 'openai-response'
+        ? null
+        : model.withStructuredOutput(PUBMED_PLANNER_SCHEMA, {
+            name: 'normal_chat_pubmed_planner',
+            method: 'functionCalling'
+          })
 
     // toolHistory 只保存“已经拿到的检索摘要”，避免把原始工具结果反复塞回模型。
     const toolHistory: string[] = []
@@ -110,7 +122,19 @@ export class BaseChatAgentGraph implements NormalChatAgentGraphRunner {
         })
 
         const plannerMessages = this.buildPlannerMessages(promptMessages, toolHistory, context)
-        const plan = await planner.invoke(plannerMessages, { signal: context.signal })
+        const plan =
+          providerProtocol === 'openai-response'
+            ? (PUBMED_PLANNER_SCHEMA.parse(
+                await this.options.runtime.invokeStructuredOutput({
+                  providerId: context.providerId,
+                  modelId: context.modelId,
+                  schema: PUBMED_PLANNER_SCHEMA,
+                  schemaName: 'normal_chat_pubmed_planner',
+                  messages: plannerMessages,
+                  signal: context.signal
+                })
+              ) as PubmedPlannerOutput)
+            : await planner.invoke(plannerMessages, { signal: context.signal })
         finalPlan = plan
 
         if (plan.mode !== 'tool' || !plan.pubmed) {

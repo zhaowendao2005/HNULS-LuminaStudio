@@ -121,7 +121,11 @@
                     {{ selectedMessage?.text || '无' }}
                   </p>
                   <p class="mt-3 text-[12px] text-gray-400">消息块</p>
-                  <ChatMessageParts v-if="selectedMessage" :message="selectedMessage" />
+                  <ChatMessageParts
+                    v-if="selectedMessage"
+                    :message="selectedMessage"
+                    display-mode="detail"
+                  />
                   <p v-else class="mt-1 text-[13px] text-gray-700">无</p>
                 </div>
                 <div class="rounded-xl bg-gray-50 px-3 py-2">
