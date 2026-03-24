@@ -42,7 +42,13 @@ function createToolContext(): NormalChatAgentToolExecuteContext {
     modelContext: {
       providerId: 'provider-1',
       modelId: 'model-1'
-    }
+    },
+    callId: 'call-1',
+    roundIndex: 1,
+    batchIndex: 0,
+    parallelIndex: 0,
+    depth: 1,
+    decisionReason: 'test'
   }
 }
 
@@ -73,17 +79,34 @@ describe('base-chat-agent functioncall suite', () => {
     })
 
     const context = createToolContext()
-    const result = await suite.pubmedSearch({ query: 'cancer biomarkers' }, context)
+    const result = await suite.executeToolCall(
+      {
+        toolName: 'pubmed-search',
+        title: 'PubMed 论文检索',
+        reason: 'test',
+        input: {
+          query: 'cancer biomarkers',
+          topK: 5,
+          sort: 'relevance'
+        }
+      },
+      context
+    )
 
     expect(mocks.executePubmedSearch).toHaveBeenCalledTimes(1)
     expect(mocks.executePubmedSearch).toHaveBeenCalledWith(
-      { query: 'cancer biomarkers' },
+      { query: 'cancer biomarkers', topK: 5, sort: 'relevance' },
       expect.objectContaining({
         paperRetrievalService,
         logger: context.logger,
         trace: context.trace,
         runContext: context.runContext,
-        modelContext: context.modelContext
+        modelContext: context.modelContext,
+        callId: context.callId,
+        roundIndex: context.roundIndex,
+        batchIndex: context.batchIndex,
+        parallelIndex: context.parallelIndex,
+        depth: context.depth
       })
     )
     expect(result.output).toBe('{"ok":true}')

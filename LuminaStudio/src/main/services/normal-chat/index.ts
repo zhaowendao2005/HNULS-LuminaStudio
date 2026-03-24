@@ -1,5 +1,7 @@
 export * from './normal-chat-service'
 export * from './normal-chat-conversation-service'
 export * from './llm-client'
+export * from './request/normal-chat-request-assembler'
+export * from './request/normal-chat-request-lifecycle'
 export * from './agent/runtime'
 export * from './agent/registry'

@@ -1,5 +1,6 @@
 import type {
   ModelProviderProtocol,
+  NormalChatAgentExecutionTrace,
   NormalChatAgentTemplate,
   NormalChatConversationMessage,
   NormalChatConversationPromptMessage
@@ -7,7 +8,7 @@ import type {
 import type { AIMessage, HumanMessage, SystemMessage } from '@langchain/core/messages'
 
 export interface NormalChatAgentTemplateDefinition extends NormalChatAgentTemplate {
-  // 这里只保存模板的默认 system prompt，方便后面把模板和运行时逻辑拆开。
+  // 这里只保留模板的默认 system prompt，便于后面把模板和运行时逻辑拆开。
   defaultSystemPrompt: string
 }
 
@@ -45,6 +46,7 @@ export interface NormalChatAgentGraphRuntimeBridge {
 export interface NormalChatAgentGraphRunResult {
   answerMessages: Array<SystemMessage | HumanMessage | AIMessage>
   promptMessages: NormalChatConversationPromptMessage[]
+  execution: NormalChatAgentExecutionTrace
 }
 
 export interface NormalChatAgentGraphRunner {
@@ -70,83 +72,142 @@ export interface NormalChatAgentModelContext {
   providerProtocol?: string
 }
 
+export interface NormalChatAgentToolExecuteContext {
+  signal: AbortSignal
+  // 工具执行阶段只需要最小日志面，避免把主进程 logger 细节散到各个工具里。
+  logger: Pick<Console, 'debug' | 'info' | 'warn' | 'error'>
+  trace: NormalChatAgentTraceRecorder
+  runContext: NormalChatAgentRunContext
+  modelContext: NormalChatAgentModelContext
+  callId: string
+  roundIndex: number
+  batchIndex: number
+  parallelIndex: number
+  depth: number
+  decisionReason: string | null
+}
+
 export interface NormalChatAgentTraceEventBase {
   requestId: string
   topicId: string
 }
 
+export interface NormalChatAgentTraceEventRoundScope {
+  roundIndex: number
+}
+
+export interface NormalChatAgentTraceEventBatchScope {
+  roundIndex: number
+  batchIndex: number
+}
+
+export interface NormalChatAgentTraceEventToolScope extends NormalChatAgentTraceEventBatchScope {
+  parallelIndex: number
+  depth: number
+  decisionReason?: string | null
+}
+
 export type NormalChatAgentTraceEvent =
-  | (NormalChatAgentTraceEventBase & {
-      type: 'run-start'
-      assistantId: string
-      modelId: string
-      message: string
-    })
-  | (NormalChatAgentTraceEventBase & {
-      type: 'decision'
-      step: string
-      message: string
-    })
-  | (NormalChatAgentTraceEventBase & {
-      type: 'tool-selected'
-      toolName: string
-      message: string
-    })
-  | (NormalChatAgentTraceEventBase & {
-      type: 'tool-start'
-      toolName: string
-      message: string
-    })
-  | (NormalChatAgentTraceEventBase & {
-      type: 'tool-result'
-      toolName: string
-      output: string
-      message: string
-    })
-  | (NormalChatAgentTraceEventBase & {
-      type: 'functioncall-start'
-      callId: string
-      functionCallName: string
-      title: string
-      message: string
-    })
-  | (NormalChatAgentTraceEventBase & {
-      type: 'functioncall-input'
-      callId: string
-      functionCallName: string
-      title: string
-      input: string
-      message: string
-    })
-  | (NormalChatAgentTraceEventBase & {
-      type: 'functioncall-output'
-      callId: string
-      functionCallName: string
-      title: string
-      output: string
-      message: string
-    })
-  | (NormalChatAgentTraceEventBase & {
-      type: 'functioncall-finish'
-      callId: string
-      functionCallName: string
-      title: string
-      status: 'success' | 'aborted'
-      message: string
-    })
-  | (NormalChatAgentTraceEventBase & {
-      type: 'functioncall-error'
-      callId: string
-      functionCallName: string
-      title: string
-      error: string
-      message: string
-    })
-  | (NormalChatAgentTraceEventBase & {
-      type: 'loop-next'
-      nextStep: string
-      message: string
-    })
+  | (NormalChatAgentTraceEventBase &
+      NormalChatAgentTraceEventRoundScope & {
+        type: 'run-start'
+        assistantId: string
+        modelId: string
+        message: string
+      })
+  | (NormalChatAgentTraceEventBase &
+      NormalChatAgentTraceEventRoundScope & {
+        type: 'decision-start'
+        message: string
+      })
+  | (NormalChatAgentTraceEventBase &
+      NormalChatAgentTraceEventRoundScope & {
+        type: 'decision-finish'
+        mode: 'tool' | 'answer'
+        reason: string | null
+        message: string
+      })
+  | (NormalChatAgentTraceEventBase &
+      NormalChatAgentTraceEventBatchScope & {
+        type: 'tool-batch-start'
+        toolCount: number
+        message: string
+      })
+  | (NormalChatAgentTraceEventBase &
+      NormalChatAgentTraceEventBatchScope & {
+        type: 'tool-batch-finish'
+        toolCount: number
+        message: string
+      })
+  | (NormalChatAgentTraceEventBase &
+      NormalChatAgentTraceEventToolScope & {
+        type: 'tool-selected'
+        toolName: string
+        message: string
+      })
+  | (NormalChatAgentTraceEventBase &
+      NormalChatAgentTraceEventToolScope & {
+        type: 'tool-start'
+        toolName: string
+        message: string
+      })
+  | (NormalChatAgentTraceEventBase &
+      NormalChatAgentTraceEventToolScope & {
+        type: 'tool-result'
+        toolName: string
+        output: string
+        message: string
+      })
+  | (NormalChatAgentTraceEventBase &
+      NormalChatAgentTraceEventToolScope & {
+        type: 'functioncall-start'
+        callId: string
+        functionCallName: string
+        title: string
+        message: string
+      })
+  | (NormalChatAgentTraceEventBase &
+      NormalChatAgentTraceEventToolScope & {
+        type: 'functioncall-input'
+        callId: string
+        functionCallName: string
+        title: string
+        input: string
+        message: string
+      })
+  | (NormalChatAgentTraceEventBase &
+      NormalChatAgentTraceEventToolScope & {
+        type: 'functioncall-output'
+        callId: string
+        functionCallName: string
+        title: string
+        output: string
+        message: string
+      })
+  | (NormalChatAgentTraceEventBase &
+      NormalChatAgentTraceEventToolScope & {
+        type: 'functioncall-finish'
+        callId: string
+        functionCallName: string
+        title: string
+        status: 'success' | 'aborted'
+        message: string
+      })
+  | (NormalChatAgentTraceEventBase &
+      NormalChatAgentTraceEventToolScope & {
+        type: 'functioncall-error'
+        callId: string
+        functionCallName: string
+        title: string
+        error: string
+        message: string
+      })
+  | (NormalChatAgentTraceEventBase &
+      NormalChatAgentTraceEventRoundScope & {
+        type: 'loop-next'
+        nextStep: string
+        message: string
+      })
   | (NormalChatAgentTraceEventBase & {
       type: 'answer-start'
       message: string
@@ -170,16 +231,6 @@ export interface NormalChatAgentTraceRecorder {
   record(event: NormalChatAgentTraceEvent): void
   snapshot(): NormalChatAgentTraceEvent[]
   subscribe(listener: (event: NormalChatAgentTraceEvent) => void): () => void
-}
-
-export interface NormalChatAgentToolExecuteContext {
-  signal: AbortSignal
-  // 工具执行阶段只需要最小日志面，避免把主进程 logger 细节散到各个工具里。
-  logger: Pick<Console, 'debug' | 'info' | 'warn' | 'error'>
-  trace: NormalChatAgentTraceRecorder
-  runContext: NormalChatAgentRunContext
-  modelContext: NormalChatAgentModelContext
-  callId: string
 }
 
 export interface NormalChatAgentToolExecuteResult {

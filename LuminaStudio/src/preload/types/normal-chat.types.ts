@@ -108,6 +108,55 @@ export interface NormalChatUpdateTopicPromptRequest {
   promptOverride?: string | null
 }
 
+export type NormalChatAgentToolName = 'pubmed-search'
+
+export interface NormalChatAgentExecutionToolInput {
+  query: string
+  topK: number
+  sort: 'relevance' | 'pub_date'
+  startDate?: string
+  endDate?: string
+}
+
+export interface NormalChatAgentExecutionToolCall {
+  toolName: NormalChatAgentToolName
+  title: string
+  reason: string | null
+  input: NormalChatAgentExecutionToolInput
+}
+
+export interface NormalChatAgentExecutionToolCallRecord {
+  callId: string
+  toolName: NormalChatAgentToolName
+  title: string
+  roundIndex: number
+  batchIndex: number
+  parallelIndex: number
+  status: 'running' | 'success' | 'error' | 'aborted'
+  input: string
+  output: string
+  errorMessage: string | null
+  startedAt: string
+  completedAt: string | null
+}
+
+export interface NormalChatAgentExecutionRoundRecord {
+  roundIndex: number
+  mode: 'tool' | 'answer'
+  reason: string | null
+  startedAt: string
+  completedAt: string | null
+  toolCalls: NormalChatAgentExecutionToolCallRecord[]
+}
+
+export interface NormalChatAgentExecutionTrace {
+  maxRounds: number
+  completed: boolean
+  aborted: boolean
+  finalMode: 'tool' | 'answer' | 'error'
+  rounds: NormalChatAgentExecutionRoundRecord[]
+}
+
 export type NormalChatMessagePartKind = 'text' | 'functioncall'
 
 export type NormalChatFunctionCallMessagePartStatus =
@@ -124,9 +173,9 @@ export interface NormalChatTextMessagePart {
 
 export interface NormalChatFunctionCallMessagePart {
   kind: 'functioncall'
-  // callId 只用于同一条消息内部唯一定位一个 functioncall block，方便流式更新和回放。
+  // callId 用于在同一条消息内定位唯一的工具调用块，方便流式更新和回放。
   callId: string
-  // functionCallName 是技术名，title 是给 UI 看的标题。
+  // functionCallName 是技术名，title 是给 UI 看的人类可读标题。
   functionCallName: string
   title: string
   status: NormalChatFunctionCallMessagePartStatus
@@ -134,6 +183,12 @@ export interface NormalChatFunctionCallMessagePart {
   output: string
   errorMessage: string | null
   isStreaming: boolean
+  // 下面这些字段表达“第几轮决策、哪个批次、并行里的第几个调用”。
+  roundIndex: number
+  batchIndex: number
+  parallelIndex: number
+  depth: number
+  decisionReason: string | null
 }
 
 export type NormalChatMessagePart = NormalChatTextMessagePart | NormalChatFunctionCallMessagePart
@@ -192,6 +247,7 @@ export interface NormalChatConversationTurnResponsePayload {
   aborted: boolean
   errorMessage: string | null
   completedAt: string | null
+  execution: NormalChatAgentExecutionTrace | null
 }
 
 export interface NormalChatConversationTurnDetail {
@@ -218,13 +274,15 @@ export interface NormalChatDeleteConversationTurnRequest {
 
 export interface NormalChatSendMessageRequest {
   topicId: string
-  assistantId: string
   providerId: string
   modelId: string
-  effectiveSystemPrompt: string
   input: string
-  messageId: string
-  requestId?: string
+  clientRequestId?: string
+}
+
+export interface NormalChatSendMessageAccepted {
+  requestId: string
+  message: NormalChatConversationMessage
 }
 
 export interface NormalChatAbortRequest {
@@ -267,6 +325,7 @@ export interface NormalChatConversationFinishEvent extends NormalChatConversatio
 export interface NormalChatConversationErrorEvent extends NormalChatConversationBaseEvent {
   type: 'error'
   message: string
+  rawErrorJson?: string | null
 }
 
 export type NormalChatConversationStreamEvent =
@@ -284,7 +343,7 @@ export interface NormalChatAPI {
   ) => Promise<ApiResponse<NormalChatConversationSnapshot>>
   sendMessage: (
     request: NormalChatSendMessageRequest
-  ) => Promise<ApiResponse<{ requestId: string; messageId: string }>>
+  ) => Promise<ApiResponse<NormalChatSendMessageAccepted>>
   getConversationTurnDetail: (
     request: NormalChatGetConversationTurnDetailRequest
   ) => Promise<ApiResponse<NormalChatConversationTurnDetail | null>>

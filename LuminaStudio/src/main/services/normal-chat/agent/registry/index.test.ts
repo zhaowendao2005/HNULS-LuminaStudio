@@ -34,12 +34,15 @@ describe('normal-chat agent registry', () => {
         getConversationMessages() {
           return []
         },
+        getProviderProtocol: async () => 'openai-completion',
+        invokeStructuredOutput: async () => ({ mode: 'answer', toolCalls: [] }),
         createChatModel: async () => ({
           withStructuredOutput() {
             return {
               invoke: async () => ({
                 mode: 'answer',
-                reason: 'mock'
+                reason: 'mock',
+                toolCalls: []
               })
             }
           }

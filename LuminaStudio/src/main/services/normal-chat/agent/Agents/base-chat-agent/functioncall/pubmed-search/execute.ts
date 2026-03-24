@@ -27,24 +27,34 @@ export async function executePubmedSearch(
     throw new Error('PubMed 检索词不能为空')
   }
 
-  const title = 'PubMed 检索'
+  const title = 'PubMed 论文检索'
   const input = JSON.stringify(
     {
       query,
       topK: args.topK ?? 5,
       sort: args.sort ?? 'relevance',
       startDate: args.startDate ?? null,
-      endDate: args.endDate ?? null
+      endDate: args.endDate ?? null,
+      roundIndex: ctx.roundIndex,
+      batchIndex: ctx.batchIndex,
+      parallelIndex: ctx.parallelIndex,
+      depth: ctx.depth,
+      decisionReason: ctx.decisionReason
     },
     null,
     2
   )
 
-  // 这里先把 functioncall 的开始和输入都记录下来，方便 runtime 组装成可回放的 block。
+  // 先记录开始和输入，再把真正的检索结果写回 trace，便于前端回放每一次调用。
   ctx.trace.record({
     type: 'functioncall-start',
     requestId: ctx.runContext.requestId,
     topicId: ctx.runContext.topicId,
+    roundIndex: ctx.roundIndex,
+    batchIndex: ctx.batchIndex,
+    parallelIndex: ctx.parallelIndex,
+    depth: ctx.depth,
+    decisionReason: ctx.decisionReason,
     callId: ctx.callId,
     functionCallName: 'pubmed-search',
     title,
@@ -54,6 +64,11 @@ export async function executePubmedSearch(
     type: 'functioncall-input',
     requestId: ctx.runContext.requestId,
     topicId: ctx.runContext.topicId,
+    roundIndex: ctx.roundIndex,
+    batchIndex: ctx.batchIndex,
+    parallelIndex: ctx.parallelIndex,
+    depth: ctx.depth,
+    decisionReason: ctx.decisionReason,
     callId: ctx.callId,
     functionCallName: 'pubmed-search',
     title,
@@ -64,6 +79,11 @@ export async function executePubmedSearch(
     type: 'tool-start',
     requestId: ctx.runContext.requestId,
     topicId: ctx.runContext.topicId,
+    roundIndex: ctx.roundIndex,
+    batchIndex: ctx.batchIndex,
+    parallelIndex: ctx.parallelIndex,
+    depth: ctx.depth,
+    decisionReason: ctx.decisionReason,
     toolName: 'pubmed-search',
     message: `开始执行 PubMed 检索：${query}`
   })
@@ -74,7 +94,11 @@ export async function executePubmedSearch(
       topicId: ctx.runContext.topicId,
       query,
       topK: args.topK ?? 5,
-      sort: args.sort ?? 'relevance'
+      sort: args.sort ?? 'relevance',
+      roundIndex: ctx.roundIndex,
+      batchIndex: ctx.batchIndex,
+      parallelIndex: ctx.parallelIndex,
+      depth: ctx.depth
     })
 
     const result = await ctx.paperRetrievalService.search({
@@ -95,6 +119,11 @@ export async function executePubmedSearch(
       type: 'functioncall-output',
       requestId: ctx.runContext.requestId,
       topicId: ctx.runContext.topicId,
+      roundIndex: ctx.roundIndex,
+      batchIndex: ctx.batchIndex,
+      parallelIndex: ctx.parallelIndex,
+      depth: ctx.depth,
+      decisionReason: ctx.decisionReason,
       callId: ctx.callId,
       functionCallName: 'pubmed-search',
       title,
@@ -105,6 +134,11 @@ export async function executePubmedSearch(
       type: 'functioncall-finish',
       requestId: ctx.runContext.requestId,
       topicId: ctx.runContext.topicId,
+      roundIndex: ctx.roundIndex,
+      batchIndex: ctx.batchIndex,
+      parallelIndex: ctx.parallelIndex,
+      depth: ctx.depth,
+      decisionReason: ctx.decisionReason,
       callId: ctx.callId,
       functionCallName: 'pubmed-search',
       title,
@@ -115,6 +149,11 @@ export async function executePubmedSearch(
       type: 'tool-result',
       requestId: ctx.runContext.requestId,
       topicId: ctx.runContext.topicId,
+      roundIndex: ctx.roundIndex,
+      batchIndex: ctx.batchIndex,
+      parallelIndex: ctx.parallelIndex,
+      depth: ctx.depth,
+      decisionReason: ctx.decisionReason,
       toolName: 'pubmed-search',
       output,
       message: 'PubMed 检索完成'
@@ -130,6 +169,11 @@ export async function executePubmedSearch(
       type: 'functioncall-error',
       requestId: ctx.runContext.requestId,
       topicId: ctx.runContext.topicId,
+      roundIndex: ctx.roundIndex,
+      batchIndex: ctx.batchIndex,
+      parallelIndex: ctx.parallelIndex,
+      depth: ctx.depth,
+      decisionReason: ctx.decisionReason,
       callId: ctx.callId,
       functionCallName: 'pubmed-search',
       title,

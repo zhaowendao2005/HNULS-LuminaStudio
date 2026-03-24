@@ -1,5 +1,6 @@
 import type {
   NormalChatAbortRequest,
+  NormalChatSendMessageAccepted,
   NormalChatConversationSnapshot,
   NormalChatConversationStreamEvent,
   NormalChatConversationTurnDetail,
@@ -24,15 +25,13 @@ export interface NormalChatConversationDatasourceLike {
   getConversationTurnDetail(
     payload: NormalChatGetConversationTurnDetailRequest
   ): Promise<NormalChatConversationTurnDetail | null>
-  sendMessage(
-    payload: NormalChatSendMessageRequest
-  ): Promise<{ requestId: string; messageId: string }>
+  sendMessage(payload: NormalChatSendMessageRequest): Promise<NormalChatSendMessageAccepted>
   deleteConversationTurn(payload: NormalChatDeleteConversationTurnRequest): Promise<void>
   abort(payload: NormalChatAbortRequest): Promise<void>
   onStream(handler: (event: NormalChatConversationStreamEvent) => void): () => void
 }
 
-export const NormalChatConversationDatasource: NormalChatConversationDatasourceLike = {
+const defaultDatasource: NormalChatConversationDatasourceLike = {
   getConversation(payload) {
     return window.api.normalChat.getConversation(payload).then(unwrap)
   },
@@ -58,5 +57,38 @@ export const NormalChatConversationDatasource: NormalChatConversationDatasourceL
   },
   onStream(handler) {
     return window.api.normalChat.onStream(handler)
+  }
+}
+
+let datasource: NormalChatConversationDatasourceLike = defaultDatasource
+
+export function setNormalChatConversationDatasourceForTesting(
+  nextDatasource: NormalChatConversationDatasourceLike
+): void {
+  datasource = nextDatasource
+}
+
+export function resetNormalChatConversationDatasourceForTesting(): void {
+  datasource = defaultDatasource
+}
+
+export const NormalChatConversationDatasource: NormalChatConversationDatasourceLike = {
+  getConversation(payload) {
+    return datasource.getConversation(payload)
+  },
+  getConversationTurnDetail(payload) {
+    return datasource.getConversationTurnDetail(payload)
+  },
+  sendMessage(payload) {
+    return datasource.sendMessage(payload)
+  },
+  deleteConversationTurn(payload) {
+    return datasource.deleteConversationTurn(payload)
+  },
+  abort(payload) {
+    return datasource.abort(payload)
+  },
+  onStream(handler) {
+    return datasource.onStream(handler)
   }
 }

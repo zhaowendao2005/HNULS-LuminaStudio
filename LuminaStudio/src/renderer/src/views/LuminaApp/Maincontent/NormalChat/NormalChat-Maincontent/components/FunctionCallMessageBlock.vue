@@ -11,6 +11,13 @@
         <p class="mt-1 break-all text-[12px] text-slate-500">
           {{ part.functionCallName }}
         </p>
+        <p class="mt-1 text-[12px] text-slate-500">
+          第 {{ part.roundIndex }} 轮 · 批次 {{ part.batchIndex + 1 }} · 并行
+          {{ part.parallelIndex + 1 }}
+        </p>
+        <p v-if="part.decisionReason" class="mt-1 text-[12px] leading-5 text-slate-500">
+          决策原因：{{ part.decisionReason }}
+        </p>
       </div>
 
       <span

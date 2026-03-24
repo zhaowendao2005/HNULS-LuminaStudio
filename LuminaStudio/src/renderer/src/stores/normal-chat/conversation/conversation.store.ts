@@ -6,8 +6,7 @@ import type {
   NormalChatConversationStreamEvent,
   NormalChatFunctionCallMessagePart,
   NormalChatMessagePart,
-  NormalChatTopic,
-  NormalChatAssistant
+  NormalChatTopic
 } from '@preload/types'
 import { useNormalChatWorkspaceStore } from '../workspace/workspace.store'
 import { NormalChatConversationDatasource } from './conversation.datasource'
@@ -17,10 +16,11 @@ interface ConversationRuntimeState {
   messagesByTopicId: Record<string, NormalChatConversationMessage[]>
   draftByTopicId: Record<string, string>
   pendingAssistantMessageByTopicId: Record<string, NormalChatConversationMessage | null>
-  currentRequestId: string | null
-  streamingTopicId: string | null
+  activeRequestIdByTopicId: Record<string, string>
+  sendingByTopicId: Record<string, boolean>
   statusTextByTopicId: Record<string, string>
   lastErrorByTopicId: Record<string, string>
+  lastErrorDetailByTopicId: Record<string, string>
 }
 
 function createEmptyState(): ConversationRuntimeState {
@@ -28,10 +28,11 @@ function createEmptyState(): ConversationRuntimeState {
     messagesByTopicId: {},
     draftByTopicId: {},
     pendingAssistantMessageByTopicId: {},
-    currentRequestId: null,
-    streamingTopicId: null,
+    activeRequestIdByTopicId: {},
+    sendingByTopicId: {},
     statusTextByTopicId: {},
-    lastErrorByTopicId: {}
+    lastErrorByTopicId: {},
+    lastErrorDetailByTopicId: {}
   }
 }
 
@@ -73,7 +74,7 @@ function createPendingAssistantMessage(
 ): NormalChatConversationMessage {
   const now = new Date().toISOString()
   return {
-    id: `${topicId}-pending-assistant`,
+    id: `${topicId}-pending-assistant-${requestId}`,
     topicId,
     requestId,
     role: 'assistant',
@@ -107,7 +108,6 @@ function upsertPendingFunctionCallPart(
       ? {
           ...((message.parts[existingIndex] as NormalChatFunctionCallMessagePart) ?? {}),
           ...part,
-          // 兼容 runtime 在 finish/error 阶段只更新状态，不重复携带 input/output。
           input:
             part.input !== ''
               ? part.input
@@ -121,7 +121,21 @@ function upsertPendingFunctionCallPart(
             (message.parts[existingIndex] as NormalChatFunctionCallMessagePart).errorMessage,
           isStreaming:
             part.isStreaming ??
-            (message.parts[existingIndex] as NormalChatFunctionCallMessagePart).isStreaming
+            (message.parts[existingIndex] as NormalChatFunctionCallMessagePart).isStreaming,
+          roundIndex:
+            part.roundIndex ??
+            (message.parts[existingIndex] as NormalChatFunctionCallMessagePart).roundIndex,
+          batchIndex:
+            part.batchIndex ??
+            (message.parts[existingIndex] as NormalChatFunctionCallMessagePart).batchIndex,
+          parallelIndex:
+            part.parallelIndex ??
+            (message.parts[existingIndex] as NormalChatFunctionCallMessagePart).parallelIndex,
+          depth:
+            part.depth ?? (message.parts[existingIndex] as NormalChatFunctionCallMessagePart).depth,
+          decisionReason:
+            part.decisionReason ??
+            (message.parts[existingIndex] as NormalChatFunctionCallMessagePart).decisionReason
         }
       : part
 
@@ -147,9 +161,6 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
   let disposeStream: (() => void) | null = null
 
   const currentTopic = computed<NormalChatTopic | null>(() => workspaceStore.currentTopic)
-  const currentAssistant = computed<NormalChatAssistant | null>(
-    () => workspaceStore.currentAssistant
-  )
   const currentTopicId = computed(() => currentTopic.value?.id ?? '')
   const currentDraft = computed(() => {
     const topicId = currentTopicId.value
@@ -163,28 +174,41 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
     const topicId = currentTopicId.value
     return topicId ? (state.value.lastErrorByTopicId[topicId] ?? '') : ''
   })
-  const isCurrentTopicStreaming = computed(() => {
-    return Boolean(
-      state.value.currentRequestId && state.value.streamingTopicId === currentTopicId.value
-    )
+  const currentLastErrorDetail = computed(() => {
+    const topicId = currentTopicId.value
+    return topicId ? (state.value.lastErrorDetailByTopicId[topicId] ?? '') : ''
   })
+  const currentTopicRequestId = computed(() => {
+    const topicId = currentTopicId.value
+    return topicId ? (state.value.activeRequestIdByTopicId[topicId] ?? null) : null
+  })
+  const isCurrentTopicSending = computed(() => {
+    const topicId = currentTopicId.value
+    return topicId ? Boolean(state.value.sendingByTopicId[topicId]) : false
+  })
+  const isCurrentTopicStreaming = computed(() => Boolean(currentTopicRequestId.value))
   const canSend = computed(() => {
     return (
       !isCurrentTopicStreaming.value &&
+      !isCurrentTopicSending.value &&
       currentDraft.value.trim().length > 0 &&
       Boolean(currentTopic.value) &&
       Boolean(workspaceStore.currentTopicModelProviderId) &&
       Boolean(workspaceStore.currentTopicModelId)
     )
   })
-  const canStop = computed(() => Boolean(state.value.currentRequestId))
+  const canStop = computed(() => Boolean(currentTopicRequestId.value))
   const composerPlaceholder = computed(() => {
     if (!currentTopic.value) {
       return '先选择一个话题'
     }
 
-    if (isCurrentTopicStreaming.value) {
+    if (currentTopicRequestId.value) {
       return '当前回答生成中，点击停止可以中断本轮请求'
+    }
+
+    if (isCurrentTopicSending.value) {
+      return '消息提交中，请稍候…'
     }
 
     return `在「${currentTopic.value.title}」里输入消息，Enter 发送，Shift+Enter 换行`
@@ -194,7 +218,7 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
       return []
     }
 
-    const assistantName = currentAssistant.value?.name ?? '助手'
+    const assistantName = workspaceStore.currentAssistant?.name ?? '助手'
     const messages = state.value.messagesByTopicId[currentTopic.value.id] ?? []
     const displayMessages = messages.map((message) => createDisplayMessage(message, assistantName))
     const pendingMessage = state.value.pendingAssistantMessageByTopicId[currentTopic.value.id]
@@ -208,6 +232,30 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
 
     return displayMessages
   })
+
+  function getTopicActiveRequestId(topicId: string): string | null {
+    return state.value.activeRequestIdByTopicId[topicId] ?? null
+  }
+
+  function setTopicActiveRequestId(topicId: string, requestId: string | null): void {
+    const next = { ...state.value.activeRequestIdByTopicId }
+    if (requestId) {
+      next[topicId] = requestId
+    } else {
+      delete next[topicId]
+    }
+    state.value.activeRequestIdByTopicId = next
+  }
+
+  function setTopicSending(topicId: string, sending: boolean): void {
+    const next = { ...state.value.sendingByTopicId }
+    if (sending) {
+      next[topicId] = true
+    } else {
+      delete next[topicId]
+    }
+    state.value.sendingByTopicId = next
+  }
 
   async function loadConversationTurnDetail(requestId: string) {
     if (!requestId) {
@@ -247,22 +295,13 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
     setTopicMessages(message.topicId, next)
   }
 
-  function removeMessage(topicId: string, messageId: string): void {
-    const current = ensureTopicMessageBucket(topicId)
-    setTopicMessages(
-      topicId,
-      current.filter((item) => item.id !== messageId)
-    )
-  }
-
   function upsertPendingAssistantMessage(
     topicId: string,
+    requestId: string,
     updater: (message: NormalChatConversationMessage) => NormalChatConversationMessage
   ): void {
     const current = state.value.pendingAssistantMessageByTopicId[topicId]
-    const nextMessage = updater(
-      current ?? createPendingAssistantMessage(topicId, state.value.currentRequestId ?? '')
-    )
+    const nextMessage = updater(current ?? createPendingAssistantMessage(topicId, requestId))
 
     state.value.pendingAssistantMessageByTopicId = {
       ...state.value.pendingAssistantMessageByTopicId,
@@ -270,8 +309,8 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
     }
   }
 
-  function appendPendingText(topicId: string, delta: string): void {
-    upsertPendingAssistantMessage(topicId, (message) => {
+  function appendPendingText(topicId: string, requestId: string, delta: string): void {
+    upsertPendingAssistantMessage(topicId, requestId, (message) => {
       const now = new Date().toISOString()
       const nextParts = [...message.parts]
       const lastTextIndex = findLastTextPartIndex(nextParts)
@@ -279,7 +318,6 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
         lastTextIndex >= 0 &&
         nextParts.slice(lastTextIndex + 1).some((part) => part.kind === 'functioncall')
 
-      // 当工具调用已经插入到文本之后时，新的文本需要作为“下一段”追加，避免覆盖旧段落。
       if (lastTextIndex === -1 || hasFunctionCallAfterText) {
         nextParts.push({ kind: 'text', text: delta })
         return {
@@ -289,7 +327,6 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
         }
       }
 
-      // 仍在同一段文本输出时，继续拼接。
       const currentTextPart = nextParts[lastTextIndex] as Extract<
         NormalChatMessagePart,
         { kind: 'text' }
@@ -309,9 +346,10 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
 
   function upsertPendingFunctionCall(
     topicId: string,
+    requestId: string,
     part: NormalChatFunctionCallMessagePart
   ): void {
-    upsertPendingAssistantMessage(topicId, (message) =>
+    upsertPendingAssistantMessage(topicId, requestId, (message) =>
       upsertPendingFunctionCallPart(message, part)
     )
   }
@@ -329,10 +367,14 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
     }
   }
 
-  function setLastError(topicId: string, text: string): void {
+  function setLastError(topicId: string, text: string, detailJson = ''): void {
     state.value.lastErrorByTopicId = {
       ...state.value.lastErrorByTopicId,
       [topicId]: text
+    }
+    state.value.lastErrorDetailByTopicId = {
+      ...state.value.lastErrorDetailByTopicId,
+      [topicId]: detailJson
     }
   }
 
@@ -352,12 +394,18 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
           topicId
         })
       setTopicMessages(snapshot.topicId, snapshot.messages)
-      clearTopicRuntime(snapshot.topicId)
-      setLastError(snapshot.topicId, '')
+
+      if (!getTopicActiveRequestId(snapshot.topicId)) {
+        clearTopicRuntime(snapshot.topicId)
+      }
+
+      setLastError(snapshot.topicId, '', '')
     } catch (error) {
       setTopicMessages(topicId, [])
-      clearTopicRuntime(topicId)
-      setLastError(topicId, error instanceof Error ? error.message : String(error))
+      if (!getTopicActiveRequestId(topicId)) {
+        clearTopicRuntime(topicId)
+      }
+      setLastError(topicId, error instanceof Error ? error.message : String(error), '')
     }
   }
 
@@ -370,68 +418,46 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
       (event: NormalChatConversationStreamEvent) => {
         if (event.type === 'message-committed') {
           upsertMessage(event.message)
-          if (event.message.role === 'assistant') {
+          if (
+            event.message.role === 'assistant' &&
+            getTopicActiveRequestId(event.topicId) === event.requestId
+          ) {
             clearPendingAssistantMessage(event.topicId)
           }
           return
         }
 
-        if (event.type === 'assistant-part-upsert') {
-          if (state.value.currentRequestId !== event.requestId) {
-            return
-          }
+        if (getTopicActiveRequestId(event.topicId) !== event.requestId) {
+          return
+        }
 
-          upsertPendingFunctionCall(event.topicId, event.part)
-          state.value.streamingTopicId = event.topicId
+        if (event.type === 'assistant-part-upsert') {
+          upsertPendingFunctionCall(event.topicId, event.requestId, event.part)
           return
         }
 
         if (event.type === 'assistant-chunk') {
-          if (state.value.currentRequestId !== event.requestId) {
-            return
-          }
-
-          appendPendingText(event.topicId, event.delta)
-          state.value.streamingTopicId = event.topicId
+          appendPendingText(event.topicId, event.requestId, event.delta)
           return
         }
 
         if (event.type === 'status') {
-          if (state.value.currentRequestId !== event.requestId) {
-            return
-          }
-
-          state.value.streamingTopicId = event.topicId
           setStatusText(event.topicId, event.message)
           return
         }
 
         if (event.type === 'finish') {
-          if (state.value.currentRequestId !== event.requestId) {
-            return
-          }
-
-          state.value.currentRequestId = null
-          if (state.value.streamingTopicId === event.topicId) {
-            state.value.streamingTopicId = null
-          }
+          setTopicActiveRequestId(event.topicId, null)
           clearPendingAssistantMessage(event.topicId)
           setStatusText(event.topicId, '')
           return
         }
 
         if (event.type === 'error') {
-          if (state.value.currentRequestId !== event.requestId) {
-            return
-          }
-
-          state.value.currentRequestId = null
-          if (state.value.streamingTopicId === event.topicId) {
-            state.value.streamingTopicId = null
-          }
+          setTopicActiveRequestId(event.topicId, null)
           clearPendingAssistantMessage(event.topicId)
           setStatusText(event.topicId, '')
-          setLastError(event.topicId, event.message)
+          setLastError(event.topicId, event.message, event.rawErrorJson ?? '')
         }
       }
     )
@@ -461,11 +487,6 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
           return
         }
 
-        // 切换助手或话题时，先停掉当前流式请求，避免串台。
-        if (state.value.currentRequestId) {
-          await abortCurrentRequest()
-        }
-
         if (topicId) {
           await loadTopicConversation(topicId)
         }
@@ -485,8 +506,7 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
       [topicId]: value
     }
 
-    // 用户开始重新输入时，顺手清掉旧错误，避免错误提示一直挂着。
-    setLastError(topicId, '')
+    setLastError(topicId, '', '')
   }
 
   function clearDraft(): void {
@@ -494,95 +514,79 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
   }
 
   async function abortCurrentRequest(): Promise<void> {
-    if (!state.value.currentRequestId) {
+    const topicId = currentTopicId.value
+    if (!topicId) {
       return
     }
 
-    const requestId = state.value.currentRequestId
-    const topicId = state.value.streamingTopicId ?? currentTopicId.value
+    const requestId = getTopicActiveRequestId(topicId)
+    if (!requestId) {
+      return
+    }
+
     try {
       await NormalChatConversationDatasource.abort({ requestId })
     } finally {
-      state.value.currentRequestId = null
-      state.value.streamingTopicId = null
-      if (topicId) {
-        clearPendingAssistantMessage(topicId)
-        setStatusText(topicId, '')
-      }
+      setTopicActiveRequestId(topicId, null)
+      clearPendingAssistantMessage(topicId)
+      setStatusText(topicId, '')
     }
   }
 
   async function sendCurrentDraft(): Promise<void> {
     const topic = currentTopic.value
-    const assistant = currentAssistant.value
-    const input = currentDraft.value.trim()
+    const draft = currentDraft.value
+    const input = draft.trim()
 
-    if (!topic || !assistant || !input) {
+    if (!topic || !input) {
       return
     }
 
     const providerId = workspaceStore.currentTopicModelProviderId
     const modelId = workspaceStore.currentTopicModelId
     if (!providerId || !modelId) {
-      setLastError(topic.id, '当前话题还没有可用模型，请先选择模型。')
+      setLastError(topic.id, '当前话题还没有可用模型，请先选择模型。', '')
       return
     }
 
-    if (state.value.currentRequestId) {
+    if (getTopicActiveRequestId(topic.id)) {
       await abortCurrentRequest()
     }
 
-    const messageId = crypto.randomUUID()
-    const requestId = crypto.randomUUID()
-    const userMessage: NormalChatConversationMessage = {
-      id: messageId,
-      topicId: topic.id,
-      requestId,
-      role: 'user',
-      parts: [{ kind: 'text', text: input }],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    }
-
-    setLastError(topic.id, '')
+    setLastError(topic.id, '', '')
     clearDraft()
-    upsertMessage(userMessage)
-    state.value.currentRequestId = requestId
-    state.value.streamingTopicId = topic.id
+    setTopicSending(topic.id, true)
 
     try {
-      await NormalChatConversationDatasource.sendMessage({
+      const accepted = await NormalChatConversationDatasource.sendMessage({
         topicId: topic.id,
-        assistantId: assistant.id,
         providerId,
         modelId,
-        effectiveSystemPrompt: workspaceStore.effectiveSystemPrompt,
-        input,
-        messageId,
-        requestId
+        input
       })
+
+      upsertMessage(accepted.message)
+      setTopicActiveRequestId(topic.id, accepted.requestId)
     } catch (error) {
-      // 发送前置失败时，回滚本地乐观更新，避免界面和后端不同步。
-      removeMessage(topic.id, messageId)
-      state.value.currentRequestId = null
-      state.value.streamingTopicId = null
       state.value.draftByTopicId = {
         ...state.value.draftByTopicId,
-        [topic.id]: input
+        [topic.id]: draft
       }
-      setLastError(topic.id, error instanceof Error ? error.message : String(error))
+      setLastError(topic.id, error instanceof Error ? error.message : String(error), '')
       throw error
+    } finally {
+      setTopicSending(topic.id, false)
     }
   }
 
   return {
     state,
     currentTopic,
-    currentAssistant,
     currentTopicId,
     currentDraft,
     currentStatusText,
     currentLastError,
+    currentLastErrorDetail,
     currentDisplayMessages,
     isCurrentTopicStreaming,
     canSend,

@@ -257,17 +257,10 @@ export class NormalChatIPCHandler extends BaseIPCHandler {
     _event: unknown,
     request: NormalChatSendMessageRequest
   ): Promise<{ success: true; data: unknown } | { success: false; error: string }> {
-    if (
-      !request?.topicId ||
-      !request?.assistantId ||
-      !request?.providerId ||
-      !request?.modelId ||
-      !request?.messageId ||
-      !request?.input?.trim()
-    ) {
+    if (!request?.topicId || !request?.providerId || !request?.modelId || !request?.input?.trim()) {
       return {
         success: false,
-        error: 'Missing topicId, assistantId, providerId, modelId, messageId or input'
+        error: 'Missing topicId, providerId, modelId or input'
       }
     }
 

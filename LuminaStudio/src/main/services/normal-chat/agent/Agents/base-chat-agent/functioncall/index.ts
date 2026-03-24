@@ -1,5 +1,8 @@
 import type { PaperRetrievalService } from '../../../../../paper-retrieval'
-import type { NormalChatAgentToolExecuteContext } from '../../../contracts'
+import type {
+  NormalChatAgentExecutionToolCall,
+  NormalChatAgentToolExecuteContext
+} from '../../../contracts'
 import { executePubmedSearch, type PubmedSearchExecutionResult } from './pubmed-search/execute'
 import type { PubmedSearchArgs } from './pubmed-search/schema'
 
@@ -12,8 +15,8 @@ export interface BaseChatAgentFunctioncallDependencies {
 }
 
 export interface BaseChatAgentFunctioncallSuite {
-  pubmedSearch(
-    args: PubmedSearchArgs,
+  executeToolCall(
+    call: NormalChatAgentExecutionToolCall,
     context: NormalChatAgentToolExecuteContext
   ): Promise<PubmedSearchExecutionResult>
 }
@@ -28,15 +31,28 @@ export function createBaseChatAgentFunctioncallSuite(
   dependencies: BaseChatAgentFunctioncallDependencies
 ): BaseChatAgentFunctioncallSuite {
   return {
-    pubmedSearch(args, context) {
-      return executePubmedSearch(args, {
-        signal: context.signal,
-        trace: context.trace,
-        runContext: context.runContext,
-        modelContext: context.modelContext,
-        logger: context.logger,
-        paperRetrievalService: dependencies.paperRetrievalService
-      })
+    executeToolCall(call, context) {
+      switch (call.toolName) {
+        case 'pubmed-search':
+          return executePubmedSearch(call.input as PubmedSearchArgs, {
+            signal: context.signal,
+            trace: context.trace,
+            runContext: context.runContext,
+            modelContext: context.modelContext,
+            logger: context.logger,
+            paperRetrievalService: dependencies.paperRetrievalService,
+            callId: context.callId,
+            roundIndex: context.roundIndex,
+            batchIndex: context.batchIndex,
+            parallelIndex: context.parallelIndex,
+            depth: context.depth,
+            decisionReason: context.decisionReason
+          })
+        default: {
+          const exhaustiveCheck: never = call.toolName
+          throw new Error(`Unsupported tool call: ${exhaustiveCheck}`)
+        }
+      }
     }
   }
 }

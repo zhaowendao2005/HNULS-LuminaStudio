@@ -160,6 +160,12 @@
                     }}
                   </p>
                 </div>
+                <div class="rounded-xl bg-gray-50 px-3 py-2">
+                  <p class="text-[12px] text-gray-400">Agent 执行摘要</p>
+                  <p class="mt-1 text-[13px] leading-6 text-gray-700">
+                    {{ executionSummaryText }}
+                  </p>
+                </div>
               </div>
             </section>
           </div>
@@ -269,6 +275,19 @@ const rawMeta = computed(() => {
     saveFullConversationEnabled: detail.value.saveFullConversationEnabled,
     hasTrace: detail.value.hasTrace
   }
+})
+
+const executionSummaryText = computed(() => {
+  const execution = detail.value?.responsePayload?.execution
+  if (!execution) {
+    return '无执行记录'
+  }
+
+  const callCount = execution.rounds.reduce((sum, round) => sum + round.toolCalls.length, 0)
+  const finalModeLabel =
+    execution.finalMode === 'answer' ? 'answer' : execution.finalMode === 'tool' ? 'tool' : 'error'
+
+  return `轮次 ${execution.rounds.length} / 上限 ${execution.maxRounds}，工具调用 ${callCount} 次，最终模式 ${finalModeLabel}，已完成 ${execution.completed ? '是' : '否'}，已中止 ${execution.aborted ? '是' : '否'}`
 })
 
 async function loadDetail(): Promise<void> {

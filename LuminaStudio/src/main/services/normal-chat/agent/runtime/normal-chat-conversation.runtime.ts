@@ -1,34 +1,28 @@
 import { randomUUID } from 'crypto'
 import { AIMessageChunk } from '@langchain/core/messages'
 import type {
-  NormalChatAssistant,
+  NormalChatAgentExecutionTrace,
   NormalChatConversationMessage,
+  NormalChatConversationPromptMessage,
   NormalChatConversationSnapshot,
   NormalChatConversationStreamEvent,
-  NormalChatConversationPromptMessage,
   NormalChatConversationTurnRequestPayload,
   NormalChatConversationTurnResponsePayload,
   NormalChatFunctionCallMessagePart,
   NormalChatMessagePart,
-  NormalChatSendMessageRequest,
-  NormalChatTopic
+  NormalChatSendMessageAccepted,
+  NormalChatSendMessageRequest
 } from '@preload/types'
 import type { PaperRetrievalService } from '../../../paper-retrieval'
 import type { DatabaseManager } from '../../../database-sqlite'
 import { logger } from '../../../logger'
 import { NormalChatRepository } from '../../normal-chat.repository'
 import type { NormalChatLlmClient } from '../../llm-client'
+import { NormalChatRequestAssembler } from '../../request/normal-chat-request-assembler'
+import { NormalChatRequestLifecycleManager } from '../../request/normal-chat-request-lifecycle'
 import { createNormalChatAgentSuite } from '../registry'
 import { createNormalChatTraceRecorder } from '../trace'
-import type { NormalChatAgentGraphRuntimeBridge, NormalChatAgentTraceRecorder } from '../contracts'
-
-interface ActiveRequestContext {
-  topicId: string
-  controller: AbortController
-  settled: Promise<void>
-  resolveSettled: () => void
-  trace: NormalChatAgentTraceRecorder | null
-}
+import type { NormalChatAgentGraphRuntimeBridge } from '../contracts'
 
 interface ConversationTraceState {
   requestId: string
@@ -40,6 +34,7 @@ interface ConversationTraceState {
   saveFullConversationEnabled: boolean
   requestPayload: NormalChatConversationTurnRequestPayload
   responsePayload: NormalChatConversationTurnResponsePayload
+  execution: NormalChatAgentExecutionTrace
 }
 
 interface ModelInvocationContext {
@@ -47,6 +42,8 @@ interface ModelInvocationContext {
   modelId: string
   signal: AbortSignal
 }
+
+const log = logger.scope('NormalChatConversationService')
 
 function extractHttpStatusFromError(error: unknown): number | null {
   if (!error || typeof error !== 'object') {
@@ -107,12 +104,76 @@ function formatUpstreamHttpError(error: unknown, fallbackMessage: string): strin
   return `上游请求失败：HTTP ${status}`
 }
 
-const log = logger.scope('NormalChatConversationService')
+function buildSerializableError(error: unknown, depth = 0): unknown {
+  if (depth > 4) {
+    return '[MaxDepthExceeded]'
+  }
+
+  if (error === null || error === undefined) {
+    return error ?? null
+  }
+
+  if (typeof error === 'string' || typeof error === 'number' || typeof error === 'boolean') {
+    return error
+  }
+
+  if (Array.isArray(error)) {
+    return error.slice(0, 20).map((item) => buildSerializableError(item, depth + 1))
+  }
+
+  if (error instanceof Error) {
+    const base: Record<string, unknown> = {
+      name: error.name,
+      message: error.message,
+      stack: error.stack ?? null
+    }
+
+    for (const [key, value] of Object.entries(error as Record<string, unknown>)) {
+      if (!(key in base)) {
+        base[key] = buildSerializableError(value, depth + 1)
+      }
+    }
+
+    if ('cause' in error) {
+      base.cause = buildSerializableError(
+        (error as Error & { cause?: unknown }).cause ?? null,
+        depth + 1
+      )
+    }
+
+    return base
+  }
+
+  if (typeof error === 'object') {
+    const result: Record<string, unknown> = {}
+    for (const [key, value] of Object.entries(error)) {
+      result[key] = buildSerializableError(value, depth + 1)
+    }
+    return result
+  }
+
+  return String(error)
+}
+
+function serializeErrorDetails(error: unknown): string {
+  try {
+    return JSON.stringify(buildSerializableError(error), null, 2)
+  } catch {
+    return JSON.stringify(
+      {
+        message: error instanceof Error ? error.message : String(error)
+      },
+      null,
+      2
+    )
+  }
+}
 
 export class NormalChatConversationService {
   private readonly repository: NormalChatRepository
+  private readonly requestAssembler: NormalChatRequestAssembler
+  private readonly lifecycle = new NormalChatRequestLifecycleManager()
   private readonly streamListeners = new Set<(event: NormalChatConversationStreamEvent) => void>()
-  private readonly activeRequests = new Map<string, ActiveRequestContext>()
 
   constructor(
     databaseManager: DatabaseManager,
@@ -120,6 +181,7 @@ export class NormalChatConversationService {
     private readonly paperRetrievalService: PaperRetrievalService
   ) {
     this.repository = new NormalChatRepository(databaseManager.getDatabase('userdata'))
+    this.requestAssembler = new NormalChatRequestAssembler(this.repository, this.llmClient)
   }
 
   onStream(listener: (event: NormalChatConversationStreamEvent) => void): () => void {
@@ -135,93 +197,83 @@ export class NormalChatConversationService {
     }
   }
 
-  async sendMessage(
-    payload: NormalChatSendMessageRequest
-  ): Promise<{ requestId: string; messageId: string }> {
-    const assistant = this.requireAssistant(payload.assistantId)
-    const topic = this.requireTopic(payload.topicId, payload.assistantId)
-    const trimmed = payload.input.trim()
+  async sendMessage(payload: NormalChatSendMessageRequest): Promise<NormalChatSendMessageAccepted> {
+    await this.lifecycle.abortTopicRequest(payload.topicId)
 
-    if (!trimmed) {
-      throw new Error('Message is empty')
-    }
-
-    // 同一个服务里如果还有旧请求在跑，先让它们收口，避免串台。
-    await this.abortAllActiveRequests('已有对话正在进行，已自动中止旧请求。')
-
-    const requestId = payload.requestId || randomUUID()
     const controller = new AbortController()
     let resolveSettled: () => void = () => undefined
     const settled = new Promise<void>((resolve) => {
       resolveSettled = resolve
     })
+    const assembled = await this.requestAssembler.assembleSendMessage(payload, controller.signal)
 
-    this.activeRequests.set(requestId, {
-      topicId: topic.id,
+    this.lifecycle.register({
+      requestId: assembled.requestId,
+      topicId: assembled.topic.id,
       controller,
       settled,
-      resolveSettled,
-      trace: null
+      resolveSettled
     })
 
-    const now = new Date().toISOString()
-    const userMessage: NormalChatConversationMessage = {
-      id: payload.messageId,
-      topicId: topic.id,
-      requestId,
-      role: 'user',
-      parts: this.createTextParts(trimmed),
-      createdAt: now,
-      updatedAt: now
+    try {
+      const sortOrder = this.repository.listMessagesByTopicId(assembled.topic.id).length
+      this.repository.insertMessage(assembled.userMessage, sortOrder)
+
+      // 用户消息一旦落库，就立刻广播给 renderer，保证“已提交消息”由 main 统一生成。
+      this.emit({
+        type: 'message-committed',
+        requestId: assembled.requestId,
+        topicId: assembled.topic.id,
+        message: assembled.userMessage
+      })
+
+      // 使用宏任务启动后续运行，让 renderer 先拿到 requestId，避免流式事件抢跑。
+      setTimeout(() => {
+        void this.runConversation({
+          ...assembled,
+          signal: controller.signal
+        })
+      }, 0)
+
+      return {
+        requestId: assembled.requestId,
+        message: assembled.userMessage
+      }
+    } catch (error) {
+      this.lifecycle.finalize(assembled.requestId)
+      throw error
     }
-    const sortOrder = this.repository.listMessagesByTopicId(topic.id).length
-    this.repository.insertMessage(userMessage, sortOrder)
-
-    // 用户消息先落库，再通知前端，界面就能立刻看到输入内容。
-    this.emit({
-      type: 'message-committed',
-      requestId,
-      topicId: topic.id,
-      message: userMessage
-    })
-    this.emitStatus(requestId, topic.id, 'sending', '用户消息已写入，正在准备模型上下文…')
-
-    void this.runConversation({
-      requestId,
-      assistant,
-      topic,
-      providerId: payload.providerId,
-      modelId: payload.modelId,
-      systemPrompt: payload.effectiveSystemPrompt,
-      input: trimmed,
-      signal: controller.signal
-    })
-
-    return { requestId, messageId: userMessage.id }
   }
 
   async abort(requestId: string): Promise<void> {
-    const active = this.activeRequests.get(requestId)
-    if (!active) {
-      return
-    }
-
-    // 先发中断信号，再等待运行时把已开始的流程收口。
-    active.controller.abort()
-    await active.settled
+    await this.lifecycle.abortRequest(requestId)
   }
 
   private async runConversation(params: {
     requestId: string
-    assistant: NormalChatAssistant
-    topic: NormalChatTopic
-    providerId: string
-    modelId: string
-    systemPrompt: string
     input: string
+    effectiveSystemPrompt: string
+    assistant: {
+      id: string
+      templateKey: string
+      name: string
+      emoji: string
+      defaultSystemPrompt: string
+      saveFullConversationEnabled: boolean
+    }
+    topic: {
+      id: string
+      title: string
+      systemPromptMode: 'inherit' | 'override'
+      systemPromptOverride: string | null
+    }
+    provider: {
+      providerId: string
+      modelId: string
+    }
     signal: AbortSignal
   }): Promise<void> {
-    const { requestId, assistant, topic, providerId, modelId, systemPrompt, input, signal } = params
+    const { requestId, assistant, topic, provider, effectiveSystemPrompt, input, signal } = params
     const traceRecorder = createNormalChatTraceRecorder()
     const suite = createNormalChatAgentSuite(assistant.templateKey)
 
@@ -283,7 +335,12 @@ export class NormalChatConversationService {
             input: part.input !== '' ? part.input : existingPart.input,
             output: part.output !== '' ? part.output : existingPart.output,
             errorMessage: part.errorMessage ?? existingPart.errorMessage,
-            isStreaming: part.isStreaming ?? existingPart.isStreaming
+            isStreaming: part.isStreaming ?? existingPart.isStreaming,
+            roundIndex: part.roundIndex ?? existingPart.roundIndex,
+            batchIndex: part.batchIndex ?? existingPart.batchIndex,
+            parallelIndex: part.parallelIndex ?? existingPart.parallelIndex,
+            depth: part.depth ?? existingPart.depth,
+            decisionReason: part.decisionReason ?? existingPart.decisionReason
           }
         : {
             kind: 'functioncall',
@@ -294,7 +351,12 @@ export class NormalChatConversationService {
             input: part.input ?? '',
             output: part.output ?? '',
             errorMessage: part.errorMessage ?? null,
-            isStreaming: part.isStreaming ?? true
+            isStreaming: part.isStreaming ?? true,
+            roundIndex: part.roundIndex,
+            batchIndex: part.batchIndex,
+            parallelIndex: part.parallelIndex,
+            depth: part.depth,
+            decisionReason: part.decisionReason ?? null
           }
 
       if (currentIndex !== undefined) {
@@ -317,7 +379,12 @@ export class NormalChatConversationService {
           input: '',
           output: '',
           errorMessage: null,
-          isStreaming: true
+          isStreaming: true,
+          roundIndex: event.roundIndex,
+          batchIndex: event.batchIndex,
+          parallelIndex: event.parallelIndex,
+          depth: event.depth,
+          decisionReason: event.decisionReason ?? null
         })
         this.emit({
           type: 'assistant-part-upsert',
@@ -332,7 +399,12 @@ export class NormalChatConversationService {
             input: '',
             output: '',
             errorMessage: null,
-            isStreaming: true
+            isStreaming: true,
+            roundIndex: event.roundIndex,
+            batchIndex: event.batchIndex,
+            parallelIndex: event.parallelIndex,
+            depth: event.depth,
+            decisionReason: event.decisionReason ?? null
           }
         })
         return
@@ -349,7 +421,12 @@ export class NormalChatConversationService {
           input: event.input,
           output: '',
           errorMessage: null,
-          isStreaming: true
+          isStreaming: true,
+          roundIndex: event.roundIndex,
+          batchIndex: event.batchIndex,
+          parallelIndex: event.parallelIndex,
+          depth: event.depth,
+          decisionReason: event.decisionReason ?? null
         })
         this.emit({
           type: 'assistant-part-upsert',
@@ -364,7 +441,12 @@ export class NormalChatConversationService {
             input: event.input,
             output: '',
             errorMessage: null,
-            isStreaming: true
+            isStreaming: true,
+            roundIndex: event.roundIndex,
+            batchIndex: event.batchIndex,
+            parallelIndex: event.parallelIndex,
+            depth: event.depth,
+            decisionReason: event.decisionReason ?? null
           }
         })
         return
@@ -381,7 +463,12 @@ export class NormalChatConversationService {
           input: '',
           output: event.output,
           errorMessage: null,
-          isStreaming: true
+          isStreaming: true,
+          roundIndex: event.roundIndex,
+          batchIndex: event.batchIndex,
+          parallelIndex: event.parallelIndex,
+          depth: event.depth,
+          decisionReason: event.decisionReason ?? null
         })
         this.emit({
           type: 'assistant-part-upsert',
@@ -396,7 +483,12 @@ export class NormalChatConversationService {
             input: '',
             output: event.output,
             errorMessage: null,
-            isStreaming: true
+            isStreaming: true,
+            roundIndex: event.roundIndex,
+            batchIndex: event.batchIndex,
+            parallelIndex: event.parallelIndex,
+            depth: event.depth,
+            decisionReason: event.decisionReason ?? null
           }
         })
         return
@@ -414,7 +506,12 @@ export class NormalChatConversationService {
           input: '',
           output: '',
           errorMessage: null,
-          isStreaming: false
+          isStreaming: false,
+          roundIndex: event.roundIndex,
+          batchIndex: event.batchIndex,
+          parallelIndex: event.parallelIndex,
+          depth: event.depth,
+          decisionReason: event.decisionReason ?? null
         })
         this.emit({
           type: 'assistant-part-upsert',
@@ -429,7 +526,12 @@ export class NormalChatConversationService {
             input: '',
             output: '',
             errorMessage: null,
-            isStreaming: false
+            isStreaming: false,
+            roundIndex: event.roundIndex,
+            batchIndex: event.batchIndex,
+            parallelIndex: event.parallelIndex,
+            depth: event.depth,
+            decisionReason: event.decisionReason ?? null
           }
         })
         return
@@ -446,7 +548,12 @@ export class NormalChatConversationService {
           input: '',
           output: '',
           errorMessage: event.error,
-          isStreaming: false
+          isStreaming: false,
+          roundIndex: event.roundIndex,
+          batchIndex: event.batchIndex,
+          parallelIndex: event.parallelIndex,
+          depth: event.depth,
+          decisionReason: event.decisionReason ?? null
         })
         this.emit({
           type: 'assistant-part-upsert',
@@ -461,7 +568,12 @@ export class NormalChatConversationService {
             input: '',
             output: '',
             errorMessage: event.error,
-            isStreaming: false
+            isStreaming: false,
+            roundIndex: event.roundIndex,
+            batchIndex: event.batchIndex,
+            parallelIndex: event.parallelIndex,
+            depth: event.depth,
+            decisionReason: event.decisionReason ?? null
           }
         })
       }
@@ -469,6 +581,7 @@ export class NormalChatConversationService {
 
     try {
       this.throwIfAborted(signal)
+      this.emitStatus(requestId, topic.id, 'sending', '正在准备模型上下文…')
       this.emitStatus(requestId, topic.id, 'thinking', '正在整理上下文并调用图谱…')
 
       const graphResult = await graph.run({
@@ -477,9 +590,9 @@ export class NormalChatConversationService {
         assistantId: assistant.id,
         assistantTitle: assistant.name,
         topicTitle: topic.title,
-        providerId,
-        modelId,
-        systemPrompt,
+        providerId: provider.providerId,
+        modelId: provider.modelId,
+        systemPrompt: effectiveSystemPrompt,
         input,
         signal
       })
@@ -489,11 +602,12 @@ export class NormalChatConversationService {
         requestId,
         assistant,
         topic,
-        providerId,
-        modelId,
+        providerId: provider.providerId,
+        modelId: provider.modelId,
         input,
-        systemPrompt,
-        promptMessages: graphResult.promptMessages
+        systemPrompt: effectiveSystemPrompt,
+        promptMessages: graphResult.promptMessages,
+        execution: graphResult.execution
       })
 
       if (traceState) {
@@ -508,7 +622,11 @@ export class NormalChatConversationService {
       })
       this.emitStatus(requestId, topic.id, 'streaming', '模型正在输出回答…')
 
-      const model = await this.llmClient.createChatModel(providerId, modelId, signal)
+      const model = await this.llmClient.createChatModel(
+        provider.providerId,
+        provider.modelId,
+        signal
+      )
       const answerStream = await model.stream(graphResult.answerMessages, { signal })
 
       for await (const chunk of answerStream) {
@@ -638,12 +756,12 @@ export class NormalChatConversationService {
       }
 
       const message = await this.normalizeModelInvocationErrorMessage(error, {
-        providerId,
-        modelId,
+        providerId: provider.providerId,
+        modelId: provider.modelId,
         signal
       })
+      const rawErrorJson = serializeErrorDetails(error)
 
-      // graph 已经负责前半段错误埋点，这里只补最终流式阶段的错误。
       if (graphCompleted) {
         traceRecorder.record({
           type: 'run-error',
@@ -663,20 +781,16 @@ export class NormalChatConversationService {
       }
 
       this.commitAssistantMessageIfNeeded(topic.id, requestId, assistantParts, assistantText)
-
       this.emit({
         type: 'error',
         requestId,
         topicId: topic.id,
-        message
+        message,
+        rawErrorJson
       })
     } finally {
       disposeTraceSubscription()
-      const active = this.activeRequests.get(requestId)
-      if (active) {
-        active.resolveSettled()
-      }
-      this.activeRequests.delete(requestId)
+      this.lifecycle.finalize(requestId)
     }
   }
 
@@ -762,7 +876,8 @@ export class NormalChatConversationService {
         finalText: traceState.responsePayload.finalText,
         aborted: traceState.responsePayload.aborted,
         errorMessage: traceState.responsePayload.errorMessage,
-        completedAt: traceState.responsePayload.completedAt
+        completedAt: traceState.responsePayload.completedAt,
+        execution: traceState.execution
       },
       messages: []
     }
@@ -777,13 +892,26 @@ export class NormalChatConversationService {
 
   private createConversationTraceState(params: {
     requestId: string
-    assistant: NormalChatAssistant
-    topic: NormalChatTopic
+    assistant: {
+      id: string
+      templateKey: string
+      name: string
+      emoji: string
+      defaultSystemPrompt: string
+      saveFullConversationEnabled: boolean
+    }
+    topic: {
+      id: string
+      title: string
+      systemPromptMode: 'inherit' | 'override'
+      systemPromptOverride: string | null
+    }
     providerId: string
     modelId: string
     input: string
     systemPrompt: string
     promptMessages: NormalChatConversationPromptMessage[]
+    execution: NormalChatAgentExecutionTrace
   }): ConversationTraceState | null {
     if (!params.assistant.saveFullConversationEnabled) {
       return null
@@ -823,8 +951,10 @@ export class NormalChatConversationService {
         finalText: '',
         aborted: false,
         errorMessage: null,
-        completedAt: null
-      }
+        completedAt: null,
+        execution: params.execution
+      },
+      execution: params.execution
     }
   }
 
@@ -856,15 +986,13 @@ export class NormalChatConversationService {
       return rawMessage
     }
 
-    // 这类报错常见于上游网关返回了非预期错误格式（例如 HTML 或非标准 JSON）。
-    // 这里补充 provider 协议和 baseUrl，方便快速判断是否“协议与端点不匹配”。
     try {
       const provider = await this.llmClient.getProviderProfile(context.providerId, context.signal)
       if (provider) {
         return (
           `模型调用失败：上游返回了非标准错误格式（${rawMessage}）。` +
           `当前 provider=${provider.name}(${provider.protocol})，baseUrl=${provider.baseUrl}，model=${context.modelId}。` +
-          '请确认协议与端点匹配：openai-completion→/v1/chat/completions，' +
+          '请确认协议与端点匹配：openai/openai-completion→/v1/chat/completions，' +
           'openai-response→/v1/responses，claude→Anthropic Messages API，gemini→Google Gemini API。'
         )
       }
@@ -879,26 +1007,11 @@ export class NormalChatConversationService {
     )
   }
 
-  private requireAssistant(assistantId: string): NormalChatAssistant {
-    const assistant = this.repository.getAssistantById(assistantId)
-    if (!assistant) {
-      throw new Error(`助手不存在: ${assistantId}`)
-    }
-
-    return assistant
-  }
-
-  private requireTopic(topicId: string, assistantId?: string): NormalChatTopic {
+  private requireTopic(topicId: string): void {
     const topic = this.repository.getTopicById(topicId)
     if (!topic) {
       throw new Error(`话题不存在: ${topicId}`)
     }
-
-    if (assistantId && topic.assistantId !== assistantId) {
-      throw new Error(`话题不属于当前助手: ${topicId}`)
-    }
-
-    return topic
   }
 
   private emit(event: NormalChatConversationStreamEvent): void {
@@ -953,24 +1066,5 @@ export class NormalChatConversationService {
     }
 
     return ''
-  }
-
-  private async abortAllActiveRequests(note: string): Promise<void> {
-    if (this.activeRequests.size === 0) {
-      return
-    }
-
-    const activeRequests = [...this.activeRequests.entries()]
-    for (const [requestId, active] of activeRequests) {
-      log.debug('Aborting active normal chat request before starting a new one', {
-        requestId,
-        topicId: active.topicId,
-        note
-      })
-      active.controller.abort()
-    }
-
-    // 等待每个请求自己收口，避免把还没来得及写回的内容直接丢掉。
-    await Promise.all(activeRequests.map(([, active]) => active.settled))
   }
 }

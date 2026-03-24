@@ -4,6 +4,7 @@ import type {
   NormalChatConversationTurnDetail,
   NormalChatConversationTurnRequestPayload,
   NormalChatConversationTurnResponsePayload,
+  NormalChatFunctionCallMessagePart,
   NormalChatLabel,
   NormalChatAssistant,
   NormalChatTopic,
@@ -610,17 +611,72 @@ export class NormalChatRepository {
             return null
           }
 
-          const nextPart = part as { kind?: unknown; text?: unknown }
-          if (nextPart.kind !== 'text' || typeof nextPart.text !== 'string') {
-            return null
+          const nextPart = part as {
+            kind?: unknown
+            text?: unknown
+            callId?: unknown
+            functionCallName?: unknown
+            title?: unknown
+            status?: unknown
+            input?: unknown
+            output?: unknown
+            errorMessage?: unknown
+            isStreaming?: unknown
+            roundIndex?: unknown
+            batchIndex?: unknown
+            parallelIndex?: unknown
+            depth?: unknown
+            decisionReason?: unknown
           }
 
-          return {
-            kind: 'text' as const,
-            text: nextPart.text
+          if (nextPart.kind === 'text' && typeof nextPart.text === 'string') {
+            return {
+              kind: 'text' as const,
+              text: nextPart.text
+            }
           }
+
+          if (
+            nextPart.kind === 'functioncall' &&
+            typeof nextPart.callId === 'string' &&
+            typeof nextPart.functionCallName === 'string' &&
+            typeof nextPart.title === 'string' &&
+            typeof nextPart.status === 'string' &&
+            typeof nextPart.input === 'string' &&
+            typeof nextPart.output === 'string' &&
+            (nextPart.errorMessage === null || typeof nextPart.errorMessage === 'string')
+          ) {
+            const status = nextPart.status as NormalChatFunctionCallMessagePart['status']
+            if (!['queued', 'running', 'success', 'error', 'aborted'].includes(status)) {
+              return null
+            }
+
+            return {
+              kind: 'functioncall' as const,
+              callId: nextPart.callId,
+              functionCallName: nextPart.functionCallName,
+              title: nextPart.title,
+              status,
+              input: nextPart.input,
+              output: nextPart.output,
+              errorMessage: (nextPart.errorMessage as string | null) ?? null,
+              isStreaming: Boolean(nextPart.isStreaming),
+              roundIndex: typeof nextPart.roundIndex === 'number' ? nextPart.roundIndex : 0,
+              batchIndex: typeof nextPart.batchIndex === 'number' ? nextPart.batchIndex : 0,
+              parallelIndex:
+                typeof nextPart.parallelIndex === 'number' ? nextPart.parallelIndex : 0,
+              depth: typeof nextPart.depth === 'number' ? nextPart.depth : 0,
+              decisionReason:
+                typeof nextPart.decisionReason === 'string' ? nextPart.decisionReason : null
+            }
+          }
+
+          return null
         })
-        .filter((part): part is { kind: 'text'; text: string } => part !== null)
+        .filter(
+          (part): part is { kind: 'text'; text: string } | NormalChatFunctionCallMessagePart =>
+            part !== null
+        )
     } catch {
       return []
     }
