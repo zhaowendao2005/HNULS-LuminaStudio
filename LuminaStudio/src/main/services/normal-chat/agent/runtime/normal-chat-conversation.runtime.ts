@@ -258,7 +258,11 @@ export class NormalChatConversationService {
         text: nextText
       }
 
-      if (!forceNew && assistantTextPartIndex >= 0 && assistantParts[assistantTextPartIndex]?.kind === 'text') {
+      if (
+        !forceNew &&
+        assistantTextPartIndex >= 0 &&
+        assistantParts[assistantTextPartIndex]?.kind === 'text'
+      ) {
         assistantParts[assistantTextPartIndex] = nextPart
         return
       }

@@ -736,7 +736,10 @@ const canSearch = computed(() => {
   const hasLowLevelKeywords = parseKeywordInput(lowLevelKeywordsInput.value).length > 0
 
   // 中文注释：查询文本、高层关键词、低层关键词三者至少填一个就允许检索。
-  if (selectedGraphTableBase.value === '' || (!hasQuery && !hasHighLevelKeywords && !hasLowLevelKeywords)) {
+  if (
+    selectedGraphTableBase.value === '' ||
+    (!hasQuery && !hasHighLevelKeywords && !hasLowLevelKeywords)
+  ) {
     return false
   }
 
@@ -891,14 +894,11 @@ async function handleSearch(): Promise<void> {
   searchError.value = ''
   searchResult.value = null
 
-  try {    const highLevelKeywords = parseKeywordInput(highLevelKeywordsInput.value)
+  try {
+    const highLevelKeywords = parseKeywordInput(highLevelKeywordsInput.value)
     const lowLevelKeywords = parseKeywordInput(lowLevelKeywordsInput.value)
     // 中文注释：如果用户没填查询文本，则用关键词拼一个兜底 query，避免后端对空 query 直接拒绝。
-    const queryText =
-      query.value.trim() ||
-      highLevelKeywords[0] ||
-      lowLevelKeywords[0] ||
-      ''
+    const queryText = query.value.trim() || highLevelKeywords[0] || lowLevelKeywords[0] || ''
 
     const rerankConfig =
       rerankEnabled.value && selectedRerankModel.value

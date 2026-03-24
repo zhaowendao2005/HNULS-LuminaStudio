@@ -171,7 +171,9 @@ export class NormalChatLlmClient {
     const provider = await this.resolveEnabledProvider(providerId, signal)
 
     if (provider.protocol !== 'openai-response') {
-      throw new Error(`invokeStructuredOutput only supports openai-response, got ${provider.protocol}`)
+      throw new Error(
+        `invokeStructuredOutput only supports openai-response, got ${provider.protocol}`
+      )
     }
 
     const zodSchema = schema as z.ZodTypeAny
@@ -188,7 +190,12 @@ export class NormalChatLlmClient {
           return content
             .map((item) => {
               if (typeof item === 'string') return item
-              if (typeof item === 'object' && item && 'text' in item && typeof item.text === 'string') {
+              if (
+                typeof item === 'object' &&
+                item &&
+                'text' in item &&
+                typeof item.text === 'string'
+              ) {
                 return item.text
               }
               return ''

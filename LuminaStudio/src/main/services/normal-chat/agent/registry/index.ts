@@ -1,8 +1,5 @@
 import type { NormalChatAgentTemplate } from '@preload/types'
-import type {
-  NormalChatAgentSuite,
-  NormalChatAgentTemplateDefinition
-} from '../contracts'
+import type { NormalChatAgentSuite, NormalChatAgentTemplateDefinition } from '../contracts'
 import {
   BaseChatAgentGraph,
   createBaseChatAgentFunctioncallSuite,
@@ -17,12 +14,14 @@ const NORMAL_CHAT_AGENT_TEMPLATES: NormalChatAgentTemplateDefinition[] = [
     emoji: '🤖',
     defaultSystemPrompt: '你是一个通用中文助手，请直接、清晰地帮助用户完成当前任务。'
   }
-] 
+]
 
 export function listNormalChatAgentTemplates(): NormalChatAgentTemplate[] {
-  return NORMAL_CHAT_AGENT_TEMPLATES.map(({ defaultSystemPrompt: _defaultSystemPrompt, ...template }) => ({
-    ...template
-  }))
+  return NORMAL_CHAT_AGENT_TEMPLATES.map(
+    ({ defaultSystemPrompt: _defaultSystemPrompt, ...template }) => ({
+      ...template
+    })
+  )
 }
 
 export function getNormalChatAgentTemplateDefinition(
