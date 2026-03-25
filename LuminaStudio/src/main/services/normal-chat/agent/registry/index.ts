@@ -1,16 +1,16 @@
 import type { NormalChatAgentTemplate } from '@preload/types'
-import type { NormalChatAgentSuite, NormalChatAgentTemplateDefinition } from '../contracts'
-import {
-  BaseChatAgentGraph,
-  createBaseChatAgentFunctioncallSuite,
-  type BaseChatAgentFunctioncallDependencies
-} from '../Agents/base-chat-agent'
+import type {
+  NormalChatAgentSuite,
+  NormalChatAgentSuiteContext,
+  NormalChatAgentTemplateDefinition
+} from '../contracts'
+import { BaseAgentGraph } from '../templates/base-agent'
 
 const NORMAL_CHAT_AGENT_TEMPLATES: NormalChatAgentTemplateDefinition[] = [
   {
     key: 'base-agent',
     title: '基础助手',
-    description: '通用聊天助手模板，后续可以在这里继续扩展真实 agent 逻辑。',
+    description: '递归式 director/worker/repair 基础模板，支持本地 JSON 规划与 helper 派发。',
     emoji: '🤖',
     defaultSystemPrompt: '你是一个通用中文助手，请直接、清晰地帮助用户完成当前任务。'
   }
@@ -30,9 +30,7 @@ export function getNormalChatAgentTemplateDefinition(
   return NORMAL_CHAT_AGENT_TEMPLATES.find((template) => template.key === templateKey) ?? null
 }
 
-export function createNormalChatAgentSuite(
-  templateKey: string
-): NormalChatAgentSuite<BaseChatAgentFunctioncallDependencies> | null {
+export function createNormalChatAgentSuite(templateKey: string): NormalChatAgentSuite | null {
   if (templateKey !== 'base-agent') {
     return null
   }
@@ -44,13 +42,8 @@ export function createNormalChatAgentSuite(
 
   return {
     template,
-    createGraph(graphContext) {
-      const functioncalls = createBaseChatAgentFunctioncallSuite(graphContext.hostDependencies)
-      return new BaseChatAgentGraph({
-        runtime: graphContext.runtime,
-        functioncalls,
-        trace: graphContext.trace
-      })
+    createGraph(graphContext: NormalChatAgentSuiteContext) {
+      return new BaseAgentGraph(graphContext.services)
     }
   }
 }

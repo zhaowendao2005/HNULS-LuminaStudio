@@ -18,6 +18,11 @@ export interface NormalChatWorkspaceDatasourceLike {
     assistantId: string
     name?: string
     defaultSystemPrompt?: string
+    saveFullConversationEnabled?: boolean
+    callMode?: 'fast' | 'slow' | 'auto'
+    costMode?: 'per_call' | 'per_token'
+    maxRecursionDepth?: number
+    maxRetriesPerAgent?: number
   }): Promise<NormalChatWorkspaceSnapshot>
   assignLabel(payload: {
     assistantId: string

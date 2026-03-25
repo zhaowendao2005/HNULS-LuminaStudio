@@ -39,6 +39,7 @@
           @delete="emit('delete-message', $event)"
           @more="emit('more-message', $event)"
           @open-session="emit('open-message-session', $event)"
+          @open-agent-tree="emit('open-agent-tree', $event)"
         />
       </div>
     </div>
@@ -63,6 +64,7 @@ const emit = defineEmits<{
   'delete-message': [message: NormalChatConversationDisplayMessage]
   'more-message': [message: NormalChatConversationDisplayMessage]
   'open-message-session': [message: NormalChatConversationDisplayMessage]
+  'open-agent-tree': [message: NormalChatConversationDisplayMessage]
 }>()
 
 async function scrollToBottom(): Promise<void> {

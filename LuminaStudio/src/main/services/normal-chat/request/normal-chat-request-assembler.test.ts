@@ -11,6 +11,10 @@ function createAssistant(): NormalChatAssistant {
     labelId: null,
     defaultSystemPrompt: '默认系统提示词',
     saveFullConversationEnabled: false,
+    callMode: 'auto',
+    costMode: 'per_token',
+    maxRecursionDepth: 2,
+    maxRetriesPerAgent: 1,
     sortOrder: 0
   }
 }

@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { PaperRetrievalService } from '../../../paper-retrieval'
 import {
   createNormalChatAgentSuite,
   getNormalChatAgentTemplateDefinition,
@@ -30,37 +29,40 @@ describe('normal-chat agent registry', () => {
     expect(suite?.template.key).toBe('base-agent')
 
     const graph = suite!.createGraph({
-      runtime: {
+      services: {
         getConversationMessages() {
           return []
         },
         getProviderProtocol: async () => 'openai-completion',
-        invokeStructuredOutput: async () => ({ mode: 'answer', toolCalls: [] }),
         createChatModel: async () => ({
-          withStructuredOutput() {
-            return {
-              invoke: async () => ({
-                mode: 'answer',
-                reason: 'mock',
-                toolCalls: []
-              })
-            }
-          }
+          invoke: async () => ({
+            content: JSON.stringify({
+              action: 'answer',
+              reasoning: 'mock',
+              helperId: null,
+              helperArgs: null,
+              childTask: null,
+              finalAnswerHint: 'mock'
+            })
+          }),
+          stream: async () =>
+            ({
+              async *[Symbol.asyncIterator]() {
+                yield 'mock'
+              }
+            }) as AsyncIterable<unknown>
         }),
+        functioncallRegistry: {
+          listHelpers: () => [],
+          getHelper: () => null,
+          requireHelper: () => {
+            throw new Error('unused')
+          }
+        },
         logger: createLogger()
-      },
-      trace: {
-        record: vi.fn(),
-        snapshot: vi.fn(() => []),
-        subscribe: vi.fn(() => () => undefined)
-      },
-      hostDependencies: {
-        paperRetrievalService: {
-          search: vi.fn()
-        } as unknown as PaperRetrievalService
       }
     })
 
-    expect(graph).toHaveProperty('run')
+    expect(graph).toHaveProperty('decide')
   })
 })

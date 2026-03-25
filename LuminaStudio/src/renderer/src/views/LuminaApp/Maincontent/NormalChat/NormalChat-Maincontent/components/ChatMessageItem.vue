@@ -35,7 +35,11 @@
         </div>
         <p class="mt-1 text-xs text-gray-400">{{ message.time }}</p>
 
-        <ChatMessageParts :message="message" @view-detail="emit('open-session', message)" />
+        <ChatMessageParts
+          :message="message"
+          @view-detail="emit('open-session', message)"
+          @open-agent-tree="emit('open-agent-tree', message)"
+        />
 
         <div class="mt-4 flex items-center gap-2">
           <div class="flex items-center gap-1.5">
@@ -102,6 +106,7 @@ const emit = defineEmits<{
   copy: [message: NormalChatConversationDisplayMessage]
   delete: [message: NormalChatConversationDisplayMessage]
   'open-session': [message: NormalChatConversationDisplayMessage]
+  'open-agent-tree': [message: NormalChatConversationDisplayMessage]
 }>()
 
 const canOperateTurn = computed(() => {

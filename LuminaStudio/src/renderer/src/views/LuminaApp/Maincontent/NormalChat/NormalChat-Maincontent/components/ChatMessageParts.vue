@@ -1,5 +1,11 @@
 <template>
   <div class="nc-chat-message-parts-a9k2 mt-4 space-y-3">
+    <AgentStatusBarBlock
+      v-if="message.role === 'assistant' && message.requestId"
+      :request-id="message.requestId"
+      @open-tree="emit('open-agent-tree')"
+    />
+
     <template v-if="renderBlocks.length > 0">
       <template v-for="block in renderBlocks" :key="block.key">
         <div v-if="block.kind === 'text'">
@@ -57,6 +63,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import ChatMarkdownContent from './ChatMarkdownContent.vue'
+import AgentStatusBarBlock from './AgentStatusBarBlock.vue'
 import FunctionCallBatchBlock from './FunctionCallBatchBlock.vue'
 import FunctionCallMessageBlock from './FunctionCallMessageBlock.vue'
 import type { NormalChatMessagePart } from '@preload/types'
@@ -71,6 +78,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'view-detail': []
+  'open-agent-tree': []
 }>()
 
 interface TextRenderBlock {

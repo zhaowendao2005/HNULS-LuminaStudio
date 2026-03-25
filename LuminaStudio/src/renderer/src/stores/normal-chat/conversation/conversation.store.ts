@@ -2,6 +2,7 @@ import { computed, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 import type {
   NormalChatConversationMessage,
+  NormalChatConversationAgentTreeUpsertEvent,
   NormalChatConversationSnapshot,
   NormalChatConversationStreamEvent,
   NormalChatFunctionCallMessagePart,
@@ -9,6 +10,7 @@ import type {
   NormalChatTopic
 } from '@preload/types'
 import { useNormalChatWorkspaceStore } from '../workspace/workspace.store'
+import { useNormalChatAgentTraceStore } from '../agent-trace/store'
 import { NormalChatConversationDatasource } from './conversation.datasource'
 import type { NormalChatConversationDisplayMessage } from './conversation.types'
 
@@ -155,6 +157,7 @@ function upsertPendingFunctionCallPart(
 
 export const useNormalChatConversationStore = defineStore('normal-chat-conversation', () => {
   const workspaceStore = useNormalChatWorkspaceStore()
+  const agentTraceStore = useNormalChatAgentTraceStore()
   const state = ref<ConversationRuntimeState>(createEmptyState())
   const initialized = ref(false)
 
@@ -262,7 +265,9 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
       return null
     }
 
-    return NormalChatConversationDatasource.getConversationTurnDetail({ requestId })
+    const detail = await NormalChatConversationDatasource.getConversationTurnDetail({ requestId })
+    agentTraceStore.hydrateTurnDetail(detail)
+    return detail
   }
 
   async function deleteConversationTurn(requestId: string): Promise<void> {
@@ -271,6 +276,7 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
     }
 
     await NormalChatConversationDatasource.deleteConversationTurn({ requestId })
+    agentTraceStore.deleteRequestTrace(requestId)
     if (currentTopicId.value) {
       await loadTopicConversation(currentTopicId.value)
     }
@@ -431,8 +437,13 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
           return
         }
 
-        if (event.type === 'assistant-part-upsert') {
+        if (event.type === 'assistant-part-upsert' && event.part.kind === 'functioncall') {
           upsertPendingFunctionCall(event.topicId, event.requestId, event.part)
+          return
+        }
+
+        if (event.type === 'agent-tree-upsert') {
+          agentTraceStore.upsertRuntimeTree(event as NormalChatConversationAgentTreeUpsertEvent)
           return
         }
 

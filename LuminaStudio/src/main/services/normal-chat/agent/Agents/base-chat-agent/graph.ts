@@ -84,10 +84,7 @@ export class BaseChatAgentGraph implements NormalChatAgentGraphRunner {
     const trace = this.options.trace
     const conversationMessages = this.options.runtime.getConversationMessages(context.topicId)
     const promptMessages = this.buildPromptMessages(context, conversationMessages)
-    await this.options.runtime.getProviderProtocol(
-      context.providerId,
-      context.signal
-    )
+    await this.options.runtime.getProviderProtocol(context.providerId, context.signal)
     const model = (await this.options.runtime.createChatModel(
       context.providerId,
       context.modelId,

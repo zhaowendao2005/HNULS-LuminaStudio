@@ -3,6 +3,8 @@ import { computed, ref, watch } from 'vue'
 import type {
   NormalChatAgentTemplate,
   NormalChatAssistant,
+  NormalChatCallMode,
+  NormalChatCostMode,
   NormalChatTopic,
   NormalChatWorkspaceSnapshot
 } from '@preload/types'
@@ -211,6 +213,10 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
   const assistantNameDraft = ref('')
   const assistantDefaultPromptDraft = ref('')
   const assistantSaveFullConversationDraft = ref(false)
+  const assistantCallModeDraft = ref<NormalChatCallMode>('auto')
+  const assistantCostModeDraft = ref<NormalChatCostMode>('per_token')
+  const assistantMaxRecursionDepthDraft = ref(2)
+  const assistantMaxRetriesPerAgentDraft = ref(1)
   const topicPromptDraft = ref('')
 
   const editingTopicId = ref('')
@@ -392,6 +398,10 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
     assistantDefaultPromptDraft.value = currentAssistant.value?.defaultSystemPrompt ?? ''
     assistantSaveFullConversationDraft.value =
       currentAssistant.value?.saveFullConversationEnabled ?? false
+    assistantCallModeDraft.value = currentAssistant.value?.callMode ?? 'auto'
+    assistantCostModeDraft.value = currentAssistant.value?.costMode ?? 'per_token'
+    assistantMaxRecursionDepthDraft.value = currentAssistant.value?.maxRecursionDepth ?? 2
+    assistantMaxRetriesPerAgentDraft.value = currentAssistant.value?.maxRetriesPerAgent ?? 1
     topicPromptDraft.value =
       currentTopic.value?.systemPromptMode === 'override'
         ? (currentTopic.value.systemPromptOverride ?? '')
@@ -519,6 +529,22 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
     assistantSaveFullConversationDraft.value = value
   }
 
+  function setAssistantCallModeDraft(value: NormalChatCallMode): void {
+    assistantCallModeDraft.value = value
+  }
+
+  function setAssistantCostModeDraft(value: NormalChatCostMode): void {
+    assistantCostModeDraft.value = value
+  }
+
+  function setAssistantMaxRecursionDepthDraft(value: number): void {
+    assistantMaxRecursionDepthDraft.value = Number.isFinite(value) ? Math.max(0, value) : 0
+  }
+
+  function setAssistantMaxRetriesPerAgentDraft(value: number): void {
+    assistantMaxRetriesPerAgentDraft.value = Number.isFinite(value) ? Math.max(0, value) : 0
+  }
+
   function setTopicPromptDraft(value: string): void {
     topicPromptDraft.value = value
   }
@@ -570,7 +596,11 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
     const nextSnapshot = await datasource.updateAssistant({
       assistantId: currentAssistant.value.id,
       name: assistantNameDraft.value,
-      saveFullConversationEnabled: assistantSaveFullConversationDraft.value
+      saveFullConversationEnabled: assistantSaveFullConversationDraft.value,
+      callMode: assistantCallModeDraft.value,
+      costMode: assistantCostModeDraft.value,
+      maxRecursionDepth: assistantMaxRecursionDepthDraft.value,
+      maxRetriesPerAgent: assistantMaxRetriesPerAgentDraft.value
     })
 
     applyWorkspaceSnapshot(nextSnapshot)
@@ -707,6 +737,10 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
     assistantNameDraft,
     assistantDefaultPromptDraft,
     assistantSaveFullConversationDraft,
+    assistantCallModeDraft,
+    assistantCostModeDraft,
+    assistantMaxRecursionDepthDraft,
+    assistantMaxRetriesPerAgentDraft,
     topicPromptDraft,
     editingTopicId,
     topicRenameDraft,
@@ -741,6 +775,10 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
     setAssistantNameDraft,
     setAssistantDefaultPromptDraft,
     setAssistantSaveFullConversationDraft,
+    setAssistantCallModeDraft,
+    setAssistantCostModeDraft,
+    setAssistantMaxRecursionDepthDraft,
+    setAssistantMaxRetriesPerAgentDraft,
     setTopicPromptDraft,
     savePromptSettings,
     saveAssistantBasicSettings,

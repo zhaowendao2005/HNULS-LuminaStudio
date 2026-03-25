@@ -69,6 +69,10 @@ function createBootstrap(): NormalChatBootstrap {
           labelId: null,
           defaultSystemPrompt: '默认提示词',
           saveFullConversationEnabled: false,
+          callMode: 'auto',
+          costMode: 'per_token',
+          maxRecursionDepth: 2,
+          maxRetriesPerAgent: 1,
           sortOrder: 0
         }
       ],
@@ -203,12 +207,14 @@ describe('NormalChat conversation store', () => {
     })
     expect(store.currentDisplayMessages.map((message) => message.id)).toEqual(['message-1'])
 
-    streamHandler?.({
-      type: 'finish',
-      requestId: 'request-1',
-      topicId: 'topic-1',
-      assistantMessageId: null
-    })
+    if (streamHandler) {
+      streamHandler({
+        type: 'finish',
+        requestId: 'request-1',
+        topicId: 'topic-1',
+        assistantMessageId: null
+      })
+    }
 
     expect(store.isCurrentTopicStreaming).toBe(false)
   })
@@ -268,22 +274,24 @@ describe('NormalChat conversation store', () => {
     store.setDraftText('你好')
     await store.sendCurrentDraft()
 
-    streamHandler?.({
-      type: 'error',
-      requestId: 'request-1',
-      topicId: 'topic-1',
-      message: '上游请求失败：HTTP 400 Invalid JSON payload received',
-      rawErrorJson: JSON.stringify(
-        {
-          error: {
-            code: 400,
-            message: 'Invalid JSON payload received'
-          }
-        },
-        null,
-        2
-      )
-    })
+    if (streamHandler) {
+      streamHandler({
+        type: 'error',
+        requestId: 'request-1',
+        topicId: 'topic-1',
+        message: '上游请求失败：HTTP 400 Invalid JSON payload received',
+        rawErrorJson: JSON.stringify(
+          {
+            error: {
+              code: 400,
+              message: 'Invalid JSON payload received'
+            }
+          },
+          null,
+          2
+        )
+      })
+    }
 
     expect(store.currentLastError).toContain('HTTP 400')
     expect(store.currentLastErrorDetail).toContain('Invalid JSON payload received')

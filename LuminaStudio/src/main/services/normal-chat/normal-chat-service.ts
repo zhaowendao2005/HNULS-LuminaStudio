@@ -1,6 +1,9 @@
 import { randomUUID } from 'crypto'
 import type {
   NormalChatBootstrap,
+  NormalChatCallMode,
+  NormalChatCostMode,
+  NormalChatAssistant,
   NormalChatLabel,
   NormalChatTopic,
   NormalChatTopicPromptMode,
@@ -17,6 +20,10 @@ import { NormalChatRepository } from './normal-chat.repository'
 
 const log = logger.scope('NormalChatService')
 const DEFAULT_TOPIC_TITLE = '默认话题'
+const MIN_RECURSION_DEPTH = 0
+const MAX_RECURSION_DEPTH = 6
+const MIN_RETRIES_PER_AGENT = 0
+const MAX_RETRIES_PER_AGENT = 4
 
 export class NormalChatService {
   private readonly repository: NormalChatRepository
@@ -43,7 +50,7 @@ export class NormalChatService {
       this.ensureWorkspaceReady()
       const assistants = this.repository.listAssistants()
       const assistantId = randomUUID()
-      const assistant = {
+      const assistant: NormalChatAssistant = {
         id: assistantId,
         templateKey: template.key,
         name: this.buildNextAssistantName(
@@ -54,6 +61,10 @@ export class NormalChatService {
         labelId: null,
         defaultSystemPrompt: template.defaultSystemPrompt,
         saveFullConversationEnabled: false,
+        callMode: 'auto',
+        costMode: 'per_token',
+        maxRecursionDepth: 2,
+        maxRetriesPerAgent: 1,
         sortOrder: assistants.length
       }
 
@@ -70,6 +81,10 @@ export class NormalChatService {
     name?: string
     defaultSystemPrompt?: string
     saveFullConversationEnabled?: boolean
+    callMode?: NormalChatCallMode
+    costMode?: NormalChatCostMode
+    maxRecursionDepth?: number
+    maxRetriesPerAgent?: number
   }): Promise<NormalChatWorkspaceSnapshot> {
     return this.repository.runInTransaction(() => {
       this.ensureWorkspaceReady()
@@ -87,12 +102,24 @@ export class NormalChatService {
         params.saveFullConversationEnabled !== undefined
           ? params.saveFullConversationEnabled
           : assistant.saveFullConversationEnabled
+      const nextCallMode = params.callMode ?? assistant.callMode
+      const nextCostMode = params.costMode ?? assistant.costMode
+      const nextMaxRecursionDepth = this.normalizeMaxRecursionDepth(
+        params.maxRecursionDepth ?? assistant.maxRecursionDepth
+      )
+      const nextMaxRetriesPerAgent = this.normalizeMaxRetriesPerAgent(
+        params.maxRetriesPerAgent ?? assistant.maxRetriesPerAgent
+      )
 
       this.repository.updateAssistant({
         ...assistant,
         name: nextName,
         defaultSystemPrompt: nextPrompt,
-        saveFullConversationEnabled: nextSaveFullConversationEnabled
+        saveFullConversationEnabled: nextSaveFullConversationEnabled,
+        callMode: nextCallMode,
+        costMode: nextCostMode,
+        maxRecursionDepth: nextMaxRecursionDepth,
+        maxRetriesPerAgent: nextMaxRetriesPerAgent
       })
 
       log.info('Assistant updated', { assistantId: params.assistantId })
@@ -341,6 +368,10 @@ export class NormalChatService {
         labelId: null,
         defaultSystemPrompt: template.defaultSystemPrompt,
         saveFullConversationEnabled: false,
+        callMode: 'auto' as NormalChatCallMode,
+        costMode: 'per_token' as NormalChatCostMode,
+        maxRecursionDepth: 2,
+        maxRetriesPerAgent: 1,
         sortOrder: 0
       })
 
@@ -500,5 +531,13 @@ export class NormalChatService {
 
   private escapeForRegExp(value: string): string {
     return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  }
+
+  private normalizeMaxRecursionDepth(value: number): number {
+    return Math.min(MAX_RECURSION_DEPTH, Math.max(MIN_RECURSION_DEPTH, Math.floor(value)))
+  }
+
+  private normalizeMaxRetriesPerAgent(value: number): number {
+    return Math.min(MAX_RETRIES_PER_AGENT, Math.max(MIN_RETRIES_PER_AGENT, Math.floor(value)))
   }
 }

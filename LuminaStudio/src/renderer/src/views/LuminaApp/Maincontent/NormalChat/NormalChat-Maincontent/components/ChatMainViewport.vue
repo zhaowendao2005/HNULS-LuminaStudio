@@ -9,6 +9,7 @@
       @delete-message="handleDeleteMessage"
       @more-message="handleMoreMessage"
       @open-message-session="handleOpenMessageSession"
+      @open-agent-tree="handleOpenAgentTree"
     />
     <ChatComposerPanel />
     <AssistantSettingsModal />
@@ -17,6 +18,7 @@
       :request-id="conversationDetailRequestId"
       :message-id="conversationDetailMessageId"
     />
+    <AgentTreeDialog v-model:visible="agentTreeDialogOpen" :request-id="agentTreeDialogRequestId" />
     <ModelSelector
       v-model:visible="modelSelectorOpen"
       :current-provider-id="currentTopicModelProviderId"
@@ -36,6 +38,7 @@ import ChatPromptBar from './ChatPromptBar.vue'
 import ChatMessageViewport from './ChatMessageViewport.vue'
 import ChatComposerPanel from './ChatComposerPanel.vue'
 import AssistantSettingsModal from './AssistantSettingsModal.vue'
+import AgentTreeDialog from './AgentTreeDialog.vue'
 import ConversationDetailDialog from './ConversationDetailDialog.vue'
 import ModelSelector from '@renderer/components/ModelSelector'
 import type { Model, ModelProvider } from '@renderer/stores/model-config/types'
@@ -51,6 +54,8 @@ const { modelSelectorOpen, currentTopicModelProviderId, currentTopicModelId } =
 const conversationDetailOpen = ref(false)
 const conversationDetailRequestId = ref('')
 const conversationDetailMessageId = ref('')
+const agentTreeDialogOpen = ref(false)
+const agentTreeDialogRequestId = ref('')
 
 function handleModelSelect(payload: { provider: ModelProvider; model: Model }): void {
   workspaceStore.selectCurrentTopicModel(payload.provider.id, payload.model.id)
@@ -128,6 +133,15 @@ function handleOpenMessageSession(message: NormalChatConversationDisplayMessage)
   conversationDetailRequestId.value = message.requestId
   conversationDetailMessageId.value = message.id
   conversationDetailOpen.value = true
+}
+
+function handleOpenAgentTree(message: NormalChatConversationDisplayMessage): void {
+  if (!message.requestId) {
+    return
+  }
+
+  agentTreeDialogRequestId.value = message.requestId
+  agentTreeDialogOpen.value = true
 }
 </script>
 

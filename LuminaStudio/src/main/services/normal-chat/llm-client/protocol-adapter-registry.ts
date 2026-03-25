@@ -1,6 +1,3 @@
-import OpenAI from 'openai'
-import { z } from 'zod'
-import { zodToJsonSchema } from 'zod-to-json-schema'
 import { ChatAnthropic } from '@langchain/anthropic'
 import { ChatGoogle } from '@langchain/google'
 import {
@@ -28,71 +25,6 @@ export interface NormalChatResolvedProviderTarget {
 
 interface NormalChatProtocolAdapter {
   createChatModel(target: NormalChatResolvedProviderTarget): Promise<NormalChatSupportedChatModel>
-  invokeStructuredOutput?: (params: {
-    target: NormalChatResolvedProviderTarget
-    schema: unknown
-    schemaName: string
-    messages: Array<{ content?: unknown }>
-  }) => Promise<unknown>
-}
-
-function extractHttpStatusFromError(error: unknown): number | null {
-  if (!error || typeof error !== 'object') {
-    return null
-  }
-
-  const candidates = [
-    (error as { status?: unknown }).status,
-    (error as { statusCode?: unknown }).statusCode,
-    (error as { code?: unknown }).code,
-    (error as { response?: { status?: unknown; statusCode?: unknown } }).response?.status,
-    (error as { response?: { status?: unknown; statusCode?: unknown } }).response?.statusCode,
-    (error as { cause?: unknown }).cause
-  ]
-
-  for (const candidate of candidates) {
-    if (typeof candidate === 'number' && Number.isFinite(candidate)) {
-      return candidate
-    }
-    if (typeof candidate === 'string') {
-      const httpMatch = candidate.match(/HTTP[_\s:-]*(\d{3})/i)
-      if (httpMatch?.[1]) {
-        return Number(httpMatch[1])
-      }
-      if (/^\d{3}$/.test(candidate)) {
-        return Number(candidate)
-      }
-    }
-    if (candidate && typeof candidate === 'object') {
-      const nested = extractHttpStatusFromError(candidate)
-      if (nested) {
-        return nested
-      }
-    }
-  }
-
-  const rawMessage = error instanceof Error ? error.message : String(error)
-  const messageMatch = rawMessage.match(/\b(4\d{2}|5\d{2})\b/)
-  return messageMatch?.[1] ? Number(messageMatch[1]) : null
-}
-
-function formatUpstreamHttpError(error: unknown, fallbackMessage: string): string {
-  const status = extractHttpStatusFromError(error)
-  if (!status) {
-    return fallbackMessage
-  }
-
-  const rawMessage = error instanceof Error ? error.message : String(error)
-  const statusTextMatch = rawMessage.match(
-    /\b(?:HTTP\s*)?(4\d{2}|5\d{2})[:\s-]*([A-Za-z][A-Za-z\s-]{2,})?/i
-  )
-  const statusText = statusTextMatch?.[2]?.trim()
-
-  if (statusText) {
-    return `上游请求失败：HTTP ${status} ${statusText}`
-  }
-
-  return `上游请求失败：HTTP ${status}`
 }
 
 function normalizeOpenAIBaseUrl(baseUrl: string): string {
@@ -105,7 +37,6 @@ function normalizeOpenAIBaseUrl(baseUrl: string): string {
     const url = new URL(trimmed)
     let path = url.pathname.replace(/\/+$/, '')
 
-    // 用户经常直接粘完整 endpoint，这里统一回退到“根 + /v1”，交给 SDK 自己拼子路径。
     if (path.endsWith('/chat/completions')) {
       path = path.slice(0, -'/chat/completions'.length)
     } else if (path.endsWith('/chat/completion')) {
@@ -187,85 +118,6 @@ class OpenAIResponsesProtocolAdapter implements NormalChatProtocolAdapter {
       useResponsesApi: true
     })
   }
-
-  async invokeStructuredOutput(params: {
-    target: NormalChatResolvedProviderTarget
-    schema: unknown
-    schemaName: string
-    messages: Array<{ content?: unknown }>
-  }): Promise<unknown> {
-    const { target, schema, schemaName, messages } = params
-    const zodSchema = schema as z.ZodTypeAny
-    const jsonSchema = zodToJsonSchema(zodSchema, {
-      name: schemaName,
-      $refStrategy: 'none'
-    })
-
-    const input = messages
-      .map((message) => {
-        const content = message.content
-        if (typeof content === 'string') return content
-        if (Array.isArray(content)) {
-          return content
-            .map((item) => {
-              if (typeof item === 'string') return item
-              if (
-                typeof item === 'object' &&
-                item &&
-                'text' in item &&
-                typeof item.text === 'string'
-              ) {
-                return item.text
-              }
-              return ''
-            })
-            .join('')
-        }
-        return String(content ?? '')
-      })
-      .filter(Boolean)
-      .join('\n')
-
-    const client = new OpenAI({
-      apiKey: target.apiKey,
-      baseURL: normalizeOpenAIBaseUrl(target.baseUrl) || undefined,
-      defaultHeaders:
-        Object.keys(target.defaultHeaders).length > 0 ? { ...target.defaultHeaders } : undefined
-    })
-
-    try {
-      const response = await client.responses.create({
-        model: target.modelId,
-        input,
-        response_format: {
-          type: 'json_schema',
-          json_schema: {
-            name: schemaName,
-            schema: jsonSchema,
-            strict: true
-          }
-        }
-      })
-
-      const outputText = (response as { output_text?: string }).output_text ?? ''
-      if (!outputText) {
-        throw new Error('Structured output is empty')
-      }
-
-      return JSON.parse(outputText)
-    } catch (error) {
-      const normalized = formatUpstreamHttpError(
-        error,
-        error instanceof Error ? error.message : String(error)
-      )
-      if (normalized !== (error instanceof Error ? error.message : String(error))) {
-        throw new Error(normalized)
-      }
-
-      const message = error instanceof Error ? error.message : String(error)
-      throw new Error(`Failed to parse structured output JSON: ${message}`)
-    }
-  }
 }
 
 class AnthropicProtocolAdapter implements NormalChatProtocolAdapter {
@@ -317,22 +169,6 @@ export class NormalChatProtocolAdapterRegistry {
     target: NormalChatResolvedProviderTarget
   ): Promise<NormalChatSupportedChatModel> {
     return this.requireAdapter(target.protocol).createChatModel(target)
-  }
-
-  async invokeStructuredOutput(params: {
-    target: NormalChatResolvedProviderTarget
-    schema: unknown
-    schemaName: string
-    messages: Array<{ content?: unknown }>
-  }): Promise<unknown> {
-    const adapter = this.requireAdapter(params.target.protocol)
-    if (!adapter.invokeStructuredOutput) {
-      throw new Error(
-        `invokeStructuredOutput only supports openai-response, got ${params.target.protocol}`
-      )
-    }
-
-    return adapter.invokeStructuredOutput(params)
   }
 
   private requireAdapter(protocol: ModelProviderProtocol): NormalChatProtocolAdapter {

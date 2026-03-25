@@ -120,6 +120,82 @@
                   </p>
                 </div>
               </div>
+
+              <div class="rounded-2xl border border-gray-100 bg-white p-4">
+                <div class="mb-4">
+                  <h3 class="text-[14px] font-semibold text-gray-900">高级运行配置</h3>
+                  <p class="mt-1 text-[13px] leading-6 text-gray-500">
+                    这些配置会直接影响 normal-chat 的递归派发、规划方式和失败收口策略。
+                  </p>
+                </div>
+
+                <div class="grid gap-4 md:grid-cols-2">
+                  <label class="block">
+                    <span class="mb-2 block text-[13px] font-medium text-gray-700">Call Mode</span>
+                    <select
+                      v-model="assistantCallModeModel"
+                      class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-[14px] text-gray-800 outline-none focus:ring-1 focus:ring-emerald-500/50"
+                    >
+                      <option value="auto">auto</option>
+                      <option value="fast">fast</option>
+                      <option value="slow">slow</option>
+                    </select>
+                    <p class="mt-2 text-[12px] leading-5 text-gray-500">
+                      `auto` 会根据成本模式和任务复杂度自动切换，`fast` 偏一次成型，`slow`
+                      偏两段规划。
+                    </p>
+                  </label>
+
+                  <label class="block">
+                    <span class="mb-2 block text-[13px] font-medium text-gray-700">Cost Mode</span>
+                    <select
+                      v-model="assistantCostModeModel"
+                      class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-[14px] text-gray-800 outline-none focus:ring-1 focus:ring-emerald-500/50"
+                    >
+                      <option value="per_token">per_token</option>
+                      <option value="per_call">per_call</option>
+                    </select>
+                    <p class="mt-2 text-[12px] leading-5 text-gray-500">
+                      `per_call` 更偏少轮数，`per_token` 允许更稳的 slow plan 和更深递归。
+                    </p>
+                  </label>
+
+                  <label class="block">
+                    <span class="mb-2 block text-[13px] font-medium text-gray-700">
+                      Max Recursion Depth
+                    </span>
+                    <input
+                      v-model.number="assistantMaxRecursionDepthModel"
+                      class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-[14px] text-gray-800 outline-none focus:ring-1 focus:ring-emerald-500/50"
+                      min="0"
+                      max="6"
+                      step="1"
+                      type="number"
+                    />
+                    <p class="mt-2 text-[12px] leading-5 text-gray-500">
+                      允许 director 派发逻辑子 agent 的最大深度，超限后必须在当前层直接收口。
+                    </p>
+                  </label>
+
+                  <label class="block">
+                    <span class="mb-2 block text-[13px] font-medium text-gray-700">
+                      Max Retries Per Agent
+                    </span>
+                    <input
+                      v-model.number="assistantMaxRetriesPerAgentModel"
+                      class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-[14px] text-gray-800 outline-none focus:ring-1 focus:ring-emerald-500/50"
+                      min="0"
+                      max="4"
+                      step="1"
+                      type="number"
+                    />
+                    <p class="mt-2 text-[12px] leading-5 text-gray-500">
+                      单个 agent 在当前层原地重试的最大次数，超限后会交给父级决定 repair 或
+                      fallback。
+                    </p>
+                  </label>
+                </div>
+              </div>
             </div>
           </template>
 
@@ -212,6 +288,34 @@ const assistantSaveFullConversationModel = computed({
   }
 })
 
+const assistantCallModeModel = computed({
+  get: () => workspaceStore.assistantCallModeDraft,
+  set: (value: 'fast' | 'slow' | 'auto') => {
+    workspaceStore.setAssistantCallModeDraft(value)
+  }
+})
+
+const assistantCostModeModel = computed({
+  get: () => workspaceStore.assistantCostModeDraft,
+  set: (value: 'per_call' | 'per_token') => {
+    workspaceStore.setAssistantCostModeDraft(value)
+  }
+})
+
+const assistantMaxRecursionDepthModel = computed({
+  get: () => workspaceStore.assistantMaxRecursionDepthDraft,
+  set: (value: number) => {
+    workspaceStore.setAssistantMaxRecursionDepthDraft(value)
+  }
+})
+
+const assistantMaxRetriesPerAgentModel = computed({
+  get: () => workspaceStore.assistantMaxRetriesPerAgentDraft,
+  set: (value: number) => {
+    workspaceStore.setAssistantMaxRetriesPerAgentDraft(value)
+  }
+})
+
 const promptTextModel = computed({
   get: () =>
     workspaceStore.promptEditorScope === 'assistant'
@@ -253,6 +357,22 @@ watch(
 
 watch(
   () => assistantSaveFullConversationModel.value,
+  () => {
+    if (!showAssistantBasicPage.value) {
+      return
+    }
+
+    void workspaceStore.updateAssistantBasicSettings()
+  }
+)
+
+watch(
+  () => [
+    assistantCallModeModel.value,
+    assistantCostModeModel.value,
+    assistantMaxRecursionDepthModel.value,
+    assistantMaxRetriesPerAgentModel.value
+  ],
   () => {
     if (!showAssistantBasicPage.value) {
       return

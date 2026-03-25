@@ -4,6 +4,8 @@ import type {
   NormalChatConversationTurnDetail,
   NormalChatConversationTurnRequestPayload,
   NormalChatConversationTurnResponsePayload,
+  NormalChatCallMode,
+  NormalChatCostMode,
   NormalChatFunctionCallMessagePart,
   NormalChatLabel,
   NormalChatAssistant,
@@ -25,6 +27,10 @@ interface AssistantRow {
   label_id: string | null
   default_system_prompt: string
   save_full_conversation_enabled: number
+  call_mode: NormalChatCallMode
+  cost_mode: NormalChatCostMode
+  max_recursion_depth: number
+  max_retries_per_agent: number
   sort_order: number
 }
 
@@ -158,6 +164,10 @@ export class NormalChatRepository {
             label_id,
             default_system_prompt,
             save_full_conversation_enabled,
+            call_mode,
+            cost_mode,
+            max_recursion_depth,
+            max_retries_per_agent,
             sort_order
           FROM normal_chat_assistants
           ORDER BY sort_order ASC, created_at ASC
@@ -173,6 +183,10 @@ export class NormalChatRepository {
       labelId: row.label_id,
       defaultSystemPrompt: row.default_system_prompt,
       saveFullConversationEnabled: Boolean(row.save_full_conversation_enabled),
+      callMode: row.call_mode,
+      costMode: row.cost_mode,
+      maxRecursionDepth: row.max_recursion_depth,
+      maxRetriesPerAgent: row.max_retries_per_agent,
       sortOrder: row.sort_order
     }))
   }
@@ -189,6 +203,10 @@ export class NormalChatRepository {
             label_id,
             default_system_prompt,
             save_full_conversation_enabled,
+            call_mode,
+            cost_mode,
+            max_recursion_depth,
+            max_retries_per_agent,
             sort_order
           FROM normal_chat_assistants
           WHERE id = ?
@@ -208,6 +226,10 @@ export class NormalChatRepository {
       labelId: row.label_id,
       defaultSystemPrompt: row.default_system_prompt,
       saveFullConversationEnabled: Boolean(row.save_full_conversation_enabled),
+      callMode: row.call_mode,
+      costMode: row.cost_mode,
+      maxRecursionDepth: row.max_recursion_depth,
+      maxRetriesPerAgent: row.max_retries_per_agent,
       sortOrder: row.sort_order
     }
   }
@@ -224,8 +246,12 @@ export class NormalChatRepository {
             label_id,
             default_system_prompt,
             save_full_conversation_enabled,
+            call_mode,
+            cost_mode,
+            max_recursion_depth,
+            max_retries_per_agent,
             sort_order
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `
       )
       .run(
@@ -236,6 +262,10 @@ export class NormalChatRepository {
         assistant.labelId,
         assistant.defaultSystemPrompt,
         assistant.saveFullConversationEnabled ? 1 : 0,
+        assistant.callMode,
+        assistant.costMode,
+        assistant.maxRecursionDepth,
+        assistant.maxRetriesPerAgent,
         assistant.sortOrder
       )
   }
@@ -250,6 +280,10 @@ export class NormalChatRepository {
             label_id = ?,
             default_system_prompt = ?,
             save_full_conversation_enabled = ?,
+            call_mode = ?,
+            cost_mode = ?,
+            max_recursion_depth = ?,
+            max_retries_per_agent = ?,
             updated_at = datetime('now')
           WHERE id = ?
         `
@@ -259,6 +293,10 @@ export class NormalChatRepository {
         assistant.labelId,
         assistant.defaultSystemPrompt,
         assistant.saveFullConversationEnabled ? 1 : 0,
+        assistant.callMode,
+        assistant.costMode,
+        assistant.maxRecursionDepth,
+        assistant.maxRetriesPerAgent,
         assistant.id
       )
   }

@@ -80,6 +80,11 @@
               description="包含流式 chunks、最终文本、结束状态和错误信息。"
               :value="detail?.responsePayload ?? {}"
             />
+            <AgentTraceJsonSection
+              title="Agent Tree JSON"
+              description="保存完整会话时，递归式 multi-agent 运行树会直接落在 turn trace 中。"
+              :value="detail?.responsePayload?.agentTree ?? null"
+            />
             <ConversationDetailRawSection
               title="原始消息快照"
               description="这次 turn 在数据库中的消息记录。"
@@ -168,6 +173,12 @@
                 </div>
               </div>
             </section>
+
+            <AgentTraceJsonSection
+              title="Agent Tree 回放"
+              description="这里更偏离线回放视图，实时运行中的树请在主消息区状态条打开 Agent Tree Dialog。"
+              :value="detail?.responsePayload?.agentTree ?? null"
+            />
           </div>
         </template>
       </div>
@@ -181,6 +192,7 @@ import { X } from 'lucide-vue-next'
 import { useNormalChatConversationStore } from '@renderer/stores/normal-chat/conversation/conversation.store'
 import { useNormalChatWorkspaceStore } from '@renderer/stores/normal-chat/workspace/workspace.store'
 import ConversationDetailRawSection from './ConversationDetailRawSection.vue'
+import AgentTraceJsonSection from './AgentTraceJsonSection.vue'
 import ChatMessageParts from './ChatMessageParts.vue'
 import type { NormalChatConversationDisplayMessage } from '@renderer/stores/normal-chat/conversation/conversation.types'
 import type { NormalChatConversationTurnDetail } from '@preload/types'
@@ -278,16 +290,16 @@ const rawMeta = computed(() => {
 })
 
 const executionSummaryText = computed(() => {
-  const execution = detail.value?.responsePayload?.execution
-  if (!execution) {
+  const tree = detail.value?.responsePayload?.agentTree
+  if (!tree) {
     return '无执行记录'
   }
 
-  const callCount = execution.rounds.reduce((sum, round) => sum + round.toolCalls.length, 0)
-  const finalModeLabel =
-    execution.finalMode === 'answer' ? 'answer' : execution.finalMode === 'tool' ? 'tool' : 'error'
+  const agents = Object.values(tree.agents)
+  const helperCallCount = agents.reduce((sum, agent) => sum + agent.helperInvocations.length, 0)
+  const maxDepth = agents.reduce((depth, agent) => Math.max(depth, agent.depth), 0)
 
-  return `轮次 ${execution.rounds.length} / 上限 ${execution.maxRounds}，工具调用 ${callCount} 次，最终模式 ${finalModeLabel}，已完成 ${execution.completed ? '是' : '否'}，已中止 ${execution.aborted ? '是' : '否'}`
+  return `agent ${agents.length} 个，helper 调用 ${helperCallCount} 次，最大深度 ${maxDepth}，fallback ${tree.fallbackTriggered ? '是' : '否'}`
 })
 
 async function loadDetail(): Promise<void> {

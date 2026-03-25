@@ -31,6 +31,10 @@ function createBootstrap(): NormalChatBootstrap {
           labelId: null,
           defaultSystemPrompt: '默认提示词',
           saveFullConversationEnabled: false,
+          callMode: 'auto',
+          costMode: 'per_token',
+          maxRecursionDepth: 2,
+          maxRetriesPerAgent: 1,
           sortOrder: 0
         }
       ],
@@ -360,6 +364,10 @@ describe('NormalChat workspace store', () => {
         labelId: null,
         defaultSystemPrompt: '默认提示词',
         saveFullConversationEnabled: false,
+        callMode: 'auto',
+        costMode: 'per_token',
+        maxRecursionDepth: 2,
+        maxRetriesPerAgent: 1,
         sortOrder: 0
       },
       {
@@ -370,6 +378,10 @@ describe('NormalChat workspace store', () => {
         labelId: 'label-1',
         defaultSystemPrompt: '学习提示词',
         saveFullConversationEnabled: false,
+        callMode: 'auto',
+        costMode: 'per_token',
+        maxRecursionDepth: 2,
+        maxRetriesPerAgent: 1,
         sortOrder: 1
       }
     ]

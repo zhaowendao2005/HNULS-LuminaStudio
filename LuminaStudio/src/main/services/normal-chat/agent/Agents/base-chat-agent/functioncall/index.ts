@@ -48,10 +48,8 @@ export function createBaseChatAgentFunctioncallSuite(
             depth: context.depth,
             decisionReason: context.decisionReason
           })
-        default: {
-          const exhaustiveCheck: never = call.toolName
-          throw new Error(`Unsupported tool call: ${exhaustiveCheck}`)
-        }
+        default:
+          throw new Error(`Unsupported tool call: ${String(call.toolName)}`)
       }
     }
   }

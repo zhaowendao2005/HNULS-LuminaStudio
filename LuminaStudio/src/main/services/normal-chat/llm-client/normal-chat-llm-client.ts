@@ -37,23 +37,6 @@ export class NormalChatLlmClient {
     return this.adapterRegistry.createChatModel(target)
   }
 
-  async invokeStructuredOutput(params: {
-    providerId: string
-    modelId: string
-    schema: unknown
-    schemaName: string
-    messages: Array<{ content?: unknown }>
-    signal: AbortSignal
-  }): Promise<unknown> {
-    const target = await this.resolveChatTarget(params.providerId, params.modelId, params.signal)
-    return this.adapterRegistry.invokeStructuredOutput({
-      target,
-      schema: params.schema,
-      schemaName: params.schemaName,
-      messages: params.messages
-    })
-  }
-
   async getProviderProfile(
     providerId: string,
     signal: AbortSignal
@@ -70,6 +53,14 @@ export class NormalChatLlmClient {
       protocol: provider.protocol,
       baseUrl: provider.baseUrl
     }
+  }
+
+  async getProviderProtocol(
+    providerId: string,
+    signal: AbortSignal
+  ): Promise<ModelProviderProtocol | null> {
+    const profile = await this.getProviderProfile(providerId, signal)
+    return profile?.protocol ?? null
   }
 
   async resolveChatTarget(
