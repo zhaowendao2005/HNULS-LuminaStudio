@@ -121,6 +121,36 @@
                 </div>
               </div>
 
+              <div class="rounded-2xl border border-gray-100 bg-gray-50/60 p-4">
+                <div class="flex items-start justify-between gap-4">
+                  <div class="min-w-0">
+                    <h3 class="text-[14px] font-semibold text-gray-900">助手默认流式模式</h3>
+                    <p class="mt-1 text-[13px] leading-6 text-gray-500">
+                      控制这位助手默认是否以流式方式请求最终正文。当前话题如果没单独覆写，会继承这里。
+                    </p>
+                  </div>
+
+                  <button
+                    class="relative mt-0.5 inline-flex h-6 w-11 items-center rounded-full border transition-colors duration-200"
+                    :class="
+                      assistantStreamingEnabledModel
+                        ? 'border-emerald-500 bg-emerald-500'
+                        : 'border-gray-300 bg-gray-200'
+                    "
+                    :aria-checked="assistantStreamingEnabledModel"
+                    aria-label="助手默认流式模式开关"
+                    role="switch"
+                    type="button"
+                    @click="assistantStreamingEnabledModel = !assistantStreamingEnabledModel"
+                  >
+                    <span
+                      class="inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200"
+                      :class="assistantStreamingEnabledModel ? 'translate-x-5' : 'translate-x-0'"
+                    />
+                  </button>
+                </div>
+              </div>
+
               <div class="rounded-2xl border border-gray-100 bg-white p-4">
                 <div class="mb-4">
                   <h3 class="text-[14px] font-semibold text-gray-900">高级运行配置</h3>
@@ -216,6 +246,92 @@
             </div>
 
             <div class="flex min-h-0 flex-1 flex-col">
+              <div
+                v-if="workspaceStore.promptEditorScope === 'topic'"
+                class="mb-4 rounded-2xl border border-gray-100 bg-gray-50/60 p-4"
+              >
+                <div class="flex items-center justify-between gap-4">
+                  <div class="min-w-0">
+                    <h3 class="text-[14px] font-semibold text-gray-900">当前话题流式模式</h3>
+                    <p class="mt-1 text-[13px] leading-6 text-gray-500">
+                      话题可以继承助手默认流式模式，也可以单独覆写。继承时使用淡灰色展示。
+                    </p>
+                  </div>
+                </div>
+
+                <div class="mt-4 flex items-center gap-3">
+                  <button
+                    class="rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors"
+                    :class="
+                      topicStreamingModeModel === 'inherit'
+                        ? 'bg-gray-200 text-gray-600'
+                        : 'bg-white text-gray-500'
+                    "
+                    type="button"
+                    @click="topicStreamingModeModel = 'inherit'"
+                  >
+                    继承助手配置
+                  </button>
+                  <button
+                    class="rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors"
+                    :class="
+                      topicStreamingModeModel === 'override'
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : 'bg-white text-gray-500'
+                    "
+                    type="button"
+                    @click="topicStreamingModeModel = 'override'"
+                  >
+                    单独配置
+                  </button>
+                </div>
+
+                <div
+                  class="mt-4 flex items-center justify-between gap-4 rounded-xl bg-white px-3 py-3"
+                >
+                  <div class="min-w-0">
+                    <p
+                      class="text-[13px] font-medium"
+                      :class="
+                        topicStreamingModeModel === 'inherit' ? 'text-gray-400' : 'text-gray-800'
+                      "
+                    >
+                      {{
+                        topicStreamingModeModel === 'inherit'
+                          ? `继承助手：${assistantStreamingEnabledModel ? '开启流式' : '关闭流式'}`
+                          : topicStreamingEnabledOverrideModel
+                            ? '当前话题已开启流式'
+                            : '当前话题已关闭流式'
+                      }}
+                    </p>
+                  </div>
+                  <button
+                    class="relative inline-flex h-6 w-11 items-center rounded-full border transition-colors duration-200"
+                    :class="
+                      topicStreamingModeModel === 'inherit'
+                        ? 'border-gray-300 bg-gray-200'
+                        : topicStreamingEnabledOverrideModel
+                          ? 'border-emerald-500 bg-emerald-500'
+                          : 'border-gray-300 bg-gray-200'
+                    "
+                    :disabled="topicStreamingModeModel === 'inherit'"
+                    type="button"
+                    @click="
+                      topicStreamingEnabledOverrideModel = !topicStreamingEnabledOverrideModel
+                    "
+                  >
+                    <span
+                      class="inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200"
+                      :class="
+                        topicStreamingModeModel === 'override' && topicStreamingEnabledOverrideModel
+                          ? 'translate-x-5'
+                          : 'translate-x-0'
+                      "
+                    />
+                  </button>
+                </div>
+              </div>
+
               <div class="mb-2 flex items-center gap-1.5">
                 <label class="text-[14px] font-semibold text-gray-900">
                   {{ workspaceStore.currentSettingsLabel }}
@@ -288,6 +404,13 @@ const assistantSaveFullConversationModel = computed({
   }
 })
 
+const assistantStreamingEnabledModel = computed({
+  get: () => workspaceStore.assistantStreamingEnabledDraft,
+  set: (value: boolean) => {
+    workspaceStore.setAssistantStreamingEnabledDraft(value)
+  }
+})
+
 const assistantCallModeModel = computed({
   get: () => workspaceStore.assistantCallModeDraft,
   set: (value: 'fast' | 'slow' | 'auto') => {
@@ -313,6 +436,20 @@ const assistantMaxRetriesPerAgentModel = computed({
   get: () => workspaceStore.assistantMaxRetriesPerAgentDraft,
   set: (value: number) => {
     workspaceStore.setAssistantMaxRetriesPerAgentDraft(value)
+  }
+})
+
+const topicStreamingModeModel = computed({
+  get: () => workspaceStore.topicStreamingModeDraft,
+  set: (value: 'inherit' | 'override') => {
+    workspaceStore.setTopicStreamingModeDraft(value)
+  }
+})
+
+const topicStreamingEnabledOverrideModel = computed({
+  get: () => workspaceStore.topicStreamingEnabledOverrideDraft ?? false,
+  set: (value: boolean) => {
+    workspaceStore.setTopicStreamingEnabledOverrideDraft(value)
   }
 })
 
@@ -367,6 +504,17 @@ watch(
 )
 
 watch(
+  () => assistantStreamingEnabledModel.value,
+  () => {
+    if (!showAssistantBasicPage.value) {
+      return
+    }
+
+    void workspaceStore.updateAssistantBasicSettings()
+  }
+)
+
+watch(
   () => [
     assistantCallModeModel.value,
     assistantCostModeModel.value,
@@ -379,6 +527,17 @@ watch(
     }
 
     void workspaceStore.updateAssistantBasicSettings()
+  }
+)
+
+watch(
+  () => [topicStreamingModeModel.value, topicStreamingEnabledOverrideModel.value],
+  () => {
+    if (workspaceStore.promptEditorScope !== 'topic') {
+      return
+    }
+
+    void workspaceStore.saveTopicStreamingSettings()
   }
 )
 </script>

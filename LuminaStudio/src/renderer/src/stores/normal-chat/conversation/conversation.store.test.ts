@@ -69,6 +69,7 @@ function createBootstrap(): NormalChatBootstrap {
           labelId: null,
           defaultSystemPrompt: '默认提示词',
           saveFullConversationEnabled: false,
+          streamingEnabled: true,
           callMode: 'auto',
           costMode: 'per_token',
           maxRecursionDepth: 2,
@@ -84,6 +85,8 @@ function createBootstrap(): NormalChatBootstrap {
             title: '默认话题',
             systemPromptMode: 'inherit',
             systemPromptOverride: null,
+            streamingMode: 'inherit',
+            streamingEnabledOverride: null,
             sortOrder: 0
           }
         ]
@@ -171,7 +174,8 @@ describe('NormalChat conversation store', () => {
       renameTopic: vi.fn(),
       deleteTopic: vi.fn(),
       setActiveTopic: vi.fn(),
-      updateTopicPrompt: vi.fn()
+      updateTopicPrompt: vi.fn(),
+      updateTopicStreaming: vi.fn()
     })
 
     setNormalChatConversationDatasourceForTesting({
@@ -207,8 +211,9 @@ describe('NormalChat conversation store', () => {
     })
     expect(store.currentDisplayMessages.map((message) => message.id)).toEqual(['message-1'])
 
-    if (streamHandler) {
-      streamHandler({
+    const finishHandler = streamHandler
+    if (finishHandler) {
+      ;(finishHandler as (event: NormalChatConversationStreamEvent) => void)({
         type: 'finish',
         requestId: 'request-1',
         topicId: 'topic-1',
@@ -235,7 +240,8 @@ describe('NormalChat conversation store', () => {
       renameTopic: vi.fn(),
       deleteTopic: vi.fn(),
       setActiveTopic: vi.fn(),
-      updateTopicPrompt: vi.fn()
+      updateTopicPrompt: vi.fn(),
+      updateTopicStreaming: vi.fn()
     })
 
     setNormalChatConversationDatasourceForTesting({
@@ -274,8 +280,9 @@ describe('NormalChat conversation store', () => {
     store.setDraftText('你好')
     await store.sendCurrentDraft()
 
-    if (streamHandler) {
-      streamHandler({
+    const errorHandler = streamHandler
+    if (errorHandler) {
+      ;(errorHandler as (event: NormalChatConversationStreamEvent) => void)({
         type: 'error',
         requestId: 'request-1',
         topicId: 'topic-1',

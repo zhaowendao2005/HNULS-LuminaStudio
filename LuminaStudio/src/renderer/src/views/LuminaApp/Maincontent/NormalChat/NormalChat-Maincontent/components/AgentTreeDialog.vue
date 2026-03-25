@@ -43,7 +43,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { X } from 'lucide-vue-next'
-import { useNormalChatAgentTraceStore } from '@renderer/stores/normal-chat/agent-trace/store'
+import { useNormalChatRuntimeTraceStore } from '@renderer/stores/normal-chat/runtime-trace/store'
 import AgentStatusBarBlock from './AgentStatusBarBlock.vue'
 import AgentTreeNode from './AgentTreeNode.vue'
 
@@ -56,7 +56,7 @@ const emit = defineEmits<{
   'update:visible': [value: boolean]
 }>()
 
-const agentTraceStore = useNormalChatAgentTraceStore()
+const agentTraceStore = useNormalChatRuntimeTraceStore()
 
 const tree = computed(() => {
   return props.requestId ? agentTraceStore.getTreeByRequestId(props.requestId) : null

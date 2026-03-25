@@ -61,6 +61,7 @@ export class NormalChatService {
         labelId: null,
         defaultSystemPrompt: template.defaultSystemPrompt,
         saveFullConversationEnabled: false,
+        streamingEnabled: true,
         callMode: 'auto',
         costMode: 'per_token',
         maxRecursionDepth: 2,
@@ -81,6 +82,7 @@ export class NormalChatService {
     name?: string
     defaultSystemPrompt?: string
     saveFullConversationEnabled?: boolean
+    streamingEnabled?: boolean
     callMode?: NormalChatCallMode
     costMode?: NormalChatCostMode
     maxRecursionDepth?: number
@@ -102,6 +104,8 @@ export class NormalChatService {
         params.saveFullConversationEnabled !== undefined
           ? params.saveFullConversationEnabled
           : assistant.saveFullConversationEnabled
+      const nextStreamingEnabled =
+        params.streamingEnabled !== undefined ? params.streamingEnabled : assistant.streamingEnabled
       const nextCallMode = params.callMode ?? assistant.callMode
       const nextCostMode = params.costMode ?? assistant.costMode
       const nextMaxRecursionDepth = this.normalizeMaxRecursionDepth(
@@ -116,6 +120,7 @@ export class NormalChatService {
         name: nextName,
         defaultSystemPrompt: nextPrompt,
         saveFullConversationEnabled: nextSaveFullConversationEnabled,
+        streamingEnabled: nextStreamingEnabled,
         callMode: nextCallMode,
         costMode: nextCostMode,
         maxRecursionDepth: nextMaxRecursionDepth,
@@ -312,6 +317,29 @@ export class NormalChatService {
     })
   }
 
+  async updateTopicStreaming(params: {
+    assistantId: string
+    topicId: string
+    mode: 'inherit' | 'override'
+    streamingEnabledOverride?: boolean | null
+  }): Promise<NormalChatWorkspaceSnapshot> {
+    return this.repository.runInTransaction(() => {
+      this.ensureWorkspaceReady()
+      const topic = this.requireTopic(params.topicId, params.assistantId)
+      const streamingEnabledOverride =
+        params.mode === 'override' ? Boolean(params.streamingEnabledOverride) : null
+
+      this.repository.updateTopic({
+        ...topic,
+        streamingMode: params.mode,
+        streamingEnabledOverride
+      })
+
+      this.repository.upsertWorkspaceState(params.assistantId, params.topicId)
+      return this.buildWorkspaceSnapshot()
+    })
+  }
+
   async getConversationTurnDetail(
     requestId: string
   ): Promise<NormalChatConversationTurnDetail | null> {
@@ -368,6 +396,7 @@ export class NormalChatService {
         labelId: null,
         defaultSystemPrompt: template.defaultSystemPrompt,
         saveFullConversationEnabled: false,
+        streamingEnabled: true,
         callMode: 'auto' as NormalChatCallMode,
         costMode: 'per_token' as NormalChatCostMode,
         maxRecursionDepth: 2,
@@ -436,6 +465,8 @@ export class NormalChatService {
       title: this.buildNextTopicTitle(topics.map((topic) => topic.title)),
       systemPromptMode: 'inherit',
       systemPromptOverride: null,
+      streamingMode: 'inherit',
+      streamingEnabledOverride: null,
       sortOrder: topics.length
     }
   }

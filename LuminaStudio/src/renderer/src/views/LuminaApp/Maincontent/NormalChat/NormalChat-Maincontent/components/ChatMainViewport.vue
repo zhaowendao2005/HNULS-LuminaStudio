@@ -10,6 +10,7 @@
       @more-message="handleMoreMessage"
       @open-message-session="handleOpenMessageSession"
       @open-agent-tree="handleOpenAgentTree"
+      @open-functioncall-detail="handleOpenFunctionCallDetail"
     />
     <ChatComposerPanel />
     <AssistantSettingsModal />
@@ -17,6 +18,7 @@
       v-model:visible="conversationDetailOpen"
       :request-id="conversationDetailRequestId"
       :message-id="conversationDetailMessageId"
+      :focus-call-id="conversationDetailFocusCallId"
     />
     <AgentTreeDialog v-model:visible="agentTreeDialogOpen" :request-id="agentTreeDialogRequestId" />
     <ModelSelector
@@ -54,6 +56,7 @@ const { modelSelectorOpen, currentTopicModelProviderId, currentTopicModelId } =
 const conversationDetailOpen = ref(false)
 const conversationDetailRequestId = ref('')
 const conversationDetailMessageId = ref('')
+const conversationDetailFocusCallId = ref('')
 const agentTreeDialogOpen = ref(false)
 const agentTreeDialogRequestId = ref('')
 
@@ -132,6 +135,7 @@ function handleOpenMessageSession(message: NormalChatConversationDisplayMessage)
 
   conversationDetailRequestId.value = message.requestId
   conversationDetailMessageId.value = message.id
+  conversationDetailFocusCallId.value = ''
   conversationDetailOpen.value = true
 }
 
@@ -142,6 +146,20 @@ function handleOpenAgentTree(message: NormalChatConversationDisplayMessage): voi
 
   agentTreeDialogRequestId.value = message.requestId
   agentTreeDialogOpen.value = true
+}
+
+function handleOpenFunctionCallDetail(payload: {
+  message: NormalChatConversationDisplayMessage
+  callId: string
+}): void {
+  if (!payload.message.requestId) {
+    return
+  }
+
+  conversationDetailRequestId.value = payload.message.requestId
+  conversationDetailMessageId.value = payload.message.id
+  conversationDetailFocusCallId.value = payload.callId
+  conversationDetailOpen.value = true
 }
 </script>
 

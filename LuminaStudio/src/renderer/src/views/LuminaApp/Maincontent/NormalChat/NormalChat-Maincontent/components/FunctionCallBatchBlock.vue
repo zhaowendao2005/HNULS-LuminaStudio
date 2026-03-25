@@ -21,11 +21,23 @@
           {{ statusLabel }}
         </span>
         <button
-          class="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-medium text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-800"
+          class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-800"
           type="button"
+          title="查看批次详情"
           @click="emit('view-detail')"
         >
-          查看详情
+          <svg
+            class="h-4 w-4"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+          >
+            <path d="M4 5h16" />
+            <path d="M4 12h10" />
+            <path d="M4 19h16" />
+            <path d="M17 9l3 3-3 3" />
+          </svg>
         </button>
       </div>
     </div>

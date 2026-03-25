@@ -18,6 +18,7 @@ import type {
   NormalChatSetActiveAssistantRequest,
   NormalChatSetActiveTopicRequest,
   NormalChatUpdateAssistantRequest,
+  NormalChatUpdateTopicStreamingRequest,
   NormalChatUpdateTopicPromptRequest
 } from '../types'
 
@@ -61,5 +62,7 @@ export const normalChatAPI: NormalChatAPI = {
   setActiveTopic: (request: NormalChatSetActiveTopicRequest) =>
     ipcRenderer.invoke('normalChat:setActiveTopic', request),
   updateTopicPrompt: (request: NormalChatUpdateTopicPromptRequest) =>
-    ipcRenderer.invoke('normalChat:updateTopicPrompt', request)
+    ipcRenderer.invoke('normalChat:updateTopicPrompt', request),
+  updateTopicStreaming: (request: NormalChatUpdateTopicStreamingRequest) =>
+    ipcRenderer.invoke('normalChat:updateTopicStreaming', request)
 }

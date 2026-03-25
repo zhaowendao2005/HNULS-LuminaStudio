@@ -15,21 +15,22 @@ import type {
   NormalChatSetActiveAssistantRequest,
   NormalChatSetActiveTopicRequest,
   NormalChatUpdateAssistantRequest,
+  NormalChatUpdateTopicStreamingRequest,
   NormalChatUpdateTopicPromptRequest
 } from '@preload/types'
 import { BaseIPCHandler } from './base-handler'
 import type { NormalChatService } from '../services/normal-chat'
-import type { NormalChatConversationService } from '../services/normal-chat/runtime/conversation-runtime'
+import type { NormalChatConversationRuntimeService } from '../services/normal-chat/runtime/conversation-runtime'
 
 export class NormalChatIPCHandler extends BaseIPCHandler {
   constructor(
     private readonly normalChatService: NormalChatService,
-    private readonly normalChatConversationService: NormalChatConversationService
+    private readonly normalChatConversationRuntimeService: NormalChatConversationRuntimeService
   ) {
     super()
     this.register()
 
-    this.normalChatConversationService.onStream((event) => {
+    this.normalChatConversationRuntimeService.onStream((event) => {
       this.broadcastToAll('normalChat:stream', event)
     })
   }
@@ -55,7 +56,7 @@ export class NormalChatIPCHandler extends BaseIPCHandler {
 
     return {
       success: true,
-      data: await this.normalChatConversationService.getConversation(request.topicId)
+      data: await this.normalChatConversationRuntimeService.getConversation(request.topicId)
     }
   }
 
@@ -253,6 +254,20 @@ export class NormalChatIPCHandler extends BaseIPCHandler {
     }
   }
 
+  async handleUpdateTopicStreaming(
+    _event: unknown,
+    request: NormalChatUpdateTopicStreamingRequest
+  ): Promise<{ success: true; data: unknown } | { success: false; error: string }> {
+    if (!request?.assistantId || !request?.topicId || !request?.mode) {
+      return { success: false, error: 'Missing assistantId, topicId or mode' }
+    }
+
+    return {
+      success: true,
+      data: await this.normalChatService.updateTopicStreaming(request)
+    }
+  }
+
   async handleSendMessage(
     _event: unknown,
     request: NormalChatSendMessageRequest
@@ -266,7 +281,7 @@ export class NormalChatIPCHandler extends BaseIPCHandler {
 
     return {
       success: true,
-      data: await this.normalChatConversationService.sendMessage(request)
+      data: await this.normalChatConversationRuntimeService.sendMessage(request)
     }
   }
 
@@ -278,7 +293,7 @@ export class NormalChatIPCHandler extends BaseIPCHandler {
       return { success: false, error: 'Missing requestId' }
     }
 
-    await this.normalChatConversationService.abort(request.requestId)
+    await this.normalChatConversationRuntimeService.abort(request.requestId)
     return { success: true, data: undefined }
   }
 }

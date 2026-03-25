@@ -3,12 +3,12 @@ import { defineStore } from 'pinia'
 import type {
   NormalChatAgentStatusSummary,
   NormalChatAgentTree,
-  NormalChatConversationAgentTreeUpsertEvent,
+  NormalChatConversationRuntimeTraceUpsertEvent,
   NormalChatConversationTurnDetail
 } from '@preload/types'
-import type { NormalChatAgentTraceState } from './types'
+import type { NormalChatRuntimeTraceState } from './types'
 
-function createEmptyState(): NormalChatAgentTraceState {
+function createEmptyState(): NormalChatRuntimeTraceState {
   return {
     treesByRequestId: {},
     summariesByRequestId: {},
@@ -32,20 +32,30 @@ function buildSummaryFromTree(
   }
 }
 
-export const useNormalChatAgentTraceStore = defineStore('normal-chat-agent-trace', () => {
-  const state = ref<NormalChatAgentTraceState>(createEmptyState())
+export const useNormalChatRuntimeTraceStore = defineStore('normal-chat-runtime-trace', () => {
+  const state = ref<NormalChatRuntimeTraceState>(createEmptyState())
 
   const currentRequestIds = computed(() => state.value.requestIdsByTopicId)
 
-  function upsertRuntimeTree(event: NormalChatConversationAgentTreeUpsertEvent): void {
-    state.value.treesByRequestId = {
-      ...state.value.treesByRequestId,
-      [event.requestId]: event.tree
+  function upsertRuntimeTrace(event: NormalChatConversationRuntimeTraceUpsertEvent): void {
+    const tree = event.runtimeTrace.agentTree
+    const nextTrees = { ...state.value.treesByRequestId }
+    const nextSummaries = { ...state.value.summariesByRequestId }
+
+    if (tree) {
+      nextTrees[event.requestId] = tree
+    } else {
+      delete nextTrees[event.requestId]
     }
-    state.value.summariesByRequestId = {
-      ...state.value.summariesByRequestId,
-      [event.requestId]: event.summary
+
+    if (event.summary) {
+      nextSummaries[event.requestId] = event.summary
+    } else {
+      delete nextSummaries[event.requestId]
     }
+
+    state.value.treesByRequestId = nextTrees
+    state.value.summariesByRequestId = nextSummaries
     state.value.requestIdsByTopicId = {
       ...state.value.requestIdsByTopicId,
       [event.topicId]: event.requestId
@@ -53,7 +63,7 @@ export const useNormalChatAgentTraceStore = defineStore('normal-chat-agent-trace
   }
 
   function hydrateTurnDetail(detail: NormalChatConversationTurnDetail | null): void {
-    const tree = detail?.responsePayload?.agentTree
+    const tree = detail?.runtimeTrace?.agentTree
     if (!detail || !tree) {
       return
     }
@@ -96,7 +106,7 @@ export const useNormalChatAgentTraceStore = defineStore('normal-chat-agent-trace
   return {
     state,
     currentRequestIds,
-    upsertRuntimeTree,
+    upsertRuntimeTrace,
     hydrateTurnDetail,
     getTreeByRequestId,
     getSummaryByRequestId,

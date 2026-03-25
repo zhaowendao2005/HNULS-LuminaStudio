@@ -22,4 +22,22 @@ export class NormalChatRuntimeEventSink {
       part
     })
   }
+
+  emitProgress(requestId: string, topicId: string, message: string): void {
+    this.emit({
+      type: 'assistant-progress',
+      requestId,
+      topicId,
+      message
+    })
+  }
+
+  emitFinalChunk(requestId: string, topicId: string, delta: string): void {
+    this.emit({
+      type: 'assistant-final-chunk',
+      requestId,
+      topicId,
+      delta
+    })
+  }
 }

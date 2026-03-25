@@ -1,6 +1,6 @@
 import type {
   ModelProviderProtocol,
-  NormalChatAgentDecisionAction,
+  NormalChatAgentDecisionRecord,
   NormalChatAgentRoleKind,
   NormalChatAgentTaskKind,
   NormalChatAgentTemplate,
@@ -11,16 +11,20 @@ import type {
   NormalChatCostMode
 } from '@preload/types'
 import type { BaseMessage } from '@langchain/core/messages'
-import type { z } from 'zod'
 import type {
   NormalChatFunctioncallHelper,
-  NormalChatFunctioncallRegistry
+  NormalChatFunctioncallRegistry,
+  NormalChatFunctioncallResultAssessment
 } from '../../functioncalls/contracts'
 
 export interface NormalChatAgentTemplateDefinition extends NormalChatAgentTemplate {
   defaultSystemPrompt: string
 }
 
+/**
+ * 目前 child-task 在 graph/framework 边界上还需要一个精简桥接类型。
+ * 这部分后续如果完全收拢到 core，可继续往下删除。
+ */
 export interface NormalChatChildTaskPayload {
   roleKind: Extract<NormalChatAgentRoleKind, 'worker' | 'repair'>
   taskKind: Extract<
@@ -29,19 +33,6 @@ export interface NormalChatChildTaskPayload {
   >
   goal: string
   summary: string
-}
-
-export interface NormalChatPlannerDecision {
-  action: NormalChatAgentDecisionAction
-  reasoning: string
-  helperId: string | null
-  helperArgs: Record<string, unknown> | null
-  childTask: NormalChatChildTaskPayload | null
-  finalAnswerHint: string | null
-  rawText: string
-  parsedJson: string | null
-  repairAttempted: boolean
-  validationError: string | null
 }
 
 export interface NormalChatAgentSessionState {
@@ -92,13 +83,6 @@ export interface NormalChatAgentExecutionServices {
   logger: Pick<Console, 'debug' | 'info' | 'warn' | 'error'>
 }
 
-export interface NormalChatGraphHelperOverlay {
-  descriptionOverlay?: string
-  schemaOverlay?: string
-  progressiveOverlay?: string
-  overlayMode?: 'append' | 'replace'
-}
-
 export interface NormalChatGraphHelperBinding {
   helperId: string
   descriptionOverlay?: string
@@ -110,8 +94,10 @@ export interface NormalChatGraphHelperBinding {
 export interface NormalChatFrameworkHelperResult {
   helper: NormalChatFunctioncallHelper
   callId: string
+  fingerprint: string
   outputJson: string
   summary: string
+  assessment: NormalChatFunctioncallResultAssessment
 }
 
 export interface NormalChatGraphFramework {
@@ -125,17 +111,19 @@ export interface NormalChatGraphFramework {
       conversationWindow?: NormalChatConversationPromptMessage[]
     }
   ): void
-  recordDecision(
-    session: NormalChatAgentSessionState,
-    stepIndex: number,
-    decision: NormalChatPlannerDecision
-  ): void
+  recordDecision(session: NormalChatAgentSessionState, record: NormalChatAgentDecisionRecord): void
   executeHelper(
     session: NormalChatAgentSessionState,
     helperId: string,
     helperArgs: Record<string, unknown>,
-    decisionReason: string | null
+    decisionReason: string | null,
+    executionMeta?: {
+      stepIndex: number
+      batchIndex: number
+      parallelIndex: number
+    }
   ): Promise<NormalChatFrameworkHelperResult>
+  emitProgress(session: NormalChatAgentSessionState, text: string): void
   dispatchChild(
     parentSession: NormalChatAgentSessionState,
     task: NormalChatChildTaskPayload,
@@ -182,50 +170,3 @@ export interface NormalChatAgentRunResult {
   agentTree: NormalChatAgentTree
   answerMessages: BaseMessage[]
 }
-
-export interface NormalChatAgentTraceRecorder {
-  record(_event: unknown): void
-  snapshot(): unknown[]
-  subscribe(listener: (event: unknown) => void): () => void
-}
-
-export interface NormalChatAgentToolExecuteContext {
-  signal: AbortSignal
-  logger: Pick<Console, 'debug' | 'info' | 'warn' | 'error'>
-  trace: NormalChatAgentTraceRecorder
-  runContext: {
-    requestId: string
-    topicId: string
-    assistantId: string
-    providerId: string
-    modelId: string
-    systemPrompt: string
-    input: string
-    signal: AbortSignal
-  }
-  modelContext: {
-    providerId: string
-    modelId: string
-    providerProtocol?: string
-  }
-  callId: string
-  roundIndex: number
-  batchIndex: number
-  parallelIndex: number
-  depth: number
-  decisionReason: string | null
-}
-
-export interface NormalChatAgentToolExecuteResult {
-  output: string
-}
-
-export interface NormalChatJsonContractResult<T> {
-  rawText: string
-  parsedJson: T | null
-  parsedJsonText: string | null
-  repairAttempted: boolean
-  validationError: string | null
-}
-
-export type NormalChatJsonSchema<T> = z.ZodType<T>

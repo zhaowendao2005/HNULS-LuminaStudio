@@ -22,6 +22,12 @@ export interface NormalChatFunctioncallRegistryDependencies {
   }
 }
 
+export interface NormalChatFunctioncallResultAssessment {
+  quality: 'none' | 'weak' | 'useful'
+  shouldContinue: boolean
+  stopReason: string | null
+}
+
 export interface NormalChatFunctioncallHelper<TArgs = unknown, TResult = unknown> {
   id: NormalChatAgentToolName
   displayName: string
@@ -29,8 +35,10 @@ export interface NormalChatFunctioncallHelper<TArgs = unknown, TResult = unknown
   schemaPrompt: string
   progressivePrompt: string
   argsSchema: z.ZodType<TArgs>
+  fingerprintArgs(args: TArgs): string
   execute(args: TArgs, context: NormalChatFunctioncallExecuteContext): Promise<TResult>
   summarizeResult(result: TResult): string
+  assessResult(result: TResult): NormalChatFunctioncallResultAssessment
   summarizeFailure(error: unknown): string
 }
 

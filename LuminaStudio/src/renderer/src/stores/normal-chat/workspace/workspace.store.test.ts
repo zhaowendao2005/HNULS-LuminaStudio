@@ -31,6 +31,7 @@ function createBootstrap(): NormalChatBootstrap {
           labelId: null,
           defaultSystemPrompt: '默认提示词',
           saveFullConversationEnabled: false,
+          streamingEnabled: true,
           callMode: 'auto',
           costMode: 'per_token',
           maxRecursionDepth: 2,
@@ -46,6 +47,8 @@ function createBootstrap(): NormalChatBootstrap {
             title: '默认话题',
             systemPromptMode: 'inherit',
             systemPromptOverride: null,
+            streamingMode: 'inherit',
+            streamingEnabledOverride: null,
             sortOrder: 0
           }
         ]
@@ -152,7 +155,8 @@ describe('NormalChat workspace store', () => {
       renameTopic: vi.fn(),
       deleteTopic: vi.fn(),
       setActiveTopic: vi.fn(),
-      updateTopicPrompt: vi.fn()
+      updateTopicPrompt: vi.fn(),
+      updateTopicStreaming: vi.fn()
     })
 
     const store = useNormalChatWorkspaceStore()
@@ -189,7 +193,8 @@ describe('NormalChat workspace store', () => {
       renameTopic: vi.fn(),
       deleteTopic: vi.fn(),
       setActiveTopic: vi.fn(),
-      updateTopicPrompt: vi.fn()
+      updateTopicPrompt: vi.fn(),
+      updateTopicStreaming: vi.fn()
     })
 
     const store = useNormalChatWorkspaceStore()
@@ -226,7 +231,8 @@ describe('NormalChat workspace store', () => {
       renameTopic: vi.fn(),
       deleteTopic: vi.fn(),
       setActiveTopic: vi.fn(),
-      updateTopicPrompt: vi.fn()
+      updateTopicPrompt: vi.fn(),
+      updateTopicStreaming: vi.fn()
     })
 
     const store = useNormalChatWorkspaceStore()
@@ -274,7 +280,8 @@ describe('NormalChat workspace store', () => {
       renameTopic,
       deleteTopic: vi.fn(),
       setActiveTopic: vi.fn(),
-      updateTopicPrompt: vi.fn()
+      updateTopicPrompt: vi.fn(),
+      updateTopicStreaming: vi.fn()
     })
 
     const store = useNormalChatWorkspaceStore()
@@ -324,7 +331,8 @@ describe('NormalChat workspace store', () => {
       renameTopic: vi.fn(),
       deleteTopic: vi.fn(),
       setActiveTopic: vi.fn(),
-      updateTopicPrompt
+      updateTopicPrompt,
+      updateTopicStreaming: vi.fn()
     })
 
     const store = useNormalChatWorkspaceStore()
@@ -364,6 +372,7 @@ describe('NormalChat workspace store', () => {
         labelId: null,
         defaultSystemPrompt: '默认提示词',
         saveFullConversationEnabled: false,
+        streamingEnabled: true,
         callMode: 'auto',
         costMode: 'per_token',
         maxRecursionDepth: 2,
@@ -378,6 +387,7 @@ describe('NormalChat workspace store', () => {
         labelId: 'label-1',
         defaultSystemPrompt: '学习提示词',
         saveFullConversationEnabled: false,
+        streamingEnabled: true,
         callMode: 'auto',
         costMode: 'per_token',
         maxRecursionDepth: 2,
@@ -399,7 +409,8 @@ describe('NormalChat workspace store', () => {
       renameTopic: vi.fn(),
       deleteTopic: vi.fn(),
       setActiveTopic: vi.fn(),
-      updateTopicPrompt: vi.fn()
+      updateTopicPrompt: vi.fn(),
+      updateTopicStreaming: vi.fn()
     })
 
     const store = useNormalChatWorkspaceStore()

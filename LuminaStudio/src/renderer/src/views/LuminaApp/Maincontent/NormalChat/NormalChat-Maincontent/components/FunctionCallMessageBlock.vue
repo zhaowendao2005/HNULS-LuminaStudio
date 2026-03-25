@@ -20,12 +20,33 @@
         </p>
       </div>
 
-      <span
-        class="inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-[11px] font-medium"
-        :class="statusClass"
-      >
-        {{ statusLabel }}
-      </span>
+      <div class="flex shrink-0 items-center gap-2">
+        <span
+          class="inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-[11px] font-medium"
+          :class="statusClass"
+        >
+          {{ statusLabel }}
+        </span>
+        <button
+          class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-800"
+          type="button"
+          title="查看单次调用详情"
+          @click="emit('view-detail', part.callId)"
+        >
+          <svg
+            class="h-4 w-4"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+          >
+            <path d="M4 5h16" />
+            <path d="M4 12h10" />
+            <path d="M4 19h16" />
+            <path d="M17 9l3 3-3 3" />
+          </svg>
+        </button>
+      </div>
     </div>
 
     <div class="mt-4 grid gap-3 md:grid-cols-2">
@@ -64,6 +85,10 @@ import type { NormalChatFunctionCallMessagePart } from '@preload/types'
 const props = defineProps<{
   part: NormalChatFunctionCallMessagePart
   isPending?: boolean
+}>()
+
+const emit = defineEmits<{
+  'view-detail': [callId: string]
 }>()
 
 const statusLabel = computed(() => {

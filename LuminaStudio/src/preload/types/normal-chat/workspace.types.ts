@@ -25,6 +25,7 @@ export interface NormalChatAssistant {
   labelId: string | null
   defaultSystemPrompt: string
   saveFullConversationEnabled: boolean
+  streamingEnabled: boolean
   callMode: NormalChatCallMode
   costMode: NormalChatCostMode
   maxRecursionDepth: number
@@ -38,6 +39,8 @@ export interface NormalChatTopic {
   title: string
   systemPromptMode: NormalChatTopicPromptMode
   systemPromptOverride: string | null
+  streamingMode: 'inherit' | 'override'
+  streamingEnabledOverride: boolean | null
   sortOrder: number
 }
 
@@ -63,6 +66,7 @@ export interface NormalChatUpdateAssistantRequest {
   name?: string
   defaultSystemPrompt?: string
   saveFullConversationEnabled?: boolean
+  streamingEnabled?: boolean
   callMode?: NormalChatCallMode
   costMode?: NormalChatCostMode
   maxRecursionDepth?: number
@@ -116,4 +120,11 @@ export interface NormalChatUpdateTopicPromptRequest {
   topicId: string
   mode: NormalChatTopicPromptMode
   promptOverride?: string | null
+}
+
+export interface NormalChatUpdateTopicStreamingRequest {
+  assistantId: string
+  topicId: string
+  mode: 'inherit' | 'override'
+  streamingEnabledOverride?: boolean | null
 }

@@ -46,7 +46,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useNormalChatAgentTraceStore } from '@renderer/stores/normal-chat/agent-trace/store'
+import { useNormalChatRuntimeTraceStore } from '@renderer/stores/normal-chat/runtime-trace/store'
 
 const props = defineProps<{
   requestId: string
@@ -56,7 +56,7 @@ const emit = defineEmits<{
   'open-tree': []
 }>()
 
-const agentTraceStore = useNormalChatAgentTraceStore()
+const agentTraceStore = useNormalChatRuntimeTraceStore()
 
 const summary = computed(() => {
   return props.requestId ? agentTraceStore.getSummaryByRequestId(props.requestId) : null

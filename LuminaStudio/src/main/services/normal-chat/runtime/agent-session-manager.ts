@@ -11,8 +11,7 @@ import type {
   NormalChatAgentRunResult,
   NormalChatAgentSessionState,
   NormalChatFrameworkHelperResult,
-  NormalChatGraphFramework,
-  NormalChatPlannerDecision
+  NormalChatGraphFramework
 } from '../agent/contracts'
 import { createChildAgentSession } from './task-dispatcher'
 import { NormalChatAgentTreeStore } from './agent-tree-store'
@@ -58,25 +57,10 @@ function mapConversationToPromptWindow(
     .filter((message): message is NormalChatConversationPromptMessage => message !== null)
 }
 
-function buildDecisionRecord(
-  stepIndex: number,
-  decision: NormalChatPlannerDecision
-): NormalChatAgentDecisionRecord {
-  return {
-    stepIndex,
-    action: decision.action,
-    rawText: decision.rawText,
-    parsedJson: decision.parsedJson,
-    repairAttempted: decision.repairAttempted,
-    validationError: decision.validationError,
-    reasoning: decision.reasoning,
-    helperId: decision.helperId,
-    helperArgsJson: decision.helperArgs ? JSON.stringify(decision.helperArgs, null, 2) : null,
-    childGoal: decision.childTask?.goal ?? null,
-    createdAt: new Date().toISOString()
-  }
-}
-
+/**
+ * agent-session-manager 现在主要负责“把 graph/orchestrator 跑起来”。
+ * 具体的步骤规划已经逐步往 core/orchestrator 转移，这里不再拼业务决策。
+ */
 export class NormalChatAgentSessionManager {
   constructor(
     private readonly graph: NormalChatAgentGraphTemplate,
@@ -109,6 +93,7 @@ export class NormalChatAgentSessionManager {
       roleKind: 'director',
       taskKind: 'user-request',
       goal: params.input,
+      // 这个摘要会被 child-task 初始上下文和 trace 复用，所以保持稳定中文描述。
       summary: '处理用户当前请求',
       callMode: params.callMode,
       costMode: params.costMode,
@@ -154,20 +139,24 @@ export class NormalChatAgentSessionManager {
       syncAgent: (session, patch) => {
         this.treeStore.updateAgent(session.agentId, patch)
       },
-      recordDecision: (session, stepIndex, decision) => {
-        this.treeStore.recordDecision(session.agentId, buildDecisionRecord(stepIndex, decision))
+      recordDecision: (session, record: NormalChatAgentDecisionRecord) => {
+        this.treeStore.recordDecision(session.agentId, record)
       },
-      executeHelper: async (session, helperId, helperArgs, decisionReason) => {
+      executeHelper: async (session, helperId, helperArgs, decisionReason, executionMeta) => {
         const helper = this.services.functioncallRegistry.requireHelper(helperId)
         const parsedArgs = helper.argsSchema.parse(helperArgs)
         const callId = randomUUID()
         const argsJson = JSON.stringify(helperArgs, null, 2)
+        const fingerprint = helper.fingerprintArgs(parsedArgs)
         const startedAt = new Date().toISOString()
 
         const callRecord: NormalChatAgentHelperInvocationRecord = {
           callId,
           helperId: helper.id,
           displayName: helper.displayName,
+          stepIndex: executionMeta?.stepIndex ?? 0,
+          batchIndex: executionMeta?.batchIndex ?? 0,
+          parallelIndex: executionMeta?.parallelIndex ?? 0,
           status: 'running',
           argsJson,
           outputJson: '',
@@ -197,9 +186,9 @@ export class NormalChatAgentSessionManager {
           output: '',
           errorMessage: null,
           isStreaming: true,
-          roundIndex: 0,
-          batchIndex: 0,
-          parallelIndex: 0,
+          roundIndex: executionMeta?.stepIndex ?? 0,
+          batchIndex: executionMeta?.batchIndex ?? 0,
+          parallelIndex: executionMeta?.parallelIndex ?? 0,
           depth: session.depth,
           decisionReason
         }
@@ -241,8 +230,10 @@ export class NormalChatAgentSessionManager {
           return {
             helper,
             callId,
+            fingerprint,
             outputJson,
-            summary
+            summary,
+            assessment: helper.assessResult(result)
           } satisfies NormalChatFrameworkHelperResult
         } catch (error) {
           const message = helper.summarizeFailure(error)
@@ -264,6 +255,13 @@ export class NormalChatAgentSessionManager {
 
           throw new Error(message)
         }
+      },
+      emitProgress: (session, text) => {
+        if (!text.trim()) {
+          return
+        }
+
+        this.eventSink.emitProgress(session.requestId, session.topicId, text)
       },
       dispatchChild: async (parentSession, task, overrideCallMode) => {
         const childSession = createChildAgentSession(

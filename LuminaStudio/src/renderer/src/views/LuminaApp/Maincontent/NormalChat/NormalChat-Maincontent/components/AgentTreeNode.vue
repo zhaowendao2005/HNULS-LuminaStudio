@@ -41,12 +41,23 @@
           :key="`${node.agentId}-${plan.stepIndex}`"
           class="rounded-xl border border-gray-200 bg-white px-3 py-2"
         >
-          <p class="text-[12px] text-gray-400">Step {{ plan.stepIndex }} · {{ plan.action }}</p>
+          <p class="text-[12px] text-gray-400">
+            Step {{ plan.stepIndex }} · {{ plan.phase }} · {{ plan.action }}
+          </p>
           <p class="mt-1 text-[13px] text-gray-700">{{ plan.reasoning || '无' }}</p>
+          <p v-if="plan.statusText" class="mt-1 text-[12px] text-sky-600">
+            状态文案：{{ plan.statusText }}
+          </p>
+          <p v-if="plan.budgetSummary" class="mt-1 text-[12px] text-gray-500">
+            {{ plan.budgetSummary }}
+          </p>
+          <p v-if="plan.stopReason" class="mt-1 text-[12px] text-amber-600">
+            收口原因：{{ plan.stopReason }}
+          </p>
           <pre
-            v-if="plan.parsedJson"
+            v-if="plan.actionsJson || plan.parsedJson"
             class="mt-2 overflow-x-auto rounded-lg bg-[#111827] px-3 py-2 text-[11px] leading-5 text-slate-100"
-            >{{ plan.parsedJson }}</pre
+            >{{ plan.actionsJson || plan.parsedJson }}</pre
           >
         </div>
       </div>

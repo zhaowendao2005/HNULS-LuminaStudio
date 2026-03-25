@@ -4,7 +4,11 @@ import type {
   NormalChatMessagePartKind,
   NormalChatTopicPromptMode
 } from './common.types'
-import type { NormalChatAgentExecutionTrace, NormalChatAgentTree } from './runtime.types'
+import type {
+  NormalChatAgentExecutionTrace,
+  NormalChatAgentTree,
+  NormalChatRequestMetrics
+} from './runtime-trace.types'
 import type { NormalChatAssistant } from './workspace.types'
 
 export interface NormalChatTextMessagePart {
@@ -51,7 +55,13 @@ export interface NormalChatConversationPromptMessage {
   content: string
 }
 
-export interface NormalChatConversationTurnRequestPayload {
+/**
+ * requestRecord / responseRecord / runtimeTrace 是新 turn trace 协议的 3 个稳定剖面：
+ * - requestRecord: 这轮请求“如何被组织”
+ * - responseRecord: 这轮请求“最终产生了什么用户可见结果”
+ * - runtimeTrace: 这轮请求“系统内部如何跑”
+ */
+export interface NormalChatConversationTurnRequestRecord {
   assistant: Pick<
     NormalChatAssistant,
     | 'id'
@@ -60,6 +70,7 @@ export interface NormalChatConversationTurnRequestPayload {
     | 'templateKey'
     | 'defaultSystemPrompt'
     | 'saveFullConversationEnabled'
+    | 'streamingEnabled'
     | 'callMode'
     | 'costMode'
     | 'maxRecursionDepth'
@@ -73,18 +84,24 @@ export interface NormalChatConversationTurnRequestPayload {
   }
   providerId: string
   modelId: string
+  streamingEnabled: boolean
   input: string
   effectiveSystemPrompt: string
   promptMessages: NormalChatConversationPromptMessage[]
 }
 
-export interface NormalChatConversationTurnResponsePayload {
+export interface NormalChatConversationTurnResponseRecord {
   chunks: string[]
   finalText: string
   aborted: boolean
   errorMessage: string | null
   completedAt: string | null
+}
+
+export interface NormalChatConversationRuntimeTrace {
+  traceVersion: number
   agentTree: NormalChatAgentTree | null
+  metrics: NormalChatRequestMetrics | null
   execution?: NormalChatAgentExecutionTrace | null
 }
 
@@ -97,7 +114,8 @@ export interface NormalChatConversationTurnDetail {
   topicTitle: string
   saveFullConversationEnabled: boolean
   hasTrace: boolean
-  requestPayload: NormalChatConversationTurnRequestPayload | null
-  responsePayload: NormalChatConversationTurnResponsePayload | null
+  requestRecord: NormalChatConversationTurnRequestRecord | null
+  responseRecord: NormalChatConversationTurnResponseRecord | null
+  runtimeTrace: NormalChatConversationRuntimeTrace | null
   messages: NormalChatConversationMessage[]
 }

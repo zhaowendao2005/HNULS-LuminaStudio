@@ -18,6 +18,7 @@ import type {
   NormalChatSetActiveAssistantRequest,
   NormalChatSetActiveTopicRequest,
   NormalChatUpdateAssistantRequest,
+  NormalChatUpdateTopicStreamingRequest,
   NormalChatUpdateTopicPromptRequest
 } from './workspace.types'
 
@@ -101,5 +102,8 @@ export interface NormalChatAPI {
   ) => Promise<ApiResponse<NormalChatWorkspaceSnapshot>>
   updateTopicPrompt: (
     request: NormalChatUpdateTopicPromptRequest
+  ) => Promise<ApiResponse<NormalChatWorkspaceSnapshot>>
+  updateTopicStreaming: (
+    request: NormalChatUpdateTopicStreamingRequest
   ) => Promise<ApiResponse<NormalChatWorkspaceSnapshot>>
 }

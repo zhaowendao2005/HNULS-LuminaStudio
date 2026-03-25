@@ -213,11 +213,14 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
   const assistantNameDraft = ref('')
   const assistantDefaultPromptDraft = ref('')
   const assistantSaveFullConversationDraft = ref(false)
+  const assistantStreamingEnabledDraft = ref(true)
   const assistantCallModeDraft = ref<NormalChatCallMode>('auto')
   const assistantCostModeDraft = ref<NormalChatCostMode>('per_token')
   const assistantMaxRecursionDepthDraft = ref(2)
   const assistantMaxRetriesPerAgentDraft = ref(1)
   const topicPromptDraft = ref('')
+  const topicStreamingModeDraft = ref<'inherit' | 'override'>('inherit')
+  const topicStreamingEnabledOverrideDraft = ref<boolean | null>(null)
 
   const editingTopicId = ref('')
   const topicRenameDraft = ref('')
@@ -398,6 +401,7 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
     assistantDefaultPromptDraft.value = currentAssistant.value?.defaultSystemPrompt ?? ''
     assistantSaveFullConversationDraft.value =
       currentAssistant.value?.saveFullConversationEnabled ?? false
+    assistantStreamingEnabledDraft.value = currentAssistant.value?.streamingEnabled ?? true
     assistantCallModeDraft.value = currentAssistant.value?.callMode ?? 'auto'
     assistantCostModeDraft.value = currentAssistant.value?.costMode ?? 'per_token'
     assistantMaxRecursionDepthDraft.value = currentAssistant.value?.maxRecursionDepth ?? 2
@@ -406,6 +410,8 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
       currentTopic.value?.systemPromptMode === 'override'
         ? (currentTopic.value.systemPromptOverride ?? '')
         : (currentAssistant.value?.defaultSystemPrompt ?? '')
+    topicStreamingModeDraft.value = currentTopic.value?.streamingMode ?? 'inherit'
+    topicStreamingEnabledOverrideDraft.value = currentTopic.value?.streamingEnabledOverride ?? null
   }
 
   async function initialize() {
@@ -529,6 +535,10 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
     assistantSaveFullConversationDraft.value = value
   }
 
+  function setAssistantStreamingEnabledDraft(value: boolean): void {
+    assistantStreamingEnabledDraft.value = value
+  }
+
   function setAssistantCallModeDraft(value: NormalChatCallMode): void {
     assistantCallModeDraft.value = value
   }
@@ -547,6 +557,19 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
 
   function setTopicPromptDraft(value: string): void {
     topicPromptDraft.value = value
+  }
+
+  function setTopicStreamingModeDraft(value: 'inherit' | 'override'): void {
+    topicStreamingModeDraft.value = value
+    if (value === 'inherit') {
+      topicStreamingEnabledOverrideDraft.value = null
+    } else if (topicStreamingEnabledOverrideDraft.value === null) {
+      topicStreamingEnabledOverrideDraft.value = currentAssistant.value?.streamingEnabled ?? true
+    }
+  }
+
+  function setTopicStreamingEnabledOverrideDraft(value: boolean): void {
+    topicStreamingEnabledOverrideDraft.value = value
   }
 
   async function savePromptSettings() {
@@ -597,6 +620,7 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
       assistantId: currentAssistant.value.id,
       name: assistantNameDraft.value,
       saveFullConversationEnabled: assistantSaveFullConversationDraft.value,
+      streamingEnabled: assistantStreamingEnabledDraft.value,
       callMode: assistantCallModeDraft.value,
       costMode: assistantCostModeDraft.value,
       maxRecursionDepth: assistantMaxRecursionDepthDraft.value,
@@ -712,6 +736,33 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
     cancelTopicRename()
   }
 
+  async function saveTopicStreamingSettings() {
+    if (!currentAssistant.value || !currentTopic.value) {
+      return
+    }
+
+    const nextSnapshot = await datasource.updateTopicStreaming({
+      assistantId: currentAssistant.value.id,
+      topicId: currentTopic.value.id,
+      mode: topicStreamingModeDraft.value,
+      streamingEnabledOverride: topicStreamingEnabledOverrideDraft.value
+    })
+
+    applyWorkspaceSnapshot(nextSnapshot)
+  }
+
+  const effectiveStreamingEnabled = computed(() => {
+    if (!currentAssistant.value) {
+      return true
+    }
+
+    if (currentTopic.value?.streamingMode === 'override') {
+      return currentTopic.value.streamingEnabledOverride ?? currentAssistant.value.streamingEnabled
+    }
+
+    return currentAssistant.value.streamingEnabled
+  })
+
   watch(
     () => modelConfigStore.providers,
     () => {
@@ -737,11 +788,14 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
     assistantNameDraft,
     assistantDefaultPromptDraft,
     assistantSaveFullConversationDraft,
+    assistantStreamingEnabledDraft,
     assistantCallModeDraft,
     assistantCostModeDraft,
     assistantMaxRecursionDepthDraft,
     assistantMaxRetriesPerAgentDraft,
     topicPromptDraft,
+    topicStreamingModeDraft,
+    topicStreamingEnabledOverrideDraft,
     editingTopicId,
     topicRenameDraft,
     currentAssistant,
@@ -753,6 +807,7 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
     currentTopicModelProviderId,
     currentTopicModelId,
     currentTopicModelLabel,
+    effectiveStreamingEnabled,
     effectiveSystemPrompt,
     currentTopicUsesAssistantPrompt,
     promptEditorIsInherited,
@@ -775,12 +830,16 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
     setAssistantNameDraft,
     setAssistantDefaultPromptDraft,
     setAssistantSaveFullConversationDraft,
+    setAssistantStreamingEnabledDraft,
     setAssistantCallModeDraft,
     setAssistantCostModeDraft,
     setAssistantMaxRecursionDepthDraft,
     setAssistantMaxRetriesPerAgentDraft,
     setTopicPromptDraft,
+    setTopicStreamingModeDraft,
+    setTopicStreamingEnabledOverrideDraft,
     savePromptSettings,
+    saveTopicStreamingSettings,
     saveAssistantBasicSettings,
     updateAssistantBasicSettings,
     assignAssistantLabel,

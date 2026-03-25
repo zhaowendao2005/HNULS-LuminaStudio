@@ -26,6 +26,9 @@
           <h4 class="text-[14px] font-semibold leading-[1.25] text-gray-900">
             {{ message.author }}
           </h4>
+          <span v-if="message.requestMetrics?.modelName" class="text-[12px] text-gray-500">
+            {{ message.requestMetrics.modelName }}
+          </span>
           <span
             v-if="message.isPending"
             class="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700"
@@ -34,11 +37,22 @@
           </span>
         </div>
         <p class="mt-1 text-xs text-gray-400">{{ message.time }}</p>
+        <p v-if="message.requestMetrics" class="mt-1 text-[11px] leading-5 text-gray-400">
+          TTFB {{ message.requestMetrics.firstTokenLatencyMs ?? '--' }}ms · Tokens
+          {{ message.requestMetrics.totalTokens ?? '--' }} · 调用
+          {{ message.requestMetrics.modelCallCount }}
+        </p>
 
         <ChatMessageParts
           :message="message"
           @view-detail="emit('open-session', message)"
           @open-agent-tree="emit('open-agent-tree', message)"
+          @open-functioncall-detail="
+            emit('open-functioncall-detail', {
+              message,
+              callId: $event
+            })
+          "
         />
 
         <div class="mt-4 flex items-center gap-2">
@@ -67,7 +81,7 @@
 
             <button
               class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-40"
-              :disabled="!canOperateTurn"
+              :disabled="!canDeleteTurn"
               type="button"
               title="删除这条对话"
               @click="emit('delete', message)"
@@ -77,7 +91,7 @@
 
             <button
               class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-40"
-              :disabled="!canOperateTurn"
+              :disabled="!canOpenTurnDetail"
               type="button"
               title="查看完整会话"
               @click="emit('open-session', message)"
@@ -107,10 +121,17 @@ const emit = defineEmits<{
   delete: [message: NormalChatConversationDisplayMessage]
   'open-session': [message: NormalChatConversationDisplayMessage]
   'open-agent-tree': [message: NormalChatConversationDisplayMessage]
+  'open-functioncall-detail': [
+    payload: { message: NormalChatConversationDisplayMessage; callId: string }
+  ]
 }>()
 
-const canOperateTurn = computed(() => {
+const canDeleteTurn = computed(() => {
   return Boolean(props.message.requestId) && !props.message.isPending
+})
+
+const canOpenTurnDetail = computed(() => {
+  return Boolean(props.message.requestId)
 })
 </script>
 

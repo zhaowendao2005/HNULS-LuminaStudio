@@ -1,13 +1,17 @@
 import { randomUUID } from 'crypto'
 import { AIMessageChunk } from '@langchain/core/messages'
 import type {
+  NormalChatAgentStatusSummary,
   NormalChatConversationMessage,
   NormalChatConversationSnapshot,
+  NormalChatConversationPromptMessage,
   NormalChatConversationStreamEvent,
-  NormalChatConversationTurnRequestPayload,
-  NormalChatConversationTurnResponsePayload,
+  NormalChatConversationTurnRequestRecord,
+  NormalChatConversationTurnResponseRecord,
+  NormalChatConversationRuntimeTrace,
   NormalChatFunctionCallMessagePart,
   NormalChatMessagePart,
+  NormalChatRequestMetrics,
   NormalChatSendMessageAccepted,
   NormalChatSendMessageRequest
 } from '@preload/types'
@@ -33,14 +37,15 @@ interface ConversationTraceState {
   assistantEmoji: string
   topicTitle: string
   saveFullConversationEnabled: boolean
-  requestPayload: NormalChatConversationTurnRequestPayload
-  responsePayload: NormalChatConversationTurnResponsePayload
+  requestRecord: NormalChatConversationTurnRequestRecord
+  responseRecord: NormalChatConversationTurnResponseRecord
+  runtimeTrace: NormalChatConversationRuntimeTrace
 }
 
 const log = logger.scope('NormalChatConversationRuntime')
 
 function resolvePreferredFinalAnswer(
-  agentTree: NormalChatConversationTurnResponsePayload['agentTree'],
+  agentTree: NormalChatConversationRuntimeTrace['agentTree'],
   synthesisSummary: string
 ): string {
   const rootAgentId = agentTree?.rootAgentId
@@ -78,6 +83,49 @@ function buildAssistantMessageParts(
     text: normalizedText
   })
   return nextParts
+}
+
+function buildPromptMessagesFromConversation(
+  messages: NormalChatConversationMessage[]
+): NormalChatConversationPromptMessage[] {
+  return messages
+    .map((message) => {
+      const text = message.parts
+        .filter((part) => part.kind === 'text')
+        .map((part) => part.text)
+        .join('')
+      if (!text) {
+        return null
+      }
+
+      return {
+        role: message.role === 'assistant' ? 'assistant' : 'user',
+        content: text
+      }
+    })
+    .filter((message) => message !== null) as NormalChatConversationPromptMessage[]
+}
+
+function extractTextContent(content: unknown): string {
+  if (typeof content === 'string') {
+    return content
+  }
+
+  if (Array.isArray(content)) {
+    return content
+      .map((item) => {
+        if (typeof item === 'string') {
+          return item
+        }
+        if (typeof item === 'object' && item && 'text' in item && typeof item.text === 'string') {
+          return item.text
+        }
+        return ''
+      })
+      .join('')
+  }
+
+  return String(content ?? '')
 }
 
 function buildSerializableError(error: unknown, depth = 0): unknown {
@@ -145,7 +193,7 @@ function serializeErrorDetails(error: unknown): string {
   }
 }
 
-export class NormalChatConversationService {
+export class NormalChatConversationRuntimeService {
   private readonly repository: NormalChatRepository
   private readonly requestAssembler: NormalChatRequestAssembler
   private readonly lifecycle = new NormalChatRequestLifecycleManager()
@@ -234,6 +282,7 @@ export class NormalChatConversationService {
       emoji: string
       defaultSystemPrompt: string
       saveFullConversationEnabled: boolean
+      streamingEnabled: boolean
       callMode: 'fast' | 'slow' | 'auto'
       costMode: 'per_call' | 'per_token'
       maxRecursionDepth: number
@@ -244,6 +293,8 @@ export class NormalChatConversationService {
       title: string
       systemPromptMode: 'inherit' | 'override'
       systemPromptOverride: string | null
+      streamingMode: 'inherit' | 'override'
+      streamingEnabledOverride: boolean | null
     }
     provider: {
       providerId: string
@@ -252,6 +303,11 @@ export class NormalChatConversationService {
     signal: AbortSignal
   }): Promise<void> {
     const { requestId, assistant, topic, provider, effectiveSystemPrompt, input, signal } = params
+    const requestStartedAt = Date.now()
+    const streamingEnabled =
+      topic.streamingMode === 'override'
+        ? (topic.streamingEnabledOverride ?? assistant.streamingEnabled)
+        : assistant.streamingEnabled
     const assistantParts: NormalChatMessagePart[] = []
     const functionCallPartIndexByCallId = new Map<string, number>()
     let assistantText = ''
@@ -259,6 +315,31 @@ export class NormalChatConversationService {
     let currentTextSegment = ''
     let shouldStartNewTextSegment = false
     let traceState: ConversationTraceState | null = null
+    const baseMetrics: NormalChatRequestMetrics = {
+      providerId: provider.providerId,
+      providerName: null,
+      modelId: provider.modelId,
+      modelName: provider.modelId,
+      firstTokenLatencyMs: null,
+      promptTokens: null,
+      completionTokens: null,
+      totalTokens: null,
+      modelCallCount: 0,
+      streamingEnabled
+    }
+
+    const emitRuntimeTrace = (
+      runtimeTrace: NormalChatConversationRuntimeTrace,
+      summary: NormalChatAgentStatusSummary | null = null
+    ): void => {
+      emitEvent({
+        type: 'runtime-trace-upsert',
+        requestId,
+        topicId: topic.id,
+        runtimeTrace,
+        summary
+      })
+    }
 
     const upsertAssistantTextPart = (text: string, forceNew: boolean): void => {
       const nextText = text.trim() || '模型未返回文本内容。'
@@ -291,8 +372,51 @@ export class NormalChatConversationService {
     }
 
     const emitEvent = (event: NormalChatConversationStreamEvent): void => {
+      if (event.type === 'assistant-final-chunk') {
+        const shouldCreateNewSegment = shouldStartNewTextSegment || assistantTextPartIndex < 0
+        if (shouldCreateNewSegment) {
+          currentTextSegment = ''
+        }
+        currentTextSegment += event.delta
+        assistantText += event.delta
+        upsertAssistantTextPart(currentTextSegment, shouldCreateNewSegment)
+        shouldStartNewTextSegment = false
+
+        // 首字延迟应该从“请求开始”算到“首个正文增量到达”。
+        if (baseMetrics.firstTokenLatencyMs === null) {
+          const firstTokenLatencyMs = Date.now() - requestStartedAt
+          baseMetrics.firstTokenLatencyMs = firstTokenLatencyMs
+          if (traceState) {
+            emitRuntimeTrace({
+              ...traceState.runtimeTrace,
+              metrics: { ...baseMetrics }
+            })
+          }
+        }
+      }
       if (event.type === 'assistant-part-upsert' && event.part.kind === 'functioncall') {
         handleAssistantPartUpsert(event.part)
+      }
+      if (traceState) {
+        if (event.type === 'assistant-final-chunk') {
+          traceState.responseRecord.chunks.push(event.delta)
+          traceState.responseRecord.finalText = assistantText
+          if (
+            traceState.runtimeTrace.metrics &&
+            traceState.runtimeTrace.metrics.firstTokenLatencyMs === null
+          ) {
+            traceState.runtimeTrace.metrics.firstTokenLatencyMs = baseMetrics.firstTokenLatencyMs
+          }
+        }
+        if (event.type === 'runtime-trace-upsert') {
+          traceState.runtimeTrace = event.runtimeTrace
+        }
+        this.persistConversationTrace(traceState, 'update')
+        this.emit({
+          type: 'turn-detail-upsert',
+          requestId,
+          topicId: topic.id
+        })
       }
       this.emit(event)
     }
@@ -301,10 +425,20 @@ export class NormalChatConversationService {
     const helperRegistry = createNormalChatHelperLibrary({
       paperRetrievalService: this.paperRetrievalService
     })
+    const providerProfile = await this.llmClient.getProviderProfile(provider.providerId, signal)
+    baseMetrics.providerName = providerProfile?.name ?? null
     const services: NormalChatAgentExecutionServices = {
       getConversationMessages: (topicId) => this.repository.listMessagesByTopicId(topicId),
-      createChatModel: (providerId, modelId, currentSignal) =>
-        this.llmClient.createChatModel(providerId, modelId, currentSignal),
+      createChatModel: async (providerId, modelId, currentSignal) => {
+        baseMetrics.modelCallCount += 1
+        if (traceState) {
+          emitRuntimeTrace({
+            ...traceState.runtimeTrace,
+            metrics: { ...baseMetrics }
+          })
+        }
+        return this.llmClient.createChatModel(providerId, modelId, currentSignal)
+      },
       getProviderProtocol: (providerId, currentSignal) =>
         this.llmClient.getProviderProtocol(providerId, currentSignal),
       functioncallRegistry: helperRegistry,
@@ -320,19 +454,55 @@ export class NormalChatConversationService {
       requestId,
       assistant.maxRecursionDepth,
       (tree, summary) => {
-        eventSink.emitEvent({
-          type: 'agent-tree-upsert',
-          requestId,
-          topicId: topic.id,
-          tree,
+        const nextRuntimeTrace = traceState?.runtimeTrace ?? {
+          traceVersion: 1,
+          agentTree: null,
+          metrics: { ...baseMetrics },
+          execution: null
+        }
+
+        emitRuntimeTrace(
+          {
+            ...nextRuntimeTrace,
+            agentTree: tree,
+            metrics: {
+              ...(nextRuntimeTrace.metrics ?? baseMetrics),
+              modelCallCount: Object.keys(tree.agents).length
+            }
+          },
           summary
-        })
+        )
       }
     )
     const graph = suite.createGraph({ services })
     const sessionManager = new NormalChatAgentSessionManager(graph, services, treeStore, eventSink)
 
     try {
+      traceState = this.createConversationTraceState({
+        requestId,
+        assistant,
+        topic,
+        providerId: provider.providerId,
+        modelId: provider.modelId,
+        input,
+        systemPrompt: effectiveSystemPrompt,
+        promptMessages: buildPromptMessagesFromConversation(
+          this.repository.listMessagesByTopicId(topic.id)
+        ),
+        agentTree: null,
+        metrics: { ...baseMetrics },
+        streamingEnabled
+      })
+
+      if (traceState) {
+        this.persistConversationTrace(traceState, 'insert')
+        this.emit({
+          type: 'turn-detail-upsert',
+          requestId,
+          topicId: topic.id
+        })
+      }
+
       this.emitStatus(requestId, topic.id, 'sending', '正在准备递归 agent 上下文…')
       this.emitStatus(requestId, topic.id, 'thinking', 'director 正在规划本轮执行…')
 
@@ -357,60 +527,44 @@ export class NormalChatConversationService {
         runResult.synthesisSummary
       )
 
-      traceState = this.createConversationTraceState({
-        requestId,
-        assistant,
-        topic,
-        providerId: provider.providerId,
-        modelId: provider.modelId,
-        input,
-        systemPrompt: effectiveSystemPrompt,
-        promptMessages: runResult.rootSession.conversationWindow,
-        agentTree: runResult.agentTree
-      })
-
       if (traceState) {
-        this.persistConversationTrace(traceState, 'insert')
+        traceState.requestRecord.promptMessages = runResult.rootSession.conversationWindow
+        traceState.runtimeTrace.agentTree = runResult.agentTree
+        traceState.runtimeTrace.metrics = {
+          ...(traceState.runtimeTrace.metrics ?? baseMetrics),
+          modelCallCount: Object.keys(runResult.agentTree.agents).length
+        }
+        this.persistConversationTrace(traceState, 'update')
+        this.emit({
+          type: 'turn-detail-upsert',
+          requestId,
+          topicId: topic.id
+        })
       }
 
       this.emitStatus(requestId, topic.id, 'streaming', '模型正在生成最终回答…')
-      const model = await this.llmClient.createChatModel(
-        provider.providerId,
-        provider.modelId,
-        signal
-      )
-      const answerStream = await model.stream(runResult.answerMessages, { signal })
+      const model = await services.createChatModel(provider.providerId, provider.modelId, signal)
 
-      for await (const chunk of answerStream) {
-        if (signal.aborted) {
-          break
+      if (streamingEnabled) {
+        const answerStream = await model.stream(runResult.answerMessages, { signal })
+
+        for await (const chunk of answerStream) {
+          if (signal.aborted) {
+            break
+          }
+
+          const delta = this.extractChunkText(chunk)
+          if (!delta) {
+            continue
+          }
+
+          eventSink.emitFinalChunk(requestId, topic.id, delta)
         }
-
-        const delta = this.extractChunkText(chunk)
-        if (!delta) {
-          continue
-        }
-
-        const shouldCreateNewSegment = shouldStartNewTextSegment || assistantTextPartIndex < 0
-        if (shouldCreateNewSegment) {
-          currentTextSegment = ''
-        }
-        currentTextSegment += delta
-        assistantText += delta
-        upsertAssistantTextPart(currentTextSegment, shouldCreateNewSegment)
-        shouldStartNewTextSegment = false
-
-        this.emit({
-          type: 'assistant-chunk',
-          requestId,
-          topicId: topic.id,
-          delta
-        })
-
-        if (traceState) {
-          traceState.responsePayload.chunks.push(delta)
-          traceState.responsePayload.finalText = assistantText
-          this.persistConversationTrace(traceState, 'update')
+      } else {
+        const response = await model.invoke(runResult.answerMessages, { signal })
+        const fullText = extractTextContent(response.content)
+        if (fullText) {
+          eventSink.emitFinalChunk(requestId, topic.id, fullText)
         }
       }
 
@@ -431,9 +585,9 @@ export class NormalChatConversationService {
 
       if (signal.aborted) {
         if (traceState) {
-          traceState.responsePayload.finalText = assistantText
-          traceState.responsePayload.aborted = true
-          traceState.responsePayload.completedAt = new Date().toISOString()
+          traceState.responseRecord.finalText = assistantText
+          traceState.responseRecord.aborted = true
+          traceState.responseRecord.completedAt = new Date().toISOString()
           this.persistConversationTrace(traceState, 'update')
         }
 
@@ -453,9 +607,14 @@ export class NormalChatConversationService {
       }
 
       if (traceState) {
-        traceState.responsePayload.finalText = finalAnswerText
-        traceState.responsePayload.completedAt = new Date().toISOString()
+        traceState.responseRecord.finalText = finalAnswerText
+        traceState.responseRecord.completedAt = new Date().toISOString()
         this.persistConversationTrace(traceState, 'update')
+        this.emit({
+          type: 'turn-detail-upsert',
+          requestId,
+          topicId: topic.id
+        })
       }
 
       const assistantMessage = this.createAssistantMessage(
@@ -482,12 +641,17 @@ export class NormalChatConversationService {
       })
     } catch (error) {
       if (traceState) {
-        traceState.responsePayload.finalText = assistantText
-        traceState.responsePayload.errorMessage =
+        traceState.responseRecord.finalText = assistantText
+        traceState.responseRecord.errorMessage =
           error instanceof Error ? error.message : String(error)
-        traceState.responsePayload.completedAt = new Date().toISOString()
-        traceState.responsePayload.agentTree = treeStore.getSnapshot()
+        traceState.responseRecord.completedAt = new Date().toISOString()
+        traceState.runtimeTrace.agentTree = treeStore.getSnapshot()
         this.persistConversationTrace(traceState, 'update')
+        this.emit({
+          type: 'turn-detail-upsert',
+          requestId,
+          topicId: topic.id
+        })
       }
 
       const rawErrorJson = serializeErrorDetails(error)
@@ -561,8 +725,9 @@ export class NormalChatConversationService {
       topicTitle: traceState.topicTitle,
       saveFullConversationEnabled: traceState.saveFullConversationEnabled,
       hasTrace: true,
-      requestPayload: traceState.requestPayload,
-      responsePayload: traceState.responsePayload,
+      requestRecord: traceState.requestRecord,
+      responseRecord: traceState.responseRecord,
+      runtimeTrace: traceState.runtimeTrace,
       messages: []
     }
 
@@ -583,6 +748,7 @@ export class NormalChatConversationService {
       emoji: string
       defaultSystemPrompt: string
       saveFullConversationEnabled: boolean
+      streamingEnabled: boolean
       callMode: 'fast' | 'slow' | 'auto'
       costMode: 'per_call' | 'per_token'
       maxRecursionDepth: number
@@ -593,13 +759,17 @@ export class NormalChatConversationService {
       title: string
       systemPromptMode: 'inherit' | 'override'
       systemPromptOverride: string | null
+      streamingMode: 'inherit' | 'override'
+      streamingEnabledOverride: boolean | null
     }
     providerId: string
     modelId: string
     input: string
     systemPrompt: string
-    promptMessages: NormalChatConversationTurnRequestPayload['promptMessages']
-    agentTree: NormalChatConversationTurnResponsePayload['agentTree']
+    promptMessages: NormalChatConversationTurnRequestRecord['promptMessages']
+    agentTree: NormalChatConversationRuntimeTrace['agentTree']
+    metrics: NormalChatRequestMetrics
+    streamingEnabled: boolean
   }): ConversationTraceState | null {
     if (!params.assistant.saveFullConversationEnabled) {
       return null
@@ -613,7 +783,7 @@ export class NormalChatConversationService {
       assistantEmoji: params.assistant.emoji,
       topicTitle: params.topic.title,
       saveFullConversationEnabled: true,
-      requestPayload: {
+      requestRecord: {
         assistant: {
           id: params.assistant.id,
           name: params.assistant.name,
@@ -621,6 +791,7 @@ export class NormalChatConversationService {
           templateKey: params.assistant.templateKey,
           defaultSystemPrompt: params.assistant.defaultSystemPrompt,
           saveFullConversationEnabled: params.assistant.saveFullConversationEnabled,
+          streamingEnabled: params.assistant.streamingEnabled,
           callMode: params.assistant.callMode,
           costMode: params.assistant.costMode,
           maxRecursionDepth: params.assistant.maxRecursionDepth,
@@ -634,17 +805,22 @@ export class NormalChatConversationService {
         },
         providerId: params.providerId,
         modelId: params.modelId,
+        streamingEnabled: params.streamingEnabled,
         input: params.input,
         effectiveSystemPrompt: params.systemPrompt,
         promptMessages: params.promptMessages
       },
-      responsePayload: {
+      responseRecord: {
         chunks: [],
         finalText: '',
         aborted: false,
         errorMessage: null,
-        completedAt: null,
+        completedAt: null
+      },
+      runtimeTrace: {
+        traceVersion: 1,
         agentTree: params.agentTree,
+        metrics: params.metrics,
         execution: null
       }
     }

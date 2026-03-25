@@ -2,6 +2,7 @@
   <section
     ref="viewportRef"
     class="nc-chat-message-viewport-a9k2 flex-1 overflow-y-auto bg-[var(--nc-bg-main)]"
+    @scroll="handleViewportScroll"
   >
     <div
       v-if="currentMessages.length === 0"
@@ -40,6 +41,7 @@
           @more="emit('more-message', $event)"
           @open-session="emit('open-message-session', $event)"
           @open-agent-tree="emit('open-agent-tree', $event)"
+          @open-functioncall-detail="emit('open-functioncall-detail', $event)"
         />
       </div>
     </div>
@@ -58,6 +60,8 @@ const conversationStore = useNormalChatConversationStore()
 
 const currentMessages = computed(() => conversationStore.currentDisplayMessages)
 const viewportRef = ref<HTMLElement | null>(null)
+const autoStickToBottom = ref(true)
+const BOTTOM_STICK_THRESHOLD_PX = 96
 
 const emit = defineEmits<{
   'copy-message': [message: NormalChatConversationDisplayMessage]
@@ -65,12 +69,47 @@ const emit = defineEmits<{
   'more-message': [message: NormalChatConversationDisplayMessage]
   'open-message-session': [message: NormalChatConversationDisplayMessage]
   'open-agent-tree': [message: NormalChatConversationDisplayMessage]
+  'open-functioncall-detail': [
+    payload: { message: NormalChatConversationDisplayMessage; callId: string }
+  ]
 }>()
 
-async function scrollToBottom(): Promise<void> {
-  await nextTick()
-  viewportRef.value?.scrollTo({ top: viewportRef.value.scrollHeight, behavior: 'smooth' })
+function isNearBottom(): boolean {
+  const viewport = viewportRef.value
+  if (!viewport) {
+    return true
+  }
+
+  const distanceToBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight
+  return distanceToBottom <= BOTTOM_STICK_THRESHOLD_PX
 }
+
+function handleViewportScroll(): void {
+  autoStickToBottom.value = isNearBottom()
+}
+
+async function scrollToBottom(behavior: ScrollBehavior = 'auto'): Promise<void> {
+  await nextTick()
+  const viewport = viewportRef.value
+  if (!viewport) {
+    return
+  }
+
+  viewport.scrollTo({
+    top: viewport.scrollHeight,
+    behavior
+  })
+  autoStickToBottom.value = true
+}
+
+watch(
+  () => workspaceStore.currentTopic?.id ?? '',
+  () => {
+    autoStickToBottom.value = true
+    void scrollToBottom('auto')
+  },
+  { immediate: true }
+)
 
 watch(
   () =>
@@ -89,15 +128,20 @@ watch(
         ].join(':')
       )
       .join('|'),
-  () => {
-    void scrollToBottom()
+  (_nextValue, previousValue) => {
+    // 只有用户贴近底部时才自动跟随，避免流式输出打断上翻阅读。
+    if (!previousValue || autoStickToBottom.value) {
+      void scrollToBottom('auto')
+    }
   }
 )
 
 watch(
   () => conversationStore.currentStatusText,
   () => {
-    void scrollToBottom()
+    if (autoStickToBottom.value) {
+      void scrollToBottom('auto')
+    }
   }
 )
 </script>

@@ -30,6 +30,7 @@
               :key="callKey(call, index, block.batchIndex)"
               :part="call"
               :is-pending="Boolean(message.isPending)"
+              @view-detail="emit('open-functioncall-detail', $event)"
             />
           </template>
           <FunctionCallBatchBlock
@@ -79,6 +80,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   'view-detail': []
   'open-agent-tree': []
+  'open-functioncall-detail': [callId: string]
 }>()
 
 interface TextRenderBlock {

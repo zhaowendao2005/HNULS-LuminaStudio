@@ -106,7 +106,16 @@ export class NormalChatAgentTreeStore {
       return
     }
 
-    agent.selectedHelpers = selectedHelpers
+    const mergedHelpers = [...agent.selectedHelpers]
+    selectedHelpers.forEach((nextHelper) => {
+      const existingIndex = mergedHelpers.findIndex((item) => item.helperId === nextHelper.helperId)
+      if (existingIndex >= 0) {
+        mergedHelpers[existingIndex] = nextHelper
+        return
+      }
+      mergedHelpers.push(nextHelper)
+    })
+    agent.selectedHelpers = mergedHelpers
     agent.updatedAt = new Date().toISOString()
     this.emitChange()
   }

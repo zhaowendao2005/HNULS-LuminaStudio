@@ -31,7 +31,7 @@ import { McpChatService } from './services/mcp-chat'
 import { McpChatIPCHandler } from './ipc/mcp-chat-handler'
 import { NormalChatService } from './services/normal-chat'
 import { NormalChatLlmClient } from './services/normal-chat/llm-client'
-import { NormalChatConversationService } from './services/normal-chat/runtime/conversation-runtime'
+import { NormalChatConversationRuntimeService } from './services/normal-chat/runtime/conversation-runtime'
 import { NormalChatIPCHandler } from './ipc/normal-chat-handler'
 
 const log = logger.scope('Main')
@@ -134,7 +134,7 @@ app.whenReady().then(() => {
   new McpChatIPCHandler(mcpChatService)
   const normalChatService = new NormalChatService(databaseManager)
   const normalChatLlmClient = new NormalChatLlmClient(modelConfigService)
-  const normalChatConversationService = new NormalChatConversationService(
+  const normalChatConversationService = new NormalChatConversationRuntimeService(
     databaseManager,
     normalChatLlmClient,
     paperRetrievalService

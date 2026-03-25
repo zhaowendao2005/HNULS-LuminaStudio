@@ -6,7 +6,8 @@ import { pubmedSearchProgressivePrompt } from './progressive-prompt'
 import { executePubmedSearch } from './execute'
 import type {
   NormalChatFunctioncallHelper,
-  NormalChatFunctioncallRegistryDependencies
+  NormalChatFunctioncallRegistryDependencies,
+  NormalChatFunctioncallResultAssessment
 } from '../../contracts'
 
 export const pubmedSearchArgsSchema = z.object({
@@ -35,6 +36,53 @@ function summarizePubmedResult(result: PaperRetrievalSearchResult): string {
     .join('； ')
 }
 
+function fingerprintPubmedArgs(args: PubmedSearchArgs): string {
+  const normalizedQuery = args.query
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .replace(/[()"]/g, ' ')
+    .trim()
+
+  return JSON.stringify({
+    query: normalizedQuery,
+    topK: args.topK,
+    sort: args.sort,
+    startDate: args.startDate ?? null,
+    endDate: args.endDate ?? null
+  })
+}
+
+function assessPubmedResult(
+  result: PaperRetrievalSearchResult
+): NormalChatFunctioncallResultAssessment {
+  if (result.total_found === 0 || result.items.length === 0) {
+    return {
+      quality: 'none',
+      shouldContinue: false,
+      stopReason: '未命中可用论文，应该停止继续同方向搜索并改为总结证据空白。'
+    }
+  }
+
+  const directSignalCount = result.items.filter((item) => {
+    const haystack = `${item.title} ${item.abstract ?? ''}`.toLowerCase()
+    return /transcriptome|rna-seq|differential|deg|gene expression/.test(haystack)
+  }).length
+
+  if (directSignalCount >= 2) {
+    return {
+      quality: 'useful',
+      shouldContinue: false,
+      stopReason: '已经拿到足够代表性的文献，应直接进入总结回答。'
+    }
+  }
+
+  return {
+    quality: 'weak',
+    shouldContinue: true,
+    stopReason: null
+  }
+}
+
 export function createPubmedSearchHelper(
   dependencies: NormalChatFunctioncallRegistryDependencies
 ): NormalChatFunctioncallHelper<PubmedSearchArgs, PaperRetrievalSearchResult> {
@@ -45,6 +93,9 @@ export function createPubmedSearchHelper(
     schemaPrompt: pubmedSearchSchemaPrompt,
     progressivePrompt: pubmedSearchProgressivePrompt,
     argsSchema: pubmedSearchArgsSchema,
+    fingerprintArgs(args) {
+      return fingerprintPubmedArgs(args)
+    },
     execute(args, context) {
       return executePubmedSearch(args, context, {
         paperRetrievalService: dependencies.paperRetrievalService
@@ -52,6 +103,9 @@ export function createPubmedSearchHelper(
     },
     summarizeResult(result) {
       return summarizePubmedResult(result)
+    },
+    assessResult(result) {
+      return assessPubmedResult(result)
     },
     summarizeFailure(error) {
       return error instanceof Error ? error.message : String(error)

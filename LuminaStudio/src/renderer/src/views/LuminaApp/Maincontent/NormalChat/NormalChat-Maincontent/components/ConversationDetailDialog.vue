@@ -48,7 +48,11 @@
         </button>
       </div>
 
-      <div class="min-h-0 flex-1 overflow-y-auto bg-gray-50 px-6 py-5">
+      <div
+        ref="contentViewportRef"
+        class="min-h-0 flex-1 overflow-y-auto bg-gray-50 px-6 py-5"
+        @scroll="handleContentViewportScroll"
+      >
         <div
           v-if="loading"
           class="flex h-full items-center justify-center text-[13px] text-gray-400"
@@ -73,17 +77,17 @@
             <ConversationDetailRawSection
               title="原始请求 JSON"
               description="包含 system prompt、程序性提示词、history messages 和用户输入。"
-              :value="detail?.requestPayload ?? {}"
+              :value="detail?.requestRecord ?? {}"
             />
             <ConversationDetailRawSection
               title="原始响应 JSON"
               description="包含流式 chunks、最终文本、结束状态和错误信息。"
-              :value="detail?.responsePayload ?? {}"
+              :value="detail?.responseRecord ?? {}"
             />
             <AgentTraceJsonSection
               title="Agent Tree JSON"
               description="保存完整会话时，递归式 multi-agent 运行树会直接落在 turn trace 中。"
-              :value="detail?.responsePayload?.agentTree ?? null"
+              :value="detail?.runtimeTrace?.agentTree ?? null"
             />
             <ConversationDetailRawSection
               title="原始消息快照"
@@ -112,6 +116,16 @@
             <section class="rounded-2xl border border-gray-200 bg-white px-4 py-4">
               <h3 class="text-[14px] font-semibold text-gray-900">当前消息内容</h3>
               <div class="mt-3 grid gap-3">
+                <div v-if="focusedFunctionCall" class="rounded-xl bg-sky-50 px-3 py-2">
+                  <p class="text-[12px] text-sky-500">当前聚焦调用</p>
+                  <p class="mt-1 text-[13px] font-medium text-sky-800">
+                    {{ focusedFunctionCall.title }} · {{ focusedFunctionCall.functionCallName }}
+                  </p>
+                  <pre
+                    class="mt-2 whitespace-pre-wrap break-words text-[12px] leading-6 text-sky-700"
+                    >{{ focusedFunctionCall.input || focusedFunctionCall.output || '无内容' }}</pre
+                  >
+                </div>
                 <div class="rounded-xl bg-gray-50 px-3 py-2">
                   <p class="text-[12px] text-gray-400">消息角色</p>
                   <p class="mt-1 text-[13px] text-gray-700">
@@ -157,9 +171,9 @@
                   <p class="text-[12px] text-gray-400">响应状态</p>
                   <p class="mt-1 text-[13px] text-gray-700">
                     {{
-                      detail?.responsePayload?.errorMessage
-                        ? `错误：${detail.responsePayload.errorMessage}`
-                        : detail?.responsePayload?.aborted
+                      detail?.responseRecord?.errorMessage
+                        ? `错误：${detail.responseRecord.errorMessage}`
+                        : detail?.responseRecord?.aborted
                           ? '已中止'
                           : '正常完成'
                     }}
@@ -174,10 +188,63 @@
               </div>
             </section>
 
+            <section class="rounded-2xl border border-gray-200 bg-white px-4 py-4">
+              <div class="flex items-center justify-between gap-3">
+                <h3 class="text-[14px] font-semibold text-gray-900">Helper 调用时间线</h3>
+                <span class="text-[12px] text-gray-400">
+                  共 {{ helperTimelineParts.length }} 次调用
+                </span>
+              </div>
+              <div v-if="helperTimelineParts.length > 0" class="mt-3 space-y-3">
+                <div
+                  v-for="entry in helperTimelineParts"
+                  :key="entry.callId"
+                  class="rounded-xl border border-gray-100 bg-gray-50 px-3 py-3"
+                >
+                  <div class="mb-2 flex items-center justify-between gap-3">
+                    <div class="min-w-0">
+                      <p class="truncate text-[13px] font-medium text-gray-800">
+                        {{ entry.title }}
+                      </p>
+                      <p class="mt-1 text-[12px] text-gray-500">
+                        depth {{ entry.depth }} · {{ entry.agentLabel }} · {{ entry.helperId }}
+                      </p>
+                    </div>
+                    <span
+                      class="inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-medium"
+                      :class="entry.statusClass"
+                    >
+                      {{ entry.statusLabel }}
+                    </span>
+                  </div>
+                  <p v-if="entry.summary" class="mb-2 text-[12px] leading-5 text-gray-600">
+                    {{ entry.summary }}
+                  </p>
+                  <div class="grid gap-3 md:grid-cols-2">
+                    <div class="rounded-lg bg-white px-3 py-2">
+                      <p class="text-[12px] font-medium text-gray-500">输入</p>
+                      <pre
+                        class="mt-2 whitespace-pre-wrap break-words text-[12px] leading-5 text-gray-700"
+                        >{{ entry.input }}</pre
+                      >
+                    </div>
+                    <div class="rounded-lg bg-white px-3 py-2">
+                      <p class="text-[12px] font-medium text-gray-500">输出 / 错误</p>
+                      <pre
+                        class="mt-2 whitespace-pre-wrap break-words text-[12px] leading-5 text-gray-700"
+                        >{{ entry.output }}</pre
+                      >
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <p v-else class="mt-3 text-[13px] text-gray-500">当前没有 helper 调用记录。</p>
+            </section>
+
             <AgentTraceJsonSection
               title="Agent Tree 回放"
               description="这里更偏离线回放视图，实时运行中的树请在主消息区状态条打开 Agent Tree Dialog。"
-              :value="detail?.responsePayload?.agentTree ?? null"
+              :value="detail?.runtimeTrace?.agentTree ?? null"
             />
           </div>
         </template>
@@ -187,7 +254,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { X } from 'lucide-vue-next'
 import { useNormalChatConversationStore } from '@renderer/stores/normal-chat/conversation/conversation.store'
 import { useNormalChatWorkspaceStore } from '@renderer/stores/normal-chat/workspace/workspace.store'
@@ -195,12 +262,16 @@ import ConversationDetailRawSection from './ConversationDetailRawSection.vue'
 import AgentTraceJsonSection from './AgentTraceJsonSection.vue'
 import ChatMessageParts from './ChatMessageParts.vue'
 import type { NormalChatConversationDisplayMessage } from '@renderer/stores/normal-chat/conversation/conversation.types'
-import type { NormalChatConversationTurnDetail } from '@preload/types'
+import type {
+  NormalChatConversationTurnDetail,
+  NormalChatFunctionCallMessagePart
+} from '@preload/types'
 
 const props = defineProps<{
   visible: boolean
   requestId: string
   messageId: string
+  focusCallId?: string
 }>()
 
 const emit = defineEmits<{
@@ -213,27 +284,57 @@ const workspaceStore = useNormalChatWorkspaceStore()
 const activeTab = ref<'raw' | 'rendered'>('raw')
 const loading = ref(false)
 const errorText = ref('')
-const detail = ref<NormalChatConversationTurnDetail | null>(null)
+const contentViewportRef = ref<HTMLElement | null>(null)
+const autoStickToBottom = ref(true)
+const BOTTOM_STICK_THRESHOLD_PX = 96
+
+// 详情数据优先走 store 缓存，流式阶段直接吃事件补丁，避免轮询整页重刷闪烁。
+const detail = computed<NormalChatConversationTurnDetail | null>(() => {
+  return conversationStore.getConversationTurnDetailCached(props.requestId)
+})
 
 const selectedMessage = computed<NormalChatConversationDisplayMessage | null>(() => {
-  if (!detail.value || !props.messageId) {
+  if (!props.requestId) {
     return null
   }
 
-  const message = detail.value.messages.find((item) => item.id === props.messageId)
-  if (!message) {
-    return null
+  const persistedMessage = detail.value?.messages.find((item) => item.id === props.messageId)
+  if (persistedMessage && detail.value) {
+    return {
+      ...persistedMessage,
+      author: persistedMessage.role === 'user' ? '用户' : detail.value.assistantName,
+      time: persistedMessage.createdAt,
+      text: persistedMessage.parts
+        .filter((part) => part.kind === 'text')
+        .map((part) => part.text)
+        .join('')
+    }
   }
 
-  return {
-    ...message,
-    author: message.role === 'user' ? '用户' : detail.value.assistantName,
-    time: message.createdAt,
-    text: message.parts
-      .filter((part) => part.kind === 'text')
-      .map((part) => part.text)
-      .join('')
+  const requestAssistantMessage =
+    detail.value?.messages.find(
+      (message) => message.requestId === props.requestId && message.role === 'assistant'
+    ) ?? null
+  if (requestAssistantMessage && detail.value) {
+    return {
+      ...requestAssistantMessage,
+      author: detail.value.assistantName,
+      time: requestAssistantMessage.createdAt,
+      text: requestAssistantMessage.parts
+        .filter((part) => part.kind === 'text')
+        .map((part) => part.text)
+        .join('')
+    }
   }
+
+  // 正在流式生成时，assistant 正文还没真正入库，此时退回主消息区的 pending 消息。
+  return (
+    conversationStore.currentDisplayMessages.find(
+      (message) =>
+        message.requestId === props.requestId &&
+        (message.id === props.messageId || message.role === 'assistant')
+    ) ?? null
+  )
 })
 
 const selectedMessageJsonSummary = computed(() => {
@@ -250,6 +351,19 @@ const selectedMessageJsonSummary = computed(() => {
   }
 
   return JSON.stringify(payload, null, 2)
+})
+
+const focusedFunctionCall = computed<NormalChatFunctionCallMessagePart | null>(() => {
+  if (!selectedMessage.value || !props.focusCallId) {
+    return null
+  }
+
+  return (
+    selectedMessage.value.parts.find(
+      (part): part is NormalChatFunctionCallMessagePart =>
+        part.kind === 'functioncall' && part.callId === props.focusCallId
+    ) ?? null
+  )
 })
 
 const dialogTitle = computed(() => {
@@ -290,7 +404,7 @@ const rawMeta = computed(() => {
 })
 
 const executionSummaryText = computed(() => {
-  const tree = detail.value?.responsePayload?.agentTree
+  const tree = detail.value?.runtimeTrace?.agentTree
   if (!tree) {
     return '无执行记录'
   }
@@ -302,9 +416,81 @@ const executionSummaryText = computed(() => {
   return `agent ${agents.length} 个，helper 调用 ${helperCallCount} 次，最大深度 ${maxDepth}，fallback ${tree.fallbackTriggered ? '是' : '否'}`
 })
 
+const helperTimelineParts = computed(() => {
+  const tree = detail.value?.runtimeTrace?.agentTree
+  if (!tree) {
+    return []
+  }
+
+  return Object.values(tree.agents)
+    .flatMap((agent) =>
+      agent.helperInvocations.map((invocation) => {
+        const statusLabel =
+          invocation.status === 'success'
+            ? '已完成'
+            : invocation.status === 'error'
+              ? '已失败'
+              : invocation.status === 'aborted'
+                ? '已中止'
+                : '执行中'
+
+        const statusClass =
+          invocation.status === 'success'
+            ? 'bg-emerald-100 text-emerald-700'
+            : invocation.status === 'error'
+              ? 'bg-rose-100 text-rose-700'
+              : invocation.status === 'aborted'
+                ? 'bg-amber-100 text-amber-700'
+                : 'bg-sky-100 text-sky-700'
+
+        return {
+          callId: invocation.callId,
+          helperId: invocation.helperId,
+          title: invocation.displayName,
+          depth: agent.depth,
+          agentLabel: `${agent.roleKind}/${agent.taskKind}`,
+          summary: invocation.resultSummary ?? invocation.failureSummary ?? null,
+          input: invocation.argsJson || '无',
+          output: invocation.outputJson || invocation.errorMessage || '无',
+          statusLabel,
+          statusClass,
+          startedAt: invocation.startedAt
+        }
+      })
+    )
+    .sort((left, right) => left.startedAt.localeCompare(right.startedAt))
+})
+
+function isNearBottom(): boolean {
+  const viewport = contentViewportRef.value
+  if (!viewport) {
+    return true
+  }
+
+  const distanceToBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight
+  return distanceToBottom <= BOTTOM_STICK_THRESHOLD_PX
+}
+
+function handleContentViewportScroll(): void {
+  autoStickToBottom.value = isNearBottom()
+}
+
+async function scrollToBottom(behavior: ScrollBehavior = 'auto'): Promise<void> {
+  await nextTick()
+  const viewport = contentViewportRef.value
+  if (!viewport) {
+    return
+  }
+
+  viewport.scrollTo({
+    top: viewport.scrollHeight,
+    behavior
+  })
+  autoStickToBottom.value = true
+}
+
 async function loadDetail(): Promise<void> {
   if (!props.visible || !props.requestId) {
-    detail.value = null
     errorText.value = ''
     loading.value = false
     return
@@ -315,8 +501,8 @@ async function loadDetail(): Promise<void> {
 
   try {
     activeTab.value = 'raw'
-    detail.value = await conversationStore.loadConversationTurnDetail(props.requestId)
-    if (!detail.value) {
+    const nextDetail = await conversationStore.loadConversationTurnDetail(props.requestId)
+    if (!nextDetail) {
       errorText.value = workspaceStore.currentAssistant?.saveFullConversationEnabled
         ? '当前 turn 没有保存完整会话数据，可能是旧数据或者本次保存关闭。'
         : '当前助手还没有开启完整会话保存。'
@@ -336,13 +522,62 @@ watch(
   () => [props.visible, props.requestId, props.messageId],
   () => {
     if (!props.visible) {
-      detail.value = null
       errorText.value = ''
+      loading.value = false
+      return
+    }
+
+    autoStickToBottom.value = true
+
+    if (!props.requestId) {
+      errorText.value = ''
+      return
+    }
+
+    if (conversationStore.getConversationTurnDetailCached(props.requestId)) {
+      errorText.value = ''
+      loading.value = false
+      void scrollToBottom('auto')
       return
     }
 
     void loadDetail()
   },
   { immediate: true }
+)
+
+watch(
+  () => [props.visible, activeTab.value],
+  ([visible]) => {
+    if (!visible) {
+      return
+    }
+
+    autoStickToBottom.value = true
+    void scrollToBottom('auto')
+  }
+)
+
+watch(
+  () =>
+    props.visible
+      ? JSON.stringify({
+          activeTab: activeTab.value,
+          requestId: detail.value?.requestId ?? '',
+          responseRecord: detail.value?.responseRecord ?? null,
+          runtimeTrace: detail.value?.runtimeTrace ?? null,
+          messages: detail.value?.messages ?? []
+        })
+      : '',
+  (nextValue, previousValue) => {
+    if (!props.visible || !nextValue) {
+      return
+    }
+
+    // 弹窗内的流式区也遵循主消息区规则：只有贴近底部时才自动跟随。
+    if (!previousValue || autoStickToBottom.value) {
+      void scrollToBottom('auto')
+    }
+  }
 )
 </script>

@@ -19,6 +19,7 @@ export interface NormalChatWorkspaceDatasourceLike {
     name?: string
     defaultSystemPrompt?: string
     saveFullConversationEnabled?: boolean
+    streamingEnabled?: boolean
     callMode?: 'fast' | 'slow' | 'auto'
     costMode?: 'per_call' | 'per_token'
     maxRecursionDepth?: number
@@ -51,6 +52,12 @@ export interface NormalChatWorkspaceDatasourceLike {
     topicId: string
     mode: NormalChatTopicPromptMode
     promptOverride?: string | null
+  }): Promise<NormalChatWorkspaceSnapshot>
+  updateTopicStreaming(payload: {
+    assistantId: string
+    topicId: string
+    mode: 'inherit' | 'override'
+    streamingEnabledOverride?: boolean | null
   }): Promise<NormalChatWorkspaceSnapshot>
 }
 
@@ -93,5 +100,8 @@ export const NormalChatWorkspaceDatasource: NormalChatWorkspaceDatasourceLike = 
   },
   updateTopicPrompt(payload) {
     return window.api.normalChat.updateTopicPrompt(payload).then(unwrap)
+  },
+  updateTopicStreaming(payload) {
+    return window.api.normalChat.updateTopicStreaming(payload).then(unwrap)
   }
 }

@@ -2,8 +2,9 @@ import type Database from 'better-sqlite3'
 import type {
   NormalChatConversationMessage,
   NormalChatConversationTurnDetail,
-  NormalChatConversationTurnRequestPayload,
-  NormalChatConversationTurnResponsePayload,
+  NormalChatConversationTurnRequestRecord,
+  NormalChatConversationTurnResponseRecord,
+  NormalChatConversationRuntimeTrace,
   NormalChatCallMode,
   NormalChatCostMode,
   NormalChatFunctionCallMessagePart,
@@ -27,6 +28,7 @@ interface AssistantRow {
   label_id: string | null
   default_system_prompt: string
   save_full_conversation_enabled: number
+  streaming_enabled: number
   call_mode: NormalChatCallMode
   cost_mode: NormalChatCostMode
   max_recursion_depth: number
@@ -40,6 +42,8 @@ interface TopicRow {
   title: string
   system_prompt_mode: NormalChatTopicPromptMode
   system_prompt_override: string | null
+  streaming_mode: 'inherit' | 'override'
+  streaming_enabled_override: number | null
   sort_order: number
 }
 
@@ -67,8 +71,9 @@ interface ConversationTurnTraceRow {
   assistant_emoji: string
   topic_title: string
   save_full_conversation_enabled: number
-  request_payload_json: string
-  response_payload_json: string
+  request_record_json: string
+  response_record_json: string
+  runtime_trace_json: string
   created_at: string
   updated_at: string
 }
@@ -164,6 +169,7 @@ export class NormalChatRepository {
             label_id,
             default_system_prompt,
             save_full_conversation_enabled,
+            streaming_enabled,
             call_mode,
             cost_mode,
             max_recursion_depth,
@@ -183,6 +189,7 @@ export class NormalChatRepository {
       labelId: row.label_id,
       defaultSystemPrompt: row.default_system_prompt,
       saveFullConversationEnabled: Boolean(row.save_full_conversation_enabled),
+      streamingEnabled: Boolean(row.streaming_enabled),
       callMode: row.call_mode,
       costMode: row.cost_mode,
       maxRecursionDepth: row.max_recursion_depth,
@@ -203,6 +210,7 @@ export class NormalChatRepository {
             label_id,
             default_system_prompt,
             save_full_conversation_enabled,
+            streaming_enabled,
             call_mode,
             cost_mode,
             max_recursion_depth,
@@ -226,6 +234,7 @@ export class NormalChatRepository {
       labelId: row.label_id,
       defaultSystemPrompt: row.default_system_prompt,
       saveFullConversationEnabled: Boolean(row.save_full_conversation_enabled),
+      streamingEnabled: Boolean(row.streaming_enabled),
       callMode: row.call_mode,
       costMode: row.cost_mode,
       maxRecursionDepth: row.max_recursion_depth,
@@ -246,12 +255,13 @@ export class NormalChatRepository {
             label_id,
             default_system_prompt,
             save_full_conversation_enabled,
+            streaming_enabled,
             call_mode,
             cost_mode,
             max_recursion_depth,
             max_retries_per_agent,
             sort_order
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `
       )
       .run(
@@ -262,6 +272,7 @@ export class NormalChatRepository {
         assistant.labelId,
         assistant.defaultSystemPrompt,
         assistant.saveFullConversationEnabled ? 1 : 0,
+        assistant.streamingEnabled ? 1 : 0,
         assistant.callMode,
         assistant.costMode,
         assistant.maxRecursionDepth,
@@ -280,6 +291,7 @@ export class NormalChatRepository {
             label_id = ?,
             default_system_prompt = ?,
             save_full_conversation_enabled = ?,
+            streaming_enabled = ?,
             call_mode = ?,
             cost_mode = ?,
             max_recursion_depth = ?,
@@ -293,6 +305,7 @@ export class NormalChatRepository {
         assistant.labelId,
         assistant.defaultSystemPrompt,
         assistant.saveFullConversationEnabled ? 1 : 0,
+        assistant.streamingEnabled ? 1 : 0,
         assistant.callMode,
         assistant.costMode,
         assistant.maxRecursionDepth,
@@ -305,7 +318,15 @@ export class NormalChatRepository {
     const rows = this.db
       .prepare(
         `
-          SELECT id, assistant_id, title, system_prompt_mode, system_prompt_override, sort_order
+          SELECT
+            id,
+            assistant_id,
+            title,
+            system_prompt_mode,
+            system_prompt_override,
+            streaming_mode,
+            streaming_enabled_override,
+            sort_order
           FROM normal_chat_topics
           ORDER BY assistant_id ASC, sort_order ASC, created_at ASC
         `
@@ -318,6 +339,11 @@ export class NormalChatRepository {
       title: row.title,
       systemPromptMode: row.system_prompt_mode,
       systemPromptOverride: row.system_prompt_override,
+      streamingMode: row.streaming_mode,
+      streamingEnabledOverride:
+        typeof row.streaming_enabled_override === 'number'
+          ? Boolean(row.streaming_enabled_override)
+          : null,
       sortOrder: row.sort_order
     }))
   }
@@ -326,7 +352,15 @@ export class NormalChatRepository {
     const rows = this.db
       .prepare(
         `
-          SELECT id, assistant_id, title, system_prompt_mode, system_prompt_override, sort_order
+          SELECT
+            id,
+            assistant_id,
+            title,
+            system_prompt_mode,
+            system_prompt_override,
+            streaming_mode,
+            streaming_enabled_override,
+            sort_order
           FROM normal_chat_topics
           WHERE assistant_id = ?
           ORDER BY sort_order ASC, created_at ASC
@@ -340,6 +374,11 @@ export class NormalChatRepository {
       title: row.title,
       systemPromptMode: row.system_prompt_mode,
       systemPromptOverride: row.system_prompt_override,
+      streamingMode: row.streaming_mode,
+      streamingEnabledOverride:
+        typeof row.streaming_enabled_override === 'number'
+          ? Boolean(row.streaming_enabled_override)
+          : null,
       sortOrder: row.sort_order
     }))
   }
@@ -348,7 +387,15 @@ export class NormalChatRepository {
     const row = this.db
       .prepare(
         `
-          SELECT id, assistant_id, title, system_prompt_mode, system_prompt_override, sort_order
+          SELECT
+            id,
+            assistant_id,
+            title,
+            system_prompt_mode,
+            system_prompt_override,
+            streaming_mode,
+            streaming_enabled_override,
+            sort_order
           FROM normal_chat_topics
           WHERE id = ?
         `
@@ -365,6 +412,11 @@ export class NormalChatRepository {
       title: row.title,
       systemPromptMode: row.system_prompt_mode,
       systemPromptOverride: row.system_prompt_override,
+      streamingMode: row.streaming_mode,
+      streamingEnabledOverride:
+        typeof row.streaming_enabled_override === 'number'
+          ? Boolean(row.streaming_enabled_override)
+          : null,
       sortOrder: row.sort_order
     }
   }
@@ -379,8 +431,10 @@ export class NormalChatRepository {
             title,
             system_prompt_mode,
             system_prompt_override,
+            streaming_mode,
+            streaming_enabled_override,
             sort_order
-          ) VALUES (?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `
       )
       .run(
@@ -389,6 +443,8 @@ export class NormalChatRepository {
         topic.title,
         topic.systemPromptMode,
         topic.systemPromptOverride,
+        topic.streamingMode,
+        topic.streamingEnabledOverride === null ? null : topic.streamingEnabledOverride ? 1 : 0,
         topic.sortOrder
       )
   }
@@ -402,11 +458,20 @@ export class NormalChatRepository {
             title = ?,
             system_prompt_mode = ?,
             system_prompt_override = ?,
+            streaming_mode = ?,
+            streaming_enabled_override = ?,
             updated_at = datetime('now')
           WHERE id = ?
         `
       )
-      .run(topic.title, topic.systemPromptMode, topic.systemPromptOverride, topic.id)
+      .run(
+        topic.title,
+        topic.systemPromptMode,
+        topic.systemPromptOverride,
+        topic.streamingMode,
+        topic.streamingEnabledOverride === null ? null : topic.streamingEnabledOverride ? 1 : 0,
+        topic.id
+      )
   }
 
   deleteTopic(topicId: string): void {
@@ -507,9 +572,10 @@ export class NormalChatRepository {
             assistant_emoji,
             topic_title,
             save_full_conversation_enabled,
-            request_payload_json,
-            response_payload_json
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            request_record_json,
+            response_record_json,
+            runtime_trace_json
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `
       )
       .run(
@@ -520,8 +586,9 @@ export class NormalChatRepository {
         payload.assistantEmoji,
         payload.topicTitle,
         payload.saveFullConversationEnabled ? 1 : 0,
-        JSON.stringify(payload.requestPayload ?? null),
-        JSON.stringify(payload.responsePayload ?? null)
+        JSON.stringify(payload.requestRecord ?? null),
+        JSON.stringify(payload.responseRecord ?? null),
+        JSON.stringify(payload.runtimeTrace ?? null)
       )
   }
 
@@ -537,8 +604,9 @@ export class NormalChatRepository {
             assistant_emoji = ?,
             topic_title = ?,
             save_full_conversation_enabled = ?,
-            request_payload_json = ?,
-            response_payload_json = ?,
+            request_record_json = ?,
+            response_record_json = ?,
+            runtime_trace_json = ?,
             updated_at = datetime('now')
           WHERE request_id = ?
         `
@@ -550,8 +618,9 @@ export class NormalChatRepository {
         payload.assistantEmoji,
         payload.topicTitle,
         payload.saveFullConversationEnabled ? 1 : 0,
-        JSON.stringify(payload.requestPayload ?? null),
-        JSON.stringify(payload.responsePayload ?? null),
+        JSON.stringify(payload.requestRecord ?? null),
+        JSON.stringify(payload.responseRecord ?? null),
+        JSON.stringify(payload.runtimeTrace ?? null),
         payload.requestId
       )
   }
@@ -568,8 +637,9 @@ export class NormalChatRepository {
             assistant_emoji,
             topic_title,
             save_full_conversation_enabled,
-            request_payload_json,
-            response_payload_json,
+            request_record_json,
+            response_record_json,
+            runtime_trace_json,
             created_at,
             updated_at
           FROM normal_chat_turn_traces
@@ -590,9 +660,12 @@ export class NormalChatRepository {
       assistantEmoji: row.assistant_emoji,
       topicTitle: row.topic_title,
       saveFullConversationEnabled: Boolean(row.save_full_conversation_enabled),
-      hasTrace: Boolean(row.request_payload_json || row.response_payload_json),
-      requestPayload: this.parseConversationRequestPayload(row.request_payload_json),
-      responsePayload: this.parseConversationResponsePayload(row.response_payload_json),
+      hasTrace: Boolean(
+        row.request_record_json || row.response_record_json || row.runtime_trace_json
+      ),
+      requestRecord: this.parseConversationRequestRecord(row.request_record_json),
+      responseRecord: this.parseConversationResponseRecord(row.response_record_json),
+      runtimeTrace: this.parseConversationRuntimeTrace(row.runtime_trace_json),
       messages: this.listMessagesByRequestId(requestId)
     }
   }
@@ -720,31 +793,46 @@ export class NormalChatRepository {
     }
   }
 
-  private parseConversationRequestPayload(
+  private parseConversationRequestRecord(
     payloadJson: string
-  ): NormalChatConversationTurnRequestPayload | null {
+  ): NormalChatConversationTurnRequestRecord | null {
     try {
       const parsed = JSON.parse(payloadJson) as unknown
       if (!parsed || typeof parsed !== 'object') {
         return null
       }
 
-      return parsed as NormalChatConversationTurnRequestPayload
+      return parsed as NormalChatConversationTurnRequestRecord
     } catch {
       return null
     }
   }
 
-  private parseConversationResponsePayload(
+  private parseConversationResponseRecord(
     payloadJson: string
-  ): NormalChatConversationTurnResponsePayload | null {
+  ): NormalChatConversationTurnResponseRecord | null {
     try {
       const parsed = JSON.parse(payloadJson) as unknown
       if (!parsed || typeof parsed !== 'object') {
         return null
       }
 
-      return parsed as NormalChatConversationTurnResponsePayload
+      return parsed as NormalChatConversationTurnResponseRecord
+    } catch {
+      return null
+    }
+  }
+
+  private parseConversationRuntimeTrace(
+    payloadJson: string
+  ): NormalChatConversationRuntimeTrace | null {
+    try {
+      const parsed = JSON.parse(payloadJson) as unknown
+      if (!parsed || typeof parsed !== 'object') {
+        return null
+      }
+
+      return parsed as NormalChatConversationRuntimeTrace
     } catch {
       return null
     }

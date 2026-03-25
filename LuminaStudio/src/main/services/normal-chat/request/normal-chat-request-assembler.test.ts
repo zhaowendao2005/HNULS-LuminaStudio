@@ -11,6 +11,7 @@ function createAssistant(): NormalChatAssistant {
     labelId: null,
     defaultSystemPrompt: '默认系统提示词',
     saveFullConversationEnabled: false,
+    streamingEnabled: true,
     callMode: 'auto',
     costMode: 'per_token',
     maxRecursionDepth: 2,
@@ -26,6 +27,8 @@ function createTopic(): NormalChatTopic {
     title: '测试话题',
     systemPromptMode: 'inherit',
     systemPromptOverride: null,
+    streamingMode: 'inherit',
+    streamingEnabledOverride: null,
     sortOrder: 0
   }
 }
