@@ -13,7 +13,7 @@ function unwrap<T>(response: { success: boolean; data?: T; error?: string }): T 
 
 export interface NormalChatWorkspaceDatasourceLike {
   getBootstrap(): Promise<NormalChatBootstrap>
-  createAssistant(payload: { templateKey: string }): Promise<NormalChatWorkspaceSnapshot>
+  createAssistant(): Promise<NormalChatWorkspaceSnapshot>
   updateAssistant(payload: {
     assistantId: string
     name?: string
@@ -65,8 +65,8 @@ export const NormalChatWorkspaceDatasource: NormalChatWorkspaceDatasourceLike = 
   getBootstrap() {
     return window.api.normalChat.getBootstrap().then(unwrap)
   },
-  createAssistant(payload) {
-    return window.api.normalChat.createAssistant(payload).then(unwrap)
+  createAssistant() {
+    return window.api.normalChat.createAssistant({}).then(unwrap)
   },
   updateAssistant(payload) {
     return window.api.normalChat.updateAssistant(payload).then(unwrap)

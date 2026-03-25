@@ -8,9 +8,9 @@
     >
       <div class="mb-4 flex items-start justify-between gap-4">
         <div>
-          <h2 class="text-[18px] font-semibold text-gray-900">选择助手模板</h2>
+          <h2 class="text-[18px] font-semibold text-gray-900">创建助手</h2>
           <p class="mt-1 text-[13px] text-gray-500">
-            当前先提供 `base-agent`，后续可以继续在这里扩展更多模板。
+            当前 normal-chat 只保留一套默认助手运行模式，点击确认后会直接创建新助手。
           </p>
         </div>
         <button
@@ -22,36 +22,11 @@
         </button>
       </div>
 
-      <div class="space-y-3">
-        <button
-          v-for="template in workspaceStore.templates"
-          :key="template.key"
-          class="w-full rounded-xl border p-4 text-left transition-colors"
-          :class="
-            template.key === workspaceStore.selectedTemplateKey
-              ? 'border-[var(--nc-accent)] bg-emerald-50/50'
-              : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-          "
-          type="button"
-          @click="workspaceStore.setSelectedTemplateKey(template.key)"
-        >
-          <div class="flex items-start gap-3">
-            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100 text-xl">
-              {{ template.emoji }}
-            </div>
-            <div class="min-w-0 flex-1">
-              <div class="flex items-center gap-2">
-                <span class="text-[15px] font-semibold text-gray-900">{{ template.title }}</span>
-                <span class="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-500">
-                  {{ template.key }}
-                </span>
-              </div>
-              <p class="mt-1 text-[13px] leading-6 text-gray-600">
-                {{ template.description }}
-              </p>
-            </div>
-          </div>
-        </button>
+      <div class="rounded-2xl border border-gray-200 bg-gray-50/70 p-4">
+        <p class="text-[14px] font-medium text-gray-900">默认助手配置</p>
+        <p class="mt-2 text-[13px] leading-6 text-gray-600">
+          新助手会使用当前系统内置的默认运行配置，并自动创建一个默认话题。后续如需调整行为，请在助手设置中修改。
+        </p>
       </div>
 
       <div class="mt-6 flex items-center justify-end gap-3">

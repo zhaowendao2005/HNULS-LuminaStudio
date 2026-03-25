@@ -277,7 +277,6 @@ export class NormalChatConversationRuntimeService {
     effectiveSystemPrompt: string
     assistant: {
       id: string
-      templateKey: string
       name: string
       emoji: string
       defaultSystemPrompt: string
@@ -444,11 +443,7 @@ export class NormalChatConversationRuntimeService {
       functioncallRegistry: helperRegistry,
       logger: log
     }
-    const suite = createNormalChatAgentSuite(assistant.templateKey)
-
-    if (!suite) {
-      throw new Error(`不支持的助手图谱: ${assistant.templateKey}`)
-    }
+    const suite = createNormalChatAgentSuite()
 
     const treeStore = new NormalChatAgentTreeStore(
       requestId,
@@ -743,7 +738,6 @@ export class NormalChatConversationRuntimeService {
     requestId: string
     assistant: {
       id: string
-      templateKey: string
       name: string
       emoji: string
       defaultSystemPrompt: string
@@ -788,7 +782,6 @@ export class NormalChatConversationRuntimeService {
           id: params.assistant.id,
           name: params.assistant.name,
           emoji: params.assistant.emoji,
-          templateKey: params.assistant.templateKey,
           defaultSystemPrompt: params.assistant.defaultSystemPrompt,
           saveFullConversationEnabled: params.assistant.saveFullConversationEnabled,
           streamingEnabled: params.assistant.streamingEnabled,

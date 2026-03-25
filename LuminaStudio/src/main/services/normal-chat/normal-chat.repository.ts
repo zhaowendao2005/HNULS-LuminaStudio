@@ -22,7 +22,6 @@ interface LabelRow {
 
 interface AssistantRow {
   id: string
-  template_key: string
   name: string
   emoji: string
   label_id: string | null
@@ -163,7 +162,6 @@ export class NormalChatRepository {
         `
           SELECT
             id,
-            template_key,
             name,
             emoji,
             label_id,
@@ -183,7 +181,6 @@ export class NormalChatRepository {
 
     return rows.map((row) => ({
       id: row.id,
-      templateKey: row.template_key,
       name: row.name,
       emoji: row.emoji,
       labelId: row.label_id,
@@ -204,7 +201,6 @@ export class NormalChatRepository {
         `
           SELECT
             id,
-            template_key,
             name,
             emoji,
             label_id,
@@ -228,7 +224,6 @@ export class NormalChatRepository {
 
     return {
       id: row.id,
-      templateKey: row.template_key,
       name: row.name,
       emoji: row.emoji,
       labelId: row.label_id,
@@ -249,7 +244,6 @@ export class NormalChatRepository {
         `
           INSERT INTO normal_chat_assistants (
             id,
-            template_key,
             name,
             emoji,
             label_id,
@@ -261,12 +255,11 @@ export class NormalChatRepository {
             max_recursion_depth,
             max_retries_per_agent,
             sort_order
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `
       )
       .run(
         assistant.id,
-        assistant.templateKey,
         assistant.name,
         assistant.emoji,
         assistant.labelId,

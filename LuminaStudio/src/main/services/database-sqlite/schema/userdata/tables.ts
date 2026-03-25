@@ -29,7 +29,6 @@ export const NORMAL_CHAT_ASSISTANTS_TABLE: TableDefinition = {
     CREATE TABLE IF NOT EXISTS normal_chat_assistants (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
-      template_key TEXT NOT NULL,
       emoji TEXT NOT NULL,
       label_id TEXT,
       default_system_prompt TEXT NOT NULL DEFAULT '',

@@ -67,7 +67,6 @@ export interface NormalChatConversationTurnRequestRecord {
     | 'id'
     | 'name'
     | 'emoji'
-    | 'templateKey'
     | 'defaultSystemPrompt'
     | 'saveFullConversationEnabled'
     | 'streamingEnabled'

@@ -38,14 +38,12 @@ describe('NormalChatService', () => {
   it('bootstraps an empty userdata database with a default assistant and topic', async () => {
     const bootstrap = await service.getBootstrap()
 
-    expect(bootstrap.templates.map((template) => template.key)).toEqual(['base-agent'])
     expect(bootstrap.workspace.labels).toEqual([])
     expect(bootstrap.workspace.assistants).toHaveLength(1)
 
     const assistant = bootstrap.workspace.assistants[0]
     const topics = bootstrap.workspace.topicsByAssistantId[assistant.id]
 
-    expect(assistant.templateKey).toBe('base-agent')
     expect(assistant.labelId).toBeNull()
     expect(topics).toHaveLength(1)
     expect(topics[0].title).toBe('默认话题')
@@ -55,7 +53,7 @@ describe('NormalChatService', () => {
 
   it('creates an assistant and immediately seeds a default topic for it', async () => {
     const initial = await service.getBootstrap()
-    const nextSnapshot = await service.createAssistant('base-agent')
+    const nextSnapshot = await service.createAssistant()
 
     expect(nextSnapshot.assistants).toHaveLength(2)
     expect(nextSnapshot.activeAssistantId).not.toBe(initial.workspace.activeAssistantId)

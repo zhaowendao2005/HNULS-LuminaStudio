@@ -1,7 +1,6 @@
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import type {
-  NormalChatAgentTemplate,
   NormalChatAssistant,
   NormalChatCallMode,
   NormalChatCostMode,
@@ -199,12 +198,10 @@ export function resetNormalChatWorkspaceDatasourceForTesting(): void {
 export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', () => {
   const modelConfigStore = useModelConfigStore()
   const initialized = ref(false)
-  const templates = ref<NormalChatAgentTemplate[]>([])
   const snapshot = ref<NormalChatWorkspaceSnapshot>(createEmptyWorkspaceSnapshot())
   const modelSelectionMap = ref<TopicModelSelectionMap>({})
 
   const createAssistantDialogOpen = ref(false)
-  const selectedTemplateKey = ref('')
   const assistantSettingsOpen = ref(false)
   const modelSelectorOpen = ref(false)
   const activeSettingsTab = ref<AssistantSettingsTab>('prompt')
@@ -239,16 +236,6 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
 
   const currentTopic = computed(() => {
     return currentTopics.value.find((topic) => topic.id === snapshot.value.activeTopicId) ?? null
-  })
-
-  const currentAssistantTemplate = computed(() => {
-    if (!currentAssistant.value) {
-      return null
-    }
-    return (
-      templates.value.find((template) => template.key === currentAssistant.value?.templateKey) ??
-      null
-    )
   })
 
   const currentConversationLabel = computed(() => {
@@ -416,7 +403,6 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
 
   async function initialize() {
     const bootstrap = await datasource.getBootstrap()
-    templates.value = bootstrap.templates
     snapshot.value = bootstrap.workspace
     modelSelectionMap.value = readModelSelectionMap()
 
@@ -427,32 +413,20 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
     }
 
     initialized.value = true
-    selectedTemplateKey.value = bootstrap.templates[0]?.key ?? ''
     syncPromptDraftsFromSelection()
     syncCurrentTopicModelSelection()
   }
 
   function openCreateAssistantDialog(): void {
     createAssistantDialogOpen.value = true
-    selectedTemplateKey.value = templates.value[0]?.key ?? ''
   }
 
   function closeCreateAssistantDialog(): void {
     createAssistantDialogOpen.value = false
   }
 
-  function setSelectedTemplateKey(templateKey: string): void {
-    selectedTemplateKey.value = templateKey
-  }
-
   async function confirmCreateAssistant() {
-    if (!selectedTemplateKey.value) {
-      return
-    }
-
-    const nextSnapshot = await datasource.createAssistant({
-      templateKey: selectedTemplateKey.value
-    })
+    const nextSnapshot = await datasource.createAssistant()
     applyWorkspaceSnapshot(nextSnapshot)
     createAssistantDialogOpen.value = false
   }
@@ -777,10 +751,8 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
 
   return {
     initialized,
-    templates,
     snapshot,
     createAssistantDialogOpen,
-    selectedTemplateKey,
     assistantSettingsOpen,
     modelSelectorOpen,
     activeSettingsTab,
@@ -801,7 +773,6 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
     currentAssistant,
     currentTopics,
     currentTopic,
-    currentAssistantTemplate,
     currentConversationLabel,
     currentTopicModelSelection,
     currentTopicModelProviderId,
@@ -817,7 +788,6 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
     initialize,
     openCreateAssistantDialog,
     closeCreateAssistantDialog,
-    setSelectedTemplateKey,
     confirmCreateAssistant,
     openAssistantSettings,
     openModelSelector,

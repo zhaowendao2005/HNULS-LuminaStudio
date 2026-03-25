@@ -12,10 +12,7 @@ import type {
 } from '@preload/types'
 import { logger } from '../logger'
 import type { DatabaseManager } from '../database-sqlite'
-import {
-  getNormalChatAgentTemplateDefinition,
-  listNormalChatAgentTemplates
-} from './agent/registry'
+import { getDefaultNormalChatAssistantProfile } from './agent/registry'
 import { NormalChatRepository } from './normal-chat.repository'
 
 const log = logger.scope('NormalChatService')
@@ -35,16 +32,12 @@ export class NormalChatService {
   async getBootstrap(): Promise<NormalChatBootstrap> {
     this.ensureWorkspaceReady()
     return {
-      templates: listNormalChatAgentTemplates(),
       workspace: this.buildWorkspaceSnapshot()
     }
   }
 
-  async createAssistant(templateKey: string): Promise<NormalChatWorkspaceSnapshot> {
-    const template = getNormalChatAgentTemplateDefinition(templateKey)
-    if (!template) {
-      throw new Error(`Unknown assistant template: ${templateKey}`)
-    }
+  async createAssistant(): Promise<NormalChatWorkspaceSnapshot> {
+    const profile = getDefaultNormalChatAssistantProfile()
 
     return this.repository.runInTransaction(() => {
       this.ensureWorkspaceReady()
@@ -52,14 +45,13 @@ export class NormalChatService {
       const assistantId = randomUUID()
       const assistant: NormalChatAssistant = {
         id: assistantId,
-        templateKey: template.key,
         name: this.buildNextAssistantName(
           assistants.map((item) => item.name),
-          template.title
+          profile.name
         ),
-        emoji: template.emoji,
+        emoji: profile.emoji,
         labelId: null,
-        defaultSystemPrompt: template.defaultSystemPrompt,
+        defaultSystemPrompt: profile.defaultSystemPrompt,
         saveFullConversationEnabled: false,
         streamingEnabled: true,
         callMode: 'auto',
@@ -72,7 +64,7 @@ export class NormalChatService {
       this.repository.insertAssistant(assistant)
       const topic = this.createDefaultTopicForAssistant(assistantId)
       this.repository.upsertWorkspaceState(assistantId, topic.id)
-      log.info('Assistant created', { assistantId, templateKey })
+      log.info('Assistant created', { assistantId })
       return this.buildWorkspaceSnapshot()
     })
   }
@@ -381,20 +373,16 @@ export class NormalChatService {
   }
 
   private seedDefaultWorkspace(): void {
-    const template = getNormalChatAgentTemplateDefinition('base-agent')
-    if (!template) {
-      throw new Error('base-agent template is required for Normal Chat bootstrap')
-    }
+    const profile = getDefaultNormalChatAssistantProfile()
 
     this.repository.runInTransaction(() => {
       const assistantId = randomUUID()
       this.repository.insertAssistant({
         id: assistantId,
-        templateKey: template.key,
-        name: template.title,
-        emoji: template.emoji,
+        name: profile.name,
+        emoji: profile.emoji,
         labelId: null,
-        defaultSystemPrompt: template.defaultSystemPrompt,
+        defaultSystemPrompt: profile.defaultSystemPrompt,
         saveFullConversationEnabled: false,
         streamingEnabled: true,
         callMode: 'auto' as NormalChatCallMode,

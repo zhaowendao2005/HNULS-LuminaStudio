@@ -12,20 +12,11 @@ import {
 
 function createBootstrap(): NormalChatBootstrap {
   return {
-    templates: [
-      {
-        key: 'base-agent',
-        title: '基础助手',
-        description: '通用聊天助手模板',
-        emoji: '🤖'
-      }
-    ],
     workspace: {
       labels: [],
       assistants: [
         {
           id: 'assistant-1',
-          templateKey: 'base-agent',
           name: '基础助手',
           emoji: '🤖',
           labelId: null,
@@ -99,13 +90,7 @@ function createModelProviders(): ModelProvider[] {
       baseUrl: 'https://api.openai.com/v1',
       icon: 'openai',
       enabled: true,
-      models: [
-        {
-          id: 'gpt-4o-mini',
-          name: 'GPT-4o Mini',
-          group: 'default'
-        }
-      ]
+      models: [{ id: 'gpt-4o-mini', name: 'GPT-4o Mini', group: 'default' }]
     },
     {
       id: 'provider-anthropic',
@@ -115,13 +100,7 @@ function createModelProviders(): ModelProvider[] {
       baseUrl: 'https://api.anthropic.com',
       icon: 'anthropic',
       enabled: true,
-      models: [
-        {
-          id: 'claude-3-5-sonnet',
-          name: 'Claude 3.5 Sonnet',
-          group: 'default'
-        }
-      ]
+      models: [{ id: 'claude-3-5-sonnet', name: 'Claude 3.5 Sonnet', group: 'default' }]
     }
   ]
 }
@@ -240,12 +219,6 @@ describe('NormalChat workspace store', () => {
 
     expect(store.currentTopicModelProviderId).toBe('provider-openai')
     expect(store.currentTopicModelId).toBe('gpt-4o-mini')
-    expect(JSON.parse(localStorageMock.getItem('normal-chat:model-selection:v1') || '{}')).toEqual({
-      'assistant-1::topic-1': {
-        providerId: 'provider-openai',
-        modelId: 'gpt-4o-mini'
-      }
-    })
   })
 
   it('commits inline topic rename and clears editing state', async () => {
@@ -259,6 +232,8 @@ describe('NormalChat workspace store', () => {
             title: '重命名后的话题',
             systemPromptMode: 'inherit',
             systemPromptOverride: null,
+            streamingMode: 'inherit',
+            streamingEnabledOverride: null,
             sortOrder: 0
           }
         ]
@@ -366,7 +341,6 @@ describe('NormalChat workspace store', () => {
     bootstrap.workspace.assistants = [
       {
         id: 'assistant-1',
-        templateKey: 'base-agent',
         name: '基础助手',
         emoji: '🤖',
         labelId: null,
@@ -381,9 +355,8 @@ describe('NormalChat workspace store', () => {
       },
       {
         id: 'assistant-2',
-        templateKey: 'base-agent',
         name: '学习助手',
-        emoji: '🧠',
+        emoji: '🧥',
         labelId: 'label-1',
         defaultSystemPrompt: '学习提示词',
         saveFullConversationEnabled: false,

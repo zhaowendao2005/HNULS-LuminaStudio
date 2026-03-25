@@ -5,7 +5,6 @@ import { NormalChatRequestAssembler } from './normal-chat-request-assembler'
 function createAssistant(): NormalChatAssistant {
   return {
     id: 'assistant-1',
-    templateKey: 'base-agent',
     name: '测试助手',
     emoji: 'A',
     labelId: null,

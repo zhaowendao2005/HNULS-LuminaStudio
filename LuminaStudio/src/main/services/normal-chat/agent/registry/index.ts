@@ -1,46 +1,32 @@
-import type { NormalChatAgentTemplate } from '@preload/types'
-import type { NormalChatAgentSuite, NormalChatAgentTemplateDefinition } from '../contracts'
-import { createBaseAgentGraph } from '../Agents/base-chat-agent/graph'
+import type { NormalChatAgentSuite } from '../contracts'
+import { buildDefaultNormalChatAnswerMessages, NormalChatAgentOrchestrator } from '../../core'
+import { getBaseChatAgentHelperBindings } from '../Agents/base-chat-agent/functioncall'
 
-const NORMAL_CHAT_AGENT_TEMPLATES: NormalChatAgentTemplateDefinition[] = [
-  {
-    key: 'base-agent',
-    title: '基础助手',
-    description: '递归式 director/worker/repair 基础模板，graph 真身固定在 base-chat-agent。',
-    emoji: '🤖',
-    defaultSystemPrompt: '你是一个通用中文助手，请直接、清晰地帮助用户完成当前任务。'
-  }
-]
-
-export function listNormalChatAgentTemplates(): NormalChatAgentTemplate[] {
-  return NORMAL_CHAT_AGENT_TEMPLATES.map(
-    ({ defaultSystemPrompt: _defaultSystemPrompt, ...template }) => ({
-      ...template
-    })
-  )
+const DEFAULT_NORMAL_CHAT_ASSISTANT_PROFILE = {
+  name: '基础助手',
+  emoji: '🤖',
+  defaultSystemPrompt: '你是一个通用中文助手，请直接、清晰地帮助用户完成当前任务。'
 }
 
-export function getNormalChatAgentTemplateDefinition(
-  templateKey: string
-): NormalChatAgentTemplateDefinition | null {
-  return NORMAL_CHAT_AGENT_TEMPLATES.find((template) => template.key === templateKey) ?? null
+export function getDefaultNormalChatAssistantProfile() {
+  return DEFAULT_NORMAL_CHAT_ASSISTANT_PROFILE
 }
 
-export function createNormalChatAgentSuite(templateKey: string): NormalChatAgentSuite | null {
-  if (templateKey !== 'base-agent') {
-    return null
-  }
-
-  const template = getNormalChatAgentTemplateDefinition(templateKey)
-  if (!template) {
-    return null
-  }
-
+export function createNormalChatAgentSuite(): NormalChatAgentSuite {
   return {
-    template,
     createGraph(context) {
       void context
-      return createBaseAgentGraph()
+      const orchestrator = new NormalChatAgentOrchestrator({
+        helperBindings: getBaseChatAgentHelperBindings()
+      })
+      return {
+        run(session, framework) {
+          return orchestrator.run(session, framework)
+        },
+        buildAnswerMessages(session, answerContext) {
+          return buildDefaultNormalChatAnswerMessages(session, answerContext)
+        }
+      }
     }
   }
 }

@@ -10,16 +10,8 @@ export interface NormalChatLabel {
   sortOrder: number
 }
 
-export interface NormalChatAgentTemplate {
-  key: string
-  title: string
-  description: string
-  emoji: string
-}
-
 export interface NormalChatAssistant {
   id: string
-  templateKey: string
   name: string
   emoji: string
   labelId: string | null
@@ -53,13 +45,10 @@ export interface NormalChatWorkspaceSnapshot {
 }
 
 export interface NormalChatBootstrap {
-  templates: NormalChatAgentTemplate[]
   workspace: NormalChatWorkspaceSnapshot
 }
 
-export interface NormalChatCreateAssistantRequest {
-  templateKey: string
-}
+export interface NormalChatCreateAssistantRequest {}
 
 export interface NormalChatUpdateAssistantRequest {
   assistantId: string

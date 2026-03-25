@@ -3,7 +3,6 @@ import type {
   NormalChatAgentDecisionRecord,
   NormalChatAgentRoleKind,
   NormalChatAgentTaskKind,
-  NormalChatAgentTemplate,
   NormalChatAgentTree,
   NormalChatCallMode,
   NormalChatConversationMessage,
@@ -17,13 +16,9 @@ import type {
   NormalChatFunctioncallResultAssessment
 } from '../../functioncalls/contracts'
 
-export interface NormalChatAgentTemplateDefinition extends NormalChatAgentTemplate {
-  defaultSystemPrompt: string
-}
-
 /**
- * 目前 child-task 在 graph/framework 边界上还需要一个精简桥接类型。
- * 这部分后续如果完全收拢到 core，可继续往下删除。
+ * child-task 仍然是 graph/framework 边界上的最小桥接类型。
+ * 当前它只表达“要派发什么任务”，不再承担模板或策略语义。
  */
 export interface NormalChatChildTaskPayload {
   roleKind: Extract<NormalChatAgentRoleKind, 'worker' | 'repair'>
@@ -160,7 +155,6 @@ export interface NormalChatAgentSuiteContext {
 }
 
 export interface NormalChatAgentSuite {
-  template: NormalChatAgentTemplateDefinition
   createGraph(context: NormalChatAgentSuiteContext): NormalChatAgentGraphTemplate
 }
 

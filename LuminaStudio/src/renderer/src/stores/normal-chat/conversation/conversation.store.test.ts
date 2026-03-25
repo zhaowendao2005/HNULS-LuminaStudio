@@ -50,20 +50,11 @@ function createLocalStorageMock(): LocalStorageMock {
 
 function createBootstrap(): NormalChatBootstrap {
   return {
-    templates: [
-      {
-        key: 'base-agent',
-        title: '基础助手',
-        description: '通用聊天助手模板',
-        emoji: '🤖'
-      }
-    ],
     workspace: {
       labels: [],
       assistants: [
         {
           id: 'assistant-1',
-          templateKey: 'base-agent',
           name: '基础助手',
           emoji: '🤖',
           labelId: null,
@@ -107,13 +98,7 @@ function createModelProviders(): ModelProvider[] {
       baseUrl: 'https://api.openai.com/v1',
       icon: 'openai',
       enabled: true,
-      models: [
-        {
-          id: 'gpt-4o-mini',
-          name: 'GPT-4o Mini',
-          group: 'default'
-        }
-      ]
+      models: [{ id: 'gpt-4o-mini', name: 'GPT-4o Mini', group: 'default' }]
     }
   ]
 }
@@ -213,7 +198,7 @@ describe('NormalChat conversation store', () => {
 
     const finishHandler = streamHandler
     if (finishHandler) {
-      ;(finishHandler as (event: NormalChatConversationStreamEvent) => void)({
+      finishHandler({
         type: 'finish',
         requestId: 'request-1',
         topicId: 'topic-1',
@@ -282,7 +267,7 @@ describe('NormalChat conversation store', () => {
 
     const errorHandler = streamHandler
     if (errorHandler) {
-      ;(errorHandler as (event: NormalChatConversationStreamEvent) => void)({
+      errorHandler({
         type: 'error',
         requestId: 'request-1',
         topicId: 'topic-1',

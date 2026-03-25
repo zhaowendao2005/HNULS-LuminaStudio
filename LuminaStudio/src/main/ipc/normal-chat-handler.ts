@@ -78,13 +78,11 @@ export class NormalChatIPCHandler extends BaseIPCHandler {
     _event: unknown,
     request: NormalChatCreateAssistantRequest
   ): Promise<{ success: true; data: unknown } | { success: false; error: string }> {
-    if (!request?.templateKey) {
-      return { success: false, error: 'Missing templateKey' }
-    }
+    void request
 
     return {
       success: true,
-      data: await this.normalChatService.createAssistant(request.templateKey)
+      data: await this.normalChatService.createAssistant()
     }
   }
 
