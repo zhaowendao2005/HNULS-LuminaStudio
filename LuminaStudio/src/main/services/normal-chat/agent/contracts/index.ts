@@ -3,7 +3,6 @@ import type {
   NormalChatAgentDecisionAction,
   NormalChatAgentRoleKind,
   NormalChatAgentTaskKind,
-  NormalChatAgentExecutionToolCall,
   NormalChatAgentTemplate,
   NormalChatAgentTree,
   NormalChatCallMode,
@@ -11,7 +10,8 @@ import type {
   NormalChatConversationPromptMessage,
   NormalChatCostMode
 } from '@preload/types'
-import type { AIMessage, HumanMessage, SystemMessage, BaseMessage } from '@langchain/core/messages'
+import type { BaseMessage } from '@langchain/core/messages'
+import type { z } from 'zod'
 import type {
   NormalChatFunctioncallHelper,
   NormalChatFunctioncallRegistry
@@ -20,8 +20,6 @@ import type {
 export interface NormalChatAgentTemplateDefinition extends NormalChatAgentTemplate {
   defaultSystemPrompt: string
 }
-
-export type { NormalChatAgentExecutionToolCall }
 
 export interface NormalChatChildTaskPayload {
   roleKind: Extract<NormalChatAgentRoleKind, 'worker' | 'repair'>
@@ -94,16 +92,63 @@ export interface NormalChatAgentExecutionServices {
   logger: Pick<Console, 'debug' | 'info' | 'warn' | 'error'>
 }
 
-export interface NormalChatPlannerDecisionContext {
-  session: NormalChatAgentSessionState
-  services: NormalChatAgentExecutionServices
-  helpers: NormalChatFunctioncallHelper[]
-  rolePrompt: string
-  callModePrompt: string
-  costModePrompt: string
-  recursionPrompt: string
-  windowMessages: Array<SystemMessage | HumanMessage | AIMessage>
-  userTaskPrompt: string
+export interface NormalChatGraphHelperOverlay {
+  descriptionOverlay?: string
+  schemaOverlay?: string
+  progressiveOverlay?: string
+  overlayMode?: 'append' | 'replace'
+}
+
+export interface NormalChatGraphHelperBinding {
+  helperId: string
+  descriptionOverlay?: string
+  schemaOverlay?: string
+  progressiveOverlay?: string
+  overlayMode?: 'append' | 'replace'
+}
+
+export interface NormalChatFrameworkHelperResult {
+  helper: NormalChatFunctioncallHelper
+  callId: string
+  outputJson: string
+  summary: string
+}
+
+export interface NormalChatGraphFramework {
+  readonly services: NormalChatAgentExecutionServices
+  beginAgent(session: NormalChatAgentSessionState): void
+  syncAgent(
+    session: NormalChatAgentSessionState,
+    patch: {
+      retryCount?: number
+      summary?: string
+      conversationWindow?: NormalChatConversationPromptMessage[]
+    }
+  ): void
+  recordDecision(
+    session: NormalChatAgentSessionState,
+    stepIndex: number,
+    decision: NormalChatPlannerDecision
+  ): void
+  executeHelper(
+    session: NormalChatAgentSessionState,
+    helperId: string,
+    helperArgs: Record<string, unknown>,
+    decisionReason: string | null
+  ): Promise<NormalChatFrameworkHelperResult>
+  dispatchChild(
+    parentSession: NormalChatAgentSessionState,
+    task: NormalChatChildTaskPayload,
+    overrideCallMode?: NormalChatCallMode
+  ): Promise<{ summary: string }>
+  completeAgent(
+    session: NormalChatAgentSessionState,
+    status: 'completed' | 'fallback' | 'failed',
+    finalResult: string | null,
+    errorMessage: string | null
+  ): void
+  markFallback(): void
+  getStepLimit(session: NormalChatAgentSessionState): number
 }
 
 export interface NormalChatAnswerBuildContext {
@@ -112,7 +157,10 @@ export interface NormalChatAnswerBuildContext {
 }
 
 export interface NormalChatAgentGraphTemplate {
-  decide(session: NormalChatAgentSessionState): Promise<NormalChatPlannerDecision>
+  run(
+    session: NormalChatAgentSessionState,
+    framework: NormalChatGraphFramework
+  ): Promise<{ summary: string }>
   buildAnswerMessages(
     session: NormalChatAgentSessionState,
     context: NormalChatAnswerBuildContext
@@ -121,9 +169,6 @@ export interface NormalChatAgentGraphTemplate {
 
 export interface NormalChatAgentSuiteContext {
   services: NormalChatAgentExecutionServices
-  runtime?: NormalChatAgentGraphRuntimeBridge
-  trace?: NormalChatAgentTraceRecorder
-  hostDependencies?: Record<string, unknown>
 }
 
 export interface NormalChatAgentSuite {
@@ -138,65 +183,6 @@ export interface NormalChatAgentRunResult {
   answerMessages: BaseMessage[]
 }
 
-export interface NormalChatAgentRunContext {
-  requestId: string
-  topicId: string
-  assistantId: string
-  assistantTitle?: string
-  topicTitle?: string
-  providerId: string
-  modelId: string
-  systemPrompt: string
-  input: string
-  signal: AbortSignal
-}
-
-export interface NormalChatAgentGraphRuntimeBridge {
-  getConversationMessages(topicId: string): NormalChatConversationMessage[]
-  createChatModel(providerId: string, modelId: string, signal: AbortSignal): Promise<unknown>
-  getProviderProtocol(
-    providerId: string,
-    signal: AbortSignal
-  ): Promise<ModelProviderProtocol | null>
-  logger: Pick<Console, 'debug' | 'info' | 'warn' | 'error'>
-}
-
-export interface NormalChatAgentGraphRunResult {
-  answerMessages: Array<SystemMessage | HumanMessage | AIMessage>
-  promptMessages: NormalChatConversationPromptMessage[]
-  execution: {
-    maxRounds: number
-    completed: boolean
-    aborted: boolean
-    finalMode: 'tool' | 'answer' | 'error'
-    rounds: Array<{
-      roundIndex: number
-      mode: 'tool' | 'answer'
-      reason: string | null
-      startedAt: string
-      completedAt: string | null
-      toolCalls: Array<{
-        callId: string
-        toolName: string
-        title: string
-        roundIndex: number
-        batchIndex: number
-        parallelIndex: number
-        status: 'running' | 'success' | 'error' | 'aborted'
-        input: string
-        output: string
-        errorMessage: string | null
-        startedAt: string
-        completedAt: string | null
-      }>
-    }>
-  }
-}
-
-export interface NormalChatAgentGraphRunner {
-  run(context: NormalChatAgentRunContext): Promise<NormalChatAgentGraphRunResult>
-}
-
 export interface NormalChatAgentTraceRecorder {
   record(_event: unknown): void
   snapshot(): unknown[]
@@ -207,7 +193,16 @@ export interface NormalChatAgentToolExecuteContext {
   signal: AbortSignal
   logger: Pick<Console, 'debug' | 'info' | 'warn' | 'error'>
   trace: NormalChatAgentTraceRecorder
-  runContext: NormalChatAgentRunContext
+  runContext: {
+    requestId: string
+    topicId: string
+    assistantId: string
+    providerId: string
+    modelId: string
+    systemPrompt: string
+    input: string
+    signal: AbortSignal
+  }
   modelContext: {
     providerId: string
     modelId: string
@@ -224,3 +219,13 @@ export interface NormalChatAgentToolExecuteContext {
 export interface NormalChatAgentToolExecuteResult {
   output: string
 }
+
+export interface NormalChatJsonContractResult<T> {
+  rawText: string
+  parsedJson: T | null
+  parsedJsonText: string | null
+  repairAttempted: boolean
+  validationError: string | null
+}
+
+export type NormalChatJsonSchema<T> = z.ZodType<T>

@@ -33,3 +33,9 @@ export class NormalChatHelperRegistry implements NormalChatFunctioncallRegistry 
     return helper
   }
 }
+
+export function createNormalChatHelperLibrary(
+  dependencies: NormalChatFunctioncallRegistryDependencies
+): NormalChatFunctioncallRegistry {
+  return new NormalChatHelperRegistry(dependencies)
+}

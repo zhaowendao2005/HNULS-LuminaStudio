@@ -1,114 +1,16 @@
-import { describe, expect, it, vi } from 'vitest'
-import type { NormalChatAgentToolExecuteContext } from '../../../contracts'
-import type { PaperRetrievalService } from '../../../../../paper-retrieval'
-import { createBaseChatAgentFunctioncallSuite } from './index'
+import { describe, expect, it } from 'vitest'
+import { getBaseChatAgentHelperBindings } from './bindings'
 
-const mocks = vi.hoisted(() => ({
-  executePubmedSearch: vi.fn()
-}))
+describe('base-chat-agent helper bindings', () => {
+  it('声明本模板启用的 helper 及 graph overlay', () => {
+    const bindings = getBaseChatAgentHelperBindings()
 
-vi.mock('./pubmed-search/execute', () => ({
-  executePubmedSearch: mocks.executePubmedSearch
-}))
-
-function createLogger(): Pick<Console, 'debug' | 'info' | 'warn' | 'error'> {
-  return {
-    debug: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn()
-  }
-}
-
-function createToolContext(): NormalChatAgentToolExecuteContext {
-  return {
-    signal: new AbortController().signal,
-    logger: createLogger(),
-    trace: {
-      record: vi.fn(),
-      snapshot: vi.fn(() => []),
-      subscribe: vi.fn(() => () => undefined)
-    },
-    runContext: {
-      requestId: 'request-1',
-      topicId: 'topic-1',
-      assistantId: 'assistant-1',
-      providerId: 'provider-1',
-      modelId: 'model-1',
-      systemPrompt: 'system prompt',
-      input: 'pubmed query',
-      signal: new AbortController().signal
-    },
-    modelContext: {
-      providerId: 'provider-1',
-      modelId: 'model-1'
-    },
-    callId: 'call-1',
-    roundIndex: 1,
-    batchIndex: 0,
-    parallelIndex: 0,
-    depth: 1,
-    decisionReason: 'test'
-  }
-}
-
-describe('base-chat-agent functioncall suite', () => {
-  it('把 PubMed 执行封装到 agent-local facade 里', async () => {
-    const paperRetrievalService = {
-      search: vi.fn()
-    } as unknown as PaperRetrievalService
-
-    const suite = createBaseChatAgentFunctioncallSuite({
-      paperRetrievalService
-    })
-
-    mocks.executePubmedSearch.mockResolvedValue({
-      output: '{"ok":true}',
-      provider_id: 'pubmed',
-      query: 'cancer biomarkers',
-      sort: 'relevance',
-      total_found: 0,
-      items: [],
-      meta: {
-        provider_id: 'pubmed',
-        resolved_api_key_ref_id: null,
-        api_key_resolved: false,
-        rate_limit_tier: 'default',
-        latency_ms: 1
-      }
-    })
-
-    const context = createToolContext()
-    const result = await suite.executeToolCall(
-      {
-        toolName: 'pubmed-search',
-        title: 'PubMed 论文检索',
-        reason: 'test',
-        input: {
-          query: 'cancer biomarkers',
-          topK: 5,
-          sort: 'relevance'
-        }
-      },
-      context
-    )
-
-    expect(mocks.executePubmedSearch).toHaveBeenCalledTimes(1)
-    expect(mocks.executePubmedSearch).toHaveBeenCalledWith(
-      { query: 'cancer biomarkers', topK: 5, sort: 'relevance' },
+    expect(bindings).toEqual([
       expect.objectContaining({
-        paperRetrievalService,
-        logger: context.logger,
-        trace: context.trace,
-        runContext: context.runContext,
-        modelContext: context.modelContext,
-        callId: context.callId,
-        roundIndex: context.roundIndex,
-        batchIndex: context.batchIndex,
-        parallelIndex: context.parallelIndex,
-        depth: context.depth
+        helperId: 'pubmed-search'
       })
-    )
-    expect(result.output).toBe('{"ok":true}')
+    ])
+    expect(bindings[0]?.descriptionOverlay).toContain('base-chat-agent')
+    expect(bindings[0]?.schemaOverlay).toContain('英文学术检索词')
   })
 })

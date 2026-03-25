@@ -2,30 +2,29 @@
 
 ## 目录职责
 
-这里放的是 normal-chat 的 **Agent 套件层**，不是会话总控层，也不是具体工具的杂物堆。
+这里放的是 normal-chat 的 **agent 模板层与其最小 framework 契约**。
 
-- `runtime/`：会话生命周期总控，只负责收消息、发事件、控制中断、落库、调用模型和驱动图谱执行。
-- `registry/`：Agent 套件注册入口，根据 `templateKey` 选择对应的 agent 套件。
-- `contracts/`：Agent 子系统内部共享契约，定义 runtime、graph、trace、tool 执行上下文。
-- `Agents/`：具体 Agent 实现目录，每个 agent 自己维护自己的 graph 和 functioncall。
-- `trace/`：最小 trace recorder，给 graph / tool 执行提供记录能力。
-- `utils/`：通用小工具，放与具体 agent 无关的纯函数。
+- `Agents/`：模板真身目录。`base-chat-agent/graph.ts` 是当前唯一主视图，直接承载 agent 循环、分支和调用点提示词。
+- `registry/`：只负责把 `templateKey` 映射到某个模板真身，不再经过中间 `templates/` 目录。
+- `contracts/`：graph 与 runtime framework 的最小边界契约。
+- `runtime/`：兼容转发层，保留旧入口名，真正实现已下沉到 `src/main/services/normal-chat/runtime/`。
+- `trace/`：最小 trace recorder。
 
 ## 当前架构边界
 
-当前这套 normal-chat 的原则是：
+当前 normal-chat 的原则是：
 
-1. `runtime` 只认识“**通用 suite**”，不直接认识某个具体 functioncall 的实现。
-2. `registry` 负责把 `templateKey` 映射成可创建的 agent suite。
-3. `graph` 负责 Agent 的推理流程和工具编排。
-4. `functioncall` 负责该 Agent 自己的工具封装和公共 tool facade。
-5. `pubmed-search` 之类的具体工具实现，只能留在对应 agent 的 functioncall 子目录里。
+1. `base-chat-agent/graph.ts` 是唯一模板真身，也是维护者阅读和调整 agent 设计的主入口。
+2. graph 内的提示词直接写在调用点附近，不再拆成 planner / role-prompt / templates 小文件。
+3. `runtime` 只提供 framework 能力：helper 执行、child-agent 派发、JSON repair/validate、tree 更新、stream/persistence。
+4. helper 自己拥有 `description / schemaPrompt / progressivePrompt / execute`，graph 在调用点追加 overlay。
+5. `registry` 只返回模板，不承载模板逻辑。
 
 换句话说：
 
-- **runtime 负责“怎么跑一次对话”**
-- **agent 负责“怎么思考、怎么调用工具”**
-- **functioncall 负责“这个 agent 有哪些可复用工具能力”**
+- **graph 决定“怎么想、怎么循环、怎么收口”**
+- **runtime 决定“这些决定怎么被执行”**
+- **helper 决定“某个能力自己是什么、怎么调用”**
 
 ## 目录结构
 
@@ -42,57 +41,27 @@ agent/
 │   └── normal-chat-conversation.runtime.ts
 ├── trace/
 │   └── index.ts
-├── utils/
-│   └── index.ts
 └── Agents/
     └── base-chat-agent/
         ├── index.ts
         ├── graph.ts
         └── functioncall/
+            ├── bindings.ts
             ├── index.ts
-            ├── index.test.ts
-            └── pubmed-search/
-                ├── schema.ts
-                └── execute.ts
-```
-
-## 执行流程
-
-```mermaid
-flowchart TD
-  A[normal-chat runtime 收到消息] --> B[registry 按 templateKey 选择 agent suite]
-  B --> C[agent suite 创建 graph]
-  C --> D[graph 读取历史消息并组装 prompt]
-  D --> E[graph 决定是否调用 functioncall]
-  E --> F[functioncall facade 执行具体工具]
-  F --> G[graph 继续推理并产出最终回答]
-  G --> H[runtime 流式输出、落库、记录 trace]
+            └── index.test.ts
 ```
 
 ## 读取顺序
 
-如果你要理解这套架构，建议按这个顺序看：
-
-1. [`runtime/normal-chat-conversation.runtime.ts`](./runtime/normal-chat-conversation.runtime.ts)
-2. [`registry/index.ts`](./registry/index.ts)
-3. [`Agents/base-chat-agent/graph.ts`](./Agents/base-chat-agent/graph.ts)
-4. [`Agents/base-chat-agent/functioncall/index.ts`](./Agents/base-chat-agent/functioncall/index.ts)
-5. [`Agents/base-chat-agent/functioncall/pubmed-search/execute.ts`](./Agents/base-chat-agent/functioncall/pubmed-search/execute.ts)
-6. [`contracts/index.ts`](./contracts/index.ts)
-
-## 新增 Agent 的约定
-
-新增一个 agent 时，优先遵守下面这条线：
-
-- 在 `Agents/<agent-name>/` 下放自己的 `graph.ts`。
-- 如果这个 agent 有可复用工具封装，再加 `functioncall/index.ts`。
-- 具体工具实现放在 `functioncall/<tool-name>/`。
-- 只在 `registry/index.ts` 注册，不要把具体工具实现回流到 `runtime`。
-- 如果某个工具逻辑将来会被同一个 agent 的多个 graph 复用，优先放进该 agent 的 `functioncall/index.ts`。
+1. `Agents/base-chat-agent/graph.ts`
+2. `registry/index.ts`
+3. `contracts/index.ts`
+4. `src/main/services/normal-chat/runtime/agent-session-manager.ts`
+5. `src/main/services/normal-chat/functioncalls/helpers/`
 
 ## 维护原则
 
-- `runtime` 不要直接 import 某个具体工具的 `execute.ts`。
-- `graph` 不要直接依赖 `runtime` 的业务编排细节，只拿它需要的桥接能力。
-- `functioncall` 目录内部可以有公共 facade，但不要把 agent 私有逻辑上提到 `runtime`。
-- 新增或调整架构时，README 要同步更新，避免文档和实现脱节。
+- 不要再把模板 graph 拆到 `templates/` 或 planner 小文件里。
+- graph 里的提示词如果不需要复用，就直接写在调用点附近。
+- runtime 不要新增模板业务判断。
+- helper 的 `description/schema/progressive/execute` 不要回流到 graph 之外的其它业务层。

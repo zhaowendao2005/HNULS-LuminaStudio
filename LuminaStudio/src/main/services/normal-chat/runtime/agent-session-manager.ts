@@ -2,7 +2,6 @@ import { randomUUID } from 'crypto'
 import type {
   NormalChatAgentDecisionRecord,
   NormalChatAgentHelperInvocationRecord,
-  NormalChatAgentToolSelection,
   NormalChatConversationPromptMessage,
   NormalChatFunctionCallMessagePart
 } from '@preload/types'
@@ -11,12 +10,14 @@ import type {
   NormalChatAgentGraphTemplate,
   NormalChatAgentRunResult,
   NormalChatAgentSessionState,
-  NormalChatChildTaskPayload
+  NormalChatFrameworkHelperResult,
+  NormalChatGraphFramework,
+  NormalChatPlannerDecision
 } from '../agent/contracts'
-import { canDispatchChild, getPlannerStepLimit } from './runtime-budget'
 import { createChildAgentSession } from './task-dispatcher'
 import { NormalChatAgentTreeStore } from './agent-tree-store'
 import { NormalChatRuntimeEventSink } from './event-sink'
+import { getPlannerStepLimit } from './runtime-budget'
 
 interface RunRootAgentParams {
   requestId: string
@@ -35,10 +36,6 @@ interface RunRootAgentParams {
   maxRetriesPerAgent: number
 }
 
-interface AgentExecutionOutcome {
-  summary: string
-}
-
 function mapConversationToPromptWindow(
   messages: ReturnType<NormalChatAgentExecutionServices['getConversationMessages']>
 ): NormalChatConversationPromptMessage[] {
@@ -48,6 +45,7 @@ function mapConversationToPromptWindow(
         .filter((part) => part.kind === 'text')
         .map((part) => part.text)
         .join('')
+
       if (!text) {
         return null
       }
@@ -57,34 +55,12 @@ function mapConversationToPromptWindow(
         content: text
       }
     })
-    .filter((message) => message !== null) as NormalChatConversationPromptMessage[]
-}
-
-function buildToolSelection(
-  helperId: string,
-  displayName: string,
-  reason: string
-): NormalChatAgentToolSelection {
-  return {
-    helperId,
-    displayName,
-    reason
-  }
+    .filter((message): message is NormalChatConversationPromptMessage => message !== null)
 }
 
 function buildDecisionRecord(
   stepIndex: number,
-  decision: {
-    action: NormalChatAgentDecisionRecord['action']
-    rawText: string
-    parsedJson: string | null
-    repairAttempted: boolean
-    validationError: string | null
-    reasoning: string
-    helperId: string | null
-    helperArgsJson: string | null
-    childGoal: string | null
-  }
+  decision: NormalChatPlannerDecision
 ): NormalChatAgentDecisionRecord {
   return {
     stepIndex,
@@ -95,8 +71,8 @@ function buildDecisionRecord(
     validationError: decision.validationError,
     reasoning: decision.reasoning,
     helperId: decision.helperId,
-    helperArgsJson: decision.helperArgsJson,
-    childGoal: decision.childGoal,
+    helperArgsJson: decision.helperArgs ? JSON.stringify(decision.helperArgs, null, 2) : null,
+    childGoal: decision.childTask?.goal ?? null,
     createdAt: new Date().toISOString()
   }
 }
@@ -142,7 +118,8 @@ export class NormalChatAgentSessionManager {
       conversationWindow: mapConversationToPromptWindow(conversationMessages)
     }
 
-    const rootOutcome = await this.runAgent(rootSession)
+    const framework = this.createFramework()
+    const rootOutcome = await this.graph.run(rootSession, framework)
     const answerMessages = await this.graph.buildAnswerMessages(rootSession, {
       conversationMessages,
       synthesisSummary: this.buildSynthesisSummary(rootOutcome.summary)
@@ -156,259 +133,158 @@ export class NormalChatAgentSessionManager {
     }
   }
 
-  private async runAgent(session: NormalChatAgentSessionState): Promise<AgentExecutionOutcome> {
-    this.treeStore.createAgent({
-      agentId: session.agentId,
-      parentAgentId: session.parentAgentId,
-      depth: session.depth,
-      roleKind: session.roleKind,
-      taskKind: session.taskKind,
-      goal: session.goal,
-      summary: session.summary,
-      callMode: session.callMode,
-      costMode: session.costMode,
-      retryCount: session.retryCount,
-      conversationWindow: session.conversationWindow
-    })
-
-    let localWindow = [...session.conversationWindow]
-    let currentRetryCount = session.retryCount
-    let latestSummary = session.summary
-    const stepLimit = getPlannerStepLimit(session)
-
-    for (let stepIndex = 1; stepIndex <= stepLimit; stepIndex += 1) {
-      const workingSession: NormalChatAgentSessionState = {
-        ...session,
-        retryCount: currentRetryCount,
-        conversationWindow: localWindow,
-        summary: latestSummary
-      }
-
-      this.treeStore.updateAgent(workingSession.agentId, {
-        retryCount: currentRetryCount,
-        summary: latestSummary,
-        conversationWindow: localWindow,
-        status: 'running'
-      })
-
-      const decision = await this.graph.decide(workingSession)
-      this.treeStore.recordDecision(
-        workingSession.agentId,
-        buildDecisionRecord(stepIndex, {
-          action: decision.action,
-          rawText: decision.rawText,
-          parsedJson: decision.parsedJson,
-          repairAttempted: decision.repairAttempted,
-          validationError: decision.validationError,
-          reasoning: decision.reasoning,
-          helperId: decision.helperId,
-          helperArgsJson: decision.helperArgs ? JSON.stringify(decision.helperArgs, null, 2) : null,
-          childGoal: decision.childTask?.goal ?? null
+  private createFramework(): NormalChatGraphFramework {
+    return {
+      services: this.services,
+      beginAgent: (session) => {
+        this.treeStore.createAgent({
+          agentId: session.agentId,
+          parentAgentId: session.parentAgentId,
+          depth: session.depth,
+          roleKind: session.roleKind,
+          taskKind: session.taskKind,
+          goal: session.goal,
+          summary: session.summary,
+          callMode: session.callMode,
+          costMode: session.costMode,
+          retryCount: session.retryCount,
+          conversationWindow: session.conversationWindow
         })
-      )
+      },
+      syncAgent: (session, patch) => {
+        this.treeStore.updateAgent(session.agentId, patch)
+      },
+      recordDecision: (session, stepIndex, decision) => {
+        this.treeStore.recordDecision(session.agentId, buildDecisionRecord(stepIndex, decision))
+      },
+      executeHelper: async (session, helperId, helperArgs, decisionReason) => {
+        const helper = this.services.functioncallRegistry.requireHelper(helperId)
+        const parsedArgs = helper.argsSchema.parse(helperArgs)
+        const callId = randomUUID()
+        const argsJson = JSON.stringify(helperArgs, null, 2)
+        const startedAt = new Date().toISOString()
 
-      if (decision.action === 'answer') {
-        const finalSummary = decision.finalAnswerHint || decision.reasoning || latestSummary
-        this.treeStore.finalizeAgent(workingSession.agentId, 'completed', finalSummary, null)
-        return { summary: finalSummary }
-      }
-
-      if (decision.action === 'fallback') {
-        const finalSummary = decision.reasoning || latestSummary
-        this.treeStore.markFallback()
-        this.treeStore.finalizeAgent(workingSession.agentId, 'fallback', finalSummary, null)
-        return { summary: finalSummary }
-      }
-
-      if (decision.action === 'call-helper' && decision.helperId) {
-        const helperResult = await this.executeHelperDecision(
-          workingSession,
-          decision.helperId,
-          decision.reasoning,
-          decision.helperArgs ?? {}
-        )
-
-        if (helperResult.retry) {
-          currentRetryCount += 1
-          latestSummary = helperResult.summary
-          localWindow = [
-            ...localWindow,
-            {
-              role: 'assistant',
-              content: `上一步失败，需要更保守地重试：${helperResult.summary}`
-            }
-          ]
-          continue
+        const callRecord: NormalChatAgentHelperInvocationRecord = {
+          callId,
+          helperId: helper.id,
+          displayName: helper.displayName,
+          status: 'running',
+          argsJson,
+          outputJson: '',
+          errorMessage: null,
+          resultSummary: null,
+          failureSummary: null,
+          startedAt,
+          completedAt: null
         }
 
-        latestSummary = helperResult.summary
-        localWindow = [
-          ...localWindow,
+        this.treeStore.setSelectedHelpers(session.agentId, [
           {
-            role: 'assistant',
-            content: `helper 结果摘要：${helperResult.summary}`
+            helperId: helper.id,
+            displayName: helper.displayName,
+            reason: decisionReason
           }
-        ]
-        continue
-      }
+        ])
+        this.treeStore.startHelperInvocation(session.agentId, callRecord)
 
-      if (decision.action === 'dispatch-child' && decision.childTask) {
-        if (!canDispatchChild(workingSession)) {
-          this.treeStore.markFallback()
-          const finalSummary = `已达到递归深度上限，当前在第 ${workingSession.depth} 层直接收口。`
-          this.treeStore.finalizeAgent(workingSession.agentId, 'fallback', finalSummary, null)
-          return { summary: finalSummary }
+        const basePart: NormalChatFunctionCallMessagePart = {
+          kind: 'functioncall',
+          callId,
+          functionCallName: helper.id,
+          title: helper.displayName,
+          status: 'running',
+          input: argsJson,
+          output: '',
+          errorMessage: null,
+          isStreaming: true,
+          roundIndex: 0,
+          batchIndex: 0,
+          parallelIndex: 0,
+          depth: session.depth,
+          decisionReason
         }
 
+        if (session.depth === 0) {
+          this.eventSink.emitRootHelperPart(session.requestId, session.topicId, basePart)
+        }
+
+        try {
+          const result = await helper.execute(parsedArgs, {
+            requestId: session.requestId,
+            topicId: session.topicId,
+            agentId: session.agentId,
+            depth: session.depth,
+            providerId: session.providerId,
+            modelId: session.modelId,
+            signal: session.signal,
+            logger: this.services.logger
+          })
+          const outputJson = JSON.stringify(result, null, 2)
+          const summary = helper.summarizeResult(result)
+
+          this.treeStore.finishHelperInvocation(session.agentId, callId, {
+            status: 'success',
+            outputJson,
+            resultSummary: summary,
+            completedAt: new Date().toISOString()
+          })
+
+          if (session.depth === 0) {
+            this.eventSink.emitRootHelperPart(session.requestId, session.topicId, {
+              ...basePart,
+              status: 'success',
+              output: outputJson,
+              isStreaming: false
+            })
+          }
+
+          return {
+            helper,
+            callId,
+            outputJson,
+            summary
+          } satisfies NormalChatFrameworkHelperResult
+        } catch (error) {
+          const message = helper.summarizeFailure(error)
+          this.treeStore.finishHelperInvocation(session.agentId, callId, {
+            status: 'error',
+            errorMessage: message,
+            failureSummary: message,
+            completedAt: new Date().toISOString()
+          })
+
+          if (session.depth === 0) {
+            this.eventSink.emitRootHelperPart(session.requestId, session.topicId, {
+              ...basePart,
+              status: 'error',
+              errorMessage: message,
+              isStreaming: false
+            })
+          }
+
+          throw new Error(message)
+        }
+      },
+      dispatchChild: async (parentSession, task, overrideCallMode) => {
         const childSession = createChildAgentSession(
-          workingSession,
-          decision.childTask,
-          workingSession.providerProtocol
+          parentSession,
+          task,
+          parentSession.providerProtocol,
+          overrideCallMode
         )
-        const childResult = await this.runAgent(childSession)
-        latestSummary = childResult.summary
-        localWindow = [
-          ...localWindow,
-          {
-            role: 'assistant',
-            content: `子 agent 回传摘要：${childResult.summary}`
-          }
-        ]
-        continue
-      }
-    }
 
-    const finalSummary = `当前 agent 在 ${stepLimit} 步内没有自然收口，按保守模式结束。`
-    this.treeStore.markFallback()
-    this.treeStore.finalizeAgent(session.agentId, 'fallback', finalSummary, null)
-    return { summary: finalSummary }
-  }
-
-  private async executeHelperDecision(
-    session: NormalChatAgentSessionState,
-    helperId: string,
-    reasoning: string,
-    helperArgs: Record<string, unknown>
-  ): Promise<{ summary: string; retry: boolean }> {
-    const helper = this.services.functioncallRegistry.requireHelper(helperId)
-    this.treeStore.setSelectedHelpers(session.agentId, [
-      buildToolSelection(helper.id, helper.displayName, reasoning)
-    ])
-
-    try {
-      const parsedArgs = helper.argsSchema.parse(helperArgs)
-      const callId = randomUUID()
-      const argsJson = JSON.stringify(helperArgs, null, 2)
-      const startedAt = new Date().toISOString()
-      const basePart: NormalChatFunctionCallMessagePart = {
-        kind: 'functioncall',
-        callId,
-        functionCallName: helper.id,
-        title: helper.displayName,
-        status: 'running',
-        input: argsJson,
-        output: '',
-        errorMessage: null,
-        isStreaming: true,
-        roundIndex: 0,
-        batchIndex: 0,
-        parallelIndex: 0,
-        depth: session.depth,
-        decisionReason: reasoning
-      }
-
-      const callRecord: NormalChatAgentHelperInvocationRecord = {
-        callId,
-        helperId: helper.id,
-        displayName: helper.displayName,
-        status: 'running',
-        argsJson,
-        outputJson: '',
-        errorMessage: null,
-        resultSummary: null,
-        failureSummary: null,
-        startedAt,
-        completedAt: null
-      }
-
-      this.treeStore.startHelperInvocation(session.agentId, callRecord)
-      if (session.depth === 0) {
-        this.eventSink.emitRootHelperPart(session.requestId, session.topicId, basePart)
-      }
-
-      const result = await helper.execute(parsedArgs, {
-        requestId: session.requestId,
-        topicId: session.topicId,
-        agentId: session.agentId,
-        depth: session.depth,
-        providerId: session.providerId,
-        modelId: session.modelId,
-        signal: session.signal,
-        logger: this.services.logger
-      })
-
-      const outputJson = JSON.stringify(result, null, 2)
-      const resultSummary = helper.summarizeResult(result)
-      this.treeStore.finishHelperInvocation(session.agentId, callId, {
-        status: 'success',
-        outputJson,
-        resultSummary,
-        completedAt: new Date().toISOString()
-      })
-
-      if (session.depth === 0) {
-        this.eventSink.emitRootHelperPart(session.requestId, session.topicId, {
-          ...basePart,
-          status: 'success',
-          output: outputJson,
-          isStreaming: false
-        })
-      }
-
-      return {
-        summary: resultSummary,
-        retry: false
-      }
-    } catch (error) {
-      const message = helper.summarizeFailure(error)
-
-      if (session.retryCount < session.maxRetries) {
-        this.treeStore.updateAgent(session.agentId, {
-          retryCount: session.retryCount + 1
-        })
+        const childOutcome = await this.graph.run(childSession, this.createFramework())
         return {
-          summary: `${helper.displayName} 调用失败，准备重试。原因：${message}`,
-          retry: true
+          summary: childOutcome.summary
         }
-      }
-
-      if (session.roleKind !== 'repair' && canDispatchChild(session)) {
-        const repairTask: NormalChatChildTaskPayload = {
-          roleKind: 'repair',
-          taskKind: 'repair',
-          goal: `修复 helper ${helper.displayName} 失败问题，并给出更稳妥的下一步建议。错误：${message}`,
-          summary: `helper ${helper.id} 失败，需要 repair`
-        }
-
-        const repairSession = createChildAgentSession(
-          session,
-          repairTask,
-          session.providerProtocol,
-          'slow'
-        )
-        const repairResult = await this.runAgent(repairSession)
-        return {
-          summary: repairResult.summary,
-          retry: false
-        }
-      }
-
-      this.treeStore.markFallback()
-      this.treeStore.finalizeAgent(session.agentId, 'fallback', null, message)
-      return {
-        summary: `${helper.displayName} 失败，当前只能保守降级。原因：${message}`,
-        retry: false
-      }
+      },
+      completeAgent: (session, status, finalResult, errorMessage) => {
+        this.treeStore.finalizeAgent(session.agentId, status, finalResult, errorMessage)
+      },
+      markFallback: () => {
+        this.treeStore.markFallback()
+      },
+      getStepLimit: (session) => getPlannerStepLimit(session)
     }
   }
 

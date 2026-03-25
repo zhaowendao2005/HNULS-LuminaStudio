@@ -63,6 +63,7 @@ describe('normal-chat agent registry', () => {
       }
     })
 
-    expect(graph).toHaveProperty('decide')
+    expect(graph).toHaveProperty('run')
+    expect(graph).toHaveProperty('buildAnswerMessages')
   })
 })

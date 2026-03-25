@@ -1,5 +1,5 @@
 export * from './normal-chat-service'
-export * from './normal-chat-conversation-service'
+export * from './runtime/conversation-runtime'
 export * from './llm-client'
 export * from './json-output'
 export * from './functioncalls'

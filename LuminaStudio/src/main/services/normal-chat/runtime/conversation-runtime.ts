@@ -20,7 +20,7 @@ import { NormalChatRequestAssembler } from '../request/normal-chat-request-assem
 import { NormalChatRequestLifecycleManager } from '../request/normal-chat-request-lifecycle'
 import { createNormalChatAgentSuite } from '../agent/registry'
 import type { NormalChatAgentExecutionServices } from '../agent/contracts'
-import { NormalChatHelperRegistry } from '../functioncalls/registry'
+import { createNormalChatHelperLibrary } from '../functioncalls/registry'
 import { NormalChatAgentTreeStore } from './agent-tree-store'
 import { NormalChatRuntimeEventSink } from './event-sink'
 import { NormalChatAgentSessionManager } from './agent-session-manager'
@@ -298,7 +298,7 @@ export class NormalChatConversationService {
     }
 
     const eventSink = new NormalChatRuntimeEventSink(emitEvent)
-    const helperRegistry = new NormalChatHelperRegistry({
+    const helperRegistry = createNormalChatHelperLibrary({
       paperRetrievalService: this.paperRetrievalService
     })
     const services: NormalChatAgentExecutionServices = {

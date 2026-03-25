@@ -19,7 +19,7 @@ import type {
 } from '@preload/types'
 import { BaseIPCHandler } from './base-handler'
 import type { NormalChatService } from '../services/normal-chat'
-import type { NormalChatConversationService } from '../services/normal-chat/agent/runtime'
+import type { NormalChatConversationService } from '../services/normal-chat/runtime/conversation-runtime'
 
 export class NormalChatIPCHandler extends BaseIPCHandler {
   constructor(

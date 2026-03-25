@@ -1,16 +1,12 @@
 import type { NormalChatAgentTemplate } from '@preload/types'
-import type {
-  NormalChatAgentSuite,
-  NormalChatAgentSuiteContext,
-  NormalChatAgentTemplateDefinition
-} from '../contracts'
-import { BaseAgentGraph } from '../templates/base-agent'
+import type { NormalChatAgentSuite, NormalChatAgentTemplateDefinition } from '../contracts'
+import { createBaseAgentGraph } from '../Agents/base-chat-agent/graph'
 
 const NORMAL_CHAT_AGENT_TEMPLATES: NormalChatAgentTemplateDefinition[] = [
   {
     key: 'base-agent',
     title: '基础助手',
-    description: '递归式 director/worker/repair 基础模板，支持本地 JSON 规划与 helper 派发。',
+    description: '递归式 director/worker/repair 基础模板，graph 真身固定在 base-chat-agent。',
     emoji: '🤖',
     defaultSystemPrompt: '你是一个通用中文助手，请直接、清晰地帮助用户完成当前任务。'
   }
@@ -42,8 +38,9 @@ export function createNormalChatAgentSuite(templateKey: string): NormalChatAgent
 
   return {
     template,
-    createGraph(graphContext: NormalChatAgentSuiteContext) {
-      return new BaseAgentGraph(graphContext.services)
+    createGraph(context) {
+      void context
+      return createBaseAgentGraph()
     }
   }
 }
