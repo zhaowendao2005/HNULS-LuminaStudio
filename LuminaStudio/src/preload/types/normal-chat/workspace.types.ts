@@ -21,6 +21,7 @@ export interface NormalChatAssistant {
   callMode: NormalChatCallMode
   costMode: NormalChatCostMode
   maxRecursionDepth: number
+  // 预留给下一版运行时系统：当前旧 agent 已清理，但该配置字段继续保留。
   maxRetriesPerAgent: number
   sortOrder: number
 }
@@ -59,6 +60,7 @@ export interface NormalChatUpdateAssistantRequest {
   callMode?: NormalChatCallMode
   costMode?: NormalChatCostMode
   maxRecursionDepth?: number
+  // 预留给下一版运行时系统：当前旧 agent 已清理，但该配置字段继续保留。
   maxRetriesPerAgent?: number
 }
 

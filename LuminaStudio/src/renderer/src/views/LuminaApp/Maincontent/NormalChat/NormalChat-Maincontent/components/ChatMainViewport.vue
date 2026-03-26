@@ -20,6 +20,7 @@
       :message-id="conversationDetailMessageId"
       :focus-call-id="conversationDetailFocusCallId"
     />
+    <!-- TODO(normal-chat-rewrite): 该入口先保留，后续接入新运行时可视化面板。 -->
     <AgentTreeDialog v-model:visible="agentTreeDialogOpen" :request-id="agentTreeDialogRequestId" />
     <ModelSelector
       v-model:visible="modelSelectorOpen"
@@ -139,6 +140,7 @@ function handleOpenMessageSession(message: NormalChatConversationDisplayMessage)
   conversationDetailOpen.value = true
 }
 
+// TODO(normal-chat-rewrite): 这里只保留“打开运行树”接口，后续替换为新系统详情面板。
 function handleOpenAgentTree(message: NormalChatConversationDisplayMessage): void {
   if (!message.requestId) {
     return

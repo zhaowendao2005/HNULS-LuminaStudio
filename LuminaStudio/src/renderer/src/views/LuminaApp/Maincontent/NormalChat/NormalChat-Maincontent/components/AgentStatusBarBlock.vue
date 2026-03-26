@@ -59,6 +59,6 @@ const emit = defineEmits<{
 const agentTraceStore = useNormalChatRuntimeTraceStore()
 
 const summary = computed(() => {
+  // TODO(normal-chat-rewrite): 兼容旧 runtime-trace store，后续替换为新运行时摘要接口。
   return props.requestId ? agentTraceStore.getSummaryByRequestId(props.requestId) : null
-})
-</script>
+})</script>

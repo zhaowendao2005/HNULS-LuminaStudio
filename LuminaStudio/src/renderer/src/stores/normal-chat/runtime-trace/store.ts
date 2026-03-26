@@ -1,12 +1,15 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import type {
-  NormalChatAgentStatusSummary,
-  NormalChatAgentTree,
   NormalChatConversationRuntimeTraceUpsertEvent,
   NormalChatConversationTurnDetail
 } from '@preload/types'
-import type { NormalChatRuntimeTraceState } from './types'
+import type {
+  NormalChatRuntimeAgentStatusSummary,
+  NormalChatRuntimeAgentTree,
+  NormalChatRuntimeTraceState
+} from './types'
+import { asRuntimeAgentTree } from './types'
 
 function createEmptyState(): NormalChatRuntimeTraceState {
   return {
@@ -18,8 +21,8 @@ function createEmptyState(): NormalChatRuntimeTraceState {
 
 function buildSummaryFromTree(
   requestId: string,
-  tree: NormalChatAgentTree
-): NormalChatAgentStatusSummary {
+  tree: NormalChatRuntimeAgentTree
+): NormalChatRuntimeAgentStatusSummary {
   const agents = Object.values(tree.agents)
   return {
     requestId,
@@ -38,22 +41,25 @@ export const useNormalChatRuntimeTraceStore = defineStore('normal-chat-runtime-t
   const currentRequestIds = computed(() => state.value.requestIdsByTopicId)
 
   function upsertRuntimeTrace(event: NormalChatConversationRuntimeTraceUpsertEvent): void {
-    const tree = event.runtimeTrace.agentTree
+    const tree = asRuntimeAgentTree(event.runtimeTrace.agentTree)
     const nextTrees = { ...state.value.treesByRequestId }
     const nextSummaries = { ...state.value.summariesByRequestId }
 
     if (tree) {
       nextTrees[event.requestId] = tree
+      if (!nextSummaries[event.requestId]) {
+        nextSummaries[event.requestId] = buildSummaryFromTree(event.requestId, tree)
+      }
     } else {
       delete nextTrees[event.requestId]
+      delete nextSummaries[event.requestId]
     }
 
-    // summary 是增量字段：undefined 表示“本次不更新 summary”，
-    // null 才表示“明确清空 summary”。
+    // TODO(normal-chat-rewrite): runtime-trace summary 结构后续由新系统定义。
     if (Object.prototype.hasOwnProperty.call(event, 'summary')) {
-      if (event.summary) {
-        nextSummaries[event.requestId] = event.summary
-      } else {
+      if (event.summary && typeof event.summary === 'object') {
+        nextSummaries[event.requestId] = event.summary as unknown as NormalChatRuntimeAgentStatusSummary
+      } else if (event.summary === null) {
         delete nextSummaries[event.requestId]
       }
     }
@@ -67,7 +73,7 @@ export const useNormalChatRuntimeTraceStore = defineStore('normal-chat-runtime-t
   }
 
   function hydrateTurnDetail(detail: NormalChatConversationTurnDetail | null): void {
-    const tree = detail?.runtimeTrace?.agentTree
+    const tree = asRuntimeAgentTree(detail?.runtimeTrace?.agentTree)
     if (!detail || !tree) {
       return
     }
@@ -86,11 +92,11 @@ export const useNormalChatRuntimeTraceStore = defineStore('normal-chat-runtime-t
     }
   }
 
-  function getTreeByRequestId(requestId: string): NormalChatAgentTree | null {
+  function getTreeByRequestId(requestId: string): NormalChatRuntimeAgentTree | null {
     return state.value.treesByRequestId[requestId] ?? null
   }
 
-  function getSummaryByRequestId(requestId: string): NormalChatAgentStatusSummary | null {
+  function getSummaryByRequestId(requestId: string): NormalChatRuntimeAgentStatusSummary | null {
     return state.value.summariesByRequestId[requestId] ?? null
   }
 

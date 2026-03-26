@@ -4,11 +4,6 @@ import type {
   NormalChatMessagePartKind,
   NormalChatTopicPromptMode
 } from './common.types'
-import type {
-  NormalChatAgentExecutionTrace,
-  NormalChatAgentTree,
-  NormalChatRequestMetrics
-} from './runtime-trace.types'
 import type { NormalChatAssistant } from './workspace.types'
 
 export interface NormalChatTextMessagePart {
@@ -55,11 +50,35 @@ export interface NormalChatConversationPromptMessage {
   content: string
 }
 
+export interface NormalChatRequestMetrics {
+  providerId: string
+  providerName: string | null
+  modelId: string
+  modelName: string | null
+  firstTokenLatencyMs: number | null
+  promptTokens: number | null
+  completionTokens: number | null
+  totalTokens: number | null
+  modelCallCount: number
+  streamingEnabled: boolean
+}
+
 /**
- * requestRecord / responseRecord / runtimeTrace 是新 turn trace 协议的 3 个稳定剖面：
- * - requestRecord: 这轮请求“如何被组织”
- * - responseRecord: 这轮请求“最终产生了什么用户可见结果”
- * - runtimeTrace: 这轮请求“系统内部如何跑”
+ * 这里只保留兼容壳字段：agentTree/execution 目前不再由旧 agent 系统维护。
+ * TODO(normal-chat-rewrite): 新系统落地后再把这里替换成新运行时的稳定结构。
+ */
+export interface NormalChatConversationRuntimeTrace {
+  traceVersion: number
+  agentTree: Record<string, unknown> | null
+  metrics: NormalChatRequestMetrics | null
+  execution?: Record<string, unknown> | null
+}
+
+/**
+ * requestRecord / responseRecord / runtimeTrace 是 turn trace 协议的 3 个稳定剖面：
+ * - requestRecord: 这轮请求如何被组织
+ * - responseRecord: 这轮请求最终给用户的可见结果
+ * - runtimeTrace: 这轮请求在运行时的追踪信息（当前为兼容壳）
  */
 export interface NormalChatConversationTurnRequestRecord {
   assistant: Pick<
@@ -95,13 +114,6 @@ export interface NormalChatConversationTurnResponseRecord {
   aborted: boolean
   errorMessage: string | null
   completedAt: string | null
-}
-
-export interface NormalChatConversationRuntimeTrace {
-  traceVersion: number
-  agentTree: NormalChatAgentTree | null
-  metrics: NormalChatRequestMetrics | null
-  execution?: NormalChatAgentExecutionTrace | null
 }
 
 export interface NormalChatConversationTurnDetail {

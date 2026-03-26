@@ -59,6 +59,7 @@ const emit = defineEmits<{
 const agentTraceStore = useNormalChatRuntimeTraceStore()
 
 const tree = computed(() => {
+  // TODO(normal-chat-rewrite): 兼容旧运行树数据，后续改为新系统的数据查询接口。
   return props.requestId ? agentTraceStore.getTreeByRequestId(props.requestId) : null
 })
 

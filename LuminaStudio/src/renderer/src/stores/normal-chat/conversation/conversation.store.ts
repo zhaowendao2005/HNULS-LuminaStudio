@@ -568,6 +568,7 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
         }
 
         if (event.type === 'runtime-trace-upsert') {
+          // TODO(normal-chat-rewrite): 先兼容旧 runtime-trace 事件，后续替换为新系统事件流。
           runtimeTraceStore.upsertRuntimeTrace(
             event as NormalChatConversationRuntimeTraceUpsertEvent
           )

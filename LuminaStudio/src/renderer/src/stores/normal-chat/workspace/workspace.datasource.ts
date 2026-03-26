@@ -3,13 +3,7 @@ import type {
   NormalChatTopicPromptMode,
   NormalChatWorkspaceSnapshot
 } from '@preload/types'
-
-function unwrap<T>(response: { success: boolean; data?: T; error?: string }): T {
-  if (!response.success || response.data === undefined) {
-    throw new Error(response.error || 'Normal Chat request failed')
-  }
-  return response.data
-}
+import { normalChatWorkspaceMock } from './workspace.mock'
 
 export interface NormalChatWorkspaceDatasourceLike {
   getBootstrap(): Promise<NormalChatBootstrap>
@@ -63,45 +57,46 @@ export interface NormalChatWorkspaceDatasourceLike {
 
 export const NormalChatWorkspaceDatasource: NormalChatWorkspaceDatasourceLike = {
   getBootstrap() {
-    return window.api.normalChat.getBootstrap().then(unwrap)
+    // 临时重定向到 mock，先把 renderer 从 normal-chat IPC 解耦出来。
+    return normalChatWorkspaceMock.getBootstrap()
   },
   createAssistant() {
-    return window.api.normalChat.createAssistant({}).then(unwrap)
+    return normalChatWorkspaceMock.createAssistant()
   },
   updateAssistant(payload) {
-    return window.api.normalChat.updateAssistant(payload).then(unwrap)
+    return normalChatWorkspaceMock.updateAssistant(payload)
   },
   assignLabel(payload) {
-    return window.api.normalChat.assignLabel(payload).then(unwrap)
+    return normalChatWorkspaceMock.assignLabel(payload)
   },
   createLabel(payload) {
-    return window.api.normalChat.createLabel(payload).then(unwrap)
+    return normalChatWorkspaceMock.createLabel(payload)
   },
   renameLabel(payload) {
-    return window.api.normalChat.renameLabel(payload).then(unwrap)
+    return normalChatWorkspaceMock.renameLabel(payload)
   },
   deleteLabel(payload) {
-    return window.api.normalChat.deleteLabel(payload).then(unwrap)
+    return normalChatWorkspaceMock.deleteLabel(payload)
   },
   setActiveAssistant(payload) {
-    return window.api.normalChat.setActiveAssistant(payload).then(unwrap)
+    return normalChatWorkspaceMock.setActiveAssistant(payload)
   },
   createTopic(payload) {
-    return window.api.normalChat.createTopic(payload).then(unwrap)
+    return normalChatWorkspaceMock.createTopic(payload)
   },
   renameTopic(payload) {
-    return window.api.normalChat.renameTopic(payload).then(unwrap)
+    return normalChatWorkspaceMock.renameTopic(payload)
   },
   deleteTopic(payload) {
-    return window.api.normalChat.deleteTopic(payload).then(unwrap)
+    return normalChatWorkspaceMock.deleteTopic(payload)
   },
   setActiveTopic(payload) {
-    return window.api.normalChat.setActiveTopic(payload).then(unwrap)
+    return normalChatWorkspaceMock.setActiveTopic(payload)
   },
   updateTopicPrompt(payload) {
-    return window.api.normalChat.updateTopicPrompt(payload).then(unwrap)
+    return normalChatWorkspaceMock.updateTopicPrompt(payload)
   },
   updateTopicStreaming(payload) {
-    return window.api.normalChat.updateTopicStreaming(payload).then(unwrap)
+    return normalChatWorkspaceMock.updateTopicStreaming(payload)
   }
 }

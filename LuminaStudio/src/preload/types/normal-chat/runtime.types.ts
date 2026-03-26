@@ -1,9 +1,8 @@
 import type { NormalChatConversationStatusPhase } from './common.types'
-import type { NormalChatConversationMessage } from './conversation.types'
 import type {
-  NormalChatConversationRuntimeTrace,
-  NormalChatAgentStatusSummary
-} from './runtime-trace.types'
+  NormalChatConversationMessage,
+  NormalChatConversationRuntimeTrace
+} from './conversation.types'
 
 interface NormalChatConversationBaseEvent {
   requestId: string
@@ -36,10 +35,13 @@ export interface NormalChatConversationMessageCommittedEvent extends NormalChatC
   message: NormalChatConversationMessage
 }
 
+/**
+ * TODO(normal-chat-rewrite): 这里是给前端保留的兼容事件，后续新系统会替换 payload 结构。
+ */
 export interface NormalChatConversationRuntimeTraceUpsertEvent extends NormalChatConversationBaseEvent {
   type: 'runtime-trace-upsert'
   runtimeTrace: NormalChatConversationRuntimeTrace
-  summary?: NormalChatAgentStatusSummary | null
+  summary?: Record<string, unknown> | null
 }
 
 export interface NormalChatConversationTurnDetailUpsertEvent extends NormalChatConversationBaseEvent {

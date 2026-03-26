@@ -1,12 +1,10 @@
 <template>
-  <div class="nc-chat-message-parts-a9k2 mt-4 space-y-3">
+  <div class="nc-chat-message-parts-a9k2 mt-4 space-y-3">    <!-- TODO(normal-chat-rewrite): 先保留旧运行状态条占位，后续改为新系统状态组件。 -->
     <AgentStatusBarBlock
       v-if="message.role === 'assistant' && message.requestId"
       :request-id="message.requestId"
       @open-tree="emit('open-agent-tree')"
-    />
-
-    <template v-if="renderBlocks.length > 0">
+    /><template v-if="renderBlocks.length > 0">
       <template v-for="block in renderBlocks" :key="block.key">
         <div v-if="block.kind === 'text'">
           <div

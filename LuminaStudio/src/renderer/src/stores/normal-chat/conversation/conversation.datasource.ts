@@ -9,14 +9,7 @@ import type {
   NormalChatGetConversationRequest,
   NormalChatSendMessageRequest
 } from '@preload/types'
-
-function unwrap<T>(response: { success: boolean; data?: T; error?: string }): T {
-  if (!response.success || response.data === undefined) {
-    throw new Error(response.error || 'Normal Chat conversation request failed')
-  }
-
-  return response.data
-}
+import { normalChatConversationMock } from './conversation.mock'
 
 export interface NormalChatConversationDatasourceLike {
   getConversation(
@@ -33,30 +26,23 @@ export interface NormalChatConversationDatasourceLike {
 
 const defaultDatasource: NormalChatConversationDatasourceLike = {
   getConversation(payload) {
-    return window.api.normalChat.getConversation(payload).then(unwrap)
+    // 临时重定向到 mock，先去掉 renderer 对 normal-chat IPC 的直接依赖。
+    return normalChatConversationMock.getConversation(payload)
   },
   getConversationTurnDetail(payload) {
-    return window.api.normalChat.getConversationTurnDetail(payload).then(unwrap)
+    return normalChatConversationMock.getConversationTurnDetail(payload)
   },
   sendMessage(payload) {
-    return window.api.normalChat.sendMessage(payload).then(unwrap)
+    return normalChatConversationMock.sendMessage(payload)
   },
   deleteConversationTurn(payload) {
-    return window.api.normalChat.deleteConversationTurn(payload).then((response) => {
-      if (!response.success) {
-        throw new Error(response.error || 'Normal Chat delete conversation request failed')
-      }
-    })
+    return normalChatConversationMock.deleteConversationTurn(payload)
   },
   abort(payload) {
-    return window.api.normalChat.abort(payload).then((response) => {
-      if (!response.success) {
-        throw new Error(response.error || 'Normal Chat abort request failed')
-      }
-    })
+    return normalChatConversationMock.abort(payload)
   },
   onStream(handler) {
-    return window.api.normalChat.onStream(handler)
+    return normalChatConversationMock.onStream(handler)
   }
 }
 

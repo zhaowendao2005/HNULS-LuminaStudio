@@ -196,9 +196,8 @@ describe('NormalChat conversation store', () => {
     })
     expect(store.currentDisplayMessages.map((message) => message.id)).toEqual(['message-1'])
 
-    const finishHandler = streamHandler
-    if (finishHandler) {
-      finishHandler({
+    if (streamHandler) {
+      ;(streamHandler as (event: NormalChatConversationStreamEvent) => void)({
         type: 'finish',
         requestId: 'request-1',
         topicId: 'topic-1',
@@ -265,9 +264,8 @@ describe('NormalChat conversation store', () => {
     store.setDraftText('你好')
     await store.sendCurrentDraft()
 
-    const errorHandler = streamHandler
-    if (errorHandler) {
-      errorHandler({
+    if (streamHandler) {
+      ;(streamHandler as (event: NormalChatConversationStreamEvent) => void)({
         type: 'error',
         requestId: 'request-1',
         topicId: 'topic-1',
