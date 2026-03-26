@@ -87,12 +87,14 @@ export interface NormalChatConversationTurnRequestRecord {
     | 'name'
     | 'emoji'
     | 'defaultSystemPrompt'
-    | 'saveFullConversationEnabled'
     | 'streamingEnabled'
     | 'callMode'
     | 'costMode'
+    | 'defaultModelProviderId'
+    | 'defaultModelId'
+    | 'contextMemoryRounds'
     | 'maxRecursionDepth'
-    | 'maxRetriesPerAgent'
+    | 'maxReasoningSteps'
   >
   topic: {
     id: string
@@ -123,7 +125,6 @@ export interface NormalChatConversationTurnDetail {
   assistantName: string
   assistantEmoji: string
   topicTitle: string
-  saveFullConversationEnabled: boolean
   hasTrace: boolean
   requestRecord: NormalChatConversationTurnRequestRecord | null
   responseRecord: NormalChatConversationTurnResponseRecord | null

@@ -1,5 +1,7 @@
 import type {
   NormalChatBootstrap,
+  NormalChatCostMode,
+  NormalChatFunctionCallMode,
   NormalChatTopicPromptMode,
   NormalChatWorkspaceSnapshot
 } from '@preload/types'
@@ -12,12 +14,19 @@ export interface NormalChatWorkspaceDatasourceLike {
     assistantId: string
     name?: string
     defaultSystemPrompt?: string
-    saveFullConversationEnabled?: boolean
     streamingEnabled?: boolean
     callMode?: 'fast' | 'slow' | 'auto'
-    costMode?: 'per_call' | 'per_token'
+    costMode?: NormalChatCostMode
+    defaultModelProviderId?: string | null
+    defaultModelId?: string | null
+    contextMemoryRounds?: number
     maxRecursionDepth?: number
-    maxRetriesPerAgent?: number
+    maxReasoningSteps?: number
+    systemActionFunctionCallEnabled?: boolean
+    systemActionSubAgentEnabled?: boolean
+    functionCallPubMedEnabled?: boolean
+    functionCallPubMedMode?: NormalChatFunctionCallMode
+    mcpEnabled?: boolean
   }): Promise<NormalChatWorkspaceSnapshot>
   assignLabel(payload: {
     assistantId: string
@@ -52,6 +61,35 @@ export interface NormalChatWorkspaceDatasourceLike {
     topicId: string
     mode: 'inherit' | 'override'
     streamingEnabledOverride?: boolean | null
+  }): Promise<NormalChatWorkspaceSnapshot>
+  updateTopicConfig(payload: {
+    assistantId: string
+    topicId: string
+    systemPromptMode?: NormalChatTopicPromptMode
+    systemPromptOverride?: string | null
+    streamingMode?: 'inherit' | 'override'
+    streamingEnabledOverride?: boolean | null
+    costMode?: 'inherit' | 'override'
+    costModeOverride?: NormalChatCostMode | null
+    modelMode?: 'inherit' | 'override'
+    modelProviderIdOverride?: string | null
+    modelIdOverride?: string | null
+    contextMemoryRoundsMode?: 'inherit' | 'override'
+    contextMemoryRoundsOverride?: number | null
+    maxRecursionDepthMode?: 'inherit' | 'override'
+    maxRecursionDepthOverride?: number | null
+    maxReasoningStepsMode?: 'inherit' | 'override'
+    maxReasoningStepsOverride?: number | null
+    systemActionFunctionCallMode?: 'inherit' | 'override'
+    systemActionFunctionCallEnabledOverride?: boolean | null
+    systemActionSubAgentMode?: 'inherit' | 'override'
+    systemActionSubAgentEnabledOverride?: boolean | null
+    functionCallPubMedMode?: 'inherit' | 'override'
+    functionCallPubMedEnabledOverride?: boolean | null
+    functionCallPubMedExecutionMode?: 'inherit' | 'override'
+    functionCallPubMedExecutionModeOverride?: NormalChatFunctionCallMode | null
+    mcpMode?: 'inherit' | 'override'
+    mcpEnabledOverride?: boolean | null
   }): Promise<NormalChatWorkspaceSnapshot>
 }
 
@@ -98,5 +136,8 @@ export const NormalChatWorkspaceDatasource: NormalChatWorkspaceDatasourceLike = 
   },
   updateTopicStreaming(payload) {
     return normalChatWorkspaceMock.updateTopicStreaming(payload)
+  },
+  updateTopicConfig(payload) {
+    return normalChatWorkspaceMock.updateTopicConfig(payload)
   }
 }

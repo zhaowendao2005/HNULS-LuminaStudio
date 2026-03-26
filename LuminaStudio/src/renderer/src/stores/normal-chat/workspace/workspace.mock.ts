@@ -13,12 +13,19 @@ function createDefaultAssistant(): NormalChatAssistant {
     emoji: '🤖',
     labelId: null,
     defaultSystemPrompt: '你是一个临时 mock 助手，负责维持 Normal Chat 页面交互。',
-    saveFullConversationEnabled: false,
     streamingEnabled: true,
     callMode: 'auto',
     costMode: 'per_token',
+    defaultModelProviderId: 'provider-openai',
+    defaultModelId: 'gpt-4o-mini',
+    contextMemoryRounds: 12,
     maxRecursionDepth: 2,
-    maxRetriesPerAgent: 1,
+    maxReasoningSteps: 6,
+    systemActionFunctionCallEnabled: true,
+    systemActionSubAgentEnabled: true,
+    functionCallPubMedEnabled: true,
+    functionCallPubMedMode: 'fast',
+    mcpEnabled: false,
     sortOrder: 0
   }
 }
@@ -32,6 +39,27 @@ function createDefaultTopic(assistantId: string): NormalChatTopic {
     systemPromptOverride: null,
     streamingMode: 'inherit',
     streamingEnabledOverride: null,
+    costMode: 'inherit',
+    costModeOverride: null,
+    modelMode: 'inherit',
+    modelProviderIdOverride: null,
+    modelIdOverride: null,
+    contextMemoryRoundsMode: 'inherit',
+    contextMemoryRoundsOverride: null,
+    maxRecursionDepthMode: 'inherit',
+    maxRecursionDepthOverride: null,
+    maxReasoningStepsMode: 'inherit',
+    maxReasoningStepsOverride: null,
+    systemActionFunctionCallMode: 'inherit',
+    systemActionFunctionCallEnabledOverride: null,
+    systemActionSubAgentMode: 'inherit',
+    systemActionSubAgentEnabledOverride: null,
+    functionCallPubMedMode: 'inherit',
+    functionCallPubMedEnabledOverride: null,
+    functionCallPubMedExecutionMode: 'inherit',
+    functionCallPubMedExecutionModeOverride: null,
+    mcpMode: 'inherit',
+    mcpEnabledOverride: null,
     sortOrder: 0
   }
 }
@@ -163,24 +191,40 @@ export const normalChatWorkspaceMock = {
     assistantId: string
     name?: string
     defaultSystemPrompt?: string
-    saveFullConversationEnabled?: boolean
     streamingEnabled?: boolean
     callMode?: 'fast' | 'slow' | 'auto'
     costMode?: 'per_call' | 'per_token'
+    defaultModelProviderId?: string | null
+    defaultModelId?: string | null
+    contextMemoryRounds?: number
     maxRecursionDepth?: number
-    maxRetriesPerAgent?: number
+    maxReasoningSteps?: number
+    systemActionFunctionCallEnabled?: boolean
+    systemActionSubAgentEnabled?: boolean
+    functionCallPubMedEnabled?: boolean
+    functionCallPubMedMode?: 'fast' | 'slow'
+    mcpEnabled?: boolean
   }): Promise<NormalChatWorkspaceSnapshot> {
     updateAssistantSnapshot(payload.assistantId, (assistant) => ({
       ...assistant,
       name: payload.name ?? assistant.name,
       defaultSystemPrompt: payload.defaultSystemPrompt ?? assistant.defaultSystemPrompt,
-      saveFullConversationEnabled:
-        payload.saveFullConversationEnabled ?? assistant.saveFullConversationEnabled,
       streamingEnabled: payload.streamingEnabled ?? assistant.streamingEnabled,
       callMode: payload.callMode ?? assistant.callMode,
       costMode: payload.costMode ?? assistant.costMode,
+      defaultModelProviderId: payload.defaultModelProviderId ?? assistant.defaultModelProviderId,
+      defaultModelId: payload.defaultModelId ?? assistant.defaultModelId,
+      contextMemoryRounds: payload.contextMemoryRounds ?? assistant.contextMemoryRounds,
       maxRecursionDepth: payload.maxRecursionDepth ?? assistant.maxRecursionDepth,
-      maxRetriesPerAgent: payload.maxRetriesPerAgent ?? assistant.maxRetriesPerAgent
+      maxReasoningSteps: payload.maxReasoningSteps ?? assistant.maxReasoningSteps,
+      systemActionFunctionCallEnabled:
+        payload.systemActionFunctionCallEnabled ?? assistant.systemActionFunctionCallEnabled,
+      systemActionSubAgentEnabled:
+        payload.systemActionSubAgentEnabled ?? assistant.systemActionSubAgentEnabled,
+      functionCallPubMedEnabled:
+        payload.functionCallPubMedEnabled ?? assistant.functionCallPubMedEnabled,
+      functionCallPubMedMode: payload.functionCallPubMedMode ?? assistant.functionCallPubMedMode,
+      mcpEnabled: payload.mcpEnabled ?? assistant.mcpEnabled
     }))
 
     return cloneSnapshot()
@@ -240,9 +284,7 @@ export const normalChatWorkspaceMock = {
     return cloneSnapshot()
   },
 
-  async setActiveAssistant(payload: {
-    assistantId: string
-  }): Promise<NormalChatWorkspaceSnapshot> {
+  async setActiveAssistant(payload: { assistantId: string }): Promise<NormalChatWorkspaceSnapshot> {
     const topics = workspaceSnapshot.topicsByAssistantId[payload.assistantId] ?? []
     normalizeSnapshot({
       ...workspaceSnapshot,
@@ -363,6 +405,117 @@ export const normalChatWorkspaceMock = {
       streamingMode: payload.mode,
       streamingEnabledOverride:
         payload.mode === 'override' ? (payload.streamingEnabledOverride ?? true) : null
+    }))
+
+    return cloneSnapshot()
+  },
+
+  async updateTopicConfig(payload: {
+    assistantId: string
+    topicId: string
+    systemPromptMode?: 'inherit' | 'override'
+    systemPromptOverride?: string | null
+    streamingMode?: 'inherit' | 'override'
+    streamingEnabledOverride?: boolean | null
+    costMode?: 'inherit' | 'override'
+    costModeOverride?: 'per_call' | 'per_token' | null
+    modelMode?: 'inherit' | 'override'
+    modelProviderIdOverride?: string | null
+    modelIdOverride?: string | null
+    contextMemoryRoundsMode?: 'inherit' | 'override'
+    contextMemoryRoundsOverride?: number | null
+    maxRecursionDepthMode?: 'inherit' | 'override'
+    maxRecursionDepthOverride?: number | null
+    maxReasoningStepsMode?: 'inherit' | 'override'
+    maxReasoningStepsOverride?: number | null
+    systemActionFunctionCallMode?: 'inherit' | 'override'
+    systemActionFunctionCallEnabledOverride?: boolean | null
+    systemActionSubAgentMode?: 'inherit' | 'override'
+    systemActionSubAgentEnabledOverride?: boolean | null
+    functionCallPubMedMode?: 'inherit' | 'override'
+    functionCallPubMedEnabledOverride?: boolean | null
+    functionCallPubMedExecutionMode?: 'inherit' | 'override'
+    functionCallPubMedExecutionModeOverride?: 'fast' | 'slow' | null
+    mcpMode?: 'inherit' | 'override'
+    mcpEnabledOverride?: boolean | null
+  }): Promise<NormalChatWorkspaceSnapshot> {
+    updateTopicSnapshot(payload.assistantId, payload.topicId, (topic) => ({
+      ...topic,
+      systemPromptMode: payload.systemPromptMode ?? topic.systemPromptMode,
+      systemPromptOverride:
+        (payload.systemPromptMode ?? topic.systemPromptMode) === 'override'
+          ? (payload.systemPromptOverride ?? topic.systemPromptOverride ?? '')
+          : null,
+      streamingMode: payload.streamingMode ?? topic.streamingMode,
+      streamingEnabledOverride:
+        (payload.streamingMode ?? topic.streamingMode) === 'override'
+          ? (payload.streamingEnabledOverride ?? topic.streamingEnabledOverride ?? true)
+          : null,
+      costMode: payload.costMode ?? topic.costMode,
+      costModeOverride:
+        (payload.costMode ?? topic.costMode) === 'override'
+          ? (payload.costModeOverride ?? topic.costModeOverride ?? 'per_token')
+          : null,
+      modelMode: payload.modelMode ?? topic.modelMode,
+      modelProviderIdOverride:
+        (payload.modelMode ?? topic.modelMode) === 'override'
+          ? (payload.modelProviderIdOverride ?? topic.modelProviderIdOverride ?? null)
+          : null,
+      modelIdOverride:
+        (payload.modelMode ?? topic.modelMode) === 'override'
+          ? (payload.modelIdOverride ?? topic.modelIdOverride ?? null)
+          : null,
+      contextMemoryRoundsMode: payload.contextMemoryRoundsMode ?? topic.contextMemoryRoundsMode,
+      contextMemoryRoundsOverride:
+        (payload.contextMemoryRoundsMode ?? topic.contextMemoryRoundsMode) === 'override'
+          ? (payload.contextMemoryRoundsOverride ?? topic.contextMemoryRoundsOverride ?? 12)
+          : null,
+      maxRecursionDepthMode: payload.maxRecursionDepthMode ?? topic.maxRecursionDepthMode,
+      maxRecursionDepthOverride:
+        (payload.maxRecursionDepthMode ?? topic.maxRecursionDepthMode) === 'override'
+          ? (payload.maxRecursionDepthOverride ?? topic.maxRecursionDepthOverride ?? 2)
+          : null,
+      maxReasoningStepsMode: payload.maxReasoningStepsMode ?? topic.maxReasoningStepsMode,
+      maxReasoningStepsOverride:
+        (payload.maxReasoningStepsMode ?? topic.maxReasoningStepsMode) === 'override'
+          ? (payload.maxReasoningStepsOverride ?? topic.maxReasoningStepsOverride ?? 6)
+          : null,
+      systemActionFunctionCallMode:
+        payload.systemActionFunctionCallMode ?? topic.systemActionFunctionCallMode,
+      systemActionFunctionCallEnabledOverride:
+        (payload.systemActionFunctionCallMode ?? topic.systemActionFunctionCallMode) === 'override'
+          ? (payload.systemActionFunctionCallEnabledOverride ??
+            topic.systemActionFunctionCallEnabledOverride ??
+            true)
+          : null,
+      systemActionSubAgentMode: payload.systemActionSubAgentMode ?? topic.systemActionSubAgentMode,
+      systemActionSubAgentEnabledOverride:
+        (payload.systemActionSubAgentMode ?? topic.systemActionSubAgentMode) === 'override'
+          ? (payload.systemActionSubAgentEnabledOverride ??
+            topic.systemActionSubAgentEnabledOverride ??
+            true)
+          : null,
+      functionCallPubMedMode: payload.functionCallPubMedMode ?? topic.functionCallPubMedMode,
+      functionCallPubMedEnabledOverride:
+        (payload.functionCallPubMedMode ?? topic.functionCallPubMedMode) === 'override'
+          ? (payload.functionCallPubMedEnabledOverride ??
+            topic.functionCallPubMedEnabledOverride ??
+            true)
+          : null,
+      functionCallPubMedExecutionMode:
+        payload.functionCallPubMedExecutionMode ?? topic.functionCallPubMedExecutionMode,
+      functionCallPubMedExecutionModeOverride:
+        (payload.functionCallPubMedExecutionMode ?? topic.functionCallPubMedExecutionMode) ===
+        'override'
+          ? (payload.functionCallPubMedExecutionModeOverride ??
+            topic.functionCallPubMedExecutionModeOverride ??
+            'fast')
+          : null,
+      mcpMode: payload.mcpMode ?? topic.mcpMode,
+      mcpEnabledOverride:
+        (payload.mcpMode ?? topic.mcpMode) === 'override'
+          ? (payload.mcpEnabledOverride ?? topic.mcpEnabledOverride ?? false)
+          : null
     }))
 
     return cloneSnapshot()

@@ -59,15 +59,31 @@
 
         <template v-else>
           <div v-if="activeTab === 'raw'" class="space-y-4">
-            <ConversationDetailRawSection title="会话元数据" description="当前 turn 的基础信息。" :value="rawMeta" />
-            <ConversationDetailRawSection title="请求记录" description="请求参数与提示词窗口。" :value="detail?.requestRecord ?? {}" />
-            <ConversationDetailRawSection title="响应记录" description="流式输出与错误信息。" :value="detail?.responseRecord ?? {}" />
+            <ConversationDetailRawSection
+              title="会话元数据"
+              description="当前 turn 的基础信息。"
+              :value="rawMeta"
+            />
+            <ConversationDetailRawSection
+              title="请求记录"
+              description="请求参数与提示词窗口。"
+              :value="detail?.requestRecord ?? {}"
+            />
+            <ConversationDetailRawSection
+              title="响应记录"
+              description="流式输出与错误信息。"
+              :value="detail?.responseRecord ?? {}"
+            />
             <ConversationDetailRawSection
               title="运行时追踪（兼容壳）"
               description="TODO(normal-chat-rewrite): 新系统上线后替换为新运行时结构。"
               :value="detail?.runtimeTrace ?? null"
             />
-            <ConversationDetailRawSection title="消息快照" description="该 turn 的消息数据。" :value="detail?.messages ?? []" />
+            <ConversationDetailRawSection
+              title="消息快照"
+              description="该 turn 的消息数据。"
+              :value="detail?.messages ?? []"
+            />
           </div>
 
           <div v-else class="space-y-4">
@@ -80,7 +96,9 @@
                 </div>
                 <div class="rounded-xl bg-gray-50 px-3 py-2">
                   <p class="text-[12px] text-gray-400">消息 ID</p>
-                  <p class="mt-1 break-all text-[13px] text-gray-800">{{ selectedMessage?.id ?? '' }}</p>
+                  <p class="mt-1 break-all text-[13px] text-gray-800">
+                    {{ selectedMessage?.id ?? '' }}
+                  </p>
                 </div>
               </div>
             </section>
@@ -96,13 +114,19 @@
                 </div>
                 <div class="rounded-xl bg-gray-50 px-3 py-2">
                   <p class="text-[12px] text-gray-400">文本</p>
-                  <p class="mt-1 whitespace-pre-wrap break-words text-[13px] leading-6 text-gray-700">
+                  <p
+                    class="mt-1 whitespace-pre-wrap break-words text-[13px] leading-6 text-gray-700"
+                  >
                     {{ selectedMessage?.text || '无' }}
                   </p>
                 </div>
                 <div class="rounded-xl bg-gray-50 px-3 py-2">
                   <p class="text-[12px] text-gray-400">消息块</p>
-                  <ChatMessageParts v-if="selectedMessage" :message="selectedMessage" display-mode="detail" />
+                  <ChatMessageParts
+                    v-if="selectedMessage"
+                    :message="selectedMessage"
+                    display-mode="detail"
+                  />
                   <p v-else class="mt-1 text-[13px] text-gray-700">无</p>
                 </div>
                 <div class="rounded-xl bg-gray-50 px-3 py-2">
@@ -122,7 +146,6 @@
 import { computed, ref, watch } from 'vue'
 import { X } from 'lucide-vue-next'
 import { useNormalChatConversationStore } from '@renderer/stores/normal-chat/conversation/conversation.store'
-import { useNormalChatWorkspaceStore } from '@renderer/stores/normal-chat/workspace/workspace.store'
 import ConversationDetailRawSection from './ConversationDetailRawSection.vue'
 import ChatMessageParts from './ChatMessageParts.vue'
 import type { NormalChatConversationDisplayMessage } from '@renderer/stores/normal-chat/conversation/conversation.types'
@@ -141,7 +164,6 @@ const emit = defineEmits<{
 }>()
 
 const conversationStore = useNormalChatConversationStore()
-const workspaceStore = useNormalChatWorkspaceStore()
 
 const activeTab = ref<'raw' | 'rendered'>('raw')
 const loading = ref(false)
@@ -208,7 +230,6 @@ const rawMeta = computed(() => {
       id: detail.value.topicId,
       title: detail.value.topicTitle
     },
-    saveFullConversationEnabled: detail.value.saveFullConversationEnabled,
     hasTrace: detail.value.hasTrace
   }
 })
@@ -240,9 +261,7 @@ async function loadDetail(): Promise<void> {
     activeTab.value = 'raw'
     const nextDetail = await conversationStore.loadConversationTurnDetail(props.requestId)
     if (!nextDetail) {
-      errorText.value = workspaceStore.currentAssistant?.saveFullConversationEnabled
-        ? '当前 turn 没有保存完整会话数据，可能是旧数据或者本次保存关闭。'
-        : '当前助手还没有开启完整会话保存。'
+      errorText.value = '当前 turn 没有可读取的完整请求记录，可能是旧数据或者该轮未保留原始上下文。'
     }
   } catch (error) {
     errorText.value = error instanceof Error ? error.message : String(error)

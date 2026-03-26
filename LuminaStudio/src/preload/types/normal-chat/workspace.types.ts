@@ -4,6 +4,8 @@ import type {
   NormalChatTopicPromptMode
 } from './common.types'
 
+export type NormalChatFunctionCallMode = 'fast' | 'slow'
+
 export interface NormalChatLabel {
   id: string
   name: string
@@ -16,13 +18,20 @@ export interface NormalChatAssistant {
   emoji: string
   labelId: string | null
   defaultSystemPrompt: string
-  saveFullConversationEnabled: boolean
   streamingEnabled: boolean
   callMode: NormalChatCallMode
   costMode: NormalChatCostMode
+  defaultModelProviderId: string | null
+  defaultModelId: string | null
+  contextMemoryRounds: number
   maxRecursionDepth: number
-  // 预留给下一版运行时系统：当前旧 agent 已清理，但该配置字段继续保留。
-  maxRetriesPerAgent: number
+  // 单个 agent 在当前层最多允许多少次 ReAct 推理切换，用于防止死循环。
+  maxReasoningSteps: number
+  systemActionFunctionCallEnabled: boolean
+  systemActionSubAgentEnabled: boolean
+  functionCallPubMedEnabled: boolean
+  functionCallPubMedMode: NormalChatFunctionCallMode
+  mcpEnabled: boolean
   sortOrder: number
 }
 
@@ -34,6 +43,27 @@ export interface NormalChatTopic {
   systemPromptOverride: string | null
   streamingMode: 'inherit' | 'override'
   streamingEnabledOverride: boolean | null
+  costMode: 'inherit' | 'override'
+  costModeOverride: NormalChatCostMode | null
+  modelMode: 'inherit' | 'override'
+  modelProviderIdOverride: string | null
+  modelIdOverride: string | null
+  contextMemoryRoundsMode: 'inherit' | 'override'
+  contextMemoryRoundsOverride: number | null
+  maxRecursionDepthMode: 'inherit' | 'override'
+  maxRecursionDepthOverride: number | null
+  maxReasoningStepsMode: 'inherit' | 'override'
+  maxReasoningStepsOverride: number | null
+  systemActionFunctionCallMode: 'inherit' | 'override'
+  systemActionFunctionCallEnabledOverride: boolean | null
+  systemActionSubAgentMode: 'inherit' | 'override'
+  systemActionSubAgentEnabledOverride: boolean | null
+  functionCallPubMedMode: 'inherit' | 'override'
+  functionCallPubMedEnabledOverride: boolean | null
+  functionCallPubMedExecutionMode: 'inherit' | 'override'
+  functionCallPubMedExecutionModeOverride: NormalChatFunctionCallMode | null
+  mcpMode: 'inherit' | 'override'
+  mcpEnabledOverride: boolean | null
   sortOrder: number
 }
 
@@ -55,13 +85,19 @@ export interface NormalChatUpdateAssistantRequest {
   assistantId: string
   name?: string
   defaultSystemPrompt?: string
-  saveFullConversationEnabled?: boolean
   streamingEnabled?: boolean
   callMode?: NormalChatCallMode
   costMode?: NormalChatCostMode
+  defaultModelProviderId?: string | null
+  defaultModelId?: string | null
+  contextMemoryRounds?: number
   maxRecursionDepth?: number
-  // 预留给下一版运行时系统：当前旧 agent 已清理，但该配置字段继续保留。
-  maxRetriesPerAgent?: number
+  maxReasoningSteps?: number
+  systemActionFunctionCallEnabled?: boolean
+  systemActionSubAgentEnabled?: boolean
+  functionCallPubMedEnabled?: boolean
+  functionCallPubMedMode?: NormalChatFunctionCallMode
+  mcpEnabled?: boolean
 }
 
 export interface NormalChatAssignLabelRequest {
@@ -118,4 +154,34 @@ export interface NormalChatUpdateTopicStreamingRequest {
   topicId: string
   mode: 'inherit' | 'override'
   streamingEnabledOverride?: boolean | null
+}
+
+export interface NormalChatUpdateTopicConfigRequest {
+  assistantId: string
+  topicId: string
+  systemPromptMode?: NormalChatTopicPromptMode
+  systemPromptOverride?: string | null
+  streamingMode?: 'inherit' | 'override'
+  streamingEnabledOverride?: boolean | null
+  costMode?: 'inherit' | 'override'
+  costModeOverride?: NormalChatCostMode | null
+  modelMode?: 'inherit' | 'override'
+  modelProviderIdOverride?: string | null
+  modelIdOverride?: string | null
+  contextMemoryRoundsMode?: 'inherit' | 'override'
+  contextMemoryRoundsOverride?: number | null
+  maxRecursionDepthMode?: 'inherit' | 'override'
+  maxRecursionDepthOverride?: number | null
+  maxReasoningStepsMode?: 'inherit' | 'override'
+  maxReasoningStepsOverride?: number | null
+  systemActionFunctionCallMode?: 'inherit' | 'override'
+  systemActionFunctionCallEnabledOverride?: boolean | null
+  systemActionSubAgentMode?: 'inherit' | 'override'
+  systemActionSubAgentEnabledOverride?: boolean | null
+  functionCallPubMedMode?: 'inherit' | 'override'
+  functionCallPubMedEnabledOverride?: boolean | null
+  functionCallPubMedExecutionMode?: 'inherit' | 'override'
+  functionCallPubMedExecutionModeOverride?: NormalChatFunctionCallMode | null
+  mcpMode?: 'inherit' | 'override'
+  mcpEnabledOverride?: boolean | null
 }

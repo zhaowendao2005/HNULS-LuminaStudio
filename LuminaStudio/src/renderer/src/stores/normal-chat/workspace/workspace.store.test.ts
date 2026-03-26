@@ -21,12 +21,19 @@ function createBootstrap(): NormalChatBootstrap {
           emoji: '🤖',
           labelId: null,
           defaultSystemPrompt: '默认提示词',
-          saveFullConversationEnabled: false,
           streamingEnabled: true,
           callMode: 'auto',
           costMode: 'per_token',
+          defaultModelProviderId: 'provider-openai',
+          defaultModelId: 'gpt-4o-mini',
+          contextMemoryRounds: 12,
           maxRecursionDepth: 2,
-          maxRetriesPerAgent: 1,
+          maxReasoningSteps: 6,
+          systemActionFunctionCallEnabled: true,
+          systemActionSubAgentEnabled: true,
+          functionCallPubMedEnabled: true,
+          functionCallPubMedMode: 'fast',
+          mcpEnabled: false,
           sortOrder: 0
         }
       ],
@@ -40,6 +47,27 @@ function createBootstrap(): NormalChatBootstrap {
             systemPromptOverride: null,
             streamingMode: 'inherit',
             streamingEnabledOverride: null,
+            costMode: 'inherit',
+            costModeOverride: null,
+            modelMode: 'inherit',
+            modelProviderIdOverride: null,
+            modelIdOverride: null,
+            contextMemoryRoundsMode: 'inherit',
+            contextMemoryRoundsOverride: null,
+            maxRecursionDepthMode: 'inherit',
+            maxRecursionDepthOverride: null,
+            maxReasoningStepsMode: 'inherit',
+            maxReasoningStepsOverride: null,
+            systemActionFunctionCallMode: 'inherit',
+            systemActionFunctionCallEnabledOverride: null,
+            systemActionSubAgentMode: 'inherit',
+            systemActionSubAgentEnabledOverride: null,
+            functionCallPubMedMode: 'inherit',
+            functionCallPubMedEnabledOverride: null,
+            functionCallPubMedExecutionMode: 'inherit',
+            functionCallPubMedExecutionModeOverride: null,
+            mcpMode: 'inherit',
+            mcpEnabledOverride: null,
             sortOrder: 0
           }
         ]
@@ -47,6 +75,27 @@ function createBootstrap(): NormalChatBootstrap {
       activeAssistantId: 'assistant-1',
       activeTopicId: 'topic-1'
     }
+  }
+}
+
+function createDatasourceStub(overrides: Record<string, unknown> = {}) {
+  return {
+    getBootstrap: vi.fn().mockResolvedValue(createBootstrap()),
+    createAssistant: vi.fn(),
+    updateAssistant: vi.fn(),
+    assignLabel: vi.fn(),
+    createLabel: vi.fn(),
+    renameLabel: vi.fn(),
+    deleteLabel: vi.fn(),
+    setActiveAssistant: vi.fn(),
+    createTopic: vi.fn(),
+    renameTopic: vi.fn(),
+    deleteTopic: vi.fn(),
+    setActiveTopic: vi.fn(),
+    updateTopicPrompt: vi.fn(),
+    updateTopicStreaming: vi.fn(),
+    updateTopicConfig: vi.fn(),
+    ...overrides
   }
 }
 
@@ -121,22 +170,9 @@ describe('NormalChat workspace store', () => {
   })
 
   it('hydrates selectors from bootstrap and resolves inherited prompts', async () => {
-    setNormalChatWorkspaceDatasourceForTesting({
-      getBootstrap: vi.fn().mockResolvedValue(createBootstrap()),
-      createAssistant: vi.fn(),
-      updateAssistant: vi.fn(),
-      assignLabel: vi.fn(),
-      createLabel: vi.fn(),
-      renameLabel: vi.fn(),
-      deleteLabel: vi.fn(),
-      setActiveAssistant: vi.fn(),
-      createTopic: vi.fn(),
-      renameTopic: vi.fn(),
-      deleteTopic: vi.fn(),
-      setActiveTopic: vi.fn(),
-      updateTopicPrompt: vi.fn(),
-      updateTopicStreaming: vi.fn()
-    })
+    const modelConfigStore = useModelConfigStore()
+    modelConfigStore.providers = createModelProviders()
+    setNormalChatWorkspaceDatasourceForTesting(createDatasourceStub())
 
     const store = useNormalChatWorkspaceStore()
     await store.initialize()
@@ -144,81 +180,29 @@ describe('NormalChat workspace store', () => {
     expect(store.currentAssistant?.name).toBe('基础助手')
     expect(store.currentTopic?.title).toBe('默认话题')
     expect(store.effectiveSystemPrompt).toBe('默认提示词')
+    expect(store.currentTopicModelLabel).toBe('GPT-4o Mini · OpenAI')
   })
 
-  it('hydrates topic model selection from localStorage and backend providers', async () => {
+  it('falls back to an available backend model when assistant default model is missing', async () => {
+    const bootstrap = createBootstrap()
+    bootstrap.workspace.assistants[0].defaultModelProviderId = 'missing-provider'
+    bootstrap.workspace.assistants[0].defaultModelId = 'missing-model'
+
     const modelConfigStore = useModelConfigStore()
     modelConfigStore.providers = createModelProviders()
-    localStorageMock.setItem(
-      'normal-chat:model-selection:v1',
-      JSON.stringify({
-        'assistant-1::topic-1': {
-          providerId: 'provider-anthropic',
-          modelId: 'claude-3-5-sonnet'
-        }
+
+    setNormalChatWorkspaceDatasourceForTesting(
+      createDatasourceStub({
+        getBootstrap: vi.fn().mockResolvedValue(bootstrap)
       })
     )
-
-    setNormalChatWorkspaceDatasourceForTesting({
-      getBootstrap: vi.fn().mockResolvedValue(createBootstrap()),
-      createAssistant: vi.fn(),
-      updateAssistant: vi.fn(),
-      assignLabel: vi.fn(),
-      createLabel: vi.fn(),
-      renameLabel: vi.fn(),
-      deleteLabel: vi.fn(),
-      setActiveAssistant: vi.fn(),
-      createTopic: vi.fn(),
-      renameTopic: vi.fn(),
-      deleteTopic: vi.fn(),
-      setActiveTopic: vi.fn(),
-      updateTopicPrompt: vi.fn(),
-      updateTopicStreaming: vi.fn()
-    })
 
     const store = useNormalChatWorkspaceStore()
     await store.initialize()
 
-    expect(store.currentTopicModelProviderId).toBe('provider-anthropic')
-    expect(store.currentTopicModelId).toBe('claude-3-5-sonnet')
-    expect(store.currentTopicModelLabel).toBe('Claude 3.5 Sonnet · claude-3-5-sonnet')
-  })
-
-  it('falls back to an available backend model when the stored selection is invalid', async () => {
-    const modelConfigStore = useModelConfigStore()
-    modelConfigStore.providers = createModelProviders()
-    localStorageMock.setItem(
-      'normal-chat:model-selection:v1',
-      JSON.stringify({
-        'assistant-1::topic-1': {
-          providerId: 'missing-provider',
-          modelId: 'missing-model'
-        }
-      })
-    )
-
-    setNormalChatWorkspaceDatasourceForTesting({
-      getBootstrap: vi.fn().mockResolvedValue(createBootstrap()),
-      createAssistant: vi.fn(),
-      updateAssistant: vi.fn(),
-      assignLabel: vi.fn(),
-      createLabel: vi.fn(),
-      renameLabel: vi.fn(),
-      deleteLabel: vi.fn(),
-      setActiveAssistant: vi.fn(),
-      createTopic: vi.fn(),
-      renameTopic: vi.fn(),
-      deleteTopic: vi.fn(),
-      setActiveTopic: vi.fn(),
-      updateTopicPrompt: vi.fn(),
-      updateTopicStreaming: vi.fn()
-    })
-
-    const store = useNormalChatWorkspaceStore()
-    await store.initialize()
-
-    expect(store.currentTopicModelProviderId).toBe('provider-openai')
-    expect(store.currentTopicModelId).toBe('gpt-4o-mini')
+    expect(store.assistantDefaultModelProviderIdDraft).toBe('provider-openai')
+    expect(store.assistantDefaultModelIdDraft).toBe('gpt-4o-mini')
+    expect(store.currentTopicModelLabel).toBe('未选择模型')
   })
 
   it('commits inline topic rename and clears editing state', async () => {
@@ -227,14 +211,8 @@ describe('NormalChat workspace store', () => {
       topicsByAssistantId: {
         'assistant-1': [
           {
-            id: 'topic-1',
-            assistantId: 'assistant-1',
-            title: '重命名后的话题',
-            systemPromptMode: 'inherit',
-            systemPromptOverride: null,
-            streamingMode: 'inherit',
-            streamingEnabledOverride: null,
-            sortOrder: 0
+            ...createBootstrap().workspace.topicsByAssistantId['assistant-1'][0],
+            title: '重命名后的话题'
           }
         ]
       }
@@ -242,22 +220,11 @@ describe('NormalChat workspace store', () => {
 
     const renameTopic = vi.fn().mockResolvedValue(renamedSnapshot)
 
-    setNormalChatWorkspaceDatasourceForTesting({
-      getBootstrap: vi.fn().mockResolvedValue(createBootstrap()),
-      createAssistant: vi.fn(),
-      updateAssistant: vi.fn(),
-      assignLabel: vi.fn(),
-      createLabel: vi.fn(),
-      renameLabel: vi.fn(),
-      deleteLabel: vi.fn(),
-      setActiveAssistant: vi.fn(),
-      createTopic: vi.fn(),
-      renameTopic,
-      deleteTopic: vi.fn(),
-      setActiveTopic: vi.fn(),
-      updateTopicPrompt: vi.fn(),
-      updateTopicStreaming: vi.fn()
-    })
+    setNormalChatWorkspaceDatasourceForTesting(
+      createDatasourceStub({
+        renameTopic
+      })
+    )
 
     const store = useNormalChatWorkspaceStore()
     await store.initialize()
@@ -275,61 +242,164 @@ describe('NormalChat workspace store', () => {
     expect(store.currentTopic?.title).toBe('重命名后的话题')
   })
 
-  it('saves assistant default prompt and topic override in order', async () => {
-    const updateAssistant = vi.fn().mockImplementation(async () => {
+  it('saves assistant default settings as assistant-level configuration', async () => {
+    const modelConfigStore = useModelConfigStore()
+    modelConfigStore.providers = createModelProviders()
+    const updateAssistant = vi.fn().mockImplementation(async (payload) => {
       const bootstrap = createBootstrap()
-      bootstrap.workspace.assistants[0].defaultSystemPrompt = '更新后的默认提示词'
-      return bootstrap.workspace
-    })
-
-    const updateTopicPrompt = vi.fn().mockImplementation(async () => {
-      const bootstrap = createBootstrap()
-      bootstrap.workspace.assistants[0].defaultSystemPrompt = '更新后的默认提示词'
-      bootstrap.workspace.topicsByAssistantId['assistant-1'][0] = {
-        ...bootstrap.workspace.topicsByAssistantId['assistant-1'][0],
-        systemPromptMode: 'override',
-        systemPromptOverride: '当前话题覆盖提示词'
+      bootstrap.workspace.assistants[0] = {
+        ...bootstrap.workspace.assistants[0],
+        name: payload.name,
+        defaultSystemPrompt: payload.defaultSystemPrompt,
+        streamingEnabled: payload.streamingEnabled,
+        costMode: payload.costMode,
+        defaultModelProviderId: payload.defaultModelProviderId,
+        defaultModelId: payload.defaultModelId,
+        contextMemoryRounds: payload.contextMemoryRounds,
+        maxRecursionDepth: payload.maxRecursionDepth,
+        maxReasoningSteps: payload.maxReasoningSteps,
+        systemActionFunctionCallEnabled: payload.systemActionFunctionCallEnabled,
+        systemActionSubAgentEnabled: payload.systemActionSubAgentEnabled,
+        functionCallPubMedEnabled: payload.functionCallPubMedEnabled,
+        functionCallPubMedMode: payload.functionCallPubMedMode,
+        mcpEnabled: payload.mcpEnabled
       }
       return bootstrap.workspace
     })
 
-    setNormalChatWorkspaceDatasourceForTesting({
-      getBootstrap: vi.fn().mockResolvedValue(createBootstrap()),
-      createAssistant: vi.fn(),
-      updateAssistant,
-      assignLabel: vi.fn(),
-      createLabel: vi.fn(),
-      renameLabel: vi.fn(),
-      deleteLabel: vi.fn(),
-      setActiveAssistant: vi.fn(),
-      createTopic: vi.fn(),
-      renameTopic: vi.fn(),
-      deleteTopic: vi.fn(),
-      setActiveTopic: vi.fn(),
-      updateTopicPrompt,
-      updateTopicStreaming: vi.fn()
-    })
+    setNormalChatWorkspaceDatasourceForTesting(
+      createDatasourceStub({
+        updateAssistant
+      })
+    )
 
     const store = useNormalChatWorkspaceStore()
     await store.initialize()
-    store.setAssistantDefaultPromptDraft('更新后的默认提示词')
-    await store.savePromptSettings()
 
-    store.openTopicPromptEditor()
-    store.setTopicPromptDraft('当前话题覆盖提示词')
-    await store.savePromptSettings()
+    store.openAssistantSettings('assistant')
+    store.setAssistantNameDraft('新的基础助手')
+    store.setAssistantDefaultPromptDraft('新的默认提示词')
+    store.setAssistantStreamingEnabledDraft(false)
+    store.setAssistantCostModeDraft('per_call')
+    store.setAssistantDefaultModelProviderIdDraft('provider-anthropic')
+    store.setAssistantContextMemoryRoundsDraft(8)
+    store.setAssistantMaxRecursionDepthDraft(4)
+    store.setAssistantMaxReasoningStepsDraft(9)
+    store.setAssistantFunctionCallPubMedEnabledDraft(false)
+    store.setAssistantFunctionCallPubMedModeDraft('slow')
+    store.setAssistantMcpEnabledDraft(true)
+    await store.saveSettings()
 
     expect(updateAssistant).toHaveBeenCalledWith({
       assistantId: 'assistant-1',
-      defaultSystemPrompt: '更新后的默认提示词'
+      name: '新的基础助手',
+      defaultSystemPrompt: '新的默认提示词',
+      streamingEnabled: false,
+      costMode: 'per_call',
+      defaultModelProviderId: 'provider-anthropic',
+      defaultModelId: 'claude-3-5-sonnet',
+      contextMemoryRounds: 8,
+      maxRecursionDepth: 4,
+      maxReasoningSteps: 9,
+      systemActionFunctionCallEnabled: true,
+      systemActionSubAgentEnabled: true,
+      functionCallPubMedEnabled: false,
+      functionCallPubMedMode: 'slow',
+      mcpEnabled: true
     })
-    expect(updateTopicPrompt).toHaveBeenCalledWith({
+  })
+
+  it('auto switches topic draft between inherit and override based on edited values', async () => {
+    const modelConfigStore = useModelConfigStore()
+    modelConfigStore.providers = createModelProviders()
+    const updateTopicConfig = vi.fn().mockResolvedValue(createBootstrap().workspace)
+
+    setNormalChatWorkspaceDatasourceForTesting(
+      createDatasourceStub({
+        updateTopicConfig
+      })
+    )
+
+    const store = useNormalChatWorkspaceStore()
+    await store.initialize()
+
+    store.openTopicSettings()
+
+    store.setTopicPromptDraft('当前话题覆盖提示词')
+    store.setTopicStreamingEnabledOverrideDraft(false)
+    store.setTopicCostModeOverrideDraft('per_call')
+    store.setTopicModelProviderIdOverrideDraft('provider-anthropic')
+    store.setTopicContextMemoryRoundsOverrideDraft(4)
+    store.setTopicMaxRecursionDepthOverrideDraft(1)
+    store.setTopicMaxReasoningStepsOverrideDraft(3)
+    store.setTopicFunctionCallPubMedEnabledOverrideDraft(false)
+    store.setTopicFunctionCallPubMedExecutionModeOverrideDraft('slow')
+    store.setTopicMcpEnabledOverrideDraft(true)
+
+    expect(store.topicPromptModeDraft).toBe('override')
+    expect(store.topicStreamingModeDraft).toBe('override')
+    expect(store.topicCostModeDraft).toBe('override')
+    expect(store.topicModelModeDraft).toBe('override')
+    expect(store.topicContextMemoryRoundsModeDraft).toBe('override')
+    expect(store.topicMaxRecursionDepthModeDraft).toBe('override')
+    expect(store.topicMaxReasoningStepsModeDraft).toBe('override')
+    expect(store.topicFunctionCallPubMedModeDraft).toBe('override')
+    expect(store.topicFunctionCallPubMedExecutionModeDraft).toBe('override')
+    expect(store.topicMcpModeDraft).toBe('override')
+
+    store.setTopicPromptDraft('默认提示词')
+    store.setTopicStreamingEnabledOverrideDraft(true)
+    store.setTopicCostModeOverrideDraft('per_token')
+    store.setTopicModelProviderIdOverrideDraft('provider-openai')
+    store.setTopicContextMemoryRoundsOverrideDraft(12)
+    store.setTopicMaxRecursionDepthOverrideDraft(2)
+    store.setTopicMaxReasoningStepsOverrideDraft(6)
+    store.setTopicFunctionCallPubMedEnabledOverrideDraft(true)
+    store.setTopicFunctionCallPubMedExecutionModeOverrideDraft('fast')
+    store.setTopicMcpEnabledOverrideDraft(false)
+
+    expect(store.topicPromptModeDraft).toBe('inherit')
+    expect(store.topicStreamingModeDraft).toBe('inherit')
+    expect(store.topicCostModeDraft).toBe('inherit')
+    expect(store.topicModelModeDraft).toBe('inherit')
+    expect(store.topicContextMemoryRoundsModeDraft).toBe('inherit')
+    expect(store.topicMaxRecursionDepthModeDraft).toBe('inherit')
+    expect(store.topicMaxReasoningStepsModeDraft).toBe('inherit')
+    expect(store.topicFunctionCallPubMedModeDraft).toBe('inherit')
+    expect(store.topicFunctionCallPubMedExecutionModeDraft).toBe('inherit')
+    expect(store.topicMcpModeDraft).toBe('inherit')
+
+    await store.saveSettings()
+
+    expect(updateTopicConfig).toHaveBeenCalledWith({
       assistantId: 'assistant-1',
       topicId: 'topic-1',
-      mode: 'override',
-      promptOverride: '当前话题覆盖提示词'
+      systemPromptMode: 'inherit',
+      systemPromptOverride: null,
+      streamingMode: 'inherit',
+      streamingEnabledOverride: null,
+      costMode: 'inherit',
+      costModeOverride: null,
+      modelMode: 'inherit',
+      modelProviderIdOverride: null,
+      modelIdOverride: null,
+      contextMemoryRoundsMode: 'inherit',
+      contextMemoryRoundsOverride: null,
+      maxRecursionDepthMode: 'inherit',
+      maxRecursionDepthOverride: null,
+      maxReasoningStepsMode: 'inherit',
+      maxReasoningStepsOverride: null,
+      systemActionFunctionCallMode: 'inherit',
+      systemActionFunctionCallEnabledOverride: null,
+      systemActionSubAgentMode: 'inherit',
+      systemActionSubAgentEnabledOverride: null,
+      functionCallPubMedMode: 'inherit',
+      functionCallPubMedEnabledOverride: null,
+      functionCallPubMedExecutionMode: 'inherit',
+      functionCallPubMedExecutionModeOverride: null,
+      mcpMode: 'inherit',
+      mcpEnabledOverride: null
     })
-    expect(store.effectiveSystemPrompt).toBe('当前话题覆盖提示词')
   })
 
   it('groups assistants by label and keeps unclassified first', async () => {
@@ -345,12 +415,19 @@ describe('NormalChat workspace store', () => {
         emoji: '🤖',
         labelId: null,
         defaultSystemPrompt: '默认提示词',
-        saveFullConversationEnabled: false,
         streamingEnabled: true,
         callMode: 'auto',
         costMode: 'per_token',
+        defaultModelProviderId: 'provider-openai',
+        defaultModelId: 'gpt-4o-mini',
+        contextMemoryRounds: 12,
         maxRecursionDepth: 2,
-        maxRetriesPerAgent: 1,
+        maxReasoningSteps: 6,
+        systemActionFunctionCallEnabled: true,
+        systemActionSubAgentEnabled: true,
+        functionCallPubMedEnabled: true,
+        functionCallPubMedMode: 'fast',
+        mcpEnabled: false,
         sortOrder: 0
       },
       {
@@ -359,32 +436,28 @@ describe('NormalChat workspace store', () => {
         emoji: '🧥',
         labelId: 'label-1',
         defaultSystemPrompt: '学习提示词',
-        saveFullConversationEnabled: false,
         streamingEnabled: true,
         callMode: 'auto',
         costMode: 'per_token',
+        defaultModelProviderId: 'provider-openai',
+        defaultModelId: 'gpt-4o-mini',
+        contextMemoryRounds: 12,
         maxRecursionDepth: 2,
-        maxRetriesPerAgent: 1,
+        maxReasoningSteps: 6,
+        systemActionFunctionCallEnabled: true,
+        systemActionSubAgentEnabled: true,
+        functionCallPubMedEnabled: true,
+        functionCallPubMedMode: 'fast',
+        mcpEnabled: false,
         sortOrder: 1
       }
     ]
 
-    setNormalChatWorkspaceDatasourceForTesting({
-      getBootstrap: vi.fn().mockResolvedValue(bootstrap),
-      createAssistant: vi.fn(),
-      updateAssistant: vi.fn(),
-      assignLabel: vi.fn(),
-      createLabel: vi.fn(),
-      renameLabel: vi.fn(),
-      deleteLabel: vi.fn(),
-      setActiveAssistant: vi.fn(),
-      createTopic: vi.fn(),
-      renameTopic: vi.fn(),
-      deleteTopic: vi.fn(),
-      setActiveTopic: vi.fn(),
-      updateTopicPrompt: vi.fn(),
-      updateTopicStreaming: vi.fn()
-    })
+    setNormalChatWorkspaceDatasourceForTesting(
+      createDatasourceStub({
+        getBootstrap: vi.fn().mockResolvedValue(bootstrap)
+      })
+    )
 
     const store = useNormalChatWorkspaceStore()
     await store.initialize()

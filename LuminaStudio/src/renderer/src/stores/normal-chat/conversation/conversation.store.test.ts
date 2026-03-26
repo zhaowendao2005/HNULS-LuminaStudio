@@ -59,12 +59,14 @@ function createBootstrap(): NormalChatBootstrap {
           emoji: '🤖',
           labelId: null,
           defaultSystemPrompt: '默认提示词',
-          saveFullConversationEnabled: false,
           streamingEnabled: true,
           callMode: 'auto',
           costMode: 'per_token',
+          defaultModelProviderId: 'provider-openai',
+          defaultModelId: 'gpt-4o-mini',
+          contextMemoryRounds: 12,
           maxRecursionDepth: 2,
-          maxRetriesPerAgent: 1,
+          maxReasoningSteps: 6,
           sortOrder: 0
         }
       ],
@@ -78,6 +80,17 @@ function createBootstrap(): NormalChatBootstrap {
             systemPromptOverride: null,
             streamingMode: 'inherit',
             streamingEnabledOverride: null,
+            costMode: 'inherit',
+            costModeOverride: null,
+            modelMode: 'inherit',
+            modelProviderIdOverride: null,
+            modelIdOverride: null,
+            contextMemoryRoundsMode: 'inherit',
+            contextMemoryRoundsOverride: null,
+            maxRecursionDepthMode: 'inherit',
+            maxRecursionDepthOverride: null,
+            maxReasoningStepsMode: 'inherit',
+            maxReasoningStepsOverride: null,
             sortOrder: 0
           }
         ]
