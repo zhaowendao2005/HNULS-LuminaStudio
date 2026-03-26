@@ -121,7 +121,7 @@ export function buildPlannerPrompt(input: NormalChatPlannerPromptInput): string 
       extraRules: [
         '如果 kind=helper-call，必须提供 helperId、reason、args、dependsOn。',
         '如果 kind=child-task，必须提供 roleKind、taskKind、goal、summary、expectedOutput、doneWhen、dependsOn。',
-        '如果 kind=final-answer，必须提供 answerHint。',
+        '如果 kind=final-answer，必须提供 answerHint；answerHint 只写“基于现有 observation 的收口摘要要点”，不要把它写成最终回答原文。',
         '如果 kind=fallback，必须提供 reason。',
         '同一轮允许多个 action；多个独立 helper-call 或 child-task 应该放进同一个 actions 数组。',
         '不要返回空 actions。',

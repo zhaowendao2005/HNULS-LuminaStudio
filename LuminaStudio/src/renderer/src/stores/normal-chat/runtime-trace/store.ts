@@ -48,10 +48,14 @@ export const useNormalChatRuntimeTraceStore = defineStore('normal-chat-runtime-t
       delete nextTrees[event.requestId]
     }
 
-    if (event.summary) {
-      nextSummaries[event.requestId] = event.summary
-    } else {
-      delete nextSummaries[event.requestId]
+    // summary 是增量字段：undefined 表示“本次不更新 summary”，
+    // null 才表示“明确清空 summary”。
+    if (Object.prototype.hasOwnProperty.call(event, 'summary')) {
+      if (event.summary) {
+        nextSummaries[event.requestId] = event.summary
+      } else {
+        delete nextSummaries[event.requestId]
+      }
     }
 
     state.value.treesByRequestId = nextTrees

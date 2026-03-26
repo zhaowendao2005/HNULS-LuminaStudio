@@ -125,7 +125,100 @@ function extractTextContent(content: unknown): string {
       .join('')
   }
 
+  if (content && typeof content === 'object') {
+    const objectText = extractTextFromChunkObject(content as Record<string, unknown>)
+    if (objectText) {
+      return objectText
+    }
+  }
+
   return String(content ?? '')
+}
+
+function getByPath(source: unknown, path: Array<string | number>): unknown {
+  let current: unknown = source
+  for (const key of path) {
+    if (current === null || current === undefined) {
+      return undefined
+    }
+    if (typeof key === 'number') {
+      if (!Array.isArray(current) || key >= current.length) {
+        return undefined
+      }
+      current = current[key]
+      continue
+    }
+    if (typeof current !== 'object' || !(key in current)) {
+      return undefined
+    }
+    current = (current as Record<string, unknown>)[key]
+  }
+  return current
+}
+
+function readTextLikeValue(value: unknown): string {
+  if (typeof value === 'string') {
+    return value
+  }
+
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => {
+        if (typeof item === 'string') {
+          return item
+        }
+        if (item && typeof item === 'object') {
+          const text = (item as Record<string, unknown>).text
+          if (typeof text === 'string') {
+            return text
+          }
+        }
+        return ''
+      })
+      .join('')
+  }
+
+  return ''
+}
+
+function extractTextFromChunkObject(chunk: Record<string, unknown>): string {
+  // 常见 OpenAI-compatible 流式路径：choices[0].delta.content / choices[0].message.content
+  const openAiLikeCandidates: Array<Array<string | number>> = [
+    ['choices', 0, 'delta', 'content'],
+    ['choices', 0, 'message', 'content'],
+    ['delta', 'content'],
+    ['message', 'content'],
+    ['content'],
+    ['text'],
+    ['output_text']
+  ]
+
+  for (const path of openAiLikeCandidates) {
+    const value = getByPath(chunk, path)
+    const text = readTextLikeValue(value)
+    if (text) {
+      return text
+    }
+  }
+
+  // 常见 Gemini 原生路径：candidates[0].content.parts[].text
+  const geminiParts = getByPath(chunk, ['candidates', 0, 'content', 'parts'])
+  if (Array.isArray(geminiParts)) {
+    const text = geminiParts
+      .map((part) => {
+        if (!part || typeof part !== 'object') {
+          return ''
+        }
+        const partText = (part as Record<string, unknown>).text
+        return typeof partText === 'string' ? partText : ''
+      })
+      .join('')
+    if (text) {
+      return text
+    }
+  }
+
+  return ''
 }
 
 function buildSerializableError(error: unknown, depth = 0): unknown {
@@ -190,6 +283,161 @@ function serializeErrorDetails(error: unknown): string {
       null,
       2
     )
+  }
+}
+
+class NormalChatFinalAnswerValidationError extends Error {
+  constructor(
+    readonly issues: string[],
+    readonly context: Record<string, unknown>
+  ) {
+    super(`最终回答校验失败，共 ${issues.length} 项。`)
+    this.name = 'NormalChatFinalAnswerValidationError'
+  }
+}
+
+interface NormalChatFinalAnswerDiagnostics {
+  mode: 'stream' | 'invoke'
+  chunkCount: number
+  nonTextChunkCount: number
+  emittedDeltaCount: number
+  emittedDeltaChars: number
+  chunkSamples: Array<Record<string, unknown>>
+  invokeResponsePreview: Record<string, unknown> | null
+}
+
+function summarizeForDiagnostics(value: unknown, depth = 0): unknown {
+  if (depth > 2) {
+    return '[MaxDepth]'
+  }
+  if (value === null || value === undefined) {
+    return value ?? null
+  }
+  if (typeof value === 'string') {
+    return value.length > 240 ? `${value.slice(0, 240)}...` : value
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return value
+  }
+  if (Array.isArray(value)) {
+    return {
+      kind: 'array',
+      length: value.length,
+      preview: value.slice(0, 3).map((item) => summarizeForDiagnostics(item, depth + 1))
+    }
+  }
+  if (typeof value === 'object') {
+    const source = value as Record<string, unknown>
+    const keys = Object.keys(source)
+    const picked: Record<string, unknown> = {
+      kind: 'object',
+      keys: keys.slice(0, 20)
+    }
+    const preferredKeys = [
+      'id',
+      'type',
+      'content',
+      'response_metadata',
+      'usage_metadata',
+      'additional_kwargs',
+      'finish_reason'
+    ]
+    preferredKeys.forEach((key) => {
+      if (key in source) {
+        picked[key] = summarizeForDiagnostics(source[key], depth + 1)
+      }
+    })
+    return picked
+  }
+  return String(value)
+}
+
+function buildChunkDiagnosticSample(chunk: unknown, delta: string): Record<string, unknown> {
+  if (chunk instanceof AIMessageChunk) {
+    return {
+      chunkType: 'AIMessageChunk',
+      deltaLength: delta.length,
+      contentPreview: summarizeForDiagnostics(chunk.content),
+      responseMetadata: summarizeForDiagnostics(
+        (chunk as AIMessageChunk & Record<string, unknown>).response_metadata
+      ),
+      additionalKwargs: summarizeForDiagnostics(
+        (chunk as AIMessageChunk & Record<string, unknown>).additional_kwargs
+      ),
+      usageMetadata: summarizeForDiagnostics(
+        (chunk as AIMessageChunk & Record<string, unknown>).usage_metadata
+      )
+    }
+  }
+
+  return {
+    chunkType: typeof chunk,
+    deltaLength: delta.length,
+    rawPreview: summarizeForDiagnostics(chunk)
+  }
+}
+
+function buildInvokeResponsePreview(response: unknown): Record<string, unknown> {
+  return {
+    responseType:
+      response && typeof response === 'object' && 'constructor' in response
+        ? ((response as { constructor?: { name?: string } }).constructor?.name ?? 'unknown')
+        : typeof response,
+    raw: summarizeForDiagnostics(response)
+  }
+}
+
+function validateFinalAnswerOrThrow(params: {
+  finalAnswerText: string
+  streamedAnswerText: string
+  preferredFinalAnswer: string
+  synthesisSummary: string
+}): void {
+  const issues: string[] = []
+  const normalizedFinalText = params.finalAnswerText.trim()
+  const normalizedStreamedText = params.streamedAnswerText.trim()
+  const normalizedPreferredText = params.preferredFinalAnswer.trim()
+
+  // 1) 最终回答必须有正文，不允许空输出。
+  if (!normalizedFinalText) {
+    issues.push('最终回答为空，模型没有返回可展示正文。')
+  }
+
+  // 2) 本轮 final-answer 阶段必须至少有一次正文流增量，避免“静默失败后兜底”掩盖问题。
+  if (!normalizedStreamedText) {
+    issues.push('final-answer 阶段未收到正文流增量。')
+  }
+
+  // 3) 占位兜底文本不应对用户可见，一旦出现说明上游已失效。
+  if (normalizedFinalText === '模型未返回文本内容。') {
+    issues.push('最终回答命中占位文本，说明没有可用答案。')
+  }
+
+  // 4) 防止把内部规划协议直接暴露给用户（典型“看起来像回答，实则内部数据”）。
+  if (
+    /("kind"\s*:\s*"(helper-call|child-task|final-answer|fallback)")|(step\s+\d+\/\d+)|(actionId)/i.test(
+      normalizedFinalText
+    )
+  ) {
+    issues.push('最终回答疑似包含内部规划协议字段，未完成用户向表达。')
+  }
+
+  // 5) 如果输出完全等于内部摘要，且没有任何流式正文，通常是“回退掩盖失败”。
+  if (
+    normalizedPreferredText &&
+    normalizedFinalText === normalizedPreferredText &&
+    !normalizedStreamedText
+  ) {
+    issues.push('最终回答与内部摘要完全一致，且无正文流，疑似回退掩盖生成失败。')
+  }
+
+  if (issues.length > 0) {
+    throw new NormalChatFinalAnswerValidationError(issues, {
+      finalAnswerTextPreview: normalizedFinalText.slice(0, 400),
+      streamedAnswerTextPreview: normalizedStreamedText.slice(0, 400),
+      preferredFinalAnswerPreview: normalizedPreferredText.slice(0, 400),
+      synthesisSummaryPreview: params.synthesisSummary.trim().slice(0, 400)
+    })
   }
 }
 
@@ -326,18 +574,35 @@ export class NormalChatConversationRuntimeService {
       modelCallCount: 0,
       streamingEnabled
     }
+    const finalAnswerDiagnostics: NormalChatFinalAnswerDiagnostics = {
+      mode: streamingEnabled ? 'stream' : 'invoke',
+      chunkCount: 0,
+      nonTextChunkCount: 0,
+      emittedDeltaCount: 0,
+      emittedDeltaChars: 0,
+      chunkSamples: [],
+      invokeResponsePreview: null
+    }
 
     const emitRuntimeTrace = (
       runtimeTrace: NormalChatConversationRuntimeTrace,
-      summary: NormalChatAgentStatusSummary | null = null
+      summary?: NormalChatAgentStatusSummary | null
     ): void => {
-      emitEvent({
+      const runtimeTraceEvent: NormalChatConversationStreamEvent & {
+        summary?: NormalChatAgentStatusSummary | null
+      } = {
         type: 'runtime-trace-upsert',
         requestId,
         topicId: topic.id,
-        runtimeTrace,
-        summary
-      })
+        runtimeTrace
+      }
+
+      // summary 是增量字段：不传表示“保持前值”，null 表示“明确清空”。
+      if (summary !== undefined) {
+        runtimeTraceEvent.summary = summary
+      }
+
+      emitEvent(runtimeTraceEvent)
     }
 
     const upsertAssistantTextPart = (text: string, forceNew: boolean): void => {
@@ -370,6 +635,26 @@ export class NormalChatConversationRuntimeService {
       shouldStartNewTextSegment = true
     }
 
+    const captureFirstVisibleLatency = (): void => {
+      if (baseMetrics.firstTokenLatencyMs !== null) {
+        return
+      }
+
+      const firstTokenLatencyMs = Date.now() - requestStartedAt
+      baseMetrics.firstTokenLatencyMs = firstTokenLatencyMs
+      const nextRuntimeTrace = traceState?.runtimeTrace ?? {
+        traceVersion: 1,
+        agentTree: null,
+        metrics: { ...baseMetrics },
+        execution: null
+      }
+
+      emitRuntimeTrace({
+        ...nextRuntimeTrace,
+        metrics: { ...(nextRuntimeTrace.metrics ?? baseMetrics), ...baseMetrics }
+      })
+    }
+
     const emitEvent = (event: NormalChatConversationStreamEvent): void => {
       if (event.type === 'assistant-final-chunk') {
         const shouldCreateNewSegment = shouldStartNewTextSegment || assistantTextPartIndex < 0
@@ -381,19 +666,11 @@ export class NormalChatConversationRuntimeService {
         upsertAssistantTextPart(currentTextSegment, shouldCreateNewSegment)
         shouldStartNewTextSegment = false
 
-        // 首字延迟应该从“请求开始”算到“首个正文增量到达”。
-        if (baseMetrics.firstTokenLatencyMs === null) {
-          const firstTokenLatencyMs = Date.now() - requestStartedAt
-          baseMetrics.firstTokenLatencyMs = firstTokenLatencyMs
-          if (traceState) {
-            emitRuntimeTrace({
-              ...traceState.runtimeTrace,
-              metrics: { ...baseMetrics }
-            })
-          }
-        }
+        // 首字延迟从“请求开始”算到“首个可见增量到达”（包括正文或 functioncall）。
+        captureFirstVisibleLatency()
       }
       if (event.type === 'assistant-part-upsert' && event.part.kind === 'functioncall') {
+        captureFirstVisibleLatency()
         handleAssistantPartUpsert(event.part)
       }
       if (traceState) {
@@ -430,12 +707,16 @@ export class NormalChatConversationRuntimeService {
       getConversationMessages: (topicId) => this.repository.listMessagesByTopicId(topicId),
       createChatModel: async (providerId, modelId, currentSignal) => {
         baseMetrics.modelCallCount += 1
-        if (traceState) {
-          emitRuntimeTrace({
-            ...traceState.runtimeTrace,
-            metrics: { ...baseMetrics }
-          })
+        const nextRuntimeTrace = traceState?.runtimeTrace ?? {
+          traceVersion: 1,
+          agentTree: null,
+          metrics: { ...baseMetrics },
+          execution: null
         }
+        emitRuntimeTrace({
+          ...nextRuntimeTrace,
+          metrics: { ...(nextRuntimeTrace.metrics ?? baseMetrics), ...baseMetrics }
+        })
         return this.llmClient.createChatModel(providerId, modelId, currentSignal)
       },
       getProviderProtocol: (providerId, currentSignal) =>
@@ -549,33 +830,30 @@ export class NormalChatConversationRuntimeService {
           }
 
           const delta = this.extractChunkText(chunk)
+          finalAnswerDiagnostics.chunkCount += 1
+          if (!delta) {
+            finalAnswerDiagnostics.nonTextChunkCount += 1
+          }
+          if (finalAnswerDiagnostics.chunkSamples.length < 8) {
+            finalAnswerDiagnostics.chunkSamples.push(buildChunkDiagnosticSample(chunk, delta))
+          }
           if (!delta) {
             continue
           }
 
+          finalAnswerDiagnostics.emittedDeltaCount += 1
+          finalAnswerDiagnostics.emittedDeltaChars += delta.length
           eventSink.emitFinalChunk(requestId, topic.id, delta)
         }
       } else {
         const response = await model.invoke(runResult.answerMessages, { signal })
+        finalAnswerDiagnostics.invokeResponsePreview = buildInvokeResponsePreview(response)
         const fullText = extractTextContent(response.content)
         if (fullText) {
+          finalAnswerDiagnostics.emittedDeltaCount += 1
+          finalAnswerDiagnostics.emittedDeltaChars += fullText.length
           eventSink.emitFinalChunk(requestId, topic.id, fullText)
         }
-      }
-
-      const finalAnswerText = assistantText.trim() || preferredFinalAnswer || '模型未返回文本内容。'
-      if (!assistantText.trim() && preferredFinalAnswer) {
-        log.warn(
-          'Final answer stream returned empty text, falling back to root agent final result',
-          {
-            requestId,
-            topicId: topic.id,
-            assistantId: assistant.id
-          }
-        )
-        assistantText = finalAnswerText
-        currentTextSegment = finalAnswerText
-        upsertAssistantTextPart(finalAnswerText, assistantTextPartIndex < 0)
       }
 
       if (signal.aborted) {
@@ -600,6 +878,15 @@ export class NormalChatConversationRuntimeService {
         })
         return
       }
+
+      const finalAnswerText = assistantText.trim()
+      // 这里改为“强失败”策略：不再把异常回答静默兜底输出给用户，而是直接报错并暴露问题清单。
+      validateFinalAnswerOrThrow({
+        finalAnswerText,
+        streamedAnswerText: assistantText,
+        preferredFinalAnswer,
+        synthesisSummary: runResult.synthesisSummary
+      })
 
       if (traceState) {
         traceState.responseRecord.finalText = finalAnswerText
@@ -649,13 +936,23 @@ export class NormalChatConversationRuntimeService {
         })
       }
 
-      const rawErrorJson = serializeErrorDetails(error)
+      const rawErrorJson = serializeErrorDetails({
+        error,
+        finalAnswerDiagnostics
+      })
       this.commitAssistantMessageIfNeeded(topic.id, requestId, assistantParts, assistantText)
+      const errorMessage =
+        error instanceof NormalChatFinalAnswerValidationError
+          ? `最终回答校验失败：${error.issues.join('；')}`
+          : error instanceof Error
+            ? error.message
+            : String(error)
+
       this.emit({
         type: 'error',
         requestId,
         topicId: topic.id,
-        message: error instanceof Error ? error.message : String(error),
+        message: errorMessage,
         rawErrorJson
       })
     } finally {
@@ -875,6 +1172,13 @@ export class NormalChatConversationRuntimeService {
 
     if (typeof chunk === 'string') {
       return chunk
+    }
+
+    if (chunk && typeof chunk === 'object') {
+      const objectText = extractTextFromChunkObject(chunk as Record<string, unknown>)
+      if (objectText) {
+        return objectText
+      }
     }
 
     return ''

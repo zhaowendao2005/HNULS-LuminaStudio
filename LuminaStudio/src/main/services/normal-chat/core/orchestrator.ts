@@ -144,7 +144,8 @@ export class NormalChatAgentOrchestrator {
         framework,
         stepIndex,
         actions: planResult.envelope.actions,
-        helperLoopGuard
+        helperLoopGuard,
+        latestSummary
       })
 
       observations = stepObservations
@@ -198,6 +199,7 @@ export class NormalChatAgentOrchestrator {
     stepIndex: number
     actions: NormalChatCoreAction[]
     helperLoopGuard: NormalChatHelperLoopGuard
+    latestSummary: string
   }): Promise<NormalChatCoreObservation[]> {
     const helperActions = params.actions.filter(
       (action): action is Extract<NormalChatCoreAction, { kind: 'helper-call' }> =>
@@ -241,10 +243,16 @@ export class NormalChatAgentOrchestrator {
     }
 
     if (finalAnswerAction) {
+      // final-answer 的 summary 语义应当是“基于现有证据的可复用摘要”，
+      // 不能直接把 planner 的 answerHint 当成最终结论。
+      const observationSummary = this.buildObservationSummary(observations).trim()
+      const finalAnswerSummary =
+        observationSummary || params.latestSummary.trim() || finalAnswerAction.answerHint.trim()
+
       observations.push({
         kind: 'final-answer-observation',
         actionId: finalAnswerAction.actionId,
-        summary: finalAnswerAction.answerHint
+        summary: finalAnswerSummary
       })
     }
 

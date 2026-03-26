@@ -39,7 +39,7 @@ export interface NormalChatConversationMessageCommittedEvent extends NormalChatC
 export interface NormalChatConversationRuntimeTraceUpsertEvent extends NormalChatConversationBaseEvent {
   type: 'runtime-trace-upsert'
   runtimeTrace: NormalChatConversationRuntimeTrace
-  summary: NormalChatAgentStatusSummary | null
+  summary?: NormalChatAgentStatusSummary | null
 }
 
 export interface NormalChatConversationTurnDetailUpsertEvent extends NormalChatConversationBaseEvent {
