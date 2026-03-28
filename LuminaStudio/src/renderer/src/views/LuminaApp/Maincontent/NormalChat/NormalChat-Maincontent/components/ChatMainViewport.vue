@@ -14,18 +14,14 @@
     />
     <ChatComposerPanel />
     <AssistantSettingsModal />
-    <ConversationDetailDialog
-      v-model:visible="conversationDetailOpen"
-      :request-id="conversationDetailRequestId"
-      :message-id="conversationDetailMessageId"
-      :focus-call-id="conversationDetailFocusCallId"
-    />
+    <ConversationDetailDialog />
     <!-- TODO(normal-chat-rewrite): 该入口先保留，后续接入新运行时可视化面板。 -->
     <AgentTreeDialog v-model:visible="agentTreeDialogOpen" :request-id="agentTreeDialogRequestId" />
   </div>
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
 import ChatHeaderBar from './ChatHeaderBar.vue'
 import ChatPromptBar from './ChatPromptBar.vue'
 import ChatMessageViewport from './ChatMessageViewport.vue'
@@ -35,13 +31,10 @@ import AgentTreeDialog from './AgentTreeDialog.vue'
 import ConversationDetailDialog from './ConversationDetailDialog.vue'
 import type { NormalChatConversationDisplayMessage } from '@renderer/stores/normal-chat/conversation/conversation.types'
 import { useNormalChatConversationStore } from '@renderer/stores/normal-chat/conversation/conversation.store'
-import { ref } from 'vue'
+import { useNormalChatConversationDetailShellStore } from '@renderer/stores/normal-chat/conversation-detail-shell/conversation-detail-shell.store'
 
 const conversationStore = useNormalChatConversationStore()
-const conversationDetailOpen = ref(false)
-const conversationDetailRequestId = ref('')
-const conversationDetailMessageId = ref('')
-const conversationDetailFocusCallId = ref('')
+const conversationDetailShellStore = useNormalChatConversationDetailShellStore()
 const agentTreeDialogOpen = ref(false)
 const agentTreeDialogRequestId = ref('')
 
@@ -99,25 +92,24 @@ async function handleDeleteMessage(message: NormalChatConversationDisplayMessage
   }
 
   await conversationStore.deleteConversationTurn(message.requestId)
-  if (conversationDetailRequestId.value === message.requestId) {
-    conversationDetailOpen.value = false
-    conversationDetailRequestId.value = ''
-  }
+  conversationDetailShellStore.clearTurnDetail(message.requestId)
 }
 
 function handleMoreMessage(): void {
   // 更多菜单先保留占位，后续再挂具体扩展项。
 }
 
-function handleOpenMessageSession(message: NormalChatConversationDisplayMessage): void {
+async function handleOpenMessageSession(
+  message: NormalChatConversationDisplayMessage
+): Promise<void> {
   if (!message.requestId) {
     return
   }
 
-  conversationDetailRequestId.value = message.requestId
-  conversationDetailMessageId.value = message.id
-  conversationDetailFocusCallId.value = ''
-  conversationDetailOpen.value = true
+  await conversationDetailShellStore.openDialog({
+    requestId: message.requestId,
+    messageId: message.id
+  })
 }
 
 // TODO(normal-chat-rewrite): 这里只保留“打开运行树”接口，后续替换为新系统详情面板。
@@ -130,18 +122,19 @@ function handleOpenAgentTree(message: NormalChatConversationDisplayMessage): voi
   agentTreeDialogOpen.value = true
 }
 
-function handleOpenFunctionCallDetail(payload: {
+async function handleOpenFunctionCallDetail(payload: {
   message: NormalChatConversationDisplayMessage
   callId: string
-}): void {
+}): Promise<void> {
   if (!payload.message.requestId) {
     return
   }
 
-  conversationDetailRequestId.value = payload.message.requestId
-  conversationDetailMessageId.value = payload.message.id
-  conversationDetailFocusCallId.value = payload.callId
-  conversationDetailOpen.value = true
+  await conversationDetailShellStore.openDialog({
+    requestId: payload.message.requestId,
+    messageId: payload.message.id,
+    focusCallId: payload.callId
+  })
 }
 </script>
 

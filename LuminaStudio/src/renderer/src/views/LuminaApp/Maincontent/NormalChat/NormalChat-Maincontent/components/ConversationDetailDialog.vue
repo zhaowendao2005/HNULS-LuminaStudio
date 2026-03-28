@@ -1,301 +1,250 @@
 <template>
   <div
-    v-if="visible"
+    v-if="snapshot.visible"
     class="nc-conversation-detail-dialog-a9k2 fixed inset-0 z-[70] flex items-center justify-center bg-black/20 backdrop-blur-[1px]"
   >
     <div
-      class="nc-conversation-detail-dialog-panel-a9k2 flex h-[760px] w-[1040px] flex-col overflow-hidden rounded-2xl bg-white shadow-[var(--nc-shadow-dialog)]"
+      class="nc-conversation-detail-dialog-panel-a9k2 flex h-[760px] w-[1120px] overflow-hidden rounded-2xl bg-white shadow-[var(--nc-shadow-dialog)]"
     >
-      <div class="flex items-start justify-between gap-4 border-b border-gray-100 px-6 py-4">
-        <div class="min-w-0">
-          <h2 class="truncate text-[16px] font-semibold text-gray-900">{{ dialogTitle }}</h2>
-          <p class="mt-1 text-[12px] leading-5 text-gray-500">
-            详情面板当前保留为兼容壳；后续会按新系统运行时协议重构。
-          </p>
-        </div>
+      <aside
+        class="flex w-[76px] flex-col items-center gap-3 border-r border-gray-100 bg-white px-3 py-4"
+      >
+        <button
+          class="flex h-10 w-10 items-center justify-center rounded-xl border transition-colors"
+          :class="
+            snapshot.currentPage === 'overview'
+              ? 'border-gray-900 bg-gray-900 text-white'
+              : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:text-gray-700'
+          "
+          type="button"
+          title="总览"
+          @click="detailShellStore.goToOverview"
+        >
+          <svg
+            class="h-4 w-4"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M4 6h16" />
+            <path d="M4 12h16" />
+            <path d="M4 18h16" />
+            <circle cx="8" cy="6" r="1.2" fill="currentColor" stroke="none" />
+            <circle cx="16" cy="12" r="1.2" fill="currentColor" stroke="none" />
+            <circle cx="12" cy="18" r="1.2" fill="currentColor" stroke="none" />
+          </svg>
+        </button>
 
         <button
-          class="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+          class="mt-auto flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-400 transition-colors hover:border-gray-300 hover:text-gray-600"
           type="button"
-          @click="close"
+          title="关闭"
+          @click="detailShellStore.closeDialog"
         >
-          <X class="h-5 w-5" />
+          <X class="h-4 w-4" />
         </button>
-      </div>
+      </aside>
 
-      <div class="flex items-center gap-2 border-b border-gray-100 px-6 py-3">
-        <button
-          class="rounded-full px-4 py-1.5 text-[13px] font-medium transition-colors"
-          :class="activeTab === 'raw' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600'"
-          type="button"
-          @click="activeTab = 'raw'"
-        >
-          原始内容
-        </button>
-        <button
-          class="rounded-full px-4 py-1.5 text-[13px] font-medium transition-colors"
-          :class="activeTab === 'rendered' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600'"
-          type="button"
-          @click="activeTab = 'rendered'"
-        >
-          渲染内容
-        </button>
-      </div>
+      <div class="min-w-0 flex-1 bg-gray-50">
+        <div class="flex h-full min-h-0 flex-col">
+          <header class="border-b border-gray-100 bg-white px-6 py-4">
+            <div v-if="snapshot.currentPage === 'overview'" class="min-w-0">
+              <h2 class="truncate text-[16px] font-semibold text-gray-900">
+                {{ dialogTitle }}
+              </h2>
+              <p class="mt-1 text-[12px] leading-5 text-gray-500">
+                当前详情面板固定显示 mock 数据，用于调试和观察组件。
+              </p>
+            </div>
 
-      <div class="min-h-0 flex-1 overflow-y-auto bg-gray-50 px-6 py-5">
-        <div
-          v-if="loading"
-          class="flex h-full items-center justify-center text-[13px] text-gray-400"
-        >
-          正在加载完整会话...
-        </div>
+            <div v-else class="flex items-center gap-3">
+              <button
+                class="flex h-9 items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 text-[13px] font-medium text-gray-700 transition-colors hover:border-gray-300 hover:text-gray-900"
+                type="button"
+                @click="detailShellStore.goToOverview"
+              >
+                <svg
+                  class="h-3.5 w-3.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M15 18l-6-6 6-6" />
+                </svg>
+                返回
+              </button>
 
-        <div
-          v-else-if="errorText"
-          class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-[13px] text-rose-700"
-        >
-          {{ errorText }}
-        </div>
-
-        <template v-else>
-          <div v-if="activeTab === 'raw'" class="space-y-4">
-            <ConversationDetailRawSection
-              title="会话元数据"
-              description="当前 turn 的基础信息。"
-              :value="rawMeta"
-            />
-            <ConversationDetailRawSection
-              title="请求记录"
-              description="请求参数与提示词窗口。"
-              :value="detail?.requestRecord ?? {}"
-            />
-            <ConversationDetailRawSection
-              title="响应记录"
-              description="流式输出与错误信息。"
-              :value="detail?.responseRecord ?? {}"
-            />
-            <ConversationDetailRawSection
-              title="运行时追踪（兼容壳）"
-              description="TODO(normal-chat-rewrite): 新系统上线后替换为新运行时结构。"
-              :value="detail?.runtimeTrace ?? null"
-            />
-            <ConversationDetailRawSection
-              title="消息快照"
-              description="该 turn 的消息数据。"
-              :value="detail?.messages ?? []"
-            />
-          </div>
-
-          <div v-else class="space-y-4">
-            <section class="rounded-2xl border border-gray-200 bg-white px-4 py-4">
-              <h3 class="text-[14px] font-semibold text-gray-900">会话概览</h3>
-              <div class="mt-3 grid gap-3 md:grid-cols-2">
-                <div class="rounded-xl bg-gray-50 px-3 py-2">
-                  <p class="text-[12px] text-gray-400">助手 / 话题</p>
-                  <p class="mt-1 text-[13px] text-gray-800">{{ overviewTitle }}</p>
-                </div>
-                <div class="rounded-xl bg-gray-50 px-3 py-2">
-                  <p class="text-[12px] text-gray-400">消息 ID</p>
-                  <p class="mt-1 break-all text-[13px] text-gray-800">
-                    {{ selectedMessage?.id ?? '' }}
-                  </p>
-                </div>
+              <div class="min-w-0">
+                <p class="truncate text-[11px] uppercase tracking-[0.14em] text-gray-400">
+                  {{ breadcrumbText }}
+                </p>
+                <h2 class="truncate text-[16px] font-semibold text-gray-900">
+                  {{ selectedCallItem?.title ?? 'LLM 调用详情' }}
+                </h2>
               </div>
-            </section>
+            </div>
+          </header>
 
-            <section class="rounded-2xl border border-gray-200 bg-white px-4 py-4">
-              <h3 class="text-[14px] font-semibold text-gray-900">当前消息</h3>
-              <div class="mt-3 grid gap-3">
-                <div class="rounded-xl bg-gray-50 px-3 py-2">
-                  <p class="text-[12px] text-gray-400">角色</p>
-                  <p class="mt-1 text-[13px] text-gray-700">
-                    {{ selectedMessage?.role === 'user' ? '用户消息' : '助手消息' }}
-                  </p>
+          <div class="min-h-0 flex-1 overflow-y-auto p-6">
+            <section v-if="snapshot.currentPage === 'overview'" class="space-y-3">
+              <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+                <div
+                  class="grid grid-cols-[64px_320px_220px_88px_88px_24px] items-center gap-3 border-b border-gray-100 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400"
+                >
+                  <span>序号</span>
+                  <span>调用</span>
+                  <span>上下文</span>
+                  <span>类型</span>
+                  <span>状态</span>
+                  <span></span>
                 </div>
-                <div class="rounded-xl bg-gray-50 px-3 py-2">
-                  <p class="text-[12px] text-gray-400">文本</p>
-                  <p
-                    class="mt-1 whitespace-pre-wrap break-words text-[13px] leading-6 text-gray-700"
+
+                <button
+                  v-for="call in llmCallItems"
+                  :key="call.id"
+                  class="grid w-full grid-cols-[64px_320px_220px_88px_88px_24px] items-center gap-3 border-b border-gray-100 px-4 py-2.5 text-left transition-colors last:border-b-0 hover:bg-gray-50"
+                  type="button"
+                  @click="detailShellStore.openCallDetail(call.id)"
+                >
+                  <span class="truncate text-[12px] font-medium text-gray-500">
+                    {{ call.indexLabel }}
+                  </span>
+                  <div class="min-w-0">
+                    <p class="truncate text-[12px] font-semibold text-gray-900">{{ call.title }}</p>
+                    <p class="mt-0.5 truncate text-[11px] text-gray-500">{{ call.summary }}</p>
+                  </div>
+                  <p class="truncate text-[12px] text-gray-700">{{ call.contextText }}</p>
+                  <span class="truncate text-[12px] text-gray-600">{{ call.badge }}</span>
+                  <span
+                    class="inline-flex max-w-full items-center truncate rounded-full px-2.5 py-1 text-[11px] font-medium"
+                    :class="call.statusClass"
                   >
-                    {{ selectedMessage?.text || '无' }}
-                  </p>
+                    {{ call.statusLabel }}
+                  </span>
+                  <span class="flex items-center justify-end text-gray-300">
+                    <svg
+                      class="h-3.5 w-3.5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M9 6l6 6-6 6" />
+                    </svg>
+                  </span>
+                </button>
+              </div>
+            </section>
+
+            <section v-else class="grid min-w-0 gap-4">
+              <div class="min-w-0 rounded-2xl border border-gray-200 bg-white px-4 py-4">
+                <div class="flex items-center justify-between gap-3">
+                  <div>
+                    <h3 class="text-[14px] font-semibold text-gray-900">发给 LLM 的原始内容</h3>
+                    <p class="mt-1 text-[12px] text-gray-400">固定 mock request payload。</p>
+                  </div>
+
+                  <div class="flex items-center rounded-xl bg-gray-100 p-1">
+                    <button
+                      class="rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors"
+                      :class="
+                        snapshot.requestViewMode === 'json'
+                          ? 'bg-white text-gray-900 shadow-sm'
+                          : 'text-gray-500 hover:text-gray-800'
+                      "
+                      type="button"
+                      @click="detailShellStore.setRequestViewMode('json')"
+                    >
+                      JSON
+                    </button>
+                    <button
+                      class="rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors"
+                      :class="
+                        snapshot.requestViewMode === 'yaml'
+                          ? 'bg-white text-gray-900 shadow-sm'
+                          : 'text-gray-500 hover:text-gray-800'
+                      "
+                      type="button"
+                      @click="detailShellStore.setRequestViewMode('yaml')"
+                    >
+                      YAML
+                    </button>
+                  </div>
                 </div>
-                <div class="rounded-xl bg-gray-50 px-3 py-2">
-                  <p class="text-[12px] text-gray-400">消息块</p>
-                  <ChatMessageParts
-                    v-if="selectedMessage"
-                    :message="selectedMessage"
-                    display-mode="detail"
-                  />
-                  <p v-else class="mt-1 text-[13px] text-gray-700">无</p>
+
+                <pre
+                  class="mt-4 min-w-0 overflow-hidden whitespace-pre-wrap break-words rounded-2xl bg-gray-50 p-4 text-[12px] leading-6 text-gray-700"
+                ><code class="block min-w-0 whitespace-pre-wrap break-words">{{ formattedSelectedCallRequest }}</code></pre>
+              </div>
+
+              <div class="min-w-0 rounded-2xl border border-gray-200 bg-white px-4 py-4">
+                <div class="flex items-center justify-between gap-3">
+                  <div>
+                    <h3 class="text-[14px] font-semibold text-gray-900">收到的原始内容</h3>
+                    <p class="mt-1 text-[12px] text-gray-400">固定 mock response payload。</p>
+                  </div>
+
+                  <div class="flex items-center rounded-xl bg-gray-100 p-1">
+                    <button
+                      class="rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors"
+                      :class="
+                        snapshot.responseViewMode === 'json'
+                          ? 'bg-white text-gray-900 shadow-sm'
+                          : 'text-gray-500 hover:text-gray-800'
+                      "
+                      type="button"
+                      @click="detailShellStore.setResponseViewMode('json')"
+                    >
+                      JSON
+                    </button>
+                    <button
+                      class="rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors"
+                      :class="
+                        snapshot.responseViewMode === 'yaml'
+                          ? 'bg-white text-gray-900 shadow-sm'
+                          : 'text-gray-500 hover:text-gray-800'
+                      "
+                      type="button"
+                      @click="detailShellStore.setResponseViewMode('yaml')"
+                    >
+                      YAML
+                    </button>
+                  </div>
                 </div>
-                <div class="rounded-xl bg-gray-50 px-3 py-2">
-                  <p class="text-[12px] text-gray-400">运行时摘要</p>
-                  <p class="mt-1 text-[13px] text-gray-700">{{ executionSummaryText }}</p>
-                </div>
+
+                <pre
+                  class="mt-4 min-w-0 overflow-hidden whitespace-pre-wrap break-words rounded-2xl bg-gray-50 p-4 text-[12px] leading-6 text-gray-700"
+                ><code class="block min-w-0 whitespace-pre-wrap break-words">{{ formattedSelectedCallResponse }}</code></pre>
               </div>
             </section>
           </div>
-        </template>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { storeToRefs } from 'pinia'
 import { X } from 'lucide-vue-next'
-import { useNormalChatConversationStore } from '@renderer/stores/normal-chat/conversation/conversation.store'
-import ConversationDetailRawSection from './ConversationDetailRawSection.vue'
-import ChatMessageParts from './ChatMessageParts.vue'
-import type { NormalChatConversationDisplayMessage } from '@renderer/stores/normal-chat/conversation/conversation.types'
-import type { NormalChatConversationTurnDetail } from '@preload/types'
-import { asRuntimeAgentTree } from '@renderer/stores/normal-chat/runtime-trace/types'
+import { useNormalChatConversationDetailShellStore } from '@renderer/stores/normal-chat/conversation-detail-shell/conversation-detail-shell.store'
 
-const props = defineProps<{
-  visible: boolean
-  requestId: string
-  messageId: string
-  focusCallId?: string
-}>()
-
-const emit = defineEmits<{
-  'update:visible': [value: boolean]
-}>()
-
-const conversationStore = useNormalChatConversationStore()
-
-const activeTab = ref<'raw' | 'rendered'>('raw')
-const loading = ref(false)
-const errorText = ref('')
-
-const detail = computed<NormalChatConversationTurnDetail | null>(() => {
-  return conversationStore.getConversationTurnDetailCached(props.requestId)
-})
-
-const selectedMessage = computed<NormalChatConversationDisplayMessage | null>(() => {
-  if (!props.requestId) {
-    return null
-  }
-
-  const persisted = detail.value?.messages.find((item) => item.id === props.messageId)
-  if (persisted && detail.value) {
-    return {
-      ...persisted,
-      author: persisted.role === 'user' ? '用户' : detail.value.assistantName,
-      time: persisted.createdAt,
-      text: persisted.parts
-        .filter((part) => part.kind === 'text')
-        .map((part) => part.text)
-        .join('')
-    }
-  }
-
-  return (
-    conversationStore.currentDisplayMessages.find(
-      (message) =>
-        message.requestId === props.requestId &&
-        (message.id === props.messageId || message.role === 'assistant')
-    ) ?? null
-  )
-})
-
-const dialogTitle = computed(() => {
-  if (!detail.value) {
-    return '完整会话'
-  }
-  return `${detail.value.assistantName} · ${detail.value.topicTitle}`
-})
-
-const overviewTitle = computed(() => {
-  if (!detail.value) {
-    return '未加载'
-  }
-  return `${detail.value.assistantName} / ${detail.value.topicTitle}`
-})
-
-const rawMeta = computed(() => {
-  if (!detail.value) {
-    return {}
-  }
-
-  return {
-    requestId: detail.value.requestId,
-    assistant: {
-      id: detail.value.assistantId,
-      name: detail.value.assistantName,
-      emoji: detail.value.assistantEmoji
-    },
-    topic: {
-      id: detail.value.topicId,
-      title: detail.value.topicTitle
-    },
-    hasTrace: detail.value.hasTrace
-  }
-})
-
-const executionSummaryText = computed(() => {
-  // TODO(normal-chat-rewrite): 新系统接入后，这里的摘要逻辑会改成新运行时结构。
-  const tree = asRuntimeAgentTree(detail.value?.runtimeTrace?.agentTree)
-  if (!tree) {
-    return '旧 Agent 运行树已清理，等待新系统接入。'
-  }
-
-  const agents = Object.values(tree.agents)
-  const maxDepth = agents.reduce((depth, agent) => Math.max(depth, agent.depth), 0)
-  const helperCount = agents.reduce((sum, agent) => sum + agent.helperInvocations.length, 0)
-  return `agent ${agents.length} 个，helper 调用 ${helperCount} 次，最大深度 ${maxDepth}`
-})
-
-async function loadDetail(): Promise<void> {
-  if (!props.visible || !props.requestId) {
-    errorText.value = ''
-    loading.value = false
-    return
-  }
-
-  loading.value = true
-  errorText.value = ''
-
-  try {
-    activeTab.value = 'raw'
-    const nextDetail = await conversationStore.loadConversationTurnDetail(props.requestId)
-    if (!nextDetail) {
-      errorText.value = '当前 turn 没有可读取的完整请求记录，可能是旧数据或者该轮未保留原始上下文。'
-    }
-  } catch (error) {
-    errorText.value = error instanceof Error ? error.message : String(error)
-  } finally {
-    loading.value = false
-  }
-}
-
-function close(): void {
-  emit('update:visible', false)
-}
-
-watch(
-  () => [props.visible, props.requestId, props.messageId],
-  () => {
-    if (!props.visible) {
-      errorText.value = ''
-      loading.value = false
-      return
-    }
-
-    if (!props.requestId) {
-      errorText.value = ''
-      return
-    }
-
-    if (conversationStore.getConversationTurnDetailCached(props.requestId)) {
-      errorText.value = ''
-      loading.value = false
-      return
-    }
-
-    void loadDetail()
-  },
-  { immediate: true }
-)
+const detailShellStore = useNormalChatConversationDetailShellStore()
+const {
+  snapshot,
+  dialogTitle,
+  breadcrumbText,
+  llmCallItems,
+  selectedCallItem,
+  formattedSelectedCallRequest,
+  formattedSelectedCallResponse
+} = storeToRefs(detailShellStore)
 </script>

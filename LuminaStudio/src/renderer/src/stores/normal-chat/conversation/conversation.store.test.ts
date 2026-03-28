@@ -67,6 +67,11 @@ function createBootstrap(): NormalChatBootstrap {
           contextMemoryRounds: 12,
           maxRecursionDepth: 2,
           maxReasoningSteps: 6,
+          systemActionFunctionCallEnabled: true,
+          systemActionSubAgentEnabled: true,
+          functionCallPubMedEnabled: true,
+          functionCallPubMedMode: 'fast',
+          mcpEnabled: false,
           sortOrder: 0
         }
       ],
@@ -82,15 +87,25 @@ function createBootstrap(): NormalChatBootstrap {
             streamingEnabledOverride: null,
             costMode: 'inherit',
             costModeOverride: null,
-            modelMode: 'inherit',
-            modelProviderIdOverride: null,
-            modelIdOverride: null,
+            modelMode: 'override',
+            modelProviderIdOverride: 'provider-openai',
+            modelIdOverride: 'gpt-4o-mini',
             contextMemoryRoundsMode: 'inherit',
             contextMemoryRoundsOverride: null,
             maxRecursionDepthMode: 'inherit',
             maxRecursionDepthOverride: null,
             maxReasoningStepsMode: 'inherit',
             maxReasoningStepsOverride: null,
+            systemActionFunctionCallMode: 'inherit',
+            systemActionFunctionCallEnabledOverride: null,
+            systemActionSubAgentMode: 'inherit',
+            systemActionSubAgentEnabledOverride: null,
+            functionCallPubMedMode: 'inherit',
+            functionCallPubMedEnabledOverride: null,
+            functionCallPubMedExecutionMode: 'inherit',
+            functionCallPubMedExecutionModeOverride: null,
+            mcpMode: 'inherit',
+            mcpEnabledOverride: null,
             sortOrder: 0
           }
         ]
@@ -173,7 +188,8 @@ describe('NormalChat conversation store', () => {
       deleteTopic: vi.fn(),
       setActiveTopic: vi.fn(),
       updateTopicPrompt: vi.fn(),
-      updateTopicStreaming: vi.fn()
+      updateTopicStreaming: vi.fn(),
+      updateTopicConfig: vi.fn().mockResolvedValue(createBootstrap().workspace)
     })
 
     setNormalChatConversationDatasourceForTesting({
@@ -195,7 +211,10 @@ describe('NormalChat conversation store', () => {
 
     const workspaceStore = useNormalChatWorkspaceStore()
     await workspaceStore.initialize()
-
+    Object.assign(workspaceStore as Record<string, unknown>, {
+      currentTopicModelProviderId: 'provider-openai',
+      currentTopicModelId: 'gpt-4o-mini'
+    })
     const store = useNormalChatConversationStore()
     await store.initialize()
     store.setDraftText('你好')
@@ -238,7 +257,8 @@ describe('NormalChat conversation store', () => {
       deleteTopic: vi.fn(),
       setActiveTopic: vi.fn(),
       updateTopicPrompt: vi.fn(),
-      updateTopicStreaming: vi.fn()
+      updateTopicStreaming: vi.fn(),
+      updateTopicConfig: vi.fn().mockResolvedValue(createBootstrap().workspace)
     })
 
     setNormalChatConversationDatasourceForTesting({
@@ -271,7 +291,10 @@ describe('NormalChat conversation store', () => {
 
     const workspaceStore = useNormalChatWorkspaceStore()
     await workspaceStore.initialize()
-
+    Object.assign(workspaceStore as Record<string, unknown>, {
+      currentTopicModelProviderId: 'provider-openai',
+      currentTopicModelId: 'gpt-4o-mini'
+    })
     const store = useNormalChatConversationStore()
     await store.initialize()
     store.setDraftText('你好')

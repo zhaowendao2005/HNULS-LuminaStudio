@@ -400,6 +400,15 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
     )
   })
 
+  // 兼容现有 NormalChat 发送链与 composer：继续暴露 provider/model id 形式的全局派生状态。
+  const currentTopicModelProviderId = computed(() => {
+    return currentTopicModelSelection.value?.provider.id ?? ''
+  })
+
+  const currentTopicModelId = computed(() => {
+    return currentTopicModelSelection.value?.model.id ?? ''
+  })
+
   const currentTopicModelLabel = computed(() => {
     return buildModelLabel(currentTopicModelSelection.value)
   })
@@ -1137,6 +1146,8 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
     effectiveFunctionCallPubMedMode,
     effectiveMcpEnabled,
     currentTopicModelSelection,
+    currentTopicModelProviderId,
+    currentTopicModelId,
     currentTopicModelLabel,
     assistantGroups,
     currentSettingsLabel,
