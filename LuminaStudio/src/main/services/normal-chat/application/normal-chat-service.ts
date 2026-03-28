@@ -1,23 +1,3 @@
-import type { DatabaseManager } from '../../database-sqlite'
-import { NormalChatAgentRunsRepository } from '../repositories/agent-runs.repository'
-import { NormalChatAssistantActionPoliciesRepository } from '../repositories/assistant-action-policies.repository'
-import { NormalChatAssistantsRepository } from '../repositories/assistants.repository'
-import { NormalChatLabelsRepository } from '../repositories/labels.repository'
-import { NormalChatMessagesRepository } from '../repositories/messages.repository'
-import { NormalChatRuntimeEventsRepository } from '../repositories/runtime-events.repository'
-import { NormalChatTasksRepository } from '../repositories/tasks.repository'
-import { NormalChatTopicsRepository } from '../repositories/topics.repository'
-import { NormalChatTurnTracesRepository } from '../repositories/turn-traces.repository'
-import { NormalChatWorkspaceStateRepository } from '../repositories/workspace-state.repository'
-import { NormalChatConversationService } from '../conversation/conversation-service'
-import { NormalChatAgentRuntime } from '../runtime/agent/agent-runtime'
-import { NormalChatAgentGraphRunner } from '../runtime/agent/graph/runner'
-import { NormalChatStubExecutor } from '../runtime/executor/stub-executor'
-import { NormalChatPromptBuilder } from '../runtime/prompt/prompt-builder'
-import { NormalChatRuntimeService } from '../runtime/runtime-service'
-import { NormalChatTaskScheduler } from '../runtime/scheduler/task-scheduler'
-import { NormalChatStreamPublisher } from '../runtime/streaming/stream-publisher'
-import { NormalChatWorkspaceService } from '../workspace/workspace-service'
 import type {
   NormalChatAssistant,
   NormalChatBootstrap,
@@ -29,6 +9,41 @@ import type {
   NormalChatTopic,
   NormalChatWorkspaceSnapshot
 } from '@preload/types'
+import type { PaperRetrievalService } from '@main/services/paper-retrieval'
+import type { DatabaseManager } from '../../database-sqlite'
+import { NormalChatConversationConfigService } from '../conversation/conversation-config-service'
+import { NormalChatConversationService } from '../conversation/conversation-service'
+import { NormalChatActionRunsRepository } from '../repositories/action-runs.repository'
+import { NormalChatAgentRunsRepository } from '../repositories/agent-runs.repository'
+import { NormalChatAssistantActionPoliciesRepository } from '../repositories/assistant-action-policies.repository'
+import { NormalChatAssistantsRepository } from '../repositories/assistants.repository'
+import { NormalChatConversationsRepository } from '../repositories/conversations.repository'
+import { NormalChatLabelsRepository } from '../repositories/labels.repository'
+import { NormalChatMessagesRepository } from '../repositories/messages.repository'
+import { NormalChatModelCallsRepository } from '../repositories/model-calls.repository'
+import { NormalChatRuntimeEventsRepository } from '../repositories/runtime-events.repository'
+import { NormalChatTasksRepository } from '../repositories/tasks.repository'
+import { NormalChatTopicsRepository } from '../repositories/topics.repository'
+import { NormalChatTurnTracesRepository } from '../repositories/turn-traces.repository'
+import { NormalChatWorkspaceStateRepository } from '../repositories/workspace-state.repository'
+import { NormalChatAgentRuntime } from '../runtime/agent/agent-runtime'
+import { NormalChatRoundPersistenceService } from '../runtime/agent/round-persistence.service'
+import { NormalChatOutputEnvelopeParser } from '../runtime/agent/graph/output-envelope-parser'
+import { NormalChatAgentGraphRunner } from '../runtime/agent/graph/runner'
+import { NormalChatActionExecutorService } from '../runtime/actions/shared/action-executor.service'
+import { NormalChatActionResolutionService } from '../runtime/actions/shared/action-resolution.service'
+import { NormalChatLoadedActionSpecService } from '../runtime/actions/shared/loaded-action-spec.service'
+import {
+  NormalChatPubmedSearchAdapter,
+  NormalChatPubmedSearchExecutor
+} from '../runtime/actions/functioncall/pubmed-search'
+import { NormalChatScriptedModelAdapter } from '../runtime/llm/scripted/scripted-model-adapter'
+import { NormalChatPromptBuilder } from '../runtime/prompt/prompt-builder'
+import { NormalChatQueueExecutor } from '../runtime/scheduler/queue-executor'
+import { NormalChatRuntimeService } from '../runtime/runtime-service'
+import { NormalChatTaskScheduler } from '../runtime/scheduler/task-scheduler'
+import { NormalChatStreamPublisher } from '../runtime/streaming/stream-publisher'
+import { NormalChatWorkspaceService } from '../workspace/workspace-service'
 
 // 对外仍保留同一个 Service 入口，IPC / preload 无需感知内部拆分。
 // 这个类本身不承载业务逻辑，只负责组装依赖并把请求分发到对应子域。
@@ -38,8 +53,7 @@ export class NormalChatService {
   private readonly conversationService: NormalChatConversationService
   private readonly runtimeService: NormalChatRuntimeService
 
-  constructor(databaseManager: DatabaseManager) {
-    // 这里集中完成依赖装配，避免上层调用方关心 normal-chat 内部目录结构。
+  constructor(databaseManager: DatabaseManager, paperRetrievalService: PaperRetrievalService) {
     const db = databaseManager.getDatabase('userdata')
 
     const labelsRepository = new NormalChatLabelsRepository(db)
@@ -47,10 +61,13 @@ export class NormalChatService {
     const assistantActionPoliciesRepository = new NormalChatAssistantActionPoliciesRepository(db)
     const topicsRepository = new NormalChatTopicsRepository(db)
     const workspaceStateRepository = new NormalChatWorkspaceStateRepository(db)
+    const conversationsRepository = new NormalChatConversationsRepository(db)
     const messagesRepository = new NormalChatMessagesRepository(db)
+    const modelCallsRepository = new NormalChatModelCallsRepository(db)
     const turnTracesRepository = new NormalChatTurnTracesRepository(db)
     const tasksRepository = new NormalChatTasksRepository(db)
     const agentRunsRepository = new NormalChatAgentRunsRepository(db)
+    const actionRunsRepository = new NormalChatActionRunsRepository(db)
     const runtimeEventsRepository = new NormalChatRuntimeEventsRepository(db)
 
     this.streamPublisher = new NormalChatStreamPublisher(runtimeEventsRepository)
@@ -67,40 +84,54 @@ export class NormalChatService {
     this.conversationService = new NormalChatConversationService(
       db,
       messagesRepository,
+      modelCallsRepository,
       turnTracesRepository,
-      tasksRepository
+      tasksRepository,
+      actionRunsRepository
     )
 
+    const promptBuilder = new NormalChatPromptBuilder()
     const taskScheduler = new NormalChatTaskScheduler(
-      db,
       tasksRepository,
       agentRunsRepository,
+      actionRunsRepository,
+      modelCallsRepository,
       turnTracesRepository,
       this.streamPublisher
     )
-    const stubExecutor = new NormalChatStubExecutor(
-      db,
+    const queueExecutor = new NormalChatQueueExecutor(20)
+    const actionExecutor = new NormalChatActionExecutorService(
+      new NormalChatPubmedSearchExecutor(new NormalChatPubmedSearchAdapter(paperRetrievalService))
+    )
+    const agentRuntime = new NormalChatAgentRuntime(
+      new NormalChatAgentGraphRunner(),
+      promptBuilder,
+      new NormalChatScriptedModelAdapter(),
+      new NormalChatOutputEnvelopeParser(),
+      new NormalChatActionResolutionService(),
+      new NormalChatLoadedActionSpecService(),
+      actionExecutor,
+      new NormalChatRoundPersistenceService(modelCallsRepository),
       messagesRepository,
       turnTracesRepository,
       tasksRepository,
       agentRunsRepository,
+      actionRunsRepository,
       this.streamPublisher
     )
-    const agentRuntime = new NormalChatAgentRuntime(
-      new NormalChatAgentGraphRunner(),
-      stubExecutor,
-      taskScheduler
-    )
+    actionExecutor.setSubAgentRunner(agentRuntime)
 
     this.runtimeService = new NormalChatRuntimeService(
       db,
       this.workspaceService,
+      new NormalChatConversationConfigService(conversationsRepository),
       messagesRepository,
       turnTracesRepository,
       tasksRepository,
       agentRunsRepository,
-      new NormalChatPromptBuilder(),
+      promptBuilder,
       taskScheduler,
+      queueExecutor,
       agentRuntime
     )
 

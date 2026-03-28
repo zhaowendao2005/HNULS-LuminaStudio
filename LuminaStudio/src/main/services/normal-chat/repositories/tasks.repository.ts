@@ -7,6 +7,7 @@ export class NormalChatTasksRepository {
   create(input: {
     taskId: string
     requestId: string
+    conversationId: string
     topicId: string
     assistantId: string
     userMessageId: string
@@ -25,7 +26,7 @@ export class NormalChatTasksRepository {
       .run(
         input.taskId,
         input.requestId,
-        input.taskId,
+        input.conversationId,
         input.topicId,
         input.assistantId,
         input.userMessageId,
@@ -41,10 +42,13 @@ export class NormalChatTasksRepository {
     // snapshot 是运行前快照，后续即使 assistant/topic 配置被改动，也不影响历史追溯。
     taskId: string
     requestId: string
+    conversationId: string
     topicId: string
     assistantId: string
     userInput: string
     resolvedConfig: Record<string, unknown>
+    historyMessages: unknown[]
+    promptInjections: unknown[]
     requestPayload: unknown
     timestamp: string
   }): void {
@@ -59,14 +63,14 @@ export class NormalChatTasksRepository {
       .run(
         input.taskId,
         input.requestId,
-        input.taskId,
+        input.conversationId,
         input.topicId,
         input.assistantId,
         'main-agent-v1',
         input.userInput,
         JSON.stringify(input.resolvedConfig),
-        JSON.stringify([]),
-        JSON.stringify([]),
+        JSON.stringify(input.historyMessages),
+        JSON.stringify(input.promptInjections),
         JSON.stringify(input.requestPayload),
         input.timestamp,
         input.timestamp
@@ -79,6 +83,21 @@ export class NormalChatTasksRepository {
       .get(requestId) as { id: string } | undefined
 
     return row?.id ?? null
+  }
+
+  getByRequest(requestId: string): { id: string; conversationId: string } | null {
+    const row = this.db
+      .prepare('SELECT id, conversation_id FROM normal_chat_tasks WHERE request_id = ?')
+      .get(requestId) as { id: string; conversation_id: string } | undefined
+
+    if (!row) {
+      return null
+    }
+
+    return {
+      id: row.id,
+      conversationId: row.conversation_id
+    }
   }
 
   markRunning(taskId: string, timestamp: string): void {

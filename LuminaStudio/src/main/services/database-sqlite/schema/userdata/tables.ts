@@ -145,6 +145,24 @@ export const NORMAL_CHAT_TOPIC_ACTION_OVERRIDES_TABLE: TableDefinition = {
   `
 }
 
+export const NORMAL_CHAT_CONVERSATIONS_TABLE: TableDefinition = {
+  name: 'normal_chat_conversations',
+  createSQL: `
+    CREATE TABLE IF NOT EXISTS normal_chat_conversations (
+      id TEXT PRIMARY KEY,
+      topic_id TEXT NOT NULL,
+      title TEXT NOT NULL DEFAULT 'Default Conversation',
+      agent_template_id TEXT NOT NULL DEFAULT 'main-agent-v1',
+      program_prompt_injections_json TEXT NOT NULL DEFAULT '[]',
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (topic_id) REFERENCES normal_chat_topics(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_normal_chat_conversations_topic_created
+      ON normal_chat_conversations(topic_id, created_at);
+  `
+}
+
 export const NORMAL_CHAT_MESSAGES_TABLE: TableDefinition = {
   name: 'normal_chat_messages',
   createSQL: `
@@ -208,6 +226,7 @@ export const NORMAL_CHAT_TASKS_TABLE: TableDefinition = {
       started_at TEXT,
       finished_at TEXT,
       updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (conversation_id) REFERENCES normal_chat_conversations(id) ON DELETE CASCADE,
       FOREIGN KEY (topic_id) REFERENCES normal_chat_topics(id) ON DELETE CASCADE,
       FOREIGN KEY (assistant_id) REFERENCES normal_chat_assistants(id) ON DELETE CASCADE
     );
@@ -215,6 +234,8 @@ export const NORMAL_CHAT_TASKS_TABLE: TableDefinition = {
       ON normal_chat_tasks(status, created_at);
     CREATE INDEX IF NOT EXISTS idx_normal_chat_tasks_topic_created
       ON normal_chat_tasks(topic_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_normal_chat_tasks_conversation_created
+      ON normal_chat_tasks(conversation_id, created_at);
   `
 }
 
@@ -300,6 +321,48 @@ export const NORMAL_CHAT_ACTION_RUNS_TABLE: TableDefinition = {
   `
 }
 
+export const NORMAL_CHAT_MODEL_CALLS_TABLE: TableDefinition = {
+  name: 'normal_chat_model_calls',
+  createSQL: `
+    CREATE TABLE IF NOT EXISTS normal_chat_model_calls (
+      seq INTEGER PRIMARY KEY AUTOINCREMENT,
+      id TEXT NOT NULL UNIQUE,
+      task_id TEXT NOT NULL,
+      request_id TEXT NOT NULL,
+      conversation_id TEXT NOT NULL,
+      agent_run_id TEXT NOT NULL,
+      parent_action_run_id TEXT,
+      depth INTEGER NOT NULL,
+      round_index INTEGER NOT NULL,
+      call_index_in_agent INTEGER NOT NULL,
+      status TEXT NOT NULL CHECK (status IN ('queued', 'running', 'completed', 'failed', 'aborted')),
+      request_payload_json TEXT NOT NULL,
+      compiled_prompt_json TEXT NOT NULL,
+      compiled_prompt_markdown TEXT NOT NULL,
+      history_messages_json TEXT NOT NULL,
+      loaded_actions_json TEXT NOT NULL,
+      action_results_json TEXT NOT NULL,
+      response_stream_text TEXT,
+      response_envelope_json TEXT,
+      final_reply_md TEXT,
+      error_message TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      started_at TEXT,
+      finished_at TEXT,
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (task_id) REFERENCES normal_chat_tasks(id) ON DELETE CASCADE,
+      FOREIGN KEY (agent_run_id) REFERENCES normal_chat_agent_runs(id) ON DELETE CASCADE,
+      FOREIGN KEY (parent_action_run_id) REFERENCES normal_chat_action_runs(id) ON DELETE SET NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_normal_chat_model_calls_task_seq
+      ON normal_chat_model_calls(task_id, seq);
+    CREATE INDEX IF NOT EXISTS idx_normal_chat_model_calls_agent_round
+      ON normal_chat_model_calls(agent_run_id, round_index, call_index_in_agent, created_at);
+    CREATE INDEX IF NOT EXISTS idx_normal_chat_model_calls_request_seq
+      ON normal_chat_model_calls(request_id, seq);
+  `
+}
+
 export const NORMAL_CHAT_RUNTIME_EVENTS_TABLE: TableDefinition = {
   name: 'normal_chat_runtime_events',
   createSQL: `
@@ -340,12 +403,14 @@ export const USERDATA_TABLES: TableDefinition[] = [
   NORMAL_CHAT_TOPICS_TABLE,
   NORMAL_CHAT_ASSISTANT_ACTION_POLICIES_TABLE,
   NORMAL_CHAT_TOPIC_ACTION_OVERRIDES_TABLE,
+  NORMAL_CHAT_CONVERSATIONS_TABLE,
   NORMAL_CHAT_MESSAGES_TABLE,
   NORMAL_CHAT_TURN_TRACES_TABLE,
   NORMAL_CHAT_TASKS_TABLE,
   NORMAL_CHAT_TASK_SNAPSHOTS_TABLE,
   NORMAL_CHAT_AGENT_RUNS_TABLE,
   NORMAL_CHAT_ACTION_RUNS_TABLE,
+  NORMAL_CHAT_MODEL_CALLS_TABLE,
   NORMAL_CHAT_RUNTIME_EVENTS_TABLE,
   NORMAL_CHAT_WORKSPACE_STATE_TABLE
 ]

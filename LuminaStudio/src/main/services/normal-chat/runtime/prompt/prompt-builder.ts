@@ -1,14 +1,21 @@
 import type {
   NormalChatAssistant,
+  NormalChatConversationMessage,
   NormalChatConversationPromptMessage,
   NormalChatConversationTurnRequestRecord,
   NormalChatConversationTurnResponseRecord,
   NormalChatTopic
 } from '@preload/types'
+import type { NormalChatActionResultRecord } from '../actions/shared/action-result-projection'
+import type { NormalChatResolvedAction } from '../actions/shared/action.types'
+import type { NormalChatPromptBundle } from '../llm/model-adapter.interface'
+import { buildActionDescriptionsSection } from './sections/action-descriptions-section'
+import { buildActionResultsSection } from './sections/action-results-section'
+import { buildContextSection } from './sections/context-section'
+import { buildLoadedActionSpecsSection } from './sections/loaded-action-specs-section'
+import { buildOutputContractSection } from './sections/output-contract-section'
 
-// PromptBuilder 负责构建每轮请求需要的 prompt、request record 以及 resolved config，便于 runtime 层重用。
 export class NormalChatPromptBuilder {
-  // 这个方法封装了 system prompt 的继承/override 逻辑，结果会写进 turn trace 及 snapshot。
   buildRequestRecord(input: {
     assistant: NormalChatAssistant
     topic: NormalChatTopic
@@ -60,22 +67,64 @@ export class NormalChatPromptBuilder {
     }
   }
 
-  // buildResolvedConfig 提取静态执行配置并写入 task snapshot，方便后续调度/审计。
   buildResolvedConfig(input: {
     assistant: NormalChatAssistant
     topic: NormalChatTopic
+    conversationId: string
     providerId: string
     modelId: string
   }): Record<string, unknown> {
     return {
       assistantId: input.assistant.id,
       topicId: input.topic.id,
+      conversationId: input.conversationId,
       providerId: input.providerId,
       modelId: input.modelId,
       streamingEnabled: input.assistant.streamingEnabled,
       contextMemoryRounds: input.assistant.contextMemoryRounds,
       maxRecursionDepth: input.assistant.maxRecursionDepth,
       maxReasoningSteps: input.assistant.maxReasoningSteps
+    }
+  }
+
+  buildRoundPromptBundle(input: {
+    conversationTitle: string
+    systemPrompt: string
+    historyMessages: NormalChatConversationMessage[]
+    userInput: string
+    agentGoal: string
+    resolvedActions: NormalChatResolvedAction[]
+    loadedActions: NormalChatResolvedAction[]
+    actionResults: NormalChatActionResultRecord[]
+  }): NormalChatPromptBundle {
+    const historyMarkdown = input.historyMessages
+      .map((message) => {
+        const text = message.parts
+          .map((part) =>
+            part.kind === 'text' ? part.text : `[functioncall:${part.functionCallName}]`
+          )
+          .join('\n')
+        return `${message.role}: ${text}`
+      })
+      .join('\n')
+
+    const sections = {
+      context: buildContextSection({
+        systemPrompt: input.systemPrompt,
+        historyMarkdown,
+        userInput: input.userInput,
+        conversationTitle: input.conversationTitle,
+        agentGoal: input.agentGoal
+      }),
+      actionDescriptions: buildActionDescriptionsSection(input.resolvedActions),
+      loadedActionSpecs: buildLoadedActionSpecsSection(input.loadedActions),
+      actionResults: buildActionResultsSection(input.actionResults),
+      outputContract: buildOutputContractSection()
+    }
+
+    return {
+      sections,
+      promptDocument: Object.values(sections).join('\n\n---\n\n')
     }
   }
 

@@ -87,6 +87,64 @@ export interface TurnTraceRow {
   runtime_trace_json: string | null
 }
 
+export interface ConversationRow {
+  id: string
+  topic_id: string
+  title: string
+  agent_template_id: string
+  program_prompt_injections_json: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ModelCallRow {
+  seq: number
+  id: string
+  task_id: string
+  request_id: string
+  conversation_id: string
+  agent_run_id: string
+  parent_action_run_id: string | null
+  depth: number
+  round_index: number
+  call_index_in_agent: number
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'aborted'
+  request_payload_json: string
+  compiled_prompt_json: string
+  compiled_prompt_markdown: string
+  history_messages_json: string
+  loaded_actions_json: string
+  action_results_json: string
+  response_stream_text: string | null
+  response_envelope_json: string | null
+  final_reply_md: string | null
+  error_message: string | null
+  created_at: string
+  started_at: string | null
+  finished_at: string | null
+  updated_at: string
+}
+
+export interface ActionRunRow {
+  id: string
+  task_id: string
+  agent_run_id: string
+  action_key: string
+  action_kind: string
+  mode: string | null
+  status: 'queued' | 'running' | 'success' | 'error' | 'aborted'
+  round_index: number
+  batch_index: number
+  parallel_index: number
+  input_json: string
+  output_json: string | null
+  error_message: string | null
+  created_at: string
+  started_at: string | null
+  finished_at: string | null
+  updated_at: string
+}
+
 export interface WorkspaceStateRow {
   active_assistant_id: string
   active_topic_id: string

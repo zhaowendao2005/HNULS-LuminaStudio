@@ -118,6 +118,64 @@ export interface NormalChatConversationTurnResponseRecord {
   completedAt: string | null
 }
 
+export type NormalChatModelCallStatus = 'queued' | 'running' | 'completed' | 'failed' | 'aborted'
+
+export interface NormalChatPromptSnapshot {
+  context: string
+  actionDescriptions: string
+  loadedActionSpecs: string
+  actionResults: string
+  outputContract: string
+}
+
+export interface NormalChatModelCallSnapshot {
+  id: string
+  seq: number
+  taskId: string
+  requestId: string
+  conversationId: string
+  agentRunId: string
+  parentActionRunId: string | null
+  depth: number
+  roundIndex: number
+  callIndexInAgent: number
+  status: NormalChatModelCallStatus
+  requestPayloadJson: string
+  compiledPromptJson: NormalChatPromptSnapshot
+  compiledPromptMarkdown: string
+  historyMessagesJson: string
+  loadedActionsJson: string
+  actionResultsJson: string
+  responseStreamText: string | null
+  responseEnvelopeJson: string | null
+  finalReplyMd: string | null
+  errorMessage: string | null
+  createdAt: string
+  startedAt: string | null
+  finishedAt: string | null
+  updatedAt: string
+}
+
+export interface NormalChatActionRunSnapshot {
+  id: string
+  taskId: string
+  agentRunId: string
+  actionKey: string
+  actionKind: string
+  mode: string | null
+  status: 'queued' | 'running' | 'success' | 'error' | 'aborted'
+  roundIndex: number
+  batchIndex: number
+  parallelIndex: number
+  inputJson: string
+  outputJson: string | null
+  errorMessage: string | null
+  createdAt: string
+  startedAt: string | null
+  finishedAt: string | null
+  updatedAt: string
+}
+
 export interface NormalChatConversationTurnDetail {
   requestId: string
   topicId: string
@@ -130,4 +188,6 @@ export interface NormalChatConversationTurnDetail {
   responseRecord: NormalChatConversationTurnResponseRecord | null
   runtimeTrace: NormalChatConversationRuntimeTrace | null
   messages: NormalChatConversationMessage[]
+  modelCalls: NormalChatModelCallSnapshot[]
+  actionRuns: NormalChatActionRunSnapshot[]
 }

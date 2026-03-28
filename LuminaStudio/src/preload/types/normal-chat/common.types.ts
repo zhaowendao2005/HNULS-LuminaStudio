@@ -4,7 +4,6 @@ export type NormalChatCallMode = 'fast' | 'slow' | 'auto'
 
 export type NormalChatCostMode = 'per_call' | 'per_token'
 
-
 export type NormalChatMessagePartKind = 'text' | 'functioncall'
 
 export type NormalChatFunctionCallMessagePartStatus =

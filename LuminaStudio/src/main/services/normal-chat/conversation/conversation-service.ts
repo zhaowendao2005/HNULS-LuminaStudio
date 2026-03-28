@@ -6,21 +6,23 @@ import type {
   NormalChatConversationTurnRequestRecord,
   NormalChatConversationTurnResponseRecord
 } from '@preload/types'
+import { NormalChatActionRunsRepository } from '../repositories/action-runs.repository'
 import { NormalChatMessagesRepository } from '../repositories/messages.repository'
+import { NormalChatModelCallsRepository } from '../repositories/model-calls.repository'
 import { NormalChatTasksRepository } from '../repositories/tasks.repository'
 import { NormalChatTurnTracesRepository } from '../repositories/turn-traces.repository'
 import { parseJson } from '../shared/utils'
 
-// ConversationService 封装了消息与 turn trace 相关的查询/删除，避免 runtime 直接处理 SQL。
 export class NormalChatConversationService {
   constructor(
     private readonly db: Database.Database,
     private readonly messagesRepository: NormalChatMessagesRepository,
+    private readonly modelCallsRepository: NormalChatModelCallsRepository,
     private readonly turnTracesRepository: NormalChatTurnTracesRepository,
-    private readonly tasksRepository: NormalChatTasksRepository
+    private readonly tasksRepository: NormalChatTasksRepository,
+    private readonly actionRunsRepository: NormalChatActionRunsRepository
   ) {}
 
-  // getConversation 只读 topic 下的消息，把排序/序号逻辑集中在 repository。
   getConversation(topicId: string): NormalChatConversationSnapshot {
     return {
       topicId,
@@ -28,13 +30,13 @@ export class NormalChatConversationService {
     }
   }
 
-  // getConversationTurnDetail 负责把 trace + message 算作一个完整的 turn 视图，便于 renderer 展示。
   getConversationTurnDetail(requestId: string): NormalChatConversationTurnDetail | null {
     const trace = this.turnTracesRepository.getByRequest(requestId)
     if (!trace) {
       return null
     }
 
+    const task = this.tasksRepository.getByRequest(requestId)
     const runtimeTrace = parseJson(
       trace.runtimeTraceJson,
       null as NormalChatConversationRuntimeTrace | null
@@ -57,11 +59,12 @@ export class NormalChatConversationService {
         null as NormalChatConversationTurnResponseRecord | null
       ),
       runtimeTrace,
-      messages: this.messagesRepository.listByRequest(requestId)
+      messages: this.messagesRepository.listByRequest(requestId),
+      modelCalls: this.modelCallsRepository.listByRequest(requestId),
+      actionRuns: task ? this.actionRunsRepository.listByTaskId(task.id) : []
     }
   }
 
-  // deleteConversationTurn 同时删掉 task / trace / message，保持多表一致性。
   deleteConversationTurn(requestId: string): void {
     const taskId = this.tasksRepository.getTaskIdByRequest(requestId)
     const transaction = this.db.transaction(() => {
