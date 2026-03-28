@@ -1,21 +1,20 @@
-import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { ConversationDetailShellDatasource } from './conversation-detail-shell.datasource'
+import { defineStore } from 'pinia'
+import { ChatDetailShellDatasource } from './chat-detail-shell.datasource'
 import type {
-  ConversationDetailDataViewMode,
-  ConversationDetailShellOpenPayload,
-  ConversationDetailShellRecord,
-  ConversationDetailShellSnapshot
-} from './conversation-detail-shell.types'
+  ChatDetailDataViewMode,
+  ChatDetailShellOpenPayload,
+  ChatDetailShellRecord,
+  ChatDetailShellSnapshot
+} from './chat-detail-shell.types'
 
-const datasource = new ConversationDetailShellDatasource()
+const datasource = new ChatDetailShellDatasource()
 
-function createEmptySnapshot(): ConversationDetailShellSnapshot {
+function createEmptySnapshot(): ChatDetailShellSnapshot {
   return {
     visible: false,
     requestId: '',
     messageId: '',
-    focusCallId: '',
     currentPage: 'overview',
     selectedCallId: '',
     requestViewMode: 'json',
@@ -26,12 +25,12 @@ function createEmptySnapshot(): ConversationDetailShellSnapshot {
   }
 }
 
-export const useNormalChatConversationDetailShellStore = defineStore(
-  'normal-chat-conversation-detail-shell',
+export const useNormalChatChatDetailShellStore = defineStore(
+  'normal-chat-chat-detail-shell',
   () => {
-    const snapshot = ref<ConversationDetailShellSnapshot>(createEmptySnapshot())
+    const snapshot = ref<ChatDetailShellSnapshot>(createEmptySnapshot())
 
-    const detail = computed<ConversationDetailShellRecord | null>(() => {
+    const detail = computed<ChatDetailShellRecord | null>(() => {
       return snapshot.value.detailByRequestId[snapshot.value.requestId] ?? null
     })
 
@@ -71,7 +70,7 @@ export const useNormalChatConversationDetailShellStore = defineStore(
       snapshot.value = await datasource.loadSnapshot()
     }
 
-    async function loadCurrentDetail(): Promise<ConversationDetailShellRecord> {
+    async function loadCurrentDetail(): Promise<ChatDetailShellRecord> {
       const requestId = snapshot.value.requestId
       snapshot.value.loading = true
       snapshot.value.errorText = ''
@@ -90,26 +89,22 @@ export const useNormalChatConversationDetailShellStore = defineStore(
       }
     }
 
-    async function openDialog(payload: ConversationDetailShellOpenPayload): Promise<void> {
+    async function openDialog(payload: ChatDetailShellOpenPayload): Promise<void> {
       snapshot.value.visible = true
       snapshot.value.requestId = payload.requestId
       snapshot.value.messageId = payload.messageId
-      snapshot.value.focusCallId = payload.focusCallId ?? ''
-      snapshot.value.currentPage = payload.focusCallId ? 'llm-call' : 'overview'
-      snapshot.value.selectedCallId = payload.focusCallId ?? ''
+      snapshot.value.currentPage = 'overview'
+      snapshot.value.selectedCallId = ''
       snapshot.value.requestViewMode = 'json'
       snapshot.value.responseViewMode = 'json'
       snapshot.value.errorText = ''
 
       const detailRecord = await loadCurrentDetail()
-      if (!snapshot.value.selectedCallId) {
-        snapshot.value.selectedCallId = detailRecord.calls[0]?.id ?? ''
-      }
+      snapshot.value.selectedCallId = detailRecord.calls[0]?.id ?? ''
     }
 
     function closeDialog(): void {
       snapshot.value.visible = false
-      snapshot.value.focusCallId = ''
       snapshot.value.selectedCallId = ''
       snapshot.value.currentPage = 'overview'
       snapshot.value.loading = false
@@ -125,11 +120,11 @@ export const useNormalChatConversationDetailShellStore = defineStore(
       snapshot.value.currentPage = 'overview'
     }
 
-    function setRequestViewMode(mode: ConversationDetailDataViewMode): void {
+    function setRequestViewMode(mode: ChatDetailDataViewMode): void {
       snapshot.value.requestViewMode = mode
     }
 
-    function setResponseViewMode(mode: ConversationDetailDataViewMode): void {
+    function setResponseViewMode(mode: ChatDetailDataViewMode): void {
       snapshot.value.responseViewMode = mode
     }
 
@@ -161,7 +156,7 @@ export const useNormalChatConversationDetailShellStore = defineStore(
   }
 )
 
-function formatPayload(value: unknown, mode: ConversationDetailDataViewMode): string {
+function formatPayload(value: unknown, mode: ChatDetailDataViewMode): string {
   if (mode === 'yaml') {
     return toYaml(value)
   }

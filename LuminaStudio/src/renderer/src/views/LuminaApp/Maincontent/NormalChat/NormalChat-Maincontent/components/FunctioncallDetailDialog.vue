@@ -1,10 +1,10 @@
 <template>
   <div
     v-if="snapshot.visible"
-    class="nc-conversation-detail-dialog-a9k2 fixed inset-0 z-[70] flex items-center justify-center bg-black/20 backdrop-blur-[1px]"
+    class="nc-functioncall-detail-dialog-a9k2 fixed inset-0 z-[72] flex items-center justify-center bg-black/20 backdrop-blur-[1px]"
   >
     <div
-      class="nc-conversation-detail-dialog-panel-a9k2 flex h-[760px] w-[1120px] overflow-hidden rounded-2xl bg-white shadow-[var(--nc-shadow-dialog)]"
+      class="nc-functioncall-detail-dialog-panel-a9k2 flex h-[760px] w-[1120px] overflow-hidden rounded-2xl bg-white shadow-[var(--nc-shadow-dialog)]"
     >
       <aside
         class="flex w-[76px] flex-col items-center gap-3 border-r border-gray-100 bg-white px-3 py-4"
@@ -56,7 +56,7 @@
                 {{ dialogTitle }}
               </h2>
               <p class="mt-1 text-[12px] leading-5 text-gray-500">
-                Each row is one primary LLM request-response pair for the current turn.
+                Functioncall details are isolated from the chat detail shell.
               </p>
             </div>
 
@@ -85,7 +85,7 @@
                   {{ breadcrumbText }}
                 </p>
                 <h2 class="truncate text-[16px] font-semibold text-gray-900">
-                  {{ selectedCallItem?.title ?? 'LLM Call Detail' }}
+                  {{ selectedCallItem?.title ?? 'Functioncall Detail' }}
                 </h2>
               </div>
             </div>
@@ -93,22 +93,29 @@
 
           <div class="min-h-0 flex-1 overflow-y-auto p-6">
             <section v-if="snapshot.currentPage === 'overview'" class="space-y-3">
-              <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+              <div
+                v-if="functionCallItems.length === 0"
+                class="rounded-2xl border border-dashed border-gray-200 bg-white px-5 py-10 text-center text-[13px] text-gray-400"
+              >
+                No functioncalls were emitted for this turn.
+              </div>
+
+              <div v-else class="overflow-hidden rounded-2xl border border-gray-200 bg-white">
                 <div
-                  class="grid grid-cols-[64px_320px_220px_88px_88px_24px] items-center gap-3 border-b border-gray-100 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400"
+                  class="grid grid-cols-[64px_280px_240px_110px_88px_24px] items-center gap-3 border-b border-gray-100 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400"
                 >
                   <span>No.</span>
-                  <span>Call</span>
+                  <span>Functioncall</span>
                   <span>Context</span>
-                  <span>Type</span>
+                  <span>Name</span>
                   <span>Status</span>
                   <span></span>
                 </div>
 
                 <button
-                  v-for="call in llmCallItems"
+                  v-for="call in functionCallItems"
                   :key="call.id"
-                  class="grid w-full grid-cols-[64px_320px_220px_88px_88px_24px] items-center gap-3 border-b border-gray-100 px-4 py-2.5 text-left transition-colors last:border-b-0 hover:bg-gray-50"
+                  class="grid w-full grid-cols-[64px_280px_240px_110px_88px_24px] items-center gap-3 border-b border-gray-100 px-4 py-2.5 text-left transition-colors last:border-b-0 hover:bg-gray-50"
                   type="button"
                   @click="detailShellStore.openCallDetail(call.id)"
                 >
@@ -145,12 +152,12 @@
             </section>
 
             <section v-else class="grid min-w-0 gap-4">
-              <div class="min-w-0 rounded-2xl border border-gray-200 bg-white px-4 py-4">
+              <div class="rounded-2xl border border-slate-200 bg-white px-4 py-4">
                 <div class="flex items-center justify-between gap-3">
                   <div>
-                    <h3 class="text-[14px] font-semibold text-gray-900">Request Payload</h3>
-                    <p class="mt-1 text-[12px] text-gray-400">
-                      Raw request payload built for the primary LLM call.
+                    <h3 class="text-[14px] font-semibold text-slate-900">Call Request</h3>
+                    <p class="mt-1 text-[12px] text-slate-400">
+                      Structured input for the selected functioncall.
                     </p>
                   </div>
 
@@ -187,12 +194,12 @@
                 ><code class="block min-w-0 whitespace-pre-wrap break-words">{{ formattedSelectedCallRequest }}</code></pre>
               </div>
 
-              <div class="min-w-0 rounded-2xl border border-gray-200 bg-white px-4 py-4">
+              <div class="rounded-2xl border border-slate-200 bg-white px-4 py-4">
                 <div class="flex items-center justify-between gap-3">
                   <div>
-                    <h3 class="text-[14px] font-semibold text-gray-900">Response Payload</h3>
-                    <p class="mt-1 text-[12px] text-gray-400">
-                      Raw response payload for the primary LLM call.
+                    <h3 class="text-[14px] font-semibold text-slate-900">Call Response</h3>
+                    <p class="mt-1 text-[12px] text-slate-400">
+                      Output, error state, and streaming flags for the selected functioncall.
                     </p>
                   </div>
 
@@ -239,14 +246,14 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
 import { X } from 'lucide-vue-next'
-import { useNormalChatChatDetailShellStore } from '@renderer/stores/normal-chat/chat-detail-shell/chat-detail-shell.store'
+import { useNormalChatFunctioncallDetailShellStore } from '@renderer/stores/normal-chat/functioncall-detail-shell/functioncall-detail-shell.store'
 
-const detailShellStore = useNormalChatChatDetailShellStore()
+const detailShellStore = useNormalChatFunctioncallDetailShellStore()
 const {
   snapshot,
   dialogTitle,
   breadcrumbText,
-  llmCallItems,
+  functionCallItems,
   selectedCallItem,
   formattedSelectedCallRequest,
   formattedSelectedCallResponse

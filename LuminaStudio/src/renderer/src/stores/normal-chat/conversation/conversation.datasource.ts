@@ -11,6 +11,14 @@ import type {
 } from '@preload/types'
 import { normalChatConversationMock } from './conversation.mock'
 
+function unwrap<T>(response: { success: boolean; data?: T; error?: string }): T {
+  if (!response.success) {
+    throw new Error(response.error || 'Normal chat conversation request failed')
+  }
+
+  return response.data as T
+}
+
 export interface NormalChatConversationDatasourceLike {
   getConversation(
     payload: NormalChatGetConversationRequest
@@ -24,29 +32,28 @@ export interface NormalChatConversationDatasourceLike {
   onStream(handler: (event: NormalChatConversationStreamEvent) => void): () => void
 }
 
-const defaultDatasource: NormalChatConversationDatasourceLike = {
+const realDatasource: NormalChatConversationDatasourceLike = {
   getConversation(payload) {
-    // 临时重定向到 mock，先去掉 renderer 对 normal-chat IPC 的直接依赖。
-    return normalChatConversationMock.getConversation(payload)
+    return window.api.normalChat.getConversation(payload).then(unwrap)
   },
   getConversationTurnDetail(payload) {
-    return normalChatConversationMock.getConversationTurnDetail(payload)
+    return window.api.normalChat.getConversationTurnDetail(payload).then(unwrap)
   },
   sendMessage(payload) {
-    return normalChatConversationMock.sendMessage(payload)
+    return window.api.normalChat.sendMessage(payload).then(unwrap)
   },
   deleteConversationTurn(payload) {
-    return normalChatConversationMock.deleteConversationTurn(payload)
+    return window.api.normalChat.deleteConversationTurn(payload).then(unwrap)
   },
   abort(payload) {
-    return normalChatConversationMock.abort(payload)
+    return window.api.normalChat.abort(payload).then(unwrap)
   },
   onStream(handler) {
-    return normalChatConversationMock.onStream(handler)
+    return window.api.normalChat.onStream(handler)
   }
 }
 
-let datasource: NormalChatConversationDatasourceLike = defaultDatasource
+let datasource: NormalChatConversationDatasourceLike = realDatasource
 
 export function setNormalChatConversationDatasourceForTesting(
   nextDatasource: NormalChatConversationDatasourceLike
@@ -55,7 +62,11 @@ export function setNormalChatConversationDatasourceForTesting(
 }
 
 export function resetNormalChatConversationDatasourceForTesting(): void {
-  datasource = defaultDatasource
+  datasource = realDatasource
+}
+
+export function useNormalChatConversationMockDatasourceForTesting(): void {
+  datasource = normalChatConversationMock
 }
 
 export const NormalChatConversationDatasource: NormalChatConversationDatasourceLike = {

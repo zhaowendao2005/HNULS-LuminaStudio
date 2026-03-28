@@ -7,6 +7,14 @@ import type {
 } from '@preload/types'
 import { normalChatWorkspaceMock } from './workspace.mock'
 
+function unwrap<T>(response: { success: boolean; data?: T; error?: string }): T {
+  if (!response.success) {
+    throw new Error(response.error || 'Normal chat workspace request failed')
+  }
+
+  return response.data as T
+}
+
 export interface NormalChatWorkspaceDatasourceLike {
   getBootstrap(): Promise<NormalChatBootstrap>
   createAssistant(): Promise<NormalChatWorkspaceSnapshot>
@@ -65,7 +73,7 @@ export interface NormalChatWorkspaceDatasourceLike {
   updateTopicConfig(payload: {
     assistantId: string
     topicId: string
-    systemPromptMode?: NormalChatTopicPromptMode
+    systemPromptMode?: 'inherit' | 'override'
     systemPromptOverride?: string | null
     streamingMode?: 'inherit' | 'override'
     streamingEnabledOverride?: boolean | null
@@ -93,51 +101,114 @@ export interface NormalChatWorkspaceDatasourceLike {
   }): Promise<NormalChatWorkspaceSnapshot>
 }
 
-export const NormalChatWorkspaceDatasource: NormalChatWorkspaceDatasourceLike = {
+const realDatasource: NormalChatWorkspaceDatasourceLike = {
   getBootstrap() {
-    // 临时重定向到 mock，先把 renderer 从 normal-chat IPC 解耦出来。
-    return normalChatWorkspaceMock.getBootstrap()
+    return window.api.normalChat.getBootstrap().then(unwrap)
   },
   createAssistant() {
-    return normalChatWorkspaceMock.createAssistant()
+    return window.api.normalChat.createAssistant({}).then(unwrap)
   },
   updateAssistant(payload) {
-    return normalChatWorkspaceMock.updateAssistant(payload)
+    return window.api.normalChat.updateAssistant(payload).then(unwrap)
   },
   assignLabel(payload) {
-    return normalChatWorkspaceMock.assignLabel(payload)
+    return window.api.normalChat.assignLabel(payload).then(unwrap)
   },
   createLabel(payload) {
-    return normalChatWorkspaceMock.createLabel(payload)
+    return window.api.normalChat.createLabel(payload).then(unwrap)
   },
   renameLabel(payload) {
-    return normalChatWorkspaceMock.renameLabel(payload)
+    return window.api.normalChat.renameLabel(payload).then(unwrap)
   },
   deleteLabel(payload) {
-    return normalChatWorkspaceMock.deleteLabel(payload)
+    return window.api.normalChat.deleteLabel(payload).then(unwrap)
   },
   setActiveAssistant(payload) {
-    return normalChatWorkspaceMock.setActiveAssistant(payload)
+    return window.api.normalChat.setActiveAssistant(payload).then(unwrap)
   },
   createTopic(payload) {
-    return normalChatWorkspaceMock.createTopic(payload)
+    return window.api.normalChat.createTopic(payload).then(unwrap)
   },
   renameTopic(payload) {
-    return normalChatWorkspaceMock.renameTopic(payload)
+    return window.api.normalChat.renameTopic(payload).then(unwrap)
   },
   deleteTopic(payload) {
-    return normalChatWorkspaceMock.deleteTopic(payload)
+    return window.api.normalChat.deleteTopic(payload).then(unwrap)
   },
   setActiveTopic(payload) {
-    return normalChatWorkspaceMock.setActiveTopic(payload)
+    return window.api.normalChat.setActiveTopic(payload).then(unwrap)
   },
   updateTopicPrompt(payload) {
-    return normalChatWorkspaceMock.updateTopicPrompt(payload)
+    return window.api.normalChat.updateTopicPrompt(payload).then(unwrap)
   },
   updateTopicStreaming(payload) {
-    return normalChatWorkspaceMock.updateTopicStreaming(payload)
+    return window.api.normalChat.updateTopicStreaming(payload).then(unwrap)
   },
   updateTopicConfig(payload) {
-    return normalChatWorkspaceMock.updateTopicConfig(payload)
+    return window.api.normalChat.updateTopicConfig(payload).then(unwrap)
+  }
+}
+
+let datasource: NormalChatWorkspaceDatasourceLike = realDatasource
+
+export function setNormalChatWorkspaceDatasourceForTesting(
+  nextDatasource: NormalChatWorkspaceDatasourceLike
+): void {
+  datasource = nextDatasource
+}
+
+export function resetNormalChatWorkspaceDatasourceForTesting(): void {
+  datasource = realDatasource
+}
+
+export function useNormalChatWorkspaceMockDatasourceForTesting(): void {
+  datasource = normalChatWorkspaceMock
+}
+
+export const NormalChatWorkspaceDatasource: NormalChatWorkspaceDatasourceLike = {
+  getBootstrap() {
+    return datasource.getBootstrap()
+  },
+  createAssistant() {
+    return datasource.createAssistant()
+  },
+  updateAssistant(payload) {
+    return datasource.updateAssistant(payload)
+  },
+  assignLabel(payload) {
+    return datasource.assignLabel(payload)
+  },
+  createLabel(payload) {
+    return datasource.createLabel(payload)
+  },
+  renameLabel(payload) {
+    return datasource.renameLabel(payload)
+  },
+  deleteLabel(payload) {
+    return datasource.deleteLabel(payload)
+  },
+  setActiveAssistant(payload) {
+    return datasource.setActiveAssistant(payload)
+  },
+  createTopic(payload) {
+    return datasource.createTopic(payload)
+  },
+  renameTopic(payload) {
+    return datasource.renameTopic(payload)
+  },
+  deleteTopic(payload) {
+    return datasource.deleteTopic(payload)
+  },
+  setActiveTopic(payload) {
+    return datasource.setActiveTopic(payload)
+  },
+  updateTopicPrompt(payload) {
+    return datasource.updateTopicPrompt(payload)
+  },
+  updateTopicStreaming(payload) {
+    return datasource.updateTopicStreaming(payload)
+  },
+  updateTopicConfig(payload) {
+    return datasource.updateTopicConfig(payload)
   }
 }

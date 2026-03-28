@@ -1,10 +1,5 @@
 <template>
   <div class="nc_NormalChat_Root_a9k2 nc-normalchat-theme-a9k2 flex h-full w-full gap-4 pt-3">
-    <!-- nc = NormalChat -->
-    <!-- nc_NormalChat_Root_a9k2: 页面根容器 -->
-    <!-- nc_NormalChat_LeftPanel_a9k2: 左侧来源面板 -->
-    <!-- nc_NormalChat_Center_a9k2: 中间聊天内容 -->
-    <!-- nc_NormalChat_RightPanel_a9k2: 右侧工具面板 -->
     <LeftPanel
       :collapsed="leftCollapsed"
       :current-tab="leftTab"
@@ -34,7 +29,9 @@ import { type WhiteSelectOption } from './components/WhiteSelect.vue'
 import { useNormalChatLayoutShellStore } from '@renderer/stores/normal-chat/layout-shell/layout-shell.store'
 import { useNormalChatWorkspaceStore } from '@renderer/stores/normal-chat/workspace/workspace.store'
 import { useNormalChatConversationStore } from '@renderer/stores/normal-chat/conversation/conversation.store'
-import { useNormalChatConversationDetailShellStore } from '@renderer/stores/normal-chat/conversation-detail-shell/conversation-detail-shell.store'
+import { useNormalChatChatDetailShellStore } from '@renderer/stores/normal-chat/chat-detail-shell/chat-detail-shell.store'
+import { useNormalChatFunctioncallDetailShellStore } from '@renderer/stores/normal-chat/functioncall-detail-shell/functioncall-detail-shell.store'
+import { useNormalChatAgentDetailShellStore } from '@renderer/stores/normal-chat/agent-detail-shell/agent-detail-shell.store'
 import type {
   NormalChatLeftTab,
   NormalChatRightPage
@@ -43,16 +40,19 @@ import type {
 const layoutStore = useNormalChatLayoutShellStore()
 const workspaceStore = useNormalChatWorkspaceStore()
 const conversationStore = useNormalChatConversationStore()
-const conversationDetailShellStore = useNormalChatConversationDetailShellStore()
+const chatDetailShellStore = useNormalChatChatDetailShellStore()
+const functioncallDetailShellStore = useNormalChatFunctioncallDetailShellStore()
+const agentDetailShellStore = useNormalChatAgentDetailShellStore()
 const { leftCollapsed, rightCollapsed, leftTab, rightPage } = storeToRefs(layoutStore)
 
 onMounted(() => {
-  // 入口统一初始化布局、工作区和真实会话层，避免不同区域各自初始化造成竞态。
   void (async () => {
     await Promise.all([
       layoutStore.initialize(),
       workspaceStore.initialize(),
-      conversationDetailShellStore.initialize()
+      chatDetailShellStore.initialize(),
+      functioncallDetailShellStore.initialize(),
+      agentDetailShellStore.initialize()
     ])
     await conversationStore.initialize()
   })()
@@ -73,7 +73,6 @@ const onRightPageUpdate = (value: string) => {
   void layoutStore.setRightPage(value as NormalChatRightPage)
 }
 
-// 右侧面板继续展示静态内容，保持视觉壳子不变
 const tools = [
   {
     id: 'audio',
@@ -125,7 +124,7 @@ const notes = [
   { id: 1, title: '现代分子生物学核心考点指南', time: '46 天前' },
   { id: 2, title: '分子生物学重点', time: '47 天前' },
   { id: 3, title: '细胞生物学复习提纲', time: '51 天前' },
-  { id: 4, title: '细胞工程原理与应用概论', time: '53 天前' }
+  { id: 4, title: '细胞工程原理与应用概览', time: '53 天前' }
 ]
 </script>
 

@@ -346,11 +346,27 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
   })
 
   const effectiveSystemActionFunctionCallEnabled = computed(() => {
-    return true
+    if (!currentAssistant.value) {
+      return true
+    }
+
+    return resolveEffectiveBoolean(
+      currentAssistant.value.systemActionFunctionCallEnabled,
+      currentTopic.value?.systemActionFunctionCallMode ?? 'inherit',
+      currentTopic.value?.systemActionFunctionCallEnabledOverride ?? null
+    )
   })
 
   const effectiveSystemActionSubAgentEnabled = computed(() => {
-    return true
+    if (!currentAssistant.value) {
+      return true
+    }
+
+    return resolveEffectiveBoolean(
+      currentAssistant.value.systemActionSubAgentEnabled,
+      currentTopic.value?.systemActionSubAgentMode ?? 'inherit',
+      currentTopic.value?.systemActionSubAgentEnabledOverride ?? null
+    )
   })
 
   const effectiveFunctionCallPubMedEnabled = computed(() => {
@@ -541,10 +557,14 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
     topicMaxReasoningStepsModeDraft.value = currentTopic.value?.maxReasoningStepsMode ?? 'inherit'
     topicMaxReasoningStepsOverrideDraft.value =
       currentTopic.value?.maxReasoningStepsOverride ?? null
-    topicSystemActionFunctionCallModeDraft.value = 'inherit'
-    topicSystemActionFunctionCallEnabledOverrideDraft.value = null
-    topicSystemActionSubAgentModeDraft.value = 'inherit'
-    topicSystemActionSubAgentEnabledOverrideDraft.value = null
+    topicSystemActionFunctionCallModeDraft.value =
+      currentTopic.value?.systemActionFunctionCallMode ?? 'inherit'
+    topicSystemActionFunctionCallEnabledOverrideDraft.value =
+      currentTopic.value?.systemActionFunctionCallEnabledOverride ?? null
+    topicSystemActionSubAgentModeDraft.value =
+      currentTopic.value?.systemActionSubAgentMode ?? 'inherit'
+    topicSystemActionSubAgentEnabledOverrideDraft.value =
+      currentTopic.value?.systemActionSubAgentEnabledOverride ?? null
     topicFunctionCallPubMedModeDraft.value = currentTopic.value?.functionCallPubMedMode ?? 'inherit'
     topicFunctionCallPubMedEnabledOverrideDraft.value =
       currentTopic.value?.functionCallPubMedEnabledOverride ?? null
@@ -900,8 +920,8 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
         contextMemoryRounds: assistantContextMemoryRoundsDraft.value,
         maxRecursionDepth: assistantMaxRecursionDepthDraft.value,
         maxReasoningSteps: assistantMaxReasoningStepsDraft.value,
-        systemActionFunctionCallEnabled: true,
-        systemActionSubAgentEnabled: true,
+        systemActionFunctionCallEnabled: assistantSystemActionFunctionCallEnabledDraft.value,
+        systemActionSubAgentEnabled: assistantSystemActionSubAgentEnabledDraft.value,
         functionCallPubMedEnabled: assistantFunctionCallPubMedEnabledDraft.value,
         functionCallPubMedMode: assistantFunctionCallPubMedModeDraft.value,
         mcpEnabled: assistantMcpEnabledDraft.value
@@ -949,10 +969,16 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
         topicMaxReasoningStepsModeDraft.value === 'override'
           ? topicMaxReasoningStepsOverrideDraft.value
           : null,
-      systemActionFunctionCallMode: 'inherit',
-      systemActionFunctionCallEnabledOverride: null,
-      systemActionSubAgentMode: 'inherit',
-      systemActionSubAgentEnabledOverride: null,
+      systemActionFunctionCallMode: topicSystemActionFunctionCallModeDraft.value,
+      systemActionFunctionCallEnabledOverride:
+        topicSystemActionFunctionCallModeDraft.value === 'override'
+          ? topicSystemActionFunctionCallEnabledOverrideDraft.value
+          : null,
+      systemActionSubAgentMode: topicSystemActionSubAgentModeDraft.value,
+      systemActionSubAgentEnabledOverride:
+        topicSystemActionSubAgentModeDraft.value === 'override'
+          ? topicSystemActionSubAgentEnabledOverrideDraft.value
+          : null,
       functionCallPubMedMode: topicFunctionCallPubMedModeDraft.value,
       functionCallPubMedEnabledOverride:
         topicFunctionCallPubMedModeDraft.value === 'override'

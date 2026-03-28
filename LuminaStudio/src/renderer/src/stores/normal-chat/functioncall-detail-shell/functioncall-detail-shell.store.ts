@@ -1,21 +1,20 @@
-import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { ConversationDetailShellDatasource } from './conversation-detail-shell.datasource'
+import { defineStore } from 'pinia'
+import { FunctioncallDetailShellDatasource } from './functioncall-detail-shell.datasource'
 import type {
-  ConversationDetailDataViewMode,
-  ConversationDetailShellOpenPayload,
-  ConversationDetailShellRecord,
-  ConversationDetailShellSnapshot
-} from './conversation-detail-shell.types'
+  FunctioncallDetailDataViewMode,
+  FunctioncallDetailShellOpenPayload,
+  FunctioncallDetailShellRecord,
+  FunctioncallDetailShellSnapshot
+} from './functioncall-detail-shell.types'
 
-const datasource = new ConversationDetailShellDatasource()
+const datasource = new FunctioncallDetailShellDatasource()
 
-function createEmptySnapshot(): ConversationDetailShellSnapshot {
+function createEmptySnapshot(): FunctioncallDetailShellSnapshot {
   return {
     visible: false,
     requestId: '',
     messageId: '',
-    focusCallId: '',
     currentPage: 'overview',
     selectedCallId: '',
     requestViewMode: 'json',
@@ -26,12 +25,12 @@ function createEmptySnapshot(): ConversationDetailShellSnapshot {
   }
 }
 
-export const useNormalChatConversationDetailShellStore = defineStore(
-  'normal-chat-conversation-detail-shell',
+export const useNormalChatFunctioncallDetailShellStore = defineStore(
+  'normal-chat-functioncall-detail-shell',
   () => {
-    const snapshot = ref<ConversationDetailShellSnapshot>(createEmptySnapshot())
+    const snapshot = ref<FunctioncallDetailShellSnapshot>(createEmptySnapshot())
 
-    const detail = computed<ConversationDetailShellRecord | null>(() => {
+    const detail = computed<FunctioncallDetailShellRecord | null>(() => {
       return snapshot.value.detailByRequestId[snapshot.value.requestId] ?? null
     })
 
@@ -39,18 +38,18 @@ export const useNormalChatConversationDetailShellStore = defineStore(
       return detail.value ? `${detail.value.assistantName} / ${detail.value.topicTitle}` : ''
     })
 
-    const llmCallItems = computed(() => detail.value?.calls ?? [])
+    const functionCallItems = computed(() => detail.value?.calls ?? [])
 
     const selectedCallItem = computed(() => {
       return (
-        llmCallItems.value.find((item) => item.id === snapshot.value.selectedCallId) ??
-        llmCallItems.value[0] ??
+        functionCallItems.value.find((item) => item.id === snapshot.value.selectedCallId) ??
+        functionCallItems.value[0] ??
         null
       )
     })
 
     const breadcrumbText = computed(() => {
-      return `Overview / ${selectedCallItem.value?.title ?? 'LLM Call Detail'}`
+      return `Overview / ${selectedCallItem.value?.title ?? 'Functioncall Detail'}`
     })
 
     const formattedSelectedCallRequest = computed(() => {
@@ -71,7 +70,7 @@ export const useNormalChatConversationDetailShellStore = defineStore(
       snapshot.value = await datasource.loadSnapshot()
     }
 
-    async function loadCurrentDetail(): Promise<ConversationDetailShellRecord> {
+    async function loadCurrentDetail(): Promise<FunctioncallDetailShellRecord> {
       const requestId = snapshot.value.requestId
       snapshot.value.loading = true
       snapshot.value.errorText = ''
@@ -90,13 +89,12 @@ export const useNormalChatConversationDetailShellStore = defineStore(
       }
     }
 
-    async function openDialog(payload: ConversationDetailShellOpenPayload): Promise<void> {
+    async function openDialog(payload: FunctioncallDetailShellOpenPayload): Promise<void> {
       snapshot.value.visible = true
       snapshot.value.requestId = payload.requestId
       snapshot.value.messageId = payload.messageId
-      snapshot.value.focusCallId = payload.focusCallId ?? ''
-      snapshot.value.currentPage = payload.focusCallId ? 'llm-call' : 'overview'
-      snapshot.value.selectedCallId = payload.focusCallId ?? ''
+      snapshot.value.currentPage = payload.callId ? 'call-detail' : 'overview'
+      snapshot.value.selectedCallId = payload.callId ?? ''
       snapshot.value.requestViewMode = 'json'
       snapshot.value.responseViewMode = 'json'
       snapshot.value.errorText = ''
@@ -105,11 +103,13 @@ export const useNormalChatConversationDetailShellStore = defineStore(
       if (!snapshot.value.selectedCallId) {
         snapshot.value.selectedCallId = detailRecord.calls[0]?.id ?? ''
       }
+      if (!snapshot.value.selectedCallId) {
+        snapshot.value.currentPage = 'overview'
+      }
     }
 
     function closeDialog(): void {
       snapshot.value.visible = false
-      snapshot.value.focusCallId = ''
       snapshot.value.selectedCallId = ''
       snapshot.value.currentPage = 'overview'
       snapshot.value.loading = false
@@ -118,18 +118,18 @@ export const useNormalChatConversationDetailShellStore = defineStore(
 
     function openCallDetail(callId: string): void {
       snapshot.value.selectedCallId = callId
-      snapshot.value.currentPage = 'llm-call'
+      snapshot.value.currentPage = 'call-detail'
     }
 
     function goToOverview(): void {
       snapshot.value.currentPage = 'overview'
     }
 
-    function setRequestViewMode(mode: ConversationDetailDataViewMode): void {
+    function setRequestViewMode(mode: FunctioncallDetailDataViewMode): void {
       snapshot.value.requestViewMode = mode
     }
 
-    function setResponseViewMode(mode: ConversationDetailDataViewMode): void {
+    function setResponseViewMode(mode: FunctioncallDetailDataViewMode): void {
       snapshot.value.responseViewMode = mode
     }
 
@@ -143,7 +143,7 @@ export const useNormalChatConversationDetailShellStore = defineStore(
       snapshot,
       detail,
       dialogTitle,
-      llmCallItems,
+      functionCallItems,
       selectedCallItem,
       breadcrumbText,
       formattedSelectedCallRequest,
@@ -161,7 +161,7 @@ export const useNormalChatConversationDetailShellStore = defineStore(
   }
 )
 
-function formatPayload(value: unknown, mode: ConversationDetailDataViewMode): string {
+function formatPayload(value: unknown, mode: FunctioncallDetailDataViewMode): string {
   if (mode === 'yaml') {
     return toYaml(value)
   }

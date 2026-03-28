@@ -3,11 +3,8 @@ import type {
   NormalChatConversationTurnRequestRecord,
   NormalChatConversationTurnResponseRecord
 } from '@preload/types'
-import { conversationDetailShellMockApi } from './conversation-detail-shell.mock'
-import type {
-  ConversationDetailShellRecord,
-  ConversationDetailShellSnapshot
-} from './conversation-detail-shell.types'
+import { chatDetailShellMockApi } from './chat-detail-shell.mock'
+import type { ChatDetailShellRecord, ChatDetailShellSnapshot } from './chat-detail-shell.types'
 
 function unwrap<T>(response: { success: boolean; data?: T; error?: string }): T {
   if (!response.success) {
@@ -52,7 +49,7 @@ function buildPrimaryCallResponsePayload(
 function buildPrimaryCallSummary(detail: NormalChatConversationTurnDetail): string {
   const promptCount = detail.requestRecord?.promptMessages.length ?? 0
   const modelName = detail.runtimeTrace?.metrics?.modelName || detail.requestRecord?.modelId || '--'
-  return `Prompt ${promptCount} 条，模型 ${modelName}`
+  return `Prompt ${promptCount} messages / model ${modelName}`
 }
 
 function buildPrimaryCallStatus(detail: NormalChatConversationTurnDetail): {
@@ -79,7 +76,7 @@ function buildPrimaryCallStatus(detail: NormalChatConversationTurnDetail): {
   }
 }
 
-function toRecord(detail: NormalChatConversationTurnDetail): ConversationDetailShellRecord {
+function toRecord(detail: NormalChatConversationTurnDetail): ChatDetailShellRecord {
   const assistantMessage = detail.messages.find((message) => message.role === 'assistant') ?? null
   const finalMessageText = assistantMessage?.parts
     .filter((part) => part.kind === 'text')
@@ -93,7 +90,10 @@ function toRecord(detail: NormalChatConversationTurnDetail): ConversationDetailS
     messageId: assistantMessage?.id ?? '',
     assistantName: detail.assistantName,
     topicTitle: detail.topicTitle,
-    description: detail.responseRecord?.finalText || finalMessageText || 'Conversation detail loaded from backend.',
+    description:
+      detail.responseRecord?.finalText ||
+      finalMessageText ||
+      'Conversation detail loaded from backend.',
     calls: [
       {
         id: 'primary-llm-call',
@@ -115,26 +115,14 @@ function toRecord(detail: NormalChatConversationTurnDetail): ConversationDetailS
   }
 }
 
-export class ConversationDetailShellDatasource {
-  async loadSnapshot(): Promise<ConversationDetailShellSnapshot> {
-    return {
-      visible: false,
-      requestId: '',
-      messageId: '',
-      focusCallId: '',
-      currentPage: 'overview',
-      selectedCallId: '',
-      requestViewMode: 'json',
-      responseViewMode: 'json',
-      loading: false,
-      errorText: '',
-      detailByRequestId: {}
-    }
+export class ChatDetailShellDatasource {
+  async loadSnapshot(): Promise<ChatDetailShellSnapshot> {
+    return chatDetailShellMockApi.createSnapshot()
   }
 
-  async getConversationDetail(requestId: string): Promise<ConversationDetailShellRecord> {
+  async getConversationDetail(requestId: string): Promise<ChatDetailShellRecord> {
     if (!requestId) {
-      return conversationDetailShellMockApi.getConversationDetail('')
+      return chatDetailShellMockApi.getConversationDetail('')
     }
 
     const detail = await window.api.normalChat
@@ -143,7 +131,7 @@ export class ConversationDetailShellDatasource {
       .catch(() => null)
 
     if (!detail) {
-      return conversationDetailShellMockApi.getConversationDetail(requestId)
+      return chatDetailShellMockApi.getConversationDetail(requestId)
     }
 
     return toRecord(detail)

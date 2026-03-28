@@ -1,6 +1,6 @@
 <template>
   <div
-    v-if="visible"
+    v-if="snapshot.visible"
     class="nc-agent-tree-dialog-a9k2 fixed inset-0 z-[75] flex items-center justify-center bg-black/20 backdrop-blur-[1px]"
   >
     <div
@@ -8,16 +8,19 @@
     >
       <div class="flex items-start justify-between gap-4 border-b border-gray-100 px-6 py-4">
         <div class="min-w-0">
-          <h2 class="truncate text-[16px] font-semibold text-gray-900">Agent Tree</h2>
+          <h2 class="truncate text-[16px] font-semibold text-gray-900">
+            {{ dialogTitle || 'Agent Runtime' }}
+          </h2>
           <p class="mt-1 text-[12px] leading-5 text-gray-500">
-            展示当前 request 的递归式 director / worker / repair 运行树和每轮 plan JSON。
+            Runtime tree, summary, and plan history are loaded from the dedicated agent detail
+            shell.
           </p>
         </div>
 
         <button
           class="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
           type="button"
-          @click="emit('update:visible', false)"
+          @click="agentDetailStore.closeDialog"
         >
           <X class="h-5 w-5" />
         </button>
@@ -28,11 +31,25 @@
           v-if="!tree || !rootNode"
           class="flex h-full items-center justify-center text-[13px] text-gray-400"
         >
-          当前 request 还没有可用的 agent tree。
+          No agent runtime tree is available for this turn.
         </div>
 
         <div v-else class="space-y-4">
-          <AgentStatusBarBlock :request-id="requestId" @open-tree="noop" />
+          <div class="rounded-2xl border border-sky-100 bg-sky-50/80 px-4 py-4">
+            <p class="text-[12px] font-semibold uppercase tracking-[0.12em] text-sky-700">
+              Agent Runtime Summary
+            </p>
+            <p v-if="summary" class="mt-2 text-[13px] leading-6 text-sky-900">
+              {{ summary.totalAgents }} agents, {{ summary.runningAgents }} running,
+              {{ summary.completedAgents }} completed, {{ summary.failedAgents }} failed, max depth
+              {{ summary.maxDepth }}
+              <span v-if="summary.fallbackTriggered">, fallback triggered</span>
+            </p>
+            <p class="mt-2 text-[12px] text-sky-700/80">
+              Source: {{ detail?.sourceLabel ?? 'unknown' }}
+            </p>
+          </div>
+
           <AgentTreeNode :node="rootNode" :tree="tree" />
         </div>
       </div>
@@ -41,37 +58,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { storeToRefs } from 'pinia'
 import { X } from 'lucide-vue-next'
-import { useNormalChatRuntimeTraceStore } from '@renderer/stores/normal-chat/runtime-trace/store'
-import AgentStatusBarBlock from './AgentStatusBarBlock.vue'
+import { useNormalChatAgentDetailShellStore } from '@renderer/stores/normal-chat/agent-detail-shell/agent-detail-shell.store'
 import AgentTreeNode from './AgentTreeNode.vue'
 
-const props = defineProps<{
-  visible: boolean
-  requestId: string
-}>()
-
-const emit = defineEmits<{
-  'update:visible': [value: boolean]
-}>()
-
-const agentTraceStore = useNormalChatRuntimeTraceStore()
-
-const tree = computed(() => {
-  // TODO(normal-chat-rewrite): 兼容旧运行树数据，后续改为新系统的数据查询接口。
-  return props.requestId ? agentTraceStore.getTreeByRequestId(props.requestId) : null
-})
-
-const rootNode = computed(() => {
-  if (!tree.value?.rootAgentId) {
-    return null
-  }
-
-  return tree.value.agents[tree.value.rootAgentId] ?? null
-})
-
-function noop(): void {
-  // dialog 内不需要二次打开
-}
+const agentDetailStore = useNormalChatAgentDetailShellStore()
+const { snapshot, detail, dialogTitle, tree, summary, rootNode } = storeToRefs(agentDetailStore)
 </script>
