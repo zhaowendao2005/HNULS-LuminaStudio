@@ -3,13 +3,12 @@ import type {
   NormalChatSendMessageAccepted,
   NormalChatConversationSnapshot,
   NormalChatConversationStreamEvent,
-  NormalChatConversationTurnDetail,
+  NormalChatTaskDetail,
   NormalChatDeleteConversationTurnRequest,
   NormalChatGetConversationTurnDetailRequest,
   NormalChatGetConversationRequest,
   NormalChatSendMessageRequest
 } from '@preload/types'
-import { normalChatConversationMock } from './conversation.mock'
 
 function unwrap<T>(response: { success: boolean; data?: T; error?: string }): T {
   if (!response.success) {
@@ -25,7 +24,7 @@ export interface NormalChatConversationDatasourceLike {
   ): Promise<NormalChatConversationSnapshot>
   getConversationTurnDetail(
     payload: NormalChatGetConversationTurnDetailRequest
-  ): Promise<NormalChatConversationTurnDetail | null>
+  ): Promise<NormalChatTaskDetail | null>
   sendMessage(payload: NormalChatSendMessageRequest): Promise<NormalChatSendMessageAccepted>
   deleteConversationTurn(payload: NormalChatDeleteConversationTurnRequest): Promise<void>
   abort(payload: NormalChatAbortRequest): Promise<void>
@@ -63,10 +62,6 @@ export function setNormalChatConversationDatasourceForTesting(
 
 export function resetNormalChatConversationDatasourceForTesting(): void {
   datasource = realDatasource
-}
-
-export function useNormalChatConversationMockDatasourceForTesting(): void {
-  datasource = normalChatConversationMock
 }
 
 export const NormalChatConversationDatasource: NormalChatConversationDatasourceLike = {

@@ -1,3 +1,4 @@
+import type { NormalChatTaskExecutionSnapshot } from '@preload/types'
 import type { NormalChatActionResultRecord } from '../actions/shared/action-result-projection'
 import type { NormalChatResolvedAction } from '../actions/shared/action.types'
 
@@ -16,8 +17,7 @@ export interface NormalChatScriptRoundInput {
   requestId: string
   topicId: string
   taskId: string
-  assistantName: string
-  question: string
+  executionSnapshot: NormalChatTaskExecutionSnapshot
   roundIndex: number
   agentDepth: number
   parentAgentRunId: string | null
@@ -28,5 +28,5 @@ export interface NormalChatScriptRoundInput {
 }
 
 export interface NormalChatModelAdapter {
-  invokeRound(input: NormalChatScriptRoundInput): Promise<unknown>
+  invokeRound(input: NormalChatScriptRoundInput): Promise<string>
 }

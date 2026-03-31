@@ -1,3 +1,8 @@
+/**
+ * @deprecated This store is not connected to the current normal-chat renderer flow.
+ * Draft/input state now lives in conversation.store.ts.
+ * Keep only as a temporary migration island until the directory is removed.
+ */
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { useNormalChatWorkspaceStore } from '../workspace/workspace.store'

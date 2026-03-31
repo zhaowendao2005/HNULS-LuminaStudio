@@ -1,8 +1,4 @@
-import type {
-  NormalChatConversationTurnDetail,
-  NormalChatFunctionCallMessagePart
-} from '@preload/types'
-import { functioncallDetailShellMockApi } from './functioncall-detail-shell.mock'
+import type { NormalChatTaskDetail, NormalChatActionRunSnapshot } from '@preload/types'
 import type {
   FunctioncallDetailShellCallItem,
   FunctioncallDetailShellRecord,
@@ -17,60 +13,88 @@ function unwrap<T>(response: { success: boolean; data?: T; error?: string }): T 
   return response.data as T
 }
 
-function formatStatusLabel(status: NormalChatFunctionCallMessagePart['status']): string {
-  if (status === 'success') return 'Completed'
-  if (status === 'error') return 'Error'
+function createEmptySnapshot(): FunctioncallDetailShellSnapshot {
+  return {
+    visible: false,
+    requestId: '',
+    messageId: '',
+    currentPage: 'overview',
+    selectedCallId: '',
+    requestViewMode: 'json',
+    responseViewMode: 'json',
+    loading: false,
+    errorText: '',
+    detailByRequestId: {}
+  }
+}
+
+function formatStatusLabel(status: NormalChatActionRunSnapshot['status']): string {
+  if (status === 'succeeded') return 'Completed'
+  if (status === 'failed') return 'Error'
   if (status === 'aborted') return 'Aborted'
   if (status === 'queued') return 'Queued'
   return 'Running'
 }
 
-function formatStatusClass(status: NormalChatFunctionCallMessagePart['status']): string {
-  if (status === 'success') return 'bg-emerald-100 text-emerald-700'
-  if (status === 'error') return 'bg-rose-100 text-rose-700'
+function formatStatusClass(status: NormalChatActionRunSnapshot['status']): string {
+  if (status === 'succeeded') return 'bg-emerald-100 text-emerald-700'
+  if (status === 'failed') return 'bg-rose-100 text-rose-700'
   if (status === 'aborted') return 'bg-amber-100 text-amber-700'
   if (status === 'queued') return 'bg-slate-100 text-slate-600'
   return 'bg-sky-100 text-sky-700'
 }
 
 function toCallItem(
-  part: NormalChatFunctionCallMessagePart,
+  call: NormalChatActionRunSnapshot,
   index: number
 ): FunctioncallDetailShellCallItem {
   return {
-    id: part.callId,
+    id: call.id,
     indexLabel: `#${index + 1}`,
-    title: part.title,
-    summary: part.decisionReason || `${part.functionCallName} / round ${part.roundIndex}`,
-    contextText: `Round ${part.roundIndex} / batch ${part.batchIndex + 1} / parallel ${part.parallelIndex + 1}`,
-    badge: part.functionCallName,
-    statusLabel: formatStatusLabel(part.status),
-    statusClass: formatStatusClass(part.status),
+    title: call.actionKey,
+    summary: `${call.actionKind} / round ${call.roundIndex}`,
+    contextText: `Round ${call.roundIndex} / batch ${call.batchIndex + 1} / parallel ${call.parallelIndex + 1}`,
+    badge: call.actionKey,
+    statusLabel: formatStatusLabel(call.status),
+    statusClass: formatStatusClass(call.status),
     requestPayload: {
-      functionCallName: part.functionCallName,
-      input: part.input,
-      decisionReason: part.decisionReason,
-      roundIndex: part.roundIndex,
-      batchIndex: part.batchIndex,
-      parallelIndex: part.parallelIndex,
-      depth: part.depth
+      actionKey: call.actionKey,
+      actionKind: call.actionKind,
+      mode: call.mode,
+      inputJson: call.inputJson,
+      roundIndex: call.roundIndex,
+      batchIndex: call.batchIndex,
+      parallelIndex: call.parallelIndex
     },
     responsePayload: {
-      output: part.output,
-      errorMessage: part.errorMessage,
-      isStreaming: part.isStreaming,
-      status: part.status
+      outputJson: call.outputJson,
+      errorMessage: call.errorMessage,
+      status: call.status,
+      startedAt: call.startedAt,
+      finishedAt: call.finishedAt
     },
-    part
+    part: {
+      kind: 'functioncall',
+      callId: call.id,
+      functionCallName: call.actionKey,
+      title: call.actionKey,
+      status:
+        call.status === 'succeeded' ? 'success' : call.status === 'failed' ? 'error' : call.status,
+      input: call.inputJson,
+      output: call.outputJson ?? '',
+      errorMessage: call.errorMessage,
+      isStreaming: false,
+      roundIndex: call.roundIndex,
+      batchIndex: call.batchIndex,
+      parallelIndex: call.parallelIndex,
+      depth: 0,
+      decisionReason: null
+    }
   }
 }
 
-function toRecord(detail: NormalChatConversationTurnDetail): FunctioncallDetailShellRecord {
+function toRecord(detail: NormalChatTaskDetail): FunctioncallDetailShellRecord {
   const assistantMessage = detail.messages.find((message) => message.role === 'assistant') ?? null
-  const functionCalls =
-    assistantMessage?.parts.filter(
-      (part): part is NormalChatFunctionCallMessagePart => part.kind === 'functioncall'
-    ) ?? []
 
   return {
     requestId: detail.requestId,
@@ -78,30 +102,27 @@ function toRecord(detail: NormalChatConversationTurnDetail): FunctioncallDetailS
     assistantName: detail.assistantName,
     topicTitle: detail.topicTitle,
     description:
-      functionCalls.length > 0
-        ? `Found ${functionCalls.length} functioncall record(s) in this assistant turn.`
-        : 'No functioncalls were emitted in this assistant turn.',
-    calls: functionCalls.map((part, index) => toCallItem(part, index))
+      detail.actionRuns.length > 0
+        ? `Found ${detail.actionRuns.length} functioncall record(s) in this task.`
+        : 'No functioncalls were emitted in this task.',
+    calls: detail.actionRuns.map((call, index) => toCallItem(call, index))
   }
 }
 
 export class FunctioncallDetailShellDatasource {
   async loadSnapshot(): Promise<FunctioncallDetailShellSnapshot> {
-    return functioncallDetailShellMockApi.createSnapshot()
+    return createEmptySnapshot()
   }
 
   async getConversationDetail(requestId: string): Promise<FunctioncallDetailShellRecord> {
     if (!requestId) {
-      return functioncallDetailShellMockApi.getConversationDetail('')
+      throw new Error('Missing requestId for functioncall detail.')
     }
 
-    const detail = await window.api.normalChat
-      .getConversationTurnDetail({ requestId })
-      .then(unwrap)
-      .catch(() => null)
+    const detail = await window.api.normalChat.getConversationTurnDetail({ requestId }).then(unwrap)
 
     if (!detail) {
-      return functioncallDetailShellMockApi.getConversationDetail(requestId)
+      throw new Error(`Task detail not found for request ${requestId}.`)
     }
 
     return toRecord(detail)

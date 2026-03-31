@@ -76,7 +76,7 @@ export class NormalChatModelCallsRepository {
       .run(nextText, timestamp, modelCallId)
   }
 
-  markCompleted(
+  markSucceeded(
     modelCallId: string,
     responseEnvelopeJson: string,
     finalReplyMd: string,
@@ -86,7 +86,7 @@ export class NormalChatModelCallsRepository {
     this.db
       .prepare(
         `UPDATE normal_chat_model_calls
-         SET status = 'completed',
+         SET status = 'succeeded',
              response_envelope_json = ?,
              final_reply_md = ?,
              response_stream_text = ?,

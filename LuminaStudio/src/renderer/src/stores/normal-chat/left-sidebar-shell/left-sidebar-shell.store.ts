@@ -1,3 +1,8 @@
+/**
+ * @deprecated This store is not connected to the current normal-chat renderer flow.
+ * Sidebar state now lives in workspace/layout-related stores.
+ * Keep only as a temporary migration island until the directory is removed.
+ */
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { LeftSidebarShellDatasource } from './left-sidebar-shell.datasource'

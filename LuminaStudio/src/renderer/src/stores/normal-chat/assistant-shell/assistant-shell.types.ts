@@ -1,4 +1,7 @@
 /**
+ * @deprecated Unused legacy shell types. This directory is not wired into the current normal-chat renderer flow.
+ */
+/**
  * NormalChat 助手壳层类型
  * 说明：覆盖顶部面包屑、系统提示条、设置弹窗这类 UI 状态。
  */

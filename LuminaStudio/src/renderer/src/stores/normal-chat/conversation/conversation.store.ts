@@ -1,19 +1,16 @@
 import { computed, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 import type {
-  NormalChatConversationTurnDetail,
-  NormalChatConversationMessage,
-  NormalChatConversationRuntimeTraceUpsertEvent,
-  NormalChatConversationTurnDetailUpsertEvent,
   NormalChatConversationSnapshot,
+  NormalChatConversationMessage,
   NormalChatConversationStreamEvent,
   NormalChatFunctionCallMessagePart,
   NormalChatMessagePart,
   NormalChatRequestMetrics,
+  NormalChatTaskDetail,
   NormalChatTopic
 } from '@preload/types'
 import { useNormalChatWorkspaceStore } from '../workspace/workspace.store'
-import { useNormalChatRuntimeTraceStore } from '../runtime-trace/store'
 import { NormalChatConversationDatasource } from './conversation.datasource'
 import type { NormalChatConversationDisplayMessage } from './conversation.types'
 
@@ -27,7 +24,7 @@ interface ConversationRuntimeState {
   lastErrorByTopicId: Record<string, string>
   lastErrorDetailByTopicId: Record<string, string>
   requestMetricsByRequestId: Record<string, NormalChatRequestMetrics | null>
-  turnDetailByRequestId: Record<string, NormalChatConversationTurnDetail | null>
+  taskDetailByRequestId: Record<string, NormalChatTaskDetail | null>
 }
 
 function createEmptyState(): ConversationRuntimeState {
@@ -41,7 +38,7 @@ function createEmptyState(): ConversationRuntimeState {
     lastErrorByTopicId: {},
     lastErrorDetailByTopicId: {},
     requestMetricsByRequestId: {},
-    turnDetailByRequestId: {}
+    taskDetailByRequestId: {}
   }
 }
 
@@ -147,9 +144,23 @@ function upsertPendingFunctionCallPart(
   }
 }
 
+function buildRequestMetrics(detail: NormalChatTaskDetail): NormalChatRequestMetrics {
+  return {
+    providerId: detail.modelProviderId,
+    providerName: detail.modelProviderId,
+    modelId: detail.modelId,
+    modelName: detail.modelId,
+    firstTokenLatencyMs: null,
+    promptTokens: null,
+    completionTokens: null,
+    totalTokens: null,
+    modelCallCount: detail.modelCalls.length,
+    streamingEnabled: detail.executionSnapshot.runtime.streamingEnabled
+  }
+}
+
 export const useNormalChatConversationStore = defineStore('normal-chat-conversation', () => {
   const workspaceStore = useNormalChatWorkspaceStore()
-  const runtimeTraceStore = useNormalChatRuntimeTraceStore()
   const state = ref<ConversationRuntimeState>(createEmptyState())
   const initialized = ref(false)
 
@@ -236,25 +247,8 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
     return state.value.activeRequestIdByTopicId[topicId] ?? null
   }
 
-  function getConversationTurnDetailCached(
-    requestId: string
-  ): NormalChatConversationTurnDetail | null {
-    return state.value.turnDetailByRequestId[requestId] ?? null
-  }
-
-  function updateTurnDetailCache(
-    requestId: string,
-    updater: (detail: NormalChatConversationTurnDetail) => NormalChatConversationTurnDetail
-  ): void {
-    const currentDetail = state.value.turnDetailByRequestId[requestId]
-    if (!currentDetail) {
-      return
-    }
-
-    state.value.turnDetailByRequestId = {
-      ...state.value.turnDetailByRequestId,
-      [requestId]: updater(currentDetail)
-    }
+  function getConversationTurnDetailCached(requestId: string): NormalChatTaskDetail | null {
+    return state.value.taskDetailByRequestId[requestId] ?? null
   }
 
   function setTopicActiveRequestId(topicId: string, requestId: string | null): void {
@@ -283,14 +277,13 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
     }
 
     const detail = await NormalChatConversationDatasource.getConversationTurnDetail({ requestId })
-    runtimeTraceStore.hydrateTurnDetail(detail)
-    state.value.turnDetailByRequestId = {
-      ...state.value.turnDetailByRequestId,
+    state.value.taskDetailByRequestId = {
+      ...state.value.taskDetailByRequestId,
       [requestId]: detail
     }
     state.value.requestMetricsByRequestId = {
       ...state.value.requestMetricsByRequestId,
-      [requestId]: detail?.runtimeTrace?.metrics ?? null
+      [requestId]: detail ? buildRequestMetrics(detail) : null
     }
     return detail
   }
@@ -301,12 +294,11 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
     }
 
     await NormalChatConversationDatasource.deleteConversationTurn({ requestId })
-    runtimeTraceStore.deleteRequestTrace(requestId)
-    const nextTurnDetailByRequestId = { ...state.value.turnDetailByRequestId }
+    const nextTaskDetailByRequestId = { ...state.value.taskDetailByRequestId }
     const nextRequestMetricsByRequestId = { ...state.value.requestMetricsByRequestId }
-    delete nextTurnDetailByRequestId[requestId]
+    delete nextTaskDetailByRequestId[requestId]
     delete nextRequestMetricsByRequestId[requestId]
-    state.value.turnDetailByRequestId = nextTurnDetailByRequestId
+    state.value.taskDetailByRequestId = nextTaskDetailByRequestId
     state.value.requestMetricsByRequestId = nextRequestMetricsByRequestId
     if (currentTopicId.value) {
       await loadTopicConversation(currentTopicId.value)
@@ -330,16 +322,6 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
     next.push(message)
     next.sort((a, b) => a.createdAt.localeCompare(b.createdAt))
     setTopicMessages(message.topicId, next)
-
-    updateTurnDetailCache(message.requestId, (detail) => {
-      const nextMessages = detail.messages.filter((item) => item.id !== message.id)
-      nextMessages.push(message)
-      nextMessages.sort((a, b) => a.createdAt.localeCompare(b.createdAt))
-      return {
-        ...detail,
-        messages: nextMessages
-      }
-    })
   }
 
   function upsertPendingAssistantMessage(
@@ -401,76 +383,6 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
     )
   }
 
-  function appendTurnDetailChunk(requestId: string, delta: string): void {
-    updateTurnDetailCache(requestId, (detail) => {
-      if (!detail.responseRecord) {
-        return detail
-      }
-
-      return {
-        ...detail,
-        responseRecord: {
-          ...detail.responseRecord,
-          chunks: [...detail.responseRecord.chunks, delta],
-          finalText: `${detail.responseRecord.finalText ?? ''}${delta}`
-        }
-      }
-    })
-  }
-
-  function upsertTurnDetailFunctionCallPart(
-    requestId: string,
-    part: NormalChatFunctionCallMessagePart
-  ): void {
-    updateTurnDetailCache(requestId, (detail) => {
-      const targetIndex = detail.messages.findIndex((message) => message.role === 'assistant')
-      const nextMessages = [...detail.messages]
-      const targetMessage =
-        targetIndex >= 0
-          ? nextMessages[targetIndex]
-          : createPendingAssistantMessage(detail.topicId, requestId)
-
-      const nextMessage = upsertPendingFunctionCallPart(targetMessage, part)
-      if (targetIndex >= 0) {
-        nextMessages[targetIndex] = nextMessage
-      } else {
-        nextMessages.push(nextMessage)
-      }
-
-      return {
-        ...detail,
-        messages: nextMessages
-      }
-    })
-  }
-
-  function upsertTurnDetailMetrics(requestId: string, metrics: NormalChatRequestMetrics): void {
-    state.value.requestMetricsByRequestId = {
-      ...state.value.requestMetricsByRequestId,
-      [requestId]: metrics
-    }
-
-    updateTurnDetailCache(requestId, (detail) => ({
-      ...detail,
-      runtimeTrace: detail.runtimeTrace
-        ? {
-            ...detail.runtimeTrace,
-            metrics
-          }
-        : detail.runtimeTrace
-    }))
-  }
-
-  function upsertTurnDetailRuntimeTrace(
-    requestId: string,
-    runtimeTrace: NormalChatConversationRuntimeTraceUpsertEvent['runtimeTrace']
-  ): void {
-    updateTurnDetailCache(requestId, (detail) => ({
-      ...detail,
-      runtimeTrace
-    }))
-  }
-
   function clearPendingAssistantMessage(topicId: string): void {
     const next = { ...state.value.pendingAssistantMessageByTopicId }
     delete next[topicId]
@@ -507,9 +419,7 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
 
     try {
       const snapshot: NormalChatConversationSnapshot =
-        await NormalChatConversationDatasource.getConversation({
-          topicId
-        })
+        await NormalChatConversationDatasource.getConversation({ topicId })
       setTopicMessages(snapshot.topicId, snapshot.messages)
       const assistantRequestIds = Array.from(
         new Set(
@@ -563,33 +473,11 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
 
         if (event.type === 'assistant-part-upsert' && event.part.kind === 'functioncall') {
           upsertPendingFunctionCall(event.topicId, event.requestId, event.part)
-          upsertTurnDetailFunctionCallPart(event.requestId, event.part)
-          return
-        }
-
-        if (event.type === 'runtime-trace-upsert') {
-          // TODO(normal-chat-rewrite): 先兼容旧 runtime-trace 事件，后续替换为新系统事件流。
-          runtimeTraceStore.upsertRuntimeTrace(
-            event as NormalChatConversationRuntimeTraceUpsertEvent
-          )
-          upsertTurnDetailRuntimeTrace(event.requestId, event.runtimeTrace)
-          if (event.runtimeTrace.metrics) {
-            upsertTurnDetailMetrics(event.requestId, event.runtimeTrace.metrics)
-          }
-          return
-        }
-
-        if (event.type === 'turn-detail-upsert') {
-          const requestId = (event as NormalChatConversationTurnDetailUpsertEvent).requestId
-          if (!getConversationTurnDetailCached(requestId)) {
-            void loadConversationTurnDetail(requestId)
-          }
           return
         }
 
         if (event.type === 'assistant-final-chunk') {
           appendPendingText(event.topicId, event.requestId, event.delta)
-          appendTurnDetailChunk(event.requestId, event.delta)
           return
         }
 
@@ -612,11 +500,7 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
         }
 
         if (event.type === 'error') {
-          setTopicActiveRequestId(event.topicId, null)
-          clearPendingAssistantMessage(event.topicId)
-          setStatusText(event.topicId, '')
           setLastError(event.topicId, event.message, event.rawErrorJson ?? '')
-          void loadConversationTurnDetail(event.requestId)
         }
       }
     )

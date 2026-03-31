@@ -1,3 +1,6 @@
+/**
+ * @deprecated Unused legacy shell datasource. This directory is not wired into the current normal-chat renderer flow.
+ */
 import { conversationShellMock } from './conversation-shell.mock'
 import type { ConversationShellSnapshot } from './conversation-shell.types'
 

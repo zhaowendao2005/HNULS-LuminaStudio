@@ -1,11 +1,13 @@
 export function buildOutputContractSection(): string {
   return [
     '## OutputContract',
-    'Return a JSON envelope with these fields only:',
-    '- api_meta_md: markdown status/thinking text',
-    '- reply_md: markdown reply for the user or current plan, must not be empty',
-    '- wants_action: boolean',
-    '- action_calls: array of { actionKey, input }',
-    'If wants_action is false, action_calls must be an empty array.'
+    'Write the user-facing content as normal Markdown.',
+    'If you need the program to execute an action, append one or more fenced code blocks tagged normal_chat_action.',
+    'Each normal_chat_action block must contain exactly one JSON object with this shape:',
+    '{"actionKey":"...","input":{...}}',
+    'Do not wrap the whole response in a JSON object.',
+    'Do not use ordinary ```json blocks for executable actions.',
+    'If you output any normal_chat_action block, you must still provide non-empty Markdown outside the blocks to explain your plan or reasoning summary.',
+    'If no action is needed, output only Markdown and no normal_chat_action block.'
   ].join('\n')
 }

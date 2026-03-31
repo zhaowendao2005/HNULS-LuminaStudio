@@ -1,26 +1,21 @@
 import type Database from 'better-sqlite3'
-import type {
-  NormalChatConversationRuntimeTrace,
-  NormalChatConversationSnapshot,
-  NormalChatConversationTurnDetail,
-  NormalChatConversationTurnRequestRecord,
-  NormalChatConversationTurnResponseRecord
-} from '@preload/types'
+import type { NormalChatConversationSnapshot, NormalChatTaskDetail } from '@preload/types'
 import { NormalChatActionRunsRepository } from '../repositories/action-runs.repository'
+import { NormalChatAgentRunsRepository } from '../repositories/agent-runs.repository'
 import { NormalChatMessagesRepository } from '../repositories/messages.repository'
 import { NormalChatModelCallsRepository } from '../repositories/model-calls.repository'
+import { NormalChatRuntimeEventsRepository } from '../repositories/runtime-events.repository'
 import { NormalChatTasksRepository } from '../repositories/tasks.repository'
-import { NormalChatTurnTracesRepository } from '../repositories/turn-traces.repository'
-import { parseJson } from '../shared/utils'
 
 export class NormalChatConversationService {
   constructor(
     private readonly db: Database.Database,
     private readonly messagesRepository: NormalChatMessagesRepository,
     private readonly modelCallsRepository: NormalChatModelCallsRepository,
-    private readonly turnTracesRepository: NormalChatTurnTracesRepository,
     private readonly tasksRepository: NormalChatTasksRepository,
-    private readonly actionRunsRepository: NormalChatActionRunsRepository
+    private readonly actionRunsRepository: NormalChatActionRunsRepository,
+    private readonly agentRunsRepository: NormalChatAgentRunsRepository,
+    private readonly runtimeEventsRepository: NormalChatRuntimeEventsRepository
   ) {}
 
   getConversation(topicId: string): NormalChatConversationSnapshot {
@@ -30,38 +25,38 @@ export class NormalChatConversationService {
     }
   }
 
-  getConversationTurnDetail(requestId: string): NormalChatConversationTurnDetail | null {
-    const trace = this.turnTracesRepository.getByRequest(requestId)
-    if (!trace) {
+  getConversationTurnDetail(requestId: string): NormalChatTaskDetail | null {
+    const task = this.tasksRepository.getByRequest(requestId)
+    if (!task) {
       return null
     }
 
-    const task = this.tasksRepository.getByRequest(requestId)
-    const runtimeTrace = parseJson(
-      trace.runtimeTraceJson,
-      null as NormalChatConversationRuntimeTrace | null
-    )
+    const executionSnapshot = task.executionSnapshot
 
     return {
-      requestId: trace.requestId,
-      topicId: trace.topicId,
-      assistantId: trace.assistantId,
-      assistantName: trace.assistantName,
-      assistantEmoji: trace.assistantEmoji,
-      topicTitle: trace.topicTitle,
-      hasTrace: Boolean(runtimeTrace?.agentTree),
-      requestRecord: parseJson(
-        trace.requestRecordJson,
-        null as NormalChatConversationTurnRequestRecord | null
-      ),
-      responseRecord: parseJson(
-        trace.responseRecordJson,
-        null as NormalChatConversationTurnResponseRecord | null
-      ),
-      runtimeTrace,
+      taskId: task.taskId,
+      requestId: task.requestId,
+      conversationId: task.conversationId,
+      topicId: task.topicId,
+      assistantId: task.assistantId,
+      assistantName: executionSnapshot.assistant.name,
+      assistantEmoji: executionSnapshot.assistant.emoji,
+      topicTitle: executionSnapshot.topic.title,
+      status: task.status,
+      phase: task.phase,
+      modelProviderId: task.modelProviderId,
+      modelId: task.modelId,
+      errorMessage: task.errorMessage,
+      createdAt: task.createdAt,
+      startedAt: task.startedAt,
+      finishedAt: task.finishedAt,
+      executionSnapshot,
+      finalResponse: task.finalResponse,
       messages: this.messagesRepository.listByRequest(requestId),
+      agentRuns: this.agentRunsRepository.listByTaskId(task.taskId),
       modelCalls: this.modelCallsRepository.listByRequest(requestId),
-      actionRuns: task ? this.actionRunsRepository.listByTaskId(task.id) : []
+      actionRuns: this.actionRunsRepository.listByTaskId(task.taskId),
+      runtimeEvents: this.runtimeEventsRepository.listByRequest(requestId)
     }
   }
 
@@ -71,7 +66,6 @@ export class NormalChatConversationService {
       if (taskId) {
         this.tasksRepository.delete(taskId)
       }
-      this.turnTracesRepository.deleteByRequest(requestId)
       this.messagesRepository.deleteByRequest(requestId)
     })
     transaction()

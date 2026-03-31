@@ -184,28 +184,6 @@ export const NORMAL_CHAT_MESSAGES_TABLE: TableDefinition = {
   `
 }
 
-export const NORMAL_CHAT_TURN_TRACES_TABLE: TableDefinition = {
-  name: 'normal_chat_turn_traces',
-  createSQL: `
-    CREATE TABLE IF NOT EXISTS normal_chat_turn_traces (
-      request_id TEXT PRIMARY KEY,
-      topic_id TEXT NOT NULL,
-      assistant_id TEXT NOT NULL,
-      assistant_name TEXT NOT NULL,
-      assistant_emoji TEXT NOT NULL,
-      topic_title TEXT NOT NULL,
-      request_record_json TEXT,
-      response_record_json TEXT,
-      runtime_trace_json TEXT,
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (topic_id) REFERENCES normal_chat_topics(id) ON DELETE CASCADE
-    );
-    CREATE INDEX IF NOT EXISTS idx_normal_chat_turn_traces_topic
-      ON normal_chat_turn_traces(topic_id, created_at);
-  `
-}
-
 export const NORMAL_CHAT_TASKS_TABLE: TableDefinition = {
   name: 'normal_chat_tasks',
   createSQL: `
@@ -218,9 +196,13 @@ export const NORMAL_CHAT_TASKS_TABLE: TableDefinition = {
       user_message_id TEXT NOT NULL,
       assistant_message_id TEXT,
       root_agent_run_id TEXT,
-      status TEXT NOT NULL CHECK (status IN ('queued', 'running', 'completed', 'failed', 'aborted')),
+      status TEXT NOT NULL CHECK (status IN ('queued', 'running', 'succeeded', 'failed', 'aborted')),
+      phase TEXT NOT NULL CHECK (phase IN ('queued', 'preparing_context', 'building_prompt', 'awaiting_model', 'executing_actions', 'committing_message', 'finished')),
       model_provider_id TEXT NOT NULL,
       model_id TEXT NOT NULL,
+      execution_snapshot_json TEXT NOT NULL,
+      final_response_json TEXT,
+      last_event_seq INTEGER,
       error_message TEXT,
       created_at TEXT DEFAULT (datetime('now')),
       started_at TEXT,
@@ -239,28 +221,6 @@ export const NORMAL_CHAT_TASKS_TABLE: TableDefinition = {
   `
 }
 
-export const NORMAL_CHAT_TASK_SNAPSHOTS_TABLE: TableDefinition = {
-  name: 'normal_chat_task_snapshots',
-  createSQL: `
-    CREATE TABLE IF NOT EXISTS normal_chat_task_snapshots (
-      task_id TEXT PRIMARY KEY,
-      request_id TEXT NOT NULL UNIQUE,
-      conversation_id TEXT NOT NULL,
-      topic_id TEXT NOT NULL,
-      assistant_id TEXT NOT NULL,
-      agent_template_id TEXT NOT NULL,
-      user_input TEXT NOT NULL,
-      resolved_config_json TEXT NOT NULL,
-      history_messages_json TEXT NOT NULL,
-      prompt_injections_json TEXT NOT NULL,
-      request_payload_json TEXT NOT NULL,
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (task_id) REFERENCES normal_chat_tasks(id) ON DELETE CASCADE
-    );
-  `
-}
-
 export const NORMAL_CHAT_AGENT_RUNS_TABLE: TableDefinition = {
   name: 'normal_chat_agent_runs',
   createSQL: `
@@ -272,7 +232,7 @@ export const NORMAL_CHAT_AGENT_RUNS_TABLE: TableDefinition = {
       role_kind TEXT NOT NULL,
       template_id TEXT NOT NULL,
       goal TEXT NOT NULL,
-      status TEXT NOT NULL CHECK (status IN ('queued', 'running', 'completed', 'failed', 'aborted')),
+      status TEXT NOT NULL CHECK (status IN ('queued', 'running', 'succeeded', 'failed', 'aborted')),
       react_count INTEGER NOT NULL DEFAULT 0,
       max_react_steps INTEGER NOT NULL DEFAULT 0,
       max_child_depth INTEGER NOT NULL DEFAULT 0,
@@ -302,7 +262,7 @@ export const NORMAL_CHAT_ACTION_RUNS_TABLE: TableDefinition = {
       action_key TEXT NOT NULL,
       action_kind TEXT NOT NULL,
       mode TEXT,
-      status TEXT NOT NULL CHECK (status IN ('queued', 'running', 'success', 'error', 'aborted')),
+      status TEXT NOT NULL CHECK (status IN ('queued', 'running', 'succeeded', 'failed', 'aborted')),
       round_index INTEGER NOT NULL DEFAULT 0,
       batch_index INTEGER NOT NULL DEFAULT 0,
       parallel_index INTEGER NOT NULL DEFAULT 0,
@@ -335,7 +295,7 @@ export const NORMAL_CHAT_MODEL_CALLS_TABLE: TableDefinition = {
       depth INTEGER NOT NULL,
       round_index INTEGER NOT NULL,
       call_index_in_agent INTEGER NOT NULL,
-      status TEXT NOT NULL CHECK (status IN ('queued', 'running', 'completed', 'failed', 'aborted')),
+      status TEXT NOT NULL CHECK (status IN ('queued', 'running', 'succeeded', 'failed', 'aborted')),
       request_payload_json TEXT NOT NULL,
       compiled_prompt_json TEXT NOT NULL,
       compiled_prompt_markdown TEXT NOT NULL,
@@ -405,9 +365,7 @@ export const USERDATA_TABLES: TableDefinition[] = [
   NORMAL_CHAT_TOPIC_ACTION_OVERRIDES_TABLE,
   NORMAL_CHAT_CONVERSATIONS_TABLE,
   NORMAL_CHAT_MESSAGES_TABLE,
-  NORMAL_CHAT_TURN_TRACES_TABLE,
   NORMAL_CHAT_TASKS_TABLE,
-  NORMAL_CHAT_TASK_SNAPSHOTS_TABLE,
   NORMAL_CHAT_AGENT_RUNS_TABLE,
   NORMAL_CHAT_ACTION_RUNS_TABLE,
   NORMAL_CHAT_MODEL_CALLS_TABLE,

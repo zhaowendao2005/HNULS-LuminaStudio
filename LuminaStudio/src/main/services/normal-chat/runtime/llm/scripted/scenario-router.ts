@@ -2,18 +2,23 @@ import type { NormalChatScriptRoundInput } from '../model-adapter.interface'
 import { buildPubmedFastEnvelope } from './scenarios/pubmed-fast'
 import { buildPubmedSlowEnvelope } from './scenarios/pubmed-slow-full'
 
-export function routeScriptedScenario(input: NormalChatScriptRoundInput): Record<string, unknown> {
+/**
+ * @deprecated
+ * This scripted router is detached from the normal-chat production path.
+ * It remains only for isolated legacy verification and should not be referenced by runtime wiring.
+ */
+export function routeScriptedScenario(input: NormalChatScriptRoundInput): string {
   const pubmedAction = input.enabledActions.find(
     (action) => action.actionKey === 'functioncall.pubmed_search'
   )
 
   if (input.agentDepth > 0) {
-    return buildPubmedFastEnvelope(input)
+    return JSON.stringify(buildPubmedFastEnvelope(input))
   }
 
   if (pubmedAction?.mode === 'slow') {
-    return buildPubmedSlowEnvelope(input)
+    return JSON.stringify(buildPubmedSlowEnvelope(input))
   }
 
-  return buildPubmedFastEnvelope(input)
+  return JSON.stringify(buildPubmedFastEnvelope(input))
 }

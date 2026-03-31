@@ -56,7 +56,7 @@ export class NormalChatRoundPersistenceService {
     finalReplyMd: string,
     responseStreamText: string
   ): void {
-    this.modelCallsRepository.markCompleted(
+    this.modelCallsRepository.markSucceeded(
       modelCallId,
       JSON.stringify(responseEnvelope),
       finalReplyMd,

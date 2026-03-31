@@ -3,13 +3,14 @@ import type {
   NormalChatBootstrap,
   NormalChatConversationSnapshot,
   NormalChatConversationStreamEvent,
-  NormalChatConversationTurnDetail,
+  NormalChatTaskDetail,
   NormalChatSendMessageAccepted,
   NormalChatSendMessageRequest,
   NormalChatTopic,
   NormalChatWorkspaceSnapshot
 } from '@preload/types'
 import type { PaperRetrievalService } from '@main/services/paper-retrieval'
+import type { ModelConfigService } from '@main/services/model-config'
 import type { DatabaseManager } from '../../database-sqlite'
 import { NormalChatConversationConfigService } from '../conversation/conversation-config-service'
 import { NormalChatConversationService } from '../conversation/conversation-service'
@@ -24,11 +25,10 @@ import { NormalChatModelCallsRepository } from '../repositories/model-calls.repo
 import { NormalChatRuntimeEventsRepository } from '../repositories/runtime-events.repository'
 import { NormalChatTasksRepository } from '../repositories/tasks.repository'
 import { NormalChatTopicsRepository } from '../repositories/topics.repository'
-import { NormalChatTurnTracesRepository } from '../repositories/turn-traces.repository'
 import { NormalChatWorkspaceStateRepository } from '../repositories/workspace-state.repository'
 import { NormalChatAgentRuntime } from '../runtime/agent/agent-runtime'
 import { NormalChatRoundPersistenceService } from '../runtime/agent/round-persistence.service'
-import { NormalChatOutputEnvelopeParser } from '../runtime/agent/graph/output-envelope-parser'
+import { NormalChatAssistantOutputParser } from '../runtime/agent/response/assistant-output-parser'
 import { NormalChatAgentGraphRunner } from '../runtime/agent/graph/runner'
 import { NormalChatActionExecutorService } from '../runtime/actions/shared/action-executor.service'
 import { NormalChatActionResolutionService } from '../runtime/actions/shared/action-resolution.service'
@@ -37,7 +37,7 @@ import {
   NormalChatPubmedSearchAdapter,
   NormalChatPubmedSearchExecutor
 } from '../runtime/actions/functioncall/pubmed-search'
-import { NormalChatScriptedModelAdapter } from '../runtime/llm/scripted/scripted-model-adapter'
+import { NormalChatRealModelAdapter } from '../runtime/llm/real-model-adapter'
 import { NormalChatPromptBuilder } from '../runtime/prompt/prompt-builder'
 import { NormalChatQueueExecutor } from '../runtime/scheduler/queue-executor'
 import { NormalChatRuntimeService } from '../runtime/runtime-service'
@@ -45,15 +45,17 @@ import { NormalChatTaskScheduler } from '../runtime/scheduler/task-scheduler'
 import { NormalChatStreamPublisher } from '../runtime/streaming/stream-publisher'
 import { NormalChatWorkspaceService } from '../workspace/workspace-service'
 
-// 对外仍保留同一个 Service 入口，IPC / preload 无需感知内部拆分。
-// 这个类本身不承载业务逻辑，只负责组装依赖并把请求分发到对应子域。
 export class NormalChatService {
   private readonly streamPublisher: NormalChatStreamPublisher
   private readonly workspaceService: NormalChatWorkspaceService
   private readonly conversationService: NormalChatConversationService
   private readonly runtimeService: NormalChatRuntimeService
 
-  constructor(databaseManager: DatabaseManager, paperRetrievalService: PaperRetrievalService) {
+  constructor(
+    databaseManager: DatabaseManager,
+    paperRetrievalService: PaperRetrievalService,
+    modelConfigService: ModelConfigService
+  ) {
     const db = databaseManager.getDatabase('userdata')
 
     const labelsRepository = new NormalChatLabelsRepository(db)
@@ -64,11 +66,11 @@ export class NormalChatService {
     const conversationsRepository = new NormalChatConversationsRepository(db)
     const messagesRepository = new NormalChatMessagesRepository(db)
     const modelCallsRepository = new NormalChatModelCallsRepository(db)
-    const turnTracesRepository = new NormalChatTurnTracesRepository(db)
     const tasksRepository = new NormalChatTasksRepository(db)
     const agentRunsRepository = new NormalChatAgentRunsRepository(db)
     const actionRunsRepository = new NormalChatActionRunsRepository(db)
     const runtimeEventsRepository = new NormalChatRuntimeEventsRepository(db)
+    const actionResolutionService = new NormalChatActionResolutionService()
 
     this.streamPublisher = new NormalChatStreamPublisher(runtimeEventsRepository)
 
@@ -85,9 +87,10 @@ export class NormalChatService {
       db,
       messagesRepository,
       modelCallsRepository,
-      turnTracesRepository,
       tasksRepository,
-      actionRunsRepository
+      actionRunsRepository,
+      agentRunsRepository,
+      runtimeEventsRepository
     )
 
     const promptBuilder = new NormalChatPromptBuilder()
@@ -96,7 +99,6 @@ export class NormalChatService {
       agentRunsRepository,
       actionRunsRepository,
       modelCallsRepository,
-      turnTracesRepository,
       this.streamPublisher
     )
     const queueExecutor = new NormalChatQueueExecutor(20)
@@ -106,14 +108,13 @@ export class NormalChatService {
     const agentRuntime = new NormalChatAgentRuntime(
       new NormalChatAgentGraphRunner(),
       promptBuilder,
-      new NormalChatScriptedModelAdapter(),
-      new NormalChatOutputEnvelopeParser(),
-      new NormalChatActionResolutionService(),
+      new NormalChatRealModelAdapter(modelConfigService),
+      new NormalChatAssistantOutputParser(),
+      actionResolutionService,
       new NormalChatLoadedActionSpecService(),
       actionExecutor,
       new NormalChatRoundPersistenceService(modelCallsRepository),
       messagesRepository,
-      turnTracesRepository,
       tasksRepository,
       agentRunsRepository,
       actionRunsRepository,
@@ -126,10 +127,8 @@ export class NormalChatService {
       this.workspaceService,
       new NormalChatConversationConfigService(conversationsRepository),
       messagesRepository,
-      turnTracesRepository,
       tasksRepository,
       agentRunsRepository,
-      promptBuilder,
       taskScheduler,
       queueExecutor,
       agentRuntime
@@ -236,7 +235,7 @@ export class NormalChatService {
     return this.conversationService.getConversation(topicId)
   }
 
-  getConversationTurnDetail(requestId: string): NormalChatConversationTurnDetail | null {
+  getConversationTurnDetail(requestId: string): NormalChatTaskDetail | null {
     return this.conversationService.getConversationTurnDetail(requestId)
   }
 

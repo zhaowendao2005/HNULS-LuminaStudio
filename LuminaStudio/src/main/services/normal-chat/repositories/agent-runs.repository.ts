@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type Database from 'better-sqlite3'
+import type { NormalChatAgentRunSnapshot } from '@preload/types'
+import type { AgentRunRow } from '../shared/rows'
 
 export interface NormalChatAgentRunRecord {
   id: string
@@ -114,17 +116,7 @@ export class NormalChatAgentRunsRepository {
       .run(timestamp, timestamp, agentRunId)
   }
 
-  markRunning(taskId: string, timestamp: string): void {
-    this.db
-      .prepare(
-        `UPDATE normal_chat_agent_runs
-         SET status = 'running', started_at = ?, updated_at = ?
-         WHERE task_id = ? AND depth = 0`
-      )
-      .run(timestamp, timestamp, taskId)
-  }
-
-  markCompletedById(
+  markSucceededById(
     agentRunId: string,
     finalText: string,
     reactCount: number,
@@ -133,23 +125,13 @@ export class NormalChatAgentRunsRepository {
     this.db
       .prepare(
         `UPDATE normal_chat_agent_runs
-         SET status = 'completed', react_count = ?, final_text = ?, finished_at = ?, updated_at = ?
+         SET status = 'succeeded', react_count = ?, final_text = ?, finished_at = ?, updated_at = ?
          WHERE id = ?`
       )
       .run(reactCount, finalText, timestamp, timestamp, agentRunId)
   }
 
-  markCompleted(taskId: string, finalText: string, timestamp: string): void {
-    this.db
-      .prepare(
-        `UPDATE normal_chat_agent_runs
-         SET status = 'completed', react_count = 1, final_text = ?, finished_at = ?, updated_at = ?
-         WHERE task_id = ? AND depth = 0`
-      )
-      .run(finalText, timestamp, timestamp, taskId)
-  }
-
-  markErrorById(
+  markFailedById(
     agentRunId: string,
     errorMessage: string,
     reactCount: number,
@@ -164,12 +146,12 @@ export class NormalChatAgentRunsRepository {
       .run(reactCount, errorMessage, timestamp, timestamp, agentRunId)
   }
 
-  markAborted(taskId: string, timestamp: string): void {
+  markAbortedByTask(taskId: string, timestamp: string): void {
     this.db
       .prepare(
         `UPDATE normal_chat_agent_runs
          SET status = 'aborted', finished_at = ?, updated_at = ?
-         WHERE task_id = ? AND depth = 0`
+         WHERE task_id = ? AND status IN ('queued', 'running')`
       )
       .run(timestamp, timestamp, taskId)
   }
@@ -182,5 +164,37 @@ export class NormalChatAgentRunsRepository {
          WHERE status = 'running'`
       )
       .run('Agent interrupted by application restart.', timestamp, timestamp)
+  }
+
+  listByTaskId(taskId: string): NormalChatAgentRunSnapshot[] {
+    return (
+      this.db
+        .prepare(
+          `SELECT * FROM normal_chat_agent_runs
+           WHERE task_id = ?
+           ORDER BY depth, created_at`
+        )
+        .all(taskId) as AgentRunRow[]
+    ).map((row) => ({
+      id: row.id,
+      taskId: row.task_id,
+      parentAgentRunId: row.parent_agent_run_id,
+      depth: row.depth,
+      roleKind: row.role_kind,
+      templateId: row.template_id,
+      goal: row.goal,
+      status: row.status,
+      reactCount: row.react_count,
+      maxReactSteps: row.max_react_steps,
+      maxChildDepth: row.max_child_depth,
+      modelProviderId: row.model_provider_id,
+      modelId: row.model_id,
+      finalText: row.final_text,
+      errorMessage: row.error_message,
+      createdAt: row.created_at,
+      startedAt: row.started_at,
+      finishedAt: row.finished_at,
+      updatedAt: row.updated_at
+    }))
   }
 }

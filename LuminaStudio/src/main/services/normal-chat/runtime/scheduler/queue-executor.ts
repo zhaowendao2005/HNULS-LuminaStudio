@@ -27,10 +27,13 @@ export class NormalChatQueueExecutor {
       }
 
       this.activeCount += 1
-      void item.execute().finally(() => {
-        this.activeCount -= 1
-        void this.drain()
-      })
+      void item
+        .execute()
+        .catch(() => undefined)
+        .finally(() => {
+          this.activeCount -= 1
+          void this.drain()
+        })
     }
   }
 }

@@ -1,3 +1,6 @@
+/**
+ * @deprecated Unused legacy shell mock. Kept only until the conversation-shell directory is deleted.
+ */
 import type { ConversationShellSnapshot } from './conversation-shell.types'
 
 /**

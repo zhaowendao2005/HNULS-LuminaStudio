@@ -1,3 +1,8 @@
+/**
+ * @deprecated This store is not connected to the current normal-chat renderer flow.
+ * The active implementation uses workspace/conversation/layout detail stores instead.
+ * Keep only as a temporary migration island until the directory is removed.
+ */
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { AssistantShellDatasource } from './assistant-shell.datasource'

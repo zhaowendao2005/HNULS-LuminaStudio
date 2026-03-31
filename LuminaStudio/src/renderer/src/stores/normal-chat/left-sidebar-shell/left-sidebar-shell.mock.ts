@@ -1,3 +1,6 @@
+/**
+ * @deprecated Unused legacy shell mock. Kept only until the left-sidebar-shell directory is deleted.
+ */
 import type { LeftSidebarSnapshot } from './left-sidebar-shell.types'
 
 /**

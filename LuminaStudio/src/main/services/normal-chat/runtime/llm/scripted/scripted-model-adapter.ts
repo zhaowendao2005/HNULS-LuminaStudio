@@ -1,10 +1,13 @@
 import type { NormalChatModelAdapter, NormalChatScriptRoundInput } from '../model-adapter.interface'
 import { routeScriptedScenario } from './scenario-router'
 
-// WARNING: scripted flow only for runtime chain verification.
-// TODO(remove-scripted-normal-chat-v1): 接入真实模型后移除这里的固定脚本场景。
+/**
+ * @deprecated
+ * Scripted normal-chat LLM flow is no longer part of the production mainline.
+ * Keep this adapter only as an isolated legacy test fixture until the whole scripted tree is removed.
+ */
 export class NormalChatScriptedModelAdapter implements NormalChatModelAdapter {
-  async invokeRound(input: NormalChatScriptRoundInput): Promise<unknown> {
+  async invokeRound(input: NormalChatScriptRoundInput): Promise<string> {
     return routeScriptedScenario(input)
   }
 }

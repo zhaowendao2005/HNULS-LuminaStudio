@@ -1,10 +1,9 @@
-import type { NormalChatConversationTurnResponseRecord } from '@preload/types'
+import type { NormalChatTaskFinalResponse } from '@preload/types'
 import { NormalChatActionRunsRepository } from '../../repositories/action-runs.repository'
 import { NormalChatAgentRunsRepository } from '../../repositories/agent-runs.repository'
 import { NormalChatModelCallsRepository } from '../../repositories/model-calls.repository'
 import { NormalChatTasksRepository } from '../../repositories/tasks.repository'
-import { NormalChatTurnTracesRepository } from '../../repositories/turn-traces.repository'
-import { parseJson, nowIso } from '../../shared/utils'
+import { nowIso } from '../../shared/utils'
 import { NormalChatStreamPublisher } from '../streaming/stream-publisher'
 
 export interface PendingTask {
@@ -22,7 +21,6 @@ export class NormalChatTaskScheduler {
     private readonly agentRunsRepository: NormalChatAgentRunsRepository,
     private readonly actionRunsRepository: NormalChatActionRunsRepository,
     private readonly modelCallsRepository: NormalChatModelCallsRepository,
-    private readonly turnTracesRepository: NormalChatTurnTracesRepository,
     private readonly streamPublisher: NormalChatStreamPublisher
   ) {}
 
@@ -47,14 +45,6 @@ export class NormalChatTaskScheduler {
     this.pendingTasks.delete(requestId)
   }
 
-  hasPendingTask(requestId: string): boolean {
-    return this.pendingTasks.has(requestId)
-  }
-
-  getPendingTaskCount(): number {
-    return this.pendingTasks.size
-  }
-
   abort(requestId: string): void {
     const pendingTask = this.pendingTasks.get(requestId)
     if (!pendingTask) {
@@ -65,28 +55,74 @@ export class NormalChatTaskScheduler {
     this.pendingTasks.delete(requestId)
 
     const timestamp = nowIso()
-    const trace = this.turnTracesRepository.getByRequest(requestId)
-    const responseRecord = parseJson(trace?.responseRecordJson, {
+    const finalResponse: NormalChatTaskFinalResponse = {
       chunks: [],
       finalText: '',
       aborted: true,
       errorMessage: null,
-      completedAt: timestamp
-    } satisfies NormalChatConversationTurnResponseRecord)
+      completedAt: timestamp,
+      assistantMessageId: null
+    }
 
-    responseRecord.aborted = true
-    responseRecord.completedAt = timestamp
-
-    this.tasksRepository.markAborted(pendingTask.taskId, timestamp)
-    this.agentRunsRepository.markAborted(pendingTask.taskId, timestamp)
+    this.agentRunsRepository.markAbortedByTask(pendingTask.taskId, timestamp)
     this.actionRunsRepository.markAbortedByTask(pendingTask.taskId, timestamp)
     this.modelCallsRepository.markAbortedByTask(pendingTask.taskId, timestamp)
-    this.turnTracesRepository.updateResponseRecord(requestId, responseRecord, timestamp)
+    const finishSeq = this.streamPublisher.publish(
+      pendingTask.taskId,
+      pendingTask.topicId,
+      requestId,
+      {
+        type: 'finish',
+        requestId,
+        topicId: pendingTask.topicId,
+        assistantMessageId: null
+      }
+    )
+    this.tasksRepository.markAborted(pendingTask.taskId, finalResponse, finishSeq, timestamp)
+  }
+
+  fail(requestId: string, errorMessage: string): void {
+    const pendingTask = this.pendingTasks.get(requestId)
+    if (!pendingTask) {
+      return
+    }
+
+    this.pendingTasks.delete(requestId)
+
+    const timestamp = nowIso()
+    const finalResponse: NormalChatTaskFinalResponse = {
+      chunks: [],
+      finalText: '',
+      aborted: false,
+      errorMessage,
+      completedAt: timestamp,
+      assistantMessageId: null
+    }
+
     this.streamPublisher.publish(pendingTask.taskId, pendingTask.topicId, requestId, {
-      type: 'finish',
+      type: 'error',
       requestId,
       topicId: pendingTask.topicId,
-      assistantMessageId: null
+      message: errorMessage,
+      rawErrorJson: null
     })
+    const finishSeq = this.streamPublisher.publish(
+      pendingTask.taskId,
+      pendingTask.topicId,
+      requestId,
+      {
+        type: 'finish',
+        requestId,
+        topicId: pendingTask.topicId,
+        assistantMessageId: null
+      }
+    )
+    this.tasksRepository.markFailed(
+      pendingTask.taskId,
+      errorMessage,
+      finalResponse,
+      finishSeq,
+      timestamp
+    )
   }
 }

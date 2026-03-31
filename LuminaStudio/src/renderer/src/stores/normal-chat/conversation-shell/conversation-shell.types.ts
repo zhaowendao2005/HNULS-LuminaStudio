@@ -1,4 +1,7 @@
 /**
+ * @deprecated Unused legacy shell types. This directory is not wired into the current normal-chat renderer flow.
+ */
+/**
  * NormalChat 会话壳层类型
  * 说明：
  * - 这里存放聊天展示、输入框、工具栏等中间区状态

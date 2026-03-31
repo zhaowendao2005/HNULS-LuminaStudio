@@ -1,10 +1,8 @@
 import type {
   NormalChatConversationMessageRole,
   NormalChatFunctionCallMessagePartStatus,
-  NormalChatMessagePartKind,
-  NormalChatTopicPromptMode
+  NormalChatMessagePartKind
 } from './common.types'
-import type { NormalChatAssistant } from './workspace.types'
 
 export interface NormalChatTextMessagePart {
   kind: Extract<NormalChatMessagePartKind, 'text'>
@@ -45,10 +43,16 @@ export interface NormalChatConversationSnapshot {
   messages: NormalChatConversationMessage[]
 }
 
-export interface NormalChatConversationPromptMessage {
-  role: 'system' | 'user' | 'assistant'
-  content: string
-}
+export type NormalChatTaskStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'aborted'
+
+export type NormalChatTaskPhase =
+  | 'queued'
+  | 'preparing_context'
+  | 'building_prompt'
+  | 'awaiting_model'
+  | 'executing_actions'
+  | 'committing_message'
+  | 'finished'
 
 export interface NormalChatRequestMetrics {
   providerId: string
@@ -63,62 +67,55 @@ export interface NormalChatRequestMetrics {
   streamingEnabled: boolean
 }
 
-/**
- * 这里只保留兼容壳字段：agentTree/execution 目前不再由旧 agent 系统维护。
- * TODO(normal-chat-rewrite): 新系统落地后再把这里替换成新运行时的稳定结构。
- */
-export interface NormalChatConversationRuntimeTrace {
-  traceVersion: number
-  agentTree: Record<string, unknown> | null
-  metrics: NormalChatRequestMetrics | null
-  execution?: Record<string, unknown> | null
+export interface NormalChatTaskExecutionActionSnapshot {
+  actionKey: string
+  kind: string
+  mode: string
 }
 
-/**
- * requestRecord / responseRecord / runtimeTrace 是 turn trace 协议的 3 个稳定剖面：
- * - requestRecord: 这轮请求如何被组织
- * - responseRecord: 这轮请求最终给用户的可见结果
- * - runtimeTrace: 这轮请求在运行时的追踪信息（当前为兼容壳）
- */
-export interface NormalChatConversationTurnRequestRecord {
-  assistant: Pick<
-    NormalChatAssistant,
-    | 'id'
-    | 'name'
-    | 'emoji'
-    | 'defaultSystemPrompt'
-    | 'streamingEnabled'
-    | 'callMode'
-    | 'costMode'
-    | 'defaultModelProviderId'
-    | 'defaultModelId'
-    | 'contextMemoryRounds'
-    | 'maxRecursionDepth'
-    | 'maxReasoningSteps'
-  >
+export interface NormalChatTaskExecutionSnapshot {
+  assistant: {
+    id: string
+    name: string
+    emoji: string
+  }
   topic: {
     id: string
     title: string
-    systemPromptMode: NormalChatTopicPromptMode
-    systemPromptOverride: string | null
   }
-  providerId: string
-  modelId: string
-  streamingEnabled: boolean
-  input: string
-  effectiveSystemPrompt: string
-  promptMessages: NormalChatConversationPromptMessage[]
+  conversation: {
+    id: string
+    title: string
+    agentTemplateId: string
+  }
+  request: {
+    input: string
+    providerId: string
+    modelId: string
+  }
+  runtime: {
+    systemPrompt: string
+    streamingEnabled: boolean
+    contextMemoryRounds: number
+    maxRecursionDepth: number
+    maxReasoningSteps: number
+  }
+  historyMessages: NormalChatConversationMessage[]
+  promptInjections: string[]
+  actions: NormalChatTaskExecutionActionSnapshot[]
+  createdAt: string
 }
 
-export interface NormalChatConversationTurnResponseRecord {
+export interface NormalChatTaskFinalResponse {
   chunks: string[]
   finalText: string
   aborted: boolean
   errorMessage: string | null
   completedAt: string | null
+  assistantMessageId: string | null
 }
 
-export type NormalChatModelCallStatus = 'queued' | 'running' | 'completed' | 'failed' | 'aborted'
+export type NormalChatModelCallStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'aborted'
 
 export interface NormalChatPromptSnapshot {
   context: string
@@ -163,7 +160,7 @@ export interface NormalChatActionRunSnapshot {
   actionKey: string
   actionKind: string
   mode: string | null
-  status: 'queued' | 'running' | 'success' | 'error' | 'aborted'
+  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'aborted'
   roundIndex: number
   batchIndex: number
   parallelIndex: number
@@ -176,18 +173,60 @@ export interface NormalChatActionRunSnapshot {
   updatedAt: string
 }
 
-export interface NormalChatConversationTurnDetail {
+export interface NormalChatAgentRunSnapshot {
+  id: string
+  taskId: string
+  parentAgentRunId: string | null
+  depth: number
+  roleKind: string
+  templateId: string
+  goal: string
+  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'aborted'
+  reactCount: number
+  maxReactSteps: number
+  maxChildDepth: number
+  modelProviderId: string | null
+  modelId: string | null
+  finalText: string | null
+  errorMessage: string | null
+  createdAt: string
+  startedAt: string | null
+  finishedAt: string | null
+  updatedAt: string
+}
+
+export interface NormalChatRuntimeEventSnapshot {
+  seq: number
+  taskId: string
   requestId: string
+  topicId: string
+  eventType: string
+  payloadJson: string
+  createdAt: string
+}
+
+export interface NormalChatTaskDetail {
+  taskId: string
+  requestId: string
+  conversationId: string
   topicId: string
   assistantId: string
   assistantName: string
   assistantEmoji: string
   topicTitle: string
-  hasTrace: boolean
-  requestRecord: NormalChatConversationTurnRequestRecord | null
-  responseRecord: NormalChatConversationTurnResponseRecord | null
-  runtimeTrace: NormalChatConversationRuntimeTrace | null
+  status: NormalChatTaskStatus
+  phase: NormalChatTaskPhase
+  modelProviderId: string
+  modelId: string
+  errorMessage: string | null
+  createdAt: string
+  startedAt: string | null
+  finishedAt: string | null
+  executionSnapshot: NormalChatTaskExecutionSnapshot
+  finalResponse: NormalChatTaskFinalResponse | null
   messages: NormalChatConversationMessage[]
+  agentRuns: NormalChatAgentRunSnapshot[]
   modelCalls: NormalChatModelCallSnapshot[]
   actionRuns: NormalChatActionRunSnapshot[]
+  runtimeEvents: NormalChatRuntimeEventSnapshot[]
 }

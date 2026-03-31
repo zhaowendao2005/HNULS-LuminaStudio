@@ -1,10 +1,10 @@
-import type { NormalChatConversationTurnDetail } from '@preload/types'
+import type { NormalChatTaskDetail } from '@preload/types'
 import {
-  asRuntimeAgentTree,
+  buildRuntimeAgentSummary,
+  buildRuntimeAgentTreeFromTaskDetail,
   type NormalChatRuntimeAgentStatusSummary,
   type NormalChatRuntimeAgentTree
 } from '../runtime-trace/types'
-import { agentDetailShellMockApi } from './agent-detail-shell.mock'
 import type { AgentDetailShellRecord, AgentDetailShellSnapshot } from './agent-detail-shell.types'
 
 function unwrap<T>(response: { success: boolean; data?: T; error?: string }): T {
@@ -15,26 +15,23 @@ function unwrap<T>(response: { success: boolean; data?: T; error?: string }): T 
   return response.data as T
 }
 
-function buildSummaryFromTree(
-  requestId: string,
-  tree: NormalChatRuntimeAgentTree
-): NormalChatRuntimeAgentStatusSummary {
-  const agents = Object.values(tree.agents)
+function createEmptySnapshot(): AgentDetailShellSnapshot {
   return {
-    requestId,
-    totalAgents: agents.length,
-    runningAgents: agents.filter((agent) => agent.status === 'running').length,
-    failedAgents: agents.filter((agent) => agent.status === 'failed').length,
-    completedAgents: agents.filter((agent) => agent.status === 'completed').length,
-    maxDepth: agents.reduce((maxDepth, agent) => Math.max(maxDepth, agent.depth), 0),
-    fallbackTriggered: tree.fallbackTriggered
+    visible: false,
+    requestId: '',
+    messageId: '',
+    loading: false,
+    errorText: '',
+    detailByRequestId: {}
   }
 }
 
-function toRecord(detail: NormalChatConversationTurnDetail): AgentDetailShellRecord {
+function toRecord(detail: NormalChatTaskDetail): AgentDetailShellRecord {
   const assistantMessage = detail.messages.find((message) => message.role === 'assistant') ?? null
-  const tree = asRuntimeAgentTree(detail.runtimeTrace?.agentTree)
-  const summary = tree ? buildSummaryFromTree(detail.requestId, tree) : null
+  const tree = buildRuntimeAgentTreeFromTaskDetail(detail)
+  const summary: NormalChatRuntimeAgentStatusSummary | null = tree
+    ? buildRuntimeAgentSummary(detail, tree)
+    : null
 
   return {
     requestId: detail.requestId,
@@ -42,38 +39,30 @@ function toRecord(detail: NormalChatConversationTurnDetail): AgentDetailShellRec
     assistantName: detail.assistantName,
     topicTitle: detail.topicTitle,
     description: tree
-      ? `Loaded runtime tree with ${summary?.totalAgents ?? 0} agent node(s).`
-      : 'No runtime tree is available for this turn.',
+      ? `Loaded agent tree with ${summary?.totalAgents ?? 0} node(s).`
+      : 'No agent tree is available for this task.',
     summary,
-    tree,
-    sourceLabel: 'ipc'
+    tree: tree as NormalChatRuntimeAgentTree | null,
+    sourceLabel: 'task-detail'
   }
 }
 
 export class AgentDetailShellDatasource {
   async loadSnapshot(): Promise<AgentDetailShellSnapshot> {
-    return agentDetailShellMockApi.createSnapshot()
+    return createEmptySnapshot()
   }
 
   async getConversationDetail(requestId: string): Promise<AgentDetailShellRecord> {
     if (!requestId) {
-      return agentDetailShellMockApi.getConversationDetail('')
+      throw new Error('Missing requestId for agent detail.')
     }
 
-    const detail = await window.api.normalChat
-      .getConversationTurnDetail({ requestId })
-      .then(unwrap)
-      .catch(() => null)
+    const detail = await window.api.normalChat.getConversationTurnDetail({ requestId }).then(unwrap)
 
     if (!detail) {
-      return agentDetailShellMockApi.getConversationDetail(requestId)
+      throw new Error(`Task detail not found for request ${requestId}.`)
     }
 
-    const record = toRecord(detail)
-    if (!record.tree) {
-      return agentDetailShellMockApi.getConversationDetail(requestId)
-    }
-
-    return record
+    return toRecord(detail)
   }
 }

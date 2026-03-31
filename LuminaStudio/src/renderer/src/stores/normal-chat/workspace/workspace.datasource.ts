@@ -5,7 +5,6 @@ import type {
   NormalChatTopicPromptMode,
   NormalChatWorkspaceSnapshot
 } from '@preload/types'
-import { normalChatWorkspaceMock } from './workspace.mock'
 
 function unwrap<T>(response: { success: boolean; data?: T; error?: string }): T {
   if (!response.success) {
@@ -159,10 +158,6 @@ export function setNormalChatWorkspaceDatasourceForTesting(
 
 export function resetNormalChatWorkspaceDatasourceForTesting(): void {
   datasource = realDatasource
-}
-
-export function useNormalChatWorkspaceMockDatasourceForTesting(): void {
-  datasource = normalChatWorkspaceMock
 }
 
 export const NormalChatWorkspaceDatasource: NormalChatWorkspaceDatasourceLike = {

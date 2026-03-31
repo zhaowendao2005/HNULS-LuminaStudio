@@ -2,6 +2,8 @@ import type {
   NormalChatAssistant,
   NormalChatConversationMessage,
   NormalChatFunctionCallMode,
+  NormalChatTaskPhase,
+  NormalChatTaskStatus,
   NormalChatTopic
 } from '@preload/types'
 
@@ -75,18 +77,6 @@ export interface MessageRow {
   updated_at: string
 }
 
-export interface TurnTraceRow {
-  request_id: string
-  topic_id: string
-  assistant_id: string
-  assistant_name: string
-  assistant_emoji: string
-  topic_title: string
-  request_record_json: string | null
-  response_record_json: string | null
-  runtime_trace_json: string | null
-}
-
 export interface ConversationRow {
   id: string
   topic_id: string
@@ -94,6 +84,29 @@ export interface ConversationRow {
   agent_template_id: string
   program_prompt_injections_json: string
   created_at: string
+  updated_at: string
+}
+
+export interface TaskRow {
+  id: string
+  request_id: string
+  conversation_id: string
+  topic_id: string
+  assistant_id: string
+  user_message_id: string
+  assistant_message_id: string | null
+  root_agent_run_id: string | null
+  status: NormalChatTaskStatus
+  phase: NormalChatTaskPhase
+  model_provider_id: string
+  model_id: string
+  execution_snapshot_json: string
+  final_response_json: string | null
+  last_event_seq: number | null
+  error_message: string | null
+  created_at: string
+  started_at: string | null
+  finished_at: string | null
   updated_at: string
 }
 
@@ -108,7 +121,7 @@ export interface ModelCallRow {
   depth: number
   round_index: number
   call_index_in_agent: number
-  status: 'queued' | 'running' | 'completed' | 'failed' | 'aborted'
+  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'aborted'
   request_payload_json: string
   compiled_prompt_json: string
   compiled_prompt_markdown: string
@@ -132,7 +145,7 @@ export interface ActionRunRow {
   action_key: string
   action_kind: string
   mode: string | null
-  status: 'queued' | 'running' | 'success' | 'error' | 'aborted'
+  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'aborted'
   round_index: number
   batch_index: number
   parallel_index: number
@@ -143,6 +156,38 @@ export interface ActionRunRow {
   started_at: string | null
   finished_at: string | null
   updated_at: string
+}
+
+export interface AgentRunRow {
+  id: string
+  task_id: string
+  parent_agent_run_id: string | null
+  depth: number
+  role_kind: string
+  template_id: string
+  goal: string
+  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'aborted'
+  react_count: number
+  max_react_steps: number
+  max_child_depth: number
+  model_provider_id: string | null
+  model_id: string | null
+  final_text: string | null
+  error_message: string | null
+  created_at: string
+  started_at: string | null
+  finished_at: string | null
+  updated_at: string
+}
+
+export interface RuntimeEventRow {
+  seq: number
+  task_id: string
+  request_id: string
+  topic_id: string
+  event_type: string
+  payload_json: string
+  created_at: string
 }
 
 export interface WorkspaceStateRow {

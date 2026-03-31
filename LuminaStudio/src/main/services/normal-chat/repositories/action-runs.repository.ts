@@ -10,7 +10,7 @@ export interface NormalChatActionRunRecord {
   actionKey: string
   actionKind: string
   mode: string | null
-  status: 'queued' | 'running' | 'success' | 'error' | 'aborted'
+  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'aborted'
   roundIndex: number
   batchIndex: number
   parallelIndex: number
@@ -83,21 +83,21 @@ export class NormalChatActionRunsRepository {
       .run(timestamp, timestamp, actionRunId)
   }
 
-  markSuccess(actionRunId: string, outputJson: string, timestamp: string): void {
+  markSucceeded(actionRunId: string, outputJson: string, timestamp: string): void {
     this.db
       .prepare(
         `UPDATE normal_chat_action_runs
-         SET status = 'success', output_json = ?, finished_at = ?, updated_at = ?
+         SET status = 'succeeded', output_json = ?, finished_at = ?, updated_at = ?
          WHERE id = ?`
       )
       .run(outputJson, timestamp, timestamp, actionRunId)
   }
 
-  markError(actionRunId: string, errorMessage: string, timestamp: string): void {
+  markFailed(actionRunId: string, errorMessage: string, timestamp: string): void {
     this.db
       .prepare(
         `UPDATE normal_chat_action_runs
-         SET status = 'error', error_message = ?, finished_at = ?, updated_at = ?
+         SET status = 'failed', error_message = ?, finished_at = ?, updated_at = ?
          WHERE id = ?`
       )
       .run(errorMessage, timestamp, timestamp, actionRunId)
@@ -117,45 +117,10 @@ export class NormalChatActionRunsRepository {
     this.db
       .prepare(
         `UPDATE normal_chat_action_runs
-         SET status = 'error', error_message = ?, finished_at = ?, updated_at = ?
+         SET status = 'failed', error_message = ?, finished_at = ?, updated_at = ?
          WHERE status = 'running'`
       )
       .run('Action interrupted by application restart.', timestamp, timestamp)
-  }
-
-  listByAgentRunIds(agentRunIds: string[]): NormalChatActionRunSnapshot[] {
-    if (agentRunIds.length === 0) {
-      return []
-    }
-
-    const placeholders = agentRunIds.map(() => '?').join(', ')
-    return (
-      this.db
-        .prepare(
-          `SELECT * FROM normal_chat_action_runs
-         WHERE agent_run_id IN (${placeholders})
-         ORDER BY round_index, batch_index, parallel_index, created_at`
-        )
-        .all(...agentRunIds) as ActionRunRow[]
-    ).map((row) => ({
-      id: row.id,
-      taskId: row.task_id,
-      agentRunId: row.agent_run_id,
-      actionKey: row.action_key,
-      actionKind: row.action_kind,
-      mode: row.mode,
-      status: row.status,
-      roundIndex: row.round_index,
-      batchIndex: row.batch_index,
-      parallelIndex: row.parallel_index,
-      inputJson: row.input_json,
-      outputJson: row.output_json,
-      errorMessage: row.error_message,
-      createdAt: row.created_at,
-      startedAt: row.started_at,
-      finishedAt: row.finished_at,
-      updatedAt: row.updated_at
-    }))
   }
 
   listByTaskId(taskId: string): NormalChatActionRunSnapshot[] {

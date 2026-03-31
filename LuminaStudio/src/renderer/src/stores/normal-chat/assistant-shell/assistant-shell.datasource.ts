@@ -1,16 +1,40 @@
-import { assistantShellMock } from './assistant-shell.mock'
+/**
+ * @deprecated Unused legacy shell datasource. This directory is not wired into the current normal-chat renderer flow.
+ */
 import type { AssistantShellSnapshot } from './assistant-shell.types'
 
-/**
- * 助手壳层 datasource
- * 说明：当前走 mock，后续可替换为接口/本地持久化。
- */
+function createDefaultSnapshot(): AssistantShellSnapshot {
+  return {
+    assistant: {
+      id: '',
+      name: 'Assistant',
+      emoji: 'AI'
+    },
+    modelMeta: {
+      label: 'No model selected'
+    },
+    systemPromptPreview: '',
+    settingsOpened: false,
+    activeSettingsTab: 'model',
+    editableAssistantName: '',
+    editablePromptText: '',
+    settingsNavItems: [
+      { id: 'model', label: 'Model' },
+      { id: 'prompt', label: 'Prompt' },
+      { id: 'kb', label: 'KB' },
+      { id: 'mcp', label: 'MCP' },
+      { id: 'phrases', label: 'Phrases' },
+      { id: 'memory', label: 'Memory' }
+    ]
+  }
+}
+
 export class AssistantShellDatasource {
   async loadSnapshot(): Promise<AssistantShellSnapshot> {
-    return structuredClone(assistantShellMock)
+    return createDefaultSnapshot()
   }
 
   async saveSnapshot(_snapshot: AssistantShellSnapshot): Promise<void> {
-    // 预留：未来按业务接持久化
+    // Reserved for future persistence.
   }
 }

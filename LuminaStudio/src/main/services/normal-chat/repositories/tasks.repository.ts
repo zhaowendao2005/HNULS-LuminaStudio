@@ -1,6 +1,33 @@
 import type Database from 'better-sqlite3'
+import type {
+  NormalChatTaskExecutionSnapshot,
+  NormalChatTaskFinalResponse,
+  NormalChatTaskPhase,
+  NormalChatTaskStatus
+} from '@preload/types'
+import type { TaskRow } from '../shared/rows'
+import { parseJson } from '../shared/utils'
 
-// tasks 表示“一轮请求”的主状态机；task_snapshots 则保存当时解析出的配置和请求快照。
+export interface NormalChatTaskRootRecord {
+  taskId: string
+  requestId: string
+  conversationId: string
+  topicId: string
+  assistantId: string
+  assistantMessageId: string | null
+  rootAgentRunId: string | null
+  status: NormalChatTaskStatus
+  phase: NormalChatTaskPhase
+  modelProviderId: string
+  modelId: string
+  executionSnapshot: NormalChatTaskExecutionSnapshot
+  finalResponse: NormalChatTaskFinalResponse | null
+  errorMessage: string | null
+  createdAt: string
+  startedAt: string | null
+  finishedAt: string | null
+}
+
 export class NormalChatTasksRepository {
   constructor(private readonly db: Database.Database) {}
 
@@ -12,16 +39,18 @@ export class NormalChatTasksRepository {
     assistantId: string
     userMessageId: string
     rootAgentRunId: string
-    providerId: string
+    modelProviderId: string
     modelId: string
+    executionSnapshot: NormalChatTaskExecutionSnapshot
     timestamp: string
   }): void {
     this.db
       .prepare(
         `INSERT INTO normal_chat_tasks
          (id, request_id, conversation_id, topic_id, assistant_id, user_message_id,
-          root_agent_run_id, status, model_provider_id, model_id, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 'queued', ?, ?, ?, ?)`
+          root_agent_run_id, status, phase, model_provider_id, model_id, execution_snapshot_json,
+          created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'queued', 'queued', ?, ?, ?, ?, ?)`
       )
       .run(
         input.taskId,
@@ -31,47 +60,9 @@ export class NormalChatTasksRepository {
         input.assistantId,
         input.userMessageId,
         input.rootAgentRunId,
-        input.providerId,
+        input.modelProviderId,
         input.modelId,
-        input.timestamp,
-        input.timestamp
-      )
-  }
-
-  createSnapshot(input: {
-    // snapshot 是运行前快照，后续即使 assistant/topic 配置被改动，也不影响历史追溯。
-    taskId: string
-    requestId: string
-    conversationId: string
-    topicId: string
-    assistantId: string
-    userInput: string
-    resolvedConfig: Record<string, unknown>
-    historyMessages: unknown[]
-    promptInjections: unknown[]
-    requestPayload: unknown
-    timestamp: string
-  }): void {
-    this.db
-      .prepare(
-        `INSERT INTO normal_chat_task_snapshots
-         (task_id, request_id, conversation_id, topic_id, assistant_id, agent_template_id,
-          user_input, resolved_config_json, history_messages_json, prompt_injections_json,
-          request_payload_json, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      )
-      .run(
-        input.taskId,
-        input.requestId,
-        input.conversationId,
-        input.topicId,
-        input.assistantId,
-        'main-agent-v1',
-        input.userInput,
-        JSON.stringify(input.resolvedConfig),
-        JSON.stringify(input.historyMessages),
-        JSON.stringify(input.promptInjections),
-        JSON.stringify(input.requestPayload),
+        JSON.stringify(input.executionSnapshot),
         input.timestamp,
         input.timestamp
       )
@@ -85,62 +76,152 @@ export class NormalChatTasksRepository {
     return row?.id ?? null
   }
 
-  getByRequest(requestId: string): { id: string; conversationId: string } | null {
+  getByRequest(requestId: string): NormalChatTaskRootRecord | null {
     const row = this.db
-      .prepare('SELECT id, conversation_id FROM normal_chat_tasks WHERE request_id = ?')
-      .get(requestId) as { id: string; conversation_id: string } | undefined
+      .prepare('SELECT * FROM normal_chat_tasks WHERE request_id = ?')
+      .get(requestId) as TaskRow | undefined
 
-    if (!row) {
-      return null
-    }
-
-    return {
-      id: row.id,
-      conversationId: row.conversation_id
-    }
+    return row ? this.mapRow(row) : null
   }
 
-  markRunning(taskId: string, timestamp: string): void {
+  markRunning(taskId: string, phase: NormalChatTaskPhase, timestamp: string): void {
     this.db
       .prepare(
         `UPDATE normal_chat_tasks
-         SET status = 'running', started_at = ?, updated_at = ?
+         SET status = 'running', phase = ?, started_at = COALESCE(started_at, ?), updated_at = ?
          WHERE id = ?`
       )
-      .run(timestamp, timestamp, taskId)
+      .run(phase, timestamp, timestamp, taskId)
   }
 
-  markCompleted(taskId: string, assistantMessageId: string, timestamp: string): void {
+  markPhase(taskId: string, phase: NormalChatTaskPhase, timestamp: string): void {
     this.db
       .prepare(
         `UPDATE normal_chat_tasks
-         SET status = 'completed', assistant_message_id = ?, finished_at = ?, updated_at = ?
+         SET phase = ?, updated_at = ?
          WHERE id = ?`
       )
-      .run(assistantMessageId, timestamp, timestamp, taskId)
+      .run(phase, timestamp, taskId)
   }
 
-  markAborted(taskId: string, timestamp: string): void {
+  markSucceeded(
+    taskId: string,
+    assistantMessageId: string,
+    finalResponse: NormalChatTaskFinalResponse,
+    lastEventSeq: number | null,
+    timestamp: string
+  ): void {
     this.db
       .prepare(
         `UPDATE normal_chat_tasks
-         SET status = 'aborted', finished_at = ?, updated_at = ?
+         SET status = 'succeeded',
+             phase = 'finished',
+             assistant_message_id = ?,
+             final_response_json = ?,
+             last_event_seq = ?,
+             finished_at = ?,
+             updated_at = ?
          WHERE id = ?`
       )
-      .run(timestamp, timestamp, taskId)
+      .run(
+        assistantMessageId,
+        JSON.stringify(finalResponse),
+        lastEventSeq,
+        timestamp,
+        timestamp,
+        taskId
+      )
+  }
+
+  markAborted(
+    taskId: string,
+    finalResponse: NormalChatTaskFinalResponse,
+    lastEventSeq: number | null,
+    timestamp: string
+  ): void {
+    this.db
+      .prepare(
+        `UPDATE normal_chat_tasks
+         SET status = 'aborted',
+             phase = 'finished',
+             final_response_json = ?,
+             last_event_seq = ?,
+             finished_at = ?,
+             updated_at = ?
+         WHERE id = ?`
+      )
+      .run(JSON.stringify(finalResponse), lastEventSeq, timestamp, timestamp, taskId)
+  }
+
+  markFailed(
+    taskId: string,
+    errorMessage: string,
+    finalResponse: NormalChatTaskFinalResponse,
+    lastEventSeq: number | null,
+    timestamp: string
+  ): void {
+    this.db
+      .prepare(
+        `UPDATE normal_chat_tasks
+         SET status = 'failed',
+             phase = 'finished',
+             error_message = ?,
+             final_response_json = ?,
+             last_event_seq = ?,
+             finished_at = ?,
+             updated_at = ?
+         WHERE id = ?`
+      )
+      .run(errorMessage, JSON.stringify(finalResponse), lastEventSeq, timestamp, timestamp, taskId)
   }
 
   markInterruptedTasksFailed(timestamp: string): void {
+    const finalResponse = JSON.stringify({
+      chunks: [],
+      finalText: '',
+      aborted: false,
+      errorMessage: 'Task interrupted by application restart.',
+      completedAt: timestamp,
+      assistantMessageId: null
+    } satisfies NormalChatTaskFinalResponse)
+
     this.db
       .prepare(
         `UPDATE normal_chat_tasks
-         SET status = 'failed', error_message = ?, finished_at = ?, updated_at = ?
+         SET status = 'failed',
+             phase = 'finished',
+             error_message = ?,
+             final_response_json = ?,
+             finished_at = ?,
+             updated_at = ?
          WHERE status = 'running'`
       )
-      .run('Task interrupted by application restart.', timestamp, timestamp)
+      .run('Task interrupted by application restart.', finalResponse, timestamp, timestamp)
   }
 
   delete(taskId: string): void {
     this.db.prepare('DELETE FROM normal_chat_tasks WHERE id = ?').run(taskId)
+  }
+
+  private mapRow(row: TaskRow): NormalChatTaskRootRecord {
+    return {
+      taskId: row.id,
+      requestId: row.request_id,
+      conversationId: row.conversation_id,
+      topicId: row.topic_id,
+      assistantId: row.assistant_id,
+      assistantMessageId: row.assistant_message_id,
+      rootAgentRunId: row.root_agent_run_id,
+      status: row.status,
+      phase: row.phase,
+      modelProviderId: row.model_provider_id,
+      modelId: row.model_id,
+      executionSnapshot: parseJson(row.execution_snapshot_json, null as never),
+      finalResponse: parseJson(row.final_response_json, null as NormalChatTaskFinalResponse | null),
+      errorMessage: row.error_message,
+      createdAt: row.created_at,
+      startedAt: row.started_at,
+      finishedAt: row.finished_at
+    }
   }
 }

@@ -1,8 +1,5 @@
 import type { ApiResponse } from '../base.types'
-import type {
-  NormalChatConversationSnapshot,
-  NormalChatConversationTurnDetail
-} from './conversation.types'
+import type { NormalChatConversationSnapshot, NormalChatTaskDetail } from './conversation.types'
 import type { NormalChatConversationStreamEvent } from './runtime.types'
 import type {
   NormalChatBootstrap,
@@ -62,7 +59,7 @@ export interface NormalChatAPI {
   ) => Promise<ApiResponse<NormalChatSendMessageAccepted>>
   getConversationTurnDetail: (
     request: NormalChatGetConversationTurnDetailRequest
-  ) => Promise<ApiResponse<NormalChatConversationTurnDetail | null>>
+  ) => Promise<ApiResponse<NormalChatTaskDetail | null>>
   deleteConversationTurn: (
     request: NormalChatDeleteConversationTurnRequest
   ) => Promise<ApiResponse<void>>

@@ -46,7 +46,11 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useNormalChatRuntimeTraceStore } from '@renderer/stores/normal-chat/runtime-trace/store'
+import { useNormalChatConversationStore } from '@renderer/stores/normal-chat/conversation/conversation.store'
+import {
+  buildRuntimeAgentSummary,
+  buildRuntimeAgentTreeFromTaskDetail
+} from '@renderer/stores/normal-chat/runtime-trace/types'
 
 const props = defineProps<{
   requestId: string
@@ -56,9 +60,17 @@ const emit = defineEmits<{
   'open-tree': []
 }>()
 
-const agentTraceStore = useNormalChatRuntimeTraceStore()
+const conversationStore = useNormalChatConversationStore()
 
 const summary = computed(() => {
-  // TODO(normal-chat-rewrite): 兼容旧 runtime-trace store，后续替换为新运行时摘要接口。
-  return props.requestId ? agentTraceStore.getSummaryByRequestId(props.requestId) : null
-})</script>
+  const detail = props.requestId
+    ? conversationStore.getConversationTurnDetailCached(props.requestId)
+    : null
+  if (!detail) {
+    return null
+  }
+
+  const tree = buildRuntimeAgentTreeFromTaskDetail(detail)
+  return tree ? buildRuntimeAgentSummary(detail, tree) : null
+})
+</script>

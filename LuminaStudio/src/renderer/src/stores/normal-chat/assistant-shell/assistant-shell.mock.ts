@@ -1,3 +1,6 @@
+/**
+ * @deprecated Unused legacy shell mock. Kept only until the assistant-shell directory is deleted.
+ */
 import type { AssistantShellSnapshot } from './assistant-shell.types'
 
 /**

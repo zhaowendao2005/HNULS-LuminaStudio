@@ -1,3 +1,5 @@
+import type { NormalChatAgentRunSnapshot, NormalChatTaskDetail } from '@preload/types'
+
 export interface NormalChatRuntimeAgentPlanRecord {
   stepIndex: number
   phase: string
@@ -56,31 +58,69 @@ export interface NormalChatRuntimeAgentStatusSummary {
   fallbackTriggered: boolean
 }
 
-export interface NormalChatRuntimeTraceState {
-  treesByRequestId: Record<string, NormalChatRuntimeAgentTree>
-  summariesByRequestId: Record<string, NormalChatRuntimeAgentStatusSummary>
-  requestIdsByTopicId: Record<string, string>
+export function buildRuntimeAgentTreeFromTaskDetail(
+  detail: NormalChatTaskDetail
+): NormalChatRuntimeAgentTree | null {
+  if (detail.agentRuns.length === 0) {
+    return null
+  }
+
+  const agents = Object.fromEntries(
+    detail.agentRuns.map((run) => [run.id, toAgentNode(run, detail.agentRuns)])
+  )
+  const rootAgent =
+    detail.agentRuns.find((run) => run.parentAgentRunId === null) ?? detail.agentRuns[0]
+
+  return {
+    requestId: detail.requestId,
+    rootAgentId: rootAgent.id,
+    fallbackTriggered: detail.status === 'failed',
+    agents
+  }
 }
 
-/**
- * 兼容层：旧 agent-tree 类型已经从 preload 契约移除，这里仅做 renderer 本地兜底解析。
- * TODO(normal-chat-rewrite): 新系统上线后用新结构替换该解析逻辑。
- */
-export function asRuntimeAgentTree(value: unknown): NormalChatRuntimeAgentTree | null {
-  if (!value || typeof value !== 'object') {
-    return null
+export function buildRuntimeAgentSummary(
+  detail: NormalChatTaskDetail,
+  tree: NormalChatRuntimeAgentTree
+): NormalChatRuntimeAgentStatusSummary {
+  const agents = Object.values(tree.agents)
+  return {
+    requestId: detail.requestId,
+    totalAgents: agents.length,
+    runningAgents: agents.filter((agent) => agent.status === 'running').length,
+    failedAgents: agents.filter((agent) => agent.status === 'failed').length,
+    completedAgents: agents.filter((agent) => agent.status === 'completed').length,
+    maxDepth: agents.reduce((maxDepth, agent) => Math.max(maxDepth, agent.depth), 0),
+    fallbackTriggered: tree.fallbackTriggered
   }
+}
 
-  const tree = value as Record<string, unknown>
-  if (
-    typeof tree.requestId !== 'string' ||
-    typeof tree.rootAgentId !== 'string' ||
-    typeof tree.fallbackTriggered !== 'boolean' ||
-    !tree.agents ||
-    typeof tree.agents !== 'object'
-  ) {
-    return null
+function toAgentNode(
+  run: NormalChatAgentRunSnapshot,
+  allRuns: NormalChatAgentRunSnapshot[]
+): NormalChatRuntimeAgentNode {
+  return {
+    agentId: run.id,
+    depth: run.depth,
+    roleKind: run.roleKind,
+    taskKind: run.templateId,
+    goal: run.goal,
+    summary: run.finalText ?? run.goal,
+    finalResult: run.finalText,
+    status: normalizeStatus(run.status),
+    retryCount: Math.max(0, run.reactCount - 1),
+    errorMessage: run.errorMessage,
+    childAgentIds: allRuns
+      .filter((item) => item.parentAgentRunId === run.id)
+      .map((item) => item.id),
+    planHistory: [],
+    helperInvocations: []
   }
+}
 
-  return tree as unknown as NormalChatRuntimeAgentTree
+function normalizeStatus(status: NormalChatAgentRunSnapshot['status']): string {
+  if (status === 'succeeded') {
+    return 'completed'
+  }
+  return status
 }

@@ -86,7 +86,53 @@ function createTurnDetail(): NormalChatConversationTurnDetail {
         createdAt: '2026-03-28T00:00:01.000Z',
         updatedAt: '2026-03-28T00:00:01.000Z'
       }
-    ]
+    ],
+    modelCalls: [
+      {
+        id: 'model-call-1',
+        seq: 1,
+        taskId: 'task-1',
+        requestId: 'request-chat-1',
+        conversationId: 'conversation-1',
+        agentRunId: 'agent-run-1',
+        parentActionRunId: null,
+        depth: 0,
+        roundIndex: 0,
+        callIndexInAgent: 0,
+        status: 'completed',
+        requestPayloadJson: JSON.stringify({
+          providerId: 'openai',
+          modelId: 'gpt-4.1',
+          input: 'Summarize this turn.'
+        }),
+        compiledPromptJson: {
+          context: 'context block',
+          actionDescriptions: 'action descriptions',
+          loadedActionSpecs: 'loaded action specs',
+          actionResults: 'action results',
+          outputContract: 'output contract'
+        },
+        compiledPromptMarkdown: '# Prompt\n\nSummarize this turn.',
+        historyMessagesJson: JSON.stringify([
+          { role: 'user', content: 'Earlier user message' },
+          { role: 'assistant', content: 'Earlier assistant message' }
+        ]),
+        loadedActionsJson: JSON.stringify([{ key: 'pubmed', enabled: true }]),
+        actionResultsJson: JSON.stringify([{ actionKey: 'pubmed', summary: 'found 2 papers' }]),
+        responseStreamText: 'Final answer',
+        responseEnvelopeJson: JSON.stringify({
+          finalText: 'Final answer',
+          chunks: ['Final answer']
+        }),
+        finalReplyMd: 'Final answer',
+        errorMessage: null,
+        createdAt: '2026-03-28T00:00:00.000Z',
+        startedAt: '2026-03-28T00:00:00.100Z',
+        finishedAt: '2026-03-28T00:00:01.000Z',
+        updatedAt: '2026-03-28T00:00:01.000Z'
+      }
+    ],
+    actionRuns: []
   }
 }
 
@@ -110,7 +156,7 @@ describe('chat detail shell store', () => {
     vi.unstubAllGlobals()
   })
 
-  it('opens a chat detail dialog with one primary llm call row', async () => {
+  it('opens a chat detail dialog with model call rows from persisted userdata snapshots', async () => {
     const store = useNormalChatChatDetailShellStore()
     await store.initialize()
     await store.openDialog({
@@ -120,8 +166,11 @@ describe('chat detail shell store', () => {
 
     expect(store.snapshot.visible).toBe(true)
     expect(store.llmCallItems).toHaveLength(1)
-    expect(store.llmCallItems[0]?.title).toBe('Primary LLM Call')
+    expect(store.llmCallItems[0]?.id).toBe('model-call-1')
+    expect(store.llmCallItems[0]?.title).toBe('Model Call #1')
+    expect(store.formattedSelectedCallRequest).toContain('compiledPromptMarkdown')
     expect(store.formattedSelectedCallRequest).toContain('Summarize this turn.')
+    expect(store.formattedSelectedCallResponse).toContain('responseStreamText')
     expect(store.formattedSelectedCallResponse).toContain('Final answer')
   })
 })

@@ -134,7 +134,8 @@ describe('normalChatConversationMock scripted playback', () => {
       topicId: 'topic-4',
       providerId: 'provider-openai',
       modelId: 'gpt-4o-mini',
-      input: 'Break this task apart, delegate collection, retry one failed branch, and then summarize.'
+      input:
+        'Break this task apart, delegate collection, retry one failed branch, and then summarize.'
     })
 
     await vi.runAllTimersAsync()
@@ -151,8 +152,8 @@ describe('normalChatConversationMock scripted playback', () => {
     expect(getNormalChatConversationDevDetailMockIdByRequestId(firstAccepted.requestId)).toBe(
       'detail-streaming-baseline'
     )
-    expect(
-      getNormalChatConversationDevDetailMockIdByRequestId(secondAccepted.requestId)
-    ).toBe('detail-agent-hierarchy')
+    expect(getNormalChatConversationDevDetailMockIdByRequestId(secondAccepted.requestId)).toBe(
+      'detail-agent-hierarchy'
+    )
   })
 })

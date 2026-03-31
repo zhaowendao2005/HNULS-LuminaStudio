@@ -8,7 +8,9 @@
       "Bash(npm run:*)",
       "Bash(git worktree:*)",
       "Bash(pnpm lint:orchestraflow)",
-      "Bash(pnpm exec:*)"
+      "Bash(pnpm exec:*)",
+      "mcp__serena__find_symbol",
+      "Bash(gh pr:*)"
     ]
   }
 }

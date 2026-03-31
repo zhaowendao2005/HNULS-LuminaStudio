@@ -111,7 +111,11 @@ app.whenReady().then(() => {
   const mcpChatService = new McpChatService(mcpService, modelConfigService, userSettingsService)
   new McpChatIPCHandler(mcpChatService)
 
-  const normalChatService = new NormalChatService(databaseManager, paperRetrievalService)
+  const normalChatService = new NormalChatService(
+    databaseManager,
+    paperRetrievalService,
+    modelConfigService
+  )
   new NormalChatIPCHandler(normalChatService)
 
   const orchestraflowWorkflowService = new OrchestraflowWorkflowService()

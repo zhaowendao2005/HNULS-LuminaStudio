@@ -3,17 +3,18 @@ import type Database from 'better-sqlite3'
 import type {
   NormalChatConversationMessage,
   NormalChatSendMessageAccepted,
-  NormalChatSendMessageRequest
+  NormalChatSendMessageRequest,
+  NormalChatTaskExecutionActionSnapshot,
+  NormalChatTaskExecutionSnapshot,
+  NormalChatTopic
 } from '@preload/types'
 import { NormalChatConversationConfigService } from '../conversation/conversation-config-service'
 import { NormalChatAgentRunsRepository } from '../repositories/agent-runs.repository'
 import { NormalChatMessagesRepository } from '../repositories/messages.repository'
 import { NormalChatTasksRepository } from '../repositories/tasks.repository'
-import { NormalChatTurnTracesRepository } from '../repositories/turn-traces.repository'
 import { nowIso } from '../shared/utils'
 import { NormalChatWorkspaceService } from '../workspace/workspace-service'
 import { NormalChatAgentRuntime } from './agent/agent-runtime'
-import { NormalChatPromptBuilder } from './prompt/prompt-builder'
 import { NormalChatQueueExecutor } from './scheduler/queue-executor'
 import { NormalChatTaskScheduler } from './scheduler/task-scheduler'
 
@@ -23,10 +24,8 @@ export class NormalChatRuntimeService {
     private readonly workspaceService: NormalChatWorkspaceService,
     private readonly conversationConfigService: NormalChatConversationConfigService,
     private readonly messagesRepository: NormalChatMessagesRepository,
-    private readonly turnTracesRepository: NormalChatTurnTracesRepository,
     private readonly tasksRepository: NormalChatTasksRepository,
     private readonly agentRunsRepository: NormalChatAgentRunsRepository,
-    private readonly promptBuilder: NormalChatPromptBuilder,
     private readonly taskScheduler: NormalChatTaskScheduler,
     private readonly queueExecutor: NormalChatQueueExecutor,
     private readonly agentRuntime: NormalChatAgentRuntime
@@ -48,6 +47,67 @@ export class NormalChatRuntimeService {
     const rootAgentRunId = randomUUID()
     const timestamp = nowIso()
 
+    const effectiveSystemPrompt =
+      topic.systemPromptMode === 'override'
+        ? (topic.systemPromptOverride ?? '')
+        : assistant.defaultSystemPrompt
+    const effectiveContextMemoryRounds = resolveNumericOverride(
+      topic.contextMemoryRoundsMode,
+      topic.contextMemoryRoundsOverride,
+      assistant.contextMemoryRounds
+    )
+    const effectiveMaxRecursionDepth = resolveNumericOverride(
+      topic.maxRecursionDepthMode,
+      topic.maxRecursionDepthOverride,
+      assistant.maxRecursionDepth
+    )
+    const effectiveMaxReasoningSteps = resolveNumericOverride(
+      topic.maxReasoningStepsMode,
+      topic.maxReasoningStepsOverride,
+      assistant.maxReasoningSteps
+    )
+    const effectiveStreamingEnabled =
+      topic.streamingMode === 'override'
+        ? (topic.streamingEnabledOverride ?? assistant.streamingEnabled)
+        : assistant.streamingEnabled
+
+    const initialHistoryMessages = this.messagesRepository
+      .listByTopic(payload.topicId)
+      .slice(-Math.max(0, effectiveContextMemoryRounds * 2))
+
+    const executionSnapshot: NormalChatTaskExecutionSnapshot = {
+      assistant: {
+        id: assistant.id,
+        name: assistant.name,
+        emoji: assistant.emoji
+      },
+      topic: {
+        id: topic.id,
+        title: topic.title
+      },
+      conversation: {
+        id: conversation.id,
+        title: conversation.title,
+        agentTemplateId: conversation.agentTemplateId
+      },
+      request: {
+        input: payload.input,
+        providerId: payload.providerId,
+        modelId: payload.modelId
+      },
+      runtime: {
+        systemPrompt: effectiveSystemPrompt,
+        streamingEnabled: effectiveStreamingEnabled,
+        contextMemoryRounds: effectiveContextMemoryRounds,
+        maxRecursionDepth: effectiveMaxRecursionDepth,
+        maxReasoningSteps: effectiveMaxReasoningSteps
+      },
+      historyMessages: initialHistoryMessages,
+      promptInjections: conversation.programPromptInjections,
+      actions: resolveActionSnapshots(assistant, topic),
+      createdAt: timestamp
+    }
+
     const userMessage: NormalChatConversationMessage = {
       id: userMessageId,
       topicId: payload.topicId,
@@ -58,33 +118,10 @@ export class NormalChatRuntimeService {
       updatedAt: timestamp
     }
 
-    const initialHistoryMessages = this.messagesRepository
-      .listByTopic(payload.topicId)
-      .slice(-Math.max(0, assistant.contextMemoryRounds * 2))
-
-    const requestRecord = this.promptBuilder.buildRequestRecord({
-      assistant,
-      topic,
-      providerId: payload.providerId,
-      modelId: payload.modelId,
-      input: payload.input
-    })
-
     let rootAgentRun = null as ReturnType<NormalChatAgentRunsRepository['createRoot']> | null
 
     const transaction = this.db.transaction(() => {
       this.messagesRepository.insert(userMessage)
-      this.turnTracesRepository.create({
-        requestId,
-        topicId: payload.topicId,
-        assistantId: assistant.id,
-        assistantName: assistant.name,
-        assistantEmoji: assistant.emoji,
-        topicTitle: topic.title,
-        requestRecord,
-        responseRecord: this.promptBuilder.createInitialResponseRecord(),
-        timestamp
-      })
       this.tasksRepository.create({
         taskId,
         requestId,
@@ -93,35 +130,17 @@ export class NormalChatRuntimeService {
         assistantId: assistant.id,
         userMessageId,
         rootAgentRunId,
-        providerId: payload.providerId,
+        modelProviderId: payload.providerId,
         modelId: payload.modelId,
-        timestamp
-      })
-      this.tasksRepository.createSnapshot({
-        taskId,
-        requestId,
-        conversationId: conversation.id,
-        topicId: payload.topicId,
-        assistantId: assistant.id,
-        userInput: payload.input,
-        resolvedConfig: this.promptBuilder.buildResolvedConfig({
-          assistant,
-          topic,
-          conversationId: conversation.id,
-          providerId: payload.providerId,
-          modelId: payload.modelId
-        }),
-        historyMessages: initialHistoryMessages,
-        promptInjections: conversation.programPromptInjections,
-        requestPayload: requestRecord,
+        executionSnapshot,
         timestamp
       })
       rootAgentRun = this.agentRunsRepository.createRoot({
         rootAgentRunId,
         taskId,
         goal: payload.input,
-        maxReactSteps: assistant.maxReasoningSteps,
-        maxChildDepth: assistant.maxRecursionDepth,
+        maxReactSteps: effectiveMaxReasoningSteps,
+        maxChildDepth: effectiveMaxRecursionDepth,
         providerId: payload.providerId,
         modelId: payload.modelId,
         timestamp
@@ -140,15 +159,18 @@ export class NormalChatRuntimeService {
             taskId,
             requestId,
             topicId: payload.topicId,
-            conversation,
-            assistant,
-            topic,
-            userInput: payload.input,
-            providerId: payload.providerId,
-            modelId: payload.modelId,
+            executionSnapshot,
             rootAgentRun: rootAgentRun as ReturnType<NormalChatAgentRunsRepository['createRoot']>,
             signal: controller.signal
           })
+        } catch (error) {
+          if (!controller.signal.aborted) {
+            this.taskScheduler.fail(
+              requestId,
+              error instanceof Error ? error.message : String(error)
+            )
+          }
+          throw error
         } finally {
           this.taskScheduler.clearPendingTask(requestId)
         }
@@ -164,4 +186,51 @@ export class NormalChatRuntimeService {
   abort(requestId: string): void {
     this.taskScheduler.abort(requestId)
   }
+}
+
+function resolveNumericOverride(
+  mode: 'inherit' | 'override',
+  override: number | null,
+  fallback: number
+): number {
+  return mode === 'override' ? (override ?? fallback) : fallback
+}
+
+function resolveActionSnapshots(
+  assistant: {
+    functionCallPubMedEnabled: boolean
+    functionCallPubMedMode: 'fast' | 'slow'
+  },
+  topic: Pick<
+    NormalChatTopic,
+    | 'functionCallPubMedMode'
+    | 'functionCallPubMedEnabledOverride'
+    | 'functionCallPubMedExecutionMode'
+    | 'functionCallPubMedExecutionModeOverride'
+  >
+): NormalChatTaskExecutionActionSnapshot[] {
+  const actions: NormalChatTaskExecutionActionSnapshot[] = [
+    { actionKey: 'system.get_action_spec', kind: 'system', mode: 'fast' },
+    { actionKey: 'system.dispatch_sub_agent', kind: 'system', mode: 'fast' }
+  ]
+
+  const pubmedEnabled =
+    topic.functionCallPubMedMode === 'override'
+      ? (topic.functionCallPubMedEnabledOverride ?? assistant.functionCallPubMedEnabled)
+      : assistant.functionCallPubMedEnabled
+
+  if (pubmedEnabled) {
+    const pubmedMode =
+      topic.functionCallPubMedExecutionMode === 'override'
+        ? (topic.functionCallPubMedExecutionModeOverride ?? assistant.functionCallPubMedMode)
+        : assistant.functionCallPubMedMode
+
+    actions.push({
+      actionKey: 'functioncall.pubmed_search',
+      kind: 'functioncall',
+      mode: pubmedMode
+    })
+  }
+
+  return actions
 }
