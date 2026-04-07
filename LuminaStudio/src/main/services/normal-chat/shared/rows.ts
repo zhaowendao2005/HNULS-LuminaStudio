@@ -26,6 +26,7 @@ export interface AssistantRow {
   functioncall_pubmed_enabled: number
   functioncall_pubmed_mode: NormalChatFunctionCallMode
   mcp_enabled: number
+  persistence_preset: NormalChatAssistant['persistencePreset']
   sort_order: number
 }
 

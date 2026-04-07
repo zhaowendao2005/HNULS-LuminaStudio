@@ -30,8 +30,9 @@ function createConfig(): ModelConfig {
         name: 'Provider A',
         protocol: 'openai',
         enabled: true,
-        baseUrl: 'https://a.example.com',
+        baseUrl: 'https://a.example.com/v1',
         apiKey: 'key-a',
+        officialWebsite: 'https://docs.example.com/a',
         models: [
           { id: 'shared-model', displayName: 'Shared Model' },
           { id: 'provider-a-only', displayName: 'Provider A Only' }
@@ -42,8 +43,9 @@ function createConfig(): ModelConfig {
         name: 'Provider B',
         protocol: 'openai',
         enabled: true,
-        baseUrl: 'https://b.example.com',
+        baseUrl: 'https://b.example.com/v1',
         apiKey: 'key-b',
+        officialWebsite: '',
         models: [
           { id: 'shared-model', displayName: 'Shared Model' },
           { id: 'provider-b-only', displayName: 'Provider B Only' }
@@ -79,6 +81,25 @@ describe('ModelConfigService', () => {
       { provider_id: 'provider-a', id: 'shared-model' },
       { provider_id: 'provider-b', id: 'shared-model' }
     ])
+  })
+
+  it('persists provider official website in app settings and falls back to base url origin', async () => {
+    const saved = await service.updateConfig(createConfig())
+
+    expect(saved.providers[0].officialWebsite).toBe('https://docs.example.com/a')
+    expect(saved.providers[1].officialWebsite).toBe('https://b.example.com')
+
+    const row = db
+      .prepare('SELECT value FROM app_settings WHERE key = ?')
+      .get('modelConfig.providerExtraSettings') as { value: string }
+
+    expect(JSON.parse(row.value)).toEqual({
+      version: 1,
+      providers: {
+        'provider-a': { officialWebsite: 'https://docs.example.com/a' },
+        'provider-b': { officialWebsite: 'https://b.example.com' }
+      }
+    })
   })
 
   it('rejects duplicate model ids within the same provider and rolls back the transaction', async () => {

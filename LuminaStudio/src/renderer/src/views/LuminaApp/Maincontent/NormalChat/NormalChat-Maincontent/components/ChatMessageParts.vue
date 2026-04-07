@@ -1,11 +1,11 @@
 <template>
   <div class="nc-chat-message-parts-a9k2 mt-4 space-y-3">
-    <!-- TODO(normal-chat-rewrite): 先保留旧运行状态条占位，后续改为新系统状态组件。 -->
     <AgentStatusBarBlock
       v-if="message.role === 'assistant' && message.requestId"
       :request-id="message.requestId"
       @open-tree="emit('open-agent-tree')"
     />
+
     <template v-if="renderBlocks.length > 0">
       <template v-for="block in renderBlocks" :key="block.key">
         <div v-if="block.kind === 'text'">
@@ -17,30 +17,34 @@
           </div>
           <ChatMarkdownContent
             v-else
-            class=""
             :content="block.text"
             :is-pending="Boolean(message.isPending)"
           />
         </div>
 
-        <template v-else>
-          <template v-if="displayMode === 'detail'">
-            <FunctionCallMessageBlock
-              v-for="(call, index) in block.calls"
-              :key="callKey(call, index, block.batchIndex)"
-              :part="call"
-              :is-pending="Boolean(message.isPending)"
-              @view-detail="emit('open-functioncall-detail', $event)"
-            />
-          </template>
-          <FunctionCallBatchBlock
-            v-else
-            :batch-index="block.batchIndex"
-            :calls="block.calls"
+        <ThinkingMessageBlock
+          v-else-if="block.kind === 'thinking'"
+          :part="block.part"
+          :is-pending="Boolean(message.isPending)"
+        />
+
+        <template v-else-if="displayMode === 'detail'">
+          <FunctionCallMessageBlock
+            v-for="(call, index) in block.calls"
+            :key="callKey(call, index, block.batchIndex)"
+            :part="call"
             :is-pending="Boolean(message.isPending)"
-            @view-detail="emit('view-detail')"
+            @view-detail="emit('open-functioncall-detail', $event)"
           />
         </template>
+
+        <FunctionCallBatchBlock
+          v-else
+          :batch-index="block.batchIndex"
+          :calls="block.calls"
+          :is-pending="Boolean(message.isPending)"
+          @view-detail="emit('view-detail')"
+        />
       </template>
     </template>
 
@@ -53,7 +57,6 @@
       </div>
       <ChatMarkdownContent
         v-else
-        class=""
         :content="message.text"
         :is-pending="Boolean(message.isPending)"
       />
@@ -63,12 +66,13 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import ChatMarkdownContent from './ChatMarkdownContent.vue'
-import AgentStatusBarBlock from './AgentStatusBarBlock.vue'
-import FunctionCallBatchBlock from './FunctionCallBatchBlock.vue'
-import FunctionCallMessageBlock from './FunctionCallMessageBlock.vue'
 import type { NormalChatMessagePart } from '@preload/types'
 import type { NormalChatConversationDisplayMessage } from '@renderer/stores/normal-chat/conversation/conversation.types'
+import AgentStatusBarBlock from './AgentStatusBarBlock.vue'
+import ChatMarkdownContent from './ChatMarkdownContent.vue'
+import FunctionCallBatchBlock from './FunctionCallBatchBlock.vue'
+import FunctionCallMessageBlock from './FunctionCallMessageBlock.vue'
+import ThinkingMessageBlock from './ThinkingMessageBlock.vue'
 
 type DisplayMode = 'summary' | 'detail'
 
@@ -89,6 +93,12 @@ interface TextRenderBlock {
   text: string
 }
 
+interface ThinkingRenderBlock {
+  kind: 'thinking'
+  key: string
+  part: Extract<NormalChatMessagePart, { kind: 'thinking' }>
+}
+
 interface FunctionBatchRenderBlock {
   kind: 'function-batch'
   key: string
@@ -96,7 +106,7 @@ interface FunctionBatchRenderBlock {
   calls: Extract<NormalChatMessagePart, { kind: 'functioncall' }>[]
 }
 
-type RenderBlock = TextRenderBlock | FunctionBatchRenderBlock
+type RenderBlock = TextRenderBlock | ThinkingRenderBlock | FunctionBatchRenderBlock
 
 const displayMode = computed<DisplayMode>(() => props.displayMode ?? 'summary')
 
@@ -110,10 +120,10 @@ const renderBlocks = computed<RenderBlock[]>(() => {
     if (currentBatch.length === 0) {
       return
     }
-    const batchKey = `function-batch-${batchIndex}-${currentBatch[0]?.callId ?? 'unknown'}`
+
     blocks.push({
       kind: 'function-batch',
-      key: batchKey,
+      key: `function-batch-${batchIndex}-${currentBatch[0]?.callId ?? 'unknown'}`,
       batchIndex,
       calls: currentBatch
     })
@@ -121,20 +131,31 @@ const renderBlocks = computed<RenderBlock[]>(() => {
     currentBatch = []
   }
 
-  parts.forEach((part, index) => {
+  for (const [index, part] of parts.entries()) {
     if (part.kind === 'text') {
       flushBatch()
-      // 文本块在渲染层保持原顺序，便于准确定位“工具调用批次”区间。
       blocks.push({
         kind: 'text',
         key: `text-${index}`,
         text: part.text
       })
-      return
+      continue
     }
 
-    currentBatch.push(part)
-  })
+    if (part.kind === 'thinking') {
+      flushBatch()
+      blocks.push({
+        kind: 'thinking',
+        key: `thinking-${part.title}-${part.roundIndex}-${index}`,
+        part
+      })
+      continue
+    }
+
+    if (part.kind === 'functioncall') {
+      currentBatch.push(part)
+    }
+  }
 
   flushBatch()
   return blocks

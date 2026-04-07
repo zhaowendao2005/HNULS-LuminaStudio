@@ -5,6 +5,7 @@ import type {
 } from './common.types'
 
 export type NormalChatFunctionCallMode = 'fast' | 'slow'
+export type NormalChatPersistencePreset = 'light' | 'full'
 
 export interface NormalChatLabel {
   id: string
@@ -32,6 +33,7 @@ export interface NormalChatAssistant {
   functionCallPubMedEnabled: boolean
   functionCallPubMedMode: NormalChatFunctionCallMode
   mcpEnabled: boolean
+  persistencePreset: NormalChatPersistencePreset
   sortOrder: number
 }
 
@@ -98,6 +100,7 @@ export interface NormalChatUpdateAssistantRequest {
   functionCallPubMedEnabled?: boolean
   functionCallPubMedMode?: NormalChatFunctionCallMode
   mcpEnabled?: boolean
+  persistencePreset?: NormalChatPersistencePreset
 }
 
 export interface NormalChatAssignLabelRequest {

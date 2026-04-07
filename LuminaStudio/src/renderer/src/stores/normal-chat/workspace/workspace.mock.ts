@@ -26,6 +26,7 @@ function createDefaultAssistant(): NormalChatAssistant {
     functionCallPubMedEnabled: true,
     functionCallPubMedMode: 'fast',
     mcpEnabled: false,
+    persistencePreset: 'light',
     sortOrder: 0
   }
 }
@@ -204,6 +205,7 @@ export const normalChatWorkspaceMock = {
     functionCallPubMedEnabled?: boolean
     functionCallPubMedMode?: 'fast' | 'slow'
     mcpEnabled?: boolean
+    persistencePreset?: 'light' | 'full'
   }): Promise<NormalChatWorkspaceSnapshot> {
     updateAssistantSnapshot(payload.assistantId, (assistant) => ({
       ...assistant,
@@ -224,7 +226,8 @@ export const normalChatWorkspaceMock = {
       functionCallPubMedEnabled:
         payload.functionCallPubMedEnabled ?? assistant.functionCallPubMedEnabled,
       functionCallPubMedMode: payload.functionCallPubMedMode ?? assistant.functionCallPubMedMode,
-      mcpEnabled: payload.mcpEnabled ?? assistant.mcpEnabled
+      mcpEnabled: payload.mcpEnabled ?? assistant.mcpEnabled,
+      persistencePreset: payload.persistencePreset ?? assistant.persistencePreset
     }))
 
     return cloneSnapshot()

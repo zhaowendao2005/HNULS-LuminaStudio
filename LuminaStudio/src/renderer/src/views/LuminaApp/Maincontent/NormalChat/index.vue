@@ -30,7 +30,6 @@ import { useNormalChatLayoutShellStore } from '@renderer/stores/normal-chat/layo
 import { useNormalChatWorkspaceStore } from '@renderer/stores/normal-chat/workspace/workspace.store'
 import { useNormalChatConversationStore } from '@renderer/stores/normal-chat/conversation/conversation.store'
 import { useNormalChatChatDetailShellStore } from '@renderer/stores/normal-chat/chat-detail-shell/chat-detail-shell.store'
-import { useNormalChatFunctioncallDetailShellStore } from '@renderer/stores/normal-chat/functioncall-detail-shell/functioncall-detail-shell.store'
 import { useNormalChatAgentDetailShellStore } from '@renderer/stores/normal-chat/agent-detail-shell/agent-detail-shell.store'
 import type {
   NormalChatLeftTab,
@@ -41,7 +40,6 @@ const layoutStore = useNormalChatLayoutShellStore()
 const workspaceStore = useNormalChatWorkspaceStore()
 const conversationStore = useNormalChatConversationStore()
 const chatDetailShellStore = useNormalChatChatDetailShellStore()
-const functioncallDetailShellStore = useNormalChatFunctioncallDetailShellStore()
 const agentDetailShellStore = useNormalChatAgentDetailShellStore()
 const { leftCollapsed, rightCollapsed, leftTab, rightPage } = storeToRefs(layoutStore)
 
@@ -51,7 +49,6 @@ onMounted(() => {
       layoutStore.initialize(),
       workspaceStore.initialize(),
       chatDetailShellStore.initialize(),
-      functioncallDetailShellStore.initialize(),
       agentDetailShellStore.initialize()
     ])
     await conversationStore.initialize()

@@ -1,10 +1,12 @@
 /**
  * Model Config DataSource
- *
- * 数据源适配器：负责 Renderer ↔ Preload API 之间的类型映射和数据转换。
  */
-import type { ModelConfig } from '@preload/types'
+import type { ModelConfig, SmokeTestPromptSettings, SmokeTestResult } from '@preload/types'
 import type { ModelProvider, ProviderIcon, ProviderType, RemoteModelGroups } from './types'
+
+function toPlainJsonValue<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T
+}
 
 function inferIconFromProtocol(protocol: ProviderType): ProviderIcon {
   if (protocol === 'openai' || protocol === 'openai-response' || protocol === 'openai-completion') {
@@ -23,6 +25,7 @@ function mapConfigToProviders(config: ModelConfig | null): ModelProvider[] {
     name: provider.name,
     apiKey: provider.apiKey,
     baseUrl: provider.baseUrl,
+    officialWebsite: provider.officialWebsite,
     icon: inferIconFromProtocol(provider.protocol),
     enabled: provider.enabled,
     models: provider.models.map((model) => ({
@@ -46,6 +49,7 @@ function mapProvidersToConfigPatch(
       enabled: provider.enabled,
       baseUrl: provider.baseUrl,
       apiKey: provider.apiKey,
+      officialWebsite: provider.officialWebsite,
       models: provider.models.map((model) => ({
         id: model.id,
         displayName: model.name,
@@ -83,6 +87,38 @@ export const ModelConfigDataSource = {
     const response = await window.api.modelConfig.syncModels(providerId)
     if (!response.success || !response.data) {
       throw new Error(response.error || 'Failed to sync remote models')
+    }
+    return response.data
+  },
+
+  async testProviderModel(
+    providerId: string,
+    modelId: string,
+    prompt?: string
+  ): Promise<SmokeTestResult> {
+    const response = await window.api.modelConfig.testProvider(providerId, modelId, prompt)
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to test provider model')
+    }
+    return response.data
+  },
+
+  async getSmokeTestPromptSettings(): Promise<SmokeTestPromptSettings> {
+    const response = await window.api.modelConfig.getSmokeTestPromptSettings()
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to load smoke test prompt settings')
+    }
+    return response.data
+  },
+
+  async saveSmokeTestPromptSettings(
+    settings: SmokeTestPromptSettings
+  ): Promise<SmokeTestPromptSettings> {
+    const response = await window.api.modelConfig.updateSmokeTestPromptSettings(
+      toPlainJsonValue(settings)
+    )
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to save smoke test prompt settings')
     }
     return response.data
   },

@@ -46,15 +46,15 @@ export class NormalChatAssistantsRepository {
              context_memory_rounds = ?, max_recursion_depth = ?, max_reasoning_steps = ?,
              system_action_functioncall_enabled = ?, system_action_subagent_enabled = ?,
              functioncall_pubmed_enabled = ?, functioncall_pubmed_mode = ?, mcp_enabled = ?,
-             sort_order = ?, updated_at = ?
+             persistence_preset = ?, sort_order = ?, updated_at = ?
          WHERE id = ?`
       : `INSERT INTO normal_chat_assistants
          (id, name, emoji, label_id, default_system_prompt, streaming_enabled, call_mode, cost_mode,
           default_model_provider_id, default_model_id, context_memory_rounds, max_recursion_depth,
           max_reasoning_steps, system_action_functioncall_enabled, system_action_subagent_enabled,
-          functioncall_pubmed_enabled, functioncall_pubmed_mode, mcp_enabled, sort_order,
-          created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          functioncall_pubmed_enabled, functioncall_pubmed_mode, mcp_enabled, persistence_preset,
+          sort_order, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
     const params = isUpdate
       ? [
@@ -75,6 +75,7 @@ export class NormalChatAssistantsRepository {
           toDbBoolean(assistant.functionCallPubMedEnabled),
           assistant.functionCallPubMedMode,
           toDbBoolean(assistant.mcpEnabled),
+          assistant.persistencePreset,
           assistant.sortOrder,
           timestamp,
           assistant.id
@@ -98,6 +99,7 @@ export class NormalChatAssistantsRepository {
           toDbBoolean(assistant.functionCallPubMedEnabled),
           assistant.functionCallPubMedMode,
           toDbBoolean(assistant.mcpEnabled),
+          assistant.persistencePreset,
           assistant.sortOrder,
           timestamp,
           timestamp

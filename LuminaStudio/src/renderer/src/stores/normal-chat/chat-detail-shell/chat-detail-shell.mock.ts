@@ -1,16 +1,60 @@
 import type { NormalChatConversationDevDetailMockId } from '@preload/types'
 import { getNormalChatConversationDevDetailMockIdByRequestId } from '../conversation/conversation.mock'
-import type { ChatDetailShellRecord, ChatDetailShellSnapshot } from './chat-detail-shell.types'
+import type {
+  ChatDetailShellDocGroup,
+  ChatDetailShellRecord,
+  ChatDetailShellSnapshot
+} from './chat-detail-shell.types'
 
 export const chatDetailShellMockRequestId = 'detail-request-streaming-baseline'
 export const chatDetailShellMockMessageId = 'detail-message-streaming-baseline'
 
-function createCall(
-  input: Omit<ChatDetailShellRecord['calls'][number], 'indexLabel'> & { index: number }
-): ChatDetailShellRecord['calls'][number] {
+function createGroups(requestText: string, responseText: string): ChatDetailShellDocGroup[] {
+  return [
+    {
+      id: 'request',
+      title: 'request',
+      items: [
+        {
+          id: 'request.request_meta',
+          groupId: 'request',
+          title: 'request_meta',
+          summary: '请求元信息',
+          description: '模拟请求侧文档。',
+          payload: { input: requestText },
+          kind: 'json-object'
+        }
+      ]
+    },
+    {
+      id: 'response',
+      title: 'response',
+      items: [
+        {
+          id: 'response.final_reply',
+          groupId: 'response',
+          title: 'response.final_reply',
+          summary: '最终回答正文',
+          description: '模拟响应侧文档。',
+          payload: responseText,
+          kind: 'markdown'
+        }
+      ]
+    }
+  ]
+}
+
+function createCall(index: number, requestText: string, responseText: string) {
   return {
-    ...input,
-    indexLabel: `#${input.index}`
+    id: `primary-llm-call-${index}`,
+    indexLabel: `#${index}`,
+    title: index === 1 ? 'Primary LLM Call' : `Model Call #${index}`,
+    summary: 'Mock call detail row.',
+    contextText: 'Mock Topic / mock-call',
+    badge: 'LLM',
+    statusLabel: 'Completed',
+    statusClass: 'bg-emerald-100 text-emerald-700',
+    groups: createGroups(requestText, responseText)
   }
 }
 
@@ -21,136 +65,43 @@ const detailRecords: Record<NormalChatConversationDevDetailMockId, ChatDetailShe
     assistantName: 'Dev Mock Assistant',
     topicTitle: 'Streaming Baseline',
     description: 'Primary request and response payload for the current LLM turn.',
-    calls: [
-      createCall({
-        index: 1,
-        id: 'primary-llm-call',
-        title: 'Primary LLM Call',
-        summary: 'One request and one response with no tools.',
-        contextText: 'Streaming Baseline / primary-llm-call',
-        badge: 'LLM',
-        statusLabel: 'Completed',
-        statusClass: 'bg-emerald-100 text-emerald-700',
-        requestPayload: {
-          providerId: 'openai',
-          modelId: 'gpt-4.1',
-          streamingEnabled: true,
-          input: 'Explain what this frontend-only chatflow playback is for in one concise answer.'
-        },
-        responsePayload: {
-          finalText:
-            'This frontend dev playback exercises the normal streaming path. Use it to validate message layout, pending state, token metrics, and final commit behavior.',
-          chunks: [
-            'This frontend dev playback exercises the normal streaming path.',
-            ' Use it to validate message layout, pending state, token metrics, and final commit behavior.'
-          ],
-          aborted: false,
-          errorMessage: null
-        }
-      })
-    ]
+    hasLlmCallDetails: true,
+    llmCallEmptyMessage: null,
+    calls: [createCall(1, 'Explain this turn.', 'This is the final answer.')],
+    functioncalls: []
   },
   'detail-functioncall-matrix': {
     requestId: 'detail-request-functioncall-matrix',
     messageId: 'detail-message-functioncall-matrix',
     assistantName: 'Dev Mock Assistant',
     topicTitle: 'FunctionCall Matrix',
-    description: 'Primary LLM call remains visible even when tool calls exist.',
-    calls: [
-      createCall({
-        index: 1,
-        id: 'primary-llm-call',
-        title: 'Primary LLM Call',
-        summary: 'The assistant orchestrates tool batches around one main model turn.',
-        contextText: 'FunctionCall Matrix / primary-llm-call',
-        badge: 'LLM',
-        statusLabel: 'Completed',
-        statusClass: 'bg-emerald-100 text-emerald-700',
-        requestPayload: {
-          providerId: 'openai',
-          modelId: 'gpt-4.1',
-          streamingEnabled: true,
-          input: 'Collect evidence and summarize the MAPK signaling pathway with references.'
-        },
-        responsePayload: {
-          finalText:
-            'I collected evidence in two tool batches and summarized the main MAPK pathway checkpoints.',
-          chunks: [
-            'I collected evidence in two tool batches.',
-            ' I summarized the main MAPK pathway checkpoints.'
-          ],
-          aborted: false,
-          errorMessage: null
-        }
-      })
-    ]
+    description: 'Mock functioncall matrix detail.',
+    hasLlmCallDetails: true,
+    llmCallEmptyMessage: null,
+    calls: [createCall(1, 'Collect evidence.', 'Evidence summarized.')],
+    functioncalls: []
   },
   'detail-agent-hierarchy': {
     requestId: 'detail-request-agent-hierarchy',
     messageId: 'detail-message-agent-hierarchy',
     assistantName: 'Dev Mock Assistant',
     topicTitle: 'Agent Hierarchy',
-    description: 'Agent orchestration still maps to one primary request-response pair.',
-    calls: [
-      createCall({
-        index: 1,
-        id: 'primary-llm-call',
-        title: 'Primary LLM Call',
-        summary: 'A director-agent response with runtime tree metadata.',
-        contextText: 'Agent Hierarchy / primary-llm-call',
-        badge: 'LLM',
-        statusLabel: 'Completed',
-        statusClass: 'bg-emerald-100 text-emerald-700',
-        requestPayload: {
-          providerId: 'openai',
-          modelId: 'gpt-4.1',
-          streamingEnabled: true,
-          input: 'Plan a multi-agent evidence collection workflow for signal transduction review.'
-        },
-        responsePayload: {
-          finalText:
-            'The director dispatched worker and repair branches, then merged the final summary.',
-          chunks: [
-            'The director dispatched worker and repair branches.',
-            ' Then it merged the final summary.'
-          ],
-          aborted: false,
-          errorMessage: null
-        }
-      })
-    ]
+    description: 'Mock agent hierarchy detail.',
+    hasLlmCallDetails: true,
+    llmCallEmptyMessage: null,
+    calls: [createCall(1, 'Plan a workflow.', 'Workflow summary.')],
+    functioncalls: []
   },
   'detail-request-interrupt': {
     requestId: 'detail-request-interrupt',
     messageId: 'detail-message-interrupt',
     assistantName: 'Dev Mock Assistant',
     topicTitle: 'Interrupt And Error',
-    description: 'Interrupted requests still keep a primary call row.',
-    calls: [
-      createCall({
-        index: 1,
-        id: 'primary-llm-call',
-        title: 'Primary LLM Call',
-        summary: 'Interrupted before a final answer committed.',
-        contextText: 'Interrupt And Error / primary-llm-call',
-        badge: 'LLM',
-        statusLabel: 'Aborted',
-        statusClass: 'bg-amber-100 text-amber-700',
-        requestPayload: {
-          providerId: 'openai',
-          modelId: 'gpt-4.1',
-          streamingEnabled: true,
-          input: 'Run a deep multi-step search and stop halfway.'
-        },
-        responsePayload: {
-          finalText: '',
-          chunks: [],
-          aborted: true,
-          errorMessage:
-            'The request was interrupted before the final assistant message was committed.'
-        }
-      })
-    ]
+    description: 'Mock interrupted request detail.',
+    hasLlmCallDetails: true,
+    llmCallEmptyMessage: null,
+    calls: [createCall(1, 'Run a long task.', 'Interrupted before completion.')],
+    functioncalls: []
   }
 }
 
@@ -176,8 +127,11 @@ export const chatDetailShellMock: ChatDetailShellSnapshot = {
   messageId: chatDetailShellMockMessageId,
   currentPage: 'overview',
   selectedCallId: '',
+  selectedGroupId: 'request',
+  selectedDocId: '',
   requestViewMode: 'json',
   responseViewMode: 'json',
+  schemaViewMode: 'json',
   loading: false,
   errorText: '',
   detailByRequestId: {

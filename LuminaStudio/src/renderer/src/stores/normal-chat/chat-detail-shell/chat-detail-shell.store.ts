@@ -1,8 +1,12 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
+import type { NormalChatConversationStreamEvent } from '@preload/types'
+import { NormalChatConversationDatasource } from '../conversation/conversation.datasource'
 import { ChatDetailShellDatasource } from './chat-detail-shell.datasource'
 import type {
   ChatDetailDataViewMode,
+  ChatDetailShellDocGroup,
+  ChatDetailShellDocGroupId,
   ChatDetailShellOpenPayload,
   ChatDetailShellRecord,
   ChatDetailShellSnapshot
@@ -17,8 +21,12 @@ function createEmptySnapshot(): ChatDetailShellSnapshot {
     messageId: '',
     currentPage: 'overview',
     selectedCallId: '',
+    selectedFunctioncallId: '',
+    selectedGroupId: 'request',
+    selectedDocId: '',
     requestViewMode: 'json',
     responseViewMode: 'json',
+    schemaViewMode: 'json',
     loading: false,
     errorText: '',
     detailByRequestId: {}
@@ -29,6 +37,7 @@ export const useNormalChatChatDetailShellStore = defineStore(
   'normal-chat-chat-detail-shell',
   () => {
     const snapshot = ref<ChatDetailShellSnapshot>(createEmptySnapshot())
+    let disposeStream: (() => void) | null = null
 
     const detail = computed<ChatDetailShellRecord | null>(() => {
       return snapshot.value.detailByRequestId[snapshot.value.requestId] ?? null
@@ -38,36 +47,160 @@ export const useNormalChatChatDetailShellStore = defineStore(
       return detail.value ? `${detail.value.assistantName} / ${detail.value.topicTitle}` : ''
     })
 
+    const hasLlmCallDetails = computed(() => detail.value?.hasLlmCallDetails ?? false)
     const llmCallItems = computed(() => detail.value?.calls ?? [])
+    const functioncallItems = computed(() => detail.value?.functioncalls ?? [])
 
     const selectedCallItem = computed(() => {
+      if (!hasLlmCallDetails.value) {
+        return null
+      }
+
       return (
         llmCallItems.value.find((item) => item.id === snapshot.value.selectedCallId) ??
         llmCallItems.value[0] ??
         null
       )
     })
+    const selectedFunctioncallItem = computed(() => {
+      return (
+        functioncallItems.value.find((item) => item.id === snapshot.value.selectedFunctioncallId) ??
+        functioncallItems.value[0] ??
+        null
+      )
+    })
+
+    const selectedGroups = computed(() => selectedCallItem.value?.groups ?? [])
+    const selectedGroup = computed(() => {
+      return (
+        selectedGroups.value.find((group) => group.id === snapshot.value.selectedGroupId) ??
+        selectedGroups.value[0] ??
+        null
+      )
+    })
+
+    const selectedDoc = computed(() => {
+      return (
+        selectedGroup.value?.items.find((item) => item.id === snapshot.value.selectedDocId) ??
+        selectedGroup.value?.items[0] ??
+        null
+      )
+    })
 
     const breadcrumbText = computed(() => {
-      return `Overview / ${selectedCallItem.value?.title ?? 'LLM Call Detail'}`
+      if (snapshot.value.currentPage === 'functioncall-overview') {
+        return 'Overview / Functioncall Records'
+      }
+      if (snapshot.value.currentPage === 'functioncall-detail') {
+        return `Overview / Functioncall Records / ${selectedFunctioncallItem.value?.title ?? 'Functioncall Detail'}`
+      }
+      if (!hasLlmCallDetails.value) {
+        return 'Overview / LLM Call Unavailable'
+      }
+      return `Overview / ${selectedCallItem.value?.title ?? 'LLM Call Detail'} / ${selectedGroup.value?.title ?? ''}`
     })
 
-    const formattedSelectedCallRequest = computed(() => {
-      return formatPayload(
-        selectedCallItem.value?.requestPayload ?? {},
-        snapshot.value.requestViewMode
-      )
-    })
+    function getDefaultGroup(groups: ChatDetailShellDocGroup[]): ChatDetailShellDocGroup | null {
+      return groups[0] ?? null
+    }
 
-    const formattedSelectedCallResponse = computed(() => {
-      return formatPayload(
-        selectedCallItem.value?.responsePayload ?? {},
-        snapshot.value.responseViewMode
-      )
-    })
+    function setActiveDocument(docId: string, groupId: ChatDetailShellDocGroupId): void {
+      snapshot.value.selectedGroupId = groupId
+      snapshot.value.selectedDocId = docId
+    }
+
+    function selectFirstDocumentInGroup(groupId: ChatDetailShellDocGroupId): void {
+      const group =
+        selectedGroups.value.find((item) => item.id === groupId) ??
+        getDefaultGroup(selectedGroups.value)
+      if (!group) {
+        snapshot.value.selectedGroupId = groupId
+        snapshot.value.selectedDocId = ''
+        return
+      }
+      setActiveDocument(group.items[0]?.id ?? '', group.id)
+    }
+
+    function patchResponseStreamText(modelCallId: string, delta: string): void {
+      const requestId = snapshot.value.requestId
+      if (!requestId) {
+        return
+      }
+
+      const detailRecord = snapshot.value.detailByRequestId[requestId]
+      if (!detailRecord) {
+        return
+      }
+
+      const nextCalls = detailRecord.calls.map((call) => {
+        if (call.id !== modelCallId) {
+          return call
+        }
+
+        return {
+          ...call,
+          groups: call.groups.map((group) => {
+            if (group.id !== 'response') {
+              return group
+            }
+
+            return {
+              ...group,
+              items: group.items.map((item) => {
+                if (item.id !== 'response.stream_text') {
+                  return item
+                }
+
+                return {
+                  ...item,
+                  payload: `${typeof item.payload === 'string' ? item.payload : ''}${delta}`
+                }
+              })
+            }
+          })
+        }
+      })
+
+      snapshot.value.detailByRequestId = {
+        ...snapshot.value.detailByRequestId,
+        [requestId]: {
+          ...detailRecord,
+          calls: nextCalls
+        }
+      }
+    }
+
+    function handleRuntimeEvent(event: NormalChatConversationStreamEvent): void {
+      if (!snapshot.value.visible || event.requestId !== snapshot.value.requestId) {
+        return
+      }
+
+      if (event.type === 'assistant-text-delta') {
+        patchResponseStreamText(event.modelCallId, event.delta)
+        return
+      }
+
+      if (
+        event.type === 'prompt-built' ||
+        event.type === 'assistant-part-upsert' ||
+        event.type === 'action-validated' ||
+        event.type === 'finish'
+      ) {
+        void loadCurrentDetail()
+      }
+    }
+
+    function ensureStreamSubscription(): void {
+      if (disposeStream) {
+        return
+      }
+
+      disposeStream = NormalChatConversationDatasource.onStream(handleRuntimeEvent)
+    }
 
     async function initialize(): Promise<void> {
       snapshot.value = await datasource.loadSnapshot()
+      ensureStreamSubscription()
     }
 
     async function loadCurrentDetail(): Promise<ChatDetailShellRecord> {
@@ -89,35 +222,100 @@ export const useNormalChatChatDetailShellStore = defineStore(
       }
     }
 
+    function normalizeCurrentPage(nextPage: ChatDetailShellSnapshot['currentPage']): void {
+      if (nextPage === 'llm-call' && !hasLlmCallDetails.value) {
+        snapshot.value.currentPage = 'overview'
+        snapshot.value.selectedCallId = ''
+        snapshot.value.selectedGroupId = 'request'
+        snapshot.value.selectedDocId = ''
+        return
+      }
+
+      snapshot.value.currentPage = nextPage
+    }
+
     async function openDialog(payload: ChatDetailShellOpenPayload): Promise<void> {
       snapshot.value.visible = true
       snapshot.value.requestId = payload.requestId
       snapshot.value.messageId = payload.messageId
-      snapshot.value.currentPage = 'overview'
-      snapshot.value.selectedCallId = ''
+      snapshot.value.currentPage = payload.page ?? 'overview'
+      snapshot.value.selectedCallId = payload.selectedCallId ?? ''
+      snapshot.value.selectedFunctioncallId = payload.selectedFunctioncallId ?? ''
+      snapshot.value.selectedGroupId = 'request'
+      snapshot.value.selectedDocId = ''
       snapshot.value.requestViewMode = 'json'
       snapshot.value.responseViewMode = 'json'
+      snapshot.value.schemaViewMode = 'json'
       snapshot.value.errorText = ''
 
       const detailRecord = await loadCurrentDetail()
-      snapshot.value.selectedCallId = detailRecord.calls[0]?.id ?? ''
+      normalizeCurrentPage(snapshot.value.currentPage)
+      if (snapshot.value.currentPage === 'functioncall-overview') {
+        snapshot.value.selectedFunctioncallId = detailRecord.functioncalls[0]?.id ?? ''
+        return
+      }
+      if (snapshot.value.currentPage === 'functioncall-detail') {
+        snapshot.value.selectedFunctioncallId =
+          snapshot.value.selectedFunctioncallId || detailRecord.functioncalls[0]?.id || ''
+        return
+      }
+      if (!detailRecord.hasLlmCallDetails) {
+        snapshot.value.selectedCallId = ''
+        snapshot.value.selectedGroupId = 'request'
+        snapshot.value.selectedDocId = ''
+        return
+      }
+
+      snapshot.value.selectedCallId =
+        snapshot.value.selectedCallId || detailRecord.calls[0]?.id || ''
+      selectFirstDocumentInGroup('request')
     }
 
     function closeDialog(): void {
       snapshot.value.visible = false
       snapshot.value.selectedCallId = ''
+      snapshot.value.selectedFunctioncallId = ''
       snapshot.value.currentPage = 'overview'
       snapshot.value.loading = false
       snapshot.value.errorText = ''
+      snapshot.value.selectedGroupId = 'request'
+      snapshot.value.selectedDocId = ''
     }
 
     function openCallDetail(callId: string): void {
+      if (!hasLlmCallDetails.value) {
+        snapshot.value.currentPage = 'overview'
+        snapshot.value.selectedCallId = ''
+        snapshot.value.selectedGroupId = 'request'
+        snapshot.value.selectedDocId = ''
+        return
+      }
+
       snapshot.value.selectedCallId = callId
       snapshot.value.currentPage = 'llm-call'
+      selectFirstDocumentInGroup('request')
+    }
+
+    function openFunctioncallOverview(): void {
+      snapshot.value.currentPage = 'functioncall-overview'
+    }
+
+    function openFunctioncallDetail(callId: string): void {
+      snapshot.value.selectedFunctioncallId = callId
+      snapshot.value.currentPage = 'functioncall-detail'
     }
 
     function goToOverview(): void {
       snapshot.value.currentPage = 'overview'
+      if (!hasLlmCallDetails.value) {
+        snapshot.value.selectedCallId = ''
+        snapshot.value.selectedGroupId = 'request'
+        snapshot.value.selectedDocId = ''
+      }
+    }
+
+    function setSelectedGroup(groupId: ChatDetailShellDocGroupId): void {
+      selectFirstDocumentInGroup(groupId)
     }
 
     function setRequestViewMode(mode: ChatDetailDataViewMode): void {
@@ -126,6 +324,10 @@ export const useNormalChatChatDetailShellStore = defineStore(
 
     function setResponseViewMode(mode: ChatDetailDataViewMode): void {
       snapshot.value.responseViewMode = mode
+    }
+
+    function setSchemaViewMode(mode: ChatDetailDataViewMode): void {
+      snapshot.value.schemaViewMode = mode
     }
 
     function clearTurnDetail(requestId: string): void {
@@ -138,85 +340,29 @@ export const useNormalChatChatDetailShellStore = defineStore(
       snapshot,
       detail,
       dialogTitle,
+      hasLlmCallDetails,
       llmCallItems,
+      functioncallItems,
       selectedCallItem,
+      selectedFunctioncallItem,
+      selectedGroups,
+      selectedGroup,
+      selectedDoc,
       breadcrumbText,
-      formattedSelectedCallRequest,
-      formattedSelectedCallResponse,
       initialize,
       loadCurrentDetail,
       openDialog,
       closeDialog,
       openCallDetail,
+      openFunctioncallOverview,
+      openFunctioncallDetail,
       goToOverview,
+      setActiveDocument,
+      setSelectedGroup,
       setRequestViewMode,
       setResponseViewMode,
+      setSchemaViewMode,
       clearTurnDetail
     }
   }
 )
-
-function formatPayload(value: unknown, mode: ChatDetailDataViewMode): string {
-  if (mode === 'yaml') {
-    return toYaml(value)
-  }
-  return JSON.stringify(value, null, 2)
-}
-
-function toYaml(value: unknown, depth = 0): string {
-  const indent = '  '.repeat(depth)
-
-  if (value === null) {
-    return 'null'
-  }
-  if (typeof value === 'string') {
-    if (value.includes('\n')) {
-      const block = value
-        .split('\n')
-        .map((line) => `${indent}  ${line}`)
-        .join('\n')
-      return `|\n${block}`
-    }
-    return JSON.stringify(value)
-  }
-  if (typeof value === 'number' || typeof value === 'boolean') {
-    return String(value)
-  }
-  if (Array.isArray(value)) {
-    if (value.length === 0) {
-      return '[]'
-    }
-    return value
-      .map((item) => {
-        const formatted = toYaml(item, depth + 1)
-        if (formatted.includes('\n')) {
-          return `${indent}- ${formatted.replace(/^\s*/, '')}`.replace(/\n/g, `\n${indent}  `)
-        }
-        return `${indent}- ${formatted}`
-      })
-      .join('\n')
-  }
-  if (typeof value === 'object') {
-    const entries = Object.entries(value as Record<string, unknown>)
-    if (entries.length === 0) {
-      return '{}'
-    }
-
-    return entries
-      .map(([key, item]) => {
-        const formatted = toYaml(item, depth + 1)
-        if (
-          typeof item === 'object' &&
-          item !== null &&
-          ((Array.isArray(item) && item.length > 0) ||
-            (!Array.isArray(item) && Object.keys(item).length > 0))
-        ) {
-          return `${indent}${key}:\n${formatted}`
-        }
-        return `${indent}${key}: ${formatted}`
-      })
-      .join('\n')
-  }
-
-  return JSON.stringify(value)
-}

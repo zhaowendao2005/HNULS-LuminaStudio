@@ -33,5 +33,5 @@ export const pubmedSearchActionSchema = {
       nullable: true
     }
   },
-  required: ['query', 'top_k', 'sort', 'date_from', 'date_to', 'api_key_ref_id']
+  required: ['query']
 } satisfies Record<string, unknown>

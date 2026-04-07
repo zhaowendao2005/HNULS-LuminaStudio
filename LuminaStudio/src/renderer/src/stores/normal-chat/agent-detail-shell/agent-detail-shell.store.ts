@@ -1,5 +1,7 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
+import type { NormalChatConversationStreamEvent } from '@preload/types'
+import { NormalChatConversationDatasource } from '../conversation/conversation.datasource'
 import { AgentDetailShellDatasource } from './agent-detail-shell.datasource'
 import type {
   AgentDetailShellOpenPayload,
@@ -24,6 +26,7 @@ export const useNormalChatAgentDetailShellStore = defineStore(
   'normal-chat-agent-detail-shell',
   () => {
     const snapshot = ref<AgentDetailShellSnapshot>(createEmptySnapshot())
+    let disposeStream: (() => void) | null = null
 
     const detail = computed<AgentDetailShellRecord | null>(() => {
       return snapshot.value.detailByRequestId[snapshot.value.requestId] ?? null
@@ -43,8 +46,32 @@ export const useNormalChatAgentDetailShellStore = defineStore(
       return tree.value.agents[tree.value.rootAgentId] ?? null
     })
 
+    function handleRuntimeEvent(event: NormalChatConversationStreamEvent): void {
+      if (!snapshot.value.visible || event.requestId !== snapshot.value.requestId) {
+        return
+      }
+
+      if (
+        event.type === 'status' ||
+        event.type === 'prompt-built' ||
+        event.type === 'assistant-part-upsert' ||
+        event.type === 'finish'
+      ) {
+        void loadCurrentDetail()
+      }
+    }
+
+    function ensureStreamSubscription(): void {
+      if (disposeStream) {
+        return
+      }
+
+      disposeStream = NormalChatConversationDatasource.onStream(handleRuntimeEvent)
+    }
+
     async function initialize(): Promise<void> {
       snapshot.value = await datasource.loadSnapshot()
+      ensureStreamSubscription()
     }
 
     async function loadCurrentDetail(): Promise<AgentDetailShellRecord> {

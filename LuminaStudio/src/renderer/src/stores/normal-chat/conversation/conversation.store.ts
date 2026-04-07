@@ -8,6 +8,7 @@ import type {
   NormalChatMessagePart,
   NormalChatRequestMetrics,
   NormalChatTaskDetail,
+  NormalChatThinkingMessagePart,
   NormalChatTopic
 } from '@preload/types'
 import { useNormalChatWorkspaceStore } from '../workspace/workspace.store'
@@ -18,6 +19,7 @@ interface ConversationRuntimeState {
   messagesByTopicId: Record<string, NormalChatConversationMessage[]>
   draftByTopicId: Record<string, string>
   pendingAssistantMessageByTopicId: Record<string, NormalChatConversationMessage | null>
+  pendingAssistantRoundByTopicId: Record<string, number | null>
   activeRequestIdByTopicId: Record<string, string>
   sendingByTopicId: Record<string, boolean>
   statusTextByTopicId: Record<string, string>
@@ -32,6 +34,7 @@ function createEmptyState(): ConversationRuntimeState {
     messagesByTopicId: {},
     draftByTopicId: {},
     pendingAssistantMessageByTopicId: {},
+    pendingAssistantRoundByTopicId: {},
     activeRequestIdByTopicId: {},
     sendingByTopicId: {},
     statusTextByTopicId: {},
@@ -141,6 +144,47 @@ function upsertPendingFunctionCallPart(
     ...message,
     parts: nextParts,
     updatedAt: now
+  }
+}
+
+function mergeCommittedAssistantMessageWithPending(
+  message: NormalChatConversationMessage,
+  pendingMessage: NormalChatConversationMessage | null
+): NormalChatConversationMessage {
+  if (!pendingMessage || message.role !== 'assistant') {
+    return message
+  }
+
+  const committedFunctionCallIds = new Set(
+    message.parts
+      .filter((part): part is NormalChatFunctionCallMessagePart => part.kind === 'functioncall')
+      .map((part) => part.callId)
+  )
+  const committedThinkingKeys = new Set(
+    message.parts
+      .filter((part) => part.kind === 'thinking')
+      .map((part) => `${part.title}:${part.roundIndex}:${part.depth}`)
+  )
+
+  const preservedParts = pendingMessage.parts.filter((part) => {
+    if (part.kind === 'functioncall') {
+      return !committedFunctionCallIds.has(part.callId)
+    }
+    if (part.kind === 'thinking') {
+      return !committedThinkingKeys.has(`${part.title}:${part.roundIndex}:${part.depth}`)
+    }
+    return false
+  })
+
+  if (preservedParts.length === 0) {
+    return message
+  }
+
+  const nonTextParts = message.parts.filter((part) => part.kind !== 'text')
+  const textParts = message.parts.filter((part) => part.kind === 'text')
+  return {
+    ...message,
+    parts: [...preservedParts, ...nonTextParts, ...textParts]
   }
 }
 
@@ -318,8 +362,10 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
 
   function upsertMessage(message: NormalChatConversationMessage): void {
     const current = ensureTopicMessageBucket(message.topicId)
+    const pendingMessage = state.value.pendingAssistantMessageByTopicId[message.topicId] ?? null
+    const mergedMessage = mergeCommittedAssistantMessageWithPending(message, pendingMessage)
     const next = current.filter((item) => item.id !== message.id)
-    next.push(message)
+    next.push(mergedMessage)
     next.sort((a, b) => a.createdAt.localeCompare(b.createdAt))
     setTopicMessages(message.topicId, next)
   }
@@ -373,6 +419,26 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
     })
   }
 
+  function appendPendingBodyDelta(
+    topicId: string,
+    requestId: string,
+    roundIndex: number,
+    delta: string
+  ): void {
+    const previousRound = state.value.pendingAssistantRoundByTopicId[topicId] ?? null
+    const needsRoundSeparator = previousRound !== null && previousRound !== roundIndex
+
+    if (needsRoundSeparator) {
+      appendPendingText(topicId, requestId, '\n\n')
+    }
+
+    state.value.pendingAssistantRoundByTopicId = {
+      ...state.value.pendingAssistantRoundByTopicId,
+      [topicId]: roundIndex
+    }
+    appendPendingText(topicId, requestId, delta)
+  }
+
   function upsertPendingFunctionCall(
     topicId: string,
     requestId: string,
@@ -383,10 +449,46 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
     )
   }
 
+  function upsertPendingThinking(
+    topicId: string,
+    requestId: string,
+    part: NormalChatThinkingMessagePart
+  ): void {
+    upsertPendingAssistantMessage(topicId, requestId, (message) => {
+      const existingIndex = message.parts.findIndex(
+        (item): item is NormalChatThinkingMessagePart =>
+          item.kind === 'thinking' &&
+          item.title === part.title &&
+          item.roundIndex === part.roundIndex &&
+          item.depth === part.depth
+      )
+
+      const nextParts = [...message.parts]
+      if (existingIndex >= 0) {
+        nextParts[existingIndex] = {
+          ...(nextParts[existingIndex] as NormalChatThinkingMessagePart),
+          ...part
+        }
+      } else {
+        nextParts.push(part)
+      }
+
+      return {
+        ...message,
+        parts: nextParts,
+        updatedAt: new Date().toISOString()
+      }
+    })
+  }
+
   function clearPendingAssistantMessage(topicId: string): void {
     const next = { ...state.value.pendingAssistantMessageByTopicId }
     delete next[topicId]
     state.value.pendingAssistantMessageByTopicId = next
+
+    const nextRounds = { ...state.value.pendingAssistantRoundByTopicId }
+    delete nextRounds[topicId]
+    state.value.pendingAssistantRoundByTopicId = nextRounds
   }
 
   function setStatusText(topicId: string, text: string): void {
@@ -476,6 +578,16 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
           return
         }
 
+        if (event.type === 'assistant-part-upsert' && event.part.kind === 'thinking') {
+          upsertPendingThinking(event.topicId, event.requestId, event.part)
+          return
+        }
+
+        if (event.type === 'assistant-body-delta') {
+          appendPendingBodyDelta(event.topicId, event.requestId, event.roundIndex, event.delta)
+          return
+        }
+
         if (event.type === 'assistant-final-chunk') {
           appendPendingText(event.topicId, event.requestId, event.delta)
           return
@@ -493,8 +605,10 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
 
         if (event.type === 'finish') {
           setTopicActiveRequestId(event.topicId, null)
-          clearPendingAssistantMessage(event.topicId)
           setStatusText(event.topicId, '')
+          if (!event.assistantMessageId) {
+            clearPendingAssistantMessage(event.topicId)
+          }
           void loadConversationTurnDetail(event.requestId)
           return
         }

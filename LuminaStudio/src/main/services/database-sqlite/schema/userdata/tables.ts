@@ -49,6 +49,7 @@ export const NORMAL_CHAT_ASSISTANTS_TABLE: TableDefinition = {
       functioncall_pubmed_enabled INTEGER NOT NULL DEFAULT 1,
       functioncall_pubmed_mode TEXT NOT NULL DEFAULT 'fast' CHECK (functioncall_pubmed_mode IN ('fast', 'slow')),
       mcp_enabled INTEGER NOT NULL DEFAULT 0,
+      persistence_preset TEXT NOT NULL DEFAULT 'light' CHECK (persistence_preset IN ('light', 'full')),
       sort_order INTEGER NOT NULL DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now')),

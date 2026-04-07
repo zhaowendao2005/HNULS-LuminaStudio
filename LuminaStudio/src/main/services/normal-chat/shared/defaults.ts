@@ -25,6 +25,7 @@ export function createDefaultAssistant(sortOrder: number): NormalChatAssistant {
     functionCallPubMedEnabled: true,
     functionCallPubMedMode: 'fast',
     mcpEnabled: false,
+    persistencePreset: 'light',
     sortOrder
   }
 }

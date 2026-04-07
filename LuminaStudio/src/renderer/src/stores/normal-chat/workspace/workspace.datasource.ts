@@ -2,6 +2,7 @@ import type {
   NormalChatBootstrap,
   NormalChatCostMode,
   NormalChatFunctionCallMode,
+  NormalChatPersistencePreset,
   NormalChatTopicPromptMode,
   NormalChatWorkspaceSnapshot
 } from '@preload/types'
@@ -34,6 +35,7 @@ export interface NormalChatWorkspaceDatasourceLike {
     functionCallPubMedEnabled?: boolean
     functionCallPubMedMode?: NormalChatFunctionCallMode
     mcpEnabled?: boolean
+    persistencePreset?: NormalChatPersistencePreset
   }): Promise<NormalChatWorkspaceSnapshot>
   assignLabel(payload: {
     assistantId: string

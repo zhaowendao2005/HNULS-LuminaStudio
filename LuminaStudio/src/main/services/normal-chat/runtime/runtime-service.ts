@@ -1,6 +1,27 @@
+/**
+ * Normal Chat 运行时服务
+ *
+ * Normal Chat 子系统的顶层入口服务，负责：
+ * 1. 接收用户消息请求（sendMessage）
+ * 2. 组装任务执行快照（TaskExecutionSnapshot）
+ * 3. 创建数据库记录（用户消息、任务、Agent 运行）
+ * 4. 将任务提交到队列执行器
+ * 5. 管理任务中止（abort）
+ *
+ * 运行时服务协调了以下子系统：
+ * - WorkspaceService：工作区管理（话题、助手）
+ * - ConversationConfigService：对话配置解析
+ * - MessagesRepository：消息持久化
+ * - TasksRepository：任务持久化
+ * - AgentRunsRepository：Agent 运行记录
+ * - TaskScheduler：任务调度器
+ * - QueueExecutor：队列执行器
+ * - AgentRuntime：Agent 执行引擎
+ */
 import { randomUUID } from 'node:crypto'
 import type Database from 'better-sqlite3'
 import type {
+  NormalChatAssistant,
   NormalChatConversationMessage,
   NormalChatSendMessageAccepted,
   NormalChatSendMessageRequest,
@@ -17,6 +38,13 @@ import { NormalChatWorkspaceService } from '../workspace/workspace-service'
 import { NormalChatAgentRuntime } from './agent/agent-runtime'
 import { NormalChatQueueExecutor } from './scheduler/queue-executor'
 import { NormalChatTaskScheduler } from './scheduler/task-scheduler'
+import { NormalChatStreamPublisher } from './streaming/stream-publisher'
+
+// ── 默认运行时配置常量 ──
+const DEFAULT_PROMPT_BUDGET_CHARS = 28_000 // Prompt 字符预算上限
+const DEFAULT_ROUND_MEMORY_WINDOW = 3 // 轮次记忆窗口大小
+const DEFAULT_MAX_REPAIR_ATTEMPTS = 2 // 每轮最大修复尝试次数
+const DEFAULT_MAX_PROVIDER_RETRIES = 2 // LLM 提供商最大重试次数
 
 export class NormalChatRuntimeService {
   constructor(
@@ -28,7 +56,8 @@ export class NormalChatRuntimeService {
     private readonly agentRunsRepository: NormalChatAgentRunsRepository,
     private readonly taskScheduler: NormalChatTaskScheduler,
     private readonly queueExecutor: NormalChatQueueExecutor,
-    private readonly agentRuntime: NormalChatAgentRuntime
+    private readonly agentRuntime: NormalChatAgentRuntime,
+    private readonly streamPublisher: NormalChatStreamPublisher
   ) {}
 
   markInterruptedTasksFailed(): void {
@@ -100,13 +129,23 @@ export class NormalChatRuntimeService {
         streamingEnabled: effectiveStreamingEnabled,
         contextMemoryRounds: effectiveContextMemoryRounds,
         maxRecursionDepth: effectiveMaxRecursionDepth,
-        maxReasoningSteps: effectiveMaxReasoningSteps
+        maxReasoningSteps: effectiveMaxReasoningSteps,
+        persistencePreset: assistant.persistencePreset,
+        promptBudgetChars: DEFAULT_PROMPT_BUDGET_CHARS,
+        roundMemoryWindow: DEFAULT_ROUND_MEMORY_WINDOW,
+        maxRepairAttempts: DEFAULT_MAX_REPAIR_ATTEMPTS,
+        maxProviderRetries: DEFAULT_MAX_PROVIDER_RETRIES
       },
       historyMessages: initialHistoryMessages,
       promptInjections: conversation.programPromptInjections,
       actions: resolveActionSnapshots(assistant, topic),
       createdAt: timestamp
     }
+
+    const persistedExecutionSnapshot = createPersistedExecutionSnapshot(
+      executionSnapshot,
+      assistant.persistencePreset
+    )
 
     const userMessage: NormalChatConversationMessage = {
       id: userMessageId,
@@ -132,7 +171,7 @@ export class NormalChatRuntimeService {
         rootAgentRunId,
         modelProviderId: payload.providerId,
         modelId: payload.modelId,
-        executionSnapshot,
+        executionSnapshot: persistedExecutionSnapshot,
         timestamp
       })
       rootAgentRun = this.agentRunsRepository.createRoot({
@@ -147,6 +186,11 @@ export class NormalChatRuntimeService {
       })
     })
     transaction()
+
+    this.streamPublisher.setRuntimeEventPersistence(
+      requestId,
+      assistant.persistencePreset === 'full'
+    )
 
     const controller = new AbortController()
     this.taskScheduler.registerPendingTask(requestId, taskId, payload.topicId, controller)
@@ -185,6 +229,30 @@ export class NormalChatRuntimeService {
 
   abort(requestId: string): void {
     this.taskScheduler.abort(requestId)
+  }
+}
+
+function createPersistedExecutionSnapshot(
+  executionSnapshot: NormalChatTaskExecutionSnapshot,
+  persistencePreset: NormalChatAssistant['persistencePreset']
+): NormalChatTaskExecutionSnapshot {
+  if (persistencePreset === 'full') {
+    return executionSnapshot
+  }
+
+  return {
+    ...executionSnapshot,
+    request: {
+      ...executionSnapshot.request,
+      input: ''
+    },
+    runtime: {
+      ...executionSnapshot.runtime,
+      systemPrompt: ''
+    },
+    historyMessages: [],
+    promptInjections: [],
+    actions: []
   }
 }
 

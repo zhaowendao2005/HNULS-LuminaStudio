@@ -1,12 +1,20 @@
 import type { NormalChatConversationMessage } from '@preload/types'
-import type { NormalChatActionResultRecord } from '../actions/shared/action-result-projection'
+import type {
+  NormalChatActionFeedback,
+  NormalChatAssistantRoundArtifact
+} from '../agent/memory/assistant-round-memory.types'
 import type { NormalChatResolvedAction } from '../actions/shared/action.types'
-import type { NormalChatPromptBundle } from '../llm/model-adapter.interface'
+import type { NormalChatActionResultRecord } from '../actions/shared/action-result-projection'
+import type { NormalChatPromptBundleV2 } from './prompt-bundle.types'
 import { buildActionDescriptionsSection } from './sections/action-descriptions-section'
+import { buildActionFeedbackSection } from './sections/action-feedback-section'
+import { buildActionProtocolSection } from './sections/action-protocol-section'
 import { buildActionResultsSection } from './sections/action-results-section'
 import { buildContextSection } from './sections/context-section'
 import { buildLoadedActionSpecsSection } from './sections/loaded-action-specs-section'
 import { buildOutputContractSection } from './sections/output-contract-section'
+import { buildPriorRoundMemorySection } from './sections/prior-round-memory-section'
+import { buildRepairNoticeSection } from './sections/repair-notice-section'
 
 export class NormalChatPromptBuilder {
   buildRoundPromptBundle(input: {
@@ -19,13 +27,24 @@ export class NormalChatPromptBuilder {
     resolvedActions: NormalChatResolvedAction[]
     loadedActions: NormalChatResolvedAction[]
     actionResults: NormalChatActionResultRecord[]
-  }): NormalChatPromptBundle {
+    actionFeedback: NormalChatActionFeedback[]
+    assistantArtifacts: NormalChatAssistantRoundArtifact[]
+    roundMemoryWindow: number
+    repairNotice?: string | null
+    thinkingDigest?: string | null
+  }): NormalChatPromptBundleV2 {
     const historyMarkdown = input.historyMessages
       .map((message) => {
         const text = message.parts
-          .map((part) =>
-            part.kind === 'text' ? part.text : `[functioncall:${part.functionCallName}]`
-          )
+          .map((part) => {
+            if (part.kind === 'text') {
+              return part.text
+            }
+            if (part.kind === 'thinking') {
+              return `[thinking:${part.title}]`
+            }
+            return `[functioncall:${part.functionCallName}]`
+          })
           .join('\n')
         return `${message.role}: ${text}`
       })
@@ -35,25 +54,45 @@ export class NormalChatPromptBuilder {
       .map((value) => value.trim())
       .filter(Boolean)
       .join('\n\n')
-    const systemPrompt = injections ? `${input.systemPrompt}\n\n${injections}` : input.systemPrompt
+    const identity = injections ? `${input.systemPrompt}\n\n${injections}` : input.systemPrompt
 
-    const sections = {
+    const systemSections = {
+      identity,
+      outputContract: buildOutputContractSection(),
+      actionProtocol: buildActionProtocolSection(),
+      repairContract: buildRepairNoticeSection(input.repairNotice)
+    }
+
+    const roundSections = {
       context: buildContextSection({
-        systemPrompt,
         historyMarkdown,
         userInput: input.userInput,
         conversationTitle: input.conversationTitle,
         agentGoal: input.agentGoal
       }),
+      priorRoundMemory: buildPriorRoundMemorySection({
+        artifacts: input.assistantArtifacts,
+        roundMemoryWindow: input.roundMemoryWindow
+      }),
       actionDescriptions: buildActionDescriptionsSection(input.resolvedActions),
       loadedActionSpecs: buildLoadedActionSpecsSection(input.loadedActions),
       actionResults: buildActionResultsSection(input.actionResults),
-      outputContract: buildOutputContractSection()
+      actionFeedback: buildActionFeedbackSection(input.actionFeedback),
+      thinkingDigest: input.thinkingDigest?.trim() || undefined,
+      repairNotice: input.repairNotice?.trim() || undefined
     }
 
+    const compiledSystemPrompt = Object.values(systemSections).filter(Boolean).join('\n\n---\n\n')
+    const compiledRoundPrompt = Object.values(roundSections).filter(Boolean).join('\n\n---\n\n')
+
     return {
-      sections,
-      promptDocument: Object.values(sections).join('\n\n---\n\n')
+      systemSections,
+      roundSections,
+      compiledSystemPrompt,
+      compiledRoundPrompt,
+      promptDocument: [compiledSystemPrompt, compiledRoundPrompt]
+        .filter(Boolean)
+        .join('\n\n---\n\n')
     }
   }
 }

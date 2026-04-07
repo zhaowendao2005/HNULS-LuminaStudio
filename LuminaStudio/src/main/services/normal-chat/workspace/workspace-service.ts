@@ -123,6 +123,7 @@ export class NormalChatWorkspaceService {
     functionCallPubMedEnabled?: boolean
     functionCallPubMedMode?: NormalChatFunctionCallMode
     mcpEnabled?: boolean
+    persistencePreset?: NormalChatAssistant['persistencePreset']
   }): NormalChatWorkspaceSnapshot {
     const current = this.getAssistantById(payload.assistantId)
     const next: NormalChatAssistant = {
@@ -144,7 +145,8 @@ export class NormalChatWorkspaceService {
       functionCallPubMedEnabled:
         payload.functionCallPubMedEnabled ?? current.functionCallPubMedEnabled,
       functionCallPubMedMode: payload.functionCallPubMedMode ?? current.functionCallPubMedMode,
-      mcpEnabled: payload.mcpEnabled ?? current.mcpEnabled
+      mcpEnabled: payload.mcpEnabled ?? current.mcpEnabled,
+      persistencePreset: payload.persistencePreset ?? current.persistencePreset
     }
 
     this.assistantsRepository.save(next, nowIso(), true)

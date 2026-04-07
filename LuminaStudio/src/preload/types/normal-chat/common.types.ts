@@ -1,11 +1,19 @@
+/**
+ * Normal Chat 通用类型定义
+ *
+ * 定义 Normal Chat 子系统中使用的通用枚举类型和联合类型。
+ * 这些类型被 conversation.types.ts、runtime.types.ts 等文件引用。
+ */
 export type NormalChatTopicPromptMode = 'inherit' | 'override'
 
 export type NormalChatCallMode = 'fast' | 'slow' | 'auto'
 
 export type NormalChatCostMode = 'per_call' | 'per_token'
 
-export type NormalChatMessagePartKind = 'text' | 'functioncall'
+/** 消息片段类型：文本 / 函数调用 / 思考过程 */
+export type NormalChatMessagePartKind = 'text' | 'functioncall' | 'thinking'
 
+/** 函数调用消息片段的状态 */
 export type NormalChatFunctionCallMessagePartStatus =
   | 'queued'
   | 'running'
@@ -13,6 +21,13 @@ export type NormalChatFunctionCallMessagePartStatus =
   | 'error'
   | 'aborted'
 
+/** 对话消息角色 */
 export type NormalChatConversationMessageRole = 'user' | 'assistant'
 
-export type NormalChatConversationStatusPhase = 'sending' | 'thinking' | 'streaming' | 'done'
+/** 对话状态阶段 */
+export type NormalChatConversationStatusPhase =
+  | 'sending'
+  | 'thinking'
+  | 'streaming'
+  | 'repairing'
+  | 'done'

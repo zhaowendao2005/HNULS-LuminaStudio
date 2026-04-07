@@ -73,6 +73,26 @@
                 </div>
               </div>
 
+              <section
+                v-if="workspaceStore.settingsScope === 'assistant'"
+                class="rounded-2xl border border-gray-100 bg-gray-50/60 p-4"
+              >
+                <div class="mb-3">
+                  <h3 class="text-[14px] font-semibold text-gray-900">对话持久化档位</h3>
+                  <p class="mt-1 text-[12px] leading-5 text-gray-500">
+                    控制 normal-chat 运行时细节在数据库中的保留粒度。聊天流里的正文、
+                    thinking 与 inline functioncall 会始终保留。
+                  </p>
+                </div>
+
+                <WhiteSelect
+                  v-model="assistantPersistencePresetModel"
+                  :options="persistencePresetOptions"
+                  :placeholder="'请选择持久化档位'"
+                  teleport-to="body"
+                />
+              </section>
+
               <section class="rounded-2xl border border-gray-100 bg-gray-50/60 p-4">
                 <div class="mb-3">
                   <h3 class="text-[14px] font-semibold text-gray-900">是否开启流式</h3>
@@ -627,6 +647,16 @@ const assistantDefaultModelProviderIdModel = computed({
   }
 })
 
+const assistantPersistencePresetModel = computed({
+  get: () => workspaceStore.assistantPersistencePresetDraft,
+  set: (value: string | number | null) => {
+    if (value !== 'light' && value !== 'full') {
+      return
+    }
+    workspaceStore.setAssistantPersistencePresetDraft(value)
+  }
+})
+
 const assistantDefaultModelIdModel = computed({
   get: () => workspaceStore.assistantDefaultModelIdDraft,
   set: (value: string | null) => {
@@ -682,6 +712,11 @@ const promptTokenCount = computed(() => {
 const costModeOptions = computed(() => [
   { label: '按 Token 优化', value: 'per_token' },
   { label: '按切换次数优化', value: 'per_call' }
+])
+
+const persistencePresetOptions = computed(() => [
+  { label: '轻量持久化', value: 'light' },
+  { label: '完整持久化', value: 'full' }
 ])
 
 const resolvedCostModeModel = computed({

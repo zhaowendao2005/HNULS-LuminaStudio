@@ -6,18 +6,19 @@ export function buildPubmedFastEnvelope(
   if (input.roundIndex === 1) {
     return {
       api_meta_md: '脚本桩：fast 模式首轮直接具备 pubmed-search 的完整规格。',
-      reply_md: '我会先调用 PubMed 检索相关论文，再基于检索结果给出总结。',
+      reply_md: '我会先按不同检索方向并行调用 PubMed，再基于结果整合总结。',
       wants_action: true,
       action_calls: [
         {
           actionKey: 'functioncall.pubmed_search',
           input: {
-            query: input.executionSnapshot.request.input,
-            top_k: 5,
-            sort: 'relevance',
-            date_from: null,
-            date_to: null,
-            api_key_ref_id: null
+            query: input.executionSnapshot.request.input
+          }
+        },
+        {
+          actionKey: 'functioncall.pubmed_search',
+          input: {
+            query: `${input.executionSnapshot.request.input} mechanism OR pathway`
           }
         }
       ]

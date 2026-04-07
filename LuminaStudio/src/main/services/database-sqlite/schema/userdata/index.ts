@@ -3,6 +3,6 @@ import { USERDATA_TABLES } from './tables'
 
 export const USERDATA_SCHEMA: DatabaseSchema = {
   name: 'userdata',
-  version: 14,
+  version: 15,
   tables: USERDATA_TABLES
 }

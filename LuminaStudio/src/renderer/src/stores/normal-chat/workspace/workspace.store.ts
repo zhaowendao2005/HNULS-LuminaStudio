@@ -4,6 +4,7 @@ import type {
   NormalChatAssistant,
   NormalChatCostMode,
   NormalChatFunctionCallMode,
+  NormalChatPersistencePreset,
   NormalChatTopic,
   NormalChatWorkspaceSnapshot
 } from '@preload/types'
@@ -225,6 +226,7 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
   const assistantFunctionCallPubMedEnabledDraft = ref(true)
   const assistantFunctionCallPubMedModeDraft = ref<NormalChatFunctionCallMode>('fast')
   const assistantMcpEnabledDraft = ref(false)
+  const assistantPersistencePresetDraft = ref<NormalChatPersistencePreset>('light')
 
   const topicPromptModeDraft = ref<InheritMode>('inherit')
   const topicPromptDraft = ref('')
@@ -534,6 +536,7 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
     assistantFunctionCallPubMedModeDraft.value =
       currentAssistant.value?.functionCallPubMedMode ?? 'fast'
     assistantMcpEnabledDraft.value = currentAssistant.value?.mcpEnabled ?? false
+    assistantPersistencePresetDraft.value = currentAssistant.value?.persistencePreset ?? 'light'
 
     topicPromptModeDraft.value = currentTopic.value?.systemPromptMode ?? 'inherit'
     topicPromptDraft.value =
@@ -712,6 +715,10 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
 
   function setAssistantMcpEnabledDraft(value: boolean): void {
     assistantMcpEnabledDraft.value = value
+  }
+
+  function setAssistantPersistencePresetDraft(value: NormalChatPersistencePreset): void {
+    assistantPersistencePresetDraft.value = value
   }
 
   function setTopicSystemActionFunctionCallEnabledOverrideDraft(value: boolean): void {
@@ -924,7 +931,8 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
         systemActionSubAgentEnabled: assistantSystemActionSubAgentEnabledDraft.value,
         functionCallPubMedEnabled: assistantFunctionCallPubMedEnabledDraft.value,
         functionCallPubMedMode: assistantFunctionCallPubMedModeDraft.value,
-        mcpEnabled: assistantMcpEnabledDraft.value
+        mcpEnabled: assistantMcpEnabledDraft.value,
+        persistencePreset: assistantPersistencePresetDraft.value
       })
       applyWorkspaceSnapshot(nextSnapshot)
       assistantSettingsOpen.value = false
@@ -1128,6 +1136,7 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
     assistantFunctionCallPubMedEnabledDraft,
     assistantFunctionCallPubMedModeDraft,
     assistantMcpEnabledDraft,
+    assistantPersistencePresetDraft,
     topicPromptModeDraft,
     topicPromptDraft,
     topicStreamingModeDraft,
@@ -1204,6 +1213,7 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
     setAssistantFunctionCallPubMedEnabledDraft,
     setAssistantFunctionCallPubMedModeDraft,
     setAssistantMcpEnabledDraft,
+    setAssistantPersistencePresetDraft,
     setTopicSystemActionFunctionCallEnabledOverrideDraft,
     setTopicSystemActionSubAgentEnabledOverrideDraft,
     setTopicFunctionCallPubMedEnabledOverrideDraft,

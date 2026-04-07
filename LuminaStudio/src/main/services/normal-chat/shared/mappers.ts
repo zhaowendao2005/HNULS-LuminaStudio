@@ -26,6 +26,7 @@ export function mapAssistant(row: AssistantRow): NormalChatAssistant {
     functionCallPubMedEnabled: fromDbBoolean(row.functioncall_pubmed_enabled, true),
     functionCallPubMedMode: row.functioncall_pubmed_mode,
     mcpEnabled: fromDbBoolean(row.mcp_enabled),
+    persistencePreset: row.persistence_preset,
     sortOrder: row.sort_order
   }
 }

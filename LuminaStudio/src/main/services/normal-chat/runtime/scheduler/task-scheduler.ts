@@ -43,6 +43,7 @@ export class NormalChatTaskScheduler {
 
   clearPendingTask(requestId: string): void {
     this.pendingTasks.delete(requestId)
+    this.streamPublisher.clearRuntimeEventPersistence(requestId)
   }
 
   abort(requestId: string): void {

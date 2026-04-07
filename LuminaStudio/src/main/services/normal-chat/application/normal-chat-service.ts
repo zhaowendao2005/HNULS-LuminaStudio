@@ -131,7 +131,8 @@ export class NormalChatService {
       agentRunsRepository,
       taskScheduler,
       queueExecutor,
-      agentRuntime
+      agentRuntime,
+      this.streamPublisher
     )
 
     this.workspaceService.ensureSeedData()
@@ -167,6 +168,7 @@ export class NormalChatService {
     functionCallPubMedEnabled?: boolean
     functionCallPubMedMode?: NormalChatAssistant['functionCallPubMedMode']
     mcpEnabled?: boolean
+    persistencePreset?: NormalChatAssistant['persistencePreset']
   }): NormalChatWorkspaceSnapshot {
     return this.workspaceService.updateAssistant(payload)
   }

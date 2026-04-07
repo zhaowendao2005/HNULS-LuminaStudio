@@ -34,6 +34,7 @@ function createBootstrap(): NormalChatBootstrap {
           functionCallPubMedEnabled: true,
           functionCallPubMedMode: 'fast',
           mcpEnabled: false,
+          persistencePreset: 'light',
           sortOrder: 0
         }
       ],
@@ -262,7 +263,8 @@ describe('NormalChat workspace store', () => {
         systemActionSubAgentEnabled: payload.systemActionSubAgentEnabled,
         functionCallPubMedEnabled: payload.functionCallPubMedEnabled,
         functionCallPubMedMode: payload.functionCallPubMedMode,
-        mcpEnabled: payload.mcpEnabled
+        mcpEnabled: payload.mcpEnabled,
+        persistencePreset: payload.persistencePreset
       }
       return bootstrap.workspace
     })
@@ -288,6 +290,7 @@ describe('NormalChat workspace store', () => {
     store.setAssistantFunctionCallPubMedEnabledDraft(false)
     store.setAssistantFunctionCallPubMedModeDraft('slow')
     store.setAssistantMcpEnabledDraft(true)
+    store.setAssistantPersistencePresetDraft('full')
     await store.saveSettings()
 
     expect(updateAssistant).toHaveBeenCalledWith({
@@ -305,7 +308,8 @@ describe('NormalChat workspace store', () => {
       systemActionSubAgentEnabled: true,
       functionCallPubMedEnabled: false,
       functionCallPubMedMode: 'slow',
-      mcpEnabled: true
+      mcpEnabled: true,
+      persistencePreset: 'full'
     })
   })
 
@@ -428,6 +432,7 @@ describe('NormalChat workspace store', () => {
         functionCallPubMedEnabled: true,
         functionCallPubMedMode: 'fast',
         mcpEnabled: false,
+        persistencePreset: 'light',
         sortOrder: 0
       },
       {
@@ -449,6 +454,7 @@ describe('NormalChat workspace store', () => {
         functionCallPubMedEnabled: true,
         functionCallPubMedMode: 'fast',
         mcpEnabled: false,
+        persistencePreset: 'light',
         sortOrder: 1
       }
     ]

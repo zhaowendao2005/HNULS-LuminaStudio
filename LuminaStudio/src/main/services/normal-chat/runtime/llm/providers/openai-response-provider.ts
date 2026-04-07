@@ -1,5 +1,8 @@
 import OpenAI from 'openai'
+import type { ResponseStreamEvent } from 'openai/resources/responses/responses'
+import type { NormalChatModelStreamEvent } from '../model-adapter.interface'
 import type { NormalChatProviderConfig } from './provider-config.types'
+import type { NormalChatProviderPromptInput } from './index'
 import { extractProviderError } from './provider-error'
 
 function normalizeBaseUrl(baseUrl: string): string {
@@ -7,26 +10,26 @@ function normalizeBaseUrl(baseUrl: string): string {
   return trimmed.endsWith('/v1') ? trimmed : `${trimmed}/v1`
 }
 
-/**
- * 调用 OpenAI Responses API（/v1/responses）。
- * 适用于 protocol = 'openai-response'。
- */
-export async function callOpenAIResponseProvider(
-  config: NormalChatProviderConfig,
-  prompt: string
-): Promise<string> {
-  const client = new OpenAI({
+function createClient(config: NormalChatProviderConfig): OpenAI {
+  return new OpenAI({
     apiKey: config.apiKey,
     baseURL: config.baseUrl ? normalizeBaseUrl(config.baseUrl) : undefined,
     defaultHeaders: config.defaultHeaders
   })
+}
+
+export async function callOpenAIResponseProvider(
+  config: NormalChatProviderConfig,
+  prompt: NormalChatProviderPromptInput
+): Promise<string> {
+  const client = createClient(config)
 
   try {
     const response = await client.responses.create({
       model: config.modelId,
-      input: prompt
+      instructions: prompt.systemPrompt,
+      input: prompt.roundPrompt
     })
-    // Responses API 返回 output 数组，取第一个 text 类型的内容
     const output = response.output
     if (Array.isArray(output)) {
       for (const item of output) {
@@ -44,11 +47,50 @@ export async function callOpenAIResponseProvider(
         }
       }
     }
-    // fallback：尝试 output_text 顶层
     const top = response as unknown as Record<string, unknown>
     if (typeof top.output_text === 'string') return top.output_text
     return ''
   } catch (err) {
     throw new Error(extractProviderError(err))
+  }
+}
+
+export async function* streamOpenAIResponseProvider(
+  config: NormalChatProviderConfig,
+  prompt: NormalChatProviderPromptInput
+): AsyncGenerator<NormalChatModelStreamEvent, string, void> {
+  const client = createClient(config)
+
+  try {
+    const startedAt = Date.now()
+    const stream = await client.responses.create({
+      model: config.modelId,
+      instructions: prompt.systemPrompt,
+      input: prompt.roundPrompt,
+      stream: true
+    })
+
+    let emittedFirstToken = false
+    let buffer = ''
+    yield { type: 'start' }
+
+    for await (const event of stream) {
+      const typed = event as ResponseStreamEvent
+      if (typed.type === 'response.output_text.delta') {
+        if (!emittedFirstToken) {
+          emittedFirstToken = true
+          yield { type: 'first-token', latencyMs: Date.now() - startedAt }
+        }
+        buffer += typed.delta
+        yield { type: 'text-delta', delta: typed.delta }
+      }
+    }
+
+    yield { type: 'done', fullText: buffer }
+    return buffer
+  } catch (err) {
+    const message = extractProviderError(err)
+    yield { type: 'error', message }
+    throw new Error(message)
   }
 }

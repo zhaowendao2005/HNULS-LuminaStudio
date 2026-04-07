@@ -15,7 +15,6 @@
     <ChatComposerPanel />
     <AssistantSettingsModal />
     <ConversationDetailDialog />
-    <FunctioncallDetailDialog />
     <AgentTreeDialog />
   </div>
 </template>
@@ -28,16 +27,13 @@ import ChatComposerPanel from './ChatComposerPanel.vue'
 import AssistantSettingsModal from './AssistantSettingsModal.vue'
 import AgentTreeDialog from './AgentTreeDialog.vue'
 import ConversationDetailDialog from './ConversationDetailDialog.vue'
-import FunctioncallDetailDialog from './FunctioncallDetailDialog.vue'
 import type { NormalChatConversationDisplayMessage } from '@renderer/stores/normal-chat/conversation/conversation.types'
 import { useNormalChatConversationStore } from '@renderer/stores/normal-chat/conversation/conversation.store'
 import { useNormalChatChatDetailShellStore } from '@renderer/stores/normal-chat/chat-detail-shell/chat-detail-shell.store'
-import { useNormalChatFunctioncallDetailShellStore } from '@renderer/stores/normal-chat/functioncall-detail-shell/functioncall-detail-shell.store'
 import { useNormalChatAgentDetailShellStore } from '@renderer/stores/normal-chat/agent-detail-shell/agent-detail-shell.store'
 
 const conversationStore = useNormalChatConversationStore()
 const chatDetailShellStore = useNormalChatChatDetailShellStore()
-const functioncallDetailShellStore = useNormalChatFunctioncallDetailShellStore()
 const agentDetailShellStore = useNormalChatAgentDetailShellStore()
 
 async function handleCopyMessage(message: NormalChatConversationDisplayMessage): Promise<void> {
@@ -62,6 +58,14 @@ function serializeMessageForCopy(message: NormalChatConversationDisplayMessage):
     .map((part) => {
       if (part.kind === 'text') {
         return part.text
+      }
+
+      if (part.kind === 'thinking') {
+        return [`Thinking: ${part.title}`, part.content].join('\n')
+      }
+
+      if (part.kind !== 'functioncall') {
+        return ''
       }
 
       const sections = [
@@ -95,7 +99,6 @@ async function handleDeleteMessage(message: NormalChatConversationDisplayMessage
 
   await conversationStore.deleteConversationTurn(message.requestId)
   chatDetailShellStore.clearTurnDetail(message.requestId)
-  functioncallDetailShellStore.clearTurnDetail(message.requestId)
   agentDetailShellStore.clearTurnDetail(message.requestId)
 }
 
@@ -135,10 +138,11 @@ async function handleOpenFunctionCallDetail(payload: {
     return
   }
 
-  await functioncallDetailShellStore.openDialog({
+  await chatDetailShellStore.openDialog({
     requestId: payload.message.requestId,
     messageId: payload.message.id,
-    callId: payload.callId
+    page: 'functioncall-detail',
+    selectedFunctioncallId: payload.callId
   })
 }
 </script>

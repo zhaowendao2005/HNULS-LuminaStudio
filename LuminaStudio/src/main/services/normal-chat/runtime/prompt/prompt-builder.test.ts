@@ -14,11 +14,15 @@ describe('NormalChatPromptBuilder', () => {
       promptInjections: ['injection-a', 'injection-b'],
       resolvedActions: [],
       loadedActions: [],
-      actionResults: []
+      actionResults: [],
+      actionFeedback: [],
+      assistantArtifacts: [],
+      roundMemoryWindow: 3
     })
 
-    expect(bundle.promptDocument).toContain('base-system')
-    expect(bundle.promptDocument).toContain('injection-a')
-    expect(bundle.promptDocument).toContain('injection-b')
+    expect(bundle.compiledSystemPrompt).toContain('base-system')
+    expect(bundle.compiledSystemPrompt).toContain('injection-a')
+    expect(bundle.compiledSystemPrompt).toContain('injection-b')
+    expect(bundle.compiledRoundPrompt).toContain('## Context')
   })
 })

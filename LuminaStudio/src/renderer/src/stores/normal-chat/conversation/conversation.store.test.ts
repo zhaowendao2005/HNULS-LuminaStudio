@@ -72,6 +72,7 @@ function createBootstrap(): NormalChatBootstrap {
           functionCallPubMedEnabled: true,
           functionCallPubMedMode: 'fast',
           mcpEnabled: false,
+          persistencePreset: 'light',
           sortOrder: 0
         }
       ],
@@ -238,6 +239,333 @@ describe('NormalChat conversation store', () => {
     }
 
     expect(store.isCurrentTopicStreaming).toBe(false)
+  })
+
+  it('appends assistant body deltas across rounds into the pending message', async () => {
+    let streamHandler: ((event: NormalChatConversationStreamEvent) => void) | null = null
+
+    setNormalChatWorkspaceDatasourceForTesting({
+      getBootstrap: vi.fn().mockResolvedValue(createBootstrap()),
+      createAssistant: vi.fn(),
+      updateAssistant: vi.fn(),
+      assignLabel: vi.fn(),
+      createLabel: vi.fn(),
+      renameLabel: vi.fn(),
+      deleteLabel: vi.fn(),
+      setActiveAssistant: vi.fn(),
+      createTopic: vi.fn(),
+      renameTopic: vi.fn(),
+      deleteTopic: vi.fn(),
+      setActiveTopic: vi.fn(),
+      updateTopicPrompt: vi.fn(),
+      updateTopicStreaming: vi.fn(),
+      updateTopicConfig: vi.fn().mockResolvedValue(createBootstrap().workspace)
+    })
+
+    setNormalChatConversationDatasourceForTesting({
+      getConversation: vi.fn().mockResolvedValue({
+        topicId: 'topic-1',
+        messages: []
+      }),
+      getConversationTurnDetail: vi.fn().mockResolvedValue(null),
+      sendMessage: vi.fn().mockResolvedValue({
+        requestId: 'request-2',
+        message: {
+          id: 'message-2',
+          topicId: 'topic-1',
+          requestId: 'request-2',
+          role: 'user',
+          parts: [{ kind: 'text', text: '继续' }],
+          createdAt: '2026-03-24T00:00:00.000Z',
+          updatedAt: '2026-03-24T00:00:00.000Z'
+        } satisfies NormalChatConversationMessage
+      }),
+      deleteConversationTurn: vi.fn().mockResolvedValue(undefined),
+      abort: vi.fn().mockResolvedValue(undefined),
+      onStream(handler) {
+        streamHandler = handler
+        return () => {
+          streamHandler = null
+        }
+      }
+    })
+
+    const workspaceStore = useNormalChatWorkspaceStore()
+    await workspaceStore.initialize()
+    Object.assign(workspaceStore as Record<string, unknown>, {
+      currentTopicModelProviderId: 'provider-openai',
+      currentTopicModelId: 'gpt-4o-mini'
+    })
+    const store = useNormalChatConversationStore()
+    await store.initialize()
+    store.setDraftText('继续')
+    await store.sendCurrentDraft()
+    ;(streamHandler as (event: NormalChatConversationStreamEvent) => void)({
+      type: 'assistant-body-delta',
+      requestId: 'request-2',
+      topicId: 'topic-1',
+      modelCallId: 'model-call-1',
+      delta: '第一轮正文',
+      roundIndex: 1,
+      depth: 0
+    })
+    ;(streamHandler as (event: NormalChatConversationStreamEvent) => void)({
+      type: 'assistant-part-upsert',
+      requestId: 'request-2',
+      topicId: 'topic-1',
+      part: {
+        kind: 'functioncall',
+        callId: 'pubmed-1',
+        functionCallName: 'functioncall.pubmed_search',
+        title: 'PubMed Search',
+        status: 'success',
+        input: '{}',
+        output: '{}',
+        errorMessage: null,
+        isStreaming: false,
+        roundIndex: 1,
+        batchIndex: 0,
+        parallelIndex: 0,
+        depth: 0,
+        decisionReason: null
+      }
+    })
+    ;(streamHandler as (event: NormalChatConversationStreamEvent) => void)({
+      type: 'assistant-body-delta',
+      requestId: 'request-2',
+      topicId: 'topic-1',
+      modelCallId: 'model-call-2',
+      delta: '第二轮正文',
+      roundIndex: 2,
+      depth: 0
+    })
+
+    expect(store.currentDisplayMessages).toHaveLength(2)
+    expect(store.currentDisplayMessages[1]?.text).toBe('第一轮正文\n\n第二轮正文')
+  })
+
+  it('ignores raw action json streaming in conversation and keeps only completed runtime blocks', async () => {
+    let streamHandler: ((event: NormalChatConversationStreamEvent) => void) | null = null
+
+    setNormalChatWorkspaceDatasourceForTesting({
+      getBootstrap: vi.fn().mockResolvedValue(createBootstrap()),
+      createAssistant: vi.fn(),
+      updateAssistant: vi.fn(),
+      assignLabel: vi.fn(),
+      createLabel: vi.fn(),
+      renameLabel: vi.fn(),
+      deleteLabel: vi.fn(),
+      setActiveAssistant: vi.fn(),
+      createTopic: vi.fn(),
+      renameTopic: vi.fn(),
+      deleteTopic: vi.fn(),
+      setActiveTopic: vi.fn(),
+      updateTopicPrompt: vi.fn(),
+      updateTopicStreaming: vi.fn(),
+      updateTopicConfig: vi.fn().mockResolvedValue(createBootstrap().workspace)
+    })
+
+    setNormalChatConversationDatasourceForTesting({
+      getConversation: vi.fn().mockResolvedValue({
+        topicId: 'topic-1',
+        messages: []
+      }),
+      getConversationTurnDetail: vi.fn().mockResolvedValue(null),
+      sendMessage: vi.fn().mockResolvedValue({
+        requestId: 'request-3',
+        message: {
+          id: 'message-3',
+          topicId: 'topic-1',
+          requestId: 'request-3',
+          role: 'user',
+          parts: [{ kind: 'text', text: '查一下' }],
+          createdAt: '2026-03-24T00:00:00.000Z',
+          updatedAt: '2026-03-24T00:00:00.000Z'
+        } satisfies NormalChatConversationMessage
+      }),
+      deleteConversationTurn: vi.fn().mockResolvedValue(undefined),
+      abort: vi.fn().mockResolvedValue(undefined),
+      onStream(handler) {
+        streamHandler = handler
+        return () => {
+          streamHandler = null
+        }
+      }
+    })
+
+    const workspaceStore = useNormalChatWorkspaceStore()
+    await workspaceStore.initialize()
+    Object.assign(workspaceStore as Record<string, unknown>, {
+      currentTopicModelProviderId: 'provider-openai',
+      currentTopicModelId: 'gpt-4o-mini'
+    })
+    const store = useNormalChatConversationStore()
+    await store.initialize()
+    store.setDraftText('查一下')
+    await store.sendCurrentDraft()
+
+    streamHandler?.({
+      type: 'assistant-text-delta',
+      requestId: 'request-3',
+      topicId: 'topic-1',
+      modelCallId: 'model-call-3',
+      delta:
+        '```normal_chat_action\n{"actionKey":"functioncall.pubmed_search","input":{"query":"A"}}\n',
+      roundIndex: 1,
+      depth: 0
+    })
+
+    const pendingBeforeReplace = store.currentDisplayMessages[1]
+    expect(
+      pendingBeforeReplace
+        ? pendingBeforeReplace.parts.some((part) => part.kind === 'intermediate-json')
+        : false
+    ).toBe(false)
+
+    streamHandler?.({
+      type: 'assistant-part-upsert',
+      requestId: 'request-3',
+      topicId: 'topic-1',
+      part: {
+        kind: 'functioncall',
+        callId: 'pubmed-3',
+        functionCallName: 'functioncall.pubmed_search',
+        title: 'PubMed Search',
+        status: 'running',
+        input: '{}',
+        output: '',
+        errorMessage: null,
+        isStreaming: true,
+        roundIndex: 1,
+        batchIndex: 0,
+        parallelIndex: 0,
+        depth: 0,
+        decisionReason: null
+      }
+    })
+
+    const pendingAfterReplace = store.currentDisplayMessages[1]
+    expect(
+      pendingAfterReplace
+        ? pendingAfterReplace.parts.some((part) => part.kind === 'intermediate-json')
+        : false
+    ).toBe(false)
+    expect(
+      pendingAfterReplace
+        ? pendingAfterReplace.parts.some((part) => part.kind === 'functioncall')
+        : false
+    ).toBe(true)
+  })
+
+  it('preserves pending functioncall parts when finish arrives before message-committed', async () => {
+    let streamHandler: ((event: NormalChatConversationStreamEvent) => void) | null = null
+
+    setNormalChatWorkspaceDatasourceForTesting({
+      getBootstrap: vi.fn().mockResolvedValue(createBootstrap()),
+      createAssistant: vi.fn(),
+      updateAssistant: vi.fn(),
+      assignLabel: vi.fn(),
+      createLabel: vi.fn(),
+      renameLabel: vi.fn(),
+      deleteLabel: vi.fn(),
+      setActiveAssistant: vi.fn(),
+      createTopic: vi.fn(),
+      renameTopic: vi.fn(),
+      deleteTopic: vi.fn(),
+      setActiveTopic: vi.fn(),
+      updateTopicPrompt: vi.fn(),
+      updateTopicStreaming: vi.fn(),
+      updateTopicConfig: vi.fn().mockResolvedValue(createBootstrap().workspace)
+    })
+
+    setNormalChatConversationDatasourceForTesting({
+      getConversation: vi.fn().mockResolvedValue({
+        topicId: 'topic-1',
+        messages: []
+      }),
+      getConversationTurnDetail: vi.fn().mockResolvedValue(null),
+      sendMessage: vi.fn().mockResolvedValue({
+        requestId: 'request-4',
+        message: {
+          id: 'message-4',
+          topicId: 'topic-1',
+          requestId: 'request-4',
+          role: 'user',
+          parts: [{ kind: 'text', text: '最后提交' }],
+          createdAt: '2026-03-24T00:00:00.000Z',
+          updatedAt: '2026-03-24T00:00:00.000Z'
+        } satisfies NormalChatConversationMessage
+      }),
+      deleteConversationTurn: vi.fn().mockResolvedValue(undefined),
+      abort: vi.fn().mockResolvedValue(undefined),
+      onStream(handler) {
+        streamHandler = handler
+        return () => {
+          streamHandler = null
+        }
+      }
+    })
+
+    const workspaceStore = useNormalChatWorkspaceStore()
+    await workspaceStore.initialize()
+    Object.assign(workspaceStore as Record<string, unknown>, {
+      currentTopicModelProviderId: 'provider-openai',
+      currentTopicModelId: 'gpt-4o-mini'
+    })
+    const store = useNormalChatConversationStore()
+    await store.initialize()
+    store.setDraftText('最后提交')
+    await store.sendCurrentDraft()
+
+    streamHandler?.({
+      type: 'assistant-part-upsert',
+      requestId: 'request-4',
+      topicId: 'topic-1',
+      part: {
+        kind: 'functioncall',
+        callId: 'pubmed-4',
+        functionCallName: 'functioncall.pubmed_search',
+        title: 'PubMed Search',
+        status: 'success',
+        input: '{}',
+        output: '{"result":[]}',
+        errorMessage: null,
+        isStreaming: false,
+        roundIndex: 1,
+        batchIndex: 0,
+        parallelIndex: 0,
+        depth: 0,
+        decisionReason: null
+      }
+    })
+
+    streamHandler?.({
+      type: 'finish',
+      requestId: 'request-4',
+      topicId: 'topic-1',
+      assistantMessageId: 'assistant-message-4'
+    })
+
+    streamHandler?.({
+      type: 'message-committed',
+      requestId: 'request-4',
+      topicId: 'topic-1',
+      message: {
+        id: 'assistant-message-4',
+        topicId: 'topic-1',
+        requestId: 'request-4',
+        role: 'assistant',
+        parts: [{ kind: 'text', text: '最终正文' }],
+        createdAt: '2026-03-24T00:00:02.000Z',
+        updatedAt: '2026-03-24T00:00:02.000Z'
+      }
+    })
+
+    const committedAssistant = store.currentDisplayMessages.find(
+      (message) => message.id === 'assistant-message-4'
+    )
+    expect(committedAssistant?.parts.some((part) => part.kind === 'functioncall')).toBe(true)
+    expect(committedAssistant?.parts.some((part) => part.kind === 'text')).toBe(true)
   })
 
   it('stores raw error json from the stream event for the composer error dialog', async () => {

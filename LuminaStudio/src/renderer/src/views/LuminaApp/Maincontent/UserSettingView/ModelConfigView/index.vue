@@ -229,26 +229,61 @@
 
         <div v-else class="mx-auto max-w-4xl space-y-8 pb-20">
           <section class="space-y-4">
-            <div class="mb-2 flex items-center gap-2">
-              <div class="rounded-lg bg-blue-100 p-1.5 text-blue-600">
-                <svg
-                  class="h-[18px] w-[18px]"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                >
-                  <circle cx="12" cy="12" r="3"></circle>
-                  <path
-                    d="M12 1v6m0 6v6M5.64 5.64l4.24 4.24m4.24 4.24l4.24 4.24M1 12h6m6 0h6M5.64 18.36l4.24-4.24m4.24-4.24l4.24-4.24"
-                  ></path>
-                </svg>
+            <div class="mb-2 flex items-center justify-between gap-4">
+              <div class="flex items-center gap-2">
+                <div class="rounded-lg bg-blue-100 p-1.5 text-blue-600">
+                  <svg
+                    class="h-[18px] w-[18px]"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path
+                      d="M12 1v6m0 6v6M5.64 5.64l4.24 4.24m4.24 4.24l4.24 4.24M1 12h6m6 0h6M5.64 18.36l4.24-4.24m4.24-4.24l4.24-4.24"
+                    ></path>
+                  </svg>
+                </div>
+                <h2 class="text-lg font-bold text-gray-900">服务配置</h2>
               </div>
-              <h2 class="text-lg font-bold text-gray-900">服务配置</h2>
+              <div class="flex items-center gap-2">
+                <button
+                  class="rounded-lg border border-gray-200 bg-white p-2 text-gray-600 shadow-sm transition-all hover:border-gray-300 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  title="跳转至官网"
+                  aria-label="跳转至官网"
+                  :disabled="!officialWebsiteDraft.trim()"
+                  @click="handleOpenOfficialWebsite"
+                >
+                  <svg
+                    class="h-[14px] w-[14px]"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                    <polyline points="15 3 21 3 21 9"></polyline>
+                    <line x1="10" y1="14" x2="21" y2="3"></line>
+                  </svg>
+                </button>
+              </div>
             </div>
             <div
               class="grid grid-cols-1 gap-6 overflow-hidden rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
             >
+              <div>
+                <label class="mb-2 block text-xs font-bold uppercase tracking-wide text-gray-500">
+                  官网地址
+                </label>
+                <input
+                  v-model="officialWebsiteDraft"
+                  type="text"
+                  class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                  placeholder="https://openai.com"
+                  @blur="handleOfficialWebsiteBlur"
+                />
+              </div>
               <div>
                 <label class="mb-2 block text-xs font-bold uppercase tracking-wide text-gray-500">
                   API Key
@@ -294,7 +329,7 @@
           </section>
 
           <section class="space-y-4">
-            <div class="mb-2 flex items-center justify-between">
+            <div class="mb-2 flex items-center justify-between gap-4">
               <div class="flex items-center gap-2">
                 <div class="rounded-lg bg-purple-100 p-1.5 text-purple-600">
                   <svg
@@ -318,9 +353,11 @@
                   {{ selectedProvider?.models.length || 0 }}
                 </span>
               </div>
-              <div class="flex gap-2">
+              <div class="flex flex-wrap items-center gap-2">
                 <button
-                  class="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 shadow-sm transition-all hover:border-gray-300 hover:bg-gray-50"
+                  class="rounded-lg border border-gray-200 bg-white p-2 text-gray-600 shadow-sm transition-all hover:border-gray-300 hover:bg-gray-50"
+                  title="管理模型"
+                  aria-label="管理模型"
                   @click="handleOpenManageModels"
                 >
                   <svg
@@ -332,10 +369,11 @@
                   >
                     <path d="M3 6h18M7 12h10M11 18h2"></path>
                   </svg>
-                  管理模型
                 </button>
                 <button
-                  class="flex items-center gap-1.5 rounded-lg bg-black px-3 py-2 text-xs font-medium text-white shadow-sm transition-all hover:bg-gray-800"
+                  class="rounded-lg bg-black p-2 text-white shadow-sm transition-all hover:bg-gray-800"
+                  title="手动添加"
+                  aria-label="手动添加"
                   @click="store.isAddModelModalOpen = true"
                 >
                   <svg
@@ -348,7 +386,44 @@
                     <line x1="12" y1="5" x2="12" y2="19"></line>
                     <line x1="5" y1="12" x2="19" y2="12"></line>
                   </svg>
-                  手动添加
+                </button>
+                <button
+                  class="rounded-lg border border-gray-200 bg-white p-2 text-gray-600 shadow-sm transition-all hover:border-gray-300 hover:bg-gray-50"
+                  title="测试提示词配置"
+                  aria-label="测试提示词配置"
+                  @click="openSmokeTestPromptDialog"
+                >
+                  <svg
+                    class="h-[14px] w-[14px]"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path d="M4 21h16"></path>
+                    <path d="M5 21V7l5-4h9v18"></path>
+                    <path d="M9 9h6"></path>
+                    <path d="M9 13h6"></path>
+                  </svg>
+                </button>
+                <button
+                  class="rounded-lg border border-blue-200 bg-blue-50 p-2 text-blue-700 shadow-sm transition-all hover:border-blue-300 hover:bg-blue-100"
+                  title="测试服务"
+                  aria-label="测试服务"
+                  @click="openSmokeTestDialog"
+                >
+                  <svg
+                    class="h-[14px] w-[14px]"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path d="M9 12l2 2 4-4"></path>
+                    <path
+                      d="M21 12c0 1.2-.2 2.3-.7 3.3-.4 1-1 1.9-1.8 2.7-.8.8-1.7 1.4-2.7 1.8-1 .5-2.1.7-3.3.7s-2.3-.2-3.3-.7c-1-.4-1.9-1-2.7-1.8-.8-.8-1.4-1.7-1.8-2.7C3.2 14.3 3 13.2 3 12s.2-2.3.7-3.3c.4-1 1-1.9 1.8-2.7.8-.8 1.7-1.4 2.7-1.8 1-.5 2.1-.7 3.3-.7s2.3.2 3.3.7"
+                    ></path>
+                  </svg>
                 </button>
               </div>
             </div>
@@ -384,7 +459,14 @@
                           {{ model.name }}
                         </span>
                       </div>
-                      <div class="flex flex-shrink-0 items-center gap-2">
+                      <div class="ml-4 flex flex-shrink-0 items-center gap-3">
+                        <span
+                          v-if="getModelTestDisplay(model.id)"
+                          class="rounded-md px-2 py-1 text-[11px] font-medium"
+                          :class="getModelTestDisplay(model.id)?.className"
+                        >
+                          {{ getModelTestDisplay(model.id)?.text }}
+                        </span>
                         <button
                           class="rounded-md p-1.5 text-gray-400 opacity-0 transition-colors hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
                           title="删除模型"
@@ -680,6 +762,276 @@
     </div>
 
     <div
+      v-if="isSmokeTestDialogOpen"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4 backdrop-blur-[2px]"
+      @click="closeSmokeTestDialog"
+    >
+      <div
+        class="w-full max-w-lg overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xl"
+        @click.stop
+      >
+        <div class="border-b border-gray-100 px-6 py-4">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <h3 class="text-lg font-bold text-gray-900">测试服务</h3>
+              <p class="mt-1 text-xs text-gray-500">请选择要测试的模型</p>
+            </div>
+            <button
+              class="rounded-full bg-gray-50 p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+              @click="closeSmokeTestDialog"
+            >
+              <svg
+                class="h-4 w-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="space-y-4 px-6 py-4">
+          <div>
+            <label class="mb-2 block text-xs font-bold uppercase tracking-wide text-gray-500">
+              测试提示词配置
+            </label>
+            <select
+              v-model="selectedSmokeTestPromptConfigId"
+              class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 transition-colors focus:border-blue-400 focus:bg-white focus:outline-none"
+            >
+              <option
+                v-for="config in smokeTestPromptStore.configs"
+                :key="config.id"
+                :value="config.id"
+              >
+                {{ config.name }}
+              </option>
+            </select>
+          </div>
+          <div class="max-h-[38vh] space-y-2 overflow-y-auto">
+            <label
+              v-for="model in smokeTestModels"
+              :key="model.id"
+              class="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-3 py-2 transition-colors hover:border-gray-300 hover:bg-gray-50"
+            >
+              <div class="flex min-w-0 items-center gap-3">
+                <input
+                  :checked="selectedSmokeTestModelIds.includes(model.id)"
+                  type="checkbox"
+                  class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  @change="toggleSmokeTestModel(model.id)"
+                />
+                <div class="min-w-0">
+                  <div class="truncate text-[13px] font-semibold leading-[18px] text-gray-800">
+                    {{ model.name }}
+                  </div>
+                  <div class="truncate font-mono text-[11px] text-gray-500">{{ model.id }}</div>
+                </div>
+              </div>
+              <span v-if="model.group" class="text-[11px] text-gray-400">{{ model.group }}</span>
+            </label>
+            <div
+              v-if="smokeTestModels.length === 0"
+              class="py-10 text-center text-sm text-gray-400"
+            >
+              当前 Provider 暂无可测试模型
+            </div>
+          </div>
+        </div>
+
+        <div
+          class="flex items-center justify-between border-t border-gray-100 bg-gray-50 px-6 py-4"
+        >
+          <div class="text-xs text-gray-500">
+            已选择
+            <span class="font-semibold text-gray-700">{{ selectedSmokeTestModelIds.length }}</span>
+            / {{ smokeTestModels.length }} 个模型
+          </div>
+          <div class="flex items-center gap-2">
+            <button
+              class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-200"
+              @click="closeSmokeTestDialog"
+            >
+              取消
+            </button>
+            <button
+              class="rounded-lg bg-black px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300"
+              :disabled="selectedSmokeTestModelIds.length === 0 || !smokeTestProviderId"
+              @click="confirmSmokeTest"
+            >
+              确定
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div
+      v-if="isSmokeTestPromptDialogOpen"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4 backdrop-blur-[2px]"
+      @click="closeSmokeTestPromptDialog"
+    >
+      <div
+        class="flex h-[78vh] w-full max-w-6xl overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
+        @click.stop
+      >
+        <div class="flex w-72 shrink-0 flex-col border-r border-gray-200 bg-gray-50">
+          <div class="border-b border-gray-200 px-4 py-4">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <h3 class="text-sm font-semibold text-gray-900">测试提示词配置</h3>
+                <p class="mt-1 text-xs text-gray-500">
+                  配置在模型配置页范围共享，不区分 provider。
+                </p>
+              </div>
+              <button
+                class="flex h-8 w-8 items-center justify-center rounded-lg border border-dashed border-gray-300 bg-white text-gray-500 transition-colors hover:border-blue-300 hover:text-blue-600"
+                @click="handleCreateSmokeTestPromptConfig"
+              >
+                <svg
+                  class="h-4 w-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div class="flex-1 space-y-2 overflow-y-auto p-3">
+            <div
+              v-for="config in smokeTestPromptStore.configs"
+              :key="config.id"
+              class="rounded-xl border p-3 transition-colors"
+              :class="
+                smokeTestPromptStore.selectedConfigId === config.id
+                  ? 'border-blue-200 bg-blue-50'
+                  : 'border-transparent bg-white hover:border-gray-200 hover:bg-gray-50'
+              "
+            >
+              <div class="flex items-start gap-2">
+                <button
+                  class="min-w-0 flex-1 text-left"
+                  @click="smokeTestPromptStore.selectConfig(config.id)"
+                >
+                  <input
+                    :value="config.name"
+                    class="w-full truncate bg-transparent text-[13px] font-semibold leading-[18px] text-gray-800 outline-none"
+                    @blur="handleRenameSmokeTestPromptConfig(config.id, $event)"
+                  />
+                  <div class="mt-1 text-xs text-gray-400">
+                    {{ config.id }}
+                  </div>
+                </button>
+                <div class="flex items-center gap-1">
+                  <button
+                    class="rounded-md px-1.5 py-1 text-[11px] font-medium transition-colors"
+                    :class="
+                      smokeTestPromptStore.activeConfigId === config.id
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                    "
+                    @click="handleSetDefaultSmokeTestPromptConfig(config.id)"
+                  >
+                    {{ smokeTestPromptStore.activeConfigId === config.id ? '默认' : '设为默认' }}
+                  </button>
+                  <button
+                    class="rounded-md p-1 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
+                    :disabled="smokeTestPromptStore.configs.length <= 1"
+                    @click="handleRemoveSmokeTestPromptConfig(config.id)"
+                  >
+                    <svg
+                      class="h-4 w-4"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex min-w-0 flex-1 flex-col bg-white">
+          <div class="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+            <div>
+              <h3 class="text-lg font-bold text-gray-900">
+                {{ smokeTestPromptStore.selectedConfig?.name || '测试提示词' }}
+              </h3>
+              <p class="mt-1 text-xs text-gray-500">
+                编辑后会用于后续模型测试，并持久化保存到本地。
+              </p>
+            </div>
+            <button
+              class="rounded-full bg-gray-50 p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+              @click="closeSmokeTestPromptDialog"
+            >
+              <svg
+                class="h-4 w-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+
+          <div class="flex flex-1 flex-col px-6 py-5">
+            <div class="mb-3 flex items-center justify-between text-xs text-gray-500">
+              <span>测试提示词</span>
+              <span>字数 {{ smokeTestPromptStore.promptCharCount }}</span>
+            </div>
+            <textarea
+              :value="smokeTestPromptStore.selectedConfig?.prompt || ''"
+              class="min-h-0 flex-1 resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4 font-mono text-sm leading-6 text-gray-800 outline-none transition-colors focus:border-blue-400 focus:bg-white"
+              placeholder="输入模型测试时使用的提示词..."
+              @input="handleSmokeTestPromptInput"
+            ></textarea>
+          </div>
+
+          <div
+            class="flex items-center justify-between border-t border-gray-200 bg-gray-50 px-6 py-4"
+          >
+            <div class="flex min-w-0 flex-1 items-center gap-3 text-xs text-gray-500">
+              <span>当前配置会保存在模型配置域设置中。</span>
+              <span v-if="smokeTestPromptStore.configs.length <= 1" class="text-amber-600">
+                至少保留 1 条配置
+              </span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button
+                class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-200"
+                @click="handleResetSmokeTestPrompt"
+              >
+                恢复默认
+              </button>
+              <button
+                class="rounded-lg bg-black px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800"
+                @click="closeSmokeTestPromptDialog"
+              >
+                完成
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div
       v-if="store.isAddModelModalOpen"
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/20 p-4 backdrop-blur-[1px]"
       @click="store.isAddModelModalOpen = false"
@@ -829,14 +1181,18 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useModelConfigStore } from '@renderer/stores/model-config/store'
-import type { Model, ProviderTypeOption } from '@renderer/stores/model-config/types'
+import { useSmokeTestPromptStore } from '@renderer/stores/model-config/smoke-test-prompt.store'
+import { deriveOfficialWebsiteFromBaseUrl } from '@renderer/stores/model-config/use-provider-website'
+import type { Model, ModelTestState, ProviderTypeOption } from '@renderer/stores/model-config/types'
 
 defineEmits<{
   (e: 'back'): void
 }>()
 
 const store = useModelConfigStore()
-const { providers, selectedProviderId, selectedProvider, remoteModelGroups } = storeToRefs(store)
+const smokeTestPromptStore = useSmokeTestPromptStore()
+const { providers, selectedProviderId, selectedProvider, remoteModelGroups, testResults } =
+  storeToRefs(store)
 
 const providerTypeOptions: ProviderTypeOption[] = [
   {
@@ -881,7 +1237,13 @@ const providerTypeLabelMap: Record<string, string> = {
 
 const apiKeyDraft = ref('')
 const baseUrlDraft = ref('')
+const officialWebsiteDraft = ref('')
 const modelSearchQuery = ref('')
+const isSmokeTestDialogOpen = ref(false)
+const isSmokeTestPromptDialogOpen = ref(false)
+const smokeTestProviderId = ref<string | null>(null)
+const selectedSmokeTestModelIds = ref<string[]>([])
+const selectedSmokeTestPromptConfigId = ref<string>('')
 
 const groupedModels = computed(() => {
   if (!selectedProvider.value?.models.length) return [] as [string, Model[]][]
@@ -896,6 +1258,11 @@ const groupedModels = computed(() => {
     if (right === 'default') return -1
     return left.localeCompare(right)
   })
+})
+
+const smokeTestModels = computed(() => {
+  if (!smokeTestProviderId.value) return []
+  return providers.value.find((provider) => provider.id === smokeTestProviderId.value)?.models || []
 })
 
 const filteredModelGroups = computed(() => {
@@ -944,8 +1311,9 @@ const computedChatEndpoint = computed(() => {
   const base = baseUrlDraft.value.trim().replace(/\/$/, '')
   if (!base) return ''
   if (selectedProvider.value?.type === 'claude') return `${base}/v1/messages`
-  if (selectedProvider.value?.type === 'gemini')
+  if (selectedProvider.value?.type === 'gemini') {
     return `${base}/v1beta/models/{model}:streamGenerateContent`
+  }
   if (selectedProvider.value?.type === 'openai-response') {
     return base.endsWith('/v1') ? `${base}/responses` : `${base}/v1/responses`
   }
@@ -962,18 +1330,49 @@ const computedCompletionEndpoint = computed(() => {
 })
 
 onMounted(async () => {
-  await store.fetchProviders()
+  await Promise.all([store.fetchProviders(), smokeTestPromptStore.ensureLoaded()])
   if (selectedProvider.value) {
     apiKeyDraft.value = selectedProvider.value.apiKey
     baseUrlDraft.value = selectedProvider.value.baseUrl
+    officialWebsiteDraft.value = selectedProvider.value.officialWebsite
   }
+  selectedSmokeTestPromptConfigId.value = smokeTestPromptStore.activeConfigId || ''
 })
 
 watch(selectedProvider, (provider) => {
   if (!provider) return
   apiKeyDraft.value = provider.apiKey
   baseUrlDraft.value = provider.baseUrl
+  officialWebsiteDraft.value = provider.officialWebsite
 })
+
+function getModelTestState(modelId: string): ModelTestState {
+  if (!selectedProvider.value) return { status: 'idle' }
+  return testResults.value[selectedProvider.value.id]?.[modelId] || { status: 'idle' }
+}
+
+function getModelTestDisplay(modelId: string): { text: string; className: string } | null {
+  const state = getModelTestState(modelId)
+  if (state.status === 'idle') return null
+  if (state.status === 'testing') {
+    return {
+      text: '测试中...',
+      className: 'bg-blue-50 text-blue-700'
+    }
+  }
+  if (state.status === 'success') {
+    return {
+      text: `成功 (${state.latency ?? 0}ms)`,
+      className: 'bg-green-50 text-green-700'
+    }
+  }
+
+  const detail = state.errorCode || state.errorType || state.message || 'Unknown Error'
+  return {
+    text: `失败 (${detail})`,
+    className: 'bg-red-50 text-red-700'
+  }
+}
 
 async function selectProvider(id: string): Promise<void> {
   await store.selectProvider(id)
@@ -1002,9 +1401,101 @@ async function handleApiKeyBlur(): Promise<void> {
 
 async function handleBaseUrlBlur(): Promise<void> {
   if (!selectedProvider.value || !selectedProviderId.value) return
-  if (baseUrlDraft.value !== selectedProvider.value.baseUrl) {
-    await store.updateProviderBaseUrl(selectedProviderId.value, baseUrlDraft.value)
+  if (baseUrlDraft.value === selectedProvider.value.baseUrl) return
+
+  const previousDerivedOfficialWebsite = deriveOfficialWebsiteFromBaseUrl(
+    selectedProvider.value.baseUrl
+  )
+  const nextDerivedOfficialWebsite = deriveOfficialWebsiteFromBaseUrl(baseUrlDraft.value)
+  const shouldAutofillOfficialWebsite =
+    !officialWebsiteDraft.value.trim() ||
+    officialWebsiteDraft.value.trim() === previousDerivedOfficialWebsite
+
+  const nextOfficialWebsite = shouldAutofillOfficialWebsite
+    ? nextDerivedOfficialWebsite
+    : officialWebsiteDraft.value
+
+  officialWebsiteDraft.value = nextOfficialWebsite
+  await store.updateProviderServiceSettings(selectedProviderId.value, {
+    baseUrl: baseUrlDraft.value,
+    officialWebsite: nextOfficialWebsite
+  })
+}
+
+async function handleOfficialWebsiteBlur(): Promise<void> {
+  if (!selectedProvider.value || !selectedProviderId.value) return
+  if (officialWebsiteDraft.value !== selectedProvider.value.officialWebsite) {
+    await store.updateProviderOfficialWebsite(selectedProviderId.value, officialWebsiteDraft.value)
   }
+}
+
+function handleOpenOfficialWebsite(): void {
+  const officialWebsite = officialWebsiteDraft.value.trim()
+  if (!officialWebsite) return
+  window.open(officialWebsite, '_blank', 'noopener,noreferrer')
+}
+
+function openSmokeTestPromptDialog(): void {
+  isSmokeTestPromptDialogOpen.value = true
+}
+
+function closeSmokeTestPromptDialog(): void {
+  isSmokeTestPromptDialogOpen.value = false
+}
+
+function openSmokeTestDialog(): void {
+  if (!selectedProvider.value) return
+  smokeTestProviderId.value = selectedProvider.value.id
+  selectedSmokeTestModelIds.value = selectedProvider.value.models.map((model) => model.id)
+  selectedSmokeTestPromptConfigId.value = smokeTestPromptStore.activeConfigId || ''
+  isSmokeTestDialogOpen.value = true
+}
+
+function closeSmokeTestDialog(): void {
+  isSmokeTestDialogOpen.value = false
+}
+
+function toggleSmokeTestModel(modelId: string): void {
+  if (selectedSmokeTestModelIds.value.includes(modelId)) {
+    selectedSmokeTestModelIds.value = selectedSmokeTestModelIds.value.filter((id) => id !== modelId)
+    return
+  }
+  selectedSmokeTestModelIds.value = [...selectedSmokeTestModelIds.value, modelId]
+}
+
+async function handleCreateSmokeTestPromptConfig(): Promise<void> {
+  await smokeTestPromptStore.createConfig()
+}
+
+async function handleSetDefaultSmokeTestPromptConfig(id: string): Promise<void> {
+  await smokeTestPromptStore.setActiveConfig(id)
+}
+
+async function handleRemoveSmokeTestPromptConfig(id: string): Promise<void> {
+  await smokeTestPromptStore.removeConfig(id)
+}
+
+async function handleRenameSmokeTestPromptConfig(id: string, event: Event): Promise<void> {
+  const target = event.target as HTMLInputElement | null
+  await smokeTestPromptStore.renameConfig(id, target?.value || '')
+}
+
+async function handleSmokeTestPromptInput(event: Event): Promise<void> {
+  const target = event.target as HTMLTextAreaElement | null
+  await smokeTestPromptStore.updateSelectedPrompt(target?.value || '')
+}
+
+async function handleResetSmokeTestPrompt(): Promise<void> {
+  await smokeTestPromptStore.resetSelectedPrompt()
+}
+
+async function confirmSmokeTest(): Promise<void> {
+  if (!smokeTestProviderId.value || selectedSmokeTestModelIds.value.length === 0) return
+  const providerId = smokeTestProviderId.value
+  const modelIds = [...selectedSmokeTestModelIds.value]
+  const prompt = smokeTestPromptStore.getPromptByConfigId(selectedSmokeTestPromptConfigId.value)
+  closeSmokeTestDialog()
+  await store.testProviderModels(providerId, modelIds, prompt)
 }
 
 async function removeModel(modelId: string): Promise<void> {

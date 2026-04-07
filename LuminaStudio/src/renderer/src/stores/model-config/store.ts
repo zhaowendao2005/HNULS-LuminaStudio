@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { ModelConfigDataSource } from './datasource'
 import type {
   ModelProvider,
+  ModelTestState,
   NewModelForm,
   ProviderForm,
   ProviderIcon,
@@ -11,6 +12,8 @@ import type {
 } from './types'
 
 const OPENAI_OFFICIAL_BASE_URL = 'https://api.openai.com/v1'
+
+type ProviderModelTestResults = Record<string, Record<string, ModelTestState>>
 
 function inferProviderIcon(type: ProviderType): ProviderIcon {
   if (type === 'claude') return 'anthropic'
@@ -37,6 +40,7 @@ export const useModelConfigStore = defineStore('model-config', () => {
 
   const isLoadingModels = ref(false)
   const remoteModelGroups = ref<RemoteModelGroups>({})
+  const testResults = ref<ProviderModelTestResults>({})
 
   const providerForm = ref<ProviderForm>({
     id: null,
@@ -130,6 +134,7 @@ export const useModelConfigStore = defineStore('model-config', () => {
           name,
           apiKey: '',
           baseUrl: getDefaultBaseUrlByProviderType(providerForm.value.type),
+          officialWebsite: '',
           icon: inferProviderIcon(providerForm.value.type),
           enabled: true,
           models: []
@@ -148,21 +153,41 @@ export const useModelConfigStore = defineStore('model-config', () => {
     if (selectedProviderId.value === id) {
       selectedProviderId.value = nextProviders[0]?.id || null
     }
+    delete testResults.value[id]
     await autoSave()
   }
 
   async function updateProviderApiKey(providerId: string, apiKey: string): Promise<void> {
-    providers.value = providers.value.map((provider) => {
-      if (provider.id !== providerId) return provider
-      return { ...provider, apiKey }
-    })
-    await autoSave()
+    await updateProviderServiceSettings(providerId, { apiKey })
   }
 
   async function updateProviderBaseUrl(providerId: string, baseUrl: string): Promise<void> {
+    await updateProviderServiceSettings(providerId, { baseUrl })
+  }
+
+  async function updateProviderOfficialWebsite(
+    providerId: string,
+    officialWebsite: string
+  ): Promise<void> {
+    await updateProviderServiceSettings(providerId, { officialWebsite })
+  }
+
+  async function updateProviderServiceSettings(
+    providerId: string,
+    patch: {
+      apiKey?: string
+      baseUrl?: string
+      officialWebsite?: string
+    }
+  ): Promise<void> {
     providers.value = providers.value.map((provider) => {
       if (provider.id !== providerId) return provider
-      return { ...provider, baseUrl }
+      return {
+        ...provider,
+        apiKey: patch.apiKey ?? provider.apiKey,
+        baseUrl: patch.baseUrl ?? provider.baseUrl,
+        officialWebsite: patch.officialWebsite ?? provider.officialWebsite
+      }
     })
     await autoSave()
   }
@@ -196,6 +221,77 @@ export const useModelConfigStore = defineStore('model-config', () => {
       return `${parts[0]}-${parts[1]}`
     }
     return DEFAULT_GROUP
+  }
+
+  function setModelTestStatus(
+    providerId: string,
+    modelId: string,
+    patch: Partial<ModelTestState>
+  ): void {
+    const providerResults = testResults.value[providerId] || {}
+    const currentState = providerResults[modelId] || { status: 'idle' as const }
+
+    testResults.value = {
+      ...testResults.value,
+      [providerId]: {
+        ...providerResults,
+        [modelId]: {
+          ...currentState,
+          ...patch,
+          updatedAt: Date.now()
+        }
+      }
+    }
+  }
+
+  function clearProviderTestResults(providerId: string): void {
+    if (!testResults.value[providerId]) return
+    const nextResults = { ...testResults.value }
+    delete nextResults[providerId]
+    testResults.value = nextResults
+  }
+
+  function getModelTestStatus(providerId: string, modelId: string): ModelTestState {
+    return testResults.value[providerId]?.[modelId] || { status: 'idle' }
+  }
+
+  async function testProviderModels(
+    providerId: string,
+    modelIds: string[],
+    prompt?: string
+  ): Promise<void> {
+    if (modelIds.length === 0) return
+
+    modelIds.forEach((modelId) => {
+      setModelTestStatus(providerId, modelId, {
+        status: 'testing',
+        latency: undefined,
+        message: undefined,
+        errorCode: undefined,
+        errorType: undefined
+      })
+    })
+
+    for (const modelId of modelIds) {
+      try {
+        const result = await ModelConfigDataSource.testProviderModel(providerId, modelId, prompt)
+        setModelTestStatus(providerId, modelId, {
+          status: result.status,
+          latency: result.latency,
+          message: result.message,
+          errorCode: result.errorCode,
+          errorType: result.errorType
+        })
+      } catch (error) {
+        setModelTestStatus(providerId, modelId, {
+          status: 'error',
+          message: error instanceof Error ? error.message : String(error),
+          errorType: 'Unknown Error',
+          latency: undefined,
+          errorCode: undefined
+        })
+      }
+    }
   }
 
   async function addSingleRemoteModel(remoteModel: { id: string }): Promise<void> {
@@ -270,6 +366,18 @@ export const useModelConfigStore = defineStore('model-config', () => {
         models: provider.models.filter((model) => model.id !== modelId)
       }
     })
+
+    const providerId = selectedProviderId.value
+    const providerResults = testResults.value[providerId]
+    if (providerResults?.[modelId]) {
+      const nextProviderResults = { ...providerResults }
+      delete nextProviderResults[modelId]
+      testResults.value = {
+        ...testResults.value,
+        [providerId]: nextProviderResults
+      }
+    }
+
     await autoSave()
   }
 
@@ -290,6 +398,18 @@ export const useModelConfigStore = defineStore('model-config', () => {
         models: provider.models.filter((model) => !idsToRemove.has(model.id))
       }
     })
+
+    const providerId = selectedProviderId.value
+    const providerResults = testResults.value[providerId]
+    if (providerResults) {
+      const nextProviderResults = { ...providerResults }
+      models.forEach((model) => delete nextProviderResults[model.id])
+      testResults.value = {
+        ...testResults.value,
+        [providerId]: nextProviderResults
+      }
+    }
+
     await autoSave()
   }
 
@@ -303,6 +423,7 @@ export const useModelConfigStore = defineStore('model-config', () => {
     isManageModelsModalOpen,
     isLoadingModels,
     remoteModelGroups,
+    testResults,
     providerForm,
     newModelForm,
     fetchProviders,
@@ -314,7 +435,13 @@ export const useModelConfigStore = defineStore('model-config', () => {
     handleDeleteProvider,
     updateProviderApiKey,
     updateProviderBaseUrl,
+    updateProviderOfficialWebsite,
+    updateProviderServiceSettings,
     openManageModels,
+    setModelTestStatus,
+    getModelTestStatus,
+    clearProviderTestResults,
+    testProviderModels,
     addSingleRemoteModel,
     addGroupModels,
     handleManualAddModel,

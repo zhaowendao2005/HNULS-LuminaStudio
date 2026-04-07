@@ -22,18 +22,19 @@ export function buildPubmedSlowEnvelope(
   if (input.roundIndex === 2) {
     return {
       api_meta_md: '脚本桩：第二轮已经拿到 pubmed-search 的 schema 和 prompt。',
-      reply_md: '我会按照刚加载的规格执行 PubMed 检索，收集文献证据。',
+      reply_md: '我会按照刚加载的规格执行 PubMed 检索，并补充一个机制方向的并行查询。',
       wants_action: true,
       action_calls: [
         {
           actionKey: 'functioncall.pubmed_search',
           input: {
-            query: input.executionSnapshot.request.input,
-            top_k: 5,
-            sort: 'relevance',
-            date_from: null,
-            date_to: null,
-            api_key_ref_id: null
+            query: input.executionSnapshot.request.input
+          }
+        },
+        {
+          actionKey: 'functioncall.pubmed_search',
+          input: {
+            query: `${input.executionSnapshot.request.input} signaling OR mechanism`
           }
         }
       ]
