@@ -1,4 +1,4 @@
-import type { NormalChatAgentRunSnapshot, NormalChatTaskDetail } from '@preload/types'
+import type { NormalChatAgentRunSnapshot, NormalChatModelCallSnapshot, NormalChatTaskDetail } from '@preload/types'
 
 export interface NormalChatRuntimeAgentPlanRecord {
   stepIndex: number
@@ -66,7 +66,7 @@ export function buildRuntimeAgentTreeFromTaskDetail(
   }
 
   const agents = Object.fromEntries(
-    detail.agentRuns.map((run) => [run.id, toAgentNode(run, detail.agentRuns)])
+    detail.agentRuns.map((run) => [run.id, toAgentNode(run, detail.agentRuns, detail.modelCalls)])
   )
   const rootAgent =
     detail.agentRuns.find((run) => run.parentAgentRunId === null) ?? detail.agentRuns[0]
@@ -97,16 +97,27 @@ export function buildRuntimeAgentSummary(
 
 function toAgentNode(
   run: NormalChatAgentRunSnapshot,
-  allRuns: NormalChatAgentRunSnapshot[]
+  allRuns: NormalChatAgentRunSnapshot[],
+  modelCalls: NormalChatModelCallSnapshot[]
 ): NormalChatRuntimeAgentNode {
+  const synthesisSummary = modelCalls
+    .filter(
+      (call) =>
+        call.agentRunId === run.id &&
+        call.turnKind === 'post_action_synthesis' &&
+        typeof call.finalReplyMd === 'string' &&
+        call.finalReplyMd.trim().length > 0
+    )
+    .at(-1)?.finalReplyMd
+
   return {
     agentId: run.id,
     depth: run.depth,
     roleKind: run.roleKind,
     taskKind: run.templateId,
     goal: run.goal,
-    summary: run.finalText ?? run.goal,
-    finalResult: run.finalText,
+    summary: run.finalText ?? synthesisSummary ?? run.goal,
+    finalResult: run.finalText ?? synthesisSummary ?? null,
     status: normalizeStatus(run.status),
     retryCount: Math.max(0, run.reactCount - 1),
     errorMessage: run.errorMessage,

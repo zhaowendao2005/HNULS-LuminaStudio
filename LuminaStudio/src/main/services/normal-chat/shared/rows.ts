@@ -119,6 +119,10 @@ export interface ModelCallRow {
   conversation_id: string
   agent_run_id: string
   parent_action_run_id: string | null
+  turn_kind: 'answer' | 'action_plan' | 'post_action_synthesis'
+  produced_action_count: number
+  consumed_action_run_ids_json: string
+  synthesis_required: number
   depth: number
   round_index: number
   call_index_in_agent: number

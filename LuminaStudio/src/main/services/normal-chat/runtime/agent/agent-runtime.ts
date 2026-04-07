@@ -1,22 +1,3 @@
-/**
- * Agent 运行时核心
- *
- * Normal Chat Agent 的核心执行引擎，负责管理完整的 ReAct 循环：
- * 1. 准备轮次上下文（递增轮次索引、检查中止信号）
- * 2. 构建 Prompt（组装对话历史、动作规格、动作结果等）
- * 3. 调用 LLM（支持流式和非流式）
- * 4. 解析输出（提取 action 块和 thinking 块）
- * 5. 执行动作（按并发安全性分批执行）
- * 6. 决定是否继续（检查 ReAct 上限、修复尝试次数等）
- *
- * 同时支持子 Agent 递归分派（通过 runSubAgent 方法）。
- *
- * 执行流程图：
- * start() → runAgentExecution() → graphRunner.run() {
- *   prepareRound → buildPrompt → invokeModel → parseEnvelope → executeActions → finalize
- *   ↑ 循环直到 shouldContinue = false 或达到 ReAct 上限 ↓
- * } → 持久化结果 → 发布流事件
- */
 import { randomUUID } from 'node:crypto'
 import type {
   NormalChatConversationMessage,
@@ -53,6 +34,7 @@ import { NormalChatRoundPersistenceService } from './round-persistence.service'
 import { NormalChatRoundStateFactory } from './state/round-state.factory'
 import { NormalChatAssistantRoundMemoryService } from './memory/assistant-round-memory.service'
 import type { NormalChatRoundState } from './state/round-state.types'
+import type { NormalChatAssistantTurnKind } from './memory/assistant-round-memory.types'
 import { NormalChatPromptBudgetService } from '../prompt/prompt-budget.service'
 import { NormalChatRecoveryPolicyService } from './recovery/recovery-policy.service'
 import { NormalChatActionBatchPlanner } from '../actions/shared/action-batch-planner'
@@ -79,6 +61,7 @@ interface AgentExecutionInput {
   executionSnapshot: NormalChatTaskExecutionSnapshot
   userInput: string
   agentRun: NormalChatAgentRunRecord
+  parentActionRunId: string | null
   signal: AbortSignal
   overrides?: AgentExecutionOverrides
 }
@@ -91,7 +74,6 @@ interface AgentExecutionResult {
 }
 
 type ActiveAgentContext = AgentExecutionInput & { depth: number }
-
 type StreamingFenceMode = 'hidden' | 'visible'
 
 class NormalChatVisibleBodyStreamExtractor {
@@ -101,15 +83,12 @@ class NormalChatVisibleBodyStreamExtractor {
 
   feed(delta: string): string {
     let visibleDelta = ''
-
     for (const char of delta) {
       this.currentLine += char
-
       if (char === '\n') {
         visibleDelta += this.flushCompletedLine()
       }
     }
-
     visibleDelta += this.previewCurrentLine()
     return visibleDelta
   }
@@ -121,21 +100,17 @@ class NormalChatVisibleBodyStreamExtractor {
 
     const trimmed = line.trimStart()
     const isFenceLine = trimmed.startsWith('```')
-
     if (!isFenceLine) {
       return this.currentFenceMode === 'hidden' ? '' : line
     }
-
     if (this.currentFenceMode === 'hidden') {
       this.currentFenceMode = null
       return ''
     }
-
     if (this.currentFenceMode === 'visible') {
       this.currentFenceMode = null
       return line
     }
-
     if (
       trimmed.startsWith('```normal_chat_action') ||
       trimmed.startsWith('```normal_chat_thinking')
@@ -143,20 +118,14 @@ class NormalChatVisibleBodyStreamExtractor {
       this.currentFenceMode = 'hidden'
       return ''
     }
-
     this.currentFenceMode = 'visible'
     return line
   }
 
   private previewCurrentLine(): string {
-    if (!this.currentLine) {
+    if (!this.currentLine || this.currentFenceMode === 'hidden') {
       return ''
     }
-
-    if (this.currentFenceMode === 'hidden') {
-      return ''
-    }
-
     const trimmed = this.currentLine.trimStart()
     if (
       trimmed.startsWith('```normal_chat_action') ||
@@ -165,11 +134,9 @@ class NormalChatVisibleBodyStreamExtractor {
     ) {
       return ''
     }
-
     if (this.currentFenceMode === null && trimmed.startsWith('```')) {
       return ''
     }
-
     const nextPreview = this.currentLine.slice(this.currentLinePreviewLength)
     this.currentLinePreviewLength = this.currentLine.length
     return nextPreview
@@ -211,6 +178,7 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
       executionSnapshot: input.executionSnapshot,
       userInput: input.executionSnapshot.request.input,
       agentRun: input.rootAgentRun,
+      parentActionRunId: null,
       signal: input.signal
     })
 
@@ -220,7 +188,6 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
 
     const timestamp = nowIso()
     this.tasksRepository.markPhase(input.taskId, 'committing_message', timestamp)
-
     const assistantMessage: NormalChatConversationMessage = {
       id: randomUUID(),
       topicId: input.topicId,
@@ -298,6 +265,7 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
       ...parentContext,
       userInput: input.goal,
       agentRun: childAgentRun,
+      parentActionRunId: input.parentActionRunId,
       overrides: {
         allowedActionKeys: input.enabledActionKeys,
         pubmedMode: input.pubmedMode,
@@ -320,7 +288,7 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
   }
 
   private async runAgentExecution(input: AgentExecutionInput): Promise<AgentExecutionResult> {
-    const maxReactSteps =
+    const maxActionRounds =
       input.overrides?.maxReactSteps ?? input.executionSnapshot.runtime.maxReasoningSteps
     const resolvedActions = this.resolveActions(input.executionSnapshot, input.overrides)
     const state = this.roundStateFactory.create({
@@ -329,10 +297,10 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
       resolvedActions
     })
 
-    const assistantParts: Array<NormalChatFunctionCallMessagePart | NormalChatThinkingMessagePart> =
-      []
+    const assistantParts: Array<NormalChatFunctionCallMessagePart | NormalChatThinkingMessagePart> = []
     const replyChunks: string[] = []
     let currentModelCallId: string | null = null
+    let currentTurnKind: NormalChatAssistantTurnKind = 'answer'
     let promptBundle: NormalChatPromptBundleV2 | null = null
     let structuredOutput: NormalChatAssistantStructuredOutput | null = null
     let rawModelResponseText = ''
@@ -348,7 +316,8 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
       await this.graphRunner.run({
         prepareRound: async () => {
           state.roundIndex += 1
-          state.reachedReactLimit = state.roundIndex >= maxReactSteps
+          state.reachedReactLimit =
+            state.actionRoundsUsed >= maxActionRounds && !state.postActionSynthesisPending
           this.ensureNotAborted(input.signal)
           this.tasksRepository.markPhase(input.taskId, 'preparing_context', nowIso())
           this.streamPublisher.publish(input.taskId, input.topicId, input.requestId, {
@@ -378,6 +347,7 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
             actionFeedback: state.actionFeedback,
             assistantArtifacts: state.assistantArtifacts,
             roundMemoryWindow: state.runtimeBudget.roundMemoryWindow,
+            postActionSynthesisPending: state.postActionSynthesisPending,
             repairNotice,
             thinkingDigest: null
           })
@@ -392,13 +362,18 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
             ]
           })
           promptBundle = budgeted.bundle
+          currentTurnKind = state.postActionSynthesisPending ? 'post_action_synthesis' : 'answer'
 
           currentModelCallId = this.roundPersistenceService.createQueuedModelCall({
             taskId: input.taskId,
             requestId: input.requestId,
             conversationId: input.executionSnapshot.conversation.id,
             agentRunId: input.agentRun.id,
-            parentActionRunId: input.agentRun.parentAgentRunId,
+            parentActionRunId: input.parentActionRunId,
+            turnKind: currentTurnKind,
+            producedActionCount: 0,
+            consumedActionRunIds: state.postActionSynthesisPending ? state.lastExecutedActionRunIds : [],
+            synthesisRequired: state.postActionSynthesisPending,
             depth: input.agentRun.depth,
             roundIndex: state.roundIndex,
             callIndexInAgent: state.roundIndex,
@@ -425,17 +400,6 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
             roundIndex: state.roundIndex,
             promptCharCount: promptBundle.promptDocument.length
           })
-          if (budgeted.snapshot.trimmedSections.length > 0) {
-            this.streamPublisher.publish(input.taskId, input.topicId, input.requestId, {
-              type: 'prompt-budget-trimmed',
-              requestId: input.requestId,
-              topicId: input.topicId,
-              roundIndex: state.roundIndex,
-              originalCharCount: budgeted.snapshot.originalCharCount,
-              trimmedCharCount: budgeted.snapshot.trimmedCharCount,
-              trimmedSections: budgeted.snapshot.trimmedSections
-            })
-          }
         },
         invokeModel: async () => {
           this.ensureNotAborted(input.signal)
@@ -467,10 +431,7 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
             })) {
               if (event.type === 'text-delta') {
                 rawModelResponseText += event.delta
-                this.roundPersistenceService.appendModelCallStream(
-                  currentModelCallId,
-                  rawModelResponseText
-                )
+                this.roundPersistenceService.appendModelCallStream(currentModelCallId, rawModelResponseText)
                 this.streamPublisher.publish(input.taskId, input.topicId, input.requestId, {
                   type: 'assistant-text-delta',
                   requestId: input.requestId,
@@ -510,10 +471,7 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
               loadedActionKeys: Array.from(state.loadedActionKeys),
               actionResults: state.actionResults
             })
-            this.roundPersistenceService.appendModelCallStream(
-              currentModelCallId,
-              rawModelResponseText
-            )
+            this.roundPersistenceService.appendModelCallStream(currentModelCallId, rawModelResponseText)
           }
 
           try {
@@ -558,8 +516,17 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
             })
           }
 
+          const parsedActionCalls = structuredOutput.action_calls.length
+          currentTurnKind = parsedActionCalls > 0
+            ? 'action_plan'
+            : state.postActionSynthesisPending
+              ? 'post_action_synthesis'
+              : 'answer'
+          state.lastTurnKind = currentTurnKind
+
           const artifact = this.roundMemoryService.createArtifactFromAssistant({
             roundIndex: state.roundIndex,
+            turnKind: currentTurnKind,
             bodyMd: structuredOutput.body_md,
             actionCalls: structuredOutput.action_calls
           })
@@ -569,12 +536,14 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
             requestId: input.requestId,
             topicId: input.topicId,
             roundIndex: state.roundIndex,
-            artifactSummary: artifact.bodyMd
+            artifactSummary: artifact.answerBodyMd || artifact.planBodyMd || artifact.bodyMd
           })
 
-          state.hasActionsToExecute =
-            structuredOutput.action_calls.length > 0 && !state.reachedReactLimit
-          state.shouldContinue = state.hasActionsToExecute || Boolean(repairNotice)
+          const actionBudgetExhausted = state.actionRoundsUsed >= maxActionRounds
+          state.reachedReactLimit = actionBudgetExhausted && !state.postActionSynthesisPending
+          state.hasActionsToExecute = parsedActionCalls > 0 && !actionBudgetExhausted
+          state.shouldContinue =
+            currentTurnKind === 'action_plan' || Boolean(repairNotice) || state.postActionSynthesisPending
 
           if (
             structuredOutput.body_md.startsWith(streamedBodyText) &&
@@ -600,7 +569,7 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
             message: structuredOutput.body_md
           })
 
-          if (!state.hasActionsToExecute && !repairNotice) {
+          if (currentTurnKind !== 'action_plan' && !repairNotice) {
             state.finalReply = structuredOutput.body_md
             replyChunks.push(structuredOutput.body_md)
             const finalChunkDelta = structuredOutput.body_md.startsWith(streamedBodyText)
@@ -622,10 +591,17 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
               body_md: structuredOutput.body_md,
               action_calls: structuredOutput.action_calls,
               thinking_md: structuredOutput.thinking_md,
-              repair_notice: repairNotice
+              repair_notice: repairNotice,
+              turn_kind: currentTurnKind
             },
-            structuredOutput.body_md,
-            rawModelResponseText
+            currentTurnKind === 'action_plan' ? '' : structuredOutput.body_md,
+            rawModelResponseText,
+            {
+              turnKind: currentTurnKind,
+              producedActionCount: parsedActionCalls,
+              consumedActionRunIds: state.postActionSynthesisPending ? state.lastExecutedActionRunIds : [],
+              synthesisRequired: currentTurnKind === 'action_plan'
+            }
           )
         },
         executeActions: async () => {
@@ -639,6 +615,7 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
             resolvedActions
           )
 
+          const executedActionRunIds = new Set<string>()
           for (const [batchIndex, batch] of batches.entries()) {
             const executedItems = batch.parallel
               ? await Promise.all(
@@ -655,8 +632,8 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
               : await this.executeSerialBatch(batch.calls, batchIndex, input, state)
 
             assistantParts.push(...executedItems.map((item) => item.functionCallPart))
-
             const batchResult = this.actionExecutor.createBatchResult(executedItems)
+            batchResult.executedActionRunIds.forEach((id) => executedActionRunIds.add(id))
             state.actionResults.push(...batchResult.results)
             state.actionFeedback.push(...batchResult.feedback)
 
@@ -672,17 +649,13 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
                 requestId: input.requestId,
                 topicId: input.topicId,
                 roundIndex: state.roundIndex,
-                artifactSummary: merged.resultSummaryMd || merged.bodyMd
+                artifactSummary: merged.resultSummaryMd || merged.answerBodyMd || merged.planBodyMd || merged.bodyMd
               })
             }
 
             for (const item of executedItems) {
               if (item.feedback.length > 0) {
                 repairNotice = item.feedback.map((feedback) => feedback.message).join('\n')
-                state.shouldContinue = true
-                if (!item.feedback.every((feedback) => feedback.retryable)) {
-                  state.shouldContinue = false
-                }
               }
               for (const loadedActionKey of item.loadedActionKeys) {
                 if (loadedActionKey) {
@@ -691,19 +664,33 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
               }
             }
           }
+
+          if (batches.length > 0) {
+            state.actionRoundsUsed += 1
+            state.postActionSynthesisPending = true
+            state.lastExecutedActionRunIds = Array.from(executedActionRunIds)
+            state.shouldContinue = true
+            state.hasActionsToExecute = false
+          }
         },
         finalize: async () => {
           if (!state.finalReply.trim()) {
-            const latestArtifact = state.assistantArtifacts.at(-1)
-            state.finalReply =
-              latestArtifact?.bodyMd ||
-              '本轮执行结束，但没有拿到可见回答；以下是基于当前上下文的兜底总结。'
+            state.finalReply = this.roundMemoryService.buildDeterministicFinalSummary({
+              actionResults: state.actionResults,
+              actionFeedback: state.actionFeedback,
+              assistantArtifacts: state.assistantArtifacts
+            })
           }
+          state.postActionSynthesisPending = false
         },
         forcedFinalize: async () => {
-          state.finalReply =
-            `${state.finalReply}\n\n已达到当前 agent 的 ReAct 上限，我会基于已经收集到的资料进行总结。`.trim()
+          state.finalReply = this.roundMemoryService.buildDeterministicFinalSummary({
+            actionResults: state.actionResults,
+            actionFeedback: state.actionFeedback,
+            assistantArtifacts: state.assistantArtifacts
+          })
           state.shouldContinue = false
+          state.postActionSynthesisPending = false
         },
         getState: (): NormalChatAgentGraphState => ({
           node: 'decide-next-round',
@@ -751,14 +738,8 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
     batchIndex: number,
     input: AgentExecutionInput,
     state: NormalChatRoundState
-  ): Promise<
-    ReturnType<NormalChatAgentRuntime['executeSingleActionCall']> extends Promise<infer T>
-      ? T[]
-      : never
-  > {
-    const results = [] as Array<
-      Awaited<ReturnType<NormalChatAgentRuntime['executeSingleActionCall']>>
-    >
+  ): Promise<Awaited<ReturnType<NormalChatAgentRuntime['executeSingleActionCall']>>[]> {
+    const results: Array<Awaited<ReturnType<NormalChatAgentRuntime['executeSingleActionCall']>>> = []
     for (const [parallelIndex, call] of calls.entries()) {
       results.push(
         await this.executeSingleActionCall({
@@ -807,21 +788,11 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
       context: {
         taskId: input.input.taskId,
         requestId: input.input.requestId,
+        actionRunId: actionRun.id,
         roundIndex: input.state.roundIndex,
         agentDepth: input.input.agentRun.depth,
         executionSnapshot: input.input.executionSnapshot
       }
-    })
-
-    this.streamPublisher.publish(input.input.taskId, input.input.topicId, input.input.requestId, {
-      type: 'action-validated',
-      requestId: input.input.requestId,
-      topicId: input.input.topicId,
-      actionKey: input.call.actionKey,
-      roundIndex: input.state.roundIndex,
-      status: executed.resultRecord.status,
-      schemaDebugSnapshot: executed.schemaDebugSnapshot,
-      message: executed.resultRecord.errorMessage
     })
 
     if (executed.resultRecord.status === 'success') {
@@ -838,8 +809,19 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
       )
     }
 
+    executed.actionRunId = actionRun.id
     executed.functionCallPart.callId = actionRun.id
 
+    this.streamPublisher.publish(input.input.taskId, input.input.topicId, input.input.requestId, {
+      type: 'action-validated',
+      requestId: input.input.requestId,
+      topicId: input.input.topicId,
+      actionKey: input.call.actionKey,
+      roundIndex: input.state.roundIndex,
+      status: executed.resultRecord.status,
+      schemaDebugSnapshot: executed.schemaDebugSnapshot,
+      message: executed.resultRecord.errorMessage
+    })
     this.streamPublisher.publish(input.input.taskId, input.input.topicId, input.input.requestId, {
       type: 'assistant-part-upsert',
       requestId: input.input.requestId,

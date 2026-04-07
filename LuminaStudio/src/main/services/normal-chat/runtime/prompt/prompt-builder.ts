@@ -11,6 +11,7 @@ import { buildActionFeedbackSection } from './sections/action-feedback-section'
 import { buildActionProtocolSection } from './sections/action-protocol-section'
 import { buildActionResultsSection } from './sections/action-results-section'
 import { buildContextSection } from './sections/context-section'
+import { buildLatestActionTurnSection } from './sections/latest-action-turn-section'
 import { buildLoadedActionSpecsSection } from './sections/loaded-action-specs-section'
 import { buildOutputContractSection } from './sections/output-contract-section'
 import { buildPriorRoundMemorySection } from './sections/prior-round-memory-section'
@@ -30,6 +31,7 @@ export class NormalChatPromptBuilder {
     actionFeedback: NormalChatActionFeedback[]
     assistantArtifacts: NormalChatAssistantRoundArtifact[]
     roundMemoryWindow: number
+    postActionSynthesisPending?: boolean
     repairNotice?: string | null
     thinkingDigest?: string | null
   }): NormalChatPromptBundleV2 {
@@ -55,6 +57,7 @@ export class NormalChatPromptBuilder {
       .filter(Boolean)
       .join('\n\n')
     const identity = injections ? `${input.systemPrompt}\n\n${injections}` : input.systemPrompt
+    const latestArtifact = input.assistantArtifacts.at(-1) ?? null
 
     const systemSections = {
       identity,
@@ -69,6 +72,10 @@ export class NormalChatPromptBuilder {
         userInput: input.userInput,
         conversationTitle: input.conversationTitle,
         agentGoal: input.agentGoal
+      }),
+      latestActionTurnResults: buildLatestActionTurnSection({
+        latestArtifact,
+        synthesisRequired: Boolean(input.postActionSynthesisPending)
       }),
       priorRoundMemory: buildPriorRoundMemorySection({
         artifacts: input.assistantArtifacts,

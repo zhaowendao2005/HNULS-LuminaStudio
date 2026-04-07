@@ -227,6 +227,7 @@ export interface NormalChatPromptSystemSectionsSnapshot {
 /** Prompt 轮次段快照 */
 export interface NormalChatPromptRoundSectionsSnapshot {
   context: string
+  latestActionTurnResults: string
   priorRoundMemory: string
   actionDescriptions: string
   loadedActionSpecs: string
@@ -258,6 +259,8 @@ export interface NormalChatPromptSnapshot {
 }
 
 /** 模型调用快照（normal_chat_model_calls 表的类型映射） */
+export type NormalChatModelCallTurnKind = 'answer' | 'action_plan' | 'post_action_synthesis'
+
 export interface NormalChatModelCallSnapshot {
   id: string
   seq: number
@@ -266,6 +269,10 @@ export interface NormalChatModelCallSnapshot {
   conversationId: string
   agentRunId: string
   parentActionRunId: string | null
+  turnKind: NormalChatModelCallTurnKind
+  producedActionCount: number
+  consumedActionRunIds: string[]
+  synthesisRequired: boolean
   depth: number
   roundIndex: number
   callIndexInAgent: number

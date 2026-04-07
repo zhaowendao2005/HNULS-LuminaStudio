@@ -7,6 +7,7 @@ export interface NormalChatPromptSystemSections {
 
 export interface NormalChatPromptRoundSections {
   context: string
+  latestActionTurnResults: string
   priorRoundMemory: string
   actionDescriptions: string
   loadedActionSpecs: string

@@ -61,6 +61,8 @@ export interface NormalChatExecuteActionInput {
  * 函数调用消息片段、反馈、子 Agent 摘要和 Schema 调试快照。
  */
 export interface NormalChatExecutedAction {
+  /** 当前动作运行 ID */
+  actionRunId?: string
   /** 动作结果记录（用于持久化和展示） */
   resultRecord: NormalChatActionResultRecord
   /** 本次执行加载的动作键列表（仅 get_action_spec 动作会返回） */
@@ -196,7 +198,8 @@ export class NormalChatActionExecutorService {
         call: {
           ...input.call,
           input: normalizedInput
-        }
+        },
+        context: input.context
       })
 
       // ── 6. 构建成功结果 ──
@@ -261,7 +264,8 @@ export class NormalChatActionExecutorService {
     return {
       results: items.map((item) => item.resultRecord),
       feedback: items.flatMap((item) => item.feedback),
-      childSummaries: items.flatMap((item) => item.childSummaries)
+      childSummaries: items.flatMap((item) => item.childSummaries),
+      executedActionRunIds: items.map((item) => item.actionRunId).filter((item): item is string => Boolean(item))
     }
   }
 
@@ -391,6 +395,7 @@ export class NormalChatActionExecutorService {
    */
   private async runExecutor(input: {
     call: NormalChatActionCall
+    context: NormalChatActionRuntimeContext
   }): Promise<NormalChatActionExecutorOutput> {
     // ── 获取动作规格 ──
     if (input.call.actionKey === 'system.get_action_spec') {
@@ -407,6 +412,7 @@ export class NormalChatActionExecutorService {
         enabledActionKeys: Array.isArray(input.call.input.enabled_action_keys)
           ? input.call.input.enabled_action_keys.map((item) => String(item))
           : [],
+        parentActionRunId: input.context.actionRunId,
         pubmedMode: input.call.input.pubmed_mode === 'slow' ? 'slow' : 'fast',
         maxReactSteps: Math.max(1, Number(input.call.input.max_react_steps ?? 2))
       })

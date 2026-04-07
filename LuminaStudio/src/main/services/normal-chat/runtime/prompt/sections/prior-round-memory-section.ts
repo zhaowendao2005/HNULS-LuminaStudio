@@ -18,6 +18,10 @@ export function buildPriorRoundMemorySection(input: {
                 .map((item) => `- ${item.actionKey}(${item.inputPreview})`)
                 .join('\n')
             : '(none)'
+          const leadingBody = artifact.turnKind === 'action_plan'
+            ? artifact.planBodyMd || '(empty)'
+            : artifact.answerBodyMd || artifact.bodyMd || '(empty)'
+          const leadingLabel = artifact.turnKind === 'action_plan' ? 'Action plan note:' : 'Assistant summary:'
           const resultSummary = artifact.resultSummaryMd || '(no action results yet)'
           const childSummaries = artifact.childSummariesMd
             ? `\n\nChild summaries:\n${artifact.childSummariesMd}`
@@ -25,8 +29,9 @@ export function buildPriorRoundMemorySection(input: {
 
           return [
             `### Round ${artifact.roundIndex}`,
-            'Assistant summary:',
-            artifact.bodyMd || '(empty)',
+            `turn_kind: ${artifact.turnKind}`,
+            leadingLabel,
+            leadingBody,
             '',
             'Planned actions:',
             plannedActions,
@@ -45,7 +50,7 @@ export function buildPriorRoundMemorySection(input: {
         olderArtifacts
           .map(
             (artifact) =>
-              `- Round ${artifact.roundIndex}: ${(artifact.compactSummaryMd || artifact.resultSummaryMd || artifact.bodyMd || '').replace(/\s+/g, ' ').slice(0, 180)}`
+              `- Round ${artifact.roundIndex}: ${(artifact.compactSummaryMd || artifact.resultSummaryMd || artifact.answerBodyMd || artifact.planBodyMd || artifact.bodyMd || '').replace(/\s+/g, ' ').slice(0, 180)}`
           )
           .join('\n')
       ].join('\n')

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { NormalChatActionExecutorService } from '../actions/shared/action-executor.service'
 import { NormalChatAgentRuntime } from './agent-runtime'
 
 describe('NormalChatAgentRuntime', () => {
@@ -73,13 +74,22 @@ describe('NormalChatAgentRuntime', () => {
         resultRecord: {
           status: 'success',
           output: { items: [] },
-          errorMessage: null
+          errorMessage: null,
+          title: 'PubMed Search',
+          modelFacingSummaryMd: 'ok'
         },
         feedback: [],
         loadedActionKeys: [],
-        schemaDebugSnapshot: null
+        schemaDebugSnapshot: null,
+        childSummaries: [],
+        actionRunId: 'action-run-1'
       })),
-      createBatchResult: vi.fn(() => ({ results: [], feedback: [], childSummaries: [] }))
+      createBatchResult: vi.fn(() => ({
+        results: [],
+        feedback: [],
+        childSummaries: [],
+        executedActionRunIds: ['action-run-1']
+      }))
     }
 
     const roundPersistenceService = {
@@ -136,29 +146,31 @@ describe('NormalChatAgentRuntime', () => {
       streamPublisher as any
     )
 
+    const executionSnapshot = {
+      request: {
+        input: 'Find papers',
+        providerId: 'openai',
+        modelId: 'gpt-test'
+      },
+      runtime: {
+        maxReasoningSteps: 3,
+        streamingEnabled: false,
+        systemPrompt: 'system'
+      },
+      conversation: {
+        id: 'conversation-1',
+        title: 'Topic'
+      },
+      historyMessages: [],
+      promptInjections: [],
+      actions: []
+    } as any
+
     await runtime.start({
       taskId: 'task-1',
       requestId: 'request-1',
       topicId: 'topic-1',
-      executionSnapshot: {
-        request: {
-          input: 'Find papers',
-          providerId: 'openai',
-          modelId: 'gpt-test'
-        },
-        runtime: {
-          maxReasoningSteps: 3,
-          streamingEnabled: false,
-          systemPrompt: 'system'
-        },
-        conversation: {
-          id: 'conversation-1',
-          title: 'Topic'
-        },
-        historyMessages: [],
-        promptInjections: [],
-        actions: []
-      } as any,
+      executionSnapshot,
       rootAgentRun: {
         id: 'agent-run-1',
         depth: 0,
@@ -189,8 +201,222 @@ describe('NormalChatAgentRuntime', () => {
       },
       {
         kind: 'text',
-        text: 'Final answer'
+        text: '本轮未生成合格的最终总结，以下是基于已执行结果的结构化汇总。'
       }
     ])
+    expect(roundPersistenceService.createQueuedModelCall).toHaveBeenCalledWith(
+      expect.objectContaining({
+        parentActionRunId: null
+      })
+    )
+  })
+
+  it('uses the dispatch action run id as parentActionRunId for child model calls', async () => {
+    const graphRunner = {
+      run: vi.fn(async (handlers: any) => {
+        await handlers.prepareRound()
+        await handlers.buildPrompt()
+        await handlers.invokeModel()
+        await handlers.parseEnvelope()
+        if (handlers.getState().hasActionsToExecute) {
+          await handlers.executeActions()
+        }
+        if (handlers.getState().shouldContinue) {
+          await handlers.prepareRound()
+          await handlers.buildPrompt()
+          await handlers.invokeModel()
+          await handlers.parseEnvelope()
+        }
+        await handlers.finalize()
+        return { visitedNodes: [] }
+      })
+    }
+
+    const promptBuilder = {
+      buildRoundPromptBundle: vi.fn(() => ({
+        promptDocument: 'prompt',
+        compiledSystemPrompt: 'system',
+        compiledRoundPrompt: 'round',
+        roundSections: {},
+        systemSections: {}
+      }))
+    }
+
+    const modelAdapter = {
+      invokeRound: vi.fn(async () => 'raw-model-output')
+    }
+
+    const assistantOutputParser = {
+      parse: vi
+        .fn()
+        .mockReturnValueOnce({
+          body_md: 'Dispatch child',
+          action_calls: [
+            {
+              actionKey: 'system.dispatch_sub_agent',
+              input: {
+                goal: 'Child task',
+                enabled_action_keys: [],
+                pubmed_mode: 'fast',
+                max_react_steps: 1
+              }
+            }
+          ],
+          thinking_md: null
+        })
+        .mockReturnValueOnce({
+          body_md: 'Parent synthesis',
+          action_calls: [],
+          thinking_md: null
+        })
+        .mockReturnValueOnce({
+          body_md: 'Child synthesis',
+          action_calls: [],
+          thinking_md: null
+        })
+    }
+
+    const actionResolutionService = {
+      resolveEnabledActionsFromSnapshot: vi.fn((actions) => actions)
+    }
+
+    const loadedActionSpecService = {
+      resolveLoadedActions: vi.fn(() => [])
+    }
+
+    const roundPersistenceService = {
+      createQueuedModelCall: vi
+        .fn()
+        .mockReturnValueOnce('parent-model-call-1')
+        .mockReturnValueOnce('child-model-call-1')
+        .mockReturnValueOnce('parent-model-call-2'),
+      markModelCallRunning: vi.fn(),
+      appendModelCallStream: vi.fn(),
+      completeModelCall: vi.fn(),
+      failModelCall: vi.fn()
+    }
+
+    const messagesRepository = {
+      insert: vi.fn()
+    }
+
+    const tasksRepository = {
+      markRunning: vi.fn(),
+      markPhase: vi.fn(),
+      markSucceeded: vi.fn()
+    }
+
+    const agentRunsRepository = {
+      markRunningById: vi.fn(),
+      markSucceededById: vi.fn(),
+      markFailedById: vi.fn(),
+      createChild: vi.fn(() => ({
+        id: 'child-agent-run-1',
+        depth: 1,
+        parentAgentRunId: 'root-agent-run-1',
+        goal: 'Child task'
+      }))
+    }
+
+    const actionRunsRepository = {
+      create: vi.fn(() => ({ id: 'action-run-dispatch-1' })),
+      markRunning: vi.fn(),
+      markSucceeded: vi.fn(),
+      markFailed: vi.fn()
+    }
+
+    const streamPublisher = {
+      publish: vi.fn(() => 0)
+    }
+
+    const actionExecutor = new NormalChatActionExecutorService({
+      execute: vi.fn()
+    } as any)
+
+    const runtime = new NormalChatAgentRuntime(
+      graphRunner as any,
+      promptBuilder as any,
+      modelAdapter as any,
+      assistantOutputParser as any,
+      actionResolutionService as any,
+      loadedActionSpecService as any,
+      actionExecutor,
+      roundPersistenceService as any,
+      messagesRepository as any,
+      tasksRepository as any,
+      agentRunsRepository as any,
+      actionRunsRepository as any,
+      streamPublisher as any
+    )
+    actionExecutor.setSubAgentRunner(runtime)
+
+    await runtime.start({
+      taskId: 'task-1',
+      requestId: 'request-1',
+      topicId: 'topic-1',
+      executionSnapshot: {
+        request: {
+          input: 'Dispatch task',
+          providerId: 'openai',
+          modelId: 'gpt-test'
+        },
+        runtime: {
+          maxReasoningSteps: 2,
+          maxRecursionDepth: 2,
+          streamingEnabled: false,
+          systemPrompt: 'system',
+          persistencePreset: 'full'
+        },
+        conversation: {
+          id: 'conversation-1',
+          title: 'Topic'
+        },
+        historyMessages: [],
+        promptInjections: [],
+        actions: [
+          {
+            actionKey: 'system.dispatch_sub_agent',
+            kind: 'system',
+            enabled: true,
+            mode: 'fast',
+            definition: {} as any
+          }
+        ]
+      } as any,
+      rootAgentRun: {
+        id: 'root-agent-run-1',
+        depth: 0,
+        parentAgentRunId: null,
+        goal: 'Dispatch task'
+      } as any,
+      signal: new AbortController().signal
+    })
+
+    expect(roundPersistenceService.createQueuedModelCall).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        agentRunId: 'root-agent-run-1',
+        parentActionRunId: null,
+        turnKind: 'answer'
+      })
+    )
+    expect(roundPersistenceService.createQueuedModelCall).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        agentRunId: 'child-agent-run-1',
+        parentActionRunId: 'action-run-dispatch-1',
+        turnKind: 'answer'
+      })
+    )
+    expect(roundPersistenceService.createQueuedModelCall).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({
+        agentRunId: 'root-agent-run-1',
+        parentActionRunId: null,
+        turnKind: 'post_action_synthesis',
+        consumedActionRunIds: ['action-run-dispatch-1'],
+        synthesisRequired: true
+      })
+    )
   })
 })

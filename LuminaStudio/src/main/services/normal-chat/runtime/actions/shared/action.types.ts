@@ -72,13 +72,15 @@ export type NormalChatActionPermissionResult =
  * 动作运行时上下文
  *
  * 在动作执行时注入的上下文信息，包含任务 ID、请求 ID、
- * 轮次索引、Agent 深度和执行快照等。
+ * 当前动作运行 ID、轮次索引、Agent 深度和执行快照等。
  */
 export interface NormalChatActionRuntimeContext {
   /** 任务唯一标识 */
   taskId: string
   /** 请求唯一标识 */
   requestId: string
+  /** 当前动作运行唯一标识 */
+  actionRunId: string
   /** 当前对话轮次索引 */
   roundIndex: number
   /** Agent 嵌套深度（子 Agent 递归调用时递增） */

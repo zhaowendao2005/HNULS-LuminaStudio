@@ -3,6 +3,7 @@ import type { NormalChatDispatchSubAgentOutput } from '../../shared/action.types
 export interface NormalChatDispatchSubAgentExecutionInput {
   goal: string
   enabledActionKeys: string[]
+  parentActionRunId: string
   pubmedMode: 'fast' | 'slow'
   maxReactSteps: number
 }

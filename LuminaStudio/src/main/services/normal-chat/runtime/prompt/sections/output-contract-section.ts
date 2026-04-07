@@ -12,6 +12,9 @@ export function buildOutputContractSection(): string {
     'Do not use ordinary ```json blocks for executable actions.',
     'If you output any normal_chat_action block, you must still provide non-empty Markdown outside the blocks.',
     'If no action is needed, output only Markdown and no normal_chat_action block.',
-    'If ActionFeedback reports a previous failure, do not repeat the same invalid call unchanged.'
+    'If ActionFeedback reports a previous failure, do not repeat the same invalid call unchanged.',
+    'If LatestActionTurnResults or ActionResults are present, you must consume those results before writing any future-tense plan.',
+    'When fresh action results are present, do not say that you are still waiting for a subagent or that you will inspect results later unless you are also issuing a new action in the same response.',
+    'An action-planning paragraph is not a final answer. If you are not issuing another action, convert the available results into the best current answer now.'
   ].join('\n')
 }
