@@ -2,6 +2,7 @@ import type { NormalChatRoundState, NormalChatRoundStateCreateInput } from './ro
 
 export class NormalChatRoundStateFactory {
   create(input: NormalChatRoundStateCreateInput): NormalChatRoundState {
+    // 新状态机从首轮开始就按“可能经历 answer -> action_plan -> post_action_synthesis”的三态链路建模。
     return {
       executionSnapshot: input.executionSnapshot,
       seedHistoryMessages: input.seedHistoryMessages,

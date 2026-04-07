@@ -43,9 +43,13 @@ export interface NormalChatRoundState {
   hasActionsToExecute: boolean
   reachedReactLimit: boolean
   runtimeBudget: NormalChatPromptRuntimeBudget
+  // 这里只统计真正执行过 action 的轮次，不把 action 之后必须保留的一轮总结算进去。
   actionRoundsUsed: number
+  // 只要本轮刚执行过 action，就必须再进一轮消费结果，直到产出 synthesis/final answer 才能清空。
   postActionSynthesisPending: boolean
+  // 记录最近一批已执行 action 的 runId，供下一轮 prompt 和 model-call trace 明确“正在消费哪批结果”。
   lastExecutedActionRunIds: string[]
+  // 记住最近一轮 assistant 的语义类型，便于 UI、持久化和后续调试判断当前停在计划轮还是总结轮。
   lastTurnKind: NormalChatAssistantTurnKind | null
 }
 

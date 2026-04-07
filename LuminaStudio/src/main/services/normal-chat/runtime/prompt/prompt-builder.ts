@@ -66,6 +66,8 @@ export class NormalChatPromptBuilder {
       repairContract: buildRepairNoticeSection(input.repairNotice)
     }
 
+    // 这里刻意把“最新 action 结果”放在 prior memory 前面，避免模型先读到旧计划摘要，继续沿着未来时态往下写。
+
     const roundSections = {
       context: buildContextSection({
         historyMarkdown,

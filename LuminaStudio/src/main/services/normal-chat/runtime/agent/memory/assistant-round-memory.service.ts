@@ -37,6 +37,7 @@ export class NormalChatAssistantRoundMemoryService {
   createArtifactFromAssistant(
     input: NormalChatAssistantOutputArtifactInput
   ): NormalChatAssistantRoundArtifact {
+    // memory artifact 的职责不是原样存档全文，而是为下一轮 prompt 和 trace 提供低成本、高判别度的摘要素材。
     const trimmedBody = truncateText(input.bodyMd.trim(), 400)
     return {
       roundIndex: input.roundIndex,
@@ -59,6 +60,7 @@ export class NormalChatAssistantRoundMemoryService {
     artifact: NormalChatAssistantRoundArtifact,
     batch: NormalChatActionExecutionBatchResult
   ): NormalChatAssistantRoundArtifact {
+    // action 结果会回填到刚刚产生 action_plan 的那条 artifact 上，确保“计划”和“结果”在记忆里仍属于同一个逻辑轮次。
     const successMarkdown = batch.results.map(projectActionResultMarkdown).join('\n\n')
     const feedbackMarkdown = batch.feedback
       .map((feedback) => {
@@ -154,6 +156,7 @@ export class NormalChatAssistantRoundMemoryService {
     actionFeedback: NormalChatActionFeedback[]
     assistantArtifacts: NormalChatAssistantRoundArtifact[]
   }): string {
+    // 当模型没有产出合格 synthesis 时，仍要保证最终落库/落消息的是“基于结果的总结”，而不是 action 前的等待话术。
     const latestArtifact = input.assistantArtifacts.at(-1)
     const successfulResults = input.actionResults.filter((item) => item.status === 'success')
     const failedFeedback = input.actionFeedback.filter((item) => item.status === 'execution_error')

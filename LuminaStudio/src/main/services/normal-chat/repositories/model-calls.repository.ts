@@ -5,6 +5,7 @@ import type { ModelCallRow } from '../shared/rows'
 import { parseJson } from '../shared/utils'
 
 function createDefaultPromptSnapshot(): NormalChatPromptSnapshot {
+  // 读旧快照或异常数据时仍返回完整骨架，避免 trace 消费层因为缺字段而崩掉。
   return {
     systemSections: {
       identity: '',
@@ -121,6 +122,8 @@ export class NormalChatModelCallsRepository {
     },
     timestamp: string
   ): void {
+    // 成功态会再次回写 turnKind / producedActionCount / consumedActionRunIds，
+    // 因为 queued 时只是根据“进入本轮前状态”预填，真正语义要以模型输出和执行结果为准。
     this.db
       .prepare(
         `UPDATE normal_chat_model_calls

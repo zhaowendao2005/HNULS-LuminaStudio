@@ -18,6 +18,7 @@ export function buildPriorRoundMemorySection(input: {
                 .map((item) => `- ${item.actionKey}(${item.inputPreview})`)
                 .join('\n')
             : '(none)'
+          // action_plan 轮在 memory 中只作为“计划上下文”存在，明确不用 Assistant summary 标签，避免误导模型把旧计划当最终结论。
           const leadingBody = artifact.turnKind === 'action_plan'
             ? artifact.planBodyMd || '(empty)'
             : artifact.answerBodyMd || artifact.bodyMd || '(empty)'

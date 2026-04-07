@@ -76,6 +76,9 @@ interface AgentExecutionResult {
 type ActiveAgentContext = AgentExecutionInput & { depth: number }
 type StreamingFenceMode = 'hidden' | 'visible'
 
+// streaming 时正文里仍可能夹带 normal_chat_action / thinking 围栏；
+// 这里把“用户可见正文”从原始 token 流里剥出来，保证界面预览不会提前暴露协议块。
+
 class NormalChatVisibleBodyStreamExtractor {
   private currentFenceMode: StreamingFenceMode | null = null
   private currentLine = ''
@@ -316,6 +319,7 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
       await this.graphRunner.run({
         prepareRound: async () => {
           state.roundIndex += 1
+          // react 限制只限制“还能不能继续新开 action 轮”，不应该吞掉 action 后必须执行的 synthesis 轮。
           state.reachedReactLimit =
             state.actionRoundsUsed >= maxActionRounds && !state.postActionSynthesisPending
           this.ensureNotAborted(input.signal)
@@ -362,6 +366,7 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
             ]
           })
           promptBundle = budgeted.bundle
+          // 进入模型前先根据 runtime 状态给本轮一个预期 turnKind；真正结果会在 parse 后按输出再校正。
           currentTurnKind = state.postActionSynthesisPending ? 'post_action_synthesis' : 'answer'
 
           currentModelCallId = this.roundPersistenceService.createQueuedModelCall({
@@ -517,6 +522,9 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
           }
 
           const parsedActionCalls = structuredOutput.action_calls.length
+          // 这里才是 turnKind 的最终判定点：
+          // 有 action call 就是 action_plan；否则如果上一轮 action 结果尚未消费完，就归为 post_action_synthesis；
+          // 再否则才是普通 answer。
           currentTurnKind = parsedActionCalls > 0
             ? 'action_plan'
             : state.postActionSynthesisPending
@@ -542,6 +550,8 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
           const actionBudgetExhausted = state.actionRoundsUsed >= maxActionRounds
           state.reachedReactLimit = actionBudgetExhausted && !state.postActionSynthesisPending
           state.hasActionsToExecute = parsedActionCalls > 0 && !actionBudgetExhausted
+          // 是否继续整条轨迹由三类条件驱动：
+          // 1. 当前轮输出了 action_plan；2. 需要修复结构；3. 上一批 action 已完成但 synthesis 尚未产出。
           state.shouldContinue =
             currentTurnKind === 'action_plan' || Boolean(repairNotice) || state.postActionSynthesisPending
 
@@ -667,6 +677,7 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
 
           if (batches.length > 0) {
             state.actionRoundsUsed += 1
+            // 一旦 action 真正执行过，就强制把下一轮转成结果消费轮，直到生成 synthesis/final answer。
             state.postActionSynthesisPending = true
             state.lastExecutedActionRunIds = Array.from(executedActionRunIds)
             state.shouldContinue = true
@@ -681,6 +692,7 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
               assistantArtifacts: state.assistantArtifacts
             })
           }
+          // 只要已经拿到最终可见文本，就视为结果消费完成，清空 pending 标记。
           state.postActionSynthesisPending = false
         },
         forcedFinalize: async () => {

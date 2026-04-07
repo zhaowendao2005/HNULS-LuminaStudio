@@ -39,10 +39,12 @@ export class NormalChatRoundPersistenceService {
     actionResults: NormalChatActionResultRecord[]
     persist: boolean
   }): string {
+    // 非 full persistence 模式下仍生成一个临时 id，统一 runtime 内部流程，但不会真正写库。
     if (!input.persist) {
       return `${EPHEMERAL_MODEL_CALL_ID_PREFIX}${randomUUID()}`
     }
 
+    // queued 快照记录的是“进入模型前”的上下文，用来回答：这一轮是在什么状态下被发起的。
     return this.modelCallsRepository.create({
       taskId: input.taskId,
       requestId: input.requestId,
@@ -98,6 +100,7 @@ export class NormalChatRoundPersistenceService {
       synthesisRequired: boolean
     }
   ): void {
+    // complete 阶段再写入最终元数据，补齐本轮究竟落成 answer / action_plan / post_action_synthesis。
     if (isEphemeralModelCallId(modelCallId)) {
       return
     }
