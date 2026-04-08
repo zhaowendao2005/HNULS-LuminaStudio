@@ -89,6 +89,7 @@ function createDatasourceStub(overrides: Record<string, unknown> = {}) {
     renameLabel: vi.fn(),
     deleteLabel: vi.fn(),
     setActiveAssistant: vi.fn(),
+    deleteAssistant: vi.fn(),
     createTopic: vi.fn(),
     renameTopic: vi.fn(),
     deleteTopic: vi.fn(),

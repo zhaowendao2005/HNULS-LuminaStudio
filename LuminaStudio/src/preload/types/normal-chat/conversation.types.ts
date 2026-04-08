@@ -111,33 +111,6 @@ export interface NormalChatConversationSnapshot {
   messages: NormalChatConversationMessage[]
 }
 
-/** 对话运行时追踪 */
-export interface NormalChatConversationRuntimeTrace {
-  agentTree: Record<string, unknown> | null
-  [key: string]: unknown
-}
-
-/** 对话轮次详情（用于前端展示和调试） */
-export interface NormalChatConversationTurnDetail {
-  requestId: string
-  topicId: string
-  assistantId: string
-  assistantName: string
-  assistantEmoji: string
-  topicTitle: string
-  hasTrace: boolean
-  requestRecord: Record<string, unknown> | null
-  responseRecord: {
-    chunks: string[]
-    finalText: string
-    aborted: boolean
-    errorMessage: string | null
-    completedAt: string | null
-  } | null
-  runtimeTrace: NormalChatConversationRuntimeTrace | null
-  messages: NormalChatConversationMessage[]
-}
-
 /** 任务状态 */
 export type NormalChatTaskStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'aborted'
 
@@ -266,7 +239,7 @@ export interface NormalChatPromptSnapshot {
   trimSnapshot?: NormalChatPromptTrimSnapshot | null
 }
 
-/** 模型调用快照（normal_chat_model_calls 表的类型映射） */
+/** 模型调用快照。 */
 export type NormalChatModelCallTurnKind = 'answer' | 'action_plan' | 'post_action_synthesis'
 
 export interface NormalChatCapturedProviderRequestSnapshot {
@@ -316,7 +289,7 @@ export interface NormalChatModelCallSnapshot {
   updatedAt: string
 }
 
-/** 动作运行快照（normal_chat_action_runs 表的类型映射） */
+/** 动作运行快照。 */
 export interface NormalChatActionRunSnapshot {
   id: string
   taskId: string
@@ -337,7 +310,7 @@ export interface NormalChatActionRunSnapshot {
   updatedAt: string
 }
 
-/** Agent 运行快照（normal_chat_agent_runs 表的类型映射） */
+/** Agent 运行快照。 */
 export interface NormalChatAgentRunSnapshot {
   id: string
   taskId: string
@@ -360,40 +333,153 @@ export interface NormalChatAgentRunSnapshot {
   updatedAt: string
 }
 
-/** 运行时事件快照（normal_chat_runtime_events 表的类型映射） */
-export interface NormalChatRuntimeEventSnapshot {
-  seq: number
-  taskId: string
+/**
+ * Request 头表快照。
+ *
+ * 这是 request 级别的“索引视图”，只保留当前状态与定位信息，
+ * 不承担调试细节真相；细节一律从 request entry 流回放得到。
+ */
+export interface NormalChatRequestHeadSnapshot {
   requestId: string
+  assistantId: string
   topicId: string
-  eventType: string
+  conversationId: string
+  rootAgentRunId: string | null
+  userMessageId: string | null
+  assistantMessageId: string | null
+  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'aborted' | 'deleted'
+  phase:
+    | 'queued'
+    | 'preparing_context'
+    | 'building_prompt'
+    | 'awaiting_model'
+    | 'executing_actions'
+    | 'committing_message'
+    | 'finished'
+  errorMessage: string | null
+  createdAt: string
+  startedAt: string | null
+  finishedAt: string | null
+  updatedAt: string
+  lastEntrySeq: number | null
+}
+
+/**
+ * Request entry 是新的运行时真相源。
+ *
+ * 约束：
+ * - `entityKind` 只表示对象归属层（message / model_call / action_run / agent_run / request）
+ * - `op` 只表示变更形态（created / patched / delta / status / finished / failed / deleted）
+ * - 更细的语义统一放进 payload.kind，例如 `message_visible_delta`、`action_validated`
+ */
+export interface NormalChatRequestEntry {
+  seq: number
+  requestId: string
+  assistantId: string
+  topicId: string
+  conversationId: string
+  entityKind: 'request' | 'message' | 'model_call' | 'action_run' | 'agent_run'
+  entityId: string
+  parentEntityId: string | null
+  op: 'created' | 'patched' | 'delta' | 'status' | 'finished' | 'failed' | 'deleted'
+  visibility: 'transcript' | 'debug' | 'agent' | 'internal'
   payloadJson: string
   createdAt: string
 }
 
-/** 任务详情（包含所有关联数据的完整视图） */
-export interface NormalChatTaskDetail {
-  taskId: string
+/**
+ * 主聊天 transcript 快照。
+ *
+ * 这是 renderer 主会话区应该消费的唯一快照来源；
+ * `messages` 已经是排序后的 topic 级消息视图，`highWatermark` 用于衔接增量订阅。
+ */
+export interface NormalChatTopicTranscriptSnapshot {
+  topicId: string
+  messages: NormalChatConversationMessage[]
+  requestHeads: NormalChatRequestHeadSnapshot[]
+  highWatermark: number
+}
+
+/** 单个 request 的 detail 快照。 */
+export interface NormalChatRequestDetailSnapshot {
+  head: NormalChatRequestHeadSnapshot | null
   requestId: string
-  conversationId: string
   topicId: string
   assistantId: string
   assistantName: string
   assistantEmoji: string
   topicTitle: string
-  status: NormalChatTaskStatus
-  phase: NormalChatTaskPhase
-  modelProviderId: string
-  modelId: string
-  errorMessage: string | null
-  createdAt: string
-  startedAt: string | null
-  finishedAt: string | null
-  executionSnapshot: NormalChatTaskExecutionSnapshot
+  modelProviderId: string | null
+  modelId: string | null
+  executionSnapshot: NormalChatTaskExecutionSnapshot | null
   finalResponse: NormalChatTaskFinalResponse | null
   messages: NormalChatConversationMessage[]
-  agentRuns: NormalChatAgentRunSnapshot[]
   modelCalls: NormalChatModelCallSnapshot[]
   actionRuns: NormalChatActionRunSnapshot[]
-  runtimeEvents: NormalChatRuntimeEventSnapshot[]
+  agentRuns: NormalChatAgentRunSnapshot[]
+}
+
+export interface NormalChatAgentGraphPlanStepSnapshot {
+  stepIndex: number
+  phase: string
+  action: string
+  reasoning: string | null
+  statusText: string | null
+  budgetSummary: string | null
+  stopReason: string | null
+  actionsJson: string | null
+  parsedJson: string | null
+}
+
+export interface NormalChatAgentGraphHelperInvocationSnapshot {
+  callId: string
+  displayName: string
+  status: string
+  argsJson: string | null
+  resultSummary: string | null
+  failureSummary: string | null
+}
+
+export interface NormalChatAgentGraphNodeSnapshot {
+  agentId: string
+  depth: number
+  roleKind: string
+  taskKind: string
+  goal: string
+  summary: string
+  finalResult: string | null
+  status: string
+  retryCount: number
+  errorMessage: string | null
+  childAgentIds: string[]
+  planHistory: NormalChatAgentGraphPlanStepSnapshot[]
+  helperInvocations: NormalChatAgentGraphHelperInvocationSnapshot[]
+}
+
+export interface NormalChatAgentGraphTreeSnapshot {
+  requestId: string
+  rootAgentId: string
+  fallbackTriggered: boolean
+  agents: Record<string, NormalChatAgentGraphNodeSnapshot>
+}
+
+export interface NormalChatAgentGraphSummarySnapshot {
+  requestId: string
+  totalAgents: number
+  runningAgents: number
+  failedAgents: number
+  completedAgents: number
+  maxDepth: number
+  fallbackTriggered: boolean
+}
+
+export interface NormalChatAgentGraphSnapshot {
+  tree: NormalChatAgentGraphTreeSnapshot | null
+  summary: NormalChatAgentGraphSummarySnapshot | null
+}
+
+export interface NormalChatRequestDebugSnapshot {
+  detail: NormalChatRequestDetailSnapshot
+  agentGraph: NormalChatAgentGraphSnapshot
+  highWatermark: number
 }

@@ -45,6 +45,7 @@ export interface NormalChatWorkspaceDatasourceLike {
   renameLabel(payload: { labelId: string; name: string }): Promise<NormalChatWorkspaceSnapshot>
   deleteLabel(payload: { labelId: string }): Promise<NormalChatWorkspaceSnapshot>
   setActiveAssistant(payload: { assistantId: string }): Promise<NormalChatWorkspaceSnapshot>
+  deleteAssistant(payload: { assistantId: string }): Promise<NormalChatWorkspaceSnapshot>
   createTopic(payload: { assistantId: string }): Promise<NormalChatWorkspaceSnapshot>
   renameTopic(payload: {
     assistantId: string
@@ -127,6 +128,9 @@ const realDatasource: NormalChatWorkspaceDatasourceLike = {
   setActiveAssistant(payload) {
     return window.api.normalChat.setActiveAssistant(payload).then(unwrap)
   },
+  deleteAssistant(payload) {
+    return window.api.normalChat.deleteAssistant(payload).then(unwrap)
+  },
   createTopic(payload) {
     return window.api.normalChat.createTopic(payload).then(unwrap)
   },
@@ -186,6 +190,9 @@ export const NormalChatWorkspaceDatasource: NormalChatWorkspaceDatasourceLike = 
   },
   setActiveAssistant(payload) {
     return datasource.setActiveAssistant(payload)
+  },
+  deleteAssistant(payload) {
+    return datasource.deleteAssistant(payload)
   },
   createTopic(payload) {
     return datasource.createTopic(payload)

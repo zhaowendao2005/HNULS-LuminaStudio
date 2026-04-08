@@ -3,11 +3,12 @@ import type {
   NormalChatSendMessageAccepted,
   NormalChatConversationSnapshot,
   NormalChatConversationStreamEvent,
-  NormalChatTaskDetail,
+  NormalChatRequestDebugSnapshot,
+  NormalChatRequestEntry,
   NormalChatDeleteConversationTurnRequest,
-  NormalChatGetConversationTurnDetailRequest,
   NormalChatGetConversationRequest,
-  NormalChatSendMessageRequest
+  NormalChatSendMessageRequest,
+  NormalChatTopicTranscriptSnapshot
 } from '@preload/types'
 
 function unwrap<T>(response: { success: boolean; data?: T; error?: string }): T {
@@ -22,21 +23,28 @@ export interface NormalChatConversationDatasourceLike {
   getConversation(
     payload: NormalChatGetConversationRequest
   ): Promise<NormalChatConversationSnapshot>
-  getConversationTurnDetail(
-    payload: NormalChatGetConversationTurnDetailRequest
-  ): Promise<NormalChatTaskDetail | null>
+  getTopicTranscript(payload: { topicId: string }): Promise<NormalChatTopicTranscriptSnapshot>
+  getRequestDebugSnapshot(payload: { requestId: string }): Promise<NormalChatRequestDebugSnapshot>
   sendMessage(payload: NormalChatSendMessageRequest): Promise<NormalChatSendMessageAccepted>
   deleteConversationTurn(payload: NormalChatDeleteConversationTurnRequest): Promise<void>
   abort(payload: NormalChatAbortRequest): Promise<void>
   onStream(handler: (event: NormalChatConversationStreamEvent) => void): () => void
+  onTopicTraceEntry(topicId: string, handler: (entry: NormalChatRequestEntry) => void): () => void
+  onRequestTraceEntry(
+    requestId: string,
+    handler: (entry: NormalChatRequestEntry) => void
+  ): () => void
 }
 
 const realDatasource: NormalChatConversationDatasourceLike = {
   getConversation(payload) {
     return window.api.normalChat.getConversation(payload).then(unwrap)
   },
-  getConversationTurnDetail(payload) {
-    return window.api.normalChat.getConversationTurnDetail(payload).then(unwrap)
+  getTopicTranscript(payload) {
+    return window.api.normalChat.getTopicTranscript(payload).then(unwrap)
+  },
+  getRequestDebugSnapshot(payload) {
+    return window.api.normalChat.getRequestDebugSnapshot(payload).then(unwrap)
   },
   sendMessage(payload) {
     return window.api.normalChat.sendMessage(payload).then(unwrap)
@@ -49,6 +57,12 @@ const realDatasource: NormalChatConversationDatasourceLike = {
   },
   onStream(handler) {
     return window.api.normalChat.onStream(handler)
+  },
+  onTopicTraceEntry(topicId, handler) {
+    return window.api.normalChat.onTopicTraceEntry(topicId, handler)
+  },
+  onRequestTraceEntry(requestId, handler) {
+    return window.api.normalChat.onRequestTraceEntry(requestId, handler)
   }
 }
 
@@ -68,8 +82,11 @@ export const NormalChatConversationDatasource: NormalChatConversationDatasourceL
   getConversation(payload) {
     return datasource.getConversation(payload)
   },
-  getConversationTurnDetail(payload) {
-    return datasource.getConversationTurnDetail(payload)
+  getTopicTranscript(payload) {
+    return datasource.getTopicTranscript(payload)
+  },
+  getRequestDebugSnapshot(payload) {
+    return datasource.getRequestDebugSnapshot(payload)
   },
   sendMessage(payload) {
     return datasource.sendMessage(payload)
@@ -82,5 +99,11 @@ export const NormalChatConversationDatasource: NormalChatConversationDatasourceL
   },
   onStream(handler) {
     return datasource.onStream(handler)
+  },
+  onTopicTraceEntry(topicId, handler) {
+    return datasource.onTopicTraceEntry(topicId, handler)
+  },
+  onRequestTraceEntry(requestId, handler) {
+    return datasource.onRequestTraceEntry(requestId, handler)
   }
 }

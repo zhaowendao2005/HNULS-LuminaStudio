@@ -1,26 +1,38 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
-import type { NormalChatTaskDetail } from '@preload/types'
+import type {
+  NormalChatRequestDebugSnapshot,
+  NormalChatRequestDetailSnapshot
+} from '@preload/types'
 import { useNormalChatChatDetailShellStore } from './chat-detail-shell.store'
 
-function createTaskDetail(): NormalChatTaskDetail {
+function createRequestDetail(): NormalChatRequestDetailSnapshot {
   return {
-    taskId: 'task-1',
+    head: {
+      requestId: 'request-chat-1',
+      assistantId: 'assistant-1',
+      topicId: 'topic-1',
+      conversationId: 'conversation-1',
+      rootAgentRunId: null,
+      userMessageId: 'message-user-1',
+      assistantMessageId: 'message-assistant-1',
+      status: 'succeeded',
+      phase: 'finished',
+      errorMessage: null,
+      createdAt: '2026-03-28T00:00:00.000Z',
+      startedAt: '2026-03-28T00:00:00.100Z',
+      finishedAt: '2026-03-28T00:00:01.000Z',
+      updatedAt: '2026-03-28T00:00:01.000Z',
+      lastEntrySeq: 0
+    },
     requestId: 'request-chat-1',
-    conversationId: 'conversation-1',
     topicId: 'topic-1',
     assistantId: 'assistant-1',
     assistantName: 'Mock Assistant',
     assistantEmoji: 'AI',
     topicTitle: 'Chat Topic',
-    status: 'succeeded',
-    phase: 'finished',
     modelProviderId: 'openai',
     modelId: 'gpt-4.1',
-    errorMessage: null,
-    createdAt: '2026-03-28T00:00:00.000Z',
-    startedAt: '2026-03-28T00:00:00.100Z',
-    finishedAt: '2026-03-28T00:00:01.000Z',
     executionSnapshot: {
       assistant: {
         id: 'assistant-1',
@@ -192,16 +204,28 @@ function createTaskDetail(): NormalChatTaskDetail {
         finishedAt: '2026-03-28T00:00:00.800Z',
         updatedAt: '2026-03-28T00:00:00.800Z'
       }
-    ],
-    runtimeEvents: []
+    ]
+  }
+}
+
+function createRequestDebugSnapshot(
+  detail: NormalChatRequestDetailSnapshot
+): NormalChatRequestDebugSnapshot {
+  return {
+    detail,
+    agentGraph: {
+      tree: null,
+      summary: null
+    },
+    highWatermark: 0
   }
 }
 
 describe('chat detail shell store', () => {
   let streamHandler: ((event: any) => void) | null = null
 
-  function createLightTaskDetail(): NormalChatTaskDetail {
-    const detail = createTaskDetail()
+  function createLightRequestDetail(): NormalChatRequestDetailSnapshot {
+    const detail = createRequestDetail()
     return {
       ...detail,
       executionSnapshot: {
@@ -220,16 +244,17 @@ describe('chat detail shell store', () => {
     vi.stubGlobal('window', {
       api: {
         normalChat: {
-          getConversationTurnDetail: vi.fn().mockResolvedValue({
+          getRequestDebugSnapshot: vi.fn().mockResolvedValue({
             success: true,
-            data: createTaskDetail()
+            data: createRequestDebugSnapshot(createRequestDetail())
           }),
           onStream: vi.fn().mockImplementation((handler) => {
             streamHandler = handler
             return () => {
               streamHandler = null
             }
-          })
+          }),
+          onRequestTraceEntry: vi.fn().mockImplementation(() => () => undefined)
         }
       }
     })
@@ -298,20 +323,21 @@ describe('chat detail shell store', () => {
   })
 
   it('keeps overview state and blocks llm detail when light persistence removed model calls', async () => {
-    const getConversationTurnDetail = vi.fn().mockResolvedValue({
+    const getRequestDebugSnapshot = vi.fn().mockResolvedValue({
       success: true,
-      data: createLightTaskDetail()
+      data: createRequestDebugSnapshot(createLightRequestDetail())
     })
     vi.stubGlobal('window', {
       api: {
         normalChat: {
-          getConversationTurnDetail,
+          getRequestDebugSnapshot,
           onStream: vi.fn().mockImplementation((handler) => {
             streamHandler = handler
             return () => {
               streamHandler = null
             }
-          })
+          }),
+          onRequestTraceEntry: vi.fn().mockImplementation(() => () => undefined)
         }
       }
     })

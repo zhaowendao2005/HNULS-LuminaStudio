@@ -1,10 +1,15 @@
-import type { NormalChatFunctionCallMessagePart } from '@preload/types'
+import type {
+  NormalChatAgentGraphSummarySnapshot,
+  NormalChatAgentGraphTreeSnapshot,
+  NormalChatFunctionCallMessagePart
+} from '@preload/types'
 
 export type ChatDetailPage =
   | 'overview'
   | 'llm-call'
   | 'functioncall-overview'
   | 'functioncall-detail'
+  | 'agent'
 
 export type ChatDetailDataViewMode = 'json' | 'yaml'
 
@@ -14,6 +19,7 @@ export interface ChatDetailShellOpenPayload {
   page?: ChatDetailPage
   selectedCallId?: string
   selectedFunctioncallId?: string
+  focusAgentRunId?: string
 }
 
 export type ChatDetailShellDocGroupId = 'request' | 'response' | 'schema_debug'
@@ -61,6 +67,7 @@ export interface ChatDetailShellFunctioncallItem {
   requestPayload: Record<string, unknown>
   responsePayload: Record<string, unknown>
   part: NormalChatFunctionCallMessagePart
+  childAgentRunId: string | null
 }
 
 export interface ChatDetailShellRecord {
@@ -73,6 +80,8 @@ export interface ChatDetailShellRecord {
   llmCallEmptyMessage: string | null
   calls: ChatDetailShellCallItem[]
   functioncalls: ChatDetailShellFunctioncallItem[]
+  agentTree: NormalChatAgentGraphTreeSnapshot | null
+  agentSummary: NormalChatAgentGraphSummarySnapshot | null
 }
 
 export interface ChatDetailShellSnapshot {
@@ -82,6 +91,7 @@ export interface ChatDetailShellSnapshot {
   currentPage: ChatDetailPage
   selectedCallId: string
   selectedFunctioncallId: string
+  focusAgentRunId: string
   selectedGroupId: ChatDetailShellDocGroupId
   selectedDocId: string
   requestViewMode: ChatDetailDataViewMode

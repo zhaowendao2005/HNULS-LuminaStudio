@@ -1,5 +1,5 @@
 import { BaseIPCHandler } from './base-handler'
-import type { NormalChatConversationStreamEvent } from '@preload/types'
+import type { NormalChatConversationStreamEvent, NormalChatRequestEntry } from '@preload/types'
 import type { NormalChatService } from '../services/normal-chat'
 
 export class NormalChatIPCHandler extends BaseIPCHandler {
@@ -7,6 +7,10 @@ export class NormalChatIPCHandler extends BaseIPCHandler {
     super()
     this.normalChatService.setStreamEmitter((event: NormalChatConversationStreamEvent) => {
       this.broadcastToAll('normalChat:stream', event)
+    })
+    this.normalChatService.setTraceEntryEmitter((entry: NormalChatRequestEntry) => {
+      this.broadcastToAll(`normalChat:request-trace:${entry.requestId}`, entry)
+      this.broadcastToAll(`normalChat:topic-trace:${entry.topicId}`, entry)
     })
     this.register()
   }
@@ -71,6 +75,16 @@ export class NormalChatIPCHandler extends BaseIPCHandler {
     return { success: true, data: this.normalChatService.setActiveAssistant(payload.assistantId) }
   }
 
+  async handleDeleteAssistant(
+    _event: unknown,
+    payload: { assistantId: string }
+  ): Promise<{ success: true; data: unknown }> {
+    return {
+      success: true,
+      data: await this.normalChatService.deleteAssistant(payload.assistantId)
+    }
+  }
+
   async handleCreateTopic(
     _event: unknown,
     payload: { assistantId: string }
@@ -94,7 +108,7 @@ export class NormalChatIPCHandler extends BaseIPCHandler {
   ): Promise<{ success: true; data: unknown }> {
     return {
       success: true,
-      data: this.normalChatService.deleteTopic(payload.assistantId, payload.topicId)
+      data: await this.normalChatService.deleteTopic(payload.assistantId, payload.topicId)
     }
   }
 
@@ -136,13 +150,23 @@ export class NormalChatIPCHandler extends BaseIPCHandler {
     return { success: true, data: this.normalChatService.getConversation(payload.topicId) }
   }
 
-  async handleGetConversationTurnDetail(
+  async handleGetTopicTranscript(
+    _event: unknown,
+    payload: { topicId: string }
+  ): Promise<{ success: true; data: unknown }> {
+    return {
+      success: true,
+      data: this.normalChatService.getTopicTranscript(payload.topicId)
+    }
+  }
+
+  async handleGetRequestDebugSnapshot(
     _event: unknown,
     payload: { requestId: string }
   ): Promise<{ success: true; data: unknown }> {
     return {
       success: true,
-      data: this.normalChatService.getConversationTurnDetail(payload.requestId)
+      data: this.normalChatService.getRequestDebugSnapshot(payload.requestId)
     }
   }
 
@@ -165,7 +189,7 @@ export class NormalChatIPCHandler extends BaseIPCHandler {
     _event: unknown,
     payload: { requestId: string }
   ): Promise<{ success: true; data: void }> {
-    this.normalChatService.abort(payload.requestId)
+    await this.normalChatService.abort(payload.requestId)
     return { success: true, data: undefined }
   }
 }

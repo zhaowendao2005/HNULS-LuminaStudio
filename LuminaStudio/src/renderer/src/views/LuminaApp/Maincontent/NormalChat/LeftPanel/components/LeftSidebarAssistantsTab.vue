@@ -136,6 +136,14 @@
           <MessageSquareText class="h-4 w-4 text-gray-400" />
           提示词设置
         </button>
+        <button
+          class="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-[13px] text-rose-600 transition-colors hover:bg-rose-50"
+          type="button"
+          @click="deleteAssistant"
+        >
+          <X class="h-4 w-4" />
+          删除助手
+        </button>
       </div>
     </div>
 
@@ -393,6 +401,22 @@ const openAssistantPromptSettings = async () => {
 
   closeContextMenu()
   await workspaceStore.openAssistantSettingsForAssistant(contextAssistant.value.id, 'prompt')
+}
+
+const deleteAssistant = async () => {
+  if (!contextAssistant.value) {
+    return
+  }
+
+  const confirmed = window.confirm(
+    `确定删除助手「${contextAssistant.value.name}」吗？这会删除其全部话题、对话与调试记录，并中断正在运行的请求。`
+  )
+  if (!confirmed) {
+    return
+  }
+
+  closeContextMenu()
+  await workspaceStore.deleteAssistant(contextAssistant.value.id)
 }
 </script>
 

@@ -1,7 +1,6 @@
 export * from './common.types'
 export * from './workspace.types'
 export * from './conversation.types'
-export * from './devtools.types'
 
 export * from './runtime.types'
 export * from './ipc.types'

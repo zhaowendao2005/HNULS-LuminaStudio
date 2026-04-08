@@ -1,10 +1,6 @@
-import type {
-  NormalChatAssistant,
-  NormalChatConversationMessage,
-  NormalChatTopic
-} from '@preload/types'
-import type { AssistantRow, MessageRow, TopicRow } from './rows'
-import { fromDbBoolean, parseJson } from './utils'
+import type { NormalChatAssistant, NormalChatTopic } from '@preload/types'
+import type { AssistantRow, TopicRow } from './rows'
+import { fromDbBoolean } from './utils'
 
 export function mapAssistant(row: AssistantRow): NormalChatAssistant {
   return {
@@ -75,17 +71,5 @@ export function mapTopic(row: TopicRow): NormalChatTopic {
     mcpEnabledOverride:
       row.mcp_enabled_override === null ? null : fromDbBoolean(row.mcp_enabled_override),
     sortOrder: row.sort_order
-  }
-}
-
-export function mapMessage(row: MessageRow): NormalChatConversationMessage {
-  return {
-    id: row.id,
-    topicId: row.topic_id,
-    requestId: row.request_id,
-    role: row.message_role,
-    parts: parseJson(row.parts_json, []),
-    createdAt: row.created_at,
-    updatedAt: row.updated_at
   }
 }

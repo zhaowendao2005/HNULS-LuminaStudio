@@ -12,9 +12,11 @@
           snapshot.currentPage === 'functioncall-overview' ||
           snapshot.currentPage === 'functioncall-detail'
         "
+        :is-agent-page="snapshot.currentPage === 'agent'"
         @close="detailShellStore.closeDialog"
         @open-overview="detailShellStore.goToOverview"
         @open-functioncall-overview="detailShellStore.openFunctioncallOverview"
+        @open-agent="detailShellStore.openAgentDetail(snapshot.focusAgentRunId)"
       />
 
       <div class="min-w-0 flex-1 bg-[#f8f9fa]">
@@ -116,6 +118,13 @@
               @open-agent-run="handleOpenAgentRun"
             />
 
+            <ConversationDetailDialogAgentDetail
+              v-else-if="snapshot.currentPage === 'agent'"
+              :tree="detail?.agentTree ?? null"
+              :summary="detail?.agentSummary ?? null"
+              :focus-agent-run-id="snapshot.focusAgentRunId"
+            />
+
             <ConversationDetailDialogLlmDetail
               v-else
               :selected-groups="selectedGroups"
@@ -150,7 +159,7 @@ import type {
   ChatDetailShellDocItem
 } from '@renderer/stores/normal-chat/chat-detail-shell/chat-detail-shell.types'
 import { useNormalChatChatDetailShellStore } from '@renderer/stores/normal-chat/chat-detail-shell/chat-detail-shell.store'
-import { useNormalChatAgentDetailShellStore } from '@renderer/stores/normal-chat/agent-detail-shell/agent-detail-shell.store'
+import ConversationDetailDialogAgentDetail from './ConversationDetailDialog.AgentDetail.vue'
 import ConversationDetailDialogFunctioncallDetail from './ConversationDetailDialog.FunctioncallDetail.vue'
 import ConversationDetailDialogFunctioncallOverview from './ConversationDetailDialog.FunctioncallOverview.vue'
 import ConversationDetailDialogLlmDetail from './ConversationDetailDialog.LlmDetail.vue'
@@ -161,7 +170,6 @@ const OBSERVER_ROOT_MARGIN = '-8% 0px -70% 0px'
 const PROGRAMMATIC_SCROLL_LOCK_MS = 320
 
 const detailShellStore = useNormalChatChatDetailShellStore()
-const agentDetailShellStore = useNormalChatAgentDetailShellStore()
 const {
   snapshot,
   detail,
@@ -189,6 +197,9 @@ const currentPageTitle = computed(() => {
   if (snapshot.value.currentPage === 'functioncall-overview') return 'Functioncall Records'
   if (snapshot.value.currentPage === 'functioncall-detail') {
     return selectedFunctioncallItem.value?.title ?? 'Functioncall Detail'
+  }
+  if (snapshot.value.currentPage === 'agent') {
+    return snapshot.value.focusAgentRunId ? `Agent ${snapshot.value.focusAgentRunId}` : 'Agent Runtime'
   }
   return detail.value?.hasLlmCallDetails
     ? (selectedCallItem.value?.title ?? 'LLM Call Detail')
@@ -373,16 +384,16 @@ function shouldRenderMarkdown(doc: ChatDetailShellDocItem): boolean {
   return doc.kind === 'markdown' || doc.kind === 'text'
 }
 
+/**
+ * 子代理与 agent tree 统一跳到新的 Detail / Agent 页。
+ * 这样主聊天区、functioncall detail、后续 canvas 入口都可以共用同一份 request debug 快照。
+ */
 async function handleOpenAgentRun(agentRunId: string): Promise<void> {
   if (!snapshot.value.requestId || !agentRunId) {
     return
   }
 
-  await agentDetailShellStore.openDialog({
-    requestId: snapshot.value.requestId,
-    messageId: snapshot.value.messageId,
-    focusAgentRunId: agentRunId
-  })
+  detailShellStore.openAgentDetail(agentRunId)
 }
 
 watch(

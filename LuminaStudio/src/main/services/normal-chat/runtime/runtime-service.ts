@@ -1,22 +1,5 @@
 /**
  * Normal Chat 运行时服务
- *
- * Normal Chat 子系统的顶层入口服务，负责：
- * 1. 接收用户消息请求（sendMessage）
- * 2. 组装任务执行快照（TaskExecutionSnapshot）
- * 3. 创建数据库记录（用户消息、任务、Agent 运行）
- * 4. 将任务提交到队列执行器
- * 5. 管理任务中止（abort）
- *
- * 运行时服务协调了以下子系统：
- * - WorkspaceService：工作区管理（话题、助手）
- * - ConversationConfigService：对话配置解析
- * - MessagesRepository：消息持久化
- * - TasksRepository：任务持久化
- * - AgentRunsRepository：Agent 运行记录
- * - TaskScheduler：任务调度器
- * - QueueExecutor：队列执行器
- * - AgentRuntime：Agent 执行引擎
  */
 import { randomUUID } from 'node:crypto'
 import type Database from 'better-sqlite3'
@@ -30,9 +13,9 @@ import type {
   NormalChatTopic
 } from '@preload/types'
 import { NormalChatConversationConfigService } from '../conversation/conversation-config-service'
-import { NormalChatAgentRunsRepository } from '../repositories/agent-runs.repository'
-import { NormalChatMessagesRepository } from '../repositories/messages.repository'
-import { NormalChatTasksRepository } from '../repositories/tasks.repository'
+import { NormalChatRequestEntriesRepository } from '../repositories/request-entries.repository'
+import { NormalChatRequestHeadsRepository } from '../repositories/request-heads.repository'
+import { TopicTranscriptProjector } from '../projectors/topic-transcript.projector'
 import { nowIso } from '../shared/utils'
 import { NormalChatWorkspaceService } from '../workspace/workspace-service'
 import { NormalChatAgentRuntime } from './agent/agent-runtime'
@@ -40,20 +23,30 @@ import { NormalChatQueueExecutor } from './scheduler/queue-executor'
 import { NormalChatTaskScheduler } from './scheduler/task-scheduler'
 import { NormalChatStreamPublisher } from './streaming/stream-publisher'
 
-// ── 默认运行时配置常量 ──
-const DEFAULT_PROMPT_BUDGET_CHARS = 28_000 // Prompt 字符预算上限
-const DEFAULT_ROUND_MEMORY_WINDOW = 3 // 轮次记忆窗口大小
-const DEFAULT_MAX_REPAIR_ATTEMPTS = 2 // 每轮最大修复尝试次数
-const DEFAULT_MAX_PROVIDER_RETRIES = 2 // LLM 提供商最大重试次数
+const DEFAULT_PROMPT_BUDGET_CHARS = 28_000
+const DEFAULT_ROUND_MEMORY_WINDOW = 3
+const DEFAULT_MAX_REPAIR_ATTEMPTS = 2
+const DEFAULT_MAX_PROVIDER_RETRIES = 2
+
+interface NormalChatAgentRunRecord {
+  id: string
+  taskId: string
+  parentAgentRunId: string | null
+  depth: number
+  roleKind: string
+  templateId: string
+  goal: string
+}
 
 export class NormalChatRuntimeService {
+  private readonly topicTranscriptProjector = new TopicTranscriptProjector()
+
   constructor(
     private readonly db: Database.Database,
     private readonly workspaceService: NormalChatWorkspaceService,
     private readonly conversationConfigService: NormalChatConversationConfigService,
-    private readonly messagesRepository: NormalChatMessagesRepository,
-    private readonly tasksRepository: NormalChatTasksRepository,
-    private readonly agentRunsRepository: NormalChatAgentRunsRepository,
+    private readonly requestHeadsRepository: NormalChatRequestHeadsRepository,
+    private readonly requestEntriesRepository: NormalChatRequestEntriesRepository,
     private readonly taskScheduler: NormalChatTaskScheduler,
     private readonly queueExecutor: NormalChatQueueExecutor,
     private readonly agentRuntime: NormalChatAgentRuntime,
@@ -71,7 +64,6 @@ export class NormalChatRuntimeService {
     const assistant = this.workspaceService.getAssistantById(topic.assistantId)
     const conversation = this.conversationConfigService.resolveOrCreateDefaultConversation(topic)
     const requestId = payload.clientRequestId || `request-${randomUUID()}`
-    const taskId = randomUUID()
     const userMessageId = randomUUID()
     const rootAgentRunId = randomUUID()
     const timestamp = nowIso()
@@ -100,8 +92,13 @@ export class NormalChatRuntimeService {
         ? (topic.streamingEnabledOverride ?? assistant.streamingEnabled)
         : assistant.streamingEnabled
 
-    const initialHistoryMessages = this.messagesRepository
-      .listByTopic(payload.topicId)
+    const initialHistoryMessages = this.topicTranscriptProjector
+      .project({
+        topicId: payload.topicId,
+        requestHeads: this.requestHeadsRepository.listByTopicId(payload.topicId),
+        entries: this.requestEntriesRepository.listByTopicId(payload.topicId)
+      })
+      .messages.filter((message) => message.role === 'user' || message.parts.length > 0)
       .slice(-Math.max(0, effectiveContextMemoryRounds * 2))
 
     const executionSnapshot: NormalChatTaskExecutionSnapshot = {
@@ -157,54 +154,116 @@ export class NormalChatRuntimeService {
       updatedAt: timestamp
     }
 
-    let rootAgentRun = null as ReturnType<NormalChatAgentRunsRepository['createRoot']> | null
+    const rootAgentRun: NormalChatAgentRunRecord = {
+      id: rootAgentRunId,
+      taskId: requestId,
+      parentAgentRunId: null,
+      depth: 0,
+      roleKind: 'director',
+      templateId: 'main-agent-v1',
+      goal: payload.input
+    }
 
     const transaction = this.db.transaction(() => {
-      this.messagesRepository.insert(userMessage)
-      this.tasksRepository.create({
-        taskId,
+      this.requestHeadsRepository.create({
         requestId,
-        conversationId: conversation.id,
-        topicId: payload.topicId,
         assistantId: assistant.id,
+        topicId: payload.topicId,
+        conversationId: conversation.id,
+        rootAgentRunId,
         userMessageId,
-        rootAgentRunId,
-        modelProviderId: payload.providerId,
-        modelId: payload.modelId,
-        executionSnapshot: persistedExecutionSnapshot,
-        timestamp
+        assistantMessageId: null,
+        status: 'queued',
+        phase: 'queued',
+        errorMessage: null,
+        createdAt: timestamp,
+        startedAt: null,
+        finishedAt: null,
+        updatedAt: timestamp,
+        lastEntrySeq: null
       })
-      rootAgentRun = this.agentRunsRepository.createRoot({
-        rootAgentRunId,
-        taskId,
-        goal: payload.input,
-        maxReactSteps: effectiveMaxReasoningSteps,
-        maxChildDepth: effectiveMaxRecursionDepth,
-        providerId: payload.providerId,
-        modelId: payload.modelId,
-        timestamp
+      const requestCreatedSeq = this.requestEntriesRepository.append({
+        requestId,
+        assistantId: assistant.id,
+        topicId: payload.topicId,
+        conversationId: conversation.id,
+        entityKind: 'request',
+        entityId: requestId,
+        parentEntityId: null,
+        op: 'created',
+        visibility: 'internal',
+        payloadJson: JSON.stringify({
+          kind: 'request_created',
+          assistant: persistedExecutionSnapshot.assistant,
+          topic: persistedExecutionSnapshot.topic,
+          conversation: persistedExecutionSnapshot.conversation,
+          request: persistedExecutionSnapshot.request,
+          runtime: persistedExecutionSnapshot.runtime,
+          historyMessages: persistedExecutionSnapshot.historyMessages,
+          promptInjections: persistedExecutionSnapshot.promptInjections,
+          actions: persistedExecutionSnapshot.actions,
+          createdAt: persistedExecutionSnapshot.createdAt,
+          persistencePreset: assistant.persistencePreset
+        }),
+        createdAt: timestamp
+      })
+      const userMessageSeq = this.requestEntriesRepository.append({
+        requestId,
+        assistantId: assistant.id,
+        topicId: payload.topicId,
+        conversationId: conversation.id,
+        entityKind: 'message',
+        entityId: userMessageId,
+        parentEntityId: requestId,
+        op: 'created',
+        visibility: 'transcript',
+        payloadJson: JSON.stringify({
+          kind: 'message_created',
+          role: 'user',
+          parts: userMessage.parts,
+          createdAt: userMessage.createdAt,
+          updatedAt: userMessage.updatedAt
+        }),
+        createdAt: timestamp
+      })
+      this.requestHeadsRepository.updateStatus({
+        requestId,
+        status: 'queued',
+        phase: 'queued',
+        updatedAt: timestamp,
+        lastEntrySeq: Math.max(requestCreatedSeq, userMessageSeq)
       })
     })
     transaction()
 
-    this.streamPublisher.setRuntimeEventPersistence(
+    this.streamPublisher.setPersistencePreset(requestId, assistant.persistencePreset)
+    this.streamPublisher.appendAgentRunCreated({
       requestId,
-      assistant.persistencePreset === 'full'
-    )
+      agentRunId: rootAgentRunId,
+      parentAgentRunId: null,
+      depth: 0,
+      roleKind: 'director',
+      templateId: 'main-agent-v1',
+      goal: payload.input,
+      maxReactSteps: effectiveMaxReasoningSteps,
+      maxChildDepth: effectiveMaxRecursionDepth,
+      modelProviderId: payload.providerId,
+      modelId: payload.modelId
+    })
 
     const controller = new AbortController()
-    this.taskScheduler.registerPendingTask(requestId, taskId, payload.topicId, controller)
+    this.taskScheduler.registerPendingTask(requestId, requestId, payload.topicId, controller)
     this.queueExecutor.enqueue({
       requestId,
       controller,
       execute: async () => {
         try {
           await this.agentRuntime.start({
-            taskId,
+            taskId: requestId,
             requestId,
             topicId: payload.topicId,
             executionSnapshot,
-            rootAgentRun: rootAgentRun as ReturnType<NormalChatAgentRunsRepository['createRoot']>,
+            rootAgentRun,
             signal: controller.signal
           })
         } catch (error) {
@@ -227,8 +286,8 @@ export class NormalChatRuntimeService {
     }
   }
 
-  abort(requestId: string): void {
-    this.taskScheduler.abort(requestId)
+  async abort(requestId: string): Promise<void> {
+    await this.taskScheduler.abort(requestId)
   }
 }
 

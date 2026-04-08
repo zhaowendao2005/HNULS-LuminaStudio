@@ -1,0 +1,146 @@
+{
+  "version": 1,
+  "lastUpdated": 1775656484989,
+  "plugins": [
+    {
+      "filename": "fast-exct.md",
+      "type": "agent",
+      "metadata": {
+        "sourcePath": "agents\\fast-exct.md",
+        "filename": "fast-exct.md",
+        "name": "fast-exct",
+        "description": "在上下文明确、任务清晰时，只做最少必要核实并直接修改；不深调研、不重复计划、不扩散搜索",
+        "category": "agents",
+        "type": "agent",
+        "size": 4220,
+        "contentHash": "3396769ccbc484dc001ee1c74e6306a4494c28c9d0bcafd2bc0ea657d9ae840d"
+      }
+    },
+    {
+      "filename": "anchor-trace-horizontal-extension",
+      "type": "skill",
+      "metadata": {
+        "sourcePath": "skills\\anchor-trace-horizontal-extension",
+        "filename": "anchor-trace-horizontal-extension",
+        "name": "anchor-trace-horizontal-extension",
+        "description": "Start from an anchor file, trace dependencies upward and downward, identify processing vs pass-through layers, and output a minimal cross-layer feature extension plan",
+        "category": "skills",
+        "type": "skill",
+        "size": 6548,
+        "contentHash": "56f9bceb02a4b3d6a02db4942384e32dc8564ca4f9f3b8df9156b8bbad512d37"
+      }
+    },
+    {
+      "filename": "fragment-to-vue-tailwind",
+      "type": "skill",
+      "metadata": {
+        "sourcePath": "skills\\fragment-to-vue-tailwind",
+        "filename": "fragment-to-vue-tailwind",
+        "name": "fragment-to-vue-tailwind",
+        "description": "将 UI 原型片段精准转写为 Vue + Tailwind CSS。用于用户提供 Elements 导出的 HTML 片段、局部节点模板、面板模板，或 React 组件 / JSX / TSX 片段并要求统一改写成 Vue 时；适用于需要以 demo、截图、参考组件为视觉真值，忠实复刻结构、样式和氛围，且不允许未经确认的审美优化或风格化偏移的场景。",
+        "category": "skills",
+        "type": "skill",
+        "size": 20394,
+        "contentHash": "5db7f85afad82edb6ba775ea2b13711cc369078eb7ddfcb084dbf9c30df70820"
+      }
+    },
+    {
+      "filename": "indexed-implementation",
+      "type": "skill",
+      "metadata": {
+        "sourcePath": "skills\\indexed-implementation",
+        "filename": "indexed-implementation",
+        "name": "indexed-implementation",
+        "description": "Execute an already-approved implementation plan by using the plan as a scoped index. Read only the indexed sections and directly related files, then start editing immediately without broad investigation or plan restatement.",
+        "category": "skills",
+        "type": "skill",
+        "size": 3204,
+        "contentHash": "12281d9db6b113df797f9a08fec2ec816b4a90266c22f9887f962c9b6aa9a84c"
+      }
+    },
+    {
+      "filename": "message-components-creator",
+      "type": "skill",
+      "metadata": {
+        "sourcePath": "skills\\message-components-creator",
+        "filename": "message-components-creator",
+        "name": "message-components-creator",
+        "description": "Create or refactor LuminaStudio chat message UI components using the MessageComponents-* naming convention, split component-specific state into chat-message/message-components-store modules, add per-component mock cases under chat-message-mock, and wire DevPage registry-based debugging.",
+        "category": "skills",
+        "type": "skill",
+        "size": 4476,
+        "contentHash": "218ee6521e20c9a9cd885ca50c509497b5e633d230c5544b820946e461600a0c"
+      }
+    },
+    {
+      "filename": "minimalist-frontend-design-rules",
+      "type": "skill",
+      "metadata": {
+        "sourcePath": "skills\\minimalist-frontend-design-rules",
+        "filename": "minimalist-frontend-design-rules",
+        "name": "minimalist-frontend-design-rules",
+        "description": "当需要在 HNULS-LuminaStudio 中设计、编写、重构或重新设计渲染器端前端 UI 时使用，遵循本项目针对紧凑面板、表单、编辑器和配置 UI 的首选视觉语言。特别适用于用户明确要求更紧凑的间距、更清晰的层级、更深的次要文本、基于文本的类型选择器、分层左侧标记，或一致的排版、间距和 UI 规则而非临时样式时。",
+        "category": "skills",
+        "type": "skill",
+        "size": 6031,
+        "contentHash": "7764dba15e5d9f0c8723b23c36d9ad259b02dd7afc1ef483f1ea4d5f0349185d"
+      }
+    },
+    {
+      "filename": "model-graph-creator",
+      "type": "skill",
+      "metadata": {
+        "sourcePath": "skills\\model-graph-creator",
+        "filename": "model-graph-creator",
+        "name": "model-graph-creator",
+        "description": "Create or edit LuminaStudio models (graphs), including config schema, renderer UI, main/utility wiring, provider resolution, and message rendering.",
+        "category": "skills",
+        "type": "skill",
+        "size": 9706,
+        "contentHash": "9589fb7a54b622307e13783cd8fe91cf1e8c93266a37113c283535003fc962d0"
+      }
+    },
+    {
+      "filename": "project-overview",
+      "type": "skill",
+      "metadata": {
+        "sourcePath": "skills\\project-overview",
+        "filename": "project-overview",
+        "name": "project-overview",
+        "description": "当 AI 需要了解本项目的整体架构、目录结构、技术栈、业务模块、数据库结构，或者需要快速构建项目上下文时激活此技能。此技能同时承担“项目总索引入口”的角色：帮助后续 agent 先判断问题落在哪个业务域、哪一层是处理层、哪一层只是透传层，并给出最小阅读路径与检索锚点。适用于：(1) 首次接触本项目需要快速了解全貌；(2) 需要定位某个功能模块的代码位置；(3) 涉及数据库表结构、Schema 设计等需要了解当前数据库状态；(4) 涉及 LangChain Agent 架构、Graph/Node/Tool 扩展需要理解 Agent 子系统；(5) 需要查询项目最新文档或代码变更；(6) 需要为后续任务建立可靠的“从粗到细”的检索路线。",
+        "category": "skills",
+        "type": "skill",
+        "size": 51938,
+        "contentHash": "1ca33f59e95bd7a9964aa943dea746e31b4bec36dd5b10c2232b6e590dcc0010"
+      }
+    },
+    {
+      "filename": "structure-utils-node-creator",
+      "type": "skill",
+      "metadata": {
+        "sourcePath": "skills\\structure-utils-node-creator",
+        "filename": "structure-utils-node-creator",
+        "name": "structure-utils-node-creator",
+        "description": "Create new nodes with the Structure/Utils split in LuminaStudio, including descriptors, registration, graph wiring, message rendering, and prompt/IO design.",
+        "category": "skills",
+        "type": "skill",
+        "size": 11373,
+        "contentHash": "fd05837b951a0e5cc23159ea724486071a0d095eb9299dcbd09e6c316178df64"
+      }
+    },
+    {
+      "filename": "summarize",
+      "type": "skill",
+      "metadata": {
+        "sourcePath": "skills\\summarize",
+        "filename": "summarize",
+        "name": "summarize",
+        "description": "总结当前项目状态，生成一份交接文档，帮助下一个 AI 模型快速理解并接手工作",
+        "category": "skills",
+        "type": "skill",
+        "size": 1091,
+        "contentHash": "09f292413df7d55c7f065224e8aeb6c3a18806032dc761ef1dcdb1dbe10d89d0"
+      }
+    }
+  ]
+}

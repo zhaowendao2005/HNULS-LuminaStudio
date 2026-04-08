@@ -8,7 +8,6 @@
  * 流事件通过 IPC 从主进程推送到渲染进程，用于前端实时展示 Agent 执行状态。
  * 所有事件都继承自 NormalChatConversationBaseEvent（包含 requestId 和 topicId）。
  */
-import type { NormalChatConversationStatusPhase } from './common.types'
 import type { NormalChatConversationMessage } from './conversation.types'
 
 /** 动作 Schema 调试快照（与主进程的 action-runtime.types.ts 中的定义对应） */
@@ -31,15 +30,6 @@ export interface NormalChatActionSchemaDebugSnapshot {
 interface NormalChatConversationBaseEvent {
   requestId: string
   topicId: string
-}
-
-/** 状态变更事件：通知前端当前 Agent 执行阶段 */
-export interface NormalChatConversationStatusEvent extends NormalChatConversationBaseEvent {
-  type: 'status'
-  /** 当前执行阶段 */
-  phase: NormalChatConversationStatusPhase
-  /** 状态描述消息 */
-  message: string
 }
 
 /** 助手进度事件：通知前端助手正在生成回复 */
@@ -192,7 +182,6 @@ export interface NormalChatConversationErrorEvent extends NormalChatConversation
  * 所有可能的流事件类型的联合，前端通过 type 字段区分事件类型。
  */
 export type NormalChatConversationStreamEvent =
-  | NormalChatConversationStatusEvent
   | NormalChatConversationAssistantProgressEvent
   | NormalChatConversationAssistantTextDeltaEvent
   | NormalChatConversationAssistantBodyDeltaEvent

@@ -12,13 +12,6 @@ import type {
   NormalChatDispatchSubAgentOutput,
   NormalChatDispatchSubAgentRunner
 } from '../actions/system/dispatch-sub-agent'
-import {
-  NormalChatAgentRunsRepository,
-  type NormalChatAgentRunRecord
-} from '../../repositories/agent-runs.repository'
-import { NormalChatMessagesRepository } from '../../repositories/messages.repository'
-import { NormalChatTasksRepository } from '../../repositories/tasks.repository'
-import { NormalChatActionRunsRepository } from '../../repositories/action-runs.repository'
 import { nowIso } from '../../shared/utils'
 import { NormalChatActionExecutorService } from '../actions/shared/action-executor.service'
 import { NormalChatActionResolutionService } from '../actions/shared/action-resolution.service'
@@ -39,6 +32,16 @@ import type { NormalChatAssistantTurnKind } from './memory/assistant-round-memor
 import { NormalChatPromptBudgetService } from '../prompt/prompt-budget.service'
 import { NormalChatRecoveryPolicyService } from './recovery/recovery-policy.service'
 import { NormalChatActionBatchPlanner } from '../actions/shared/action-batch-planner'
+
+interface NormalChatAgentRunRecord {
+  id: string
+  taskId: string
+  parentAgentRunId: string | null
+  depth: number
+  roleKind: string
+  templateId: string
+  goal: string
+}
 
 export interface NormalChatAgentRuntimeStartInput {
   taskId: string
@@ -166,16 +169,18 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
     private readonly loadedActionSpecService: NormalChatLoadedActionSpecService,
     private readonly actionExecutor: NormalChatActionExecutorService,
     private readonly roundPersistenceService: NormalChatRoundPersistenceService,
-    private readonly messagesRepository: NormalChatMessagesRepository,
-    private readonly tasksRepository: NormalChatTasksRepository,
-    private readonly agentRunsRepository: NormalChatAgentRunsRepository,
-    private readonly actionRunsRepository: NormalChatActionRunsRepository,
     private readonly streamPublisher: NormalChatStreamPublisher
   ) {}
 
   async start(input: NormalChatAgentRuntimeStartInput): Promise<void> {
     const startTimestamp = nowIso()
-    this.tasksRepository.markRunning(input.taskId, 'preparing_context', startTimestamp)
+    this.updateRequestPhase(input.requestId, 'preparing_context', startTimestamp)
+
+    this.streamPublisher.appendAgentStatus({
+      requestId: input.requestId,
+      agentRunId: input.rootAgentRun.id,
+      status: 'running'
+    })
 
     const executionResult = await this.runAgentExecution({
       taskId: input.taskId,
@@ -193,7 +198,7 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
     }
 
     const timestamp = nowIso()
-    this.tasksRepository.markPhase(input.taskId, 'committing_message', timestamp)
+    this.updateRequestPhase(input.requestId, 'committing_message', timestamp)
     const assistantMessage: NormalChatConversationMessage = {
       id: randomUUID(),
       topicId: input.topicId,
@@ -204,30 +209,18 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
       updatedAt: timestamp
     }
 
-    this.messagesRepository.insert(assistantMessage)
-    const finishSeq = this.streamPublisher.publish(input.taskId, input.topicId, input.requestId, {
+    this.streamPublisher.publish(input.taskId, input.topicId, input.requestId, {
       type: 'finish',
       requestId: input.requestId,
       topicId: input.topicId,
       assistantMessageId: assistantMessage.id
     })
-    this.agentRunsRepository.markSucceededById(
-      input.rootAgentRun.id,
-      executionResult.finalReply,
-      executionResult.roundCount,
-      timestamp
-    )
-    this.tasksRepository.markSucceeded(
-      input.taskId,
-      assistantMessage.id,
-      {
-        ...executionResult.finalResponse,
-        assistantMessageId: assistantMessage.id
-      },
-      finishSeq,
-      timestamp
-    )
-
+    this.streamPublisher.appendAgentRunFinished({
+      requestId: input.requestId,
+      agentRunId: input.rootAgentRun.id,
+      finalText: executionResult.finalReply,
+      reactCount: executionResult.roundCount
+    })
     this.streamPublisher.publish(input.taskId, input.topicId, input.requestId, {
       type: 'message-committed',
       requestId: input.requestId,
@@ -244,21 +237,36 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
       throw new Error('Subagent dispatch requires an active parent agent context.')
     }
 
-    const childAgentRun = this.agentRunsRepository.createChild({
+    const maxChildDepth = Math.max(
+      0,
+      parentContext.executionSnapshot.runtime.maxRecursionDepth - (parentContext.depth + 1)
+    )
+    const childAgentRun: NormalChatAgentRunRecord = {
+      id: randomUUID(),
       taskId: parentContext.taskId,
       parentAgentRunId: parentContext.agentRun.id,
       depth: parentContext.depth + 1,
       roleKind: 'researcher',
       templateId: 'sub-agent-v1',
+      goal: input.goal
+    }
+    this.streamPublisher.appendAgentRunCreated({
+      requestId: parentContext.requestId,
+      agentRunId: childAgentRun.id,
+      parentAgentRunId: parentContext.agentRun.id,
+      depth: childAgentRun.depth,
+      roleKind: 'researcher',
+      templateId: 'sub-agent-v1',
       goal: input.goal,
       maxReactSteps: input.maxReactSteps,
-      maxChildDepth: Math.max(
-        0,
-        parentContext.executionSnapshot.runtime.maxRecursionDepth - (parentContext.depth + 1)
-      ),
-      providerId: parentContext.executionSnapshot.request.providerId,
-      modelId: parentContext.executionSnapshot.request.modelId,
-      timestamp: nowIso()
+      maxChildDepth,
+      modelProviderId: parentContext.executionSnapshot.request.providerId,
+      modelId: parentContext.executionSnapshot.request.modelId
+    })
+    this.streamPublisher.appendAgentStatus({
+      requestId: parentContext.requestId,
+      agentRunId: childAgentRun.id,
+      status: 'running'
     })
 
     this.streamPublisher.publish(
@@ -291,12 +299,12 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
       }
     })
 
-    this.agentRunsRepository.markSucceededById(
-      childAgentRun.id,
-      childExecution.finalReply,
-      childExecution.roundCount,
-      nowIso()
-    )
+    this.streamPublisher.appendAgentRunFinished({
+      requestId: parentContext.requestId,
+      agentRunId: childAgentRun.id,
+      finalText: childExecution.finalReply,
+      reactCount: childExecution.roundCount
+    })
 
     return {
       childAgentRunId: childAgentRun.id,
@@ -331,8 +339,6 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
     this.activeAgentContext = { ...input, depth: input.agentRun.depth }
 
     try {
-      this.agentRunsRepository.markRunningById(input.agentRun.id, nowIso())
-
       await this.graphRunner.run({
         prepareRound: async () => {
           state.roundIndex += 1
@@ -340,17 +346,10 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
           state.reachedReactLimit =
             state.actionRoundsUsed >= maxActionRounds && !state.postActionSynthesisPending
           this.ensureNotAborted(input.signal)
-          this.tasksRepository.markPhase(input.taskId, 'preparing_context', nowIso())
-          this.streamPublisher.publish(input.taskId, input.topicId, input.requestId, {
-            type: 'status',
-            requestId: input.requestId,
-            topicId: input.topicId,
-            phase: 'thinking',
-            message: `Round ${state.roundIndex}: preparing agent prompt.`
-          })
+          this.updateRequestPhase(input.requestId, 'preparing_context')
         },
         buildPrompt: async () => {
-          this.tasksRepository.markPhase(input.taskId, 'building_prompt', nowIso())
+          this.updateRequestPhase(input.requestId, 'building_prompt')
           const loadedActions = this.loadedActionSpecService.resolveLoadedActions(
             resolvedActions,
             state.loadedActionKeys
@@ -430,7 +429,7 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
           if (!currentModelCallId || !promptBundle) {
             throw new Error('Model call snapshot was not created before invoke.')
           }
-          this.tasksRepository.markPhase(input.taskId, 'awaiting_model', nowIso())
+          this.updateRequestPhase(input.requestId, 'awaiting_model')
           this.roundPersistenceService.markModelCallRunning(currentModelCallId)
           rawModelResponseText = ''
           streamedBodyText = ''
@@ -584,6 +583,12 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
             roundIndex: state.roundIndex,
             artifactSummary: artifact.answerBodyMd || artifact.planBodyMd || artifact.bodyMd
           })
+          this.streamPublisher.appendRoundMemoryUpdated({
+            requestId: input.requestId,
+            agentRunId: input.agentRun.id,
+            roundIndex: state.roundIndex,
+            artifactSummary: artifact.answerBodyMd || artifact.planBodyMd || artifact.bodyMd
+          })
 
           const actionBudgetExhausted = state.actionRoundsUsed >= maxActionRounds
           state.reachedReactLimit = actionBudgetExhausted && !state.postActionSynthesisPending
@@ -652,6 +657,7 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
             currentTurnKind === 'action_plan' ? '' : structuredOutput.body_md,
             rawModelResponseText,
             {
+              requestId: input.requestId,
               turnKind: currentTurnKind,
               producedActionCount: parsedActionCalls,
               consumedActionRunIds: state.postActionSynthesisPending
@@ -666,7 +672,7 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
             throw new Error('Missing structured output before action execution.')
           }
 
-          this.tasksRepository.markPhase(input.taskId, 'executing_actions', nowIso())
+          this.updateRequestPhase(input.requestId, 'executing_actions')
           const batches = this.actionBatchPlanner.partitionActionCalls(
             structuredOutput.action_calls,
             resolvedActions
@@ -705,6 +711,16 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
                 type: 'memory-updated',
                 requestId: input.requestId,
                 topicId: input.topicId,
+                roundIndex: state.roundIndex,
+                artifactSummary:
+                  merged.resultSummaryMd ||
+                  merged.answerBodyMd ||
+                  merged.planBodyMd ||
+                  merged.bodyMd
+              })
+              this.streamPublisher.appendRoundMemoryUpdated({
+                requestId: input.requestId,
+                agentRunId: input.agentRun.id,
                 roundIndex: state.roundIndex,
                 artifactSummary:
                   merged.resultSummaryMd ||
@@ -786,17 +802,18 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
     } catch (error) {
       if (currentModelCallId) {
         this.roundPersistenceService.failModelCall(
+          input.requestId,
           currentModelCallId,
           error instanceof Error ? error.message : String(error),
           rawModelResponseText
         )
       }
-      this.agentRunsRepository.markFailedById(
-        input.agentRun.id,
-        error instanceof Error ? error.message : String(error),
-        state.roundIndex,
-        nowIso()
-      )
+      this.streamPublisher.appendAgentRunFailed({
+        requestId: input.requestId,
+        agentRunId: input.agentRun.id,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        reactCount: state.roundIndex
+      })
       throw error
     } finally {
       this.activeAgentContext = previousActiveContext
@@ -849,7 +866,9 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
     const resolvedAction = input.state.resolvedActions.find(
       (item) => item.actionKey === input.call.actionKey
     )
-    const actionRun = this.actionRunsRepository.create({
+    const actionInputJson = JSON.stringify(input.call.input)
+    const actionRun = {
+      id: randomUUID(),
       taskId: input.input.taskId,
       agentRunId: input.input.agentRun.id,
       actionKey: input.call.actionKey,
@@ -858,11 +877,28 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
       roundIndex: input.state.roundIndex,
       batchIndex: input.batchIndex,
       parallelIndex: input.parallelIndex,
-      inputJson: JSON.stringify(input.call.input),
-      timestamp: nowIso()
+      inputJson: actionInputJson
+    }
+    this.streamPublisher.appendActionRunCreated({
+      requestId: input.input.requestId,
+      actionRunId: actionRun.id,
+      agentRunId: input.input.agentRun.id,
+      actionKey: input.call.actionKey,
+      actionKind: resolvedAction?.kind ?? 'system',
+      mode: resolvedAction?.mode ?? null,
+      roundIndex: input.state.roundIndex,
+      batchIndex: input.batchIndex,
+      parallelIndex: input.parallelIndex,
+      inputJson: actionInputJson
     })
 
-    this.actionRunsRepository.markRunning(actionRun.id, nowIso())
+    this.streamPublisher.appendActionStatus({
+      requestId: input.input.requestId,
+      actionRunId: actionRun.id,
+      status: 'running',
+      message: null,
+      schemaDebugSnapshot: null
+    })
     const executed = await this.actionExecutor.execute({
       call: input.call,
       resolvedActions: input.state.resolvedActions,
@@ -881,22 +917,37 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
     })
 
     if (executed.resultRecord.status === 'success') {
-      this.actionRunsRepository.markSucceeded(
-        actionRun.id,
-        JSON.stringify(executed.resultRecord.output),
-        nowIso()
-      )
+      const outputJson = JSON.stringify(executed.resultRecord.output)
+      this.streamPublisher.appendActionRunFinished({
+        requestId: input.input.requestId,
+        actionRunId: actionRun.id,
+        outputJson
+      })
     } else {
-      this.actionRunsRepository.markFailed(
-        actionRun.id,
-        executed.resultRecord.errorMessage ?? 'Unknown action error',
-        nowIso()
-      )
+      const errorMessage = executed.resultRecord.errorMessage ?? 'Unknown action error'
+      this.streamPublisher.appendActionRunFailed({
+        requestId: input.input.requestId,
+        actionRunId: actionRun.id,
+        errorMessage
+      })
     }
 
     executed.actionRunId = actionRun.id
     executed.functionCallPart.callId = actionRun.id
 
+    this.streamPublisher.appendActionValidated({
+      requestId: input.input.requestId,
+      actionRunId: actionRun.id,
+      schemaDebugSnapshot: executed.schemaDebugSnapshot,
+      message: executed.resultRecord.errorMessage
+    })
+    this.streamPublisher.appendActionStatus({
+      requestId: input.input.requestId,
+      actionRunId: actionRun.id,
+      status: executed.resultRecord.status,
+      message: executed.resultRecord.errorMessage,
+      schemaDebugSnapshot: executed.schemaDebugSnapshot
+    })
     this.streamPublisher.publish(input.input.taskId, input.input.topicId, input.input.requestId, {
       type: 'action-validated',
       requestId: input.input.requestId,
@@ -921,6 +972,38 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
     if (signal.aborted) {
       throw new Error('Request aborted')
     }
+  }
+
+  private updateRequestPhase(
+    requestId: string,
+    phase:
+      | 'preparing_context'
+      | 'building_prompt'
+      | 'awaiting_model'
+      | 'executing_actions'
+      | 'committing_message',
+    startedAt?: string
+  ): void {
+    const timestamp = startedAt ?? nowIso()
+    this.streamPublisher.appendTraceEntry({
+      requestId,
+      entityKind: 'request',
+      entityId: requestId,
+      parentEntityId: null,
+      op: 'status',
+      visibility: 'internal',
+      payload: {
+        kind: 'request_status',
+        phase,
+        message: phase
+      },
+      createdAt: timestamp,
+      updateHead: {
+        status: 'running',
+        phase,
+        startedAt: startedAt ?? undefined
+      }
+    })
   }
 
   private resolveActions(

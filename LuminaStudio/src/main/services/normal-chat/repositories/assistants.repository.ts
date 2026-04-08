@@ -38,6 +38,10 @@ export class NormalChatAssistantsRepository {
     return row?.id ?? null
   }
 
+  delete(assistantId: string): void {
+    this.db.prepare('DELETE FROM normal_chat_assistants WHERE id = ?').run(assistantId)
+  }
+
   save(assistant: NormalChatAssistant, timestamp: string, isUpdate = false): void {
     const query = isUpdate
       ? `UPDATE normal_chat_assistants

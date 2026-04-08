@@ -1,5 +1,10 @@
 import type { ApiResponse } from '../base.types'
-import type { NormalChatConversationSnapshot, NormalChatTaskDetail } from './conversation.types'
+import type {
+  NormalChatConversationSnapshot,
+  NormalChatRequestDebugSnapshot,
+  NormalChatRequestEntry,
+  NormalChatTopicTranscriptSnapshot
+} from './conversation.types'
 import type { NormalChatConversationStreamEvent } from './runtime.types'
 import type {
   NormalChatBootstrap,
@@ -8,6 +13,7 @@ import type {
   NormalChatCreateAssistantRequest,
   NormalChatCreateLabelRequest,
   NormalChatCreateTopicRequest,
+  NormalChatDeleteAssistantRequest,
   NormalChatDeleteLabelRequest,
   NormalChatDeleteTopicRequest,
   NormalChatRenameLabelRequest,
@@ -24,11 +30,16 @@ export interface NormalChatGetConversationRequest {
   topicId: string
 }
 
-export interface NormalChatGetConversationTurnDetailRequest {
+export interface NormalChatDeleteConversationTurnRequest {
   requestId: string
 }
 
-export interface NormalChatDeleteConversationTurnRequest {
+export interface NormalChatGetTopicTranscriptRequest {
+  topicId: string
+  afterSeq?: number
+}
+
+export interface NormalChatGetRequestDebugSnapshotRequest {
   requestId: string
 }
 
@@ -57,14 +68,25 @@ export interface NormalChatAPI {
   sendMessage: (
     request: NormalChatSendMessageRequest
   ) => Promise<ApiResponse<NormalChatSendMessageAccepted>>
-  getConversationTurnDetail: (
-    request: NormalChatGetConversationTurnDetailRequest
-  ) => Promise<ApiResponse<NormalChatTaskDetail | null>>
+  getTopicTranscript: (
+    request: NormalChatGetTopicTranscriptRequest
+  ) => Promise<ApiResponse<NormalChatTopicTranscriptSnapshot>>
+  getRequestDebugSnapshot: (
+    request: NormalChatGetRequestDebugSnapshotRequest
+  ) => Promise<ApiResponse<NormalChatRequestDebugSnapshot>>
   deleteConversationTurn: (
     request: NormalChatDeleteConversationTurnRequest
   ) => Promise<ApiResponse<void>>
   abort: (request: NormalChatAbortRequest) => Promise<ApiResponse<void>>
   onStream: (handler: (event: NormalChatConversationStreamEvent) => void) => () => void
+  onTopicTraceEntry: (
+    topicId: string,
+    handler: (entry: NormalChatRequestEntry) => void
+  ) => () => void
+  onRequestTraceEntry: (
+    requestId: string,
+    handler: (entry: NormalChatRequestEntry) => void
+  ) => () => void
   createAssistant: (
     request: NormalChatCreateAssistantRequest
   ) => Promise<ApiResponse<NormalChatWorkspaceSnapshot>>
@@ -85,6 +107,9 @@ export interface NormalChatAPI {
   ) => Promise<ApiResponse<NormalChatWorkspaceSnapshot>>
   setActiveAssistant: (
     request: NormalChatSetActiveAssistantRequest
+  ) => Promise<ApiResponse<NormalChatWorkspaceSnapshot>>
+  deleteAssistant: (
+    request: NormalChatDeleteAssistantRequest
   ) => Promise<ApiResponse<NormalChatWorkspaceSnapshot>>
   createTopic: (
     request: NormalChatCreateTopicRequest

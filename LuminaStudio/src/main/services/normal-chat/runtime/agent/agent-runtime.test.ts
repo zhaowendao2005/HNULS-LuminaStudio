@@ -4,8 +4,6 @@ import { NormalChatAgentRuntime } from './agent-runtime'
 
 describe('NormalChatAgentRuntime', () => {
   it('persists functioncall parts into the committed assistant message', async () => {
-    const insertedMessages: any[] = []
-
     const graphRunner = {
       run: vi.fn(async (handlers: any) => {
         await handlers.prepareRound()
@@ -100,34 +98,19 @@ describe('NormalChatAgentRuntime', () => {
       failModelCall: vi.fn()
     }
 
-    const messagesRepository = {
-      insert: vi.fn((message: any) => {
-        insertedMessages.push(message)
-      })
-    }
-
-    const tasksRepository = {
-      markRunning: vi.fn(),
-      markPhase: vi.fn(),
-      markSucceeded: vi.fn()
-    }
-
-    const agentRunsRepository = {
-      markRunningById: vi.fn(),
-      markSucceededById: vi.fn(),
-      markFailedById: vi.fn(),
-      createChild: vi.fn()
-    }
-
-    const actionRunsRepository = {
-      create: vi.fn(() => ({ id: 'action-run-1' })),
-      markRunning: vi.fn(),
-      markSucceeded: vi.fn(),
-      markFailed: vi.fn()
-    }
-
     const streamPublisher = {
-      publish: vi.fn(() => 0)
+      appendTraceEntry: vi.fn(),
+      publish: vi.fn(() => 0),
+      appendAgentStatus: vi.fn(),
+      appendAgentRunCreated: vi.fn(),
+      appendAgentRunFinished: vi.fn(),
+      appendAgentRunFailed: vi.fn(),
+      appendRoundMemoryUpdated: vi.fn(),
+      appendActionRunCreated: vi.fn(),
+      appendActionValidated: vi.fn(),
+      appendActionStatus: vi.fn(),
+      appendActionRunFinished: vi.fn(),
+      appendActionRunFailed: vi.fn()
     }
 
     const runtime = new NormalChatAgentRuntime(
@@ -139,10 +122,6 @@ describe('NormalChatAgentRuntime', () => {
       loadedActionSpecService as any,
       actionExecutor as any,
       roundPersistenceService as any,
-      messagesRepository as any,
-      tasksRepository as any,
-      agentRunsRepository as any,
-      actionRunsRepository as any,
       streamPublisher as any
     )
 
@@ -180,42 +159,53 @@ describe('NormalChatAgentRuntime', () => {
       signal: new AbortController().signal
     })
 
-    expect(messagesRepository.insert).toHaveBeenCalledTimes(1)
-    expect(insertedMessages).toHaveLength(1)
-    expect(insertedMessages[0].parts).toEqual([
-      {
-        kind: 'text',
-        text: 'Final answer',
-        turnKind: 'action_plan',
-        roundIndex: 1,
-        depth: 0,
-        modelCallId: 'model-call-1'
-      },
-      {
-        kind: 'functioncall',
-        callId: 'action-run-1',
-        functionCallName: 'functioncall.pubmed_search',
-        title: 'PubMed Search',
-        status: 'success',
-        input: '{"query":"covid-19"}',
-        output: '{"items":[]}',
-        errorMessage: null,
-        isStreaming: false,
-        roundIndex: 1,
-        batchIndex: 0,
-        parallelIndex: 0,
-        depth: 0,
-        decisionReason: null
-      },
-      {
-        kind: 'text',
-        text: '本轮未生成合格的最终总结，以下是基于已执行结果的结构化汇总。',
-        turnKind: 'post_action_synthesis',
-        roundIndex: 1,
-        depth: 0,
-        modelCallId: 'model-call-1'
-      }
-    ])
+    expect(streamPublisher.publish).toHaveBeenLastCalledWith(
+      'task-1',
+      'topic-1',
+      'request-1',
+      expect.objectContaining({
+        type: 'message-committed',
+        message: expect.objectContaining({
+          parts: expect.arrayContaining([
+            expect.objectContaining({
+              kind: 'text',
+              text: 'Final answer',
+              turnKind: 'action_plan',
+              roundIndex: 1,
+              depth: 0,
+              modelCallId: 'model-call-1'
+            }),
+            expect.objectContaining({
+              kind: 'functioncall',
+              functionCallName: 'functioncall.pubmed_search',
+              title: 'PubMed Search',
+              status: 'success',
+              input: '{"query":"covid-19"}',
+              output: '{"items":[]}',
+              errorMessage: null,
+              isStreaming: false,
+              roundIndex: 1,
+              batchIndex: 0,
+              parallelIndex: 0,
+              depth: 0,
+              decisionReason: null
+            }),
+            expect.objectContaining({
+              kind: 'text',
+              text: '本轮未生成合格的最终总结，以下是基于已执行结果的结构化汇总。',
+              turnKind: 'post_action_synthesis',
+              roundIndex: 1,
+              depth: 0,
+              modelCallId: 'model-call-1'
+            })
+          ])
+        })
+      })
+    )
+    const publishCalls = streamPublisher.publish.mock.calls as unknown as Array<
+      [string, string, string, { type: string }]
+    >
+    expect(publishCalls.some(([, , , event]) => event.type === 'status')).toBe(false)
     expect(roundPersistenceService.createQueuedModelCall).toHaveBeenCalledWith(
       expect.objectContaining({
         parentActionRunId: null
@@ -308,37 +298,19 @@ describe('NormalChatAgentRuntime', () => {
       failModelCall: vi.fn()
     }
 
-    const messagesRepository = {
-      insert: vi.fn()
-    }
-
-    const tasksRepository = {
-      markRunning: vi.fn(),
-      markPhase: vi.fn(),
-      markSucceeded: vi.fn()
-    }
-
-    const agentRunsRepository = {
-      markRunningById: vi.fn(),
-      markSucceededById: vi.fn(),
-      markFailedById: vi.fn(),
-      createChild: vi.fn(() => ({
-        id: 'child-agent-run-1',
-        depth: 1,
-        parentAgentRunId: 'root-agent-run-1',
-        goal: 'Child task'
-      }))
-    }
-
-    const actionRunsRepository = {
-      create: vi.fn(() => ({ id: 'action-run-dispatch-1' })),
-      markRunning: vi.fn(),
-      markSucceeded: vi.fn(),
-      markFailed: vi.fn()
-    }
-
     const streamPublisher = {
-      publish: vi.fn(() => 0)
+      appendTraceEntry: vi.fn(),
+      publish: vi.fn(() => 0),
+      appendAgentStatus: vi.fn(),
+      appendAgentRunCreated: vi.fn(),
+      appendAgentRunFinished: vi.fn(),
+      appendAgentRunFailed: vi.fn(),
+      appendRoundMemoryUpdated: vi.fn(),
+      appendActionRunCreated: vi.fn(),
+      appendActionValidated: vi.fn(),
+      appendActionStatus: vi.fn(),
+      appendActionRunFinished: vi.fn(),
+      appendActionRunFailed: vi.fn()
     }
 
     const actionExecutor = new NormalChatActionExecutorService({
@@ -354,10 +326,6 @@ describe('NormalChatAgentRuntime', () => {
       loadedActionSpecService as any,
       actionExecutor,
       roundPersistenceService as any,
-      messagesRepository as any,
-      tasksRepository as any,
-      agentRunsRepository as any,
-      actionRunsRepository as any,
       streamPublisher as any
     )
     actionExecutor.setSubAgentRunner(runtime)
@@ -415,9 +383,9 @@ describe('NormalChatAgentRuntime', () => {
     expect(roundPersistenceService.createQueuedModelCall).toHaveBeenNthCalledWith(
       2,
       expect.objectContaining({
-        agentRunId: 'child-agent-run-1',
-        parentActionRunId: 'action-run-dispatch-1',
-        turnKind: 'answer'
+        parentActionRunId: expect.any(String),
+        turnKind: 'answer',
+        depth: 1
       })
     )
     expect(roundPersistenceService.createQueuedModelCall).toHaveBeenNthCalledWith(
@@ -426,7 +394,7 @@ describe('NormalChatAgentRuntime', () => {
         agentRunId: 'root-agent-run-1',
         parentActionRunId: null,
         turnKind: 'post_action_synthesis',
-        consumedActionRunIds: ['action-run-dispatch-1'],
+        consumedActionRunIds: [expect.any(String)],
         synthesisRequired: true
       })
     )

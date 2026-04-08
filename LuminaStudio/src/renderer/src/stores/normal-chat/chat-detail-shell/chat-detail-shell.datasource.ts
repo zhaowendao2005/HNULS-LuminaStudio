@@ -1,7 +1,8 @@
 import type {
   NormalChatActionRunSnapshot,
-  NormalChatTaskDetail,
-  NormalChatModelCallSnapshot
+  NormalChatModelCallSnapshot,
+  NormalChatRequestDebugSnapshot,
+  NormalChatRequestDetailSnapshot
 } from '@preload/types'
 import type {
   ChatDetailShellDocGroup,
@@ -39,6 +40,7 @@ function createEmptySnapshot(): ChatDetailShellSnapshot {
     currentPage: 'overview',
     selectedCallId: '',
     selectedFunctioncallId: '',
+    focusAgentRunId: '',
     selectedGroupId: 'request',
     selectedDocId: '',
     requestViewMode: 'json',
@@ -101,7 +103,7 @@ function buildCallSummary(modelCall: NormalChatModelCallSnapshot): string {
 }
 
 function buildCallContextText(
-  detail: NormalChatTaskDetail,
+  detail: Pick<NormalChatRequestDetailSnapshot, 'topicTitle' | 'requestId'>,
   modelCall: NormalChatModelCallSnapshot
 ): string {
   const segments = [
@@ -401,7 +403,7 @@ function collectAutofilledKeys(
 }
 
 function resolveChildAgentRunId(
-  detail: NormalChatTaskDetail,
+  detail: Pick<NormalChatRequestDetailSnapshot, 'modelCalls'>,
   call: NormalChatActionRunSnapshot
 ): string | null {
   const matchedModelCall = detail.modelCalls.find(
@@ -411,11 +413,11 @@ function resolveChildAgentRunId(
 }
 
 function toFunctioncallItem(
-  detail: NormalChatTaskDetail,
+  detail: NormalChatRequestDetailSnapshot,
   call: NormalChatActionRunSnapshot,
   index: number,
   assistantPart: Extract<
-    NormalChatTaskDetail['messages'][number]['parts'][number],
+    NormalChatRequestDetailSnapshot['messages'][number]['parts'][number],
     { kind: 'functioncall' }
   > | null
 ): ChatDetailShellFunctioncallItem {
@@ -470,7 +472,7 @@ function toFunctioncallItem(
   }
 }
 
-function buildDescription(detail: NormalChatTaskDetail): string {
+function buildDescription(detail: NormalChatRequestDetailSnapshot): string {
   const lastCompletedCall = [...detail.modelCalls]
     .reverse()
     .find(
@@ -497,21 +499,22 @@ function buildDescription(detail: NormalChatTaskDetail): string {
   )
 }
 
-function toRecord(detail: NormalChatTaskDetail): ChatDetailShellRecord {
+function toRecord(snapshot: NormalChatRequestDebugSnapshot): ChatDetailShellRecord {
+  const detail = snapshot.detail
   const assistantMessage = detail.messages.find((message) => message.role === 'assistant') ?? null
   const functioncallParts =
     assistantMessage?.parts.filter(
       (
         part
       ): part is Extract<
-        NormalChatTaskDetail['messages'][number]['parts'][number],
+        NormalChatRequestDetailSnapshot['messages'][number]['parts'][number],
         { kind: 'functioncall' }
       > => part.kind === 'functioncall'
     ) ?? []
   const functioncallPartById = new Map(functioncallParts.map((part) => [part.callId, part]))
   const hasLlmCallDetails = detail.modelCalls.length > 0
   const llmCallEmptyMessage =
-    !hasLlmCallDetails && detail.executionSnapshot.runtime.persistencePreset === 'light'
+    !hasLlmCallDetails && detail.executionSnapshot?.runtime.persistencePreset === 'light'
       ? '当前 assistant 使用轻量持久化，LLM 调用明细没有保存。'
       : null
 
@@ -545,7 +548,9 @@ function toRecord(detail: NormalChatTaskDetail): ChatDetailShellRecord {
     }),
     functioncalls: detail.actionRuns.map((call, index) =>
       toFunctioncallItem(detail, call, index, functioncallPartById.get(call.id) ?? null)
-    )
+    ),
+    agentTree: snapshot.agentGraph.tree,
+    agentSummary: snapshot.agentGraph.summary
   }
 }
 
@@ -559,12 +564,7 @@ export class ChatDetailShellDatasource {
       throw new Error('Missing requestId for chat detail.')
     }
 
-    const detail = await window.api.normalChat.getConversationTurnDetail({ requestId }).then(unwrap)
-
-    if (!detail) {
-      throw new Error(`Task detail not found for request ${requestId}.`)
-    }
-
+    const detail = await window.api.normalChat.getRequestDebugSnapshot({ requestId }).then(unwrap)
     return toRecord(detail)
   }
 }

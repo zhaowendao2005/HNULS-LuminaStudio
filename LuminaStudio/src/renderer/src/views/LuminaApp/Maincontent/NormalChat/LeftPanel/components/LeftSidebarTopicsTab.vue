@@ -45,7 +45,7 @@
         <button
           class="rounded-md p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
           type="button"
-          @click.stop="emit('remove-topic', topic.id)"
+          @click.stop="handleRemoveTopic(topic.id, topic.title)"
         >
           <X class="h-4 w-4" />
         </button>
@@ -77,5 +77,16 @@ const emit = defineEmits<{
 
 const onRenameInput = (event: Event) => {
   emit('update:rename-draft', (event.target as HTMLInputElement).value)
+}
+
+const handleRemoveTopic = (topicId: string, title: string) => {
+  const confirmed = window.confirm(
+    `确定删除话题「${title}」吗？这会删除该话题下的全部对话与调试记录，并中断正在运行的请求。`
+  )
+  if (!confirmed) {
+    return
+  }
+
+  emit('remove-topic', topicId)
 }
 </script>

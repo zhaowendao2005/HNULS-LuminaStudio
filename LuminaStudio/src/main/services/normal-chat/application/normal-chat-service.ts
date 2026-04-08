@@ -3,10 +3,11 @@ import type {
   NormalChatBootstrap,
   NormalChatConversationSnapshot,
   NormalChatConversationStreamEvent,
-  NormalChatTaskDetail,
+  NormalChatRequestDebugSnapshot,
   NormalChatSendMessageAccepted,
   NormalChatSendMessageRequest,
   NormalChatTopic,
+  NormalChatTopicTranscriptSnapshot,
   NormalChatWorkspaceSnapshot
 } from '@preload/types'
 import type { PaperRetrievalService } from '@main/services/paper-retrieval'
@@ -14,16 +15,12 @@ import type { ModelConfigService } from '@main/services/model-config'
 import type { DatabaseManager } from '../../database-sqlite'
 import { NormalChatConversationConfigService } from '../conversation/conversation-config-service'
 import { NormalChatConversationService } from '../conversation/conversation-service'
-import { NormalChatActionRunsRepository } from '../repositories/action-runs.repository'
-import { NormalChatAgentRunsRepository } from '../repositories/agent-runs.repository'
 import { NormalChatAssistantActionPoliciesRepository } from '../repositories/assistant-action-policies.repository'
 import { NormalChatAssistantsRepository } from '../repositories/assistants.repository'
 import { NormalChatConversationsRepository } from '../repositories/conversations.repository'
 import { NormalChatLabelsRepository } from '../repositories/labels.repository'
-import { NormalChatMessagesRepository } from '../repositories/messages.repository'
-import { NormalChatModelCallsRepository } from '../repositories/model-calls.repository'
-import { NormalChatRuntimeEventsRepository } from '../repositories/runtime-events.repository'
-import { NormalChatTasksRepository } from '../repositories/tasks.repository'
+import { NormalChatRequestEntriesRepository } from '../repositories/request-entries.repository'
+import { NormalChatRequestHeadsRepository } from '../repositories/request-heads.repository'
 import { NormalChatTopicsRepository } from '../repositories/topics.repository'
 import { NormalChatWorkspaceStateRepository } from '../repositories/workspace-state.repository'
 import { NormalChatAgentRuntime } from '../runtime/agent/agent-runtime'
@@ -64,15 +61,16 @@ export class NormalChatService {
     const topicsRepository = new NormalChatTopicsRepository(db)
     const workspaceStateRepository = new NormalChatWorkspaceStateRepository(db)
     const conversationsRepository = new NormalChatConversationsRepository(db)
-    const messagesRepository = new NormalChatMessagesRepository(db)
-    const modelCallsRepository = new NormalChatModelCallsRepository(db)
-    const tasksRepository = new NormalChatTasksRepository(db)
-    const agentRunsRepository = new NormalChatAgentRunsRepository(db)
-    const actionRunsRepository = new NormalChatActionRunsRepository(db)
-    const runtimeEventsRepository = new NormalChatRuntimeEventsRepository(db)
     const actionResolutionService = new NormalChatActionResolutionService()
+    const requestHeadsRepository = new NormalChatRequestHeadsRepository(db)
+    const requestEntriesRepository = new NormalChatRequestEntriesRepository(db)
 
-    this.streamPublisher = new NormalChatStreamPublisher(runtimeEventsRepository)
+    this.streamPublisher = new NormalChatStreamPublisher(
+      requestHeadsRepository,
+      requestEntriesRepository
+    )
+
+    const taskScheduler = new NormalChatTaskScheduler(requestHeadsRepository, this.streamPublisher)
 
     this.workspaceService = new NormalChatWorkspaceService(
       db,
@@ -80,27 +78,16 @@ export class NormalChatService {
       assistantsRepository,
       assistantActionPoliciesRepository,
       topicsRepository,
-      workspaceStateRepository
+      workspaceStateRepository,
+      taskScheduler
     )
 
     this.conversationService = new NormalChatConversationService(
-      db,
-      messagesRepository,
-      modelCallsRepository,
-      tasksRepository,
-      actionRunsRepository,
-      agentRunsRepository,
-      runtimeEventsRepository
+      requestHeadsRepository,
+      requestEntriesRepository
     )
 
     const promptBuilder = new NormalChatPromptBuilder()
-    const taskScheduler = new NormalChatTaskScheduler(
-      tasksRepository,
-      agentRunsRepository,
-      actionRunsRepository,
-      modelCallsRepository,
-      this.streamPublisher
-    )
     const queueExecutor = new NormalChatQueueExecutor(20)
     const actionExecutor = new NormalChatActionExecutorService(
       new NormalChatPubmedSearchExecutor(new NormalChatPubmedSearchAdapter(paperRetrievalService))
@@ -113,11 +100,7 @@ export class NormalChatService {
       actionResolutionService,
       new NormalChatLoadedActionSpecService(),
       actionExecutor,
-      new NormalChatRoundPersistenceService(modelCallsRepository),
-      messagesRepository,
-      tasksRepository,
-      agentRunsRepository,
-      actionRunsRepository,
+      new NormalChatRoundPersistenceService(this.streamPublisher),
       this.streamPublisher
     )
     actionExecutor.setSubAgentRunner(agentRuntime)
@@ -126,9 +109,8 @@ export class NormalChatService {
       db,
       this.workspaceService,
       new NormalChatConversationConfigService(conversationsRepository),
-      messagesRepository,
-      tasksRepository,
-      agentRunsRepository,
+      requestHeadsRepository,
+      requestEntriesRepository,
       taskScheduler,
       queueExecutor,
       agentRuntime,
@@ -141,6 +123,12 @@ export class NormalChatService {
 
   setStreamEmitter(emitter: (event: NormalChatConversationStreamEvent) => void): void {
     this.streamPublisher.setEmitter(emitter)
+  }
+
+  setTraceEntryEmitter(
+    emitter: (entry: import('@preload/types').NormalChatRequestEntry) => void
+  ): void {
+    this.streamPublisher.setTraceEntryEmitter(emitter)
   }
 
   getBootstrap(): NormalChatBootstrap {
@@ -193,6 +181,10 @@ export class NormalChatService {
     return this.workspaceService.setActiveAssistant(assistantId)
   }
 
+  async deleteAssistant(assistantId: string): Promise<NormalChatWorkspaceSnapshot> {
+    return this.workspaceService.deleteAssistant(assistantId)
+  }
+
   createTopic(assistantId: string): NormalChatWorkspaceSnapshot {
     return this.workspaceService.createTopic(assistantId)
   }
@@ -201,7 +193,7 @@ export class NormalChatService {
     return this.workspaceService.renameTopic(assistantId, topicId, title)
   }
 
-  deleteTopic(assistantId: string, topicId: string): NormalChatWorkspaceSnapshot {
+  async deleteTopic(assistantId: string, topicId: string): Promise<NormalChatWorkspaceSnapshot> {
     return this.workspaceService.deleteTopic(assistantId, topicId)
   }
 
@@ -237,8 +229,12 @@ export class NormalChatService {
     return this.conversationService.getConversation(topicId)
   }
 
-  getConversationTurnDetail(requestId: string): NormalChatTaskDetail | null {
-    return this.conversationService.getConversationTurnDetail(requestId)
+  getTopicTranscript(topicId: string): NormalChatTopicTranscriptSnapshot {
+    return this.conversationService.getTopicTranscript(topicId)
+  }
+
+  getRequestDebugSnapshot(requestId: string): NormalChatRequestDebugSnapshot {
+    return this.conversationService.getRequestDebugSnapshot(requestId)
   }
 
   async sendMessage(payload: NormalChatSendMessageRequest): Promise<NormalChatSendMessageAccepted> {
@@ -249,7 +245,7 @@ export class NormalChatService {
     this.conversationService.deleteConversationTurn(requestId)
   }
 
-  abort(requestId: string): void {
-    this.runtimeService.abort(requestId)
+  async abort(requestId: string): Promise<void> {
+    await this.runtimeService.abort(requestId)
   }
 }

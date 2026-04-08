@@ -7,11 +7,13 @@ import type {
   NormalChatCreateLabelRequest,
   NormalChatCreateAssistantRequest,
   NormalChatCreateTopicRequest,
+  NormalChatDeleteAssistantRequest,
   NormalChatDeleteConversationTurnRequest,
   NormalChatDeleteLabelRequest,
   NormalChatDeleteTopicRequest,
-  NormalChatGetConversationTurnDetailRequest,
   NormalChatGetConversationRequest,
+  NormalChatGetRequestDebugSnapshotRequest,
+  NormalChatGetTopicTranscriptRequest,
   NormalChatRenameLabelRequest,
   NormalChatRenameTopicRequest,
   NormalChatSendMessageRequest,
@@ -27,8 +29,10 @@ export const normalChatAPI: NormalChatAPI = {
   getBootstrap: () => ipcRenderer.invoke('normalChat:getBootstrap'),
   getConversation: (request: NormalChatGetConversationRequest) =>
     ipcRenderer.invoke('normalChat:getConversation', request),
-  getConversationTurnDetail: (request: NormalChatGetConversationTurnDetailRequest) =>
-    ipcRenderer.invoke('normalChat:getConversationTurnDetail', request),
+  getTopicTranscript: (request: NormalChatGetTopicTranscriptRequest) =>
+    ipcRenderer.invoke('normalChat:getTopicTranscript', request),
+  getRequestDebugSnapshot: (request: NormalChatGetRequestDebugSnapshotRequest) =>
+    ipcRenderer.invoke('normalChat:getRequestDebugSnapshot', request),
   sendMessage: (request: NormalChatSendMessageRequest) =>
     ipcRenderer.invoke('normalChat:sendMessage', request),
   deleteConversationTurn: (request: NormalChatDeleteConversationTurnRequest) =>
@@ -39,6 +43,18 @@ export const normalChatAPI: NormalChatAPI = {
       handler(payload)
     ipcRenderer.on('normalChat:stream', listener)
     return () => ipcRenderer.off('normalChat:stream', listener)
+  },
+  onTopicTraceEntry: (topicId, handler) => {
+    const channel = `normalChat:topic-trace:${topicId}`
+    const listener = (_event: unknown, payload: Parameters<typeof handler>[0]) => handler(payload)
+    ipcRenderer.on(channel, listener)
+    return () => ipcRenderer.off(channel, listener)
+  },
+  onRequestTraceEntry: (requestId, handler) => {
+    const channel = `normalChat:request-trace:${requestId}`
+    const listener = (_event: unknown, payload: Parameters<typeof handler>[0]) => handler(payload)
+    ipcRenderer.on(channel, listener)
+    return () => ipcRenderer.off(channel, listener)
   },
   createAssistant: (request: NormalChatCreateAssistantRequest) =>
     ipcRenderer.invoke('normalChat:createAssistant', request),
@@ -54,6 +70,8 @@ export const normalChatAPI: NormalChatAPI = {
     ipcRenderer.invoke('normalChat:deleteLabel', request),
   setActiveAssistant: (request: NormalChatSetActiveAssistantRequest) =>
     ipcRenderer.invoke('normalChat:setActiveAssistant', request),
+  deleteAssistant: (request: NormalChatDeleteAssistantRequest) =>
+    ipcRenderer.invoke('normalChat:deleteAssistant', request),
   createTopic: (request: NormalChatCreateTopicRequest) =>
     ipcRenderer.invoke('normalChat:createTopic', request),
   renameTopic: (request: NormalChatRenameTopicRequest) =>

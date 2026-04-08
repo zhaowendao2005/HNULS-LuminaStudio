@@ -15,7 +15,6 @@
     <ChatComposerPanel />
     <AssistantSettingsModal />
     <ConversationDetailDialog />
-    <AgentTreeDialog />
   </div>
 </template>
 
@@ -25,7 +24,6 @@ import ChatPromptBar from './ChatPromptBar.vue'
 import ChatMessageViewport from './ChatMessageViewport.vue'
 import ChatComposerPanel from './ChatComposerPanel.vue'
 import AssistantSettingsModal from './AssistantSettingsModal.vue'
-import AgentTreeDialog from './AgentTreeDialog.vue'
 import ConversationDetailDialog from './ConversationDetailDialog.vue'
 import type {
   NormalChatConversationDisplayMessage,
@@ -33,11 +31,8 @@ import type {
 } from '@renderer/stores/normal-chat/conversation/conversation.types'
 import { useNormalChatConversationStore } from '@renderer/stores/normal-chat/conversation/conversation.store'
 import { useNormalChatChatDetailShellStore } from '@renderer/stores/normal-chat/chat-detail-shell/chat-detail-shell.store'
-import { useNormalChatAgentDetailShellStore } from '@renderer/stores/normal-chat/agent-detail-shell/agent-detail-shell.store'
-
 const conversationStore = useNormalChatConversationStore()
 const chatDetailShellStore = useNormalChatChatDetailShellStore()
-const agentDetailShellStore = useNormalChatAgentDetailShellStore()
 
 async function handleCopyMessage(message: NormalChatConversationDisplayMessage): Promise<void> {
   const textToCopy = serializeMessageForCopy(message)
@@ -116,7 +111,6 @@ async function handleDeleteMessage(message: NormalChatConversationDisplayMessage
 
   await conversationStore.deleteConversationTurn(message.requestId)
   chatDetailShellStore.clearTurnDetail(message.requestId)
-  agentDetailShellStore.clearTurnDetail(message.requestId)
 }
 
 function handleMoreMessage(): void {
@@ -144,9 +138,10 @@ async function handleOpenAgentTree(payload: {
     return
   }
 
-  await agentDetailShellStore.openDialog({
+  await chatDetailShellStore.openDialog({
     requestId: payload.message.requestId,
     messageId: payload.message.id,
+    page: 'agent',
     focusAgentRunId: payload.agentRunId
   })
 }

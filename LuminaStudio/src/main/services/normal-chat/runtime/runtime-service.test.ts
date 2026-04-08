@@ -2,16 +2,15 @@ import { describe, expect, it, vi } from 'vitest'
 import { NormalChatRuntimeService } from './runtime-service'
 
 describe('NormalChatRuntimeService', () => {
-  it('stores a slimmed task snapshot and disables runtime event persistence for light assistants', async () => {
-    const messagesRepository = {
-      listByTopic: vi.fn(() => []),
-      insert: vi.fn()
+  it('stores a slimmed request snapshot and sets light persistence preset', async () => {
+    const requestHeadsRepository = {
+      create: vi.fn(),
+      updateStatus: vi.fn(),
+      listByTopicId: vi.fn(() => [])
     }
-    const tasksRepository = {
-      create: vi.fn()
-    }
-    const agentRunsRepository = {
-      createRoot: vi.fn(() => ({ id: 'root-agent-run' }))
+    const requestEntriesRepository = {
+      append: vi.fn(() => 1),
+      listByTopicId: vi.fn(() => [])
     }
     const taskScheduler = {
       registerPendingTask: vi.fn()
@@ -20,7 +19,8 @@ describe('NormalChatRuntimeService', () => {
       enqueue: vi.fn()
     }
     const streamPublisher = {
-      setRuntimeEventPersistence: vi.fn()
+      setPersistencePreset: vi.fn(),
+      appendAgentRunCreated: vi.fn()
     }
 
     const runtimeService = new NormalChatRuntimeService(
@@ -91,9 +91,8 @@ describe('NormalChatRuntimeService', () => {
           programPromptInjections: ['inject-1']
         }))
       } as any,
-      messagesRepository as any,
-      tasksRepository as any,
-      agentRunsRepository as any,
+      requestHeadsRepository as any,
+      requestEntriesRepository as any,
       taskScheduler as any,
       queueExecutor as any,
       {} as any,
@@ -107,18 +106,24 @@ describe('NormalChatRuntimeService', () => {
       input: 'hello world'
     })
 
-    expect(messagesRepository.insert).toHaveBeenCalledTimes(1)
-    expect(tasksRepository.create).toHaveBeenCalledTimes(1)
-    const createPayload = tasksRepository.create.mock.calls[0][0]
-    expect(createPayload.executionSnapshot.request.input).toBe('')
-    expect(createPayload.executionSnapshot.runtime.systemPrompt).toBe('')
-    expect(createPayload.executionSnapshot.historyMessages).toEqual([])
-    expect(createPayload.executionSnapshot.promptInjections).toEqual([])
-    expect(createPayload.executionSnapshot.actions).toEqual([])
-    expect(createPayload.executionSnapshot.runtime.persistencePreset).toBe('light')
-    expect(streamPublisher.setRuntimeEventPersistence).toHaveBeenCalledWith(
-      createPayload.requestId,
-      false
+    expect(requestEntriesRepository.append).toHaveBeenCalledTimes(2)
+    const appendCalls = requestEntriesRepository.append.mock.calls as unknown as Array<
+      [{ payloadJson: string; requestId: string }]
+    >
+    const firstRequestEntry = appendCalls[0]?.[0] as
+      | { payloadJson: string; requestId: string }
+      | undefined
+    expect(firstRequestEntry).toBeDefined()
+    const requestPayload = JSON.parse(firstRequestEntry!.payloadJson)
+    expect(requestPayload.request.input).toBe('')
+    expect(requestPayload.runtime.systemPrompt).toBe('')
+    expect(requestPayload.historyMessages).toEqual([])
+    expect(requestPayload.promptInjections).toEqual([])
+    expect(requestPayload.actions).toEqual([])
+    expect(requestPayload.persistencePreset).toBe('light')
+    expect(streamPublisher.setPersistencePreset).toHaveBeenCalledWith(
+      firstRequestEntry!.requestId,
+      'light'
     )
   })
 })

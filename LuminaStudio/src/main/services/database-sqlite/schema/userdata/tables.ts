@@ -164,187 +164,78 @@ export const NORMAL_CHAT_CONVERSATIONS_TABLE: TableDefinition = {
   `
 }
 
-export const NORMAL_CHAT_MESSAGES_TABLE: TableDefinition = {
-  name: 'normal_chat_messages',
+/**
+ * request 头表：新的 request 级索引视图。
+ *
+ * 这里只保留状态、水位、定位信息，不再保存旧 execution_snapshot_json 这种大快照。
+ */
+export const NORMAL_CHAT_REQUEST_HEADS_TABLE: TableDefinition = {
+  name: 'normal_chat_request_heads',
   createSQL: `
-    CREATE TABLE IF NOT EXISTS normal_chat_messages (
-      id TEXT PRIMARY KEY,
-      topic_id TEXT NOT NULL,
-      request_id TEXT NOT NULL,
-      message_role TEXT NOT NULL CHECK (message_role IN ('user', 'assistant')),
-      parts_json TEXT NOT NULL,
-      sort_order INTEGER NOT NULL DEFAULT 0,
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (topic_id) REFERENCES normal_chat_topics(id) ON DELETE CASCADE
-    );
-    CREATE INDEX IF NOT EXISTS idx_normal_chat_messages_topic_sort
-      ON normal_chat_messages(topic_id, sort_order, created_at);
-    CREATE INDEX IF NOT EXISTS idx_normal_chat_messages_request
-      ON normal_chat_messages(request_id, created_at);
-  `
-}
-
-export const NORMAL_CHAT_TASKS_TABLE: TableDefinition = {
-  name: 'normal_chat_tasks',
-  createSQL: `
-    CREATE TABLE IF NOT EXISTS normal_chat_tasks (
-      id TEXT PRIMARY KEY,
-      request_id TEXT NOT NULL UNIQUE,
-      conversation_id TEXT NOT NULL,
-      topic_id TEXT NOT NULL,
+    CREATE TABLE IF NOT EXISTS normal_chat_request_heads (
+      request_id TEXT PRIMARY KEY,
       assistant_id TEXT NOT NULL,
-      user_message_id TEXT NOT NULL,
-      assistant_message_id TEXT,
-      root_agent_run_id TEXT,
-      status TEXT NOT NULL CHECK (status IN ('queued', 'running', 'succeeded', 'failed', 'aborted')),
-      phase TEXT NOT NULL CHECK (phase IN ('queued', 'preparing_context', 'building_prompt', 'awaiting_model', 'executing_actions', 'committing_message', 'finished')),
-      model_provider_id TEXT NOT NULL,
-      model_id TEXT NOT NULL,
-      execution_snapshot_json TEXT NOT NULL,
-      final_response_json TEXT,
-      last_event_seq INTEGER,
-      error_message TEXT,
-      created_at TEXT DEFAULT (datetime('now')),
-      started_at TEXT,
-      finished_at TEXT,
-      updated_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (conversation_id) REFERENCES normal_chat_conversations(id) ON DELETE CASCADE,
-      FOREIGN KEY (topic_id) REFERENCES normal_chat_topics(id) ON DELETE CASCADE,
-      FOREIGN KEY (assistant_id) REFERENCES normal_chat_assistants(id) ON DELETE CASCADE
-    );
-    CREATE INDEX IF NOT EXISTS idx_normal_chat_tasks_status_created
-      ON normal_chat_tasks(status, created_at);
-    CREATE INDEX IF NOT EXISTS idx_normal_chat_tasks_topic_created
-      ON normal_chat_tasks(topic_id, created_at);
-    CREATE INDEX IF NOT EXISTS idx_normal_chat_tasks_conversation_created
-      ON normal_chat_tasks(conversation_id, created_at);
-  `
-}
-
-export const NORMAL_CHAT_AGENT_RUNS_TABLE: TableDefinition = {
-  name: 'normal_chat_agent_runs',
-  createSQL: `
-    CREATE TABLE IF NOT EXISTS normal_chat_agent_runs (
-      id TEXT PRIMARY KEY,
-      task_id TEXT NOT NULL,
-      parent_agent_run_id TEXT,
-      depth INTEGER NOT NULL DEFAULT 0,
-      role_kind TEXT NOT NULL,
-      template_id TEXT NOT NULL,
-      goal TEXT NOT NULL,
-      status TEXT NOT NULL CHECK (status IN ('queued', 'running', 'succeeded', 'failed', 'aborted')),
-      react_count INTEGER NOT NULL DEFAULT 0,
-      max_react_steps INTEGER NOT NULL DEFAULT 0,
-      max_child_depth INTEGER NOT NULL DEFAULT 0,
-      model_provider_id TEXT,
-      model_id TEXT,
-      final_text TEXT,
-      error_message TEXT,
-      created_at TEXT DEFAULT (datetime('now')),
-      started_at TEXT,
-      finished_at TEXT,
-      updated_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (task_id) REFERENCES normal_chat_tasks(id) ON DELETE CASCADE,
-      FOREIGN KEY (parent_agent_run_id) REFERENCES normal_chat_agent_runs(id) ON DELETE CASCADE
-    );
-    CREATE INDEX IF NOT EXISTS idx_normal_chat_agent_runs_task_depth
-      ON normal_chat_agent_runs(task_id, depth, created_at);
-  `
-}
-
-export const NORMAL_CHAT_ACTION_RUNS_TABLE: TableDefinition = {
-  name: 'normal_chat_action_runs',
-  createSQL: `
-    CREATE TABLE IF NOT EXISTS normal_chat_action_runs (
-      id TEXT PRIMARY KEY,
-      task_id TEXT NOT NULL,
-      agent_run_id TEXT NOT NULL,
-      action_key TEXT NOT NULL,
-      action_kind TEXT NOT NULL,
-      mode TEXT,
-      status TEXT NOT NULL CHECK (status IN ('queued', 'running', 'succeeded', 'failed', 'aborted')),
-      round_index INTEGER NOT NULL DEFAULT 0,
-      batch_index INTEGER NOT NULL DEFAULT 0,
-      parallel_index INTEGER NOT NULL DEFAULT 0,
-      input_json TEXT NOT NULL,
-      output_json TEXT,
-      error_message TEXT,
-      created_at TEXT DEFAULT (datetime('now')),
-      started_at TEXT,
-      finished_at TEXT,
-      updated_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (task_id) REFERENCES normal_chat_tasks(id) ON DELETE CASCADE,
-      FOREIGN KEY (agent_run_id) REFERENCES normal_chat_agent_runs(id) ON DELETE CASCADE
-    );
-    CREATE INDEX IF NOT EXISTS idx_normal_chat_action_runs_task_round
-      ON normal_chat_action_runs(task_id, round_index, batch_index, parallel_index, created_at);
-  `
-}
-
-export const NORMAL_CHAT_MODEL_CALLS_TABLE: TableDefinition = {
-  name: 'normal_chat_model_calls',
-  createSQL: `
-    CREATE TABLE IF NOT EXISTS normal_chat_model_calls (
-      seq INTEGER PRIMARY KEY AUTOINCREMENT,
-      id TEXT NOT NULL UNIQUE,
-      task_id TEXT NOT NULL,
-      request_id TEXT NOT NULL,
-      conversation_id TEXT NOT NULL,
-      agent_run_id TEXT NOT NULL,
-      parent_action_run_id TEXT,
-      turn_kind TEXT NOT NULL CHECK (turn_kind IN ('answer', 'action_plan', 'post_action_synthesis')),
-      produced_action_count INTEGER NOT NULL DEFAULT 0,
-      consumed_action_run_ids_json TEXT NOT NULL DEFAULT '[]',
-      synthesis_required INTEGER NOT NULL DEFAULT 0,
-      depth INTEGER NOT NULL,
-      round_index INTEGER NOT NULL,
-      call_index_in_agent INTEGER NOT NULL,
-      status TEXT NOT NULL CHECK (status IN ('queued', 'running', 'succeeded', 'failed', 'aborted')),
-      request_payload_json TEXT NOT NULL,
-      compiled_prompt_json TEXT NOT NULL,
-      compiled_prompt_markdown TEXT NOT NULL,
-      history_messages_json TEXT NOT NULL,
-      loaded_actions_json TEXT NOT NULL,
-      action_results_json TEXT NOT NULL,
-      response_stream_text TEXT,
-      response_envelope_json TEXT,
-      final_reply_md TEXT,
-      error_message TEXT,
-      created_at TEXT DEFAULT (datetime('now')),
-      started_at TEXT,
-      finished_at TEXT,
-      updated_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (task_id) REFERENCES normal_chat_tasks(id) ON DELETE CASCADE,
-      FOREIGN KEY (agent_run_id) REFERENCES normal_chat_agent_runs(id) ON DELETE CASCADE,
-      FOREIGN KEY (parent_action_run_id) REFERENCES normal_chat_action_runs(id) ON DELETE SET NULL
-    );
-    CREATE INDEX IF NOT EXISTS idx_normal_chat_model_calls_task_seq
-      ON normal_chat_model_calls(task_id, seq);
-    CREATE INDEX IF NOT EXISTS idx_normal_chat_model_calls_agent_round
-      ON normal_chat_model_calls(agent_run_id, round_index, call_index_in_agent, created_at);
-    CREATE INDEX IF NOT EXISTS idx_normal_chat_model_calls_request_seq
-      ON normal_chat_model_calls(request_id, seq);
-  `
-}
-
-export const NORMAL_CHAT_RUNTIME_EVENTS_TABLE: TableDefinition = {
-  name: 'normal_chat_runtime_events',
-  createSQL: `
-    CREATE TABLE IF NOT EXISTS normal_chat_runtime_events (
-      seq INTEGER PRIMARY KEY AUTOINCREMENT,
-      task_id TEXT NOT NULL,
-      request_id TEXT NOT NULL,
       topic_id TEXT NOT NULL,
-      event_type TEXT NOT NULL,
-      payload_json TEXT NOT NULL,
-      created_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (task_id) REFERENCES normal_chat_tasks(id) ON DELETE CASCADE
+      conversation_id TEXT NOT NULL,
+      root_agent_run_id TEXT,
+      user_message_id TEXT,
+      assistant_message_id TEXT,
+      status TEXT NOT NULL CHECK (status IN ('queued', 'running', 'succeeded', 'failed', 'aborted', 'deleted')),
+      phase TEXT NOT NULL CHECK (phase IN ('queued', 'preparing_context', 'building_prompt', 'awaiting_model', 'executing_actions', 'committing_message', 'finished')),
+      error_message TEXT,
+      created_at TEXT NOT NULL,
+      started_at TEXT,
+      finished_at TEXT,
+      updated_at TEXT NOT NULL,
+      last_entry_seq INTEGER,
+      FOREIGN KEY (assistant_id) REFERENCES normal_chat_assistants(id) ON DELETE CASCADE,
+      FOREIGN KEY (topic_id) REFERENCES normal_chat_topics(id) ON DELETE CASCADE,
+      FOREIGN KEY (conversation_id) REFERENCES normal_chat_conversations(id) ON DELETE CASCADE
     );
-    CREATE INDEX IF NOT EXISTS idx_normal_chat_runtime_events_task_seq
-      ON normal_chat_runtime_events(task_id, seq);
-    CREATE INDEX IF NOT EXISTS idx_normal_chat_runtime_events_request_seq
-      ON normal_chat_runtime_events(request_id, seq);
+    CREATE INDEX IF NOT EXISTS idx_normal_chat_request_heads_topic_created
+      ON normal_chat_request_heads(topic_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_normal_chat_request_heads_assistant_created
+      ON normal_chat_request_heads(assistant_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_normal_chat_request_heads_status_created
+      ON normal_chat_request_heads(status, created_at);
+    CREATE INDEX IF NOT EXISTS idx_normal_chat_request_heads_conversation_created
+      ON normal_chat_request_heads(conversation_id, created_at);
+  `
+}
+
+/**
+ * request entry 表：新的 append-only 运行时真相流。
+ *
+ * projector 以后只靠这张表回放 transcript / detail / agent graph。
+ */
+export const NORMAL_CHAT_REQUEST_ENTRIES_TABLE: TableDefinition = {
+  name: 'normal_chat_request_entries',
+  createSQL: `
+    CREATE TABLE IF NOT EXISTS normal_chat_request_entries (
+      seq INTEGER PRIMARY KEY AUTOINCREMENT,
+      request_id TEXT NOT NULL,
+      assistant_id TEXT NOT NULL,
+      topic_id TEXT NOT NULL,
+      conversation_id TEXT NOT NULL,
+      entity_kind TEXT NOT NULL CHECK (entity_kind IN ('request', 'message', 'model_call', 'action_run', 'agent_run')),
+      entity_id TEXT NOT NULL,
+      parent_entity_id TEXT,
+      op TEXT NOT NULL CHECK (op IN ('created', 'patched', 'delta', 'status', 'finished', 'failed', 'deleted')),
+      visibility TEXT NOT NULL CHECK (visibility IN ('transcript', 'debug', 'agent', 'internal')),
+      payload_json TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (request_id) REFERENCES normal_chat_request_heads(request_id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_normal_chat_request_entries_request_seq
+      ON normal_chat_request_entries(request_id, seq);
+    CREATE INDEX IF NOT EXISTS idx_normal_chat_request_entries_topic_seq
+      ON normal_chat_request_entries(topic_id, seq);
+    CREATE INDEX IF NOT EXISTS idx_normal_chat_request_entries_assistant_seq
+      ON normal_chat_request_entries(assistant_id, seq);
+    CREATE INDEX IF NOT EXISTS idx_normal_chat_request_entries_entity_seq
+      ON normal_chat_request_entries(entity_kind, entity_id, seq);
+    CREATE INDEX IF NOT EXISTS idx_normal_chat_request_entries_visibility_request_seq
+      ON normal_chat_request_entries(visibility, request_id, seq);
   `
 }
 
@@ -369,11 +260,7 @@ export const USERDATA_TABLES: TableDefinition[] = [
   NORMAL_CHAT_ASSISTANT_ACTION_POLICIES_TABLE,
   NORMAL_CHAT_TOPIC_ACTION_OVERRIDES_TABLE,
   NORMAL_CHAT_CONVERSATIONS_TABLE,
-  NORMAL_CHAT_MESSAGES_TABLE,
-  NORMAL_CHAT_TASKS_TABLE,
-  NORMAL_CHAT_AGENT_RUNS_TABLE,
-  NORMAL_CHAT_ACTION_RUNS_TABLE,
-  NORMAL_CHAT_MODEL_CALLS_TABLE,
-  NORMAL_CHAT_RUNTIME_EVENTS_TABLE,
+  NORMAL_CHAT_REQUEST_HEADS_TABLE,
+  NORMAL_CHAT_REQUEST_ENTRIES_TABLE,
   NORMAL_CHAT_WORKSPACE_STATE_TABLE
 ]

@@ -23,11 +23,3 @@ export type NormalChatFunctionCallMessagePartStatus =
 
 /** 对话消息角色 */
 export type NormalChatConversationMessageRole = 'user' | 'assistant'
-
-/** 对话状态阶段 */
-export type NormalChatConversationStatusPhase =
-  | 'sending'
-  | 'thinking'
-  | 'streaming'
-  | 'repairing'
-  | 'done'

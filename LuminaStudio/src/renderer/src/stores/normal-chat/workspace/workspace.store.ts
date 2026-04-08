@@ -1031,6 +1031,11 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
     applyWorkspaceSnapshot(nextSnapshot)
   }
 
+  async function deleteAssistant(assistantId: string) {
+    const nextSnapshot = await datasource.deleteAssistant({ assistantId })
+    applyWorkspaceSnapshot(nextSnapshot)
+  }
+
   async function setActiveTopic(topicId: string) {
     if (!snapshot.value.activeAssistantId) {
       return
@@ -1241,6 +1246,7 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
     renameLabel,
     deleteLabel,
     setActiveAssistant,
+    deleteAssistant,
     setActiveTopic,
     createTopic,
     deleteTopic,

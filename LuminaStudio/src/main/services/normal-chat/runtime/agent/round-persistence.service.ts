@@ -6,8 +6,7 @@ import type {
   NormalChatPromptBundleV2,
   NormalChatPromptTrimSnapshot
 } from '../prompt/prompt-bundle.types'
-import { NormalChatModelCallsRepository } from '../../repositories/model-calls.repository'
-import { nowIso } from '../../shared/utils'
+import { NormalChatStreamPublisher } from '../streaming/stream-publisher'
 
 const EPHEMERAL_MODEL_CALL_ID_PREFIX = 'ephemeral-model-call:'
 
@@ -16,7 +15,7 @@ function isEphemeralModelCallId(modelCallId: string): boolean {
 }
 
 export class NormalChatRoundPersistenceService {
-  constructor(private readonly modelCallsRepository: NormalChatModelCallsRepository) {}
+  constructor(private readonly streamPublisher: NormalChatStreamPublisher) {}
 
   createQueuedModelCall(input: {
     taskId: string
@@ -39,53 +38,47 @@ export class NormalChatRoundPersistenceService {
     actionResults: NormalChatActionResultRecord[]
     persist: boolean
   }): string {
-    // 非 full persistence 模式下仍生成一个临时 id，统一 runtime 内部流程，但不会真正写库。
-    if (!input.persist) {
-      return `${EPHEMERAL_MODEL_CALL_ID_PREFIX}${randomUUID()}`
-    }
+    const modelCallId = input.persist
+      ? randomUUID()
+      : `${EPHEMERAL_MODEL_CALL_ID_PREFIX}${randomUUID()}`
 
-    // queued 快照记录的是“进入模型前”的上下文，用来回答：这一轮是在什么状态下被发起的。
-    return this.modelCallsRepository.create({
-      taskId: input.taskId,
+    this.streamPublisher.appendModelCallCreated({
       requestId: input.requestId,
-      conversationId: input.conversationId,
+      modelCallId,
       agentRunId: input.agentRunId,
       parentActionRunId: input.parentActionRunId,
       turnKind: input.turnKind,
       producedActionCount: input.producedActionCount,
-      consumedActionRunIdsJson: JSON.stringify(input.consumedActionRunIds),
+      consumedActionRunIds: input.consumedActionRunIds,
       synthesisRequired: input.synthesisRequired,
       depth: input.depth,
       roundIndex: input.roundIndex,
       callIndexInAgent: input.callIndexInAgent,
-      requestPayloadJson: JSON.stringify(input.requestPayload),
-      compiledPromptJson: JSON.stringify({
-        systemSections: input.promptBundle.systemSections,
-        roundSections: input.promptBundle.roundSections,
+      requestPayload: input.requestPayload,
+      prompt: {
+        systemSections: input.promptBundle.systemSections as unknown as Record<string, unknown>,
+        roundSections: input.promptBundle.roundSections as unknown as Record<string, unknown>,
         compiledSystemPrompt: input.promptBundle.compiledSystemPrompt,
         compiledRoundPrompt: input.promptBundle.compiledRoundPrompt,
-        trimSnapshot: input.trimSnapshot ?? null
-      }),
-      compiledPromptMarkdown: input.promptBundle.promptDocument,
-      historyMessagesJson: JSON.stringify(input.historyMessages),
-      loadedActionsJson: JSON.stringify(input.loadedActions),
-      actionResultsJson: JSON.stringify(input.actionResults),
-      timestamp: nowIso()
+        promptDocument: input.promptBundle.promptDocument,
+        trimSnapshot: (input.trimSnapshot ?? null) as unknown as Record<string, unknown> | null
+      },
+      historyMessages: input.historyMessages,
+      loadedActions: input.loadedActions,
+      actionResults: input.actionResults,
+      persist: input.persist
     })
+
+    return modelCallId
   }
 
-  markModelCallRunning(modelCallId: string): void {
-    if (isEphemeralModelCallId(modelCallId)) {
-      return
-    }
-    this.modelCallsRepository.markRunning(modelCallId, nowIso())
+  markModelCallRunning(_modelCallId: string): void {
+    void _modelCallId
   }
 
-  appendModelCallStream(modelCallId: string, streamText: string): void {
-    if (isEphemeralModelCallId(modelCallId)) {
-      return
-    }
-    this.modelCallsRepository.appendStreamText(modelCallId, streamText, nowIso())
+  appendModelCallStream(_modelCallId: string, _streamText: string): void {
+    void _modelCallId
+    void _streamText
   }
 
   completeModelCall(
@@ -94,35 +87,41 @@ export class NormalChatRoundPersistenceService {
     finalReplyMd: string,
     responseStreamText: string,
     metadata: {
+      requestId: string
       turnKind: 'answer' | 'action_plan' | 'post_action_synthesis'
       producedActionCount: number
       consumedActionRunIds: string[]
       synthesisRequired: boolean
     }
   ): void {
-    // complete 阶段再写入最终元数据，补齐本轮究竟落成 answer / action_plan / post_action_synthesis。
-    if (isEphemeralModelCallId(modelCallId)) {
-      return
-    }
-    this.modelCallsRepository.markSucceeded(
+    this.streamPublisher.appendModelCallFinished({
+      requestId: metadata.requestId,
       modelCallId,
-      JSON.stringify(responseEnvelope),
+      responseEnvelope,
       finalReplyMd,
       responseStreamText,
-      {
-        turnKind: metadata.turnKind,
-        producedActionCount: metadata.producedActionCount,
-        consumedActionRunIdsJson: JSON.stringify(metadata.consumedActionRunIds),
-        synthesisRequired: metadata.synthesisRequired
-      },
-      nowIso()
-    )
+      turnKind: metadata.turnKind,
+      producedActionCount: metadata.producedActionCount,
+      consumedActionRunIds: metadata.consumedActionRunIds,
+      synthesisRequired: metadata.synthesisRequired
+    })
   }
 
-  failModelCall(modelCallId: string, errorMessage: string, responseStreamText: string): void {
+  failModelCall(
+    requestId: string,
+    modelCallId: string,
+    errorMessage: string,
+    responseStreamText: string
+  ): void {
     if (isEphemeralModelCallId(modelCallId)) {
       return
     }
-    this.modelCallsRepository.markFailed(modelCallId, errorMessage, responseStreamText, nowIso())
+
+    this.streamPublisher.appendModelCallFailed({
+      requestId,
+      modelCallId,
+      errorMessage,
+      responseStreamText
+    })
   }
 }

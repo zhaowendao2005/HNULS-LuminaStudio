@@ -72,6 +72,34 @@
     </button>
 
     <button
+      class="flex h-10 w-10 items-center justify-center rounded-xl border transition-colors"
+      :class="isAgentPage ? 'border-gray-900 bg-gray-900 text-white' : idleClass"
+      type="button"
+      title="Agent"
+      @click="emit('open-agent')"
+    >
+      <svg
+        class="h-4 w-4"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M6 5v14" />
+        <path d="M6 8h5" />
+        <path d="M11 8v8" />
+        <path d="M11 12h7" />
+        <path d="M18 12v6" />
+        <circle cx="6" cy="5" r="1.5" fill="currentColor" />
+        <circle cx="11" cy="8" r="1.5" fill="currentColor" />
+        <circle cx="18" cy="12" r="1.5" fill="currentColor" />
+        <circle cx="18" cy="18" r="1.5" fill="currentColor" />
+      </svg>
+    </button>
+
+    <button
       class="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 text-gray-300"
       type="button"
       title="MCP（暂未实现）"
@@ -120,12 +148,14 @@
 defineProps<{
   isOverview: boolean
   isFunctioncallPage: boolean
+  isAgentPage: boolean
 }>()
 
 const emit = defineEmits<{
   close: []
   'open-overview': []
   'open-functioncall-overview': []
+  'open-agent': []
 }>()
 
 const idleClass = 'border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:text-gray-700'

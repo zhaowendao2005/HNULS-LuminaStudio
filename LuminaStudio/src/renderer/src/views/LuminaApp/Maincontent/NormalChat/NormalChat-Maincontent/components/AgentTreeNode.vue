@@ -100,19 +100,19 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type {
-  NormalChatRuntimeAgentNode,
-  NormalChatRuntimeAgentTree
-} from '@renderer/stores/normal-chat/runtime-trace/types'
+  NormalChatAgentGraphNodeSnapshot,
+  NormalChatAgentGraphTreeSnapshot
+} from '@preload/types'
 
 const props = defineProps<{
-  node: NormalChatRuntimeAgentNode
-  tree: NormalChatRuntimeAgentTree
+  node: NormalChatAgentGraphNodeSnapshot
+  tree: NormalChatAgentGraphTreeSnapshot
 }>()
 
 const childNodes = computed(() => {
   return props.node.childAgentIds
     .map((childId) => props.tree.agents[childId] ?? null)
-    .filter((child): child is NormalChatRuntimeAgentNode => child !== null)
+    .filter((child): child is NormalChatAgentGraphNodeSnapshot => child !== null)
 })
 
 const statusClass = computed(() => {

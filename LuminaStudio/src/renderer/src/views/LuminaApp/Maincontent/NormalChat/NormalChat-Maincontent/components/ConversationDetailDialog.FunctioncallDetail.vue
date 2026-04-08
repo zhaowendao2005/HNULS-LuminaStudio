@@ -129,7 +129,8 @@ const emit = defineEmits<{
   'open-agent-run': [agentRunId: string]
 }>()
 
-// 子代理不再出现在主聊天流，统一从 functioncall detail 跳转到 Agent 面板查看。
+// 子代理不再出现在主聊天流。
+// 这里统一跳到新的 Conversation Detail / Agent 页，而不是旧的独立 Agent 弹窗。
 const canOpenSubAgent = computed(() => {
   return (
     props.item?.part.functionCallName === 'system.dispatch_sub_agent' &&

@@ -22,6 +22,7 @@ function createEmptySnapshot(): ChatDetailShellSnapshot {
     currentPage: 'overview',
     selectedCallId: '',
     selectedFunctioncallId: '',
+    focusAgentRunId: '',
     selectedGroupId: 'request',
     selectedDocId: '',
     requestViewMode: 'json',
@@ -38,6 +39,7 @@ export const useNormalChatChatDetailShellStore = defineStore(
   () => {
     const snapshot = ref<ChatDetailShellSnapshot>(createEmptySnapshot())
     let disposeStream: (() => void) | null = null
+    let disposeTrace: (() => void) | null = null
 
     const detail = computed<ChatDetailShellRecord | null>(() => {
       return snapshot.value.detailByRequestId[snapshot.value.requestId] ?? null
@@ -93,6 +95,9 @@ export const useNormalChatChatDetailShellStore = defineStore(
       }
       if (snapshot.value.currentPage === 'functioncall-detail') {
         return `Overview / Functioncall Records / ${selectedFunctioncallItem.value?.title ?? 'Functioncall Detail'}`
+      }
+      if (snapshot.value.currentPage === 'agent') {
+        return `Overview / Agent / ${snapshot.value.focusAgentRunId || 'Root'}`
       }
       if (!hasLlmCallDetails.value) {
         return 'Overview / LLM Call Unavailable'
@@ -191,11 +196,20 @@ export const useNormalChatChatDetailShellStore = defineStore(
     }
 
     function ensureStreamSubscription(): void {
-      if (disposeStream) {
-        return
+      if (!disposeStream) {
+        disposeStream = NormalChatConversationDatasource.onStream(handleRuntimeEvent)
       }
 
-      disposeStream = NormalChatConversationDatasource.onStream(handleRuntimeEvent)
+      if (!disposeTrace && snapshot.value.requestId) {
+        disposeTrace = NormalChatConversationDatasource.onRequestTraceEntry(
+          snapshot.value.requestId,
+          () => {
+            if (snapshot.value.visible) {
+              void loadCurrentDetail()
+            }
+          }
+        )
+      }
     }
 
     async function initialize(): Promise<void> {
@@ -216,6 +230,15 @@ export const useNormalChatChatDetailShellStore = defineStore(
         }
         snapshot.value.requestId = detailRecord.requestId
         snapshot.value.messageId = detailRecord.messageId
+        disposeTrace?.()
+        disposeTrace = NormalChatConversationDatasource.onRequestTraceEntry(
+          detailRecord.requestId,
+          () => {
+            if (snapshot.value.visible) {
+              void loadCurrentDetail()
+            }
+          }
+        )
         return detailRecord
       } finally {
         snapshot.value.loading = false
@@ -241,6 +264,7 @@ export const useNormalChatChatDetailShellStore = defineStore(
       snapshot.value.currentPage = payload.page ?? 'overview'
       snapshot.value.selectedCallId = payload.selectedCallId ?? ''
       snapshot.value.selectedFunctioncallId = payload.selectedFunctioncallId ?? ''
+      snapshot.value.focusAgentRunId = payload.focusAgentRunId ?? ''
       snapshot.value.selectedGroupId = 'request'
       snapshot.value.selectedDocId = ''
       snapshot.value.requestViewMode = 'json'
@@ -252,6 +276,9 @@ export const useNormalChatChatDetailShellStore = defineStore(
       normalizeCurrentPage(snapshot.value.currentPage)
       if (snapshot.value.currentPage === 'functioncall-overview') {
         snapshot.value.selectedFunctioncallId = detailRecord.functioncalls[0]?.id ?? ''
+        return
+      }
+      if (snapshot.value.currentPage === 'agent') {
         return
       }
       if (snapshot.value.currentPage === 'functioncall-detail') {
@@ -275,11 +302,14 @@ export const useNormalChatChatDetailShellStore = defineStore(
       snapshot.value.visible = false
       snapshot.value.selectedCallId = ''
       snapshot.value.selectedFunctioncallId = ''
+      snapshot.value.focusAgentRunId = ''
       snapshot.value.currentPage = 'overview'
       snapshot.value.loading = false
       snapshot.value.errorText = ''
       snapshot.value.selectedGroupId = 'request'
       snapshot.value.selectedDocId = ''
+      disposeTrace?.()
+      disposeTrace = null
     }
 
     function openCallDetail(callId: string): void {
@@ -303,6 +333,11 @@ export const useNormalChatChatDetailShellStore = defineStore(
     function openFunctioncallDetail(callId: string): void {
       snapshot.value.selectedFunctioncallId = callId
       snapshot.value.currentPage = 'functioncall-detail'
+    }
+
+    function openAgentDetail(agentRunId: string): void {
+      snapshot.value.focusAgentRunId = agentRunId
+      snapshot.value.currentPage = 'agent'
     }
 
     function goToOverview(): void {
@@ -356,6 +391,7 @@ export const useNormalChatChatDetailShellStore = defineStore(
       openCallDetail,
       openFunctioncallOverview,
       openFunctioncallDetail,
+      openAgentDetail,
       goToOverview,
       setActiveDocument,
       setSelectedGroup,
