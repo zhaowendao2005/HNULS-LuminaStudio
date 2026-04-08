@@ -9,6 +9,11 @@ import { callClaudeProvider, streamClaudeProvider } from './claude-provider'
 
 export type { NormalChatProviderConfig } from './provider-config.types'
 export { extractProviderError } from './provider-error'
+export {
+  createProviderRequestCaptureFetch,
+  normalChatProviderRequestCaptureHandle
+} from './provider-request-capture'
+export type { NormalChatCapturedProviderRequest } from './provider-request-capture'
 
 export interface NormalChatProviderPromptInput {
   systemPrompt: string

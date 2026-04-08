@@ -88,6 +88,7 @@ function buildCallSummary(modelCall: NormalChatModelCallSnapshot): string {
 
   return [
     `Round ${modelCall.roundIndex + 1}`,
+    modelCall.turnKind,
     `depth ${modelCall.depth}`,
     providerId,
     modelId,
@@ -156,6 +157,16 @@ function buildRequestGroup(modelCall: NormalChatModelCallSnapshot): ChatDetailSh
           updatedAt: modelCall.updatedAt
         }
       },
+      kind: 'json-object'
+    }),
+    createDocItem({
+      id: 'request.raw_provider_request',
+      groupId: 'request',
+      title: 'raw_provider_request',
+      summary: '原始出网请求',
+      description:
+        '展示 SDK 在真正出网前捕获到的原始 provider 请求。bodyText 是原始请求体字符串，bodyJson 是把 bodyText 解析后的对象，排查结构先看 bodyJson，排查序列化细节再看 bodyText。',
+      payload: modelCall.rawProviderRequest,
       kind: 'json-object'
     }),
     createDocItem({
@@ -389,7 +400,18 @@ function collectAutofilledKeys(
   return Object.keys(normalizedInputPayload).filter((key) => !(key in rawInputPayload))
 }
 
+function resolveChildAgentRunId(
+  detail: NormalChatTaskDetail,
+  call: NormalChatActionRunSnapshot
+): string | null {
+  const matchedModelCall = detail.modelCalls.find(
+    (modelCall) => modelCall.parentActionRunId === call.id
+  )
+  return matchedModelCall?.agentRunId ?? null
+}
+
 function toFunctioncallItem(
+  detail: NormalChatTaskDetail,
   call: NormalChatActionRunSnapshot,
   index: number,
   assistantPart: Extract<
@@ -407,8 +429,11 @@ function toFunctioncallItem(
     callId: call.id,
     functionCallName: call.actionKey,
     title: call.actionKey,
-    status:
-      call.status === 'succeeded' ? 'success' : call.status === 'failed' ? 'error' : call.status,
+    status: (call.status === 'succeeded'
+      ? 'success'
+      : call.status === 'failed'
+        ? 'error'
+        : call.status) as NormalChatFunctionCallMessagePart['status'],
     input: assistantPart?.input ?? JSON.stringify(normalizedInputPayload, null, 2),
     output: assistantPart?.output ?? call.outputJson ?? '',
     errorMessage: call.errorMessage,
@@ -440,14 +465,20 @@ function toFunctioncallItem(
       startedAt: call.startedAt,
       finishedAt: call.finishedAt
     },
-    part
+    part,
+    childAgentRunId: resolveChildAgentRunId(detail, call)
   }
 }
 
 function buildDescription(detail: NormalChatTaskDetail): string {
   const lastCompletedCall = [...detail.modelCalls]
     .reverse()
-    .find((modelCall) => modelCall.finalReplyMd?.trim())
+    .find(
+      (modelCall) =>
+        modelCall.turnKind !== 'action_plan' &&
+        typeof modelCall.finalReplyMd === 'string' &&
+        modelCall.finalReplyMd.trim()
+    )
   if (lastCompletedCall?.finalReplyMd?.trim()) {
     return lastCompletedCall.finalReplyMd.trim()
   }
@@ -513,7 +544,7 @@ function toRecord(detail: NormalChatTaskDetail): ChatDetailShellRecord {
       }
     }),
     functioncalls: detail.actionRuns.map((call, index) =>
-      toFunctioncallItem(call, index, functioncallPartById.get(call.id) ?? null)
+      toFunctioncallItem(detail, call, index, functioncallPartById.get(call.id) ?? null)
     )
   }
 }

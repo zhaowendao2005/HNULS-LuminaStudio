@@ -184,6 +184,14 @@ describe('NormalChatAgentRuntime', () => {
     expect(insertedMessages).toHaveLength(1)
     expect(insertedMessages[0].parts).toEqual([
       {
+        kind: 'text',
+        text: 'Final answer',
+        turnKind: 'action_plan',
+        roundIndex: 1,
+        depth: 0,
+        modelCallId: 'model-call-1'
+      },
+      {
         kind: 'functioncall',
         callId: 'action-run-1',
         functionCallName: 'functioncall.pubmed_search',
@@ -201,7 +209,11 @@ describe('NormalChatAgentRuntime', () => {
       },
       {
         kind: 'text',
-        text: '本轮未生成合格的最终总结，以下是基于已执行结果的结构化汇总。'
+        text: '本轮未生成合格的最终总结，以下是基于已执行结果的结构化汇总。',
+        turnKind: 'post_action_synthesis',
+        roundIndex: 1,
+        depth: 0,
+        modelCallId: 'model-call-1'
       }
     ])
     expect(roundPersistenceService.createQueuedModelCall).toHaveBeenCalledWith(

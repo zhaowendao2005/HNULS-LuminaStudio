@@ -20,6 +20,7 @@ function createEmptySnapshot(): AgentDetailShellSnapshot {
     visible: false,
     requestId: '',
     messageId: '',
+    focusAgentRunId: '',
     loading: false,
     errorText: '',
     detailByRequestId: {}
@@ -27,23 +28,60 @@ function createEmptySnapshot(): AgentDetailShellSnapshot {
 }
 
 function toRecord(detail: NormalChatTaskDetail): AgentDetailShellRecord {
-  const assistantMessage = detail.messages.find((message) => message.role === 'assistant') ?? null
-  const tree = buildRuntimeAgentTreeFromTaskDetail(detail)
+  const legacyRuntimeTrace = (
+    detail as NormalChatTaskDetail & {
+      runtimeTrace?: { agentTree?: NormalChatRuntimeAgentTree | null } | null
+    }
+  ).runtimeTrace
+
+  const normalizedDetail: NormalChatTaskDetail = {
+    ...detail,
+    messages: detail.messages ?? [],
+    agentRuns: detail.agentRuns ?? [],
+    modelCalls: detail.modelCalls ?? [],
+    actionRuns: detail.actionRuns ?? [],
+    runtimeEvents: detail.runtimeEvents ?? []
+  }
+  const assistantMessage =
+    normalizedDetail.messages.find((message) => message.role === 'assistant') ?? null
+  const tree =
+    normalizedDetail.agentRuns.length > 0
+      ? buildRuntimeAgentTreeFromTaskDetail(normalizedDetail)
+      : (legacyRuntimeTrace?.agentTree ?? null)
   const summary: NormalChatRuntimeAgentStatusSummary | null = tree
-    ? buildRuntimeAgentSummary(detail, tree)
+    ? normalizedDetail.agentRuns.length > 0
+      ? buildRuntimeAgentSummary(normalizedDetail, tree)
+      : {
+          requestId: normalizedDetail.requestId,
+          totalAgents: Object.keys(tree.agents ?? {}).length,
+          runningAgents: Object.values(tree.agents ?? {}).filter(
+            (agent) => agent.status === 'running'
+          ).length,
+          failedAgents: Object.values(tree.agents ?? {}).filter(
+            (agent) => agent.status === 'failed'
+          ).length,
+          completedAgents: Object.values(tree.agents ?? {}).filter(
+            (agent) => agent.status === 'completed'
+          ).length,
+          maxDepth: Object.values(tree.agents ?? {}).reduce(
+            (maxDepth, agent) => Math.max(maxDepth, agent.depth),
+            0
+          ),
+          fallbackTriggered: Boolean(tree.fallbackTriggered)
+        }
     : null
 
   return {
-    requestId: detail.requestId,
+    requestId: normalizedDetail.requestId,
     messageId: assistantMessage?.id ?? '',
-    assistantName: detail.assistantName,
-    topicTitle: detail.topicTitle,
+    assistantName: normalizedDetail.assistantName,
+    topicTitle: normalizedDetail.topicTitle,
     description: tree
       ? `Loaded agent tree with ${summary?.totalAgents ?? 0} node(s).`
       : 'No agent tree is available for this task.',
     summary,
     tree: tree as NormalChatRuntimeAgentTree | null,
-    sourceLabel: 'task-detail'
+    sourceLabel: normalizedDetail.agentRuns.length > 0 ? 'task-detail' : 'legacy-runtime-trace'
   }
 }
 

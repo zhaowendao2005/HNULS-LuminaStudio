@@ -113,6 +113,7 @@
               :response-view-mode="snapshot.responseViewMode"
               @set-request-view-mode="detailShellStore.setRequestViewMode"
               @set-response-view-mode="detailShellStore.setResponseViewMode"
+              @open-agent-run="handleOpenAgentRun"
             />
 
             <ConversationDetailDialogLlmDetail
@@ -149,6 +150,7 @@ import type {
   ChatDetailShellDocItem
 } from '@renderer/stores/normal-chat/chat-detail-shell/chat-detail-shell.types'
 import { useNormalChatChatDetailShellStore } from '@renderer/stores/normal-chat/chat-detail-shell/chat-detail-shell.store'
+import { useNormalChatAgentDetailShellStore } from '@renderer/stores/normal-chat/agent-detail-shell/agent-detail-shell.store'
 import ConversationDetailDialogFunctioncallDetail from './ConversationDetailDialog.FunctioncallDetail.vue'
 import ConversationDetailDialogFunctioncallOverview from './ConversationDetailDialog.FunctioncallOverview.vue'
 import ConversationDetailDialogLlmDetail from './ConversationDetailDialog.LlmDetail.vue'
@@ -159,6 +161,7 @@ const OBSERVER_ROOT_MARGIN = '-8% 0px -70% 0px'
 const PROGRAMMATIC_SCROLL_LOCK_MS = 320
 
 const detailShellStore = useNormalChatChatDetailShellStore()
+const agentDetailShellStore = useNormalChatAgentDetailShellStore()
 const {
   snapshot,
   detail,
@@ -368,6 +371,18 @@ function formatTextPayload(doc: ChatDetailShellDocItem): string {
 
 function shouldRenderMarkdown(doc: ChatDetailShellDocItem): boolean {
   return doc.kind === 'markdown' || doc.kind === 'text'
+}
+
+async function handleOpenAgentRun(agentRunId: string): Promise<void> {
+  if (!snapshot.value.requestId || !agentRunId) {
+    return
+  }
+
+  await agentDetailShellStore.openDialog({
+    requestId: snapshot.value.requestId,
+    messageId: snapshot.value.messageId,
+    focusAgentRunId: agentRunId
+  })
 }
 
 watch(

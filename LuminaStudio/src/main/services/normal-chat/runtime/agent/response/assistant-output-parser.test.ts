@@ -65,4 +65,48 @@ describe('NormalChatAssistantOutputParser', () => {
       )
     ).toThrow('body markdown must not be empty')
   })
+
+  it('dedupes repeated paragraphs and duplicate action calls', () => {
+    const output = parser.parse(
+      [
+        '我会先开一个专项子 agent。',
+        '',
+        '我会先开一个专项子 agent。',
+        '',
+        '```normal_chat_action',
+        '{"actionKey":"system.dispatch_sub_agent","input":{"goal":"protein engineering","enabled_action_keys":["functioncall.pubmed_search"]}}',
+        '```',
+        '',
+        '```normal_chat_action',
+        '{"actionKey":"system.dispatch_sub_agent","input":{"enabled_action_keys":["functioncall.pubmed_search"],"goal":"protein engineering"}}',
+        '```'
+      ].join('\n')
+    )
+
+    expect(output.body_md).toBe('我会先开一个专项子 agent。')
+    expect(output.action_calls).toEqual([
+      {
+        actionKey: 'system.dispatch_sub_agent',
+        input: {
+          goal: 'protein engineering',
+          enabled_action_keys: ['functioncall.pubmed_search']
+        }
+      }
+    ])
+  })
+
+  it('removes leaked protocol fragments from body markdown', () => {
+    const output = parser.parse(
+      [
+        '我先并行检索。 normal_chat_action {"actionKey":"functioncall.pubmed_search","input":{"query":"protein engineering"}}',
+        '',
+        '```normal_chat_action',
+        '{"actionKey":"functioncall.pubmed_search","input":{"query":"protein engineering"}}',
+        '```'
+      ].join('\n')
+    )
+
+    expect(output.body_md).toBe('我先并行检索。')
+    expect(output.action_calls).toHaveLength(1)
+  })
 })

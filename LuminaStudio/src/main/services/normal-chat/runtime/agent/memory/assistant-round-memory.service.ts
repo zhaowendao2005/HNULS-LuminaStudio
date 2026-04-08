@@ -37,7 +37,6 @@ export class NormalChatAssistantRoundMemoryService {
   createArtifactFromAssistant(
     input: NormalChatAssistantOutputArtifactInput
   ): NormalChatAssistantRoundArtifact {
-    // memory artifact 的职责不是原样存档全文，而是为下一轮 prompt 和 trace 提供低成本、高判别度的摘要素材。
     const trimmedBody = truncateText(input.bodyMd.trim(), 400)
     return {
       roundIndex: input.roundIndex,
@@ -60,7 +59,6 @@ export class NormalChatAssistantRoundMemoryService {
     artifact: NormalChatAssistantRoundArtifact,
     batch: NormalChatActionExecutionBatchResult
   ): NormalChatAssistantRoundArtifact {
-    // action 结果会回填到刚刚产生 action_plan 的那条 artifact 上，确保“计划”和“结果”在记忆里仍属于同一个逻辑轮次。
     const successMarkdown = batch.results.map(projectActionResultMarkdown).join('\n\n')
     const feedbackMarkdown = batch.feedback
       .map((feedback) => {
@@ -107,7 +105,10 @@ export class NormalChatAssistantRoundMemoryService {
     return artifacts
       .map((artifact) => {
         const summary =
-          artifact.compactSummaryMd || artifact.resultSummaryMd || artifact.answerBodyMd || artifact.bodyMd
+          artifact.compactSummaryMd ||
+          artifact.resultSummaryMd ||
+          artifact.answerBodyMd ||
+          artifact.bodyMd
         return `- Round ${artifact.roundIndex}: ${truncateText(summary.replace(/\s+/g, ' '), 180)}`
       })
       .join('\n')
@@ -152,11 +153,15 @@ export class NormalChatAssistantRoundMemoryService {
   }
 
   buildDeterministicFinalSummary(input: {
-    actionResults: { title: string; status: string; modelFacingSummaryMd: string; errorMessage: string | null }[]
+    actionResults: {
+      title: string
+      status: string
+      modelFacingSummaryMd: string
+      errorMessage: string | null
+    }[]
     actionFeedback: NormalChatActionFeedback[]
     assistantArtifacts: NormalChatAssistantRoundArtifact[]
   }): string {
-    // 当模型没有产出合格 synthesis 时，仍要保证最终落库/落消息的是“基于结果的总结”，而不是 action 前的等待话术。
     const latestArtifact = input.assistantArtifacts.at(-1)
     const successfulResults = input.actionResults.filter((item) => item.status === 'success')
     const failedFeedback = input.actionFeedback.filter((item) => item.status === 'execution_error')
@@ -165,17 +170,15 @@ export class NormalChatAssistantRoundMemoryService {
     if (successfulResults.length > 0) {
       lines.push('', '已完成事项：')
       lines.push(
-        ...successfulResults.map((item) => `- ${item.title}: ${truncateText(item.modelFacingSummaryMd, 220)}`)
+        ...successfulResults.map(
+          (item) => `- ${item.title}: ${truncateText(item.modelFacingSummaryMd, 220)}`
+        )
       )
     }
 
     if (failedFeedback.length > 0) {
       lines.push('', '失败事项：')
       lines.push(...failedFeedback.map((item) => `- ${item.title}: ${item.message}`))
-    }
-
-    if (latestArtifact?.childSummariesMd) {
-      lines.push('', '子代理摘要：', latestArtifact.childSummariesMd)
     }
 
     if (latestArtifact?.answerBodyMd) {
@@ -186,7 +189,8 @@ export class NormalChatAssistantRoundMemoryService {
   }
 
   private buildCompactSummary(artifact: NormalChatAssistantRoundArtifact): string {
-    const source = artifact.resultSummaryMd || artifact.answerBodyMd || artifact.planBodyMd || artifact.bodyMd
+    const source =
+      artifact.resultSummaryMd || artifact.answerBodyMd || artifact.planBodyMd || artifact.bodyMd
     return truncateText(source.replace(/\s+/g, ' '), 180)
   }
 }

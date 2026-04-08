@@ -27,7 +27,10 @@ import ChatComposerPanel from './ChatComposerPanel.vue'
 import AssistantSettingsModal from './AssistantSettingsModal.vue'
 import AgentTreeDialog from './AgentTreeDialog.vue'
 import ConversationDetailDialog from './ConversationDetailDialog.vue'
-import type { NormalChatConversationDisplayMessage } from '@renderer/stores/normal-chat/conversation/conversation.types'
+import type {
+  NormalChatConversationDisplayMessage,
+  NormalChatRenderBlock
+} from '@renderer/stores/normal-chat/conversation/conversation.types'
 import { useNormalChatConversationStore } from '@renderer/stores/normal-chat/conversation/conversation.store'
 import { useNormalChatChatDetailShellStore } from '@renderer/stores/normal-chat/chat-detail-shell/chat-detail-shell.store'
 import { useNormalChatAgentDetailShellStore } from '@renderer/stores/normal-chat/agent-detail-shell/agent-detail-shell.store'
@@ -49,25 +52,40 @@ async function handleCopyMessage(message: NormalChatConversationDisplayMessage):
   }
 }
 
+// 复制逻辑与主聊天渲染保持一致，统一从 render blocks 序列化，避免再回退到 raw parts。
 function serializeMessageForCopy(message: NormalChatConversationDisplayMessage): string {
-  if (message.parts.length === 0) {
+  if (message.blocks.length === 0) {
     return message.text
   }
 
-  return message.parts
+  return message.blocks
+    .map((block) => serializeBlockForCopy(block))
+    .filter(Boolean)
+    .join('\n\n')
+    .trim()
+}
+
+function serializeBlockForCopy(block: NormalChatRenderBlock): string {
+  if (block.kind === 'markdown') {
+    return block.text
+  }
+
+  if (block.kind === 'thinking') {
+    return [`Thinking: ${block.part.title}`, block.part.content].join('\n')
+  }
+
+  if (block.kind === 'placeholder') {
+    return ''
+  }
+
+  if (block.kind === 'subagent') {
+    return [`SubAgent: ${block.goal}`, `ChildAgentRunId: ${block.childAgentRunId ?? '--'}`].join(
+      '\n'
+    )
+  }
+
+  return block.calls
     .map((part) => {
-      if (part.kind === 'text') {
-        return part.text
-      }
-
-      if (part.kind === 'thinking') {
-        return [`Thinking: ${part.title}`, part.content].join('\n')
-      }
-
-      if (part.kind !== 'functioncall') {
-        return ''
-      }
-
       const sections = [
         `FunctionCall: ${part.title}`,
         `CallName: ${part.functionCallName}`,
@@ -82,7 +100,6 @@ function serializeMessageForCopy(message: NormalChatConversationDisplayMessage):
       return sections.join('\n')
     })
     .join('\n\n')
-    .trim()
 }
 
 async function handleDeleteMessage(message: NormalChatConversationDisplayMessage): Promise<void> {
@@ -119,14 +136,18 @@ async function handleOpenMessageSession(
   })
 }
 
-async function handleOpenAgentTree(message: NormalChatConversationDisplayMessage): Promise<void> {
-  if (!message.requestId) {
+async function handleOpenAgentTree(payload: {
+  message: NormalChatConversationDisplayMessage
+  agentRunId: string
+}): Promise<void> {
+  if (!payload.message.requestId) {
     return
   }
 
   await agentDetailShellStore.openDialog({
-    requestId: message.requestId,
-    messageId: message.id
+    requestId: payload.message.requestId,
+    messageId: payload.message.id,
+    focusAgentRunId: payload.agentRunId
   })
 }
 

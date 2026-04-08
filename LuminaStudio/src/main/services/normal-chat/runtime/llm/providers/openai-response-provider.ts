@@ -4,17 +4,22 @@ import type { NormalChatModelStreamEvent } from '../model-adapter.interface'
 import type { NormalChatProviderConfig } from './provider-config.types'
 import type { NormalChatProviderPromptInput } from './index'
 import { extractProviderError } from './provider-error'
+import { createProviderRequestCaptureFetch } from './provider-request-capture'
 
 function normalizeBaseUrl(baseUrl: string): string {
   const trimmed = baseUrl.trim().replace(/\/$/, '')
   return trimmed.endsWith('/v1') ? trimmed : `${trimmed}/v1`
 }
 
-function createClient(config: NormalChatProviderConfig): OpenAI {
+function createClient(config: NormalChatProviderConfig, streaming: boolean): OpenAI {
   return new OpenAI({
     apiKey: config.apiKey,
     baseURL: config.baseUrl ? normalizeBaseUrl(config.baseUrl) : undefined,
-    defaultHeaders: config.defaultHeaders
+    defaultHeaders: config.defaultHeaders,
+    fetch: createProviderRequestCaptureFetch({
+      config,
+      streaming
+    })
   })
 }
 
@@ -22,7 +27,7 @@ export async function callOpenAIResponseProvider(
   config: NormalChatProviderConfig,
   prompt: NormalChatProviderPromptInput
 ): Promise<string> {
-  const client = createClient(config)
+  const client = createClient(config, false)
 
   try {
     const response = await client.responses.create({
@@ -59,7 +64,7 @@ export async function* streamOpenAIResponseProvider(
   config: NormalChatProviderConfig,
   prompt: NormalChatProviderPromptInput
 ): AsyncGenerator<NormalChatModelStreamEvent, string, void> {
-  const client = createClient(config)
+  const client = createClient(config, true)
 
   try {
     const startedAt = Date.now()

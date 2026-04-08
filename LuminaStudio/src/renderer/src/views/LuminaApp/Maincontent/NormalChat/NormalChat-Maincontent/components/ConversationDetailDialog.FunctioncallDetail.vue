@@ -9,31 +9,42 @@
           </p>
         </div>
 
-        <div class="flex items-center rounded-xl bg-gray-100 p-1">
+        <div class="flex items-center gap-3">
           <button
-            class="rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors"
-            :class="
-              requestViewMode === 'json'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-500 hover:text-gray-800'
-            "
+            v-if="canOpenSubAgent"
+            class="flex h-9 items-center rounded-xl border border-sky-200 bg-sky-50 px-3 text-[12px] font-medium text-sky-700 transition-colors hover:bg-sky-100"
             type="button"
-            @click="emit('set-request-view-mode', 'json')"
+            @click="emit('open-agent-run', item?.childAgentRunId ?? '')"
           >
-            JSON
+            打开子代理
           </button>
-          <button
-            class="rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors"
-            :class="
-              requestViewMode === 'yaml'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-500 hover:text-gray-800'
-            "
-            type="button"
-            @click="emit('set-request-view-mode', 'yaml')"
-          >
-            YAML
-          </button>
+
+          <div class="flex items-center rounded-xl bg-gray-100 p-1">
+            <button
+              class="rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors"
+              :class="
+                requestViewMode === 'json'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-800'
+              "
+              type="button"
+              @click="emit('set-request-view-mode', 'json')"
+            >
+              JSON
+            </button>
+            <button
+              class="rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors"
+              :class="
+                requestViewMode === 'yaml'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-800'
+              "
+              type="button"
+              @click="emit('set-request-view-mode', 'yaml')"
+            >
+              YAML
+            </button>
+          </div>
         </div>
       </div>
 
@@ -99,13 +110,14 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import type {
   ChatDetailDataViewMode,
   ChatDetailShellFunctioncallItem
 } from '@renderer/stores/normal-chat/chat-detail-shell/chat-detail-shell.types'
 import StructuredCodeViewer from './StructuredCodeViewer.vue'
 
-defineProps<{
+const props = defineProps<{
   item: ChatDetailShellFunctioncallItem | null
   requestViewMode: ChatDetailDataViewMode
   responseViewMode: ChatDetailDataViewMode
@@ -114,5 +126,14 @@ defineProps<{
 const emit = defineEmits<{
   'set-request-view-mode': [mode: ChatDetailDataViewMode]
   'set-response-view-mode': [mode: ChatDetailDataViewMode]
+  'open-agent-run': [agentRunId: string]
 }>()
+
+// 子代理不再出现在主聊天流，统一从 functioncall detail 跳转到 Agent 面板查看。
+const canOpenSubAgent = computed(() => {
+  return (
+    props.item?.part.functionCallName === 'system.dispatch_sub_agent' &&
+    Boolean(props.item.childAgentRunId)
+  )
+})
 </script>

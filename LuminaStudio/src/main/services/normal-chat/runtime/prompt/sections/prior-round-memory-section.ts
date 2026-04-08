@@ -18,15 +18,13 @@ export function buildPriorRoundMemorySection(input: {
                 .map((item) => `- ${item.actionKey}(${item.inputPreview})`)
                 .join('\n')
             : '(none)'
-          // action_plan 轮在 memory 中只作为“计划上下文”存在，明确不用 Assistant summary 标签，避免误导模型把旧计划当最终结论。
-          const leadingBody = artifact.turnKind === 'action_plan'
-            ? artifact.planBodyMd || '(empty)'
-            : artifact.answerBodyMd || artifact.bodyMd || '(empty)'
-          const leadingLabel = artifact.turnKind === 'action_plan' ? 'Action plan note:' : 'Assistant summary:'
+          const leadingBody =
+            artifact.turnKind === 'action_plan'
+              ? artifact.planBodyMd || '(empty)'
+              : artifact.answerBodyMd || artifact.bodyMd || '(empty)'
+          const leadingLabel =
+            artifact.turnKind === 'action_plan' ? 'Action plan note:' : 'Assistant summary:'
           const resultSummary = artifact.resultSummaryMd || '(no action results yet)'
-          const childSummaries = artifact.childSummariesMd
-            ? `\n\nChild summaries:\n${artifact.childSummariesMd}`
-            : ''
 
           return [
             `### Round ${artifact.roundIndex}`,
@@ -38,8 +36,7 @@ export function buildPriorRoundMemorySection(input: {
             plannedActions,
             '',
             'Outcome summary:',
-            resultSummary,
-            childSummaries
+            resultSummary
           ].join('\n')
         })
         .join('\n\n')

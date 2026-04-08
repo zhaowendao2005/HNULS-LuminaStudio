@@ -13,13 +13,18 @@ import type {
 } from '@preload/types'
 import { useNormalChatWorkspaceStore } from '../workspace/workspace.store'
 import { NormalChatConversationDatasource } from './conversation.datasource'
-import type { NormalChatConversationDisplayMessage } from './conversation.types'
+import type {
+  NormalChatConversationDisplayMessage,
+  NormalChatPendingSubAgentRecord,
+  NormalChatPendingTextAppendInput,
+  NormalChatRenderBlock,
+  NormalChatStreamOverlayState
+} from './conversation.types'
 
 interface ConversationRuntimeState {
   messagesByTopicId: Record<string, NormalChatConversationMessage[]>
   draftByTopicId: Record<string, string>
-  pendingAssistantMessageByTopicId: Record<string, NormalChatConversationMessage | null>
-  pendingAssistantRoundByTopicId: Record<string, number | null>
+  streamOverlayByRequestId: Record<string, NormalChatStreamOverlayState | null>
   activeRequestIdByTopicId: Record<string, string>
   sendingByTopicId: Record<string, boolean>
   statusTextByTopicId: Record<string, string>
@@ -27,21 +32,22 @@ interface ConversationRuntimeState {
   lastErrorDetailByTopicId: Record<string, string>
   requestMetricsByRequestId: Record<string, NormalChatRequestMetrics | null>
   taskDetailByRequestId: Record<string, NormalChatTaskDetail | null>
+  pendingSubAgentsByRequestId: Record<string, Record<string, NormalChatPendingSubAgentRecord>>
 }
 
 function createEmptyState(): ConversationRuntimeState {
   return {
     messagesByTopicId: {},
     draftByTopicId: {},
-    pendingAssistantMessageByTopicId: {},
-    pendingAssistantRoundByTopicId: {},
+    streamOverlayByRequestId: {},
     activeRequestIdByTopicId: {},
     sendingByTopicId: {},
     statusTextByTopicId: {},
     lastErrorByTopicId: {},
     lastErrorDetailByTopicId: {},
     requestMetricsByRequestId: {},
-    taskDetailByRequestId: {}
+    taskDetailByRequestId: {},
+    pendingSubAgentsByRequestId: {}
   }
 }
 
@@ -57,40 +63,27 @@ function formatTime(value: string): string {
   })
 }
 
-function extractMessageText(message: NormalChatConversationMessage): string {
-  return message.parts
-    .filter((part) => part.kind === 'text')
+// 从原始 parts 提取主聊天区可见正文。这里只负责派生文本，不参与渲染分组。
+function buildMarkdownText(parts: NormalChatMessagePart[]): string {
+  return parts
+    .filter(
+      (part): part is Extract<NormalChatMessagePart, { kind: 'text' }> => part.kind === 'text'
+    )
     .map((part) => part.text)
-    .join('')
+    .join('\n\n')
 }
 
-function createDisplayMessage(
-  message: NormalChatConversationMessage,
-  assistantName: string,
-  time = formatTime(message.createdAt)
-): NormalChatConversationDisplayMessage {
-  return {
-    ...message,
-    author: message.role === 'user' ? '你' : assistantName,
-    time,
-    text: extractMessageText(message),
-    requestMetrics: null
-  }
-}
-
-function createPendingAssistantMessage(
-  topicId: string,
-  requestId: string
-): NormalChatConversationMessage {
+function createStreamOverlay(topicId: string, requestId: string): NormalChatStreamOverlayState {
   const now = new Date().toISOString()
   return {
-    id: `${topicId}-pending-assistant-${requestId}`,
-    topicId,
     requestId,
-    role: 'assistant',
-    parts: [],
+    topicId,
     createdAt: now,
-    updatedAt: now
+    updatedAt: now,
+    parts: [],
+    subAgents: [],
+    placeholderLabel: '正在生成…',
+    isFinished: false
   }
 }
 
@@ -103,18 +96,30 @@ function findLastTextPartIndex(parts: NormalChatMessagePart[]): number {
   return -1
 }
 
-function upsertPendingFunctionCallPart(
-  message: NormalChatConversationMessage,
+function isSameTextSegment(
+  part: NormalChatMessagePart,
+  input: Pick<NormalChatPendingTextAppendInput, 'modelCallId' | 'turnKind' | 'roundIndex' | 'depth'>
+): part is Extract<NormalChatMessagePart, { kind: 'text' }> {
+  return (
+    part.kind === 'text' &&
+    part.modelCallId === input.modelCallId &&
+    part.turnKind === input.turnKind &&
+    part.roundIndex === input.roundIndex &&
+    part.depth === input.depth
+  )
+}
+
+function upsertFunctionCallPart(
+  parts: NormalChatConversationMessage['parts'],
   part: NormalChatFunctionCallMessagePart
-): NormalChatConversationMessage {
-  const now = new Date().toISOString()
-  const existingIndex = message.parts.findIndex(
+): NormalChatConversationMessage['parts'] {
+  const existingIndex = parts.findIndex(
     (item): item is NormalChatFunctionCallMessagePart =>
       item.kind === 'functioncall' && item.callId === part.callId
   )
 
   const previousPart =
-    existingIndex >= 0 ? (message.parts[existingIndex] as NormalChatFunctionCallMessagePart) : null
+    existingIndex >= 0 ? (parts[existingIndex] as NormalChatFunctionCallMessagePart) : null
 
   const nextPart: NormalChatFunctionCallMessagePart =
     existingIndex >= 0 && previousPart
@@ -133,61 +138,200 @@ function upsertPendingFunctionCallPart(
         }
       : part
 
-  const nextParts = [...message.parts]
+  const nextParts = [...parts]
   if (existingIndex >= 0) {
     nextParts[existingIndex] = nextPart
   } else {
     nextParts.push(nextPart)
   }
 
-  return {
-    ...message,
-    parts: nextParts,
-    updatedAt: now
-  }
+  return nextParts
 }
 
-function mergeCommittedAssistantMessageWithPending(
-  message: NormalChatConversationMessage,
-  pendingMessage: NormalChatConversationMessage | null
-): NormalChatConversationMessage {
-  if (!pendingMessage || message.role !== 'assistant') {
-    return message
+function textPartIdentity(
+  part: Extract<NormalChatMessagePart, { kind: 'text' }>,
+  index: number
+): string {
+  if (
+    part.modelCallId !== undefined ||
+    part.turnKind !== undefined ||
+    part.roundIndex !== undefined ||
+    part.depth !== undefined
+  ) {
+    return [
+      'text',
+      part.modelCallId ?? 'none',
+      part.turnKind ?? 'none',
+      part.roundIndex ?? 'none',
+      part.depth ?? 'none'
+    ].join(':')
   }
 
-  const committedFunctionCallIds = new Set(
-    message.parts
-      .filter((part): part is NormalChatFunctionCallMessagePart => part.kind === 'functioncall')
-      .map((part) => part.callId)
-  )
-  const committedThinkingKeys = new Set(
-    message.parts
-      .filter((part) => part.kind === 'thinking')
-      .map((part) => `${part.title}:${part.roundIndex}:${part.depth}`)
-  )
+  return ['text-legacy', index, part.text].join(':')
+}
 
-  const preservedParts = pendingMessage.parts.filter((part) => {
-    if (part.kind === 'functioncall') {
-      return !committedFunctionCallIds.has(part.callId)
+function partIdentity(part: NormalChatMessagePart, index: number): string {
+  if (part.kind === 'functioncall') {
+    return `functioncall:${part.callId}`
+  }
+  if (part.kind === 'thinking') {
+    return `thinking:${part.title}:${part.roundIndex}:${part.depth}`
+  }
+  return textPartIdentity(part, index)
+}
+
+// 把 committed raw parts 与 request 级 overlay 合并成一份稳定的原始 part 列表。
+// 规则：overlay 先决定顺序，base 再覆盖同 identity 的最终字段。
+function mergeRawAndOverlayParts(
+  baseParts: NormalChatConversationMessage['parts'],
+  overlayParts: NormalChatConversationMessage['parts']
+): NormalChatConversationMessage['parts'] {
+  if (overlayParts.length === 0) {
+    return baseParts
+  }
+
+  const order: string[] = []
+  const partMap = new Map<string, NormalChatMessagePart>()
+
+  const applyPart = (
+    part: NormalChatMessagePart,
+    index: number,
+    source: 'overlay' | 'base'
+  ): void => {
+    const key = partIdentity(part, index)
+    if (!order.includes(key)) {
+      order.push(key)
     }
+    if (source === 'base' || !partMap.has(key)) {
+      partMap.set(key, part)
+    }
+  }
+
+  overlayParts.forEach((part, index) => applyPart(part, index, 'overlay'))
+  baseParts.forEach((part, index) => applyPart(part, index, 'base'))
+
+  return order
+    .map((key) => partMap.get(key))
+    .filter((part): part is NormalChatMessagePart => Boolean(part))
+}
+
+// 统一把原始 parts 投影为渲染块。
+// 注意：subagent 不再进入主聊天流，因此这里显式跳过 system.dispatch_sub_agent。
+function buildRenderBlocks(input: {
+  parts: NormalChatConversationMessage['parts']
+  subAgents: NormalChatPendingSubAgentRecord[]
+  isPending: boolean
+  placeholderLabel: string
+}): NormalChatRenderBlock[] {
+  const blocks: NormalChatRenderBlock[] = []
+  let batchIndex = 0
+  let currentBatch: NormalChatFunctionCallMessagePart[] = []
+  const subAgentByActionRunId = new Map(
+    input.subAgents.map((record) => [record.actionRunId, record])
+  )
+  const renderedSubAgentActionRunIds = new Set<string>()
+
+  const flushBatch = () => {
+    if (currentBatch.length === 0) {
+      return
+    }
+
+    blocks.push({
+      kind: 'function-batch',
+      key: `function-batch:${batchIndex}:${currentBatch[0]?.callId ?? 'unknown'}`,
+      batchIndex,
+      calls: currentBatch
+    })
+    batchIndex += 1
+    currentBatch = []
+  }
+
+  for (const [index, part] of input.parts.entries()) {
+    if (part.kind === 'text') {
+      flushBatch()
+      blocks.push({
+        kind: 'markdown',
+        key: textPartIdentity(part, index),
+        text: part.text,
+        modelCallId: part.modelCallId ?? null,
+        turnKind: part.turnKind,
+        roundIndex: part.roundIndex,
+        depth: part.depth
+      })
+      continue
+    }
+
     if (part.kind === 'thinking') {
-      return !committedThinkingKeys.has(`${part.title}:${part.roundIndex}:${part.depth}`)
+      flushBatch()
+      blocks.push({
+        kind: 'thinking',
+        key: `thinking:${part.title}:${part.roundIndex}:${part.depth}`,
+        part
+      })
+      continue
     }
-    return false
-  })
 
-  if (preservedParts.length === 0) {
-    return message
+    if (part.functionCallName === 'system.dispatch_sub_agent') {
+      flushBatch()
+      const record = subAgentByActionRunId.get(part.callId)
+      renderedSubAgentActionRunIds.add(part.callId)
+      blocks.push({
+        kind: 'subagent',
+        key: `subagent:${part.callId}`,
+        actionRunId: part.callId,
+        childAgentRunId: record?.childAgentRunId ?? null,
+        goal: record?.goal ?? part.title,
+        roundIndex: record?.roundIndex ?? part.roundIndex,
+        batchIndex: record?.batchIndex ?? part.batchIndex,
+        parallelIndex: record?.parallelIndex ?? part.parallelIndex,
+        depth: record?.depth ?? part.depth,
+        status:
+          part.status === 'success'
+            ? 'completed'
+            : part.status === 'error' || part.status === 'aborted'
+              ? 'failed'
+              : 'created'
+      })
+      continue
+    }
+
+    currentBatch.push(part)
   }
 
-  const nonTextParts = message.parts.filter((part) => part.kind !== 'text')
-  const textParts = message.parts.filter((part) => part.kind === 'text')
-  return {
-    ...message,
-    parts: [...preservedParts, ...nonTextParts, ...textParts]
+  flushBatch()
+
+  const orphanSubAgents = input.subAgents
+    .filter((record) => !renderedSubAgentActionRunIds.has(record.actionRunId))
+    .sort((left, right) => left.createdAt.localeCompare(right.createdAt))
+
+  for (const record of orphanSubAgents) {
+    blocks.push({
+      kind: 'subagent',
+      key: `subagent:${record.actionRunId}`,
+      actionRunId: record.actionRunId,
+      childAgentRunId: record.childAgentRunId,
+      goal: record.goal,
+      roundIndex: record.roundIndex,
+      batchIndex: record.batchIndex,
+      parallelIndex: record.parallelIndex,
+      depth: record.depth,
+      status: 'created'
+    })
   }
+
+  if (blocks.length === 0 && input.isPending) {
+    blocks.push({
+      kind: 'placeholder',
+      key: 'placeholder:pending',
+      label: input.placeholderLabel
+    })
+  }
+
+  return blocks
 }
 
+// 生成主聊天区最终展示消息。
+// 这是 renderer 的规范模型入口，UI 组件不应再直接依赖 raw message 结构。
 function buildRequestMetrics(detail: NormalChatTaskDetail): NormalChatRequestMetrics {
   return {
     providerId: detail.modelProviderId,
@@ -200,6 +344,43 @@ function buildRequestMetrics(detail: NormalChatTaskDetail): NormalChatRequestMet
     totalTokens: null,
     modelCallCount: detail.modelCalls.length,
     streamingEnabled: detail.executionSnapshot.runtime.streamingEnabled
+  }
+}
+
+function createDisplayMessage(input: {
+  messageId: string
+  topicId: string
+  requestId: string
+  role: NormalChatConversationMessage['role']
+  createdAt: string
+  updatedAt: string
+  assistantName: string
+  parts: NormalChatConversationMessage['parts']
+  isPending: boolean
+  requestMetrics: NormalChatRequestMetrics | null
+  placeholderLabel?: string
+  subAgents?: NormalChatPendingSubAgentRecord[]
+}): NormalChatConversationDisplayMessage {
+  const blocks = buildRenderBlocks({
+    parts: input.parts,
+    subAgents: input.subAgents ?? [],
+    isPending: input.isPending,
+    placeholderLabel: input.placeholderLabel ?? '正在生成…'
+  })
+
+  return {
+    id: input.messageId,
+    topicId: input.topicId,
+    requestId: input.requestId,
+    role: input.role,
+    createdAt: input.createdAt,
+    updatedAt: input.updatedAt,
+    author: input.role === 'user' ? '你' : input.assistantName,
+    time: input.isPending ? '正在生成' : formatTime(input.createdAt),
+    text: buildMarkdownText(input.parts),
+    blocks,
+    isPending: input.isPending,
+    requestMetrics: input.requestMetrics
   }
 }
 
@@ -264,27 +445,75 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
     return `在「${currentTopic.value.title}」里输入消息，Enter 发送，Shift+Enter 换行`
   })
   const currentDisplayMessages = computed<NormalChatConversationDisplayMessage[]>(() => {
-    if (!currentTopic.value) {
+    const topic = currentTopic.value
+    if (!topic) {
       return []
     }
 
     const assistantName = workspaceStore.currentAssistant?.name ?? '助手'
-    const messages = state.value.messagesByTopicId[currentTopic.value.id] ?? []
-    const displayMessages = messages.map((message) => createDisplayMessage(message, assistantName))
-    const pendingMessage = state.value.pendingAssistantMessageByTopicId[currentTopic.value.id]
+    const activeRequestId = state.value.activeRequestIdByTopicId[topic.id] ?? null
+    const messages = state.value.messagesByTopicId[topic.id] ?? []
+    const overlays = state.value.streamOverlayByRequestId
+    const displayMessages: NormalChatConversationDisplayMessage[] = []
+    const renderedAssistantRequestIds = new Set<string>()
 
-    if (pendingMessage) {
-      displayMessages.push({
-        ...createDisplayMessage(pendingMessage, assistantName, '正在生成'),
-        isPending: true,
-        requestMetrics: state.value.requestMetricsByRequestId[pendingMessage.requestId] ?? null
-      })
+    for (const message of messages) {
+      const overlay = message.role === 'assistant' ? (overlays[message.requestId] ?? null) : null
+      const mergedParts = overlay
+        ? mergeRawAndOverlayParts(message.parts, overlay.parts)
+        : message.parts
+      displayMessages.push(
+        createDisplayMessage({
+          messageId: message.id,
+          topicId: message.topicId,
+          requestId: message.requestId,
+          role: message.role,
+          createdAt: message.createdAt,
+          updatedAt: message.updatedAt,
+          assistantName,
+          parts: mergedParts,
+          isPending: Boolean(message.role === 'assistant' && activeRequestId === message.requestId),
+          requestMetrics: state.value.requestMetricsByRequestId[message.requestId] ?? null,
+          placeholderLabel: overlay?.placeholderLabel,
+          subAgents: overlay?.subAgents ?? []
+        })
+      )
+      if (message.role === 'assistant') {
+        renderedAssistantRequestIds.add(message.requestId)
+      }
     }
 
-    return displayMessages.map((message) => ({
-      ...message,
-      requestMetrics: state.value.requestMetricsByRequestId[message.requestId] ?? null
-    }))
+    for (const overlay of Object.values(overlays)) {
+      if (!overlay || overlay.topicId !== topic.id) {
+        continue
+      }
+      if (renderedAssistantRequestIds.has(overlay.requestId)) {
+        continue
+      }
+      if (activeRequestId !== overlay.requestId) {
+        continue
+      }
+
+      displayMessages.push(
+        createDisplayMessage({
+          messageId: `${topic.id}-pending-assistant-${overlay.requestId}`,
+          topicId: topic.id,
+          requestId: overlay.requestId,
+          role: 'assistant',
+          createdAt: overlay.createdAt,
+          updatedAt: overlay.updatedAt,
+          assistantName,
+          parts: overlay.parts,
+          isPending: true,
+          requestMetrics: state.value.requestMetricsByRequestId[overlay.requestId] ?? null,
+          placeholderLabel: overlay.placeholderLabel,
+          subAgents: overlay.subAgents
+        })
+      )
+    }
+
+    displayMessages.sort((left, right) => left.createdAt.localeCompare(right.createdAt))
+    return displayMessages
   })
 
   function getTopicActiveRequestId(topicId: string): string | null {
@@ -340,10 +569,16 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
     await NormalChatConversationDatasource.deleteConversationTurn({ requestId })
     const nextTaskDetailByRequestId = { ...state.value.taskDetailByRequestId }
     const nextRequestMetricsByRequestId = { ...state.value.requestMetricsByRequestId }
+    const nextOverlays = { ...state.value.streamOverlayByRequestId }
+    const nextPendingSubAgents = { ...state.value.pendingSubAgentsByRequestId }
     delete nextTaskDetailByRequestId[requestId]
     delete nextRequestMetricsByRequestId[requestId]
+    delete nextOverlays[requestId]
+    delete nextPendingSubAgents[requestId]
     state.value.taskDetailByRequestId = nextTaskDetailByRequestId
     state.value.requestMetricsByRequestId = nextRequestMetricsByRequestId
+    state.value.streamOverlayByRequestId = nextOverlays
+    state.value.pendingSubAgentsByRequestId = nextPendingSubAgents
     if (currentTopicId.value) {
       await loadTopicConversation(currentTopicId.value)
     }
@@ -360,102 +595,97 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
     }
   }
 
+  function clearTopicOverlays(topicId: string): void {
+    const nextOverlays = { ...state.value.streamOverlayByRequestId }
+    for (const [requestId, overlay] of Object.entries(nextOverlays)) {
+      if (overlay?.topicId === topicId) {
+        delete nextOverlays[requestId]
+      }
+    }
+    state.value.streamOverlayByRequestId = nextOverlays
+  }
+
   function upsertMessage(message: NormalChatConversationMessage): void {
     const current = ensureTopicMessageBucket(message.topicId)
-    const pendingMessage = state.value.pendingAssistantMessageByTopicId[message.topicId] ?? null
-    const mergedMessage = mergeCommittedAssistantMessageWithPending(message, pendingMessage)
     const next = current.filter((item) => item.id !== message.id)
-    next.push(mergedMessage)
+    next.push(message)
     next.sort((a, b) => a.createdAt.localeCompare(b.createdAt))
     setTopicMessages(message.topicId, next)
   }
 
-  function upsertPendingAssistantMessage(
+  function updateOverlay(
     topicId: string,
     requestId: string,
-    updater: (message: NormalChatConversationMessage) => NormalChatConversationMessage
+    updater: (overlay: NormalChatStreamOverlayState) => NormalChatStreamOverlayState
   ): void {
-    const current = state.value.pendingAssistantMessageByTopicId[topicId]
-    const nextMessage = updater(current ?? createPendingAssistantMessage(topicId, requestId))
-
-    state.value.pendingAssistantMessageByTopicId = {
-      ...state.value.pendingAssistantMessageByTopicId,
-      [topicId]: nextMessage
+    const current =
+      state.value.streamOverlayByRequestId[requestId] ?? createStreamOverlay(topicId, requestId)
+    state.value.streamOverlayByRequestId = {
+      ...state.value.streamOverlayByRequestId,
+      [requestId]: updater(current)
     }
   }
 
-  function appendPendingText(topicId: string, requestId: string, delta: string): void {
-    upsertPendingAssistantMessage(topicId, requestId, (message) => {
-      const now = new Date().toISOString()
-      const nextParts = [...message.parts]
+  function appendOverlayText(
+    topicId: string,
+    requestId: string,
+    input: NormalChatPendingTextAppendInput
+  ): void {
+    updateOverlay(topicId, requestId, (overlay) => {
+      const nextParts = [...overlay.parts]
       const lastTextIndex = findLastTextPartIndex(nextParts)
-      const hasFunctionCallAfterText =
-        lastTextIndex >= 0 &&
-        nextParts.slice(lastTextIndex + 1).some((part) => part.kind === 'functioncall')
+      const currentTextPart =
+        lastTextIndex >= 0
+          ? (nextParts[lastTextIndex] as Extract<NormalChatMessagePart, { kind: 'text' }>)
+          : null
 
-      if (lastTextIndex === -1 || hasFunctionCallAfterText) {
-        nextParts.push({ kind: 'text', text: delta })
-        return {
-          ...message,
-          parts: nextParts,
-          updatedAt: now
+      if (!currentTextPart || !isSameTextSegment(currentTextPart, input)) {
+        nextParts.push({
+          kind: 'text',
+          text: input.delta,
+          modelCallId: input.modelCallId,
+          turnKind: input.turnKind,
+          roundIndex: input.roundIndex,
+          depth: input.depth
+        })
+      } else {
+        nextParts[lastTextIndex] = {
+          ...currentTextPart,
+          text: `${currentTextPart.text ?? ''}${input.delta}`
         }
       }
 
-      const currentTextPart = nextParts[lastTextIndex] as Extract<
-        NormalChatMessagePart,
-        { kind: 'text' }
-      >
-      nextParts[lastTextIndex] = {
-        kind: 'text',
-        text: `${currentTextPart.text ?? ''}${delta}`
-      }
-
       return {
-        ...message,
+        ...overlay,
         parts: nextParts,
-        updatedAt: now
+        subAgents: overlay.subAgents,
+        updatedAt: new Date().toISOString(),
+        placeholderLabel: '正在生成…'
       }
     })
   }
 
-  function appendPendingBodyDelta(
-    topicId: string,
-    requestId: string,
-    roundIndex: number,
-    delta: string
-  ): void {
-    const previousRound = state.value.pendingAssistantRoundByTopicId[topicId] ?? null
-    const needsRoundSeparator = previousRound !== null && previousRound !== roundIndex
-
-    if (needsRoundSeparator) {
-      appendPendingText(topicId, requestId, '\n\n')
-    }
-
-    state.value.pendingAssistantRoundByTopicId = {
-      ...state.value.pendingAssistantRoundByTopicId,
-      [topicId]: roundIndex
-    }
-    appendPendingText(topicId, requestId, delta)
-  }
-
-  function upsertPendingFunctionCall(
+  function upsertOverlayFunctionCall(
     topicId: string,
     requestId: string,
     part: NormalChatFunctionCallMessagePart
   ): void {
-    upsertPendingAssistantMessage(topicId, requestId, (message) =>
-      upsertPendingFunctionCallPart(message, part)
-    )
+    updateOverlay(topicId, requestId, (overlay) => ({
+      ...overlay,
+      parts: upsertFunctionCallPart(overlay.parts, part),
+      subAgents: overlay.subAgents,
+      updatedAt: new Date().toISOString(),
+      placeholderLabel: '正在生成…'
+    }))
   }
 
-  function upsertPendingThinking(
+  function upsertOverlayThinking(
     topicId: string,
     requestId: string,
     part: NormalChatThinkingMessagePart
   ): void {
-    upsertPendingAssistantMessage(topicId, requestId, (message) => {
-      const existingIndex = message.parts.findIndex(
+    updateOverlay(topicId, requestId, (overlay) => {
+      const existingIndex = overlay.parts.findIndex(
         (item): item is NormalChatThinkingMessagePart =>
           item.kind === 'thinking' &&
           item.title === part.title &&
@@ -463,7 +693,7 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
           item.depth === part.depth
       )
 
-      const nextParts = [...message.parts]
+      const nextParts = [...overlay.parts]
       if (existingIndex >= 0) {
         nextParts[existingIndex] = {
           ...(nextParts[existingIndex] as NormalChatThinkingMessagePart),
@@ -474,21 +704,67 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
       }
 
       return {
-        ...message,
+        ...overlay,
         parts: nextParts,
+        subAgents: overlay.subAgents,
+        updatedAt: new Date().toISOString(),
+        placeholderLabel: '正在生成…'
+      }
+    })
+  }
+
+  function markOverlayFinished(requestId: string): void {
+    const overlay = state.value.streamOverlayByRequestId[requestId]
+    if (!overlay) {
+      return
+    }
+
+    state.value.streamOverlayByRequestId = {
+      ...state.value.streamOverlayByRequestId,
+      [requestId]: {
+        ...overlay,
+        isFinished: true,
+        updatedAt: new Date().toISOString()
+      }
+    }
+  }
+
+  function removeOverlay(requestId: string): void {
+    const next = { ...state.value.streamOverlayByRequestId }
+    delete next[requestId]
+    state.value.streamOverlayByRequestId = next
+  }
+
+  function upsertPendingSubAgent(requestId: string, record: NormalChatPendingSubAgentRecord): void {
+    state.value.pendingSubAgentsByRequestId = {
+      ...state.value.pendingSubAgentsByRequestId,
+      [requestId]: {
+        ...(state.value.pendingSubAgentsByRequestId[requestId] ?? {}),
+        [record.actionRunId]: record
+      }
+    }
+
+    const topicId =
+      state.value.taskDetailByRequestId[requestId]?.topicId ?? currentTopicId.value ?? ''
+    if (!topicId) {
+      return
+    }
+
+    updateOverlay(topicId, requestId, (overlay) => {
+      const nextSubAgents = overlay.subAgents.filter(
+        (item) => item.actionRunId !== record.actionRunId
+      )
+      nextSubAgents.push(record)
+      return {
+        ...overlay,
+        subAgents: nextSubAgents,
         updatedAt: new Date().toISOString()
       }
     })
   }
 
-  function clearPendingAssistantMessage(topicId: string): void {
-    const next = { ...state.value.pendingAssistantMessageByTopicId }
-    delete next[topicId]
-    state.value.pendingAssistantMessageByTopicId = next
-
-    const nextRounds = { ...state.value.pendingAssistantRoundByTopicId }
-    delete nextRounds[topicId]
-    state.value.pendingAssistantRoundByTopicId = nextRounds
+  function getPendingSubAgents(requestId: string): Record<string, NormalChatPendingSubAgentRecord> {
+    return state.value.pendingSubAgentsByRequestId[requestId] ?? {}
   }
 
   function setStatusText(topicId: string, text: string): void {
@@ -510,7 +786,6 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
   }
 
   function clearTopicRuntime(topicId: string): void {
-    clearPendingAssistantMessage(topicId)
     setStatusText(topicId, '')
   }
 
@@ -523,6 +798,7 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
       const snapshot: NormalChatConversationSnapshot =
         await NormalChatConversationDatasource.getConversation({ topicId })
       setTopicMessages(snapshot.topicId, snapshot.messages)
+      clearTopicOverlays(snapshot.topicId)
       const assistantRequestIds = Array.from(
         new Set(
           snapshot.messages
@@ -544,6 +820,7 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
       setLastError(snapshot.topicId, '', '')
     } catch (error) {
       setTopicMessages(topicId, [])
+      clearTopicOverlays(topicId)
       if (!getTopicActiveRequestId(topicId)) {
         clearTopicRuntime(topicId)
       }
@@ -560,36 +837,65 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
       (event: NormalChatConversationStreamEvent) => {
         if (event.type === 'message-committed') {
           upsertMessage(event.message)
-          if (
-            event.message.role === 'assistant' &&
-            getTopicActiveRequestId(event.topicId) === event.requestId
-          ) {
-            clearPendingAssistantMessage(event.topicId)
-          }
           return
         }
 
         if (getTopicActiveRequestId(event.topicId) !== event.requestId) {
+          if (event.type === 'finish') {
+            markOverlayFinished(event.requestId)
+            setTopicActiveRequestId(event.topicId, null)
+            setStatusText(event.topicId, '')
+            if (!event.assistantMessageId) {
+              removeOverlay(event.requestId)
+            }
+            void loadConversationTurnDetail(event.requestId)
+          }
           return
         }
 
         if (event.type === 'assistant-part-upsert' && event.part.kind === 'functioncall') {
-          upsertPendingFunctionCall(event.topicId, event.requestId, event.part)
+          upsertOverlayFunctionCall(event.topicId, event.requestId, event.part)
           return
         }
 
         if (event.type === 'assistant-part-upsert' && event.part.kind === 'thinking') {
-          upsertPendingThinking(event.topicId, event.requestId, event.part)
+          upsertOverlayThinking(event.topicId, event.requestId, event.part)
           return
         }
 
         if (event.type === 'assistant-body-delta') {
-          appendPendingBodyDelta(event.topicId, event.requestId, event.roundIndex, event.delta)
+          appendOverlayText(event.topicId, event.requestId, {
+            modelCallId: event.modelCallId,
+            turnKind: event.turnKind,
+            roundIndex: event.roundIndex,
+            depth: event.depth,
+            delta: event.delta
+          })
           return
         }
 
         if (event.type === 'assistant-final-chunk') {
-          appendPendingText(event.topicId, event.requestId, event.delta)
+          appendOverlayText(event.topicId, event.requestId, {
+            modelCallId: event.modelCallId,
+            turnKind: event.turnKind,
+            roundIndex: event.roundIndex,
+            depth: event.depth,
+            delta: event.delta
+          })
+          return
+        }
+
+        if (event.type === 'subagent-dispatched') {
+          upsertPendingSubAgent(event.requestId, {
+            actionRunId: event.actionRunId,
+            childAgentRunId: event.childAgentRunId,
+            goal: event.goal,
+            roundIndex: event.roundIndex,
+            batchIndex: event.batchIndex,
+            parallelIndex: event.parallelIndex,
+            depth: event.depth,
+            createdAt: new Date().toISOString()
+          })
           return
         }
 
@@ -604,10 +910,11 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
         }
 
         if (event.type === 'finish') {
+          markOverlayFinished(event.requestId)
           setTopicActiveRequestId(event.topicId, null)
           setStatusText(event.topicId, '')
           if (!event.assistantMessageId) {
-            clearPendingAssistantMessage(event.topicId)
+            removeOverlay(event.requestId)
           }
           void loadConversationTurnDetail(event.requestId)
           return
@@ -685,8 +992,8 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
       await NormalChatConversationDatasource.abort({ requestId })
     } finally {
       setTopicActiveRequestId(topicId, null)
-      clearPendingAssistantMessage(topicId)
       setStatusText(topicId, '')
+      markOverlayFinished(requestId)
     }
   }
 
@@ -744,6 +1051,7 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
     currentStatusText,
     currentLastError,
     currentLastErrorDetail,
+    currentTopicRequestId,
     currentDisplayMessages,
     isCurrentTopicStreaming,
     canSend,
@@ -757,6 +1065,7 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
     loadTopicConversation,
     loadConversationTurnDetail,
     deleteConversationTurn,
-    getConversationTurnDetailCached
+    getConversationTurnDetailCached,
+    getPendingSubAgents
   }
 })

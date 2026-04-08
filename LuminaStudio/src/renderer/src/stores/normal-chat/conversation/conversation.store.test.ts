@@ -342,6 +342,9 @@ describe('NormalChat conversation store', () => {
 
     expect(store.currentDisplayMessages).toHaveLength(2)
     expect(store.currentDisplayMessages[1]?.text).toBe('第一轮正文\n\n第二轮正文')
+    expect(
+      store.currentDisplayMessages[1]?.blocks.some((block) => block.kind === 'function-batch')
+    ).toBe(true)
   })
 
   it('ignores raw action json streaming in conversation and keeps only completed runtime blocks', async () => {
@@ -447,14 +450,91 @@ describe('NormalChat conversation store', () => {
     const pendingAfterReplace = store.currentDisplayMessages[1]
     expect(
       pendingAfterReplace
-        ? pendingAfterReplace.parts.some((part) => part.kind === 'intermediate-json')
+        ? pendingAfterReplace.blocks.some((block) => block.kind === 'placeholder')
         : false
     ).toBe(false)
     expect(
       pendingAfterReplace
-        ? pendingAfterReplace.parts.some((part) => part.kind === 'functioncall')
+        ? pendingAfterReplace.blocks.some((block) => block.kind === 'function-batch')
         : false
     ).toBe(true)
+  })
+
+  it('renders subagent blocks as soon as subagent-dispatched arrives', async () => {
+    let streamHandler: ((event: NormalChatConversationStreamEvent) => void) | null = null
+
+    setNormalChatWorkspaceDatasourceForTesting({
+      getBootstrap: vi.fn().mockResolvedValue(createBootstrap()),
+      createAssistant: vi.fn(),
+      updateAssistant: vi.fn(),
+      assignLabel: vi.fn(),
+      createLabel: vi.fn(),
+      renameLabel: vi.fn(),
+      deleteLabel: vi.fn(),
+      setActiveAssistant: vi.fn(),
+      createTopic: vi.fn(),
+      renameTopic: vi.fn(),
+      deleteTopic: vi.fn(),
+      setActiveTopic: vi.fn(),
+      updateTopicPrompt: vi.fn(),
+      updateTopicStreaming: vi.fn(),
+      updateTopicConfig: vi.fn().mockResolvedValue(createBootstrap().workspace)
+    })
+
+    setNormalChatConversationDatasourceForTesting({
+      getConversation: vi.fn().mockResolvedValue({
+        topicId: 'topic-1',
+        messages: []
+      }),
+      getConversationTurnDetail: vi.fn().mockResolvedValue(null),
+      sendMessage: vi.fn().mockResolvedValue({
+        requestId: 'request-subagent-1',
+        message: {
+          id: 'message-subagent-1',
+          topicId: 'topic-1',
+          requestId: 'request-subagent-1',
+          role: 'user',
+          parts: [{ kind: 'text', text: '创建子代理' }],
+          createdAt: '2026-03-24T00:00:00.000Z',
+          updatedAt: '2026-03-24T00:00:00.000Z'
+        } satisfies NormalChatConversationMessage
+      }),
+      deleteConversationTurn: vi.fn().mockResolvedValue(undefined),
+      abort: vi.fn().mockResolvedValue(undefined),
+      onStream(handler) {
+        streamHandler = handler
+        return () => {
+          streamHandler = null
+        }
+      }
+    })
+
+    const workspaceStore = useNormalChatWorkspaceStore()
+    await workspaceStore.initialize()
+    Object.assign(workspaceStore as Record<string, unknown>, {
+      currentTopicModelProviderId: 'provider-openai',
+      currentTopicModelId: 'gpt-4o-mini'
+    })
+    const store = useNormalChatConversationStore()
+    await store.initialize()
+    store.setDraftText('创建子代理')
+    await store.sendCurrentDraft()
+
+    streamHandler?.({
+      type: 'subagent-dispatched',
+      requestId: 'request-subagent-1',
+      topicId: 'topic-1',
+      actionRunId: 'dispatch-subagent-1',
+      childAgentRunId: 'child-agent-subagent-1',
+      goal: '先创建并监听子代理',
+      roundIndex: 1,
+      batchIndex: 0,
+      parallelIndex: 0,
+      depth: 1
+    })
+
+    const pendingAssistant = store.currentDisplayMessages[1]
+    expect(pendingAssistant?.blocks.some((block) => block.kind === 'subagent')).toBe(true)
   })
 
   it('preserves pending functioncall parts when finish arrives before message-committed', async () => {
@@ -524,8 +604,8 @@ describe('NormalChat conversation store', () => {
       part: {
         kind: 'functioncall',
         callId: 'pubmed-4',
-        functionCallName: 'functioncall.pubmed_search',
-        title: 'PubMed Search',
+        functionCallName: 'system.dispatch_sub_agent',
+        title: 'Dispatch Sub Agent',
         status: 'success',
         input: '{}',
         output: '{"result":[]}',
@@ -537,6 +617,18 @@ describe('NormalChat conversation store', () => {
         depth: 0,
         decisionReason: null
       }
+    })
+    streamHandler?.({
+      type: 'subagent-dispatched',
+      requestId: 'request-4',
+      topicId: 'topic-1',
+      actionRunId: 'pubmed-4',
+      childAgentRunId: 'child-agent-4',
+      goal: '收集子代理信息',
+      roundIndex: 1,
+      batchIndex: 0,
+      parallelIndex: 0,
+      depth: 1
     })
 
     streamHandler?.({
@@ -564,8 +656,8 @@ describe('NormalChat conversation store', () => {
     const committedAssistant = store.currentDisplayMessages.find(
       (message) => message.id === 'assistant-message-4'
     )
-    expect(committedAssistant?.parts.some((part) => part.kind === 'functioncall')).toBe(true)
-    expect(committedAssistant?.parts.some((part) => part.kind === 'text')).toBe(true)
+    expect(committedAssistant?.blocks.some((block) => block.kind === 'subagent')).toBe(true)
+    expect(committedAssistant?.blocks.some((block) => block.kind === 'markdown')).toBe(true)
   })
 
   it('stores raw error json from the stream event for the composer error dialog', async () => {

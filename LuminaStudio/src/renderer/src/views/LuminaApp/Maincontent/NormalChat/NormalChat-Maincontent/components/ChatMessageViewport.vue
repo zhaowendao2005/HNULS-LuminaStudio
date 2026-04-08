@@ -68,7 +68,9 @@ const emit = defineEmits<{
   'delete-message': [message: NormalChatConversationDisplayMessage]
   'more-message': [message: NormalChatConversationDisplayMessage]
   'open-message-session': [message: NormalChatConversationDisplayMessage]
-  'open-agent-tree': [message: NormalChatConversationDisplayMessage]
+  'open-agent-tree': [
+    payload: { message: NormalChatConversationDisplayMessage; agentRunId: string }
+  ]
   'open-functioncall-detail': [
     payload: { message: NormalChatConversationDisplayMessage; callId: string }
   ]
@@ -117,19 +119,33 @@ watch(
       .map((message) =>
         [
           message.id,
-          message.parts
-            .map((part) =>
-              part.kind === 'functioncall'
-                ? `${part.kind}:${part.callId}:${part.status}:${part.input}:${part.output}:${part.errorMessage ?? ''}`
-                : `${part.kind}:${part.text}`
-            )
+          message.blocks
+            .map((block) => {
+              if (block.kind === 'markdown') {
+                return `${block.kind}:${block.text}`
+              }
+              if (block.kind === 'thinking') {
+                return `${block.kind}:${block.part.title}:${block.part.content}`
+              }
+              if (block.kind === 'function-batch') {
+                return `${block.kind}:${block.calls
+                  .map(
+                    (part) =>
+                      `${part.callId}:${part.status}:${part.input}:${part.output}:${part.errorMessage ?? ''}`
+                  )
+                  .join('|')}`
+              }
+              if (block.kind === 'subagent') {
+                return `${block.kind}:${block.actionRunId}:${block.childAgentRunId ?? ''}:${block.goal}:${block.status}`
+              }
+              return `${block.kind}:${block.label}`
+            })
             .join('|'),
           message.isPending ? '1' : '0'
         ].join(':')
       )
       .join('|'),
   (_nextValue, previousValue) => {
-    // 只有用户贴近底部时才自动跟随，避免流式输出打断上翻阅读。
     if (!previousValue || autoStickToBottom.value) {
       void scrollToBottom('auto')
     }

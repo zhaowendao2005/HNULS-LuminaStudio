@@ -6,6 +6,7 @@ import { NormalChatMessagesRepository } from '../repositories/messages.repositor
 import { NormalChatModelCallsRepository } from '../repositories/model-calls.repository'
 import { NormalChatRuntimeEventsRepository } from '../repositories/runtime-events.repository'
 import { NormalChatTasksRepository } from '../repositories/tasks.repository'
+import { findBestCapturedProviderRequest } from '../runtime/llm/providers/provider-request-capture'
 
 export class NormalChatConversationService {
   constructor(
@@ -32,6 +33,7 @@ export class NormalChatConversationService {
     }
 
     const executionSnapshot = task.executionSnapshot
+    const modelCalls = this.modelCallsRepository.listByRequest(requestId)
 
     return {
       taskId: task.taskId,
@@ -54,7 +56,36 @@ export class NormalChatConversationService {
       finalResponse: task.finalResponse,
       messages: this.messagesRepository.listByRequest(requestId),
       agentRuns: this.agentRunsRepository.listByTaskId(task.taskId),
-      modelCalls: this.modelCallsRepository.listByRequest(requestId),
+      modelCalls: modelCalls.map((modelCall) => {
+        let requestPayload: Record<string, unknown> = {}
+        try {
+          requestPayload = JSON.parse(modelCall.requestPayloadJson) as Record<string, unknown>
+        } catch {
+          requestPayload = {}
+        }
+
+        const providerId =
+          typeof requestPayload.providerId === 'string'
+            ? requestPayload.providerId
+            : task.modelProviderId
+        const modelId =
+          typeof requestPayload.modelId === 'string' ? requestPayload.modelId : task.modelId
+        const streaming =
+          typeof requestPayload.streamingEnabled === 'boolean'
+            ? requestPayload.streamingEnabled
+            : executionSnapshot.runtime.streamingEnabled
+
+        return {
+          ...modelCall,
+          rawProviderRequest: findBestCapturedProviderRequest({
+            providerId,
+            modelId,
+            streaming,
+            createdAt: modelCall.createdAt,
+            startedAt: modelCall.startedAt
+          })
+        }
+      }),
       actionRuns: this.actionRunsRepository.listByTaskId(task.taskId),
       runtimeEvents: this.runtimeEventsRepository.listByRequest(requestId)
     }

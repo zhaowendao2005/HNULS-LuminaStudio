@@ -6,6 +6,7 @@ import type {
 export interface AgentDetailShellOpenPayload {
   requestId: string
   messageId: string
+  focusAgentRunId?: string
 }
 
 export interface AgentDetailShellRecord {
@@ -23,6 +24,7 @@ export interface AgentDetailShellSnapshot {
   visible: boolean
   requestId: string
   messageId: string
+  focusAgentRunId: string
   loading: boolean
   errorText: string
   detailByRequestId: Record<string, AgentDetailShellRecord>

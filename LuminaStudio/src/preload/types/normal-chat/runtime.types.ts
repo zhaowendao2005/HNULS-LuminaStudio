@@ -73,13 +73,23 @@ export interface NormalChatConversationAssistantBodyDeltaEvent extends NormalCha
   roundIndex: number
   /** Agent 嵌套深度 */
   depth: number
+  /** 当前正文所属的轮次语义 */
+  turnKind: 'answer' | 'action_plan' | 'post_action_synthesis'
 }
 
 /** 助手最终文本块事件：一轮回复的最终文本 */
 export interface NormalChatConversationAssistantFinalChunkEvent extends NormalChatConversationBaseEvent {
   type: 'assistant-final-chunk'
+  /** 对应的 model call ID */
+  modelCallId: string
   /** 最终文本内容 */
   delta: string
+  /** 当前正文所属的轮次语义 */
+  turnKind: 'answer' | 'action_plan' | 'post_action_synthesis'
+  /** 所在轮次索引 */
+  roundIndex: number
+  /** Agent 嵌套深度 */
+  depth: number
 }
 
 /** 助手消息片段更新事件：函数调用或思考过程的实时更新 */
@@ -87,6 +97,18 @@ export interface NormalChatConversationAssistantPartUpsertEvent extends NormalCh
   type: 'assistant-part-upsert'
   /** 更新的消息片段（文本/函数调用/思考过程） */
   part: NormalChatConversationMessage['parts'][number]
+}
+
+/** 子 Agent 已派发事件：在 child agent 创建后立即推送，用于主聊天流抢先展示 Agent block */
+export interface NormalChatConversationSubAgentDispatchedEvent extends NormalChatConversationBaseEvent {
+  type: 'subagent-dispatched'
+  actionRunId: string
+  childAgentRunId: string
+  goal: string
+  roundIndex: number
+  batchIndex: number
+  parallelIndex: number
+  depth: number
 }
 
 /** Prompt 构建完成事件 */
@@ -176,6 +198,7 @@ export type NormalChatConversationStreamEvent =
   | NormalChatConversationAssistantBodyDeltaEvent
   | NormalChatConversationAssistantFinalChunkEvent
   | NormalChatConversationAssistantPartUpsertEvent
+  | NormalChatConversationSubAgentDispatchedEvent
   | NormalChatConversationPromptBuiltEvent
   | NormalChatConversationPromptBudgetTrimmedEvent
   | NormalChatConversationActionValidatedEvent

@@ -191,6 +191,7 @@ export const agentDetailShellMock: AgentDetailShellSnapshot = {
   visible: false,
   requestId: 'detail-request-agent-hierarchy',
   messageId: 'detail-message-agent-hierarchy',
+  focusAgentRunId: '',
   loading: false,
   errorText: '',
   detailByRequestId: {

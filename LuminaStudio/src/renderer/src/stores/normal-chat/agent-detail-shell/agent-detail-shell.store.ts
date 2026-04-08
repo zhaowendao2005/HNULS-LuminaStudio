@@ -16,6 +16,7 @@ function createEmptySnapshot(): AgentDetailShellSnapshot {
     visible: false,
     requestId: '',
     messageId: '',
+    focusAgentRunId: '',
     loading: false,
     errorText: '',
     detailByRequestId: {}
@@ -39,6 +40,10 @@ export const useNormalChatAgentDetailShellStore = defineStore(
     const tree = computed(() => detail.value?.tree ?? null)
     const summary = computed(() => detail.value?.summary ?? null)
     const rootNode = computed(() => {
+      const focusAgentRunId = snapshot.value.focusAgentRunId
+      if (focusAgentRunId && tree.value?.agents[focusAgentRunId]) {
+        return tree.value.agents[focusAgentRunId] ?? null
+      }
       if (!tree.value?.rootAgentId) {
         return null
       }
@@ -66,7 +71,11 @@ export const useNormalChatAgentDetailShellStore = defineStore(
         return
       }
 
-      disposeStream = NormalChatConversationDatasource.onStream(handleRuntimeEvent)
+      try {
+        disposeStream = NormalChatConversationDatasource.onStream(handleRuntimeEvent)
+      } catch {
+        disposeStream = null
+      }
     }
 
     async function initialize(): Promise<void> {
@@ -98,6 +107,7 @@ export const useNormalChatAgentDetailShellStore = defineStore(
       snapshot.value.requestId = payload.requestId
       snapshot.value.messageId = payload.messageId
       snapshot.value.errorText = ''
+      snapshot.value.focusAgentRunId = payload.focusAgentRunId ?? ''
       await loadCurrentDetail()
     }
 
@@ -105,6 +115,7 @@ export const useNormalChatAgentDetailShellStore = defineStore(
       snapshot.value.visible = false
       snapshot.value.loading = false
       snapshot.value.errorText = ''
+      snapshot.value.focusAgentRunId = ''
     }
 
     function clearTurnDetail(requestId: string): void {

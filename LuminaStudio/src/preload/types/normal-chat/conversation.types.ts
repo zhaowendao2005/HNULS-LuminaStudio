@@ -23,6 +23,14 @@ export interface NormalChatTextMessagePart {
   kind: Extract<NormalChatMessagePartKind, 'text'>
   /** 文本内容 */
   text: string
+  /** 所属 assistant 轮次语义 */
+  turnKind?: NormalChatModelCallTurnKind
+  /** 所在轮次索引 */
+  roundIndex?: number
+  /** Agent 嵌套深度 */
+  depth?: number
+  /** 对应的 model call ID */
+  modelCallId?: string | null
 }
 
 /** 函数调用消息片段（动作执行记录） */
@@ -261,6 +269,20 @@ export interface NormalChatPromptSnapshot {
 /** 模型调用快照（normal_chat_model_calls 表的类型映射） */
 export type NormalChatModelCallTurnKind = 'answer' | 'action_plan' | 'post_action_synthesis'
 
+export interface NormalChatCapturedProviderRequestSnapshot {
+  id: string
+  capturedAt: string
+  protocol: string
+  providerId: string
+  modelId: string
+  streaming: boolean
+  method: string
+  url: string
+  headers: Record<string, string>
+  bodyText: string | null
+  bodyJson: unknown | null
+}
+
 export interface NormalChatModelCallSnapshot {
   id: string
   seq: number
@@ -278,6 +300,7 @@ export interface NormalChatModelCallSnapshot {
   callIndexInAgent: number
   status: NormalChatModelCallStatus
   requestPayloadJson: string
+  rawProviderRequest: NormalChatCapturedProviderRequestSnapshot | null
   compiledPromptJson: NormalChatPromptSnapshot
   compiledPromptMarkdown: string
   historyMessagesJson: string

@@ -46,7 +46,12 @@
         <ChatMessageParts
           :message="message"
           @view-detail="emit('open-session', message)"
-          @open-agent-tree="emit('open-agent-tree', message)"
+          @open-agent-run="
+            emit('open-agent-tree', {
+              message,
+              agentRunId: $event
+            })
+          "
           @open-functioncall-detail="
             emit('open-functioncall-detail', {
               message,
@@ -120,7 +125,9 @@ const emit = defineEmits<{
   copy: [message: NormalChatConversationDisplayMessage]
   delete: [message: NormalChatConversationDisplayMessage]
   'open-session': [message: NormalChatConversationDisplayMessage]
-  'open-agent-tree': [message: NormalChatConversationDisplayMessage]
+  'open-agent-tree': [
+    payload: { message: NormalChatConversationDisplayMessage; agentRunId: string }
+  ]
   'open-functioncall-detail': [
     payload: { message: NormalChatConversationDisplayMessage; callId: string }
   ]

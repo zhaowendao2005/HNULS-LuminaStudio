@@ -4,6 +4,7 @@ import type {
   NormalChatFunctionCallMessagePart,
   NormalChatTaskExecutionSnapshot,
   NormalChatTaskFinalResponse,
+  NormalChatTextMessagePart,
   NormalChatThinkingMessagePart
 } from '@preload/types'
 import type {
@@ -69,7 +70,9 @@ interface AgentExecutionInput {
 interface AgentExecutionResult {
   finalReply: string
   finalResponse: NormalChatTaskFinalResponse
-  assistantParts: Array<NormalChatFunctionCallMessagePart | NormalChatThinkingMessagePart>
+  assistantParts: Array<
+    NormalChatFunctionCallMessagePart | NormalChatThinkingMessagePart | NormalChatTextMessagePart
+  >
   roundCount: number
 }
 
@@ -196,13 +199,7 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
       topicId: input.topicId,
       requestId: input.requestId,
       role: 'assistant',
-      parts: [
-        ...executionResult.assistantParts,
-        {
-          kind: 'text',
-          text: executionResult.finalReply
-        }
-      ],
+      parts: executionResult.assistantParts,
       createdAt: timestamp,
       updatedAt: timestamp
     }
@@ -264,6 +261,24 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
       timestamp: nowIso()
     })
 
+    this.streamPublisher.publish(
+      parentContext.taskId,
+      parentContext.topicId,
+      parentContext.requestId,
+      {
+        type: 'subagent-dispatched',
+        requestId: parentContext.requestId,
+        topicId: parentContext.topicId,
+        actionRunId: input.parentActionRunId,
+        childAgentRunId: childAgentRun.id,
+        goal: input.goal,
+        roundIndex: 0,
+        batchIndex: 0,
+        parallelIndex: 0,
+        depth: childAgentRun.depth
+      }
+    )
+
     const childExecution = await this.runAgentExecution({
       ...parentContext,
       userInput: input.goal,
@@ -300,7 +315,9 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
       resolvedActions
     })
 
-    const assistantParts: Array<NormalChatFunctionCallMessagePart | NormalChatThinkingMessagePart> = []
+    const assistantParts: Array<
+      NormalChatFunctionCallMessagePart | NormalChatThinkingMessagePart | NormalChatTextMessagePart
+    > = []
     const replyChunks: string[] = []
     let currentModelCallId: string | null = null
     let currentTurnKind: NormalChatAssistantTurnKind = 'answer'
@@ -377,7 +394,9 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
             parentActionRunId: input.parentActionRunId,
             turnKind: currentTurnKind,
             producedActionCount: 0,
-            consumedActionRunIds: state.postActionSynthesisPending ? state.lastExecutedActionRunIds : [],
+            consumedActionRunIds: state.postActionSynthesisPending
+              ? state.lastExecutedActionRunIds
+              : [],
             synthesisRequired: state.postActionSynthesisPending,
             depth: input.agentRun.depth,
             roundIndex: state.roundIndex,
@@ -436,7 +455,10 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
             })) {
               if (event.type === 'text-delta') {
                 rawModelResponseText += event.delta
-                this.roundPersistenceService.appendModelCallStream(currentModelCallId, rawModelResponseText)
+                this.roundPersistenceService.appendModelCallStream(
+                  currentModelCallId,
+                  rawModelResponseText
+                )
                 this.streamPublisher.publish(input.taskId, input.topicId, input.requestId, {
                   type: 'assistant-text-delta',
                   requestId: input.requestId,
@@ -457,7 +479,8 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
                     modelCallId: currentModelCallId,
                     delta: visibleBodyDelta,
                     roundIndex: state.roundIndex,
-                    depth: input.agentRun.depth
+                    depth: input.agentRun.depth,
+                    turnKind: currentTurnKind
                   })
                 }
               }
@@ -476,7 +499,10 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
               loadedActionKeys: Array.from(state.loadedActionKeys),
               actionResults: state.actionResults
             })
-            this.roundPersistenceService.appendModelCallStream(currentModelCallId, rawModelResponseText)
+            this.roundPersistenceService.appendModelCallStream(
+              currentModelCallId,
+              rawModelResponseText
+            )
           }
 
           try {
@@ -525,12 +551,24 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
           // 这里才是 turnKind 的最终判定点：
           // 有 action call 就是 action_plan；否则如果上一轮 action 结果尚未消费完，就归为 post_action_synthesis；
           // 再否则才是普通 answer。
-          currentTurnKind = parsedActionCalls > 0
-            ? 'action_plan'
-            : state.postActionSynthesisPending
-              ? 'post_action_synthesis'
-              : 'answer'
+          currentTurnKind =
+            parsedActionCalls > 0
+              ? 'action_plan'
+              : state.postActionSynthesisPending
+                ? 'post_action_synthesis'
+                : 'answer'
           state.lastTurnKind = currentTurnKind
+
+          if (structuredOutput.body_md.trim()) {
+            assistantParts.push({
+              kind: 'text',
+              text: structuredOutput.body_md,
+              turnKind: currentTurnKind,
+              roundIndex: state.roundIndex,
+              depth: input.agentRun.depth,
+              modelCallId: currentModelCallId
+            })
+          }
 
           const artifact = this.roundMemoryService.createArtifactFromAssistant({
             roundIndex: state.roundIndex,
@@ -553,7 +591,9 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
           // 是否继续整条轨迹由三类条件驱动：
           // 1. 当前轮输出了 action_plan；2. 需要修复结构；3. 上一批 action 已完成但 synthesis 尚未产出。
           state.shouldContinue =
-            currentTurnKind === 'action_plan' || Boolean(repairNotice) || state.postActionSynthesisPending
+            currentTurnKind === 'action_plan' ||
+            Boolean(repairNotice) ||
+            state.postActionSynthesisPending
 
           if (
             structuredOutput.body_md.startsWith(streamedBodyText) &&
@@ -568,7 +608,8 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
               modelCallId: currentModelCallId,
               delta: remainingBodyDelta,
               roundIndex: state.roundIndex,
-              depth: input.agentRun.depth
+              depth: input.agentRun.depth,
+              turnKind: currentTurnKind
             })
           }
 
@@ -590,7 +631,11 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
                 type: 'assistant-final-chunk',
                 requestId: input.requestId,
                 topicId: input.topicId,
-                delta: finalChunkDelta
+                modelCallId: currentModelCallId,
+                delta: finalChunkDelta,
+                turnKind: currentTurnKind,
+                roundIndex: state.roundIndex,
+                depth: input.agentRun.depth
               })
             }
           }
@@ -609,7 +654,9 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
             {
               turnKind: currentTurnKind,
               producedActionCount: parsedActionCalls,
-              consumedActionRunIds: state.postActionSynthesisPending ? state.lastExecutedActionRunIds : [],
+              consumedActionRunIds: state.postActionSynthesisPending
+                ? state.lastExecutedActionRunIds
+                : [],
               synthesisRequired: currentTurnKind === 'action_plan'
             }
           )
@@ -659,7 +706,11 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
                 requestId: input.requestId,
                 topicId: input.topicId,
                 roundIndex: state.roundIndex,
-                artifactSummary: merged.resultSummaryMd || merged.answerBodyMd || merged.planBodyMd || merged.bodyMd
+                artifactSummary:
+                  merged.resultSummaryMd ||
+                  merged.answerBodyMd ||
+                  merged.planBodyMd ||
+                  merged.bodyMd
               })
             }
 
@@ -692,6 +743,19 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
               assistantArtifacts: state.assistantArtifacts
             })
           }
+          const latestTextPart = [...assistantParts]
+            .reverse()
+            .find((part): part is NormalChatTextMessagePart => part.kind === 'text')
+          if (state.finalReply.trim() && latestTextPart?.text !== state.finalReply) {
+            assistantParts.push({
+              kind: 'text',
+              text: state.finalReply,
+              turnKind: 'post_action_synthesis',
+              roundIndex: state.roundIndex,
+              depth: input.agentRun.depth,
+              modelCallId: currentModelCallId
+            })
+          }
           // 只要已经拿到最终可见文本，就视为结果消费完成，清空 pending 标记。
           state.postActionSynthesisPending = false
         },
@@ -700,6 +764,14 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
             actionResults: state.actionResults,
             actionFeedback: state.actionFeedback,
             assistantArtifacts: state.assistantArtifacts
+          })
+          assistantParts.push({
+            kind: 'text',
+            text: state.finalReply,
+            turnKind: 'post_action_synthesis',
+            roundIndex: state.roundIndex,
+            depth: input.agentRun.depth,
+            modelCallId: currentModelCallId
           })
           state.shouldContinue = false
           state.postActionSynthesisPending = false
@@ -751,7 +823,8 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
     input: AgentExecutionInput,
     state: NormalChatRoundState
   ): Promise<Awaited<ReturnType<NormalChatAgentRuntime['executeSingleActionCall']>>[]> {
-    const results: Array<Awaited<ReturnType<NormalChatAgentRuntime['executeSingleActionCall']>>> = []
+    const results: Array<Awaited<ReturnType<NormalChatAgentRuntime['executeSingleActionCall']>>> =
+      []
     for (const [parallelIndex, call] of calls.entries()) {
       results.push(
         await this.executeSingleActionCall({
