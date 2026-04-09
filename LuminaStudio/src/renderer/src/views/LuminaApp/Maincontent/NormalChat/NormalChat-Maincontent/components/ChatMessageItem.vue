@@ -76,6 +76,17 @@
 
           <div class="ml-auto flex items-center gap-1.5">
             <button
+              v-if="showResendAction"
+              class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-40"
+              :disabled="!canResendTurn"
+              type="button"
+              title="重发这一轮"
+              @click="emit('resend', message)"
+            >
+              <RefreshCw class="h-4 w-4" />
+            </button>
+
+            <button
               class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
               type="button"
               title="复制为 Markdown"
@@ -112,7 +123,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Copy, FileCode2, MoreHorizontal, Trash2, UserRound } from 'lucide-vue-next'
+import { Copy, FileCode2, MoreHorizontal, RefreshCw, Trash2, UserRound } from 'lucide-vue-next'
 import type { NormalChatConversationDisplayMessage } from '@renderer/stores/normal-chat/conversation/conversation.types'
 import ChatMessageParts from './ChatMessageParts.vue'
 
@@ -123,6 +134,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   more: [message: NormalChatConversationDisplayMessage]
   copy: [message: NormalChatConversationDisplayMessage]
+  resend: [message: NormalChatConversationDisplayMessage]
   delete: [message: NormalChatConversationDisplayMessage]
   'open-session': [message: NormalChatConversationDisplayMessage]
   'open-agent-tree': [
@@ -135,6 +147,14 @@ const emit = defineEmits<{
 
 const canDeleteTurn = computed(() => {
   return Boolean(props.message.requestId) && !props.message.isPending
+})
+
+const showResendAction = computed(() => {
+  return props.message.role === 'assistant'
+})
+
+const canResendTurn = computed(() => {
+  return showResendAction.value && Boolean(props.message.requestId) && !props.message.isPending
 })
 
 const canOpenTurnDetail = computed(() => {

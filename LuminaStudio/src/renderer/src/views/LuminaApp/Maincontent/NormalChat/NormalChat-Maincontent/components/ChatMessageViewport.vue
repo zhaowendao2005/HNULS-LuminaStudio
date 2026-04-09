@@ -37,6 +37,7 @@
           :key="message.id"
           :message="message"
           @copy="emit('copy-message', $event)"
+          @resend="emit('resend-message', $event)"
           @delete="emit('delete-message', $event)"
           @more="emit('more-message', $event)"
           @open-session="emit('open-message-session', $event)"
@@ -65,6 +66,7 @@ const BOTTOM_STICK_THRESHOLD_PX = 96
 
 const emit = defineEmits<{
   'copy-message': [message: NormalChatConversationDisplayMessage]
+  'resend-message': [message: NormalChatConversationDisplayMessage]
   'delete-message': [message: NormalChatConversationDisplayMessage]
   'more-message': [message: NormalChatConversationDisplayMessage]
   'open-message-session': [message: NormalChatConversationDisplayMessage]

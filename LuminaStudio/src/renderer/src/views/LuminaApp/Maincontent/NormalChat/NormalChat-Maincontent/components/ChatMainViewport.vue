@@ -6,6 +6,7 @@
     <ChatPromptBar />
     <ChatMessageViewport
       @copy-message="handleCopyMessage"
+      @resend-message="handleResendMessage"
       @delete-message="handleDeleteMessage"
       @more-message="handleMoreMessage"
       @open-message-session="handleOpenMessageSession"
@@ -109,6 +110,32 @@ async function handleDeleteMessage(message: NormalChatConversationDisplayMessage
 
   await conversationStore.deleteConversationTurn(message.requestId)
   chatDetailShellStore.clearTurnDetail(message.requestId)
+}
+
+async function handleResendMessage(message: NormalChatConversationDisplayMessage): Promise<void> {
+  if (!message.requestId || message.role !== 'assistant' || message.isPending) {
+    return
+  }
+
+  const sourceMessage = conversationStore.currentDisplayMessages.find(
+    (item) => item.requestId === message.requestId && item.role === 'user'
+  )
+  const sourceInput = sourceMessage?.text.trim()
+  if (!sourceInput) {
+    return
+  }
+
+  const confirmed = window.confirm(
+    'Are you sure you want to delete this turn, restore the original user message, and resend it?'
+  )
+  if (!confirmed) {
+    return
+  }
+
+  await conversationStore.deleteConversationTurn(message.requestId)
+  chatDetailShellStore.clearTurnDetail(message.requestId)
+  conversationStore.setDraftText(sourceInput)
+  await conversationStore.sendCurrentDraft().catch(() => undefined)
 }
 
 function handleMoreMessage(): void {

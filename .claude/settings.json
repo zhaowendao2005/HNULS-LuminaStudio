@@ -13,7 +13,17 @@
       "WebFetch(domain:github.com)",
       "Bash(netstat -ano)",
       "Bash(findstr \":1420\")",
-      "Bash(findstr \"1420\")"
+      "Bash(findstr \"1420\")",
+      "Bash(rustc --version)",
+      "Bash(cargo update:*)",
+      "Bash(cargo search:*)",
+      "Bash(cargo info:*)",
+      "mcp__deepwiki__read_wiki_structure",
+      "mcp__deepwiki__read_wiki_contents",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(rustup toolchain:*)",
+      "Bash(rustup show:*)",
+      "Bash(rustup install:*)"
     ]
   },
   "enabledPlugins": {

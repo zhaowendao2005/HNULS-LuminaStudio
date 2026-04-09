@@ -3,7 +3,7 @@ import type { NormalChatLayoutSnapshot } from './layout-shell.types'
 function createDefaultSnapshot(): NormalChatLayoutSnapshot {
   return {
     leftCollapsed: false,
-    rightCollapsed: false,
+    rightCollapsed: true,
     leftTab: 'conversation',
     rightPage: 'studio'
   }
