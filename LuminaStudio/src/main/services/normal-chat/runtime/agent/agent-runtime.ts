@@ -16,6 +16,7 @@ import { nowIso } from '../../shared/utils'
 import { NormalChatActionExecutorService } from '../actions/shared/action-executor.service'
 import { NormalChatActionResolutionService } from '../actions/shared/action-resolution.service'
 import { NormalChatLoadedActionSpecService } from '../actions/shared/loaded-action-spec.service'
+import { NormalChatAssistantProtocolStreamScanner } from './response/action-block-extractor'
 import { NormalChatAssistantOutputParser } from './response/assistant-output-parser'
 import type { NormalChatAssistantStructuredOutput } from './response/assistant-output.types'
 import { NormalChatAgentGraphRunner } from './graph/runner'
@@ -83,77 +84,9 @@ interface AgentExecutionResult {
 }
 
 type ActiveAgentContext = AgentExecutionInput & { depth: number }
-type StreamingFenceMode = 'hidden' | 'visible'
 
 // streaming 时正文里仍可能夹带 normal_chat_action / thinking 围栏；
 // 这里把“用户可见正文”从原始 token 流里剥出来，保证界面预览不会提前暴露协议块。
-
-class NormalChatVisibleBodyStreamExtractor {
-  private currentFenceMode: StreamingFenceMode | null = null
-  private currentLine = ''
-  private currentLinePreviewLength = 0
-
-  feed(delta: string): string {
-    let visibleDelta = ''
-    for (const char of delta) {
-      this.currentLine += char
-      if (char === '\n') {
-        visibleDelta += this.flushCompletedLine()
-      }
-    }
-    visibleDelta += this.previewCurrentLine()
-    return visibleDelta
-  }
-
-  private flushCompletedLine(): string {
-    const line = this.currentLine
-    this.currentLine = ''
-    this.currentLinePreviewLength = 0
-
-    const trimmed = line.trimStart()
-    const isFenceLine = trimmed.startsWith('```')
-    if (!isFenceLine) {
-      return this.currentFenceMode === 'hidden' ? '' : line
-    }
-    if (this.currentFenceMode === 'hidden') {
-      this.currentFenceMode = null
-      return ''
-    }
-    if (this.currentFenceMode === 'visible') {
-      this.currentFenceMode = null
-      return line
-    }
-    if (
-      trimmed.startsWith('```normal_chat_action') ||
-      trimmed.startsWith('```normal_chat_thinking')
-    ) {
-      this.currentFenceMode = 'hidden'
-      return ''
-    }
-    this.currentFenceMode = 'visible'
-    return line
-  }
-
-  private previewCurrentLine(): string {
-    if (!this.currentLine || this.currentFenceMode === 'hidden') {
-      return ''
-    }
-    const trimmed = this.currentLine.trimStart()
-    if (
-      trimmed.startsWith('```normal_chat_action') ||
-      trimmed.startsWith('```normal_chat_thinking') ||
-      /^`{1,3}$/.test(trimmed)
-    ) {
-      return ''
-    }
-    if (this.currentFenceMode === null && trimmed.startsWith('```')) {
-      return ''
-    }
-    const nextPreview = this.currentLine.slice(this.currentLinePreviewLength)
-    this.currentLinePreviewLength = this.currentLine.length
-    return nextPreview
-  }
-}
 
 export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner {
   private activeAgentContext: ActiveAgentContext | null = null
@@ -476,7 +409,7 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
           this.roundPersistenceService.markModelCallRunning(currentModelCallId)
           rawModelResponseText = ''
           streamedBodyText = ''
-          const visibleBodyExtractor = new NormalChatVisibleBodyStreamExtractor()
+          const visibleBodyExtractor = new NormalChatAssistantProtocolStreamScanner()
 
           if (
             input.executionSnapshot.runtime.streamingEnabled &&
@@ -506,20 +439,20 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
               if (event.type === 'text-delta') {
                 rawModelResponseText += event.delta
                 this.roundPersistenceService.appendModelCallStream(
-                  currentModelCallId,
+                  currentModelCallId!,
                   rawModelResponseText
                 )
                 this.streamPublisher.publish(input.taskId, input.topicId, input.requestId, {
                   type: 'assistant-text-delta',
                   requestId: input.requestId,
                   topicId: input.topicId,
-                  modelCallId: currentModelCallId,
+                  modelCallId: currentModelCallId!,
                   delta: event.delta,
                   roundIndex: state.roundIndex,
                   depth: input.agentRun.depth
                 })
 
-                const visibleBodyDelta = visibleBodyExtractor.feed(event.delta)
+                const { visibleDelta: visibleBodyDelta } = visibleBodyExtractor.feed(event.delta)
                 if (visibleBodyDelta) {
                   streamedBodyText += visibleBodyDelta
                   if (canWriteTranscript) {
@@ -527,7 +460,7 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
                       type: 'assistant-body-delta',
                       requestId: input.requestId,
                       topicId: input.topicId,
-                      modelCallId: currentModelCallId,
+                      modelCallId: currentModelCallId!,
                       delta: visibleBodyDelta,
                       roundIndex: state.roundIndex,
                       depth: input.agentRun.depth,
@@ -560,7 +493,7 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
               }
             })
             this.roundPersistenceService.appendModelCallStream(
-              currentModelCallId,
+              currentModelCallId!,
               rawModelResponseText
             )
           }

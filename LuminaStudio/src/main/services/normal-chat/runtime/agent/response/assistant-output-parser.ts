@@ -1,24 +1,17 @@
 /**
  * 助手输出解析器
  *
- * 负责将 LLM 助手的原始文本响应解析为结构化输出，包括：
- * - body_md：助手回复的 Markdown 正文内容
- * - action_calls：从响应中提取的动作调用列表（工具调用）
- * - thinking_md：助手的思考过程（CoT 思维链）内容
+ * 负责把 LLM 的原始输出解析成结构化结果：
+ * - body_md：用户可见正文
+ * - action_calls：协议块中的动作调用
+ * - thinking_md：协议块中的 thinking 内容
  *
- * 解析流程：
- * 1. 校验输入是否为字符串
- * 2. 提取 action 块（工具调用 JSON）和 thinking 块（思维链）
- * 3. 解析 action 块并做同轮去重
- * 4. 剥离 action 块后，对正文做协议残片清洗与段落级去重
+ * 协议块扫描统一交给 action-block-extractor 中的共享 scanner，
+ * 避免流式隐藏与最终解析两套规则漂移。
  */
 import type { NormalChatActionCall } from '../../actions/shared/action.types'
 import type { NormalChatAssistantStructuredOutput } from './assistant-output.types'
-import {
-  extractActionBlocks,
-  extractThinkingBlocks,
-  stripActionBlocks
-} from './action-block-extractor'
+import { scanAssistantProtocolMarkdown } from './action-block-extractor'
 
 const ACTION_INLINE_MARKER_PATTERN = /`?normal_chat_action`?/gi
 const ACTION_JSON_FRAGMENT_PATTERN =
@@ -97,22 +90,18 @@ function dedupeActionCalls(actionCalls: NormalChatActionCall[]): NormalChatActio
   return deduped
 }
 
-/**
- * 助手输出解析器类
- *
- * 将 LLM 返回的原始字符串解析为 {@link NormalChatAssistantStructuredOutput} 结构化对象。
- */
 export class NormalChatAssistantOutputParser {
   parse(input: unknown): NormalChatAssistantStructuredOutput {
     if (typeof input !== 'string') {
       throw new Error('Assistant output raw response must be a string.')
     }
 
-    const actionBlocks = extractActionBlocks(input)
-    const thinkingBlocks = extractThinkingBlocks(input)
+    const scanned = scanAssistantProtocolMarkdown(input)
+    const { actionBlocks, thinkingBlocks } = scanned
 
     if (actionBlocks.length === 0 && thinkingBlocks.length === 0) {
-      const bodyMd = sanitizeBodyMarkdown(input) || '[模型返回内容为空]'
+      const bodyMd =
+        sanitizeBodyMarkdown(scanned.visibleBodyMarkdown) || '[模型返回内容为空]'
       return {
         body_md: bodyMd,
         action_calls: [],
@@ -123,7 +112,7 @@ export class NormalChatAssistantOutputParser {
     const actionCalls = dedupeActionCalls(
       actionBlocks.map((block, index) => this.parseActionBlock(block.rawJson, index))
     )
-    const bodyMd = sanitizeBodyMarkdown(stripActionBlocks(input))
+    const bodyMd = sanitizeBodyMarkdown(scanned.visibleBodyMarkdown)
     const thinkingMd =
       thinkingBlocks
         .map((block) => block.rawMarkdown)
