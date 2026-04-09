@@ -3,7 +3,7 @@ import { NormalChatActionExecutorService } from '../actions/shared/action-execut
 import { NormalChatAgentRuntime } from './agent-runtime'
 
 describe('NormalChatAgentRuntime', () => {
-  it('persists functioncall parts into the committed assistant message', async () => {
+  it('emits finish with stable assistant message id instead of committing assistant parts', async () => {
     const graphRunner = {
       run: vi.fn(async (handlers: any) => {
         await handlers.prepareRound()
@@ -78,6 +78,7 @@ describe('NormalChatAgentRuntime', () => {
         },
         feedback: [],
         loadedActionKeys: [],
+        transcriptVisibility: 'inline',
         schemaDebugSnapshot: null,
         childSummaries: [],
         actionRunId: 'action-run-1'
@@ -101,6 +102,7 @@ describe('NormalChatAgentRuntime', () => {
     const streamPublisher = {
       appendTraceEntry: vi.fn(),
       publish: vi.fn(() => 0),
+      appendProviderRequestCaptured: vi.fn(),
       appendAgentStatus: vi.fn(),
       appendAgentRunCreated: vi.fn(),
       appendAgentRunFinished: vi.fn(),
@@ -159,52 +161,15 @@ describe('NormalChatAgentRuntime', () => {
       signal: new AbortController().signal
     })
 
-    expect(streamPublisher.publish).toHaveBeenLastCalledWith(
-      'task-1',
-      'topic-1',
-      'request-1',
-      expect.objectContaining({
-        type: 'message-committed',
-        message: expect.objectContaining({
-          parts: expect.arrayContaining([
-            expect.objectContaining({
-              kind: 'text',
-              text: 'Final answer',
-              turnKind: 'action_plan',
-              roundIndex: 1,
-              depth: 0,
-              modelCallId: 'model-call-1'
-            }),
-            expect.objectContaining({
-              kind: 'functioncall',
-              functionCallName: 'functioncall.pubmed_search',
-              title: 'PubMed Search',
-              status: 'success',
-              input: '{"query":"covid-19"}',
-              output: '{"items":[]}',
-              errorMessage: null,
-              isStreaming: false,
-              roundIndex: 1,
-              batchIndex: 0,
-              parallelIndex: 0,
-              depth: 0,
-              decisionReason: null
-            }),
-            expect.objectContaining({
-              kind: 'text',
-              text: '本轮未生成合格的最终总结，以下是基于已执行结果的结构化汇总。',
-              turnKind: 'post_action_synthesis',
-              roundIndex: 1,
-              depth: 0,
-              modelCallId: 'model-call-1'
-            })
-          ])
-        })
-      })
-    )
     const publishCalls = streamPublisher.publish.mock.calls as unknown as Array<
-      [string, string, string, { type: string }]
+      [string, string, string, { type: string; assistantMessageId?: string | null }]
     >
+    expect(
+      publishCalls.some(
+        ([, , , event]) =>
+          event.type === 'finish' && event.assistantMessageId === 'assistant:request-1'
+      )
+    ).toBe(true)
     expect(publishCalls.some(([, , , event]) => event.type === 'status')).toBe(false)
     expect(roundPersistenceService.createQueuedModelCall).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -301,6 +266,7 @@ describe('NormalChatAgentRuntime', () => {
     const streamPublisher = {
       appendTraceEntry: vi.fn(),
       publish: vi.fn(() => 0),
+      appendProviderRequestCaptured: vi.fn(),
       appendAgentStatus: vi.fn(),
       appendAgentRunCreated: vi.fn(),
       appendAgentRunFinished: vi.fn(),
@@ -398,5 +364,24 @@ describe('NormalChatAgentRuntime', () => {
         synthesisRequired: true
       })
     )
+
+    const publishCalls = streamPublisher.publish.mock.calls as unknown as Array<
+      [string, string, string, Record<string, unknown>]
+    >
+    expect(
+      publishCalls.some(
+        ([, , , event]) =>
+          event.type === 'assistant-part-upsert' &&
+          (event.part as { functionCallName?: string } | undefined)?.functionCallName ===
+            'system.dispatch_sub_agent'
+      )
+    ).toBe(false)
+    expect(
+      publishCalls.some(
+        ([, , , event]) =>
+          (event.type === 'assistant-body-delta' || event.type === 'assistant-final-chunk') &&
+          event.depth === 1
+      )
+    ).toBe(false)
   })
 })

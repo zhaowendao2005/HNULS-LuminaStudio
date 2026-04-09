@@ -170,8 +170,10 @@ export class NormalChatAssistantRoundMemoryService {
     if (successfulResults.length > 0) {
       lines.push('', '已完成事项：')
       lines.push(
-        ...successfulResults.map(
-          (item) => `- ${item.title}: ${truncateText(item.modelFacingSummaryMd, 220)}`
+        ...successfulResults.map((item) =>
+          item.title === 'Dispatch Sub Agent'
+            ? `- ${item.title}: ${item.modelFacingSummaryMd}`
+            : `- ${item.title}: ${truncateText(item.modelFacingSummaryMd, 220)}`
         )
       )
     }

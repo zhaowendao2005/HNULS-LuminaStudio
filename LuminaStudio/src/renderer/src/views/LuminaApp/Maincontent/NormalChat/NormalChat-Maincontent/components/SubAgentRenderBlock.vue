@@ -36,10 +36,10 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { NormalChatRenderSubAgentBlock } from '@renderer/stores/normal-chat/conversation/conversation.types'
+import type { NormalChatSubAgentMessagePart } from '@preload/types'
 
 const props = defineProps<{
-  block: NormalChatRenderSubAgentBlock
+  block: NormalChatSubAgentMessagePart
 }>()
 
 const emit = defineEmits<{
@@ -56,7 +56,7 @@ const statusLabel = computed(() => {
   if (props.block.status === 'running') {
     return '进行中'
   }
-  return '已创建'
+  return '排队中'
 })
 
 const statusClass = computed(() => {

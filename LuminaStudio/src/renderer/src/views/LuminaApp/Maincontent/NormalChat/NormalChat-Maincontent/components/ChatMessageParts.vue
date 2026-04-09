@@ -24,7 +24,7 @@
 
         <SubAgentRenderBlock
           v-else-if="block.kind === 'subagent'"
-          :block="block"
+          :block="block.part"
           @open-agent-run="emit('open-agent-run', $event)"
         />
 

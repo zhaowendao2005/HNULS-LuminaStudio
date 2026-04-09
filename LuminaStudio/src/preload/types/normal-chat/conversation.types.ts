@@ -14,7 +14,8 @@
 import type {
   NormalChatConversationMessageRole,
   NormalChatFunctionCallMessagePartStatus,
-  NormalChatMessagePartKind
+  NormalChatMessagePartKind,
+  NormalChatSubAgentMessagePartStatus
 } from './common.types'
 import type { NormalChatPersistencePreset } from './workspace.types'
 
@@ -81,11 +82,33 @@ export interface NormalChatThinkingMessagePart {
   depth: number
 }
 
+/** 子代理消息片段 */
+export interface NormalChatSubAgentMessagePart {
+  kind: Extract<NormalChatMessagePartKind, 'subagent'>
+  /** 消息片段唯一标识 */
+  partId: string
+  /** 子代理目标描述 */
+  goal: string
+  /** 子代理运行 ID（创建后填充，失败时可能为 null） */
+  childAgentRunId: string | null
+  /** 所在轮次索引 */
+  roundIndex: number
+  /** 批次索引 */
+  batchIndex: number
+  /** 并行索引 */
+  parallelIndex: number
+  /** Agent 嵌套深度 */
+  depth: number
+  /** 执行状态 */
+  status: NormalChatSubAgentMessagePartStatus
+}
+
 /** 消息片段联合类型 */
 export type NormalChatMessagePart =
   | NormalChatTextMessagePart
   | NormalChatFunctionCallMessagePart
   | NormalChatThinkingMessagePart
+  | NormalChatSubAgentMessagePart
 
 /** 对话消息 */
 export interface NormalChatConversationMessage {
@@ -121,7 +144,6 @@ export type NormalChatTaskPhase =
   | 'building_prompt'
   | 'awaiting_model'
   | 'executing_actions'
-  | 'committing_message'
   | 'finished'
 
 /** 请求指标（Token 用量、延迟等） */
@@ -245,6 +267,8 @@ export type NormalChatModelCallTurnKind = 'answer' | 'action_plan' | 'post_actio
 export interface NormalChatCapturedProviderRequestSnapshot {
   id: string
   capturedAt: string
+  requestId: string
+  modelCallId: string
   protocol: string
   providerId: string
   modelId: string
@@ -354,7 +378,6 @@ export interface NormalChatRequestHeadSnapshot {
     | 'building_prompt'
     | 'awaiting_model'
     | 'executing_actions'
-    | 'committing_message'
     | 'finished'
   errorMessage: string | null
   createdAt: string

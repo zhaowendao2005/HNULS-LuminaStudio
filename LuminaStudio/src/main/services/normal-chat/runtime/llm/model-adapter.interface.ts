@@ -13,6 +13,7 @@ import type { NormalChatTaskExecutionSnapshot } from '@preload/types'
 import type { NormalChatActionResultRecord } from '../actions/shared/action-result-projection'
 import type { NormalChatResolvedAction } from '../actions/shared/action.types'
 import type { NormalChatPromptBundleV2 } from '../prompt/prompt-bundle.types'
+import type { NormalChatCapturedProviderRequest } from './providers/provider-request-capture'
 
 /**
  * 模型流式输出事件
@@ -41,6 +42,8 @@ export type NormalChatModelStreamEvent =
 export interface NormalChatScriptRoundInput {
   /** 请求唯一标识 */
   requestId: string
+  /** 当前模型调用唯一标识 */
+  modelCallId: string
   /** 话题唯一标识 */
   topicId: string
   /** 任务唯一标识 */
@@ -61,6 +64,8 @@ export interface NormalChatScriptRoundInput {
   loadedActionKeys: string[]
   /** 累计的动作执行结果列表 */
   actionResults: NormalChatActionResultRecord[]
+  /** 原始出网请求捕获回调 */
+  onCaptureProviderRequest?: (snapshot: NormalChatCapturedProviderRequest) => void
 }
 
 /**

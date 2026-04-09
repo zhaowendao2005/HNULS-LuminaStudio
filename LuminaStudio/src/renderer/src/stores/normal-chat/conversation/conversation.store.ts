@@ -6,6 +6,7 @@ import type {
   NormalChatMessagePart,
   NormalChatRequestHeadSnapshot,
   NormalChatRequestMetrics,
+  NormalChatSubAgentMessagePart,
   NormalChatThinkingMessagePart,
   NormalChatTopic,
   NormalChatTopicTranscriptSnapshot
@@ -135,24 +136,12 @@ function buildRenderBlocks(input: {
       continue
     }
 
-    if (part.functionCallName === 'system.dispatch_sub_agent') {
+    if (part.kind === 'subagent') {
       flushBatch()
       blocks.push({
         kind: 'subagent',
-        key: `subagent:${part.callId}`,
-        actionRunId: part.callId,
-        childAgentRunId: null,
-        goal: part.decisionReason ?? part.title,
-        roundIndex: part.roundIndex,
-        batchIndex: part.batchIndex,
-        parallelIndex: part.parallelIndex,
-        depth: part.depth,
-        status:
-          part.status === 'success'
-            ? 'completed'
-            : part.status === 'error' || part.status === 'aborted'
-              ? 'failed'
-              : 'running'
+        key: `subagent:${part.partId}`,
+        part: part as NormalChatSubAgentMessagePart
       })
       continue
     }
@@ -235,8 +224,6 @@ function resolveStatusText(requestHeads: NormalChatRequestHeadSnapshot[]): strin
       return '模型响应中…'
     case 'executing_actions':
       return '正在执行动作…'
-    case 'committing_message':
-      return '正在提交消息…'
     case 'finished':
     default:
       return ''

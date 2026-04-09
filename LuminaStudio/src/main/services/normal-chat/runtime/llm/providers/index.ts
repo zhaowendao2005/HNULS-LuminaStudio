@@ -10,14 +10,18 @@ import { callClaudeProvider, streamClaudeProvider } from './claude-provider'
 export type { NormalChatProviderConfig } from './provider-config.types'
 export { extractProviderError } from './provider-error'
 export {
-  createProviderRequestCaptureFetch,
-  normalChatProviderRequestCaptureHandle
+  createProviderRequestCaptureFetch
 } from './provider-request-capture'
 export type { NormalChatCapturedProviderRequest } from './provider-request-capture'
 
 export interface NormalChatProviderPromptInput {
   systemPrompt: string
   roundPrompt: string
+  captureContext: {
+    requestId: string
+    modelCallId: string
+  }
+  onCapture?: (snapshot: import('./provider-request-capture').NormalChatCapturedProviderRequest) => void
 }
 
 export async function callProvider(

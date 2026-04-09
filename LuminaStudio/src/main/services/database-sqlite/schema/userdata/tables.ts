@@ -181,7 +181,7 @@ export const NORMAL_CHAT_REQUEST_HEADS_TABLE: TableDefinition = {
       user_message_id TEXT,
       assistant_message_id TEXT,
       status TEXT NOT NULL CHECK (status IN ('queued', 'running', 'succeeded', 'failed', 'aborted', 'deleted')),
-      phase TEXT NOT NULL CHECK (phase IN ('queued', 'preparing_context', 'building_prompt', 'awaiting_model', 'executing_actions', 'committing_message', 'finished')),
+      phase TEXT NOT NULL CHECK (phase IN ('queued', 'preparing_context', 'building_prompt', 'awaiting_model', 'executing_actions', 'finished')),
       error_message TEXT,
       created_at TEXT NOT NULL,
       started_at TEXT,

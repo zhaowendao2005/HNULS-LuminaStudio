@@ -1,11 +1,11 @@
 import { randomUUID } from 'node:crypto'
 import type {
-  NormalChatConversationMessage,
   NormalChatFunctionCallMessagePart,
   NormalChatTaskExecutionSnapshot,
   NormalChatTaskFinalResponse,
   NormalChatTextMessagePart,
-  NormalChatThinkingMessagePart
+  NormalChatThinkingMessagePart,
+  NormalChatSubAgentMessagePart
 } from '@preload/types'
 import type {
   NormalChatDispatchSubAgentExecutionInput,
@@ -58,6 +58,8 @@ interface AgentExecutionOverrides {
   maxReactSteps?: number
 }
 
+type AgentTranscriptSurface = 'attached' | 'detached'
+
 interface AgentExecutionInput {
   taskId: string
   requestId: string
@@ -67,6 +69,7 @@ interface AgentExecutionInput {
   agentRun: NormalChatAgentRunRecord
   parentActionRunId: string | null
   signal: AbortSignal
+  transcriptSurface: AgentTranscriptSurface
   overrides?: AgentExecutionOverrides
 }
 
@@ -74,7 +77,7 @@ interface AgentExecutionResult {
   finalReply: string
   finalResponse: NormalChatTaskFinalResponse
   assistantParts: Array<
-    NormalChatFunctionCallMessagePart | NormalChatThinkingMessagePart | NormalChatTextMessagePart
+    NormalChatFunctionCallMessagePart | NormalChatThinkingMessagePart | NormalChatTextMessagePart | NormalChatSubAgentMessagePart
   >
   roundCount: number
 }
@@ -190,42 +193,27 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
       userInput: input.executionSnapshot.request.input,
       agentRun: input.rootAgentRun,
       parentActionRunId: null,
-      signal: input.signal
+      signal: input.signal,
+      transcriptSurface: 'attached'
     })
 
     if (input.signal.aborted) {
       return
     }
 
-    const timestamp = nowIso()
-    this.updateRequestPhase(input.requestId, 'committing_message', timestamp)
-    const assistantMessage: NormalChatConversationMessage = {
-      id: randomUUID(),
-      topicId: input.topicId,
-      requestId: input.requestId,
-      role: 'assistant',
-      parts: executionResult.assistantParts,
-      createdAt: timestamp,
-      updatedAt: timestamp
-    }
+    const assistantMessageId = `assistant:${input.requestId}`
 
     this.streamPublisher.publish(input.taskId, input.topicId, input.requestId, {
       type: 'finish',
       requestId: input.requestId,
       topicId: input.topicId,
-      assistantMessageId: assistantMessage.id
+      assistantMessageId
     })
     this.streamPublisher.appendAgentRunFinished({
       requestId: input.requestId,
       agentRunId: input.rootAgentRun.id,
       finalText: executionResult.finalReply,
       reactCount: executionResult.roundCount
-    })
-    this.streamPublisher.publish(input.taskId, input.topicId, input.requestId, {
-      type: 'message-committed',
-      requestId: input.requestId,
-      topicId: input.topicId,
-      message: assistantMessage
     })
   }
 
@@ -269,35 +257,68 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
       status: 'running'
     })
 
-    this.streamPublisher.publish(
-      parentContext.taskId,
-      parentContext.topicId,
-      parentContext.requestId,
-      {
-        type: 'subagent-dispatched',
-        requestId: parentContext.requestId,
-        topicId: parentContext.topicId,
-        actionRunId: input.parentActionRunId,
-        childAgentRunId: childAgentRun.id,
+    // 更新subagent part：带上childAgentRunId
+    if (input.transcriptPartId) {
+      const runningWithChildPart: NormalChatSubAgentMessagePart = {
+        kind: 'subagent',
+        partId: input.transcriptPartId,
         goal: input.goal,
+        childAgentRunId: childAgentRun.id,
         roundIndex: 0,
         batchIndex: 0,
         parallelIndex: 0,
-        depth: childAgentRun.depth
+        depth: parentContext.depth,
+        status: 'running'
       }
-    )
+      this.streamPublisher.publish(parentContext.taskId, parentContext.topicId, parentContext.requestId, {
+        type: 'assistant-part-upsert',
+        requestId: parentContext.requestId,
+        topicId: parentContext.topicId,
+        part: runningWithChildPart
+      })
+    }
 
-    const childExecution = await this.runAgentExecution({
-      ...parentContext,
-      userInput: input.goal,
-      agentRun: childAgentRun,
-      parentActionRunId: input.parentActionRunId,
-      overrides: {
-        allowedActionKeys: input.enabledActionKeys,
-        pubmedMode: input.pubmedMode,
-        maxReactSteps: input.maxReactSteps
+    let childExecution: AgentExecutionResult
+    try {
+      childExecution = await this.runAgentExecution({
+        ...parentContext,
+        userInput: input.goal,
+        agentRun: childAgentRun,
+        parentActionRunId: input.parentActionRunId,
+        transcriptSurface: 'detached',
+        overrides: {
+          allowedActionKeys: input.enabledActionKeys,
+          pubmedMode: input.pubmedMode,
+          maxReactSteps: input.maxReactSteps
+        }
+      })
+    } catch (error) {
+      if (input.transcriptPartId) {
+        const failedPart: NormalChatSubAgentMessagePart = {
+          kind: 'subagent',
+          partId: input.transcriptPartId,
+          goal: input.goal,
+          childAgentRunId: childAgentRun.id,
+          roundIndex: 0,
+          batchIndex: 0,
+          parallelIndex: 0,
+          depth: parentContext.depth,
+          status: 'failed'
+        }
+        this.streamPublisher.publish(
+          parentContext.taskId,
+          parentContext.topicId,
+          parentContext.requestId,
+          {
+            type: 'assistant-part-upsert',
+            requestId: parentContext.requestId,
+            topicId: parentContext.topicId,
+            part: failedPart
+          }
+        )
       }
-    })
+      throw error
+    }
 
     this.streamPublisher.appendAgentRunFinished({
       requestId: parentContext.requestId,
@@ -305,6 +326,27 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
       finalText: childExecution.finalReply,
       reactCount: childExecution.roundCount
     })
+
+    // 更新subagent part：完成状态
+    if (input.transcriptPartId) {
+      const completedPart: NormalChatSubAgentMessagePart = {
+        kind: 'subagent',
+        partId: input.transcriptPartId,
+        goal: input.goal,
+        childAgentRunId: childAgentRun.id,
+        roundIndex: 0,
+        batchIndex: 0,
+        parallelIndex: 0,
+        depth: parentContext.depth,
+        status: 'completed'
+      }
+      this.streamPublisher.publish(parentContext.taskId, parentContext.topicId, parentContext.requestId, {
+        type: 'assistant-part-upsert',
+        requestId: parentContext.requestId,
+        topicId: parentContext.topicId,
+        part: completedPart
+      })
+    }
 
     return {
       childAgentRunId: childAgentRun.id,
@@ -324,7 +366,7 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
     })
 
     const assistantParts: Array<
-      NormalChatFunctionCallMessagePart | NormalChatThinkingMessagePart | NormalChatTextMessagePart
+      NormalChatFunctionCallMessagePart | NormalChatThinkingMessagePart | NormalChatTextMessagePart | NormalChatSubAgentMessagePart
     > = []
     const replyChunks: string[] = []
     let currentModelCallId: string | null = null
@@ -336,6 +378,7 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
     let repairNotice: string | null = null
 
     const previousActiveContext = this.activeAgentContext
+    const canWriteTranscript = input.transcriptSurface === 'attached'
     this.activeAgentContext = { ...input, depth: input.agentRun.depth }
 
     try {
@@ -441,6 +484,7 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
           ) {
             for await (const event of this.modelAdapter.streamRound({
               requestId: input.requestId,
+              modelCallId: currentModelCallId,
               topicId: input.topicId,
               taskId: input.taskId,
               executionSnapshot: input.executionSnapshot,
@@ -450,7 +494,14 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
               promptBundle,
               enabledActions: resolvedActions,
               loadedActionKeys: Array.from(state.loadedActionKeys),
-              actionResults: state.actionResults
+              actionResults: state.actionResults,
+              onCaptureProviderRequest: (snapshot) => {
+                this.streamPublisher.appendProviderRequestCaptured({
+                  requestId: input.requestId,
+                  modelCallId: currentModelCallId,
+                  snapshot
+                })
+              }
             })) {
               if (event.type === 'text-delta') {
                 rawModelResponseText += event.delta
@@ -471,22 +522,25 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
                 const visibleBodyDelta = visibleBodyExtractor.feed(event.delta)
                 if (visibleBodyDelta) {
                   streamedBodyText += visibleBodyDelta
-                  this.streamPublisher.publish(input.taskId, input.topicId, input.requestId, {
-                    type: 'assistant-body-delta',
-                    requestId: input.requestId,
-                    topicId: input.topicId,
-                    modelCallId: currentModelCallId,
-                    delta: visibleBodyDelta,
-                    roundIndex: state.roundIndex,
-                    depth: input.agentRun.depth,
-                    turnKind: currentTurnKind
-                  })
+                  if (canWriteTranscript) {
+                    this.streamPublisher.publish(input.taskId, input.topicId, input.requestId, {
+                      type: 'assistant-body-delta',
+                      requestId: input.requestId,
+                      topicId: input.topicId,
+                      modelCallId: currentModelCallId,
+                      delta: visibleBodyDelta,
+                      roundIndex: state.roundIndex,
+                      depth: input.agentRun.depth,
+                      turnKind: currentTurnKind
+                    })
+                  }
                 }
               }
             }
           } else {
             rawModelResponseText = await this.modelAdapter.invokeRound({
               requestId: input.requestId,
+              modelCallId: currentModelCallId,
               topicId: input.topicId,
               taskId: input.taskId,
               executionSnapshot: input.executionSnapshot,
@@ -496,7 +550,14 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
               promptBundle,
               enabledActions: resolvedActions,
               loadedActionKeys: Array.from(state.loadedActionKeys),
-              actionResults: state.actionResults
+              actionResults: state.actionResults,
+              onCaptureProviderRequest: (snapshot) => {
+                this.streamPublisher.appendProviderRequestCaptured({
+                  requestId: input.requestId,
+                  modelCallId: currentModelCallId,
+                  snapshot
+                })
+              }
             })
             this.roundPersistenceService.appendModelCallStream(
               currentModelCallId,
@@ -538,12 +599,14 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
               depth: input.agentRun.depth
             }
             assistantParts.push(thinkingPart)
-            this.streamPublisher.publish(input.taskId, input.topicId, input.requestId, {
-              type: 'assistant-part-upsert',
-              requestId: input.requestId,
-              topicId: input.topicId,
-              part: thinkingPart
-            })
+            if (canWriteTranscript) {
+              this.streamPublisher.publish(input.taskId, input.topicId, input.requestId, {
+                type: 'assistant-part-upsert',
+                requestId: input.requestId,
+                topicId: input.topicId,
+                part: thinkingPart
+              })
+            }
           }
 
           const parsedActionCalls = structuredOutput.action_calls.length
@@ -601,6 +664,7 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
             state.postActionSynthesisPending
 
           if (
+            canWriteTranscript &&
             structuredOutput.body_md.startsWith(streamedBodyText) &&
             structuredOutput.body_md.length > streamedBodyText.length
           ) {
@@ -631,7 +695,7 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
             const finalChunkDelta = structuredOutput.body_md.startsWith(streamedBodyText)
               ? structuredOutput.body_md.slice(streamedBodyText.length)
               : structuredOutput.body_md
-            if (finalChunkDelta) {
+            if (finalChunkDelta && canWriteTranscript) {
               this.streamPublisher.publish(input.taskId, input.topicId, input.requestId, {
                 type: 'assistant-final-chunk',
                 requestId: input.requestId,
@@ -694,7 +758,15 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
                 )
               : await this.executeSerialBatch(batch.calls, batchIndex, input, state)
 
-            assistantParts.push(...executedItems.map((item) => item.functionCallPart))
+            assistantParts.push(
+              ...executedItems
+                .filter(
+                  (item) =>
+                    canWriteTranscript &&
+                    (Boolean(item.subagentPart) || item.transcriptVisibility === 'inline')
+                )
+                .map((item) => (item.subagentPart ? item.subagentPart : item.functionCallPart))
+            )
             const batchResult = this.actionExecutor.createBatchResult(executedItems)
             batchResult.executedActionRunIds.forEach((id) => executedActionRunIds.add(id))
             state.actionResults.push(...batchResult.results)
@@ -899,6 +971,33 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
       message: null,
       schemaDebugSnapshot: null
     })
+
+    // 对于dispatch_sub_agent，立即创建subagent part并发送upsert
+    let transcriptPartId: string | null = null
+    if (
+      input.call.actionKey === 'system.dispatch_sub_agent' &&
+      input.input.transcriptSurface === 'attached'
+    ) {
+      transcriptPartId = `subagent:${input.input.requestId}:${input.state.roundIndex}:${input.batchIndex}:${input.parallelIndex}:${actionRun.id}`
+      const initialSubAgentPart: NormalChatSubAgentMessagePart = {
+        kind: 'subagent',
+        partId: transcriptPartId,
+        goal: String(input.call.input.goal ?? ''),
+        childAgentRunId: null,
+        roundIndex: input.state.roundIndex,
+        batchIndex: input.batchIndex,
+        parallelIndex: input.parallelIndex,
+        depth: input.input.agentRun.depth,
+        status: 'running'
+      }
+      this.streamPublisher.publish(input.input.taskId, input.input.topicId, input.input.requestId, {
+        type: 'assistant-part-upsert',
+        requestId: input.input.requestId,
+        topicId: input.input.topicId,
+        part: initialSubAgentPart
+      })
+    }
+
     const executed = await this.actionExecutor.execute({
       call: input.call,
       resolvedActions: input.state.resolvedActions,
@@ -906,6 +1005,7 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
       batchIndex: input.batchIndex,
       parallelIndex: input.parallelIndex,
       depth: input.input.agentRun.depth,
+      transcriptPartId: transcriptPartId ?? undefined,
       context: {
         taskId: input.input.taskId,
         requestId: input.input.requestId,
@@ -958,12 +1058,17 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
       schemaDebugSnapshot: executed.schemaDebugSnapshot,
       message: executed.resultRecord.errorMessage
     })
-    this.streamPublisher.publish(input.input.taskId, input.input.topicId, input.input.requestId, {
-      type: 'assistant-part-upsert',
-      requestId: input.input.requestId,
-      topicId: input.input.topicId,
-      part: executed.functionCallPart
-    })
+    if (
+      input.input.transcriptSurface === 'attached' &&
+      executed.transcriptVisibility === 'inline'
+    ) {
+      this.streamPublisher.publish(input.input.taskId, input.input.topicId, input.input.requestId, {
+        type: 'assistant-part-upsert',
+        requestId: input.input.requestId,
+        topicId: input.input.topicId,
+        part: executed.functionCallPart
+      })
+    }
 
     return executed
   }
@@ -981,7 +1086,7 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
       | 'building_prompt'
       | 'awaiting_model'
       | 'executing_actions'
-      | 'committing_message',
+      | 'finished',
     startedAt?: string
   ): void {
     const timestamp = startedAt ?? nowIso()

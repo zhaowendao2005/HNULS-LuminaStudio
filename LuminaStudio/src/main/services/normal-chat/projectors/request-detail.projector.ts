@@ -1,6 +1,7 @@
 import type {
   NormalChatActionRunSnapshot,
   NormalChatAgentRunSnapshot,
+  NormalChatCapturedProviderRequestSnapshot,
   NormalChatConversationMessage,
   NormalChatFunctionCallMessagePart,
   NormalChatMessagePart,
@@ -9,6 +10,7 @@ import type {
   NormalChatRequestDetailSnapshot,
   NormalChatRequestEntry,
   NormalChatRequestHeadSnapshot,
+  NormalChatSubAgentMessagePart,
   NormalChatTaskExecutionSnapshot,
   NormalChatTaskFinalResponse,
   NormalChatThinkingMessagePart
@@ -115,6 +117,30 @@ function upsertThinkingPart(
     nextParts[existingIndex] = {
       ...(nextParts[existingIndex] as NormalChatThinkingMessagePart),
       ...part
+    }
+    return nextParts
+  }
+
+  nextParts.push(part)
+  return nextParts
+}
+
+function upsertSubAgentPart(
+  parts: NormalChatMessagePart[],
+  part: NormalChatSubAgentMessagePart
+): NormalChatMessagePart[] {
+  const existingIndex = parts.findIndex(
+    (item): item is NormalChatSubAgentMessagePart =>
+      item.kind === 'subagent' && item.partId === part.partId
+  )
+  const nextParts = [...parts]
+
+  if (existingIndex >= 0) {
+    const previous = nextParts[existingIndex] as NormalChatSubAgentMessagePart
+    nextParts[existingIndex] = {
+      ...previous,
+      ...part,
+      childAgentRunId: part.childAgentRunId ?? previous.childAgentRunId
     }
     return nextParts
   }
@@ -345,24 +371,11 @@ export class RequestDetailProjector {
                 ? upsertFunctionCallPart(record.message.parts, part)
                 : part.kind === 'thinking'
                   ? upsertThinkingPart(record.message.parts, part)
-                  : record.message.parts,
+                  : part.kind === 'subagent'
+                    ? upsertSubAgentPart(record.message.parts, part)
+                    : record.message.parts,
             updatedAt: entry.createdAt
           }
-          break
-        }
-        case 'message_finished': {
-          const traceId = entry.entityId
-          const record = messages.get(traceId) ?? ensureAssistantMessage(entry.createdAt)
-          record.message = {
-            ...record.message,
-            id: String(payload.messageId ?? record.message.id),
-            parts: Array.isArray(payload.parts)
-              ? (payload.parts as NormalChatMessagePart[])
-              : record.message.parts,
-            createdAt: String(payload.createdAt ?? record.message.createdAt),
-            updatedAt: String(payload.updatedAt ?? entry.createdAt)
-          }
-          messages.set(traceId, record)
           break
         }
         case 'model_call_created': {
@@ -416,6 +429,33 @@ export class RequestDetailProjector {
             break
           }
           existing.responseEnvelopeJson = JSON.stringify(payload.responseEnvelope ?? null)
+          existing.updatedAt = entry.createdAt
+          modelCalls.set(entry.entityId, existing)
+          break
+        }
+        case 'provider_request_captured': {
+          const existing = modelCalls.get(entry.entityId)
+          if (!existing) {
+            break
+          }
+          existing.rawProviderRequest = {
+            id: String(payload.id ?? ''),
+            capturedAt: String(payload.capturedAt ?? entry.createdAt),
+            requestId: String(payload.requestId ?? input.requestId),
+            modelCallId: String(payload.modelCallId ?? entry.entityId),
+            protocol: String(payload.protocol ?? '') as NormalChatCapturedProviderRequestSnapshot['protocol'],
+            providerId: String(payload.providerId ?? ''),
+            modelId: String(payload.modelId ?? ''),
+            streaming: Boolean(payload.streaming),
+            method: String(payload.method ?? ''),
+            url: String(payload.url ?? ''),
+            headers:
+              payload.headers && typeof payload.headers === 'object'
+                ? (payload.headers as Record<string, string>)
+                : {},
+            bodyText: typeof payload.bodyText === 'string' ? payload.bodyText : null,
+            bodyJson: payload.bodyJson ?? null
+          }
           existing.updatedAt = entry.createdAt
           modelCalls.set(entry.entityId, existing)
           break

@@ -10,8 +10,8 @@ export type NormalChatCallMode = 'fast' | 'slow' | 'auto'
 
 export type NormalChatCostMode = 'per_call' | 'per_token'
 
-/** 消息片段类型：文本 / 函数调用 / 思考过程 */
-export type NormalChatMessagePartKind = 'text' | 'functioncall' | 'thinking'
+/** 消息片段类型：文本 / 函数调用 / 思考过程 / 子代理 */
+export type NormalChatMessagePartKind = 'text' | 'functioncall' | 'thinking' | 'subagent'
 
 /** 函数调用消息片段的状态 */
 export type NormalChatFunctionCallMessagePartStatus =
@@ -20,6 +20,9 @@ export type NormalChatFunctionCallMessagePartStatus =
   | 'success'
   | 'error'
   | 'aborted'
+
+/** 子代理消息片段的状态 */
+export type NormalChatSubAgentMessagePartStatus = 'queued' | 'running' | 'completed' | 'failed'
 
 /** 对话消息角色 */
 export type NormalChatConversationMessageRole = 'user' | 'assistant'

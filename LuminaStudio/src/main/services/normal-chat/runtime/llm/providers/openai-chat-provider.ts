@@ -30,14 +30,20 @@ function normalizeBaseUrl(baseUrl: string): string {
   return trimmed.endsWith('/v1') ? trimmed : `${trimmed}/v1`
 }
 
-function createClient(config: NormalChatProviderConfig, streaming: boolean): OpenAI {
+function createClient(
+  config: NormalChatProviderConfig,
+  streaming: boolean,
+  prompt: NormalChatProviderPromptInput
+): OpenAI {
   return new OpenAI({
     apiKey: config.apiKey,
     baseURL: config.baseUrl ? normalizeBaseUrl(config.baseUrl) : undefined,
     defaultHeaders: config.defaultHeaders,
     fetch: createProviderRequestCaptureFetch({
       config,
-      streaming
+      streaming,
+      captureContext: prompt.captureContext,
+      onCapture: prompt.onCapture
     })
   })
 }
@@ -53,7 +59,7 @@ export async function callOpenAIChatProvider(
   config: NormalChatProviderConfig,
   prompt: NormalChatProviderPromptInput
 ): Promise<string> {
-  const client = createClient(config, false)
+  const client = createClient(config, false, prompt)
 
   try {
     const response = await client.chat.completions.create({
@@ -83,7 +89,7 @@ export async function* streamOpenAIChatProvider(
   config: NormalChatProviderConfig,
   prompt: NormalChatProviderPromptInput
 ): AsyncGenerator<NormalChatModelStreamEvent, string, void> {
-  const client = createClient(config, true)
+  const client = createClient(config, true, prompt)
 
   try {
     const startedAt = Date.now()

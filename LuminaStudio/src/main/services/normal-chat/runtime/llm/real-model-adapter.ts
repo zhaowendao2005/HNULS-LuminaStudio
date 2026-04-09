@@ -64,7 +64,12 @@ export class NormalChatRealModelAdapter implements NormalChatModelAdapter {
 
     return yield* streamProvider(providerConfig, {
       systemPrompt: input.promptBundle.compiledSystemPrompt,
-      roundPrompt: input.promptBundle.compiledRoundPrompt
+      roundPrompt: input.promptBundle.compiledRoundPrompt,
+      captureContext: {
+        requestId: input.requestId,
+        modelCallId: input.modelCallId
+      },
+      onCapture: input.onCaptureProviderRequest
     })
   }
 
@@ -82,7 +87,11 @@ export class NormalChatRealModelAdapter implements NormalChatModelAdapter {
     const providerConfig = await this.resolveProviderConfig(providerId, modelId)
     return callProvider(providerConfig, {
       systemPrompt: '',
-      roundPrompt: prompt
+      roundPrompt: prompt,
+      captureContext: {
+        requestId: 'smoke-test',
+        modelCallId: 'smoke-test'
+      }
     })
   }
 
@@ -100,7 +109,12 @@ export class NormalChatRealModelAdapter implements NormalChatModelAdapter {
 
     return callProvider(providerConfig, {
       systemPrompt: input.promptBundle.compiledSystemPrompt,
-      roundPrompt: input.promptBundle.compiledRoundPrompt
+      roundPrompt: input.promptBundle.compiledRoundPrompt,
+      captureContext: {
+        requestId: input.requestId,
+        modelCallId: input.modelCallId
+      },
+      onCapture: input.onCaptureProviderRequest
     })
   }
 

@@ -28,6 +28,8 @@ export type NormalChatActionKind = 'system' | 'functioncall' | 'mcp'
  */
 export type NormalChatActionMode = 'fast' | 'slow'
 
+export type NormalChatActionTranscriptVisibility = 'inline' | 'hidden'
+
 /**
  * 动作描述符
  *
@@ -44,6 +46,8 @@ export interface NormalChatActionDescriptor {
   description: string
   /** 默认执行模式（fast 或 slow） */
   defaultMode: NormalChatActionMode
+  /** 该 action 是否应该进入主聊天 transcript */
+  transcriptVisibility?: NormalChatActionTranscriptVisibility
 }
 
 /**

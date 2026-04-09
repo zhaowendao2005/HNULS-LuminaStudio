@@ -3,22 +3,9 @@ import type {
   NormalChatFunctionCallMessagePart,
   NormalChatModelCallTurnKind,
   NormalChatRequestMetrics,
+  NormalChatSubAgentMessagePart,
   NormalChatThinkingMessagePart
 } from '@preload/types'
-
-/**
- * 主聊天区仅保留子代理定位元数据，真正的子代理内容只在详情/Agent 面板查看。
- */
-export interface NormalChatPendingSubAgentRecord {
-  actionRunId: string
-  childAgentRunId: string
-  goal: string
-  roundIndex: number
-  batchIndex: number
-  parallelIndex: number
-  depth: number
-  createdAt: string
-}
 
 /** 渲染块：正文 Markdown */
 export interface NormalChatRenderMarkdownBlock {
@@ -46,25 +33,18 @@ export interface NormalChatRenderFunctionBatchBlock {
   calls: NormalChatFunctionCallMessagePart[]
 }
 
-/** 渲染块：子代理创建事件 */
-export interface NormalChatRenderSubAgentBlock {
-  kind: 'subagent'
-  key: string
-  actionRunId: string
-  childAgentRunId: string | null
-  goal: string
-  roundIndex: number
-  batchIndex: number
-  parallelIndex: number
-  depth: number
-  status: 'created' | 'running' | 'completed' | 'failed'
-}
-
 /** 渲染块：流式占位状态 */
 export interface NormalChatRenderPlaceholderBlock {
   kind: 'placeholder'
   key: string
   label: string
+}
+
+/** 渲染块：子代理 */
+export interface NormalChatRenderSubAgentBlock {
+  kind: 'subagent'
+  key: string
+  part: NormalChatSubAgentMessagePart
 }
 
 /**
@@ -75,8 +55,8 @@ export type NormalChatRenderBlock =
   | NormalChatRenderMarkdownBlock
   | NormalChatRenderThinkingBlock
   | NormalChatRenderFunctionBatchBlock
-  | NormalChatRenderSubAgentBlock
   | NormalChatRenderPlaceholderBlock
+  | NormalChatRenderSubAgentBlock
 
 /**
  * 主聊天区展示消息。
@@ -116,7 +96,6 @@ export interface NormalChatStreamOverlayState {
   createdAt: string
   updatedAt: string
   parts: NormalChatConversationMessage['parts']
-  subAgents: NormalChatPendingSubAgentRecord[]
   placeholderLabel: string
   isFinished: boolean
 }

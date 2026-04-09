@@ -45,6 +45,9 @@ export class NormalChatPromptBuilder {
             if (part.kind === 'thinking') {
               return `[thinking:${part.title}]`
             }
+            if (part.kind === 'subagent') {
+              return `[subagent:${part.status}] ${part.goal}`
+            }
             return `[functioncall:${part.functionCallName}]`
           })
           .join('\n')

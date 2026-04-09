@@ -4,6 +4,7 @@ import type {
   NormalChatMessagePart,
   NormalChatRequestEntry,
   NormalChatRequestHeadSnapshot,
+  NormalChatSubAgentMessagePart,
   NormalChatThinkingMessagePart,
   NormalChatTopicTranscriptSnapshot
 } from '@preload/types'
@@ -117,6 +118,30 @@ function upsertThinkingPart(
   return nextParts
 }
 
+function upsertSubAgentPart(
+  parts: NormalChatMessagePart[],
+  part: NormalChatSubAgentMessagePart
+): NormalChatMessagePart[] {
+  const existingIndex = parts.findIndex(
+    (item): item is NormalChatSubAgentMessagePart =>
+      item.kind === 'subagent' && item.partId === part.partId
+  )
+  const nextParts = [...parts]
+
+  if (existingIndex >= 0) {
+    const previous = nextParts[existingIndex] as NormalChatSubAgentMessagePart
+    nextParts[existingIndex] = {
+      ...previous,
+      ...part,
+      childAgentRunId: part.childAgentRunId ?? previous.childAgentRunId
+    }
+    return nextParts
+  }
+
+  nextParts.push(part)
+  return nextParts
+}
+
 function createPendingAssistantMessage(
   requestId: string,
   topicId: string,
@@ -205,25 +230,11 @@ export class TopicTranscriptProjector {
                 ? upsertFunctionCallPart(record.message.parts, part)
                 : part.kind === 'thinking'
                   ? upsertThinkingPart(record.message.parts, part)
-                  : record.message.parts,
+                  : part.kind === 'subagent'
+                    ? upsertSubAgentPart(record.message.parts, part)
+                    : record.message.parts,
             updatedAt: entry.createdAt
           }
-          break
-        }
-        case 'message_finished': {
-          const traceId = entry.entityId
-          const record =
-            messages.get(traceId) ?? ensureAssistantMessage(entry.requestId, entry.createdAt)
-          record.message = {
-            ...record.message,
-            id: String(payload.messageId ?? record.message.id),
-            parts: Array.isArray(payload.parts)
-              ? (payload.parts as NormalChatMessagePart[])
-              : record.message.parts,
-            createdAt: String(payload.createdAt ?? record.message.createdAt),
-            updatedAt: String(payload.updatedAt ?? entry.createdAt)
-          }
-          messages.set(traceId, record)
           break
         }
         case 'message_deleted': {

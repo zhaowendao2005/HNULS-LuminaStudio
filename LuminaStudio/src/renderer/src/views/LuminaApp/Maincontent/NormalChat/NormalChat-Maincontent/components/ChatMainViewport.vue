@@ -74,9 +74,7 @@ function serializeBlockForCopy(block: NormalChatRenderBlock): string {
   }
 
   if (block.kind === 'subagent') {
-    return [`SubAgent: ${block.goal}`, `ChildAgentRunId: ${block.childAgentRunId ?? '--'}`].join(
-      '\n'
-    )
+    return ''
   }
 
   return block.calls

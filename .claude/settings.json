@@ -6,7 +6,14 @@
       "Bash(pnpm -C LuminaStudio exec prettier -w \"src/main/services/orchestflow-generation-editor/orchestflow-generation-editor-service.ts\")",
       "Bash(pnpm -C LuminaStudio exec tsc -p tsconfig.web.json --noEmit)",
       "Bash(pnpm -C LuminaStudio typecheck:web)",
-      "Bash(pnpm -C LuminaStudio exec prettier -w \"src/renderer/src/views/LuminaApp/Maincontent/OrchestraFlowView/GenerateView/layout/GenerateWorkspace.vue\")"
+      "Bash(pnpm -C LuminaStudio exec prettier -w \"src/renderer/src/views/LuminaApp/Maincontent/OrchestraFlowView/GenerateView/layout/GenerateWorkspace.vue\")",
+      "WebSearch",
+      "WebFetch(domain:crates.io)",
+      "WebFetch(domain:docs.rs)",
+      "WebFetch(domain:github.com)",
+      "Bash(netstat -ano)",
+      "Bash(findstr \":1420\")",
+      "Bash(findstr \"1420\")"
     ]
   },
   "enabledPlugins": {

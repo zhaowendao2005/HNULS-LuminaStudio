@@ -1,6 +1,6 @@
 import type {
+  NormalChatCapturedProviderRequestSnapshot,
   NormalChatConversationStreamEvent,
-  NormalChatFunctionCallMessagePart,
   NormalChatRequestEntry,
   NormalChatRequestHeadSnapshot
 } from '@preload/types'
@@ -52,27 +52,6 @@ function estimateBytes(value: string): number {
 
 function getAssistantTraceMessageId(requestId: string): string {
   return `assistant:${requestId}`
-}
-
-function createSyntheticSubAgentPart(
-  event: Extract<NormalChatConversationStreamEvent, { type: 'subagent-dispatched' }>
-): NormalChatFunctionCallMessagePart {
-  return {
-    kind: 'functioncall',
-    callId: event.actionRunId,
-    functionCallName: 'system.dispatch_sub_agent',
-    title: 'system.dispatch_sub_agent',
-    status: 'running',
-    input: '',
-    output: '',
-    errorMessage: null,
-    isStreaming: true,
-    roundIndex: event.roundIndex,
-    batchIndex: event.batchIndex,
-    parallelIndex: event.parallelIndex,
-    depth: event.depth,
-    decisionReason: event.goal
-  }
 }
 
 export class NormalChatStreamPublisher {
@@ -300,6 +279,26 @@ export class NormalChatStreamPublisher {
         consumedActionRunIds: input.consumedActionRunIds,
         synthesisRequired: input.synthesisRequired
       }
+    })
+  }
+
+  appendProviderRequestCaptured(input: {
+    requestId: string
+    modelCallId: string
+    snapshot: NormalChatCapturedProviderRequestSnapshot
+  }): void {
+    this.appendTraceEntry({
+      requestId: input.requestId,
+      entityKind: 'model_call',
+      entityId: input.modelCallId,
+      parentEntityId: null,
+      op: 'patched',
+      visibility: 'debug',
+      payload: {
+        kind: 'provider_request_captured',
+        ...input.snapshot
+      },
+      createdAt: input.snapshot.capturedAt
     })
   }
 
@@ -633,50 +632,7 @@ export class NormalChatStreamPublisher {
         })
         break
       }
-      case 'subagent-dispatched': {
-        this.flushRequestBuffers(requestId)
-        this.ensureAssistantMessageCreated(head, timestamp)
-        commit({
-          requestId,
-          entityKind: 'message',
-          entityId: getAssistantTraceMessageId(requestId),
-          parentEntityId: requestId,
-          op: 'patched',
-          visibility: 'transcript',
-          payload: {
-            kind: 'message_part_upsert',
-            part: createSyntheticSubAgentPart(event)
-          },
-          createdAt: timestamp
-        })
-        break
-      }
       case 'action-validated': {
-        break
-      }
-      case 'message-committed': {
-        this.flushRequestBuffers(requestId)
-        if (event.message.role === 'assistant') {
-          commit({
-            requestId,
-            entityKind: 'message',
-            entityId: getAssistantTraceMessageId(requestId),
-            parentEntityId: requestId,
-            op: 'finished',
-            visibility: 'transcript',
-            payload: {
-              kind: 'message_finished',
-              messageId: event.message.id,
-              parts: event.message.parts,
-              createdAt: event.message.createdAt,
-              updatedAt: event.message.updatedAt
-            },
-            createdAt: timestamp,
-            updateHead: {
-              assistantMessageId: event.message.id
-            }
-          })
-        }
         break
       }
       case 'finish': {
@@ -702,7 +658,8 @@ export class NormalChatStreamPublisher {
                   : 'succeeded',
             phase: 'finished',
             finishedAt: timestamp,
-            assistantMessageId: event.assistantMessageId ?? head.assistantMessageId
+            assistantMessageId:
+              event.assistantMessageId ?? getAssistantTraceMessageId(requestId)
           }
         })
         break

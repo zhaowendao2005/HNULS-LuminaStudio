@@ -362,22 +362,6 @@ describe('NormalChat conversation store', () => {
                   depth: 0,
                   decisionReason: null
                 },
-                {
-                  kind: 'functioncall',
-                  callId: 'dispatch-2',
-                  functionCallName: 'system.dispatch_sub_agent',
-                  title: 'system.dispatch_sub_agent',
-                  status: 'running',
-                  input: '',
-                  output: '',
-                  errorMessage: null,
-                  isStreaming: true,
-                  roundIndex: 1,
-                  batchIndex: 1,
-                  parallelIndex: 0,
-                  depth: 1,
-                  decisionReason: '先创建并监听子代理'
-                },
                 { kind: 'text', text: '第二轮正文' }
               ],
               createdAt: '2026-03-24T00:00:01.000Z',
@@ -422,8 +406,11 @@ describe('NormalChat conversation store', () => {
 
     const assistantMessage = store.currentDisplayMessages[1]
     expect(assistantMessage?.text).toBe('第一轮正文\n\n第二轮正文')
-    expect(assistantMessage?.blocks.some((block) => block.kind === 'function-batch')).toBe(true)
-    expect(assistantMessage?.blocks.some((block) => block.kind === 'subagent')).toBe(true)
+    expect(assistantMessage?.blocks.map((block) => block.kind)).toEqual([
+      'markdown',
+      'function-batch',
+      'markdown'
+    ])
   })
 
   it('shows placeholder blocks for running requests without assistant content', async () => {

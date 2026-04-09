@@ -95,7 +95,6 @@ export interface RequestHeadRow {
     | 'building_prompt'
     | 'awaiting_model'
     | 'executing_actions'
-    | 'committing_message'
     | 'finished'
   error_message: string | null
   created_at: string

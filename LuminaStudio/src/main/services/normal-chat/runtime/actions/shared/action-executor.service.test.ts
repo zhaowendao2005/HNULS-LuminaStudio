@@ -168,9 +168,12 @@ describe('NormalChatActionExecutorService', () => {
       enabledActionKeys: ['functioncall.pubmed_search'],
       parentActionRunId: 'action-run-dispatch-1',
       pubmedMode: 'fast',
-      maxReactSteps: 1
+      maxReactSteps: 1,
+      transcriptPartId: ''
     })
     expect(executed.resultRecord.status).toBe('success')
+    expect(executed.transcriptVisibility).toBe('hidden')
+    expect(executed.resultRecord.modelFacingSummaryMd).toBe('done')
   })
 
   it('includes executed action run ids in batch results', () => {
@@ -183,6 +186,7 @@ describe('NormalChatActionExecutorService', () => {
         actionRunId: 'action-run-1',
         resultRecord: {} as any,
         loadedActionKeys: [],
+        transcriptVisibility: 'inline',
         functionCallPart: {} as any,
         feedback: [],
         childSummaries: [],
@@ -192,6 +196,7 @@ describe('NormalChatActionExecutorService', () => {
         actionRunId: 'action-run-2',
         resultRecord: {} as any,
         loadedActionKeys: [],
+        transcriptVisibility: 'inline',
         functionCallPart: {} as any,
         feedback: [],
         childSummaries: [],

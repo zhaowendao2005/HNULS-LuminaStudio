@@ -8,8 +8,6 @@
  * 流事件通过 IPC 从主进程推送到渲染进程，用于前端实时展示 Agent 执行状态。
  * 所有事件都继承自 NormalChatConversationBaseEvent（包含 requestId 和 topicId）。
  */
-import type { NormalChatConversationMessage } from './conversation.types'
-
 /** 动作 Schema 调试快照（与主进程的 action-runtime.types.ts 中的定义对应） */
 export interface NormalChatActionSchemaDebugSnapshot {
   actionKey: string
@@ -82,23 +80,11 @@ export interface NormalChatConversationAssistantFinalChunkEvent extends NormalCh
   depth: number
 }
 
-/** 助手消息片段更新事件：函数调用或思考过程的实时更新 */
+/** 助手消息片段更新事件：函数调用、思考过程或子代理的实时更新 */
 export interface NormalChatConversationAssistantPartUpsertEvent extends NormalChatConversationBaseEvent {
   type: 'assistant-part-upsert'
-  /** 更新的消息片段（文本/函数调用/思考过程） */
+  /** 更新的消息片段（文本/函数调用/思考过程/子代理） */
   part: NormalChatConversationMessage['parts'][number]
-}
-
-/** 子 Agent 已派发事件：在 child agent 创建后立即推送，用于主聊天流抢先展示 Agent block */
-export interface NormalChatConversationSubAgentDispatchedEvent extends NormalChatConversationBaseEvent {
-  type: 'subagent-dispatched'
-  actionRunId: string
-  childAgentRunId: string
-  goal: string
-  roundIndex: number
-  batchIndex: number
-  parallelIndex: number
-  depth: number
 }
 
 /** Prompt 构建完成事件 */
@@ -153,13 +139,6 @@ export interface NormalChatConversationMemoryUpdatedEvent extends NormalChatConv
   artifactSummary: string
 }
 
-/** 消息提交事件：当助手消息持久化到数据库后通知前端 */
-export interface NormalChatConversationMessageCommittedEvent extends NormalChatConversationBaseEvent {
-  type: 'message-committed'
-  /** 已提交的助手消息 */
-  message: NormalChatConversationMessage
-}
-
 /** 任务完成事件 */
 export interface NormalChatConversationFinishEvent extends NormalChatConversationBaseEvent {
   type: 'finish'
@@ -187,11 +166,9 @@ export type NormalChatConversationStreamEvent =
   | NormalChatConversationAssistantBodyDeltaEvent
   | NormalChatConversationAssistantFinalChunkEvent
   | NormalChatConversationAssistantPartUpsertEvent
-  | NormalChatConversationSubAgentDispatchedEvent
   | NormalChatConversationPromptBuiltEvent
   | NormalChatConversationPromptBudgetTrimmedEvent
   | NormalChatConversationActionValidatedEvent
   | NormalChatConversationMemoryUpdatedEvent
-  | NormalChatConversationMessageCommittedEvent
   | NormalChatConversationFinishEvent
   | NormalChatConversationErrorEvent

@@ -8,14 +8,20 @@ import { createProviderRequestCaptureFetch } from './provider-request-capture'
 
 const DEFAULT_ANTHROPIC_MAX_TOKENS = 4096
 
-function createClient(config: NormalChatProviderConfig, streaming: boolean): Anthropic {
+function createClient(
+  config: NormalChatProviderConfig,
+  streaming: boolean,
+  prompt: NormalChatProviderPromptInput
+): Anthropic {
   return new Anthropic({
     apiKey: config.apiKey,
     baseURL: config.baseUrl || undefined,
     defaultHeaders: config.defaultHeaders,
     fetch: createProviderRequestCaptureFetch({
       config,
-      streaming
+      streaming,
+      captureContext: prompt.captureContext,
+      onCapture: prompt.onCapture
     })
   })
 }
@@ -24,7 +30,7 @@ export async function callClaudeProvider(
   config: NormalChatProviderConfig,
   prompt: NormalChatProviderPromptInput
 ): Promise<string> {
-  const client = createClient(config, false)
+  const client = createClient(config, false, prompt)
 
   try {
     const message = await client.messages.create({
@@ -46,7 +52,7 @@ export async function* streamClaudeProvider(
   config: NormalChatProviderConfig,
   prompt: NormalChatProviderPromptInput
 ): AsyncGenerator<NormalChatModelStreamEvent, string, void> {
-  const client = createClient(config, true)
+  const client = createClient(config, true, prompt)
 
   try {
     const startedAt = Date.now()

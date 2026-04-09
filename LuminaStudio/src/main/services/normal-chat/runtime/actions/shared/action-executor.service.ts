@@ -11,7 +11,7 @@
  *
  * 同时提供批次结果聚合和错误结果构建的能力。
  */
-import type { NormalChatFunctionCallMessagePart } from '@preload/types'
+import type { NormalChatFunctionCallMessagePart, NormalChatSubAgentMessagePart } from '@preload/types'
 import { NormalChatGetActionSpecExecutor } from '../system/get-action-spec/executor'
 import {
   NormalChatDispatchSubAgentExecutor,
@@ -22,6 +22,7 @@ import type {
   NormalChatActionCall,
   NormalChatActionExecutorOutput,
   NormalChatActionRuntimeContext,
+  NormalChatActionTranscriptVisibility,
   NormalChatResolvedAction
 } from './action.types'
 import type { NormalChatActionResultRecord } from './action-result-projection'
@@ -40,13 +41,18 @@ export interface NormalChatExecuteActionInput {
   parallelIndex: number
   depth: number
   context: NormalChatActionRuntimeContext
+  /** transcript part ID，用于dispatch_sub_agent关联子代理状态 */
+  transcriptPartId?: string
 }
 
 export interface NormalChatExecutedAction {
   actionRunId?: string
   resultRecord: NormalChatActionResultRecord
   loadedActionKeys: string[]
+  transcriptVisibility: NormalChatActionTranscriptVisibility
   functionCallPart: NormalChatFunctionCallMessagePart
+  /** 子代理专用part，dispatch_sub_agent成功时填充 */
+  subagentPart?: NormalChatSubAgentMessagePart | null
   feedback: NormalChatActionFeedback[]
   childSummaries: Array<{
     childAgentRunId: string
@@ -77,7 +83,8 @@ export class NormalChatActionExecutorService {
         status: 'unknown_action',
         retryable: false,
         message: `Action is not enabled for this agent: ${input.call.actionKey}`,
-        schemaDebugSnapshot: definition?.debugSchemaSnapshot ?? null
+        schemaDebugSnapshot: definition?.debugSchemaSnapshot ?? null,
+        transcriptVisibility: definition?.descriptor.transcriptVisibility ?? 'inline'
       })
     }
 
@@ -88,7 +95,8 @@ export class NormalChatActionExecutorService {
         status: 'schema_error',
         retryable: true,
         message: parsedInput.error.issues.map((issue) => issue.message).join('; '),
-        schemaDebugSnapshot: definition.debugSchemaSnapshot ?? null
+        schemaDebugSnapshot: definition.debugSchemaSnapshot ?? null,
+        transcriptVisibility: definition.descriptor.transcriptVisibility ?? 'inline'
       })
     }
 
@@ -102,7 +110,8 @@ export class NormalChatActionExecutorService {
           status: validation.kind === 'schema' ? 'schema_error' : 'validation_error',
           retryable: validation.retryable,
           message: validation.message,
-          schemaDebugSnapshot: definition.debugSchemaSnapshot ?? null
+          schemaDebugSnapshot: definition.debugSchemaSnapshot ?? null,
+          transcriptVisibility: definition.descriptor.transcriptVisibility ?? 'inline'
         })
       }
       if (validation.normalizedInput && typeof validation.normalizedInput === 'object') {
@@ -118,7 +127,8 @@ export class NormalChatActionExecutorService {
           status: 'permission_denied',
           retryable: permission.retryable,
           message: permission.message,
-          schemaDebugSnapshot: definition.debugSchemaSnapshot ?? null
+          schemaDebugSnapshot: definition.debugSchemaSnapshot ?? null,
+          transcriptVisibility: definition.descriptor.transcriptVisibility ?? 'inline'
         })
       }
       if (permission.updatedInput && typeof permission.updatedInput === 'object') {
@@ -132,7 +142,8 @@ export class NormalChatActionExecutorService {
           ...input.call,
           input: normalizedInput
         },
-        context: input.context
+        context: input.context,
+        transcriptPartId: input.transcriptPartId
       })
 
       const resultRecord: NormalChatActionResultRecord = {
@@ -157,6 +168,7 @@ export class NormalChatActionExecutorService {
           input.call.actionKey === 'system.get_action_spec'
             ? [String((normalizedInput.action_key ?? '') || '')]
             : [],
+        transcriptVisibility: definition.descriptor.transcriptVisibility ?? 'inline',
         functionCallPart: {
           kind: 'functioncall',
           callId: `${input.call.actionKey}-${input.roundIndex}-${input.parallelIndex}`,
@@ -173,6 +185,23 @@ export class NormalChatActionExecutorService {
           depth: input.depth,
           decisionReason: definition.descriptor.description
         },
+        subagentPart:
+          input.call.actionKey === 'system.dispatch_sub_agent' && input.transcriptPartId
+            ? {
+                kind: 'subagent' as const,
+                partId: input.transcriptPartId,
+                goal: String(normalizedInput.goal ?? ''),
+                childAgentRunId:
+                  'childAgentRunId' in output && typeof output.childAgentRunId === 'string'
+                    ? output.childAgentRunId
+                    : null,
+                roundIndex: input.roundIndex,
+                batchIndex: input.batchIndex,
+                parallelIndex: input.parallelIndex,
+                depth: input.depth,
+                status: 'completed' as const
+              }
+            : null,
         feedback: [],
         childSummaries: this.extractChildSummaries(output),
         schemaDebugSnapshot: definition.debugSchemaSnapshot ?? null
@@ -183,7 +212,8 @@ export class NormalChatActionExecutorService {
         status: 'execution_error',
         retryable: false,
         message: error instanceof Error ? error.message : String(error),
-        schemaDebugSnapshot: definition.debugSchemaSnapshot ?? null
+        schemaDebugSnapshot: definition.debugSchemaSnapshot ?? null,
+        transcriptVisibility: definition.descriptor.transcriptVisibility ?? 'inline'
       })
     }
   }
@@ -212,6 +242,7 @@ export class NormalChatActionExecutorService {
       retryable: boolean
       message: string
       schemaDebugSnapshot: NormalChatActionSchemaDebugSnapshot | null
+      transcriptVisibility: NormalChatActionTranscriptVisibility
     }
   ): NormalChatExecutedAction {
     const resultRecord: NormalChatActionResultRecord = {
@@ -229,6 +260,7 @@ export class NormalChatActionExecutorService {
     return {
       resultRecord,
       loadedActionKeys: [],
+      transcriptVisibility: options.transcriptVisibility,
       functionCallPart: {
         kind: 'functioncall',
         callId: `${input.call.actionKey}-${input.roundIndex}-${input.parallelIndex}`,
@@ -245,6 +277,20 @@ export class NormalChatActionExecutorService {
         depth: input.depth,
         decisionReason: 'Action execution failed.'
       },
+      subagentPart:
+        input.call.actionKey === 'system.dispatch_sub_agent' && input.transcriptPartId
+          ? {
+              kind: 'subagent' as const,
+              partId: input.transcriptPartId,
+              goal: String(input.call.input.goal ?? ''),
+              childAgentRunId: null,
+              roundIndex: input.roundIndex,
+              batchIndex: input.batchIndex,
+              parallelIndex: input.parallelIndex,
+              depth: input.depth,
+              status: 'failed' as const
+            }
+          : null,
       feedback: [
         {
           actionKey: input.call.actionKey,
@@ -263,23 +309,24 @@ export class NormalChatActionExecutorService {
 
   /**
    * 为主 agent 构建模型可见摘要。
-   * 对于 subagent，只暴露“已创建分支”和运行标识，不把子代理正文直接喂回主正文链。
+   * 对于 subagent，直接把最后一轮 LLM 结果作为父 agent 的 action result 消费内容。
    */
   private buildModelFacingSummary(
     actionKey: string,
     title: string,
     output: NormalChatActionExecutorOutput
   ): string {
-    if (
-      actionKey === 'system.dispatch_sub_agent' &&
-      'childAgentRunId' in output &&
-      typeof output.childAgentRunId === 'string'
-    ) {
-      return [
-        `### ${title}`,
-        'status: child_agent_dispatched',
-        `child_agent_run_id: ${output.childAgentRunId}`
-      ].join('\n')
+    if (actionKey === 'system.dispatch_sub_agent') {
+      if ('finalAnswer' in output && typeof output.finalAnswer === 'string' && output.finalAnswer) {
+        return output.finalAnswer
+      }
+      if (
+        'summaryMarkdown' in output &&
+        typeof output.summaryMarkdown === 'string' &&
+        output.summaryMarkdown
+      ) {
+        return output.summaryMarkdown
+      }
     }
 
     return `### ${title}\n\n${JSON.stringify(output, null, 2)}`
@@ -308,6 +355,7 @@ export class NormalChatActionExecutorService {
   private async runExecutor(input: {
     call: NormalChatActionCall
     context: NormalChatActionRuntimeContext
+    transcriptPartId?: string
   }): Promise<NormalChatActionExecutorOutput> {
     if (input.call.actionKey === 'system.get_action_spec') {
       return this.getActionSpecExecutor.execute(String(input.call.input.action_key ?? ''))
@@ -324,7 +372,8 @@ export class NormalChatActionExecutorService {
           : [],
         parentActionRunId: input.context.actionRunId,
         pubmedMode: input.call.input.pubmed_mode === 'slow' ? 'slow' : 'fast',
-        maxReactSteps: Math.max(1, Number(input.call.input.max_react_steps ?? 2))
+        maxReactSteps: Math.max(1, Number(input.call.input.max_react_steps ?? 2)),
+        transcriptPartId: input.transcriptPartId ?? ''
       })
     }
 

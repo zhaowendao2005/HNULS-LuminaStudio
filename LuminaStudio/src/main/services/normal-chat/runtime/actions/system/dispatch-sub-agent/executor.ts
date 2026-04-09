@@ -6,6 +6,8 @@ export interface NormalChatDispatchSubAgentExecutionInput {
   parentActionRunId: string
   pubmedMode: 'fast' | 'slow'
   maxReactSteps: number
+  /** transcript part ID，用于关联子代理状态更新 */
+  transcriptPartId: string
 }
 
 export interface NormalChatDispatchSubAgentRunner {

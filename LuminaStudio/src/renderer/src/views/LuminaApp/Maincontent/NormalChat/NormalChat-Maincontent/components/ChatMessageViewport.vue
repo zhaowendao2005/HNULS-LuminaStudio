@@ -135,9 +135,6 @@ watch(
                   )
                   .join('|')}`
               }
-              if (block.kind === 'subagent') {
-                return `${block.kind}:${block.actionRunId}:${block.childAgentRunId ?? ''}:${block.goal}:${block.status}`
-              }
               return `${block.kind}:${block.label}`
             })
             .join('|'),
