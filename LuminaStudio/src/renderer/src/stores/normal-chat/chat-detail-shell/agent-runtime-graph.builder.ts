@@ -403,9 +403,9 @@ function createHubNode(record: ChatDetailShellRecord): ChatDetailRuntimeNode {
           : record.requestStatus === 'failed'
             ? '运行失败'
             : 'Agent Runtime',
-    subtitle: record.description,
-    meta: `${record.topicTitle} · watermark ${record.highWatermark}`,
-    statusLabel: record.requestPhase || record.requestStatus,
+    subtitle: '',
+    meta: '',
+    statusLabel: '',
     tone,
     agentRunId: record.agentTree?.rootAgentId ?? null,
     childAgentRunId: null,
@@ -440,9 +440,9 @@ function createUserNode(record: ChatDetailShellRecord): ChatDetailRuntimeNode {
     width: USER_WIDTH,
     height: 148,
     title: '用户问题',
-    subtitle: record.requestInput || '当前 request 没有可用输入。',
-    meta: `${record.assistantName} · ${record.topicTitle}`,
-    statusLabel: 'Request',
+    subtitle: '',
+    meta: '',
+    statusLabel: '',
     tone: 'neutral',
     agentRunId: null,
     childAgentRunId: null,
@@ -490,6 +490,38 @@ function buildLayoutNodeInputs(
 ): RuntimeLayoutNodeInput[] {
   const workDescriptors = buildWorkDescriptors(record)
   const descriptorOrder = new Map(workDescriptors.map((item, index) => [item.id, index + 1]))
+  const triggerLlmNodeIdByWorkNodeId = new Map<string, string>()
+
+  record.functioncalls.forEach((item) => {
+    const kind = item.actionKind === 'functioncall' ? 'functioncall' : 'action'
+    const nodeId = `${kind}:${item.id}`
+    const triggerCallId = record.calls
+      .filter(
+        (call) =>
+          call.agentRunId === item.agentRunId && call.createdAt.localeCompare(item.createdAt) <= 0
+      )
+      .sort((left, right) => left.seq - right.seq)
+      .at(-1)?.id
+
+    if (triggerCallId) {
+      triggerLlmNodeIdByWorkNodeId.set(nodeId, `llm:${triggerCallId}`)
+    }
+  })
+
+  record.subagents.forEach((item) => {
+    const nodeId = `subagent:${item.partId}`
+    const sourceActionNodeId = item.sourceFunctioncallId
+      ? `action:${item.sourceFunctioncallId}`
+      : null
+    if (!sourceActionNodeId) {
+      return
+    }
+    const triggerLlmNodeId = triggerLlmNodeIdByWorkNodeId.get(sourceActionNodeId)
+    if (triggerLlmNodeId) {
+      triggerLlmNodeIdByWorkNodeId.set(nodeId, triggerLlmNodeId)
+    }
+  })
+
   const normalized = nodes.map((node) => {
     let sourceActionNodeId: string | null = null
     if (node.kind === 'subagent') {
@@ -512,7 +544,8 @@ function buildLayoutNodeInputs(
             : (descriptorOrder.get(node.id) ?? workDescriptors.length + 1),
       agentRunId: node.agentRunId,
       childAgentRunId: node.childAgentRunId,
-      sourceActionNodeId
+      sourceActionNodeId,
+      triggerLlmNodeId: triggerLlmNodeIdByWorkNodeId.get(node.id) ?? null
     }
   })
 

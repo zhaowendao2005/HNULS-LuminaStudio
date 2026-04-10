@@ -9,38 +9,23 @@
         :default-viewport="defaultViewport"
         :nodes-draggable="false"
         :nodes-connectable="false"
-        :elements-selectable="false"
+        :elements-selectable="true"
         :edges-updatable="false"
         :delete-key-code="null"
         :min-zoom="0.42"
         :max-zoom="1.4"
-        :zoom-on-scroll="true"
         :zoom-on-double-click="false"
-        :pan-on-drag="true"
-        :prevent-scrolling="true"
-        :only-render-visible-elements="true"
-        :translate-extent="translateExtent"
         class="nc-runtime-flow h-full w-full"
         @node-click="handleNodeClick"
         @pane-ready="handlePaneReady"
       >
         <template #node-runtime="nodeProps">
-          <ConversationDetailDialogRuntimeFlowNode
-            :id="nodeProps.id"
-            :data="nodeProps.data"
-            :selected="nodeProps.data.isSelected"
-          />
+          <ConversationDetailDialogRuntimeFlowNode v-bind="nodeProps" />
         </template>
         <template #edge-runtime="edgeProps">
           <ConversationDetailDialogRuntimeFlowEdge v-bind="edgeProps" />
         </template>
-        <Background
-          v-if="showBackground"
-          variant="dots"
-          :gap="20"
-          :size="1"
-          pattern-color="#d7e1e8"
-        />
+        <Background variant="dots" :gap="20" :size="1" pattern-color="#d7e1e8" />
       </VueFlow>
 
       <div class="pointer-events-none absolute left-6 top-5">
@@ -110,7 +95,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, ref, shallowRef, watch } from 'vue'
 import { Background } from '@vue-flow/background'
 import { Position, VueFlow, useVueFlow, type Edge, type Node } from '@vue-flow/core'
 import type { ChatDetailRuntimeGraph } from '@renderer/stores/normal-chat/chat-detail-shell/chat-detail-shell.types'
@@ -133,74 +118,96 @@ const defaultViewport = {
   zoom: 0.8
 }
 
-const EDGE_LABEL_THRESHOLD = 28
-const BACKGROUND_THRESHOLD = 48
-
 const currentGraphKey = computed(() => {
   return props.graph?.nodes.find((node) => node.kind === 'user-query')?.id ?? ''
 })
 
-const runtimeNodes = computed<Node[]>(() => {
-  return (props.graph?.nodes ?? []).map((node) => ({
-    id: node.id,
-    type: 'runtime',
-    position: { x: node.x, y: node.y },
-    draggable: false,
-    selectable: false,
-    sourcePosition: Position.Right,
-    targetPosition: Position.Left,
-    data: {
-      ...node,
-      isSelected: node.id === props.selectedNodeId
-    },
-    width: node.width,
-    height: node.height,
-    style: {
-      width: `${node.width}px`,
-      height: `${node.height}px`,
-      background: 'transparent',
-      border: 'none',
-      padding: '0'
-    }
-  }))
-})
+const NODE_STYLE = {
+  background: 'transparent',
+  border: 'none',
+  padding: '0'
+} as const
 
-const runtimeEdges = computed<Edge[]>(() => {
-  const edgeCount = props.graph?.edges.length ?? 0
+const runtimeNodes = shallowRef<Node[]>([])
+const runtimeEdges = shallowRef<Edge[]>([])
+const nodeIndexById = new Map<string, number>()
+const edgeIndexById = new Map<string, number>()
+const lastSelectedNodeId = ref('')
 
-  return (props.graph?.edges ?? []).map((edge) => ({
-    id: edge.id,
-    type: 'runtime',
-    source: edge.source,
-    target: edge.target,
-    sourceHandle: 'out',
-    targetHandle: 'in',
-    selectable: false,
-    focusable: false,
-    data: {
-      label: edge.label,
-      stroke: edge.stroke,
-      dashed: edge.dashed,
-      showLabel:
-        edgeCount <= EDGE_LABEL_THRESHOLD &&
-        ['subagent', '分支回流', '状态汇总'].includes(edge.label)
+function rebuildRuntimeNodes(graph: ChatDetailRuntimeGraph | null): void {
+  nodeIndexById.clear()
+  runtimeNodes.value = (graph?.nodes ?? []).map((node, index) => {
+    nodeIndexById.set(node.id, index)
+    return {
+      id: node.id,
+      type: 'runtime',
+      position: { x: node.x, y: node.y },
+      draggable: false,
+      selectable: true,
+      selected: node.id === props.selectedNodeId,
+      sourcePosition: Position.Right,
+      targetPosition: Position.Left,
+      data: node,
+      width: node.width,
+      height: node.height,
+      style: {
+        ...NODE_STYLE,
+        width: `${node.width}px`,
+        height: `${node.height}px`
+      }
     }
-  }))
-})
+  })
+  lastSelectedNodeId.value = props.selectedNodeId
+}
+
+function rebuildRuntimeEdges(graph: ChatDetailRuntimeGraph | null): void {
+  edgeIndexById.clear()
+  runtimeEdges.value = (graph?.edges ?? []).map((edge, index) => {
+    edgeIndexById.set(edge.id, index)
+    return {
+      id: edge.id,
+      type: 'runtime',
+      source: edge.source,
+      target: edge.target,
+      sourceHandle: 'out',
+      targetHandle: 'in',
+      selectable: false,
+      focusable: false,
+      data: {
+        label: edge.label,
+        stroke: edge.stroke,
+        dashed: edge.dashed
+      }
+    }
+  })
+}
+
+function updateSelectedNode(nextSelectedNodeId: string): void {
+  if (lastSelectedNodeId.value === nextSelectedNodeId) {
+    return
+  }
+
+  const previousIndex = nodeIndexById.get(lastSelectedNodeId.value)
+  if (previousIndex !== undefined) {
+    const previousNode = runtimeNodes.value[previousIndex]
+    if (previousNode && previousNode.selected) {
+      previousNode.selected = false
+    }
+  }
+
+  const nextIndex = nodeIndexById.get(nextSelectedNodeId)
+  if (nextIndex !== undefined) {
+    const nextNode = runtimeNodes.value[nextIndex]
+    if (nextNode && !nextNode.selected) {
+      nextNode.selected = true
+    }
+  }
+
+  lastSelectedNodeId.value = nextSelectedNodeId
+}
 
 const hasFitted = ref(false)
 const { fitView } = useVueFlow()
-
-const showBackground = computed(() => (props.graph?.nodes.length ?? 0) <= BACKGROUND_THRESHOLD)
-
-const translateExtent = computed(() => {
-  const width = props.graph?.canvasWidth ?? 2400
-  const height = props.graph?.canvasHeight ?? 1600
-  return [
-    [-width * 0.18, -height * 0.18],
-    [width * 1.18, height * 1.18]
-  ] as [[number, number], [number, number]]
-})
 
 async function fitRuntimeGraph(): Promise<void> {
   if (!props.graph || props.graph.nodes.length === 0 || hasFitted.value) {
@@ -219,6 +226,22 @@ function handlePaneReady(): void {
 function handleNodeClick(event: { node: Node }): void {
   emit('select-node', event.node.id)
 }
+
+watch(
+  () => props.graph,
+  (graph) => {
+    rebuildRuntimeNodes(graph)
+    rebuildRuntimeEdges(graph)
+  },
+  { immediate: true }
+)
+
+watch(
+  () => props.selectedNodeId,
+  (selectedNodeId) => {
+    updateSelectedNode(selectedNodeId)
+  }
+)
 
 watch(
   () => currentGraphKey.value,

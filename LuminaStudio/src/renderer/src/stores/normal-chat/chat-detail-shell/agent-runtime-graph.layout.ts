@@ -11,6 +11,7 @@ export interface RuntimeLayoutNodeInput {
   agentRunId: string | null
   childAgentRunId: string | null
   sourceActionNodeId: string | null
+  triggerLlmNodeId: string | null
 }
 
 export interface RuntimeLayoutEdgeInput {
@@ -40,14 +41,18 @@ export interface RuntimeLayoutResult {
   canvasHeight: number
 }
 
-interface RuntimeAxis {
+interface RuntimeCorridor {
   id: string
-  parentAxisId: string | null
-  nodeId: string | null
+  parentCorridorId: string | null
   ownerRunId: string | null
   baselineY: number
-  reservedUp: number
-  reservedDown: number
+  usedUp: number
+  usedDown: number
+  nextDirection: 'down' | 'up'
+}
+
+interface BranchAnchorState {
+  centerY: number
   usedUp: number
   usedDown: number
   nextDirection: 'down' | 'up'
@@ -58,47 +63,64 @@ const RIGHT_PADDING = 160
 const TOP_PADDING = 80
 const BOTTOM_PADDING = 120
 const COLUMN_STEP_X = 384
-const AXIS_CORRIDOR_HEIGHT = 220
-const AXIS_OUTER_GAP_Y = 56
-const INITIAL_RESERVED_CHILD_CORRIDOR_PER_SIDE = 1
-const NOISE_AMPLITUDE_Y = 18
-const BUCKET_STACK_STEP_Y = 28
 const MAIN_AXIS_BASELINE_Y = 360
-
-function hashSeed(value: string): number {
-  let hash = 2166136261
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index)
-    hash = Math.imul(hash, 16777619)
-  }
-  return hash >>> 0
-}
-
-function computeNoise(seed: string): number {
-  const normalized = hashSeed(seed) / 0xffffffff
-  return Math.round((normalized * 2 - 1) * NOISE_AMPLITUDE_Y)
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), max)
-}
+const CHILD_CORRIDOR_STEP_Y = 296
+const BRANCH_RING_STEP_Y = 216
 
 function buildNodeById(nodes: RuntimeLayoutNodeInput[]): Map<string, RuntimeLayoutNodeInput> {
   return new Map(nodes.map((node) => [node.id, node]))
 }
 
-function buildAxisMap(nodes: RuntimeLayoutNodeInput[]): Map<string, RuntimeAxis> {
-  const axisById = new Map<string, RuntimeAxis>()
-  const axisByRunId = new Map<string, string>()
+function reserveChildCorridorBaseline(parentCorridor: RuntimeCorridor): number {
+  const direction = parentCorridor.nextDirection
+  parentCorridor.nextDirection = direction === 'down' ? 'up' : 'down'
 
-  axisById.set('main-axis', {
-    id: 'main-axis',
-    parentAxisId: null,
-    nodeId: null,
+  if (direction === 'down') {
+    parentCorridor.usedDown += 1
+    return parentCorridor.baselineY + parentCorridor.usedDown * CHILD_CORRIDOR_STEP_Y
+  }
+
+  parentCorridor.usedUp += 1
+  return parentCorridor.baselineY - parentCorridor.usedUp * CHILD_CORRIDOR_STEP_Y
+}
+
+function resolveParentCorridorId(
+  node: RuntimeLayoutNodeInput,
+  nodeById: Map<string, RuntimeLayoutNodeInput>,
+  corridorIdByRunId: Map<string, string>
+): string {
+  if (node.sourceActionNodeId) {
+    const sourceActionNode = nodeById.get(node.sourceActionNodeId)
+    const parentRunId = sourceActionNode?.agentRunId
+    if (parentRunId) {
+      return corridorIdByRunId.get(parentRunId) ?? 'main-corridor'
+    }
+  }
+
+  if (node.triggerLlmNodeId) {
+    const triggerLlmNode = nodeById.get(node.triggerLlmNodeId)
+    const parentRunId = triggerLlmNode?.agentRunId
+    if (parentRunId) {
+      return corridorIdByRunId.get(parentRunId) ?? 'main-corridor'
+    }
+  }
+
+  return 'main-corridor'
+}
+
+function buildCorridorMap(nodes: RuntimeLayoutNodeInput[]): {
+  corridorById: Map<string, RuntimeCorridor>
+  corridorIdByRunId: Map<string, string>
+} {
+  const nodeById = buildNodeById(nodes)
+  const corridorById = new Map<string, RuntimeCorridor>()
+  const corridorIdByRunId = new Map<string, string>()
+
+  corridorById.set('main-corridor', {
+    id: 'main-corridor',
+    parentCorridorId: null,
     ownerRunId: null,
     baselineY: MAIN_AXIS_BASELINE_Y,
-    reservedUp: INITIAL_RESERVED_CHILD_CORRIDOR_PER_SIDE,
-    reservedDown: INITIAL_RESERVED_CHILD_CORRIDOR_PER_SIDE,
     usedUp: 0,
     usedDown: 0,
     nextDirection: 'down'
@@ -109,98 +131,80 @@ function buildAxisMap(nodes: RuntimeLayoutNodeInput[]): Map<string, RuntimeAxis>
     .sort((left, right) => left.appearanceOrder - right.appearanceOrder)
 
   for (const node of subagentNodes) {
-    const parentAxisId =
-      node.sourceActionNodeId != null
-        ? (axisByRunId.get(node.sourceActionNodeId) ??
-          resolveParentAxisId(node.sourceActionNodeId, nodes, axisByRunId))
-        : 'main-axis'
-
-    const resolvedParentAxisId = parentAxisId ?? 'main-axis'
-    const parentAxis = axisById.get(resolvedParentAxisId)
-    if (!parentAxis) {
+    const corridorId = `corridor:${node.id}`
+    const parentCorridorId = resolveParentCorridorId(node, nodeById, corridorIdByRunId)
+    const parentCorridor = corridorById.get(parentCorridorId) ?? corridorById.get('main-corridor')
+    if (!parentCorridor) {
       continue
     }
 
-    const baselineY = reserveAxisBaseline(parentAxis)
-    const axisId = `axis:${node.id}`
-    axisById.set(axisId, {
-      id: axisId,
-      parentAxisId: resolvedParentAxisId,
-      nodeId: node.id,
+    corridorById.set(corridorId, {
+      id: corridorId,
+      parentCorridorId,
       ownerRunId: node.childAgentRunId,
-      baselineY,
-      reservedUp: INITIAL_RESERVED_CHILD_CORRIDOR_PER_SIDE,
-      reservedDown: INITIAL_RESERVED_CHILD_CORRIDOR_PER_SIDE,
+      baselineY: reserveChildCorridorBaseline(parentCorridor),
       usedUp: 0,
       usedDown: 0,
       nextDirection: 'down'
     })
 
     if (node.childAgentRunId) {
-      axisByRunId.set(node.childAgentRunId, axisId)
+      corridorIdByRunId.set(node.childAgentRunId, corridorId)
     }
   }
 
-  return axisById
+  return { corridorById, corridorIdByRunId }
 }
 
-function resolveParentAxisId(
-  sourceActionNodeId: string,
-  nodes: RuntimeLayoutNodeInput[],
-  axisByRunId: Map<string, string>
-): string | null {
-  const sourceAction = nodes.find((node) => node.id === sourceActionNodeId)
-  if (!sourceAction) {
-    return null
-  }
-
-  if (!sourceAction.agentRunId) {
-    return 'main-axis'
-  }
-
-  return axisByRunId.get(sourceAction.agentRunId) ?? 'main-axis'
-}
-
-function reserveAxisBaseline(parentAxis: RuntimeAxis): number {
-  const direction = parentAxis.nextDirection
-  parentAxis.nextDirection = direction === 'down' ? 'up' : 'down'
-
-  if (direction === 'down') {
-    parentAxis.usedDown += 1
-    const distance = parentAxis.usedDown * (AXIS_CORRIDOR_HEIGHT + AXIS_OUTER_GAP_Y)
-    return parentAxis.baselineY + distance
-  }
-
-  parentAxis.usedUp += 1
-  const distance = parentAxis.usedUp * (AXIS_CORRIDOR_HEIGHT + AXIS_OUTER_GAP_Y)
-  return parentAxis.baselineY - distance
-}
-
-function resolveAxisIdForNode(
+function resolveCorridorIdForNode(
   node: RuntimeLayoutNodeInput,
-  nodes: RuntimeLayoutNodeInput[],
-  axisById: Map<string, RuntimeAxis>
+  corridorIdByRunId: Map<string, string>
 ): string {
-  if (node.kind === 'runtime-hub' || node.kind === 'user-query') {
-    return 'main-axis'
+  if (node.kind === 'user-query' || node.kind === 'runtime-hub') {
+    return 'main-corridor'
   }
 
   if (node.kind === 'subagent') {
-    return `axis:${node.id}`
+    return node.childAgentRunId
+      ? (corridorIdByRunId.get(node.childAgentRunId) ?? 'main-corridor')
+      : 'main-corridor'
   }
 
   if (!node.agentRunId) {
-    return 'main-axis'
+    return 'main-corridor'
   }
 
-  for (const axis of axisById.values()) {
-    if (axis.ownerRunId === node.agentRunId) {
-      return axis.id
-    }
+  return corridorIdByRunId.get(node.agentRunId) ?? 'main-corridor'
+}
+
+function reserveBranchCenterY(
+  stateByAnchorId: Map<string, BranchAnchorState>,
+  anchorId: string,
+  anchorCenterY: number
+): number {
+  const state = stateByAnchorId.get(anchorId) ?? {
+    centerY: anchorCenterY,
+    usedUp: 0,
+    usedDown: 0,
+    nextDirection: 'down' as const
   }
 
-  const sourceSubagent = nodes.find((item) => item.childAgentRunId === node.agentRunId)
-  return sourceSubagent ? `axis:${sourceSubagent.id}` : 'main-axis'
+  state.centerY = anchorCenterY
+
+  const direction = state.nextDirection
+  state.nextDirection = direction === 'down' ? 'up' : 'down'
+
+  let centerY = anchorCenterY
+  if (direction === 'down') {
+    state.usedDown += 1
+    centerY += state.usedDown * BRANCH_RING_STEP_Y
+  } else {
+    state.usedUp += 1
+    centerY -= state.usedUp * BRANCH_RING_STEP_Y
+  }
+
+  stateByAnchorId.set(anchorId, state)
+  return centerY
 }
 
 export function layoutRuntimeGraph(
@@ -217,33 +221,38 @@ export function layoutRuntimeGraph(
   }
 
   const nodeById = buildNodeById(nodes)
-  const axisById = buildAxisMap(nodes)
+  const { corridorById, corridorIdByRunId } = buildCorridorMap(nodes)
+  const orderedNodes = [...nodes].sort(
+    (left, right) => left.appearanceOrder - right.appearanceOrder
+  )
   const positions: RuntimeLayoutNodeResult[] = []
-  const bucketIndexByAxisAndOrder = new Map<string, number>()
+  const positionById = new Map<string, RuntimeLayoutNodeResult>()
+  const branchStateByAnchorId = new Map<string, BranchAnchorState>()
   let maxRight = 0
   let minTop = Number.POSITIVE_INFINITY
   let maxBottom = 0
 
-  const orderedNodes = [...nodes].sort(
-    (left, right) => left.appearanceOrder - right.appearanceOrder
-  )
-
   for (const node of orderedNodes) {
-    const axisId = resolveAxisIdForNode(node, orderedNodes, axisById)
-    const axis = axisById.get(axisId) ?? axisById.get('main-axis')!
-    const bucketKey = `${axisId}:${node.appearanceOrder}`
-    const bucketIndex = bucketIndexByAxisAndOrder.get(bucketKey) ?? 0
-    bucketIndexByAxisAndOrder.set(bucketKey, bucketIndex + 1)
-
-    const laneOffset = bucketIndex * BUCKET_STACK_STEP_Y
-    const centeredOffset = bucketIndex % 2 === 0 ? laneOffset / 2 : -(laneOffset / 2)
-    const unclampedY = axis.baselineY - node.height / 2 + centeredOffset + computeNoise(node.id)
-    const minY = axis.baselineY - AXIS_CORRIDOR_HEIGHT / 2
-    const maxY = axis.baselineY + AXIS_CORRIDOR_HEIGHT / 2 - node.height
-    const y = clamp(unclampedY, minY, maxY)
+    const corridorId = resolveCorridorIdForNode(node, corridorIdByRunId)
+    const corridor = corridorById.get(corridorId) ?? corridorById.get('main-corridor')!
     const x = LEFT_PADDING + node.appearanceOrder * COLUMN_STEP_X
 
+    let centerY = corridor.baselineY
+    if (node.kind === 'action' || node.kind === 'functioncall') {
+      const anchorNode = node.triggerLlmNodeId ? nodeById.get(node.triggerLlmNodeId) : null
+      const anchorPosition = node.triggerLlmNodeId ? positionById.get(node.triggerLlmNodeId) : null
+      const anchorCenterY =
+        anchorNode && anchorPosition ? anchorPosition.y + anchorNode.height / 2 : corridor.baselineY
+      centerY = reserveBranchCenterY(
+        branchStateByAnchorId,
+        node.triggerLlmNodeId ?? `branch:${corridorId}`,
+        anchorCenterY
+      )
+    }
+
+    const y = centerY - node.height / 2
     positions.push({ id: node.id, x, y })
+    positionById.set(node.id, { id: node.id, x, y })
     maxRight = Math.max(maxRight, x + node.width)
     minTop = Math.min(minTop, y)
     maxBottom = Math.max(maxBottom, y + node.height)

@@ -1,5 +1,5 @@
 <template>
-  <div class="relative overflow-hidden rounded-[28px] border bg-white" :style="containerStyle">
+  <div class="relative" :style="containerStyle">
     <Handle
       id="in"
       type="target"
@@ -13,38 +13,45 @@
       class="nc-runtime-handle nc-runtime-handle-right"
     />
 
-    <div class="absolute inset-x-0 top-0 h-[46px]" :style="topBandStyle"></div>
-    <div
-      class="absolute left-[18px] top-[18px] h-[128px] w-1 rounded-full"
-      :style="railStyle"
-    ></div>
-    <div
-      class="absolute left-[16px] top-[16px] h-3 w-3 rounded-full border-2 border-white"
-      :style="dotStyle"
-    ></div>
+    <svg
+      class="block overflow-visible"
+      width="100%"
+      height="100%"
+      :viewBox="`0 0 ${width} ${height}`"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+    >
+      <rect
+        x="1"
+        y="1"
+        :width="width - 2"
+        :height="height - 2"
+        rx="24"
+        ry="24"
+        :fill="backgroundFill"
+        :stroke="strokeColor"
+        :stroke-width="strokeWidth"
+      />
+      <line
+        x1="18"
+        y1="20"
+        x2="18"
+        :y2="height - 20"
+        :stroke="accentColor"
+        stroke-width="3"
+        stroke-linecap="round"
+      />
+      <circle cx="18" cy="18" r="5" :fill="accentColor" />
 
-    <div class="relative flex h-full flex-col gap-2 px-[36px] pb-4 pt-[18px]">
-      <div class="flex items-start justify-between gap-3">
-        <div class="min-w-0 flex-1">
-          <p class="truncate text-[10px] font-bold uppercase tracking-[0.22em] text-[#7b8a97]">
-            {{ kindText }}
-          </p>
-          <p class="mt-1 truncate text-[11px] font-semibold text-[#5f7381]">{{ data.meta }}</p>
-        </div>
-        <div class="max-w-[92px] rounded-full px-2.5 py-1 text-[10px] font-bold" :style="pillStyle">
-          <span class="block truncate">{{ data.statusLabel }}</span>
-        </div>
-      </div>
+      <text x="32" y="24" font-size="10" font-weight="700" letter-spacing="2.2" fill="#7b8a97">
+        {{ kindText }}
+      </text>
+      <line x1="32" y1="56" :x2="width - 20" y2="56" stroke="#e7edf2" stroke-width="1" />
 
-      <div class="h-px bg-[#e8eef3]"></div>
-
-      <div class="line-clamp-2 text-[15px] font-bold leading-[22px] text-[#10212b]">
-        {{ data.title }}
-      </div>
-      <div class="line-clamp-2 text-[12px] leading-[18px] text-[#526673]">
-        {{ data.subtitle }}
-      </div>
-    </div>
+      <text x="32" y="90" font-size="17" font-weight="700" fill="#10212b">
+        {{ titleText }}
+      </text>
+    </svg>
   </div>
 </template>
 
@@ -54,11 +61,25 @@ import { Handle, Position } from '@vue-flow/core'
 import type { ChatDetailRuntimeNode } from '@renderer/stores/normal-chat/chat-detail-shell/chat-detail-shell.types'
 
 const props = defineProps<{
-  id?: string
-  data: ChatDetailRuntimeNode & { isSelected?: boolean }
+  data: ChatDetailRuntimeNode
   selected?: boolean
 }>()
 
+function trimText(value: string, limit: number): string {
+  if (!value) {
+    return ''
+  }
+  return value.length > limit ? `${value.slice(0, Math.max(0, limit - 1))}…` : value
+}
+
+const width = computed(() => props.data.width)
+const height = computed(() => props.data.height)
+const accentColor = computed(() => props.data.accentColor)
+const strokeColor = computed(() =>
+  props.selected ? props.data.accentColor : props.data.borderColor
+)
+const strokeWidth = computed(() => (props.selected ? 2.2 : 1.4))
+const backgroundFill = computed(() => (props.selected ? `${props.data.accentColor}10` : '#ffffff'))
 const kindText = computed(() => {
   switch (props.data.kind) {
     case 'user-query':
@@ -78,31 +99,11 @@ const kindText = computed(() => {
   }
 })
 
-const isSelected = computed(() => Boolean(props.selected ?? props.data.isSelected))
+const titleText = computed(() => trimText(props.data.title, 28))
 
 const containerStyle = computed(() => ({
   width: `${props.data.width}px`,
-  height: `${props.data.height}px`,
-  borderColor: isSelected.value ? props.data.accentColor : props.data.borderColor,
-  borderWidth: isSelected.value ? '2px' : '1.4px',
-  background: isSelected.value ? `${props.data.accentColor}0f` : '#ffffff'
-}))
-
-const topBandStyle = computed(() => ({
-  background: isSelected.value ? `${props.data.accentColor}1d` : `${props.data.accentColor}10`
-}))
-
-const railStyle = computed(() => ({
-  background: props.data.accentColor
-}))
-
-const dotStyle = computed(() => ({
-  background: props.data.accentColor
-}))
-
-const pillStyle = computed(() => ({
-  color: props.data.accentColor,
-  background: `${props.data.accentColor}20`
+  height: `${props.data.height}px`
 }))
 </script>
 
