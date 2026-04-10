@@ -3,13 +3,21 @@ import { defineStore } from 'pinia'
 import type { NormalChatConversationStreamEvent } from '@preload/types'
 import { NormalChatConversationDatasource } from '../conversation/conversation.datasource'
 import { ChatDetailShellDatasource } from './chat-detail-shell.datasource'
+import {
+  buildAgentRuntimeGraph,
+  findNodeById,
+  findPreferredRuntimeNodeId,
+  getFirstDrawerSectionId
+} from './agent-runtime-graph.builder'
 import type {
   ChatDetailDataViewMode,
   ChatDetailShellDocGroup,
   ChatDetailShellDocGroupId,
   ChatDetailShellOpenPayload,
   ChatDetailShellRecord,
-  ChatDetailShellSnapshot
+  ChatDetailShellSnapshot,
+  ChatDetailRuntimeDrawerSectionId,
+  ChatDetailRuntimeNode
 } from './chat-detail-shell.types'
 
 const datasource = new ChatDetailShellDatasource()
@@ -23,6 +31,9 @@ function createEmptySnapshot(): ChatDetailShellSnapshot {
     selectedCallId: '',
     selectedFunctioncallId: '',
     focusAgentRunId: '',
+    selectedRuntimeNodeId: '',
+    runtimeDrawerVisible: false,
+    selectedRuntimeSectionId: 'summary',
     selectedGroupId: 'request',
     selectedDocId: '',
     requestViewMode: 'json',
@@ -52,6 +63,10 @@ export const useNormalChatChatDetailShellStore = defineStore(
     const hasLlmCallDetails = computed(() => detail.value?.hasLlmCallDetails ?? false)
     const llmCallItems = computed(() => detail.value?.calls ?? [])
     const functioncallItems = computed(() => detail.value?.functioncalls ?? [])
+    const runtimeGraph = computed(() => detail.value?.runtimeGraph ?? null)
+    const selectedRuntimeNode = computed<ChatDetailRuntimeNode | null>(() => {
+      return findNodeById(runtimeGraph.value, snapshot.value.selectedRuntimeNodeId)
+    })
 
     const selectedCallItem = computed(() => {
       if (!hasLlmCallDetails.value) {
@@ -97,7 +112,7 @@ export const useNormalChatChatDetailShellStore = defineStore(
         return `Overview / Functioncall Records / ${selectedFunctioncallItem.value?.title ?? 'Functioncall Detail'}`
       }
       if (snapshot.value.currentPage === 'agent') {
-        return `Overview / Agent / ${snapshot.value.focusAgentRunId || 'Root'}`
+        return `Overview / Agent Runtime / ${selectedRuntimeNode.value?.title ?? (snapshot.value.focusAgentRunId || 'Root')}`
       }
       if (!hasLlmCallDetails.value) {
         return 'Overview / LLM Call Unavailable'
@@ -124,6 +139,31 @@ export const useNormalChatChatDetailShellStore = defineStore(
         return
       }
       setActiveDocument(group.items[0]?.id ?? '', group.id)
+    }
+
+    function syncRuntimeSelection(detailRecord: ChatDetailShellRecord): void {
+      const graph = detailRecord.runtimeGraph
+      if (!graph) {
+        snapshot.value.selectedRuntimeNodeId = ''
+        snapshot.value.runtimeDrawerVisible = false
+        snapshot.value.selectedRuntimeSectionId = 'summary'
+        return
+      }
+
+      const stillSelected = graph.nodes.some(
+        (node) => node.id === snapshot.value.selectedRuntimeNodeId
+      )
+      const nextNodeId = stillSelected
+        ? snapshot.value.selectedRuntimeNodeId
+        : findPreferredRuntimeNodeId(graph, snapshot.value.focusAgentRunId)
+      const nextNode = findNodeById(graph, nextNodeId)
+
+      snapshot.value.selectedRuntimeNodeId = nextNodeId
+      snapshot.value.selectedRuntimeSectionId = nextNode?.drawerSections.some(
+        (section) => section.id === snapshot.value.selectedRuntimeSectionId
+      )
+        ? snapshot.value.selectedRuntimeSectionId
+        : getFirstDrawerSectionId(nextNode)
     }
 
     function patchResponseStreamText(modelCallId: string, delta: string): void {
@@ -166,12 +206,20 @@ export const useNormalChatChatDetailShellStore = defineStore(
         }
       })
 
+      const nextDetailRecord: ChatDetailShellRecord = {
+        ...detailRecord,
+        calls: nextCalls,
+        runtimeGraph: null
+      }
+      nextDetailRecord.runtimeGraph = buildAgentRuntimeGraph(nextDetailRecord)
+
       snapshot.value.detailByRequestId = {
         ...snapshot.value.detailByRequestId,
-        [requestId]: {
-          ...detailRecord,
-          calls: nextCalls
-        }
+        [requestId]: nextDetailRecord
+      }
+
+      if (snapshot.value.currentPage === 'agent') {
+        syncRuntimeSelection(nextDetailRecord)
       }
     }
 
@@ -239,6 +287,9 @@ export const useNormalChatChatDetailShellStore = defineStore(
             }
           }
         )
+        if (snapshot.value.currentPage === 'agent') {
+          syncRuntimeSelection(detailRecord)
+        }
         return detailRecord
       } finally {
         snapshot.value.loading = false
@@ -265,6 +316,9 @@ export const useNormalChatChatDetailShellStore = defineStore(
       snapshot.value.selectedCallId = payload.selectedCallId ?? ''
       snapshot.value.selectedFunctioncallId = payload.selectedFunctioncallId ?? ''
       snapshot.value.focusAgentRunId = payload.focusAgentRunId ?? ''
+      snapshot.value.selectedRuntimeNodeId = ''
+      snapshot.value.runtimeDrawerVisible = false
+      snapshot.value.selectedRuntimeSectionId = 'summary'
       snapshot.value.selectedGroupId = 'request'
       snapshot.value.selectedDocId = ''
       snapshot.value.requestViewMode = 'json'
@@ -279,6 +333,7 @@ export const useNormalChatChatDetailShellStore = defineStore(
         return
       }
       if (snapshot.value.currentPage === 'agent') {
+        syncRuntimeSelection(detailRecord)
         return
       }
       if (snapshot.value.currentPage === 'functioncall-detail') {
@@ -303,6 +358,9 @@ export const useNormalChatChatDetailShellStore = defineStore(
       snapshot.value.selectedCallId = ''
       snapshot.value.selectedFunctioncallId = ''
       snapshot.value.focusAgentRunId = ''
+      snapshot.value.selectedRuntimeNodeId = ''
+      snapshot.value.runtimeDrawerVisible = false
+      snapshot.value.selectedRuntimeSectionId = 'summary'
       snapshot.value.currentPage = 'overview'
       snapshot.value.loading = false
       snapshot.value.errorText = ''
@@ -338,6 +396,31 @@ export const useNormalChatChatDetailShellStore = defineStore(
     function openAgentDetail(agentRunId: string): void {
       snapshot.value.focusAgentRunId = agentRunId
       snapshot.value.currentPage = 'agent'
+      if (detail.value) {
+        syncRuntimeSelection(detail.value)
+      }
+    }
+
+    function openRuntimeNode(nodeId: string, sectionId?: ChatDetailRuntimeDrawerSectionId): void {
+      const node = findNodeById(runtimeGraph.value, nodeId)
+      if (!node) {
+        return
+      }
+
+      snapshot.value.selectedRuntimeNodeId = nodeId
+      snapshot.value.runtimeDrawerVisible = true
+      snapshot.value.selectedRuntimeSectionId =
+        sectionId && node.drawerSections.some((entry) => entry.id === sectionId)
+          ? sectionId
+          : getFirstDrawerSectionId(node)
+    }
+
+    function closeRuntimeDrawer(): void {
+      snapshot.value.runtimeDrawerVisible = false
+    }
+
+    function setRuntimeSection(sectionId: ChatDetailRuntimeDrawerSectionId): void {
+      snapshot.value.selectedRuntimeSectionId = sectionId
     }
 
     function goToOverview(): void {
@@ -378,6 +461,8 @@ export const useNormalChatChatDetailShellStore = defineStore(
       hasLlmCallDetails,
       llmCallItems,
       functioncallItems,
+      runtimeGraph,
+      selectedRuntimeNode,
       selectedCallItem,
       selectedFunctioncallItem,
       selectedGroups,
@@ -392,6 +477,9 @@ export const useNormalChatChatDetailShellStore = defineStore(
       openFunctioncallOverview,
       openFunctioncallDetail,
       openAgentDetail,
+      openRuntimeNode,
+      closeRuntimeDrawer,
+      setRuntimeSection,
       goToOverview,
       setActiveDocument,
       setSelectedGroup,

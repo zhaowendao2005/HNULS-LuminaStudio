@@ -4,7 +4,7 @@
     class="nc-conversation-detail-dialog fixed inset-0 z-[70] flex items-center justify-center bg-black/20 backdrop-blur-[1px]"
   >
     <div
-      class="flex h-[min(88vh,760px)] min-h-[620px] w-[min(92vw,1280px)] min-w-[960px] overflow-hidden rounded-2xl bg-white shadow-[var(--nc-shadow-dialog)]"
+      class="flex h-[min(94vh,1080px)] min-h-[720px] w-[min(97vw,1780px)] min-w-[1180px] overflow-hidden rounded-[28px] bg-white shadow-[var(--nc-shadow-dialog)]"
     >
       <ConversationDetailDialogNavRail
         :is-overview="snapshot.currentPage === 'overview' || snapshot.currentPage === 'llm-call'"
@@ -94,7 +94,45 @@
             </div>
           </header>
 
-          <div class="min-h-0 flex-1 overflow-y-auto p-6">
+          <div v-if="snapshot.currentPage === 'agent'" class="relative min-h-0 flex-1 bg-[#f8f9fa]">
+            <div class="h-full">
+              <ConversationDetailDialogAgentDetail
+                class="h-full"
+                :graph="runtimeGraph"
+                :selected-node-id="snapshot.selectedRuntimeNodeId"
+                :selected-node="selectedRuntimeNode"
+                :drawer-visible="snapshot.runtimeDrawerVisible"
+                :selected-section-id="snapshot.selectedRuntimeSectionId"
+                :request-view-mode="snapshot.requestViewMode"
+                :response-view-mode="snapshot.responseViewMode"
+                @select-node="detailShellStore.openRuntimeNode"
+                @close-drawer="detailShellStore.closeRuntimeDrawer"
+                @select-section="detailShellStore.setRuntimeSection"
+                @set-request-view-mode="detailShellStore.setRequestViewMode"
+                @set-response-view-mode="detailShellStore.setResponseViewMode"
+              />
+            </div>
+
+            <div
+              v-if="snapshot.runtimeDrawerVisible && selectedRuntimeNode"
+              class="absolute inset-0 z-10 flex justify-end bg-[rgba(15,23,42,0.18)]"
+              @click.self="detailShellStore.closeRuntimeDrawer"
+            >
+              <ConversationDetailDialogNodeDrawer
+                :node="selectedRuntimeNode"
+                :visible="snapshot.runtimeDrawerVisible"
+                :selected-section-id="snapshot.selectedRuntimeSectionId"
+                :request-view-mode="snapshot.requestViewMode"
+                :response-view-mode="snapshot.responseViewMode"
+                @close="detailShellStore.closeRuntimeDrawer"
+                @select-section="detailShellStore.setRuntimeSection"
+                @set-request-view-mode="detailShellStore.setRequestViewMode"
+                @set-response-view-mode="detailShellStore.setResponseViewMode"
+              />
+            </div>
+          </div>
+
+          <div v-else class="min-h-0 flex-1 overflow-y-auto p-6">
             <ConversationDetailDialogOverview
               v-if="snapshot.currentPage === 'overview'"
               :items="llmCallItems"
@@ -116,13 +154,6 @@
               @set-request-view-mode="detailShellStore.setRequestViewMode"
               @set-response-view-mode="detailShellStore.setResponseViewMode"
               @open-agent-run="handleOpenAgentRun"
-            />
-
-            <ConversationDetailDialogAgentDetail
-              v-else-if="snapshot.currentPage === 'agent'"
-              :tree="detail?.agentTree ?? null"
-              :summary="detail?.agentSummary ?? null"
-              :focus-agent-run-id="snapshot.focusAgentRunId"
             />
 
             <ConversationDetailDialogLlmDetail
@@ -164,6 +195,7 @@ import ConversationDetailDialogFunctioncallDetail from './ConversationDetailDial
 import ConversationDetailDialogFunctioncallOverview from './ConversationDetailDialog.FunctioncallOverview.vue'
 import ConversationDetailDialogLlmDetail from './ConversationDetailDialog.LlmDetail.vue'
 import ConversationDetailDialogNavRail from './ConversationDetailDialog.NavRail.vue'
+import ConversationDetailDialogNodeDrawer from './ConversationDetailDialog.NodeDrawer.vue'
 import ConversationDetailDialogOverview from './ConversationDetailDialog.Overview.vue'
 
 const OBSERVER_ROOT_MARGIN = '-8% 0px -70% 0px'
@@ -177,6 +209,8 @@ const {
   breadcrumbText,
   llmCallItems,
   functioncallItems,
+  runtimeGraph,
+  selectedRuntimeNode,
   selectedCallItem,
   selectedFunctioncallItem,
   selectedGroups
@@ -199,7 +233,7 @@ const currentPageTitle = computed(() => {
     return selectedFunctioncallItem.value?.title ?? 'Functioncall Detail'
   }
   if (snapshot.value.currentPage === 'agent') {
-    return snapshot.value.focusAgentRunId ? `Agent ${snapshot.value.focusAgentRunId}` : 'Agent Runtime'
+    return selectedRuntimeNode.value?.title ?? 'Agent Runtime'
   }
   return detail.value?.hasLlmCallDetails
     ? (selectedCallItem.value?.title ?? 'LLM Call Detail')
@@ -208,7 +242,6 @@ const currentPageTitle = computed(() => {
 const overviewDescription = computed(() => {
   return detail.value?.llmCallEmptyMessage ?? '每一行对应当前 turn 中的一次主要模型调用。'
 })
-
 const currentViewMode = computed<ChatDetailDataViewMode>(() => {
   switch (snapshot.value.selectedGroupId) {
     case 'response':

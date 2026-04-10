@@ -1,16 +1,20 @@
 import type {
   NormalChatActionRunSnapshot,
+  NormalChatFunctionCallMessagePart,
   NormalChatModelCallSnapshot,
   NormalChatRequestDebugSnapshot,
-  NormalChatRequestDetailSnapshot
+  NormalChatRequestDetailSnapshot,
+  NormalChatSubAgentMessagePart
 } from '@preload/types'
 import type {
   ChatDetailShellDocGroup,
   ChatDetailShellDocItem,
   ChatDetailShellFunctioncallItem,
   ChatDetailShellRecord,
-  ChatDetailShellSnapshot
+  ChatDetailShellSnapshot,
+  ChatDetailShellSubagentItem
 } from './chat-detail-shell.types'
+import { buildAgentRuntimeGraph } from './agent-runtime-graph.builder'
 
 function unwrap<T>(response: { success: boolean; data?: T; error?: string }): T {
   if (!response.success) {
@@ -41,6 +45,9 @@ function createEmptySnapshot(): ChatDetailShellSnapshot {
     selectedCallId: '',
     selectedFunctioncallId: '',
     focusAgentRunId: '',
+    selectedRuntimeNodeId: '',
+    runtimeDrawerVisible: false,
+    selectedRuntimeSectionId: 'summary',
     selectedGroupId: 'request',
     selectedDocId: '',
     requestViewMode: 'json',
@@ -412,6 +419,41 @@ function resolveChildAgentRunId(
   return matchedModelCall?.agentRunId ?? null
 }
 
+function buildSubagentItems(
+  functioncalls: ChatDetailShellFunctioncallItem[],
+  assistantMessage: NormalChatRequestDetailSnapshot['messages'][number] | null
+): ChatDetailShellSubagentItem[] {
+  const subagentParts =
+    assistantMessage?.parts.filter(
+      (part): part is NormalChatSubAgentMessagePart => part.kind === 'subagent'
+    ) ?? []
+
+  return subagentParts.map((part) => {
+    const matchedFunctioncall =
+      functioncalls.find(
+        (item) =>
+          item.actionKey === 'system.dispatch_sub_agent' &&
+          ((part.childAgentRunId && item.childAgentRunId === part.childAgentRunId) ||
+            (item.roundIndex === part.roundIndex &&
+              item.batchIndex === part.batchIndex &&
+              item.parallelIndex === part.parallelIndex &&
+              item.part.depth === part.depth))
+      ) ?? null
+
+    return {
+      partId: part.partId,
+      goal: part.goal,
+      childAgentRunId: part.childAgentRunId,
+      sourceFunctioncallId: matchedFunctioncall?.id ?? null,
+      roundIndex: part.roundIndex,
+      batchIndex: part.batchIndex,
+      parallelIndex: part.parallelIndex,
+      depth: part.depth,
+      status: part.status
+    }
+  })
+}
+
 function toFunctioncallItem(
   detail: NormalChatRequestDetailSnapshot,
   call: NormalChatActionRunSnapshot,
@@ -449,6 +491,16 @@ function toFunctioncallItem(
 
   return {
     id: call.id,
+    actionKey: call.actionKey,
+    actionKind: call.actionKind,
+    mode: call.mode,
+    agentRunId: call.agentRunId,
+    roundIndex: call.roundIndex,
+    batchIndex: call.batchIndex,
+    parallelIndex: call.parallelIndex,
+    createdAt: call.createdAt,
+    startedAt: call.startedAt,
+    finishedAt: call.finishedAt,
     indexLabel: `#${index + 1}`,
     title: call.actionKey,
     summary: `${call.actionKind} / round ${call.roundIndex}`,
@@ -517,41 +569,59 @@ function toRecord(snapshot: NormalChatRequestDebugSnapshot): ChatDetailShellReco
     !hasLlmCallDetails && detail.executionSnapshot?.runtime.persistencePreset === 'light'
       ? '当前 assistant 使用轻量持久化，LLM 调用明细没有保存。'
       : null
+  const calls = detail.modelCalls.map((modelCall) => {
+    const status = buildCallStatus(modelCall)
+    const groups = [buildRequestGroup(modelCall), buildResponseGroup(modelCall)]
+    const schemaDebugGroup = buildSchemaDebugGroup(modelCall)
+    if (schemaDebugGroup) {
+      groups.push(schemaDebugGroup)
+    }
 
-  return {
+    return {
+      id: modelCall.id,
+      seq: modelCall.seq,
+      agentRunId: modelCall.agentRunId,
+      parentActionRunId: modelCall.parentActionRunId,
+      roundIndex: modelCall.roundIndex,
+      depth: modelCall.depth,
+      createdAt: modelCall.createdAt,
+      status: modelCall.status,
+      indexLabel: `#${modelCall.seq}`,
+      title: buildCallTitle(modelCall),
+      summary: buildCallSummary(modelCall),
+      contextText: buildCallContextText(detail, modelCall),
+      badge: buildCallBadge(modelCall),
+      statusLabel: status.statusLabel,
+      statusClass: status.statusClass,
+      groups
+    }
+  })
+  const functioncalls = detail.actionRuns.map((call, index) =>
+    toFunctioncallItem(detail, call, index, functioncallPartById.get(call.id) ?? null)
+  )
+  const subagents = buildSubagentItems(functioncalls, assistantMessage)
+  const record: ChatDetailShellRecord = {
     requestId: detail.requestId,
     messageId: assistantMessage?.id ?? '',
     assistantName: detail.assistantName,
     topicTitle: detail.topicTitle,
+    requestInput: detail.executionSnapshot?.request.input ?? '',
+    requestStatus: detail.head?.status ?? 'queued',
+    requestPhase: detail.head?.phase ?? '',
+    highWatermark: snapshot.highWatermark,
     description: buildDescription(detail),
     hasLlmCallDetails,
     llmCallEmptyMessage,
-    calls: detail.modelCalls.map((modelCall) => {
-      const status = buildCallStatus(modelCall)
-      const groups = [buildRequestGroup(modelCall), buildResponseGroup(modelCall)]
-      const schemaDebugGroup = buildSchemaDebugGroup(modelCall)
-      if (schemaDebugGroup) {
-        groups.push(schemaDebugGroup)
-      }
-
-      return {
-        id: modelCall.id,
-        indexLabel: `#${modelCall.seq}`,
-        title: buildCallTitle(modelCall),
-        summary: buildCallSummary(modelCall),
-        contextText: buildCallContextText(detail, modelCall),
-        badge: buildCallBadge(modelCall),
-        statusLabel: status.statusLabel,
-        statusClass: status.statusClass,
-        groups
-      }
-    }),
-    functioncalls: detail.actionRuns.map((call, index) =>
-      toFunctioncallItem(detail, call, index, functioncallPartById.get(call.id) ?? null)
-    ),
+    calls,
+    functioncalls,
+    subagents,
     agentTree: snapshot.agentGraph.tree,
-    agentSummary: snapshot.agentGraph.summary
+    agentSummary: snapshot.agentGraph.summary,
+    runtimeGraph: null
   }
+
+  record.runtimeGraph = buildAgentRuntimeGraph(record)
+  return record
 }
 
 export class ChatDetailShellDatasource {

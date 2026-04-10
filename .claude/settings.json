@@ -23,7 +23,22 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "Bash(rustup toolchain:*)",
       "Bash(rustup show:*)",
-      "Bash(rustup install:*)"
+      "Bash(rustup install:*)",
+      "Bash(xargs grep:*)",
+      "Bash(cat /d/code/tauri/tauri-vue-template-zhaowendao/src-tauri/gen/schemas/*.json)",
+      "Bash(find /d/code/tauri/tauri-vue-template-zhaowendao/src -type f \\\\\\( -name \"*.ts\" -o -name \"*.vue\" \\\\\\) -exec grep -l \"@tauri-apps\" {} \\\\;)",
+      "Bash(pnpm add:*)",
+      "Bash(cargo test:*)",
+      "Bash(npx vue-tsc:*)",
+      "Bash(mkdir -p __TRACKED_VAR__/.cargo)",
+      "Bash(mkdir -p __TRACKED_VAR__/.cargo/gitbash)",
+      "Bash(cargo check:*)",
+      "Bash(rustup target:*)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\zhaowendao\\.cargo\\gitbash",
+      "E:\\C盘部分文件转移存储\\user-zhaowendao\\.cargo\\gitbash",
+      "C:\\Users\\zhaowendao"
     ]
   },
   "enabledPlugins": {

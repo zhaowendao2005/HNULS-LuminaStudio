@@ -141,6 +141,27 @@ function createRequestDetail(): NormalChatRequestDetailSnapshot {
         roundIndex: 0,
         callIndexInAgent: 0,
         status: 'succeeded',
+        turnKind: 'answer',
+        producedActionCount: 1,
+        consumedActionRunIds: ['action-run-1'],
+        synthesisRequired: false,
+        rawProviderRequest: {
+          id: 'provider-request-1',
+          capturedAt: '2026-03-28T00:00:00.050Z',
+          requestId: 'request-chat-1',
+          modelCallId: 'model-call-1',
+          protocol: 'openai-compatible',
+          providerId: 'openai',
+          modelId: 'gpt-4.1',
+          streaming: true,
+          method: 'POST',
+          url: 'https://api.example.test/v1/chat/completions',
+          headers: { 'content-type': 'application/json' },
+          bodyText: '{"input":"Summarize this turn."}',
+          bodyJson: {
+            input: 'Summarize this turn.'
+          }
+        },
         requestPayloadJson: JSON.stringify({
           providerId: 'openai',
           modelId: 'gpt-4.1',
@@ -160,6 +181,7 @@ function createRequestDetail(): NormalChatRequestDetailSnapshot {
             actionDescriptions: '',
             loadedActionSpecs: '',
             actionResults: '',
+            latestActionTurnResults: '',
             actionFeedback: ''
           },
           compiledSystemPrompt: 'You are helpful.',
@@ -226,12 +248,13 @@ describe('chat detail shell store', () => {
 
   function createLightRequestDetail(): NormalChatRequestDetailSnapshot {
     const detail = createRequestDetail()
+    const executionSnapshot = detail.executionSnapshot!
     return {
       ...detail,
       executionSnapshot: {
-        ...detail.executionSnapshot,
+        ...executionSnapshot,
         runtime: {
-          ...detail.executionSnapshot.runtime,
+          ...executionSnapshot.runtime,
           persistencePreset: 'light'
         }
       },
@@ -297,6 +320,9 @@ describe('chat detail shell store', () => {
       date_to: null,
       api_key_ref_id: null
     })
+    expect(store.runtimeGraph?.nodes.some((node) => node.kind === 'user-query')).toBe(true)
+    expect(store.runtimeGraph?.nodes.some((node) => node.kind === 'llm-call')).toBe(true)
+    expect(store.runtimeGraph?.nodes.some((node) => node.kind === 'functioncall')).toBe(true)
   })
 
   it('patches response stream text when runtime text deltas arrive', async () => {
