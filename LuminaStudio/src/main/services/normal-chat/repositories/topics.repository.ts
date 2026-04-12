@@ -70,8 +70,16 @@ export class NormalChatTopicsRepository {
              system_action_functioncall_enabled_override = ?, system_action_subagent_mode = ?,
              system_action_subagent_enabled_override = ?, functioncall_pubmed_mode = ?,
              functioncall_pubmed_enabled_override = ?, functioncall_pubmed_execution_mode = ?,
-             functioncall_pubmed_execution_mode_override = ?, mcp_mode = ?, mcp_enabled_override = ?,
-             sort_order = ?, updated_at = ?
+             functioncall_pubmed_execution_mode_override = ?,
+             functioncall_knowledge_retrieval_mode = ?,
+             functioncall_knowledge_retrieval_enabled_override = ?,
+             functioncall_knowledge_retrieval_execution_mode = ?,
+             functioncall_knowledge_retrieval_execution_mode_override = ?,
+             functioncall_kg_retrieval_mode = ?,
+             functioncall_kg_retrieval_enabled_override = ?,
+             functioncall_kg_retrieval_execution_mode = ?,
+             functioncall_kg_retrieval_execution_mode_override = ?,
+             mcp_mode = ?, mcp_enabled_override = ?, sort_order = ?, updated_at = ?
          WHERE id = ? AND assistant_id = ?`
       : `INSERT INTO normal_chat_topics
          (id, assistant_id, title, system_prompt_mode, system_prompt_override, streaming_mode,
@@ -82,9 +90,16 @@ export class NormalChatTopicsRepository {
           system_action_functioncall_enabled_override, system_action_subagent_mode,
           system_action_subagent_enabled_override, functioncall_pubmed_mode,
           functioncall_pubmed_enabled_override, functioncall_pubmed_execution_mode,
-          functioncall_pubmed_execution_mode_override, mcp_mode, mcp_enabled_override,
-          sort_order, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          functioncall_pubmed_execution_mode_override,
+          functioncall_knowledge_retrieval_mode,
+          functioncall_knowledge_retrieval_enabled_override,
+          functioncall_knowledge_retrieval_execution_mode,
+          functioncall_knowledge_retrieval_execution_mode_override,
+          functioncall_kg_retrieval_mode, functioncall_kg_retrieval_enabled_override,
+          functioncall_kg_retrieval_execution_mode,
+          functioncall_kg_retrieval_execution_mode_override,
+          mcp_mode, mcp_enabled_override, sort_order, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
     const params = isUpdate
       ? [
@@ -112,6 +127,14 @@ export class NormalChatTopicsRepository {
           toDbBoolean(topic.functionCallPubMedEnabledOverride),
           topic.functionCallPubMedExecutionMode,
           topic.functionCallPubMedExecutionModeOverride,
+          topic.functionCallKnowledgeRetrievalMode,
+          toDbBoolean(topic.functionCallKnowledgeRetrievalEnabledOverride),
+          topic.functionCallKnowledgeRetrievalExecutionMode,
+          topic.functionCallKnowledgeRetrievalExecutionModeOverride,
+          topic.functionCallKgRetrievalMode,
+          toDbBoolean(topic.functionCallKgRetrievalEnabledOverride),
+          topic.functionCallKgRetrievalExecutionMode,
+          topic.functionCallKgRetrievalExecutionModeOverride,
           topic.mcpMode,
           toDbBoolean(topic.mcpEnabledOverride),
           topic.sortOrder,
@@ -146,6 +169,14 @@ export class NormalChatTopicsRepository {
           toDbBoolean(topic.functionCallPubMedEnabledOverride),
           topic.functionCallPubMedExecutionMode,
           topic.functionCallPubMedExecutionModeOverride,
+          topic.functionCallKnowledgeRetrievalMode,
+          toDbBoolean(topic.functionCallKnowledgeRetrievalEnabledOverride),
+          topic.functionCallKnowledgeRetrievalExecutionMode,
+          topic.functionCallKnowledgeRetrievalExecutionModeOverride,
+          topic.functionCallKgRetrievalMode,
+          toDbBoolean(topic.functionCallKgRetrievalEnabledOverride),
+          topic.functionCallKgRetrievalExecutionMode,
+          topic.functionCallKgRetrievalExecutionModeOverride,
           topic.mcpMode,
           toDbBoolean(topic.mcpEnabledOverride),
           topic.sortOrder,

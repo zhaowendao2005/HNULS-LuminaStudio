@@ -114,6 +114,8 @@ app.whenReady().then(() => {
   const normalChatService = new NormalChatService(
     databaseManager,
     paperRetrievalService,
+    knowledgeRetrievalService,
+    kgRetrievalService,
     modelConfigService
   )
   new NormalChatIPCHandler(normalChatService)

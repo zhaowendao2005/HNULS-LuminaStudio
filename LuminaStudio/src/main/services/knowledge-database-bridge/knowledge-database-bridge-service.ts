@@ -12,6 +12,7 @@ import { logger } from '../logger'
 import type {
   DocumentEmbeddingInfo,
   ExternalApiResponse,
+  KGKnowledgeBaseInfo,
   KnowledgeBaseDetail,
   KnowledgeBaseInfo,
   KnowledgeDatabaseStatusData,
@@ -74,6 +75,21 @@ function normalizeKnowledgeBasesResponse(data: unknown): KnowledgeBaseInfo[] {
     }
 
     const kb = item as Partial<KnowledgeBaseInfo>
+    return typeof kb.id === 'number' && typeof kb.name === 'string'
+  })
+}
+
+function normalizeKGKnowledgeBasesResponse(data: unknown): KGKnowledgeBaseInfo[] {
+  if (!Array.isArray(data)) {
+    return []
+  }
+
+  return data.filter((item): item is KGKnowledgeBaseInfo => {
+    if (!item || typeof item !== 'object') {
+      return false
+    }
+
+    const kb = item as Partial<KGKnowledgeBaseInfo>
     return typeof kb.id === 'number' && typeof kb.name === 'string'
   })
 }
@@ -249,6 +265,17 @@ export class KnowledgeDatabaseBridgeService {
     )
     const knowledgeBases = normalizeKnowledgeBasesResponse(data)
     log.info('Knowledge bases fetched', { count: knowledgeBases.length })
+    return knowledgeBases
+  }
+
+  async listKGKnowledgeBases(): Promise<KGKnowledgeBaseInfo[]> {
+    log.debug('Fetching KG knowledge bases')
+    const data = await this.requestOrThrow<KGKnowledgeBaseInfo[]>(
+      '/api/v1/kg/knowledge-bases',
+      'Failed to list KG knowledge bases'
+    )
+    const knowledgeBases = normalizeKGKnowledgeBasesResponse(data)
+    log.info('KG knowledge bases fetched', { count: knowledgeBases.length })
     return knowledgeBases
   }
 

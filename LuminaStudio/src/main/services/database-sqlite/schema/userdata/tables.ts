@@ -48,6 +48,10 @@ export const NORMAL_CHAT_ASSISTANTS_TABLE: TableDefinition = {
       system_action_subagent_enabled INTEGER NOT NULL DEFAULT 1,
       functioncall_pubmed_enabled INTEGER NOT NULL DEFAULT 1,
       functioncall_pubmed_mode TEXT NOT NULL DEFAULT 'fast' CHECK (functioncall_pubmed_mode IN ('fast', 'slow')),
+      functioncall_knowledge_retrieval_enabled INTEGER NOT NULL DEFAULT 1,
+      functioncall_knowledge_retrieval_mode TEXT NOT NULL DEFAULT 'fast' CHECK (functioncall_knowledge_retrieval_mode IN ('fast', 'slow')),
+      functioncall_kg_retrieval_enabled INTEGER NOT NULL DEFAULT 1,
+      functioncall_kg_retrieval_mode TEXT NOT NULL DEFAULT 'fast' CHECK (functioncall_kg_retrieval_mode IN ('fast', 'slow')),
       mcp_enabled INTEGER NOT NULL DEFAULT 0,
       persistence_preset TEXT NOT NULL DEFAULT 'light' CHECK (persistence_preset IN ('light', 'full')),
       sort_order INTEGER NOT NULL DEFAULT 0,
@@ -92,6 +96,14 @@ export const NORMAL_CHAT_TOPICS_TABLE: TableDefinition = {
       functioncall_pubmed_enabled_override INTEGER,
       functioncall_pubmed_execution_mode TEXT NOT NULL DEFAULT 'inherit' CHECK (functioncall_pubmed_execution_mode IN ('inherit', 'override')),
       functioncall_pubmed_execution_mode_override TEXT CHECK (functioncall_pubmed_execution_mode_override IN ('fast', 'slow')),
+      functioncall_knowledge_retrieval_mode TEXT NOT NULL DEFAULT 'inherit' CHECK (functioncall_knowledge_retrieval_mode IN ('inherit', 'override')),
+      functioncall_knowledge_retrieval_enabled_override INTEGER,
+      functioncall_knowledge_retrieval_execution_mode TEXT NOT NULL DEFAULT 'inherit' CHECK (functioncall_knowledge_retrieval_execution_mode IN ('inherit', 'override')),
+      functioncall_knowledge_retrieval_execution_mode_override TEXT CHECK (functioncall_knowledge_retrieval_execution_mode_override IN ('fast', 'slow')),
+      functioncall_kg_retrieval_mode TEXT NOT NULL DEFAULT 'inherit' CHECK (functioncall_kg_retrieval_mode IN ('inherit', 'override')),
+      functioncall_kg_retrieval_enabled_override INTEGER,
+      functioncall_kg_retrieval_execution_mode TEXT NOT NULL DEFAULT 'inherit' CHECK (functioncall_kg_retrieval_execution_mode IN ('inherit', 'override')),
+      functioncall_kg_retrieval_execution_mode_override TEXT CHECK (functioncall_kg_retrieval_execution_mode_override IN ('fast', 'slow')),
       mcp_mode TEXT NOT NULL DEFAULT 'inherit' CHECK (mcp_mode IN ('inherit', 'override')),
       mcp_enabled_override INTEGER,
       sort_order INTEGER NOT NULL DEFAULT 0,
@@ -164,11 +176,6 @@ export const NORMAL_CHAT_CONVERSATIONS_TABLE: TableDefinition = {
   `
 }
 
-/**
- * request 头表：新的 request 级索引视图。
- *
- * 这里只保留状态、水位、定位信息，不再保存旧 execution_snapshot_json 这种大快照。
- */
 export const NORMAL_CHAT_REQUEST_HEADS_TABLE: TableDefinition = {
   name: 'normal_chat_request_heads',
   createSQL: `
@@ -203,11 +210,6 @@ export const NORMAL_CHAT_REQUEST_HEADS_TABLE: TableDefinition = {
   `
 }
 
-/**
- * request entry 表：新的 append-only 运行时真相流。
- *
- * projector 以后只靠这张表回放 transcript / detail / agent graph。
- */
 export const NORMAL_CHAT_REQUEST_ENTRIES_TABLE: TableDefinition = {
   name: 'normal_chat_request_entries',
   createSQL: `

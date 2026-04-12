@@ -26,12 +26,15 @@ export interface NormalChatAssistant {
   defaultModelId: string | null
   contextMemoryRounds: number
   maxRecursionDepth: number
-  // 单个 agent 在当前层最多允许多少次 ReAct 推理切换，用于防止死循环。
   maxReasoningSteps: number
   systemActionFunctionCallEnabled: boolean
   systemActionSubAgentEnabled: boolean
   functionCallPubMedEnabled: boolean
   functionCallPubMedMode: NormalChatFunctionCallMode
+  functionCallKnowledgeRetrievalEnabled: boolean
+  functionCallKnowledgeRetrievalMode: NormalChatFunctionCallMode
+  functionCallKgRetrievalEnabled: boolean
+  functionCallKgRetrievalMode: NormalChatFunctionCallMode
   mcpEnabled: boolean
   persistencePreset: NormalChatPersistencePreset
   sortOrder: number
@@ -64,6 +67,14 @@ export interface NormalChatTopic {
   functionCallPubMedEnabledOverride: boolean | null
   functionCallPubMedExecutionMode: 'inherit' | 'override'
   functionCallPubMedExecutionModeOverride: NormalChatFunctionCallMode | null
+  functionCallKnowledgeRetrievalMode: 'inherit' | 'override'
+  functionCallKnowledgeRetrievalEnabledOverride: boolean | null
+  functionCallKnowledgeRetrievalExecutionMode: 'inherit' | 'override'
+  functionCallKnowledgeRetrievalExecutionModeOverride: NormalChatFunctionCallMode | null
+  functionCallKgRetrievalMode: 'inherit' | 'override'
+  functionCallKgRetrievalEnabledOverride: boolean | null
+  functionCallKgRetrievalExecutionMode: 'inherit' | 'override'
+  functionCallKgRetrievalExecutionModeOverride: NormalChatFunctionCallMode | null
   mcpMode: 'inherit' | 'override'
   mcpEnabledOverride: boolean | null
   sortOrder: number
@@ -99,6 +110,10 @@ export interface NormalChatUpdateAssistantRequest {
   systemActionSubAgentEnabled?: boolean
   functionCallPubMedEnabled?: boolean
   functionCallPubMedMode?: NormalChatFunctionCallMode
+  functionCallKnowledgeRetrievalEnabled?: boolean
+  functionCallKnowledgeRetrievalMode?: NormalChatFunctionCallMode
+  functionCallKgRetrievalEnabled?: boolean
+  functionCallKgRetrievalMode?: NormalChatFunctionCallMode
   mcpEnabled?: boolean
   persistencePreset?: NormalChatPersistencePreset
 }
@@ -125,14 +140,6 @@ export interface NormalChatSetActiveAssistantRequest {
   assistantId: string
 }
 
-/**
- * 删除助手请求。
- *
- * 语义不是“只删 assistant 行”，而是删除该助手作为配置根节点下的整个作用域：
- * - 该助手下的全部 topic / conversation
- * - 这些 topic 对应的会话与调试数据
- * - 删除前需要先中断作用域内所有在途 request
- */
 export interface NormalChatDeleteAssistantRequest {
   assistantId: string
 }
@@ -197,6 +204,14 @@ export interface NormalChatUpdateTopicConfigRequest {
   functionCallPubMedEnabledOverride?: boolean | null
   functionCallPubMedExecutionMode?: 'inherit' | 'override'
   functionCallPubMedExecutionModeOverride?: NormalChatFunctionCallMode | null
+  functionCallKnowledgeRetrievalMode?: 'inherit' | 'override'
+  functionCallKnowledgeRetrievalEnabledOverride?: boolean | null
+  functionCallKnowledgeRetrievalExecutionMode?: 'inherit' | 'override'
+  functionCallKnowledgeRetrievalExecutionModeOverride?: NormalChatFunctionCallMode | null
+  functionCallKgRetrievalMode?: 'inherit' | 'override'
+  functionCallKgRetrievalEnabledOverride?: boolean | null
+  functionCallKgRetrievalExecutionMode?: 'inherit' | 'override'
+  functionCallKgRetrievalExecutionModeOverride?: NormalChatFunctionCallMode | null
   mcpMode?: 'inherit' | 'override'
   mcpEnabledOverride?: boolean | null
 }

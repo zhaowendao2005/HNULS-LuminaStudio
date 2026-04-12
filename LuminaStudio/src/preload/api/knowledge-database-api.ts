@@ -1,6 +1,7 @@
 import { ipcRenderer } from 'electron'
 import type {
   KnowledgeDatabaseAPI,
+  KnowledgeDatabaseListDocumentEmbeddingsRequest,
   KnowledgeDatabaseListDocsRequest,
   KnowledgeDatabaseResolveKnowledgeRetrievalScopesRequest,
   KnowledgeDatabaseSearchKnowledgeRetrievalRequest,
@@ -25,6 +26,10 @@ export const knowledgeDatabaseAPI: KnowledgeDatabaseAPI = {
     return ipcRenderer.invoke('knowledgeDatabase:listDocuments', request)
   },
 
+  listDocumentEmbeddings: (request: KnowledgeDatabaseListDocumentEmbeddingsRequest) => {
+    return ipcRenderer.invoke('knowledgeDatabase:listDocumentEmbeddings', request)
+  },
+
   resolveKnowledgeRetrievalScopes: (
     request: KnowledgeDatabaseResolveKnowledgeRetrievalScopesRequest
   ) => {
@@ -33,6 +38,10 @@ export const knowledgeDatabaseAPI: KnowledgeDatabaseAPI = {
 
   searchKnowledgeRetrieval: (request: KnowledgeDatabaseSearchKnowledgeRetrievalRequest) => {
     return ipcRenderer.invoke('knowledgeDatabase:searchKnowledgeRetrieval', request)
+  },
+
+  listKGKnowledgeBases: () => {
+    return ipcRenderer.invoke('knowledgeDatabase:listKGKnowledgeBases')
   },
 
   // ==================== 知识图谱（KG）检索 ====================

@@ -21,6 +21,13 @@ export function mapAssistant(row: AssistantRow): NormalChatAssistant {
     systemActionSubAgentEnabled: fromDbBoolean(row.system_action_subagent_enabled, true),
     functionCallPubMedEnabled: fromDbBoolean(row.functioncall_pubmed_enabled, true),
     functionCallPubMedMode: row.functioncall_pubmed_mode,
+    functionCallKnowledgeRetrievalEnabled: fromDbBoolean(
+      row.functioncall_knowledge_retrieval_enabled,
+      true
+    ),
+    functionCallKnowledgeRetrievalMode: row.functioncall_knowledge_retrieval_mode,
+    functionCallKgRetrievalEnabled: fromDbBoolean(row.functioncall_kg_retrieval_enabled, true),
+    functionCallKgRetrievalMode: row.functioncall_kg_retrieval_mode,
     mcpEnabled: fromDbBoolean(row.mcp_enabled),
     persistencePreset: row.persistence_preset,
     sortOrder: row.sort_order
@@ -67,6 +74,23 @@ export function mapTopic(row: TopicRow): NormalChatTopic {
         : fromDbBoolean(row.functioncall_pubmed_enabled_override),
     functionCallPubMedExecutionMode: row.functioncall_pubmed_execution_mode,
     functionCallPubMedExecutionModeOverride: row.functioncall_pubmed_execution_mode_override,
+    functionCallKnowledgeRetrievalMode: row.functioncall_knowledge_retrieval_mode,
+    functionCallKnowledgeRetrievalEnabledOverride:
+      row.functioncall_knowledge_retrieval_enabled_override === null
+        ? null
+        : fromDbBoolean(row.functioncall_knowledge_retrieval_enabled_override),
+    functionCallKnowledgeRetrievalExecutionMode:
+      row.functioncall_knowledge_retrieval_execution_mode,
+    functionCallKnowledgeRetrievalExecutionModeOverride:
+      row.functioncall_knowledge_retrieval_execution_mode_override,
+    functionCallKgRetrievalMode: row.functioncall_kg_retrieval_mode,
+    functionCallKgRetrievalEnabledOverride:
+      row.functioncall_kg_retrieval_enabled_override === null
+        ? null
+        : fromDbBoolean(row.functioncall_kg_retrieval_enabled_override),
+    functionCallKgRetrievalExecutionMode: row.functioncall_kg_retrieval_execution_mode,
+    functionCallKgRetrievalExecutionModeOverride:
+      row.functioncall_kg_retrieval_execution_mode_override,
     mcpMode: row.mcp_mode,
     mcpEnabledOverride:
       row.mcp_enabled_override === null ? null : fromDbBoolean(row.mcp_enabled_override),

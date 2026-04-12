@@ -1,5 +1,7 @@
 <template>
-  <footer class="nc-chat-composer-a9k2 sticky bottom-0 bg-[var(--nc-bg-main)] px-6 pb-6 pt-2">
+  <footer
+    class="nc-chat-composer-a9k2 sticky bottom-0 relative bg-[var(--nc-bg-main)] px-6 pb-6 pt-2"
+  >
     <div class="mb-2 flex items-center gap-2 px-1 text-[12px] leading-5 text-gray-400">
       <p class="min-w-0 flex-1 truncate">
         {{ statusLine }}
@@ -31,6 +33,11 @@
     <div
       class="flex flex-col rounded-2xl border border-gray-200 bg-white transition-all focus-within:ring-1 focus-within:ring-gray-300"
     >
+      <div v-if="retrievalStore.activePanel" class="border-b border-gray-200 bg-white px-3 py-3">
+        <VectorRetrievalPanel v-if="retrievalStore.activePanel === 'vector'" />
+        <KGRetrievalPanel v-if="retrievalStore.activePanel === 'kg'" />
+      </div>
+
       <textarea
         :value="conversationStore.currentDraft"
         class="min-h-[60px] max-h-[200px] w-full resize-none bg-transparent p-4 pb-2 text-[15px] text-gray-800 outline-none placeholder:text-gray-400"
@@ -46,8 +53,9 @@
         <div class="flex items-center gap-1">
           <template v-for="tool in leftTools" :key="tool.id">
             <button
-              class="flex items-center justify-center rounded-md p-1.5 text-gray-500 transition-colors hover:bg-gray-200/50 hover:text-gray-800"
+              :class="toolButtonClass(tool.id)"
               type="button"
+              @click="handleToolClick(tool.id)"
             >
               <component :is="resolveToolIcon(tool.icon)" class="h-[18px] w-[18px]" />
             </button>
@@ -113,11 +121,15 @@ import {
 import { computed, ref, watch } from 'vue'
 import type { ComposerToolIcon } from '@renderer/stores/normal-chat/conversation-shell/conversation-shell.types'
 import { useNormalChatConversationStore } from '@renderer/stores/normal-chat/conversation/conversation.store'
+import { useNormalChatRetrievalConfigStore } from '@renderer/stores/normal-chat/retrieval-config/retrieval-config.store'
 import { useNormalChatWorkspaceStore } from '@renderer/stores/normal-chat/workspace/workspace.store'
 import CenteredDialog from '@renderer/views/LuminaApp/Maincontent/OrchestraFlowView/EditorView/Common/CenteredDialog.vue'
+import VectorRetrievalPanel from './VectorRetrievalPanel.vue'
+import KGRetrievalPanel from './KGRetrievalPanel.vue'
 
 const conversationStore = useNormalChatConversationStore()
 const workspaceStore = useNormalChatWorkspaceStore()
+const retrievalStore = useNormalChatRetrievalConfigStore()
 const showErrorDetailDialog = ref(false)
 
 const leftTools: Array<{ id: string; icon: ComposerToolIcon; side: 'left' }> = [
@@ -154,6 +166,18 @@ const iconMap: Record<ComposerToolIcon, LucideIcon> = {
 }
 
 const resolveToolIcon = (icon: ComposerToolIcon): LucideIcon => iconMap[icon]
+
+const toolButtonClass = (toolId: string): string => {
+  const base =
+    'flex items-center justify-center rounded-md p-1.5 text-gray-500 transition-colors hover:bg-gray-200/50 hover:text-gray-800'
+  if (toolId === 'tool-file-text' && retrievalStore.activePanel === 'vector') {
+    return `${base} bg-gray-200/70 text-gray-900`
+  }
+  if (toolId === 'tool-globe' && retrievalStore.activePanel === 'kg') {
+    return `${base} bg-gray-200/70 text-gray-900`
+  }
+  return base
+}
 
 const sendButtonIcon = computed(() =>
   conversationStore.isCurrentTopicStreaming ? Square : ArrowUp
@@ -212,6 +236,17 @@ const errorDetailJson = computed(() => {
 const showErrorDetailButton = computed(() => {
   return Boolean(conversationStore.currentLastError && conversationStore.currentLastErrorDetail)
 })
+
+const handleToolClick = (toolId: string): void => {
+  if (toolId === 'tool-file-text') {
+    retrievalStore.openPanel('vector')
+    return
+  }
+
+  if (toolId === 'tool-globe') {
+    retrievalStore.openPanel('kg')
+  }
+}
 
 watch(
   () => conversationStore.currentLastErrorDetail,

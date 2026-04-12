@@ -1,23 +1,12 @@
-/**
- * 动作执行器服务
- *
- * 负责执行单个动作调用的完整生命周期，包括：
- * 1. 动作解析：从注册表中查找动作定义
- * 2. Schema 校验：使用 Zod Schema 校验输入参数
- * 3. 业务验证：调用自定义 validateInput 回调
- * 4. 权限检查：调用 checkPermissions 回调
- * 5. 执行：分发到对应的执行器（get_action_spec / dispatch_sub_agent / pubmed_search）
- * 6. 结果构建：生成结果记录、函数调用消息片段、反馈等
- *
- * 同时提供批次结果聚合和错误结果构建的能力。
- */
 import type { NormalChatFunctionCallMessagePart, NormalChatSubAgentMessagePart } from '@preload/types'
-import { NormalChatGetActionSpecExecutor } from '../system/get-action-spec/executor'
+import { NormalChatKgRetrievalExecutor } from '../functioncall/kg-retrieval/executor'
+import { NormalChatKnowledgeRetrievalExecutor } from '../functioncall/knowledge-retrieval/executor'
+import { NormalChatPubmedSearchExecutor } from '../functioncall/pubmed-search/executor'
 import {
   NormalChatDispatchSubAgentExecutor,
   type NormalChatDispatchSubAgentRunner
 } from '../system/dispatch-sub-agent/executor'
-import { NormalChatPubmedSearchExecutor } from '../functioncall/pubmed-search/executor'
+import { NormalChatGetActionSpecExecutor } from '../system/get-action-spec/executor'
 import type {
   NormalChatActionCall,
   NormalChatActionExecutorOutput,
@@ -26,12 +15,12 @@ import type {
   NormalChatResolvedAction
 } from './action.types'
 import type { NormalChatActionResultRecord } from './action-result-projection'
+import { getNormalChatActionDefinition } from './action-registry'
+import type { NormalChatActionSchemaDebugSnapshot } from './action-runtime.types'
 import type {
   NormalChatActionFeedback,
   NormalChatActionExecutionBatchResult
 } from '../../agent/memory/assistant-round-memory.types'
-import { getNormalChatActionDefinition } from './action-registry'
-import type { NormalChatActionSchemaDebugSnapshot } from './action-runtime.types'
 
 export interface NormalChatExecuteActionInput {
   call: NormalChatActionCall
@@ -41,7 +30,6 @@ export interface NormalChatExecuteActionInput {
   parallelIndex: number
   depth: number
   context: NormalChatActionRuntimeContext
-  /** transcript part ID，用于dispatch_sub_agent关联子代理状态 */
   transcriptPartId?: string
 }
 
@@ -51,7 +39,6 @@ export interface NormalChatExecutedAction {
   loadedActionKeys: string[]
   transcriptVisibility: NormalChatActionTranscriptVisibility
   functionCallPart: NormalChatFunctionCallMessagePart
-  /** 子代理专用part，dispatch_sub_agent成功时填充 */
   subagentPart?: NormalChatSubAgentMessagePart | null
   feedback: NormalChatActionFeedback[]
   childSummaries: Array<{
@@ -65,7 +52,11 @@ export class NormalChatActionExecutorService {
   private readonly getActionSpecExecutor = new NormalChatGetActionSpecExecutor()
   private dispatchSubAgentExecutor: NormalChatDispatchSubAgentExecutor | null = null
 
-  constructor(private readonly pubmedSearchExecutor: NormalChatPubmedSearchExecutor) {}
+  constructor(
+    private readonly pubmedSearchExecutor: NormalChatPubmedSearchExecutor,
+    private readonly knowledgeRetrievalExecutor?: NormalChatKnowledgeRetrievalExecutor,
+    private readonly kgRetrievalExecutor?: NormalChatKgRetrievalExecutor
+  ) {}
 
   setSubAgentRunner(subAgentRunner: NormalChatDispatchSubAgentRunner): void {
     this.dispatchSubAgentExecutor = new NormalChatDispatchSubAgentExecutor(subAgentRunner)
@@ -138,10 +129,7 @@ export class NormalChatActionExecutorService {
 
     try {
       const output = await this.runExecutor({
-        call: {
-          ...input.call,
-          input: normalizedInput
-        },
+        call: { ...input.call, input: normalizedInput },
         context: input.context,
         transcriptPartId: input.transcriptPartId
       })
@@ -307,10 +295,6 @@ export class NormalChatActionExecutorService {
     }
   }
 
-  /**
-   * 为主 agent 构建模型可见摘要。
-   * 对于 subagent，直接把最后一轮 LLM 结果作为父 agent 的 action result 消费内容。
-   */
   private buildModelFacingSummary(
     actionKey: string,
     title: string,
@@ -387,6 +371,59 @@ export class NormalChatActionExecutorService {
         api_key_ref_id: input.call.input.api_key_ref_id
           ? String(input.call.input.api_key_ref_id)
           : null
+      })
+    }
+
+    if (input.call.actionKey === 'functioncall.knowledge_retrieval') {
+      if (!this.knowledgeRetrievalExecutor) {
+        throw new Error('Knowledge retrieval executor is not configured.')
+      }
+      return this.knowledgeRetrievalExecutor.execute({
+        knowledgeBaseId: Number(input.call.input.knowledgeBaseId),
+        tableName: String(input.call.input.tableName ?? ''),
+        queryText: String(input.call.input.queryText ?? ''),
+        ...(input.call.input.fileKey ? { fileKey: String(input.call.input.fileKey) } : {}),
+        ...(Array.isArray(input.call.input.fileKeys)
+          ? { fileKeys: input.call.input.fileKeys.map((item) => String(item)) }
+          : {}),
+        ...(input.call.input.k !== undefined ? { k: Number(input.call.input.k) } : {}),
+        ...(input.call.input.ef !== undefined ? { ef: Number(input.call.input.ef) } : {}),
+        ...(input.call.input.rerankModelId
+          ? { rerankModelId: String(input.call.input.rerankModelId) }
+          : {}),
+        ...(input.call.input.rerankTopN !== undefined
+          ? { rerankTopN: Number(input.call.input.rerankTopN) }
+          : {})
+      })
+    }
+
+    if (input.call.actionKey === 'functioncall.kg_retrieval') {
+      if (!this.kgRetrievalExecutor) {
+        throw new Error('KG retrieval executor is not configured.')
+      }
+      return this.kgRetrievalExecutor.execute({
+        graphTableBase: String(input.call.input.graphTableBase ?? ''),
+        ...(typeof input.call.input.query === 'string' ? { query: input.call.input.query } : {}),
+        ...(typeof input.call.input.mode === 'string' ? { mode: input.call.input.mode as any } : {}),
+        ...(Array.isArray(input.call.input.highLevelKeywords)
+          ? { highLevelKeywords: input.call.input.highLevelKeywords.map((item) => String(item)) }
+          : {}),
+        ...(Array.isArray(input.call.input.lowLevelKeywords)
+          ? { lowLevelKeywords: input.call.input.lowLevelKeywords.map((item) => String(item)) }
+          : {}),
+        ...(input.call.input.rerank && typeof input.call.input.rerank === 'object'
+          ? {
+              rerank: {
+                enabled: Boolean((input.call.input.rerank as any).enabled),
+                ...((input.call.input.rerank as any).modelId
+                  ? { modelId: String((input.call.input.rerank as any).modelId) }
+                  : {}),
+                ...((input.call.input.rerank as any).topN !== undefined
+                  ? { topN: Number((input.call.input.rerank as any).topN) }
+                  : {})
+              }
+            }
+          : {})
       })
     }
 

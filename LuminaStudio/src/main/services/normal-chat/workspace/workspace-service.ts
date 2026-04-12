@@ -124,6 +124,10 @@ export class NormalChatWorkspaceService {
     systemActionSubAgentEnabled?: boolean
     functionCallPubMedEnabled?: boolean
     functionCallPubMedMode?: NormalChatFunctionCallMode
+    functionCallKnowledgeRetrievalEnabled?: boolean
+    functionCallKnowledgeRetrievalMode?: NormalChatFunctionCallMode
+    functionCallKgRetrievalEnabled?: boolean
+    functionCallKgRetrievalMode?: NormalChatFunctionCallMode
     mcpEnabled?: boolean
     persistencePreset?: NormalChatAssistant['persistencePreset']
   }): NormalChatWorkspaceSnapshot {
@@ -147,6 +151,15 @@ export class NormalChatWorkspaceService {
       functionCallPubMedEnabled:
         payload.functionCallPubMedEnabled ?? current.functionCallPubMedEnabled,
       functionCallPubMedMode: payload.functionCallPubMedMode ?? current.functionCallPubMedMode,
+      functionCallKnowledgeRetrievalEnabled:
+        payload.functionCallKnowledgeRetrievalEnabled ??
+        current.functionCallKnowledgeRetrievalEnabled,
+      functionCallKnowledgeRetrievalMode:
+        payload.functionCallKnowledgeRetrievalMode ?? current.functionCallKnowledgeRetrievalMode,
+      functionCallKgRetrievalEnabled:
+        payload.functionCallKgRetrievalEnabled ?? current.functionCallKgRetrievalEnabled,
+      functionCallKgRetrievalMode:
+        payload.functionCallKgRetrievalMode ?? current.functionCallKgRetrievalMode,
       mcpEnabled: payload.mcpEnabled ?? current.mcpEnabled,
       persistencePreset: payload.persistencePreset ?? current.persistencePreset
     }
@@ -434,6 +447,43 @@ export class NormalChatWorkspaceService {
         'override'
           ? (payload.functionCallPubMedExecutionModeOverride ??
             current.functionCallPubMedExecutionModeOverride ??
+            'fast')
+          : null,
+      functionCallKnowledgeRetrievalMode:
+        payload.functionCallKnowledgeRetrievalMode ?? current.functionCallKnowledgeRetrievalMode,
+      functionCallKnowledgeRetrievalEnabledOverride:
+        (payload.functionCallKnowledgeRetrievalMode ?? current.functionCallKnowledgeRetrievalMode) ===
+        'override'
+          ? (payload.functionCallKnowledgeRetrievalEnabledOverride ??
+            current.functionCallKnowledgeRetrievalEnabledOverride ??
+            true)
+          : null,
+      functionCallKnowledgeRetrievalExecutionMode:
+        payload.functionCallKnowledgeRetrievalExecutionMode ??
+        current.functionCallKnowledgeRetrievalExecutionMode,
+      functionCallKnowledgeRetrievalExecutionModeOverride:
+        ((payload.functionCallKnowledgeRetrievalExecutionMode ??
+          current.functionCallKnowledgeRetrievalExecutionMode) ===
+        'override')
+          ? (payload.functionCallKnowledgeRetrievalExecutionModeOverride ??
+            current.functionCallKnowledgeRetrievalExecutionModeOverride ??
+            'fast')
+          : null,
+      functionCallKgRetrievalMode:
+        payload.functionCallKgRetrievalMode ?? current.functionCallKgRetrievalMode,
+      functionCallKgRetrievalEnabledOverride:
+        (payload.functionCallKgRetrievalMode ?? current.functionCallKgRetrievalMode) === 'override'
+          ? (payload.functionCallKgRetrievalEnabledOverride ??
+            current.functionCallKgRetrievalEnabledOverride ??
+            true)
+          : null,
+      functionCallKgRetrievalExecutionMode:
+        payload.functionCallKgRetrievalExecutionMode ?? current.functionCallKgRetrievalExecutionMode,
+      functionCallKgRetrievalExecutionModeOverride:
+        (payload.functionCallKgRetrievalExecutionMode ?? current.functionCallKgRetrievalExecutionMode) ===
+        'override'
+          ? (payload.functionCallKgRetrievalExecutionModeOverride ??
+            current.functionCallKgRetrievalExecutionModeOverride ??
             'fast')
           : null,
       mcpMode: payload.mcpMode ?? current.mcpMode,

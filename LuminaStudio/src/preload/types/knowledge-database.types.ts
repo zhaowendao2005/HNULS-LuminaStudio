@@ -1,26 +1,26 @@
 /**
  * Knowledge Database 跨进程类型定义（Preload 侧聚合导出）
- *
- * 注意：
- * - 这里主要负责 Renderer ↔ Preload ↔ Main 的通信契约聚合
- * - 核心 DTO 的单一事实来源在 `@shared/knowledge-database-api.types.ts`
  */
 
 import type { ApiResponse } from './base.types'
 import type {
-  KnowledgeBaseInfo,
   DocumentInfo,
+  DocumentEmbeddingInfo,
   ExternalApiErrorInfo,
+  KGKnowledgeBaseInfo,
   KGGraphTablesResponse,
   KGModelsListResponse,
   KGRetrievalSearchRequest,
-  KGRetrievalSearchResult
+  KGRetrievalSearchResult,
+  KnowledgeBaseInfo,
+  RetrievalSearchRequest,
+  RetrievalSearchResult
 } from '@shared/knowledge-database-api.types'
 
-// 重新导出 KG 相关类型供渲染进程使用
 export type {
   KGGraphTableInfo,
   KGGraphTablesResponse,
+  KGKnowledgeBaseInfo,
   KGModelInfo,
   KGModelsListResponse,
   KGRetrievalMode,
@@ -29,51 +29,39 @@ export type {
   KGRetrievalRelation,
   KGRetrievalChunk,
   KGRetrievalMeta,
-  KGRetrievalSearchResult
+  KGRetrievalSearchResult,
+  RetrievalHit,
+  RetrievalSearchRequest,
+  RetrievalSearchResult
 } from '@shared/knowledge-database-api.types'
 
-// ==================== 请求类型 ====================
-
-/**
- * 获取知识库列表请求（无需参数）
- */
 export type KnowledgeDatabaseListBasesRequest = void
 
-/**
- * 获取指定知识库下的文档列表请求
- */
 export interface KnowledgeDatabaseListDocsRequest {
   knowledgeBaseId: number
   page?: number
   pageSize?: number
 }
 
-/**
- * 检索权限树中的权限效果。
- */
+export interface KnowledgeDatabaseListDocumentEmbeddingsRequest {
+  knowledgeBaseId: number
+  fileKey: string
+}
+
 export type KnowledgeDatabasePermissionEffect = 'allow' | 'deny' | 'inherit'
 
-/**
- * 检索权限树中的 embedding 规则。
- */
 export interface KnowledgeDatabaseEmbeddingRule {
   embeddingConfigId: string
   dimensions: number
   effect?: KnowledgeDatabasePermissionEffect
 }
 
-/**
- * 检索权限树中的文档规则。
- */
 export interface KnowledgeDatabaseDocumentRule {
   fileKey: string
   effect?: KnowledgeDatabasePermissionEffect
   embeddings?: KnowledgeDatabaseEmbeddingRule[]
 }
 
-/**
- * 兼容旧结构的 permission tree 节点。
- */
 export interface KnowledgeDatabaseLegacyPermissionTreeNode {
   id: string
   label?: string
@@ -87,9 +75,6 @@ export interface KnowledgeDatabaseLegacyPermissionTreeNode {
   children?: KnowledgeDatabaseLegacyPermissionTreeNode[]
 }
 
-/**
- * 检索权限树主结构。
- */
 export interface KnowledgeDatabasePermissionTree {
   effect?: KnowledgeDatabasePermissionEffect
   documents?: KnowledgeDatabaseDocumentRule[]
@@ -110,9 +95,6 @@ export interface KnowledgeDatabasePermissionTree {
   providers?: KnowledgeDatabaseLegacyPermissionTreeNode[]
 }
 
-/**
- * 检索 scope DTO。
- */
 export interface KnowledgeDatabaseResolvedScope {
   knowledgeBaseId: number
   fileKey: string
@@ -123,9 +105,6 @@ export interface KnowledgeDatabaseResolvedScope {
   chunkCount: number
 }
 
-/**
- * 检索 warning DTO。
- */
 export interface KnowledgeDatabaseRetrievalWarning {
   code:
     | 'DOCUMENT_RULE_TARGET_NOT_FOUND'
@@ -135,9 +114,6 @@ export interface KnowledgeDatabaseRetrievalWarning {
   details?: Record<string, unknown>
 }
 
-/**
- * 检索 error DTO。
- */
 export interface KnowledgeDatabaseRetrievalError {
   code:
     | 'INVALID_REQUEST'
@@ -153,9 +129,6 @@ export interface KnowledgeDatabaseRetrievalError {
   details?: Record<string, unknown>
 }
 
-/**
- * 检索 hit DTO。
- */
 export interface KnowledgeDatabaseRetrievalHit {
   id: string
   content: string
@@ -167,35 +140,20 @@ export interface KnowledgeDatabaseRetrievalHit {
   scope: KnowledgeDatabaseResolvedScope
 }
 
-/**
- * 检索 scopeResult DTO。
- */
 export interface KnowledgeDatabaseRetrievalScopeResult {
   scope: KnowledgeDatabaseResolvedScope
   hits: KnowledgeDatabaseRetrievalHit[]
   error?: KnowledgeDatabaseRetrievalError
 }
 
-/**
- * 解析 scope 的请求。
- */
 export interface KnowledgeDatabaseResolveKnowledgeRetrievalScopesRequest {
   knowledgeBaseId?: number
   knowledgeBaseIds?: number[]
-  /**
-   * 前端显式传入的知识库选择，用于让 main 侧按“选定知识库”收口范围。
-   */
   selectedKnowledgeBaseIds?: number[]
-  /**
-   * 前端显式传入的文档选择，用于让 main 侧在 scope 解析前先过滤文档。
-   */
   selectedDocumentFileKeysByKnowledgeBase?: Record<number, string[]>
   permissionTree?: KnowledgeDatabasePermissionTree
 }
 
-/**
- * 解析 scope 的响应。
- */
 export interface KnowledgeDatabaseResolveKnowledgeRetrievalScopesResponse {
   knowledgeBaseId: number | null
   knowledgeBaseIds: number[]
@@ -203,60 +161,21 @@ export interface KnowledgeDatabaseResolveKnowledgeRetrievalScopesResponse {
   warnings: KnowledgeDatabaseRetrievalWarning[]
 }
 
-/**
- * 执行知识检索的请求。
- */
-export interface KnowledgeDatabaseSearchKnowledgeRetrievalRequest {
-  knowledgeBaseId?: number
-  knowledgeBaseIds?: number[]
-  /**
-   * 前端显式传入的知识库选择，用于把“选中的知识库”带到主进程。
-   */
-  selectedKnowledgeBaseIds?: number[]
-  /**
-   * 前端显式传入的文档选择，用于把“选中的文档范围”带到主进程。
-   */
-  selectedDocumentFileKeysByKnowledgeBase?: Record<number, string[]>
-  query: string
-  permissionTree?: KnowledgeDatabasePermissionTree
-  k?: number
-  ef?: number
-  rerank?: {
-    modelId?: string | null
-    topN?: number | null
-  }
-}
+export type KnowledgeDatabaseSearchKnowledgeRetrievalRequest = RetrievalSearchRequest
+export type KnowledgeDatabaseSearchKnowledgeRetrievalResponse = RetrievalSearchResult
 
-/**
- * 执行知识检索的响应。
- */
-export interface KnowledgeDatabaseSearchKnowledgeRetrievalResponse {
-  query: string
-  knowledgeBaseId: number | null
-  knowledgeBaseIds: number[]
-  k: number
-  ef?: number
-  rerankModelId?: string
-  rerankTopN?: number
-  resolvedScopes: KnowledgeDatabaseResolvedScope[]
-  scopeResults: KnowledgeDatabaseRetrievalScopeResult[]
-  hits: KnowledgeDatabaseRetrievalHit[]
-  warnings: KnowledgeDatabaseRetrievalWarning[]
-  errors: KnowledgeDatabaseRetrievalError[]
-}
-
-// ==================== 响应类型 ====================
-
-/**
- * 知识库列表响应
- */
 export interface KnowledgeDatabaseListBasesResponse {
   knowledgeBases: KnowledgeBaseInfo[]
 }
 
-/**
- * 文档列表响应
- */
+export interface KnowledgeDatabaseListKGKnowledgeBasesResponse {
+  knowledgeBases: KGKnowledgeBaseInfo[]
+}
+
+export interface KnowledgeDatabaseListDocumentEmbeddingsResponse {
+  embeddings: DocumentEmbeddingInfo[]
+}
+
 export interface KnowledgeDatabaseListDocsResponse {
   documents: DocumentInfo[]
   total: number
@@ -265,72 +184,31 @@ export interface KnowledgeDatabaseListDocsResponse {
   totalPages: number
 }
 
-/**
- * 连接状态响应
- */
 export interface KnowledgeDatabaseConnectionStatus {
   connected: boolean
   baseUrl?: string
   error?: ExternalApiErrorInfo
 }
 
-// ==================== API 接口定义 ====================
-
-/**
- * Knowledge Database API 契约
- */
 export interface KnowledgeDatabaseAPI {
-  /**
-   * 检查与外部服务的连接状态
-   */
   checkConnection: () => Promise<ApiResponse<KnowledgeDatabaseConnectionStatus>>
-
-  /**
-   * 获取所有知识库列表
-   */
   listKnowledgeBases: () => Promise<ApiResponse<KnowledgeDatabaseListBasesResponse>>
-
-  /**
-   * 获取指定知识库下的文档列表
-   */
   listDocuments: (
     request: KnowledgeDatabaseListDocsRequest
   ) => Promise<ApiResponse<KnowledgeDatabaseListDocsResponse>>
-
-  /**
-   * 解析知识检索的 scope。
-   */
+  listDocumentEmbeddings: (
+    request: KnowledgeDatabaseListDocumentEmbeddingsRequest
+  ) => Promise<ApiResponse<KnowledgeDatabaseListDocumentEmbeddingsResponse>>
   resolveKnowledgeRetrievalScopes: (
     request: KnowledgeDatabaseResolveKnowledgeRetrievalScopesRequest
   ) => Promise<ApiResponse<KnowledgeDatabaseResolveKnowledgeRetrievalScopesResponse>>
-
-  /**
-   * 执行知识检索。
-   */
   searchKnowledgeRetrieval: (
     request: KnowledgeDatabaseSearchKnowledgeRetrievalRequest
   ) => Promise<ApiResponse<KnowledgeDatabaseSearchKnowledgeRetrievalResponse>>
-
-  // ==================== 知识图谱（KG）检索 ====================
-
-  /**
-   * 获取知识库的 KG 配置
-   */
+  listKGKnowledgeBases: () => Promise<ApiResponse<KnowledgeDatabaseListKGKnowledgeBasesResponse>>
   getKGConfigs: (knowledgeBaseId: number) => Promise<ApiResponse<{ knowledgeGraph: unknown }>>
-
-  /**
-   * 获取知识库的图谱表信息（含实体/关系计数）
-   */
   getKGGraphTables: (knowledgeBaseId: number) => Promise<ApiResponse<KGGraphTablesResponse>>
-
-  /**
-   * 获取可用的 KG 模型列表
-   */
   listKGModels: () => Promise<ApiResponse<KGModelsListResponse>>
-
-  /**
-   * 执行知识图谱检索（local/global/hybrid/naive 四种模式）
-   */
   kgRetrievalSearch: (
     request: KGRetrievalSearchRequest
   ) => Promise<ApiResponse<KGRetrievalSearchResult>>

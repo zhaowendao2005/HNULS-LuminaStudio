@@ -34,6 +34,10 @@ export interface NormalChatWorkspaceDatasourceLike {
     systemActionSubAgentEnabled?: boolean
     functionCallPubMedEnabled?: boolean
     functionCallPubMedMode?: NormalChatFunctionCallMode
+    functionCallKnowledgeRetrievalEnabled?: boolean
+    functionCallKnowledgeRetrievalMode?: NormalChatFunctionCallMode
+    functionCallKgRetrievalEnabled?: boolean
+    functionCallKgRetrievalMode?: NormalChatFunctionCallMode
     mcpEnabled?: boolean
     persistencePreset?: NormalChatPersistencePreset
   }): Promise<NormalChatWorkspaceSnapshot>
@@ -98,6 +102,14 @@ export interface NormalChatWorkspaceDatasourceLike {
     functionCallPubMedEnabledOverride?: boolean | null
     functionCallPubMedExecutionMode?: 'inherit' | 'override'
     functionCallPubMedExecutionModeOverride?: NormalChatFunctionCallMode | null
+    functionCallKnowledgeRetrievalMode?: 'inherit' | 'override'
+    functionCallKnowledgeRetrievalEnabledOverride?: boolean | null
+    functionCallKnowledgeRetrievalExecutionMode?: 'inherit' | 'override'
+    functionCallKnowledgeRetrievalExecutionModeOverride?: NormalChatFunctionCallMode | null
+    functionCallKgRetrievalMode?: 'inherit' | 'override'
+    functionCallKgRetrievalEnabledOverride?: boolean | null
+    functionCallKgRetrievalExecutionMode?: 'inherit' | 'override'
+    functionCallKgRetrievalExecutionModeOverride?: NormalChatFunctionCallMode | null
     mcpMode?: 'inherit' | 'override'
     mcpEnabledOverride?: boolean | null
   }): Promise<NormalChatWorkspaceSnapshot>

@@ -49,16 +49,20 @@ export class NormalChatAssistantsRepository {
              call_mode = ?, cost_mode = ?, default_model_provider_id = ?, default_model_id = ?,
              context_memory_rounds = ?, max_recursion_depth = ?, max_reasoning_steps = ?,
              system_action_functioncall_enabled = ?, system_action_subagent_enabled = ?,
-             functioncall_pubmed_enabled = ?, functioncall_pubmed_mode = ?, mcp_enabled = ?,
-             persistence_preset = ?, sort_order = ?, updated_at = ?
+             functioncall_pubmed_enabled = ?, functioncall_pubmed_mode = ?,
+             functioncall_knowledge_retrieval_enabled = ?, functioncall_knowledge_retrieval_mode = ?,
+             functioncall_kg_retrieval_enabled = ?, functioncall_kg_retrieval_mode = ?,
+             mcp_enabled = ?, persistence_preset = ?, sort_order = ?, updated_at = ?
          WHERE id = ?`
       : `INSERT INTO normal_chat_assistants
          (id, name, emoji, label_id, default_system_prompt, streaming_enabled, call_mode, cost_mode,
           default_model_provider_id, default_model_id, context_memory_rounds, max_recursion_depth,
           max_reasoning_steps, system_action_functioncall_enabled, system_action_subagent_enabled,
-          functioncall_pubmed_enabled, functioncall_pubmed_mode, mcp_enabled, persistence_preset,
-          sort_order, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          functioncall_pubmed_enabled, functioncall_pubmed_mode,
+          functioncall_knowledge_retrieval_enabled, functioncall_knowledge_retrieval_mode,
+          functioncall_kg_retrieval_enabled, functioncall_kg_retrieval_mode,
+          mcp_enabled, persistence_preset, sort_order, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
     const params = isUpdate
       ? [
@@ -78,6 +82,10 @@ export class NormalChatAssistantsRepository {
           toDbBoolean(assistant.systemActionSubAgentEnabled),
           toDbBoolean(assistant.functionCallPubMedEnabled),
           assistant.functionCallPubMedMode,
+          toDbBoolean(assistant.functionCallKnowledgeRetrievalEnabled),
+          assistant.functionCallKnowledgeRetrievalMode,
+          toDbBoolean(assistant.functionCallKgRetrievalEnabled),
+          assistant.functionCallKgRetrievalMode,
           toDbBoolean(assistant.mcpEnabled),
           assistant.persistencePreset,
           assistant.sortOrder,
@@ -102,6 +110,10 @@ export class NormalChatAssistantsRepository {
           toDbBoolean(assistant.systemActionSubAgentEnabled),
           toDbBoolean(assistant.functionCallPubMedEnabled),
           assistant.functionCallPubMedMode,
+          toDbBoolean(assistant.functionCallKnowledgeRetrievalEnabled),
+          assistant.functionCallKnowledgeRetrievalMode,
+          toDbBoolean(assistant.functionCallKgRetrievalEnabled),
+          assistant.functionCallKgRetrievalMode,
           toDbBoolean(assistant.mcpEnabled),
           assistant.persistencePreset,
           assistant.sortOrder,

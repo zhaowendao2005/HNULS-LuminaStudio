@@ -21,6 +21,8 @@ export type AssistantActionItemId =
   | 'system-functioncall'
   | 'system-subagent'
   | 'functioncall-pubmed'
+  | 'functioncall-knowledge-retrieval'
+  | 'functioncall-kg-retrieval'
   | 'mcp-default'
 
 type InheritMode = 'inherit' | 'override'
@@ -53,6 +55,8 @@ const DEFAULT_ACTION_EXPANDED_MAP: Record<AssistantActionItemId, boolean> = {
   'system-functioncall': false,
   'system-subagent': false,
   'functioncall-pubmed': false,
+  'functioncall-knowledge-retrieval': false,
+  'functioncall-kg-retrieval': false,
   'mcp-default': false
 }
 
@@ -225,6 +229,10 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
   const assistantSystemActionSubAgentEnabledDraft = ref(true)
   const assistantFunctionCallPubMedEnabledDraft = ref(true)
   const assistantFunctionCallPubMedModeDraft = ref<NormalChatFunctionCallMode>('fast')
+  const assistantFunctionCallKnowledgeRetrievalEnabledDraft = ref(true)
+  const assistantFunctionCallKnowledgeRetrievalModeDraft = ref<NormalChatFunctionCallMode>('fast')
+  const assistantFunctionCallKgRetrievalEnabledDraft = ref(true)
+  const assistantFunctionCallKgRetrievalModeDraft = ref<NormalChatFunctionCallMode>('fast')
   const assistantMcpEnabledDraft = ref(false)
   const assistantPersistencePresetDraft = ref<NormalChatPersistencePreset>('light')
 
@@ -253,6 +261,14 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
   const topicFunctionCallPubMedExecutionModeOverrideDraft = ref<NormalChatFunctionCallMode | null>(
     null
   )
+  const topicFunctionCallKnowledgeRetrievalModeDraft = ref<InheritMode>('inherit')
+  const topicFunctionCallKnowledgeRetrievalEnabledOverrideDraft = ref<boolean | null>(null)
+  const topicFunctionCallKnowledgeRetrievalExecutionModeDraft = ref<InheritMode>('inherit')
+  const topicFunctionCallKnowledgeRetrievalExecutionModeOverrideDraft = ref<NormalChatFunctionCallMode | null>(null)
+  const topicFunctionCallKgRetrievalModeDraft = ref<InheritMode>('inherit')
+  const topicFunctionCallKgRetrievalEnabledOverrideDraft = ref<boolean | null>(null)
+  const topicFunctionCallKgRetrievalExecutionModeDraft = ref<InheritMode>('inherit')
+  const topicFunctionCallKgRetrievalExecutionModeOverrideDraft = ref<NormalChatFunctionCallMode | null>(null)
   const topicMcpModeDraft = ref<InheritMode>('inherit')
   const topicMcpEnabledOverrideDraft = ref<boolean | null>(null)
 
@@ -398,6 +414,60 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
     )
   })
 
+  const effectiveFunctionCallKnowledgeRetrievalEnabled = computed(() => {
+    if (!currentAssistant.value) {
+      return true
+    }
+
+    return resolveEffectiveBoolean(
+      currentAssistant.value.functionCallKnowledgeRetrievalEnabled,
+      currentTopic.value?.functionCallKnowledgeRetrievalMode ?? 'inherit',
+      currentTopic.value?.functionCallKnowledgeRetrievalEnabledOverride ?? null
+    )
+  })
+
+  const effectiveFunctionCallKnowledgeRetrievalMode = computed<NormalChatFunctionCallMode>(() => {
+    if (!currentAssistant.value) {
+      return 'fast'
+    }
+
+    if (currentTopic.value?.functionCallKnowledgeRetrievalExecutionMode !== 'override') {
+      return currentAssistant.value.functionCallKnowledgeRetrievalMode
+    }
+
+    return (
+      currentTopic.value.functionCallKnowledgeRetrievalExecutionModeOverride ??
+      currentAssistant.value.functionCallKnowledgeRetrievalMode
+    )
+  })
+
+  const effectiveFunctionCallKgRetrievalEnabled = computed(() => {
+    if (!currentAssistant.value) {
+      return true
+    }
+
+    return resolveEffectiveBoolean(
+      currentAssistant.value.functionCallKgRetrievalEnabled,
+      currentTopic.value?.functionCallKgRetrievalMode ?? 'inherit',
+      currentTopic.value?.functionCallKgRetrievalEnabledOverride ?? null
+    )
+  })
+
+  const effectiveFunctionCallKgRetrievalMode = computed<NormalChatFunctionCallMode>(() => {
+    if (!currentAssistant.value) {
+      return 'fast'
+    }
+
+    if (currentTopic.value?.functionCallKgRetrievalExecutionMode !== 'override') {
+      return currentAssistant.value.functionCallKgRetrievalMode
+    }
+
+    return (
+      currentTopic.value.functionCallKgRetrievalExecutionModeOverride ??
+      currentAssistant.value.functionCallKgRetrievalMode
+    )
+  })
+
   const effectiveMcpEnabled = computed(() => {
     if (!currentAssistant.value) {
       return false
@@ -535,6 +605,14 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
       currentAssistant.value?.functionCallPubMedEnabled ?? true
     assistantFunctionCallPubMedModeDraft.value =
       currentAssistant.value?.functionCallPubMedMode ?? 'fast'
+    assistantFunctionCallKnowledgeRetrievalEnabledDraft.value =
+      currentAssistant.value?.functionCallKnowledgeRetrievalEnabled ?? true
+    assistantFunctionCallKnowledgeRetrievalModeDraft.value =
+      currentAssistant.value?.functionCallKnowledgeRetrievalMode ?? 'fast'
+    assistantFunctionCallKgRetrievalEnabledDraft.value =
+      currentAssistant.value?.functionCallKgRetrievalEnabled ?? true
+    assistantFunctionCallKgRetrievalModeDraft.value =
+      currentAssistant.value?.functionCallKgRetrievalMode ?? 'fast'
     assistantMcpEnabledDraft.value = currentAssistant.value?.mcpEnabled ?? false
     assistantPersistencePresetDraft.value = currentAssistant.value?.persistencePreset ?? 'light'
 
@@ -575,6 +653,22 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
       currentTopic.value?.functionCallPubMedExecutionMode ?? 'inherit'
     topicFunctionCallPubMedExecutionModeOverrideDraft.value =
       currentTopic.value?.functionCallPubMedExecutionModeOverride ?? null
+    topicFunctionCallKnowledgeRetrievalModeDraft.value =
+      currentTopic.value?.functionCallKnowledgeRetrievalMode ?? 'inherit'
+    topicFunctionCallKnowledgeRetrievalEnabledOverrideDraft.value =
+      currentTopic.value?.functionCallKnowledgeRetrievalEnabledOverride ?? null
+    topicFunctionCallKnowledgeRetrievalExecutionModeDraft.value =
+      currentTopic.value?.functionCallKnowledgeRetrievalExecutionMode ?? 'inherit'
+    topicFunctionCallKnowledgeRetrievalExecutionModeOverrideDraft.value =
+      currentTopic.value?.functionCallKnowledgeRetrievalExecutionModeOverride ?? null
+    topicFunctionCallKgRetrievalModeDraft.value =
+      currentTopic.value?.functionCallKgRetrievalMode ?? 'inherit'
+    topicFunctionCallKgRetrievalEnabledOverrideDraft.value =
+      currentTopic.value?.functionCallKgRetrievalEnabledOverride ?? null
+    topicFunctionCallKgRetrievalExecutionModeDraft.value =
+      currentTopic.value?.functionCallKgRetrievalExecutionMode ?? 'inherit'
+    topicFunctionCallKgRetrievalExecutionModeOverrideDraft.value =
+      currentTopic.value?.functionCallKgRetrievalExecutionModeOverride ?? null
     topicMcpModeDraft.value = currentTopic.value?.mcpMode ?? 'inherit'
     topicMcpEnabledOverrideDraft.value = currentTopic.value?.mcpEnabledOverride ?? null
 
@@ -713,6 +807,22 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
     assistantFunctionCallPubMedModeDraft.value = value
   }
 
+  function setAssistantFunctionCallKnowledgeRetrievalEnabledDraft(value: boolean): void {
+    assistantFunctionCallKnowledgeRetrievalEnabledDraft.value = value
+  }
+
+  function setAssistantFunctionCallKnowledgeRetrievalModeDraft(value: NormalChatFunctionCallMode): void {
+    assistantFunctionCallKnowledgeRetrievalModeDraft.value = value
+  }
+
+  function setAssistantFunctionCallKgRetrievalEnabledDraft(value: boolean): void {
+    assistantFunctionCallKgRetrievalEnabledDraft.value = value
+  }
+
+  function setAssistantFunctionCallKgRetrievalModeDraft(value: NormalChatFunctionCallMode): void {
+    assistantFunctionCallKgRetrievalModeDraft.value = value
+  }
+
   function setAssistantMcpEnabledDraft(value: boolean): void {
     assistantMcpEnabledDraft.value = value
   }
@@ -749,6 +859,38 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
       value === assistantFunctionCallPubMedModeDraft.value ? 'inherit' : 'override'
     topicFunctionCallPubMedExecutionModeOverrideDraft.value =
       topicFunctionCallPubMedExecutionModeDraft.value === 'override' ? value : null
+  }
+
+  function setTopicFunctionCallKnowledgeRetrievalEnabledOverrideDraft(value: boolean): void {
+    topicFunctionCallKnowledgeRetrievalModeDraft.value =
+      value === assistantFunctionCallKnowledgeRetrievalEnabledDraft.value ? 'inherit' : 'override'
+    topicFunctionCallKnowledgeRetrievalEnabledOverrideDraft.value =
+      topicFunctionCallKnowledgeRetrievalModeDraft.value === 'override' ? value : null
+  }
+
+  function setTopicFunctionCallKnowledgeRetrievalExecutionModeOverrideDraft(
+    value: NormalChatFunctionCallMode
+  ): void {
+    topicFunctionCallKnowledgeRetrievalExecutionModeDraft.value =
+      value === assistantFunctionCallKnowledgeRetrievalModeDraft.value ? 'inherit' : 'override'
+    topicFunctionCallKnowledgeRetrievalExecutionModeOverrideDraft.value =
+      topicFunctionCallKnowledgeRetrievalExecutionModeDraft.value === 'override' ? value : null
+  }
+
+  function setTopicFunctionCallKgRetrievalEnabledOverrideDraft(value: boolean): void {
+    topicFunctionCallKgRetrievalModeDraft.value =
+      value === assistantFunctionCallKgRetrievalEnabledDraft.value ? 'inherit' : 'override'
+    topicFunctionCallKgRetrievalEnabledOverrideDraft.value =
+      topicFunctionCallKgRetrievalModeDraft.value === 'override' ? value : null
+  }
+
+  function setTopicFunctionCallKgRetrievalExecutionModeOverrideDraft(
+    value: NormalChatFunctionCallMode
+  ): void {
+    topicFunctionCallKgRetrievalExecutionModeDraft.value =
+      value === assistantFunctionCallKgRetrievalModeDraft.value ? 'inherit' : 'override'
+    topicFunctionCallKgRetrievalExecutionModeOverrideDraft.value =
+      topicFunctionCallKgRetrievalExecutionModeDraft.value === 'override' ? value : null
   }
 
   function setTopicMcpEnabledOverrideDraft(value: boolean): void {
@@ -931,6 +1073,11 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
         systemActionSubAgentEnabled: assistantSystemActionSubAgentEnabledDraft.value,
         functionCallPubMedEnabled: assistantFunctionCallPubMedEnabledDraft.value,
         functionCallPubMedMode: assistantFunctionCallPubMedModeDraft.value,
+        functionCallKnowledgeRetrievalEnabled:
+          assistantFunctionCallKnowledgeRetrievalEnabledDraft.value,
+        functionCallKnowledgeRetrievalMode: assistantFunctionCallKnowledgeRetrievalModeDraft.value,
+        functionCallKgRetrievalEnabled: assistantFunctionCallKgRetrievalEnabledDraft.value,
+        functionCallKgRetrievalMode: assistantFunctionCallKgRetrievalModeDraft.value,
         mcpEnabled: assistantMcpEnabledDraft.value,
         persistencePreset: assistantPersistencePresetDraft.value
       })
@@ -996,6 +1143,27 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
       functionCallPubMedExecutionModeOverride:
         topicFunctionCallPubMedExecutionModeDraft.value === 'override'
           ? topicFunctionCallPubMedExecutionModeOverrideDraft.value
+          : null,
+      functionCallKnowledgeRetrievalMode: topicFunctionCallKnowledgeRetrievalModeDraft.value,
+      functionCallKnowledgeRetrievalEnabledOverride:
+        topicFunctionCallKnowledgeRetrievalModeDraft.value === 'override'
+          ? topicFunctionCallKnowledgeRetrievalEnabledOverrideDraft.value
+          : null,
+      functionCallKnowledgeRetrievalExecutionMode:
+        topicFunctionCallKnowledgeRetrievalExecutionModeDraft.value,
+      functionCallKnowledgeRetrievalExecutionModeOverride:
+        topicFunctionCallKnowledgeRetrievalExecutionModeDraft.value === 'override'
+          ? topicFunctionCallKnowledgeRetrievalExecutionModeOverrideDraft.value
+          : null,
+      functionCallKgRetrievalMode: topicFunctionCallKgRetrievalModeDraft.value,
+      functionCallKgRetrievalEnabledOverride:
+        topicFunctionCallKgRetrievalModeDraft.value === 'override'
+          ? topicFunctionCallKgRetrievalEnabledOverrideDraft.value
+          : null,
+      functionCallKgRetrievalExecutionMode: topicFunctionCallKgRetrievalExecutionModeDraft.value,
+      functionCallKgRetrievalExecutionModeOverride:
+        topicFunctionCallKgRetrievalExecutionModeDraft.value === 'override'
+          ? topicFunctionCallKgRetrievalExecutionModeOverrideDraft.value
           : null,
       mcpMode: topicMcpModeDraft.value,
       mcpEnabledOverride:
@@ -1140,6 +1308,10 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
     assistantSystemActionSubAgentEnabledDraft,
     assistantFunctionCallPubMedEnabledDraft,
     assistantFunctionCallPubMedModeDraft,
+    assistantFunctionCallKnowledgeRetrievalEnabledDraft,
+    assistantFunctionCallKnowledgeRetrievalModeDraft,
+    assistantFunctionCallKgRetrievalEnabledDraft,
+    assistantFunctionCallKgRetrievalModeDraft,
     assistantMcpEnabledDraft,
     assistantPersistencePresetDraft,
     topicPromptModeDraft,
@@ -1165,6 +1337,14 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
     topicFunctionCallPubMedEnabledOverrideDraft,
     topicFunctionCallPubMedExecutionModeDraft,
     topicFunctionCallPubMedExecutionModeOverrideDraft,
+    topicFunctionCallKnowledgeRetrievalModeDraft,
+    topicFunctionCallKnowledgeRetrievalEnabledOverrideDraft,
+    topicFunctionCallKnowledgeRetrievalExecutionModeDraft,
+    topicFunctionCallKnowledgeRetrievalExecutionModeOverrideDraft,
+    topicFunctionCallKgRetrievalModeDraft,
+    topicFunctionCallKgRetrievalEnabledOverrideDraft,
+    topicFunctionCallKgRetrievalExecutionModeDraft,
+    topicFunctionCallKgRetrievalExecutionModeOverrideDraft,
     topicMcpModeDraft,
     topicMcpEnabledOverrideDraft,
     editingTopicId,
@@ -1184,6 +1364,10 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
     effectiveSystemActionSubAgentEnabled,
     effectiveFunctionCallPubMedEnabled,
     effectiveFunctionCallPubMedMode,
+    effectiveFunctionCallKnowledgeRetrievalEnabled,
+    effectiveFunctionCallKnowledgeRetrievalMode,
+    effectiveFunctionCallKgRetrievalEnabled,
+    effectiveFunctionCallKgRetrievalMode,
     effectiveMcpEnabled,
     currentTopicModelSelection,
     currentTopicModelProviderId,
@@ -1217,12 +1401,20 @@ export const useNormalChatWorkspaceStore = defineStore('normal-chat-workspace', 
     setAssistantSystemActionSubAgentEnabledDraft,
     setAssistantFunctionCallPubMedEnabledDraft,
     setAssistantFunctionCallPubMedModeDraft,
+    setAssistantFunctionCallKnowledgeRetrievalEnabledDraft,
+    setAssistantFunctionCallKnowledgeRetrievalModeDraft,
+    setAssistantFunctionCallKgRetrievalEnabledDraft,
+    setAssistantFunctionCallKgRetrievalModeDraft,
     setAssistantMcpEnabledDraft,
     setAssistantPersistencePresetDraft,
     setTopicSystemActionFunctionCallEnabledOverrideDraft,
     setTopicSystemActionSubAgentEnabledOverrideDraft,
     setTopicFunctionCallPubMedEnabledOverrideDraft,
     setTopicFunctionCallPubMedExecutionModeOverrideDraft,
+    setTopicFunctionCallKnowledgeRetrievalEnabledOverrideDraft,
+    setTopicFunctionCallKnowledgeRetrievalExecutionModeOverrideDraft,
+    setTopicFunctionCallKgRetrievalEnabledOverrideDraft,
+    setTopicFunctionCallKgRetrievalExecutionModeOverrideDraft,
     setTopicMcpEnabledOverrideDraft,
     setTopicPromptModeDraft,
     setTopicPromptDraft,

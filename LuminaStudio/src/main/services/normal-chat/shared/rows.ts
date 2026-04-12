@@ -22,6 +22,10 @@ export interface AssistantRow {
   system_action_subagent_enabled: number
   functioncall_pubmed_enabled: number
   functioncall_pubmed_mode: NormalChatFunctionCallMode
+  functioncall_knowledge_retrieval_enabled: number
+  functioncall_knowledge_retrieval_mode: NormalChatFunctionCallMode
+  functioncall_kg_retrieval_enabled: number
+  functioncall_kg_retrieval_mode: NormalChatFunctionCallMode
   mcp_enabled: number
   persistence_preset: NormalChatAssistant['persistencePreset']
   sort_order: number
@@ -54,6 +58,14 @@ export interface TopicRow {
   functioncall_pubmed_enabled_override: number | null
   functioncall_pubmed_execution_mode: 'inherit' | 'override'
   functioncall_pubmed_execution_mode_override: NormalChatFunctionCallMode | null
+  functioncall_knowledge_retrieval_mode: 'inherit' | 'override'
+  functioncall_knowledge_retrieval_enabled_override: number | null
+  functioncall_knowledge_retrieval_execution_mode: 'inherit' | 'override'
+  functioncall_knowledge_retrieval_execution_mode_override: NormalChatFunctionCallMode | null
+  functioncall_kg_retrieval_mode: 'inherit' | 'override'
+  functioncall_kg_retrieval_enabled_override: number | null
+  functioncall_kg_retrieval_execution_mode: 'inherit' | 'override'
+  functioncall_kg_retrieval_execution_mode_override: NormalChatFunctionCallMode | null
   mcp_mode: 'inherit' | 'override'
   mcp_enabled_override: number | null
   sort_order: number
@@ -75,11 +87,6 @@ export interface ConversationRow {
   updated_at: string
 }
 
-/**
- * request 头表行。
- *
- * 这个表只承担“检索与当前状态”的职责，不保存大块 prompt/debug JSON。
- */
 export interface RequestHeadRow {
   request_id: string
   assistant_id: string
@@ -104,11 +111,6 @@ export interface RequestHeadRow {
   last_entry_seq: number | null
 }
 
-/**
- * request entry 行。
- *
- * 真正的运行时事实统一沉淀在这里，projector 需要靠它回放 transcript / detail / agent graph。
- */
 export interface RequestEntryRow {
   seq: number
   request_id: string

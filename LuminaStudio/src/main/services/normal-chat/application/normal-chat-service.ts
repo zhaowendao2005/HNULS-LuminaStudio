@@ -10,8 +10,10 @@ import type {
   NormalChatTopicTranscriptSnapshot,
   NormalChatWorkspaceSnapshot
 } from '@preload/types'
-import type { PaperRetrievalService } from '@main/services/paper-retrieval'
+import type { KnowledgeRetrievalService } from '@main/services/knowledge-retrieval'
+import type { KGRetrievalService } from '@main/services/kg-retrieval/kg-retrieval-service'
 import type { ModelConfigService } from '@main/services/model-config'
+import type { PaperRetrievalService } from '@main/services/paper-retrieval'
 import type { DatabaseManager } from '../../database-sqlite'
 import { NormalChatConversationConfigService } from '../conversation/conversation-config-service'
 import { NormalChatConversationService } from '../conversation/conversation-service'
@@ -25,20 +27,25 @@ import { NormalChatTopicsRepository } from '../repositories/topics.repository'
 import { NormalChatWorkspaceStateRepository } from '../repositories/workspace-state.repository'
 import { NormalChatAgentRuntime } from '../runtime/agent/agent-runtime'
 import { NormalChatRoundPersistenceService } from '../runtime/agent/round-persistence.service'
-import { NormalChatAssistantOutputParser } from '../runtime/agent/response/assistant-output-parser'
 import { NormalChatAgentGraphRunner } from '../runtime/agent/graph/runner'
-import { NormalChatActionExecutorService } from '../runtime/actions/shared/action-executor.service'
-import { NormalChatActionResolutionService } from '../runtime/actions/shared/action-resolution.service'
-import { NormalChatLoadedActionSpecService } from '../runtime/actions/shared/loaded-action-spec.service'
+import { NormalChatAssistantOutputParser } from '../runtime/agent/response/assistant-output-parser'
+import { NormalChatKgRetrievalAdapter, NormalChatKgRetrievalExecutor } from '../runtime/actions/functioncall/kg-retrieval'
+import {
+  NormalChatKnowledgeRetrievalAdapter,
+  NormalChatKnowledgeRetrievalExecutor
+} from '../runtime/actions/functioncall/knowledge-retrieval'
 import {
   NormalChatPubmedSearchAdapter,
   NormalChatPubmedSearchExecutor
 } from '../runtime/actions/functioncall/pubmed-search'
+import { NormalChatActionExecutorService } from '../runtime/actions/shared/action-executor.service'
+import { NormalChatActionResolutionService } from '../runtime/actions/shared/action-resolution.service'
+import { NormalChatLoadedActionSpecService } from '../runtime/actions/shared/loaded-action-spec.service'
 import { NormalChatRealModelAdapter } from '../runtime/llm/real-model-adapter'
 import { NormalChatPromptBuilder } from '../runtime/prompt/prompt-builder'
 import { NormalChatQueueExecutor } from '../runtime/scheduler/queue-executor'
-import { NormalChatRuntimeService } from '../runtime/runtime-service'
 import { NormalChatTaskScheduler } from '../runtime/scheduler/task-scheduler'
+import { NormalChatRuntimeService } from '../runtime/runtime-service'
 import { NormalChatStreamPublisher } from '../runtime/streaming/stream-publisher'
 import { NormalChatWorkspaceService } from '../workspace/workspace-service'
 
@@ -51,6 +58,8 @@ export class NormalChatService {
   constructor(
     databaseManager: DatabaseManager,
     paperRetrievalService: PaperRetrievalService,
+    knowledgeRetrievalService: KnowledgeRetrievalService,
+    kgRetrievalService: KGRetrievalService,
     modelConfigService: ModelConfigService
   ) {
     const db = databaseManager.getDatabase('userdata')
@@ -90,7 +99,11 @@ export class NormalChatService {
     const promptBuilder = new NormalChatPromptBuilder()
     const queueExecutor = new NormalChatQueueExecutor(20)
     const actionExecutor = new NormalChatActionExecutorService(
-      new NormalChatPubmedSearchExecutor(new NormalChatPubmedSearchAdapter(paperRetrievalService))
+      new NormalChatPubmedSearchExecutor(new NormalChatPubmedSearchAdapter(paperRetrievalService)),
+      new NormalChatKnowledgeRetrievalExecutor(
+        new NormalChatKnowledgeRetrievalAdapter(knowledgeRetrievalService)
+      ),
+      new NormalChatKgRetrievalExecutor(new NormalChatKgRetrievalAdapter(kgRetrievalService))
     )
     const agentRuntime = new NormalChatAgentRuntime(
       new NormalChatAgentGraphRunner(),
@@ -155,6 +168,10 @@ export class NormalChatService {
     systemActionSubAgentEnabled?: boolean
     functionCallPubMedEnabled?: boolean
     functionCallPubMedMode?: NormalChatAssistant['functionCallPubMedMode']
+    functionCallKnowledgeRetrievalEnabled?: boolean
+    functionCallKnowledgeRetrievalMode?: NormalChatAssistant['functionCallKnowledgeRetrievalMode']
+    functionCallKgRetrievalEnabled?: boolean
+    functionCallKgRetrievalMode?: NormalChatAssistant['functionCallKgRetrievalMode']
     mcpEnabled?: boolean
     persistencePreset?: NormalChatAssistant['persistencePreset']
   }): NormalChatWorkspaceSnapshot {

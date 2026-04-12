@@ -4,28 +4,13 @@ import type { KnowledgeRetrievalService } from '../services/knowledge-retrieval'
 import type { KnowledgeDatabaseBridgeService } from '../services/knowledge-database-bridge'
 import type { KGRetrievalService } from '../services/kg-retrieval/kg-retrieval-service'
 import type {
+  KnowledgeDatabaseListDocumentEmbeddingsRequest,
   KnowledgeDatabaseListDocsRequest,
   KnowledgeDatabaseResolveKnowledgeRetrievalScopesRequest,
   KnowledgeDatabaseSearchKnowledgeRetrievalRequest
 } from '@preload/types'
 import type { KGRetrievalSearchRequest } from '@shared/knowledge-database-api.types'
 
-/**
- * KnowledgeDatabaseIPCHandler
- *
- * 处理知识库数据相关的 IPC 请求
- *
- * 注册的 channels:
- * - knowledgeDatabase:checkConnection
- * - knowledgeDatabase:listKnowledgeBases
- * - knowledgeDatabase:listDocuments
- * - knowledgeDatabase:resolveKnowledgeRetrievalScopes
- * - knowledgeDatabase:searchKnowledgeRetrieval
- * - knowledgeDatabase:getKGConfigs
- * - knowledgeDatabase:getKGGraphTables
- * - knowledgeDatabase:listKGModels
- * - knowledgeDatabase:kgRetrievalSearch
- */
 export class KnowledgeDatabaseIPCHandler extends BaseIPCHandler {
   private readonly log = logger.scope('KnowledgeDatabaseIPCHandler')
 
@@ -42,9 +27,6 @@ export class KnowledgeDatabaseIPCHandler extends BaseIPCHandler {
     return 'knowledgeDatabase'
   }
 
-  /**
-   * 检查与外部服务的连接状态
-   */
   async handleCheckConnection(): Promise<
     { success: true; data: unknown } | { success: false; error: string }
   > {
@@ -59,9 +41,6 @@ export class KnowledgeDatabaseIPCHandler extends BaseIPCHandler {
     }
   }
 
-  /**
-   * 获取所有知识库列表
-   */
   async handleListKnowledgeBases(): Promise<
     { success: true; data: unknown } | { success: false; error: string }
   > {
@@ -76,9 +55,32 @@ export class KnowledgeDatabaseIPCHandler extends BaseIPCHandler {
     }
   }
 
-  /**
-   * 获取指定知识库下的文档列表
-   */
+  async handleListDocumentEmbeddings(
+    _event: unknown,
+    request: KnowledgeDatabaseListDocumentEmbeddingsRequest
+  ): Promise<{ success: true; data: unknown } | { success: false; error: string }> {
+    try {
+      if (!request || typeof request.knowledgeBaseId !== 'number' || request.knowledgeBaseId <= 0) {
+        return { success: false, error: 'Invalid knowledgeBaseId' }
+      }
+      if (typeof request.fileKey !== 'string' || !request.fileKey.trim()) {
+        return { success: false, error: 'Invalid fileKey' }
+      }
+
+      const embeddings = await this.service.listDocumentEmbeddings({
+        knowledgeBaseId: request.knowledgeBaseId,
+        fileKey: request.fileKey
+      })
+
+      return { success: true, data: { embeddings } }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }
+    }
+  }
+
   async handleListDocuments(
     _event: unknown,
     request: KnowledgeDatabaseListDocsRequest
@@ -112,9 +114,6 @@ export class KnowledgeDatabaseIPCHandler extends BaseIPCHandler {
     }
   }
 
-  /**
-   * 解析知识检索 scope。
-   */
   async handleResolveKnowledgeRetrievalScopes(
     _event: unknown,
     request: KnowledgeDatabaseResolveKnowledgeRetrievalScopesRequest
@@ -134,29 +133,34 @@ export class KnowledgeDatabaseIPCHandler extends BaseIPCHandler {
     }
   }
 
-  /**
-   * 执行知识检索。
-   */
   async handleSearchKnowledgeRetrieval(
     _event: unknown,
     request: KnowledgeDatabaseSearchKnowledgeRetrievalRequest
   ): Promise<{ success: true; data: unknown } | { success: false; error: string }> {
     try {
-      if (!request || typeof request.query !== 'string') {
-        return { success: false, error: 'Invalid query' }
+      if (!request || typeof request.knowledgeBaseId !== 'number') {
+        return { success: false, error: 'Invalid knowledgeBaseId' }
+      }
+      if (typeof request.tableName !== 'string' || !request.tableName.trim()) {
+        return { success: false, error: 'Invalid tableName' }
+      }
+      if (typeof request.queryText !== 'string' || !request.queryText.trim()) {
+        return { success: false, error: 'Invalid queryText' }
+      }
+      if (Array.isArray(request.fileKeys) && request.fileKeys.length === 0) {
+        return { success: false, error: 'fileKeys cannot be an empty array' }
       }
 
-      // 这里直接打印“实际进入 main 的请求体”，方便和前端 dev 页对照。
       this.log.debug('searchKnowledgeRetrieval request', {
-        query: request.query,
-        knowledgeBaseId: request.knowledgeBaseId ?? null,
-        knowledgeBaseIds: request.knowledgeBaseIds ?? [],
-        selectedKnowledgeBaseIds: request.selectedKnowledgeBaseIds ?? [],
-        selectedDocumentFileKeysByKnowledgeBase:
-          request.selectedDocumentFileKeysByKnowledgeBase ?? {},
+        knowledgeBaseId: request.knowledgeBaseId,
+        tableName: request.tableName,
+        queryText: request.queryText,
+        fileKey: request.fileKey ?? null,
+        fileKeys: request.fileKeys ?? null,
         k: request.k,
         ef: request.ef,
-        rerank: request.rerank
+        rerankModelId: request.rerankModelId ?? null,
+        rerankTopN: request.rerankTopN ?? null
       })
 
       const result = await this.knowledgeRetrievalService.search(request)
@@ -169,13 +173,6 @@ export class KnowledgeDatabaseIPCHandler extends BaseIPCHandler {
     }
   }
 
-  // ==========================================================================
-  // 知识图谱（KG）检索
-  // ==========================================================================
-
-  /**
-   * 获取知识库的 KG 配置
-   */
   async handleGetKGConfigs(
     _event: unknown,
     knowledgeBaseId: number
@@ -194,9 +191,6 @@ export class KnowledgeDatabaseIPCHandler extends BaseIPCHandler {
     }
   }
 
-  /**
-   * 获取知识库的图谱表信息
-   */
   async handleGetKGGraphTables(
     _event: unknown,
     knowledgeBaseId: number
@@ -215,9 +209,6 @@ export class KnowledgeDatabaseIPCHandler extends BaseIPCHandler {
     }
   }
 
-  /**
-   * 获取可用的 KG 模型列表
-   */
   async handleListKGModels(): Promise<
     { success: true; data: unknown } | { success: false; error: string }
   > {
@@ -232,25 +223,49 @@ export class KnowledgeDatabaseIPCHandler extends BaseIPCHandler {
     }
   }
 
-  /**
-   * 执行知识图谱检索
-   */
+  async handleListKGKnowledgeBases(): Promise<
+    { success: true; data: unknown } | { success: false; error: string }
+  > {
+    try {
+      const knowledgeBases = await this.service.listKGKnowledgeBases()
+      return { success: true, data: { knowledgeBases } }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }
+    }
+  }
+
   async handleKgRetrievalSearch(
     _event: unknown,
     request: KGRetrievalSearchRequest
   ): Promise<{ success: true; data: unknown } | { success: false; error: string }> {
     try {
-      if (!request || typeof request.query !== 'string') {
-        return { success: false, error: 'Invalid query' }
+      if (!request || typeof request.graphTableBase !== 'string' || !request.graphTableBase.trim()) {
+        return { success: false, error: 'Invalid graphTableBase' }
+      }
+      const hasQuery = typeof request.query === 'string' && request.query.trim().length > 0
+      const hasHighLevelKeywords =
+        Array.isArray(request.highLevelKeywords) && request.highLevelKeywords.some((item) => item.trim())
+      const hasLowLevelKeywords =
+        Array.isArray(request.lowLevelKeywords) && request.lowLevelKeywords.some((item) => item.trim())
+      if (!hasQuery && !hasHighLevelKeywords && !hasLowLevelKeywords) {
+        return { success: false, error: 'query or keywords are required' }
+      }
+      if (request.rerank?.enabled && !request.rerank.modelId?.trim()) {
+        return { success: false, error: 'rerank.modelId is required when rerank.enabled=true' }
       }
       if (!this.kgRetrievalService) {
         return { success: false, error: 'KGRetrievalService not initialized' }
       }
 
       this.log.debug('kgRetrievalSearch request', {
-        query: request.query?.slice(0, 60),
-        mode: request.mode,
+        query: request.query?.slice(0, 60) ?? null,
+        mode: request.mode ?? null,
         graphTableBase: request.graphTableBase,
+        highLevelKeywords: request.highLevelKeywords ?? [],
+        lowLevelKeywords: request.lowLevelKeywords ?? [],
         rerankEnabled: Boolean(request.rerank?.enabled),
         rerankModelId: request.rerank?.modelId ?? null,
         rerankTopN: request.rerank?.topN ?? null

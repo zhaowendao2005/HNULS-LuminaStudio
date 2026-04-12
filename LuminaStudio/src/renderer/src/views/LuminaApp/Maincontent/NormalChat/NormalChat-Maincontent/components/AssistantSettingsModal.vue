@@ -559,7 +559,10 @@ import { computed } from 'vue'
 import { X } from 'lucide-vue-next'
 import WhiteSelect from '@renderer/views/LuminaApp/Maincontent/NormalChat/components/WhiteSelect.vue'
 import { useModelConfigStore } from '@renderer/stores/model-config/store'
-import { useNormalChatWorkspaceStore } from '@renderer/stores/normal-chat/workspace/workspace.store'
+import {
+  useNormalChatWorkspaceStore,
+  type AssistantActionItemId
+} from '@renderer/stores/normal-chat/workspace/workspace.store'
 
 const workspaceStore = useNormalChatWorkspaceStore()
 const modelConfigStore = useModelConfigStore()
@@ -571,7 +574,7 @@ const showPromptPage = computed(() => workspaceStore.activeSettingsTab === 'prom
 const showActionPage = computed(() => workspaceStore.activeSettingsTab === 'action')
 
 interface ActionListItem {
-  id: string
+  id: AssistantActionItemId
   title: string
 }
 
@@ -580,7 +583,11 @@ const systemActionItems: ActionListItem[] = [
   { id: 'system-subagent', title: '派发 subagent' }
 ]
 
-const functionCallItems: ActionListItem[] = [{ id: 'functioncall-pubmed', title: 'PubMed 检索' }]
+const functionCallItems: ActionListItem[] = [
+  { id: 'functioncall-pubmed', title: 'PubMed 检索' },
+  { id: 'functioncall-knowledge-retrieval', title: '知识库检索' },
+  { id: 'functioncall-kg-retrieval', title: '知识图谱检索' }
+]
 
 const mcpActionItems: ActionListItem[] = [{ id: 'mcp-default', title: 'MCP 能力接入' }]
 
@@ -901,6 +908,20 @@ function resolveActionEnabled(id: string): boolean {
           ? (workspaceStore.topicFunctionCallPubMedEnabledOverrideDraft ??
             workspaceStore.assistantFunctionCallPubMedEnabledDraft)
           : workspaceStore.assistantFunctionCallPubMedEnabledDraft
+    case 'functioncall-knowledge-retrieval':
+      return workspaceStore.settingsScope === 'assistant'
+        ? workspaceStore.assistantFunctionCallKnowledgeRetrievalEnabledDraft
+        : workspaceStore.topicFunctionCallKnowledgeRetrievalModeDraft === 'override'
+          ? (workspaceStore.topicFunctionCallKnowledgeRetrievalEnabledOverrideDraft ??
+            workspaceStore.assistantFunctionCallKnowledgeRetrievalEnabledDraft)
+          : workspaceStore.assistantFunctionCallKnowledgeRetrievalEnabledDraft
+    case 'functioncall-kg-retrieval':
+      return workspaceStore.settingsScope === 'assistant'
+        ? workspaceStore.assistantFunctionCallKgRetrievalEnabledDraft
+        : workspaceStore.topicFunctionCallKgRetrievalModeDraft === 'override'
+          ? (workspaceStore.topicFunctionCallKgRetrievalEnabledOverrideDraft ??
+            workspaceStore.assistantFunctionCallKgRetrievalEnabledDraft)
+          : workspaceStore.assistantFunctionCallKgRetrievalEnabledDraft
     case 'mcp-default':
       return workspaceStore.settingsScope === 'assistant'
         ? workspaceStore.assistantMcpEnabledDraft
@@ -924,6 +945,10 @@ function isActionInherited(id: string): boolean {
       return workspaceStore.topicSystemActionSubAgentModeDraft === 'inherit'
     case 'functioncall-pubmed':
       return workspaceStore.topicFunctionCallPubMedModeDraft === 'inherit'
+    case 'functioncall-knowledge-retrieval':
+      return workspaceStore.topicFunctionCallKnowledgeRetrievalModeDraft === 'inherit'
+    case 'functioncall-kg-retrieval':
+      return workspaceStore.topicFunctionCallKgRetrievalModeDraft === 'inherit'
     case 'mcp-default':
       return workspaceStore.topicMcpModeDraft === 'inherit'
     default:
@@ -956,6 +981,20 @@ function toggleActionEnabled(id: string): void {
         workspaceStore.setTopicFunctionCallPubMedEnabledOverrideDraft(nextValue)
       }
       return
+    case 'functioncall-knowledge-retrieval':
+      if (workspaceStore.settingsScope === 'assistant') {
+        workspaceStore.setAssistantFunctionCallKnowledgeRetrievalEnabledDraft(nextValue)
+      } else {
+        workspaceStore.setTopicFunctionCallKnowledgeRetrievalEnabledOverrideDraft(nextValue)
+      }
+      return
+    case 'functioncall-kg-retrieval':
+      if (workspaceStore.settingsScope === 'assistant') {
+        workspaceStore.setAssistantFunctionCallKgRetrievalEnabledDraft(nextValue)
+      } else {
+        workspaceStore.setTopicFunctionCallKgRetrievalEnabledOverrideDraft(nextValue)
+      }
+      return
     case 'mcp-default':
       if (workspaceStore.settingsScope === 'assistant') {
         workspaceStore.setAssistantMcpEnabledDraft(nextValue)
@@ -978,6 +1017,24 @@ function resolveFunctionCallMode(id: string): 'fast' | 'slow' {
         : workspaceStore.assistantFunctionCallPubMedModeDraft
   }
 
+  if (id === 'functioncall-knowledge-retrieval') {
+    return workspaceStore.settingsScope === 'assistant'
+      ? workspaceStore.assistantFunctionCallKnowledgeRetrievalModeDraft
+      : workspaceStore.topicFunctionCallKnowledgeRetrievalExecutionModeDraft === 'override'
+        ? (workspaceStore.topicFunctionCallKnowledgeRetrievalExecutionModeOverrideDraft ??
+          workspaceStore.assistantFunctionCallKnowledgeRetrievalModeDraft)
+        : workspaceStore.assistantFunctionCallKnowledgeRetrievalModeDraft
+  }
+
+  if (id === 'functioncall-kg-retrieval') {
+    return workspaceStore.settingsScope === 'assistant'
+      ? workspaceStore.assistantFunctionCallKgRetrievalModeDraft
+      : workspaceStore.topicFunctionCallKgRetrievalExecutionModeDraft === 'override'
+        ? (workspaceStore.topicFunctionCallKgRetrievalExecutionModeOverrideDraft ??
+          workspaceStore.assistantFunctionCallKgRetrievalModeDraft)
+        : workspaceStore.assistantFunctionCallKgRetrievalModeDraft
+  }
+
   return 'fast'
 }
 
@@ -987,6 +1044,24 @@ function setFunctionCallMode(id: string, mode: 'fast' | 'slow'): void {
       workspaceStore.setAssistantFunctionCallPubMedModeDraft(mode)
     } else {
       workspaceStore.setTopicFunctionCallPubMedExecutionModeOverrideDraft(mode)
+    }
+    return
+  }
+
+  if (id === 'functioncall-knowledge-retrieval') {
+    if (workspaceStore.settingsScope === 'assistant') {
+      workspaceStore.setAssistantFunctionCallKnowledgeRetrievalModeDraft(mode)
+    } else {
+      workspaceStore.setTopicFunctionCallKnowledgeRetrievalExecutionModeOverrideDraft(mode)
+    }
+    return
+  }
+
+  if (id === 'functioncall-kg-retrieval') {
+    if (workspaceStore.settingsScope === 'assistant') {
+      workspaceStore.setAssistantFunctionCallKgRetrievalModeDraft(mode)
+    } else {
+      workspaceStore.setTopicFunctionCallKgRetrievalExecutionModeOverrideDraft(mode)
     }
   }
 }

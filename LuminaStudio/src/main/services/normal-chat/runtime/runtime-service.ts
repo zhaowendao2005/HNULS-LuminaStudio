@@ -327,6 +327,10 @@ function resolveActionSnapshots(
   assistant: {
     functionCallPubMedEnabled: boolean
     functionCallPubMedMode: 'fast' | 'slow'
+    functionCallKnowledgeRetrievalEnabled: boolean
+    functionCallKnowledgeRetrievalMode: 'fast' | 'slow'
+    functionCallKgRetrievalEnabled: boolean
+    functionCallKgRetrievalMode: 'fast' | 'slow'
   },
   topic: Pick<
     NormalChatTopic,
@@ -334,6 +338,14 @@ function resolveActionSnapshots(
     | 'functionCallPubMedEnabledOverride'
     | 'functionCallPubMedExecutionMode'
     | 'functionCallPubMedExecutionModeOverride'
+    | 'functionCallKnowledgeRetrievalMode'
+    | 'functionCallKnowledgeRetrievalEnabledOverride'
+    | 'functionCallKnowledgeRetrievalExecutionMode'
+    | 'functionCallKnowledgeRetrievalExecutionModeOverride'
+    | 'functionCallKgRetrievalMode'
+    | 'functionCallKgRetrievalEnabledOverride'
+    | 'functionCallKgRetrievalExecutionMode'
+    | 'functionCallKgRetrievalExecutionModeOverride'
   >
 ): NormalChatTaskExecutionActionSnapshot[] {
   const actions: NormalChatTaskExecutionActionSnapshot[] = [
@@ -356,6 +368,44 @@ function resolveActionSnapshots(
       actionKey: 'functioncall.pubmed_search',
       kind: 'functioncall',
       mode: pubmedMode
+    })
+  }
+
+  const knowledgeRetrievalEnabled =
+    topic.functionCallKnowledgeRetrievalMode === 'override'
+      ? (topic.functionCallKnowledgeRetrievalEnabledOverride ??
+        assistant.functionCallKnowledgeRetrievalEnabled)
+      : assistant.functionCallKnowledgeRetrievalEnabled
+
+  if (knowledgeRetrievalEnabled) {
+    const knowledgeRetrievalMode =
+      topic.functionCallKnowledgeRetrievalExecutionMode === 'override'
+        ? (topic.functionCallKnowledgeRetrievalExecutionModeOverride ??
+          assistant.functionCallKnowledgeRetrievalMode)
+        : assistant.functionCallKnowledgeRetrievalMode
+
+    actions.push({
+      actionKey: 'functioncall.knowledge_retrieval',
+      kind: 'functioncall',
+      mode: knowledgeRetrievalMode
+    })
+  }
+
+  const kgRetrievalEnabled =
+    topic.functionCallKgRetrievalMode === 'override'
+      ? (topic.functionCallKgRetrievalEnabledOverride ?? assistant.functionCallKgRetrievalEnabled)
+      : assistant.functionCallKgRetrievalEnabled
+
+  if (kgRetrievalEnabled) {
+    const kgRetrievalMode =
+      topic.functionCallKgRetrievalExecutionMode === 'override'
+        ? (topic.functionCallKgRetrievalExecutionModeOverride ?? assistant.functionCallKgRetrievalMode)
+        : assistant.functionCallKgRetrievalMode
+
+    actions.push({
+      actionKey: 'functioncall.kg_retrieval',
+      kind: 'functioncall',
+      mode: kgRetrievalMode
     })
   }
 
