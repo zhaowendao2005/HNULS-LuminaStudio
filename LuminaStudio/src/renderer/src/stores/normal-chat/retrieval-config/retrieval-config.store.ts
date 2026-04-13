@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import type {
+  NormalChatKnowledgeRetrievalPolicyInput,
+  NormalChatKnowledgeRetrievalPolicyTable,
   KnowledgeDatabaseListDocumentEmbeddingsRequest,
   KnowledgeDatabaseListDocsRequest
 } from '@preload/types'
@@ -27,6 +29,19 @@ function unwrap<T>(response: { success: boolean; data?: T; error?: string }): T 
   }
 
   return response.data
+}
+
+function buildPolicyTable(input: {
+  embeddingConfigId: string
+  embeddingConfigName?: string
+  dimensions: number
+}): NormalChatKnowledgeRetrievalPolicyTable {
+  return {
+    tableName: makeVectorTableName(input.embeddingConfigId, input.dimensions),
+    embeddingConfigId: input.embeddingConfigId,
+    embeddingConfigName: input.embeddingConfigName,
+    dimensions: input.dimensions
+  }
 }
 
 function createVectorKnowledgeBaseNode(base: {
@@ -72,6 +87,7 @@ function createVectorDocumentNode(document: {
     embeddingsLoaded: false,
     loadingEmbeddings: false,
     embeddingCount: document.embeddings.length,
+    availableTables: document.embeddings.map(buildPolicyTable),
     embeddings: []
   }
 }
@@ -131,7 +147,13 @@ export const useNormalChatRetrievalConfigStore = defineStore('normal-chat-retrie
     }
 
     if (vectorMode.value === 'global') {
-      return kb.selected ? [`kb:${kb.id}`] : []
+      const tableMap = new Map<string, string>()
+      for (const document of kb.documents) {
+        for (const table of document.availableTables) {
+          tableMap.set(table.tableName, table.tableName)
+        }
+      }
+      return kb.selected ? [...tableMap.values()] : []
     }
 
     const selectedTables: string[] = []
@@ -139,9 +161,11 @@ export const useNormalChatRetrievalConfigStore = defineStore('normal-chat-retrie
       if (!document.selected) {
         continue
       }
-      for (const embedding of document.embeddings) {
-        if (embedding.selected) {
-          selectedTables.push(embedding.tableName)
+      const embeddings = document.embeddings.filter((embedding) => embedding.selected)
+      const tables = embeddings.length > 0 ? embeddings : document.availableTables
+      for (const table of tables) {
+        if (!selectedTables.includes(table.tableName)) {
+          selectedTables.push(table.tableName)
         }
       }
     }
@@ -220,6 +244,7 @@ export const useNormalChatRetrievalConfigStore = defineStore('normal-chat-retrie
       }
 
       knowledgeBase.documents = documents
+      knowledgeBase.docCount = documents.length
       knowledgeBase.documentsLoaded = true
     } catch (error) {
       vectorKnowledgeBasesError.value = error instanceof Error ? error.message : '加载文档失败'
@@ -257,6 +282,7 @@ export const useNormalChatRetrievalConfigStore = defineStore('normal-chat-retrie
             embedding.embeddingConfigId
           ) ?? false
       }))
+      document.availableTables = data.embeddings.map(buildPolicyTable)
       document.embeddingsLoaded = true
     } catch (error) {
       vectorKnowledgeBasesError.value = error instanceof Error ? error.message : '加载嵌入表失败'
@@ -434,6 +460,7 @@ export const useNormalChatRetrievalConfigStore = defineStore('normal-chat-retrie
 
     knowledgeBase.expanded = !knowledgeBase.expanded
     if (knowledgeBase.expanded) {
+      selectKgKnowledgeBase(knowledgeBaseId)
       await loadKgGraphTables(knowledgeBaseId)
     }
   }
@@ -458,7 +485,6 @@ export const useNormalChatRetrievalConfigStore = defineStore('normal-chat-retrie
     }
 
     kgSelectedGraphTableBases.value = []
-    void loadKgGraphTables(knowledgeBaseId)
   }
 
   function toggleKgGraphTableSelection(knowledgeBaseId: number, graphTableBase: string): void {
@@ -504,6 +530,114 @@ export const useNormalChatRetrievalConfigStore = defineStore('normal-chat-retrie
     () => workspaceStore.effectiveFunctionCallKgRetrievalEnabled
   )
 
+  const knowledgeRetrievalPolicy = computed<NormalChatKnowledgeRetrievalPolicyInput>(() => {
+    const kb = currentVectorKnowledgeBase.value
+
+    if (
+      !workspaceStore.effectiveFunctionCallKnowledgeRetrievalEnabled ||
+      vectorMode.value === 'disabled' ||
+      !kb ||
+      !kb.selected
+    ) {
+      return {
+        mode: 'disabled',
+        knowledgeBaseId: null,
+        knowledgeBaseName: null,
+        tables: [],
+        documents: [],
+        rerank: {
+          enabled: vectorRerankEnabled.value,
+          modelId: vectorRerankModelId.value,
+          topN: vectorRerankTopN.value
+        }
+      }
+    }
+
+    const rerank = {
+      enabled: vectorRerankEnabled.value,
+      modelId: vectorRerankModelId.value,
+      topN: vectorRerankTopN.value
+    }
+
+    if (vectorMode.value === 'global') {
+      const tablesMap = new Map<string, NormalChatKnowledgeRetrievalPolicyTable>()
+      for (const document of kb.documents) {
+        for (const table of document.availableTables) {
+          tablesMap.set(table.tableName, table)
+        }
+      }
+
+      const tables = [...tablesMap.values()]
+      if (tables.length === 0) {
+        return {
+          mode: 'disabled',
+          knowledgeBaseId: null,
+          knowledgeBaseName: null,
+          tables: [],
+          documents: [],
+          rerank
+        }
+      }
+
+      return {
+        mode: 'global',
+        knowledgeBaseId: kb.id,
+        knowledgeBaseName: kb.name,
+        tables,
+        documents: [],
+        rerank
+      }
+    }
+
+    const documents = kb.documents
+      .filter((document) => document.selected)
+      .map((document) => {
+        const selectedTables = document.embeddings.filter((embedding) => embedding.selected)
+        const tables = (selectedTables.length > 0 ? selectedTables : document.availableTables).map(
+          (table) => ({
+            tableName: table.tableName,
+            embeddingConfigId: table.embeddingConfigId,
+            embeddingConfigName: table.embeddingConfigName,
+            dimensions: table.dimensions
+          })
+        )
+
+        return {
+          fileKey: document.fileKey,
+          fileName: document.fileName,
+          tables
+        }
+      })
+      .filter((document) => document.tables.length > 0)
+
+    if (documents.length === 0) {
+      return {
+        mode: 'disabled',
+        knowledgeBaseId: null,
+        knowledgeBaseName: null,
+        tables: [],
+        documents: [],
+        rerank
+      }
+    }
+
+    const tablesMap = new Map<string, NormalChatKnowledgeRetrievalPolicyTable>()
+    for (const document of documents) {
+      for (const table of document.tables) {
+        tablesMap.set(table.tableName, table)
+      }
+    }
+
+    return {
+      mode: 'documents',
+      knowledgeBaseId: kb.id,
+      knowledgeBaseName: kb.name,
+      tables: [...tablesMap.values()],
+      documents,
+      rerank
+    }
+  })
+
   return {
     activePanel,
     vectorMode,
@@ -526,6 +660,7 @@ export const useNormalChatRetrievalConfigStore = defineStore('normal-chat-retrie
     currentKgKnowledgeBase,
     vectorTableNames,
     kgTableNames,
+    knowledgeRetrievalPolicy,
     isVectorFunctioncallEnabled,
     isKgFunctioncallEnabled,
     loadVectorKnowledgeBases,

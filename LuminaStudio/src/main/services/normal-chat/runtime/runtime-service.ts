@@ -6,6 +6,7 @@ import type Database from 'better-sqlite3'
 import type {
   NormalChatAssistant,
   NormalChatConversationMessage,
+  NormalChatKnowledgeRetrievalPolicyInput,
   NormalChatSendMessageAccepted,
   NormalChatSendMessageRequest,
   NormalChatTaskExecutionActionSnapshot,
@@ -19,6 +20,10 @@ import { TopicTranscriptProjector } from '../projectors/topic-transcript.project
 import { nowIso } from '../shared/utils'
 import { NormalChatWorkspaceService } from '../workspace/workspace-service'
 import { NormalChatAgentRuntime } from './agent/agent-runtime'
+import {
+  buildKnowledgeRetrievalPolicyPrompt,
+  hasUsableKnowledgeRetrievalPolicy
+} from './actions/functioncall/knowledge-retrieval/policy-prompt'
 import { NormalChatQueueExecutor } from './scheduler/queue-executor'
 import { NormalChatTaskScheduler } from './scheduler/task-scheduler'
 import { NormalChatStreamPublisher } from './streaming/stream-publisher'
@@ -91,6 +96,7 @@ export class NormalChatRuntimeService {
       topic.streamingMode === 'override'
         ? (topic.streamingEnabledOverride ?? assistant.streamingEnabled)
         : assistant.streamingEnabled
+    const dynamicPromptInjections = buildDynamicPromptInjections(payload.knowledgeRetrievalPolicy)
 
     const initialHistoryMessages = this.topicTranscriptProjector
       .project({
@@ -134,8 +140,8 @@ export class NormalChatRuntimeService {
         maxProviderRetries: DEFAULT_MAX_PROVIDER_RETRIES
       },
       historyMessages: initialHistoryMessages,
-      promptInjections: conversation.programPromptInjections,
-      actions: resolveActionSnapshots(assistant, topic),
+      promptInjections: [...conversation.programPromptInjections, ...dynamicPromptInjections],
+      actions: resolveActionSnapshots(assistant, topic, payload.knowledgeRetrievalPolicy),
       createdAt: timestamp
     }
 
@@ -346,7 +352,8 @@ function resolveActionSnapshots(
     | 'functionCallKgRetrievalEnabledOverride'
     | 'functionCallKgRetrievalExecutionMode'
     | 'functionCallKgRetrievalExecutionModeOverride'
-  >
+  >,
+  knowledgeRetrievalPolicy?: NormalChatKnowledgeRetrievalPolicyInput | null
 ): NormalChatTaskExecutionActionSnapshot[] {
   const actions: NormalChatTaskExecutionActionSnapshot[] = [
     { actionKey: 'system.get_action_spec', kind: 'system', mode: 'fast' },
@@ -376,8 +383,12 @@ function resolveActionSnapshots(
       ? (topic.functionCallKnowledgeRetrievalEnabledOverride ??
         assistant.functionCallKnowledgeRetrievalEnabled)
       : assistant.functionCallKnowledgeRetrievalEnabled
+  const knowledgeRetrievalAllowedByPolicy =
+    knowledgeRetrievalPolicy === undefined
+      ? true
+      : hasUsableKnowledgeRetrievalPolicy(knowledgeRetrievalPolicy)
 
-  if (knowledgeRetrievalEnabled) {
+  if (knowledgeRetrievalEnabled && knowledgeRetrievalAllowedByPolicy) {
     const knowledgeRetrievalMode =
       topic.functionCallKnowledgeRetrievalExecutionMode === 'override'
         ? (topic.functionCallKnowledgeRetrievalExecutionModeOverride ??
@@ -399,7 +410,8 @@ function resolveActionSnapshots(
   if (kgRetrievalEnabled) {
     const kgRetrievalMode =
       topic.functionCallKgRetrievalExecutionMode === 'override'
-        ? (topic.functionCallKgRetrievalExecutionModeOverride ?? assistant.functionCallKgRetrievalMode)
+        ? (topic.functionCallKgRetrievalExecutionModeOverride ??
+          assistant.functionCallKgRetrievalMode)
         : assistant.functionCallKgRetrievalMode
 
     actions.push({
@@ -410,4 +422,16 @@ function resolveActionSnapshots(
   }
 
   return actions
+}
+
+function buildDynamicPromptInjections(
+  knowledgeRetrievalPolicy?: NormalChatKnowledgeRetrievalPolicyInput | null
+): string[] {
+  const injections: string[] = []
+  const knowledgeRetrievalPrompt = buildKnowledgeRetrievalPolicyPrompt(knowledgeRetrievalPolicy)
+  if (knowledgeRetrievalPrompt) {
+    injections.push(knowledgeRetrievalPrompt)
+  }
+
+  return injections
 }

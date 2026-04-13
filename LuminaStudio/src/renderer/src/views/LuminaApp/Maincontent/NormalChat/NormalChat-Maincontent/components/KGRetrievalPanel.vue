@@ -41,21 +41,35 @@
     <div class="grid min-h-0 flex-1 grid-cols-[220px_minmax(0,1fr)] border-b border-gray-200">
       <aside class="border-r border-gray-200 bg-gray-50 px-2 py-2">
         <div class="space-y-1 border-l border-gray-200 pl-2">
-          <button
+          <div
             v-for="base in store.kgKnowledgeBases"
             :key="base.id"
-            class="flex w-full items-center justify-between border-l-2 px-2 py-1.5 text-left text-[13px] transition-colors"
-            :class="
-              base.id === store.kgSelectedKnowledgeBaseId
-                ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                : 'border-transparent text-gray-700 hover:bg-emerald-50 hover:text-emerald-700'
-            "
-            type="button"
-            @click="store.selectKgKnowledgeBase(base.id)"
+            class="flex items-center gap-1"
           >
-            <span class="truncate">{{ base.name }}</span>
-            <span class="ml-2 shrink-0 text-[11px] text-gray-400">{{ base.databaseName }}</span>
-          </button>
+            <button
+              class="flex min-w-0 flex-1 items-center justify-between border-l-2 px-2 py-1.5 text-left text-[13px] transition-colors"
+              :class="
+                base.id === store.kgSelectedKnowledgeBaseId
+                  ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                  : 'border-transparent text-gray-700 hover:bg-emerald-50 hover:text-emerald-700'
+              "
+              type="button"
+              @click="store.selectKgKnowledgeBase(base.id)"
+            >
+              <span class="min-w-0 flex-1 truncate">{{ base.name }}</span>
+              <span class="ml-2 shrink-0 text-[11px] text-gray-400">{{ base.databaseName }}</span>
+            </button>
+            <button
+              class="flex h-5 w-5 shrink-0 items-center justify-center text-gray-400 transition-colors hover:text-violet-600"
+              :class="base.id === store.kgSelectedKnowledgeBaseId ? 'text-violet-600' : ''"
+              type="button"
+              :title="base.expanded ? '收起图谱表' : '展开图谱表'"
+              @click.stop="store.toggleKgKnowledgeBaseExpanded(base.id)"
+            >
+              <ChevronDown v-if="base.expanded" class="h-3.5 w-3.5" />
+              <ChevronRight v-else class="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
 
         <p v-if="store.kgKnowledgeBasesLoading" class="mt-3 text-[12px] text-gray-500">
@@ -81,13 +95,29 @@
                 {{ currentKnowledgeBase.databaseName }}
               </p>
             </div>
-            <div class="text-[12px] text-gray-500">
-              <span>{{ store.kgMode }}</span>
+            <div class="text-right text-[12px] text-gray-500">
+              <span class="block">{{ store.kgMode }}</span>
+              <span
+                v-if="
+                  !currentKnowledgeBase.graphTablesLoaded &&
+                  !currentKnowledgeBase.loadingGraphTables
+                "
+                class="block"
+              >
+                点击左侧箭头展开图谱表
+              </span>
             </div>
           </div>
 
           <p v-if="currentKnowledgeBase.loadingGraphTables" class="py-4 text-[12px] text-gray-500">
             正在加载图谱表…
+          </p>
+
+          <p
+            v-else-if="!currentKnowledgeBase.graphTablesLoaded"
+            class="py-4 text-[12px] text-gray-500"
+          >
+            先展开左侧知识图谱条目，再查看文件级图谱表。
           </p>
 
           <div v-else class="mt-1 space-y-1">
@@ -128,7 +158,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { Ban, Boxes, ScanSearch, X } from 'lucide-vue-next'
+import { Ban, Boxes, ChevronDown, ChevronRight, ScanSearch, X } from 'lucide-vue-next'
 import { useNormalChatRetrievalConfigStore } from '@renderer/stores/normal-chat/retrieval-config/retrieval-config.store'
 
 const store = useNormalChatRetrievalConfigStore()

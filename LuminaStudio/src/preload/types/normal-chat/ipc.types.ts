@@ -43,12 +43,43 @@ export interface NormalChatGetRequestDebugSnapshotRequest {
   requestId: string
 }
 
+export type NormalChatKnowledgeRetrievalPolicyMode = 'global' | 'documents' | 'disabled'
+
+export interface NormalChatKnowledgeRetrievalPolicyTable {
+  tableName: string
+  embeddingConfigId: string
+  embeddingConfigName?: string
+  dimensions: number
+}
+
+export interface NormalChatKnowledgeRetrievalPolicyDocument {
+  fileKey: string
+  fileName: string
+  tables: NormalChatKnowledgeRetrievalPolicyTable[]
+}
+
+export interface NormalChatKnowledgeRetrievalPolicyRerank {
+  enabled: boolean
+  modelId: string | null
+  topN: number | null
+}
+
+export interface NormalChatKnowledgeRetrievalPolicyInput {
+  mode: NormalChatKnowledgeRetrievalPolicyMode
+  knowledgeBaseId: number | null
+  knowledgeBaseName: string | null
+  tables: NormalChatKnowledgeRetrievalPolicyTable[]
+  documents: NormalChatKnowledgeRetrievalPolicyDocument[]
+  rerank?: NormalChatKnowledgeRetrievalPolicyRerank
+}
+
 export interface NormalChatSendMessageRequest {
   topicId: string
   providerId: string
   modelId: string
   input: string
   clientRequestId?: string
+  knowledgeRetrievalPolicy?: NormalChatKnowledgeRetrievalPolicyInput | null
 }
 
 export interface NormalChatSendMessageAccepted {

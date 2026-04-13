@@ -12,6 +12,7 @@ import type {
   NormalChatTopicTranscriptSnapshot
 } from '@preload/types'
 import { useNormalChatWorkspaceStore } from '../workspace/workspace.store'
+import { useNormalChatRetrievalConfigStore } from '../retrieval-config/retrieval-config.store'
 import { NormalChatConversationDatasource } from './conversation.datasource'
 import type {
   NormalChatConversationDisplayMessage,
@@ -28,6 +29,10 @@ interface ConversationRuntimeState {
   lastErrorByTopicId: Record<string, string>
   lastErrorDetailByTopicId: Record<string, string>
   requestMetricsByRequestId: Record<string, NormalChatRequestMetrics | null>
+}
+
+function toStructuredCloneSafe<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T
 }
 
 function createEmptyState(): ConversationRuntimeState {
@@ -262,6 +267,7 @@ function setTopicRuntimeSnapshot(
 
 export const useNormalChatConversationStore = defineStore('normal-chat-conversation', () => {
   const workspaceStore = useNormalChatWorkspaceStore()
+  const retrievalConfigStore = useNormalChatRetrievalConfigStore()
   const state = ref<ConversationRuntimeState>(createEmptyState())
   const initialized = ref(false)
 
@@ -538,11 +544,15 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
     setTopicSending(topic.id, true)
 
     try {
+      const knowledgeRetrievalPolicy = toStructuredCloneSafe(
+        retrievalConfigStore.knowledgeRetrievalPolicy
+      )
       const accepted = await NormalChatConversationDatasource.sendMessage({
         topicId: topic.id,
         providerId,
         modelId,
-        input
+        input,
+        knowledgeRetrievalPolicy
       })
 
       state.value.messagesByTopicId = {

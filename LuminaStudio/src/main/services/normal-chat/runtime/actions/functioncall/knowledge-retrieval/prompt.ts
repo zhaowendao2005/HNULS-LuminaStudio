@@ -1,5 +1,6 @@
 export const knowledgeRetrievalActionPrompt = [
   '只在需要从本地知识库向量表检索文档分块时调用 knowledge_retrieval。',
+  '本轮如果存在 KnowledgeRetrievalPolicy 动态区块，必须严格遵守其中给出的 knowledgeBaseId、tableName、fileKey/fileKeys 范围。',
   'knowledgeBaseId、tableName、queryText 是必填。tableName 必须是真实可用的 emb_*_chunks 表名，不要臆造。',
   'queryText 只能填写真正的检索文本，不要塞自然语言计划、解释或多段说明。',
   'fileKey 和 fileKeys 只在明确需要缩小到指定文件时填写，否则省略表示整表检索。',

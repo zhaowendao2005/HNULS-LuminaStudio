@@ -5,6 +5,7 @@ import type {
   KGKnowledgeBaseInfo,
   KnowledgeBaseInfo
 } from '@shared/knowledge-database-api.types'
+import type { NormalChatKnowledgeRetrievalPolicyTable } from '@preload/types'
 
 export type RetrievalConfigPanelId = 'vector' | 'kg'
 
@@ -22,6 +23,7 @@ export interface RetrievalConfigVectorDocumentNode extends DocumentInfo {
   embeddingsLoaded: boolean
   loadingEmbeddings: boolean
   embeddingCount: number
+  availableTables: NormalChatKnowledgeRetrievalPolicyTable[]
   embeddings: RetrievalConfigVectorEmbeddingNode[]
 }
 
