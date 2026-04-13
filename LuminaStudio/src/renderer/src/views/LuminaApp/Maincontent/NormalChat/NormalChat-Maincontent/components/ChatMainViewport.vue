@@ -1,6 +1,6 @@
 <template>
   <div
-    class="nc-chat-main-viewport-a9k2 flex h-full flex-col bg-[var(--nc-bg-main)] text-[15px] text-[var(--nc-text-main)]"
+    class="nc-chat-main-viewport-a9k2 relative flex h-full flex-col bg-[var(--nc-bg-main)] text-[15px] text-[var(--nc-text-main)]"
   >
     <ChatHeaderBar />
     <ChatPromptBar />
@@ -13,7 +13,20 @@
       @open-agent-tree="handleOpenAgentTree"
       @open-functioncall-detail="handleOpenFunctionCallDetail"
     />
-    <ChatComposerPanel />
+    <div
+      class="pointer-events-none absolute inset-x-0 z-30 flex justify-center px-6"
+      :style="overlayStyle"
+    >
+      <Transition name="retrieval-panel" mode="out-in">
+        <div v-if="retrievalStore.activePanel" class="pointer-events-auto w-full">
+          <VectorRetrievalPanel v-if="retrievalStore.activePanel === 'vector'" />
+          <KGRetrievalPanel v-else />
+        </div>
+      </Transition>
+    </div>
+    <div ref="composerHostRef" class="relative z-20">
+      <ChatComposerPanel />
+    </div>
     <AssistantSettingsModal />
     <ConversationDetailDialog />
   </div>
@@ -24,6 +37,8 @@ import ChatHeaderBar from './ChatHeaderBar.vue'
 import ChatPromptBar from './ChatPromptBar.vue'
 import ChatMessageViewport from './ChatMessageViewport.vue'
 import ChatComposerPanel from './ChatComposerPanel.vue'
+import VectorRetrievalPanel from './VectorRetrievalPanel.vue'
+import KGRetrievalPanel from './KGRetrievalPanel.vue'
 import AssistantSettingsModal from './AssistantSettingsModal.vue'
 import ConversationDetailDialog from './ConversationDetailDialog.vue'
 import type {
@@ -32,8 +47,38 @@ import type {
 } from '@renderer/stores/normal-chat/conversation/conversation.types'
 import { useNormalChatConversationStore } from '@renderer/stores/normal-chat/conversation/conversation.store'
 import { useNormalChatChatDetailShellStore } from '@renderer/stores/normal-chat/chat-detail-shell/chat-detail-shell.store'
+import { useNormalChatRetrievalConfigStore } from '@renderer/stores/normal-chat/retrieval-config/retrieval-config.store'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 const conversationStore = useNormalChatConversationStore()
 const chatDetailShellStore = useNormalChatChatDetailShellStore()
+const retrievalStore = useNormalChatRetrievalConfigStore()
+const composerHostRef = ref<HTMLElement | null>(null)
+const composerHeight = ref(0)
+let composerResizeObserver: ResizeObserver | null = null
+
+const overlayStyle = computed(() => ({
+  bottom: `${composerHeight.value}px`
+}))
+
+function syncComposerHeight(): void {
+  const host = composerHostRef.value
+  composerHeight.value = host?.getBoundingClientRect().height ?? 0
+}
+
+onMounted(() => {
+  syncComposerHeight()
+  if (composerHostRef.value && typeof ResizeObserver !== 'undefined') {
+    composerResizeObserver = new ResizeObserver(() => {
+      syncComposerHeight()
+    })
+    composerResizeObserver.observe(composerHostRef.value)
+  }
+})
+
+onBeforeUnmount(() => {
+  composerResizeObserver?.disconnect()
+  composerResizeObserver = null
+})
 
 async function handleCopyMessage(message: NormalChatConversationDisplayMessage): Promise<void> {
   const textToCopy = serializeMessageForCopy(message)
@@ -190,4 +235,51 @@ async function handleOpenFunctionCallDetail(payload: {
 
 <style scoped lang="scss">
 @use '../../normal-chat-theme.scss' as *;
+</style>
+
+<style scoped>
+.retrieval-panel-enter-active,
+.retrieval-panel-leave-active {
+  transform-origin: bottom center;
+}
+
+.retrieval-panel-enter-active {
+  animation: retrieval-panel-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.retrieval-panel-leave-active {
+  animation: retrieval-panel-out 120ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes retrieval-panel-in {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scaleY(0.78);
+    filter: blur(2px);
+  }
+
+  68% {
+    opacity: 1;
+    transform: translateY(-2px) scaleY(1.03);
+    filter: blur(0);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes retrieval-panel-out {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(8px) scaleY(0.9);
+  }
+}
 </style>

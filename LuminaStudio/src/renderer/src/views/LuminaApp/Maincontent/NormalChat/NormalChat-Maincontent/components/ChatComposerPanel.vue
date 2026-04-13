@@ -33,11 +33,6 @@
     <div
       class="flex flex-col rounded-2xl border border-gray-200 bg-white transition-all focus-within:ring-1 focus-within:ring-gray-300"
     >
-      <div v-if="retrievalStore.activePanel" class="border-b border-gray-200 bg-white px-3 py-3">
-        <VectorRetrievalPanel v-if="retrievalStore.activePanel === 'vector'" />
-        <KGRetrievalPanel v-if="retrievalStore.activePanel === 'kg'" />
-      </div>
-
       <textarea
         :value="conversationStore.currentDraft"
         class="min-h-[60px] max-h-[200px] w-full resize-none bg-transparent p-4 pb-2 text-[15px] text-gray-800 outline-none placeholder:text-gray-400"
@@ -124,8 +119,6 @@ import { useNormalChatConversationStore } from '@renderer/stores/normal-chat/con
 import { useNormalChatRetrievalConfigStore } from '@renderer/stores/normal-chat/retrieval-config/retrieval-config.store'
 import { useNormalChatWorkspaceStore } from '@renderer/stores/normal-chat/workspace/workspace.store'
 import CenteredDialog from '@renderer/views/LuminaApp/Maincontent/OrchestraFlowView/EditorView/Common/CenteredDialog.vue'
-import VectorRetrievalPanel from './VectorRetrievalPanel.vue'
-import KGRetrievalPanel from './KGRetrievalPanel.vue'
 
 const conversationStore = useNormalChatConversationStore()
 const workspaceStore = useNormalChatWorkspaceStore()

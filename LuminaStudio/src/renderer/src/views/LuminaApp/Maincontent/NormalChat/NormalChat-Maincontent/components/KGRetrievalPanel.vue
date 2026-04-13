@@ -1,62 +1,60 @@
 <template>
-  <div class="max-h-[320px] overflow-hidden rounded-xl border border-gray-200 bg-white">
-    <div class="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+  <div class="flex h-[320px] flex-col overflow-hidden bg-gray-100 text-gray-700">
+    <div class="flex items-center justify-between border-b border-gray-200 bg-gray-100 px-3 py-2">
       <div>
-        <p class="text-[14px] font-medium text-gray-900">知识图谱检索</p>
-        <p class="text-[12px] text-gray-500">
-          先选 KG 知识库，再决定使用全局检索还是只勾选图谱表。
-        </p>
+        <p class="text-[13px] font-semibold text-gray-900">知识图谱检索</p>
+        <p class="text-[12px] text-gray-500">先选 KG 知识库，再展开图谱表。</p>
       </div>
-      <button
-        class="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-800"
-        type="button"
-        @click="store.closePanel"
-      >
-        <X class="h-4 w-4" />
-      </button>
+      <div class="relative flex items-center gap-1">
+        <button
+          v-for="item in modeOptions"
+          :key="item.value"
+          class="flex h-7 w-7 items-center justify-center text-gray-400 transition-colors"
+          :class="store.kgMode === item.value ? 'text-violet-600' : 'hover:text-violet-600'"
+          type="button"
+          @mouseenter="activeModeTooltip = item.value"
+          @mouseleave="activeModeTooltip = null"
+          @focus="activeModeTooltip = item.value"
+          @blur="activeModeTooltip = null"
+          @click="store.setKgMode(item.value)"
+        >
+          <component :is="item.icon" class="h-4 w-4" />
+        </button>
+        <button
+          class="ml-1 flex h-7 w-7 items-center justify-center text-gray-500 transition-colors hover:text-gray-800"
+          type="button"
+          @click="store.closePanel"
+        >
+          <X class="h-4 w-4" />
+        </button>
+
+        <div
+          v-if="activeModeMeta"
+          class="absolute right-9 top-full z-10 mt-2 w-48 border border-gray-200 bg-gray-50 px-3 py-2 shadow-lg"
+        >
+          <p class="text-[12px] font-semibold text-gray-900">{{ activeModeMeta.label }}</p>
+          <p class="mt-1 text-[11px] leading-4 text-gray-500">{{ activeModeMeta.description }}</p>
+        </div>
+      </div>
     </div>
 
-    <div class="grid max-h-[calc(100vh-13rem)] grid-cols-[220px_minmax(0,1fr)] overflow-hidden">
-      <aside class="border-r border-gray-200 bg-gray-50/80 p-3">
-        <div class="mb-3 flex gap-2">
-          <button
-            v-for="item in modeOptions"
-            :key="item.value"
-            class="flex-1 rounded-md px-2 py-1.5 text-[12px] transition-colors"
-            :class="
-              store.kgMode === item.value
-                ? 'bg-gray-900 text-white'
-                : 'bg-white text-gray-600 hover:bg-gray-100'
-            "
-            type="button"
-            @click="store.setKgMode(item.value)"
-          >
-            {{ item.label }}
-          </button>
-        </div>
-
-        <div class="space-y-2">
+    <div class="grid min-h-0 flex-1 grid-cols-[220px_minmax(0,1fr)] border-b border-gray-200">
+      <aside class="border-r border-gray-200 bg-gray-50 px-2 py-2">
+        <div class="space-y-1 border-l border-gray-200 pl-2">
           <button
             v-for="base in store.kgKnowledgeBases"
             :key="base.id"
-            class="w-full rounded-xl border px-3 py-2 text-left transition-colors"
+            class="flex w-full items-center justify-between border-l-2 px-2 py-1.5 text-left text-[13px] transition-colors"
             :class="
               base.id === store.kgSelectedKnowledgeBaseId
-                ? 'border-gray-900 bg-white'
-                : 'border-gray-200 bg-white hover:border-gray-300'
+                ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                : 'border-transparent text-gray-700 hover:bg-emerald-50 hover:text-emerald-700'
             "
             type="button"
             @click="store.selectKgKnowledgeBase(base.id)"
           >
-            <div class="flex items-start justify-between gap-2">
-              <div class="min-w-0 flex-1">
-                <p class="truncate text-[13px] font-medium text-gray-900">{{ base.name }}</p>
-                <p class="mt-0.5 text-[12px] text-gray-500">{{ base.description }}</p>
-              </div>
-              <span class="rounded bg-gray-100 px-2 py-0.5 text-[11px] text-gray-500">
-                {{ base.databaseName }}
-              </span>
-            </div>
+            <span class="truncate">{{ base.name }}</span>
+            <span class="ml-2 shrink-0 text-[11px] text-gray-400">{{ base.databaseName }}</span>
           </button>
         </div>
 
@@ -68,61 +66,55 @@
         </p>
       </aside>
 
-      <section class="min-w-0 overflow-auto p-3">
-        <div
-          v-if="!currentKnowledgeBase"
-          class="flex h-full items-center justify-center rounded-xl border border-dashed border-gray-200 bg-gray-50 text-[13px] text-gray-500"
-        >
+      <section class="min-h-0 min-w-0 overflow-auto bg-gray-100 px-3 py-2">
+        <div v-if="!currentKnowledgeBase" class="py-6 text-center text-[13px] text-gray-500">
           先选择一个 KG 知识库
         </div>
 
         <template v-else>
-          <div
-            class="mb-3 flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2"
-          >
-            <div class="min-w-0 flex-1">
-              <p class="truncate text-[13px] font-medium text-gray-900">
+          <div class="flex items-center justify-between border-b border-gray-200 pb-2">
+            <div class="min-w-0">
+              <p class="truncate text-[13px] font-semibold text-gray-900">
                 {{ currentKnowledgeBase.name }}
               </p>
               <p class="truncate text-[12px] text-gray-500">
                 {{ currentKnowledgeBase.databaseName }}
               </p>
             </div>
-            <div class="flex items-center gap-2 text-[12px] text-gray-500">
-              <span class="rounded bg-white px-2 py-1">{{ store.kgMode }}</span>
+            <div class="text-[12px] text-gray-500">
+              <span>{{ store.kgMode }}</span>
             </div>
           </div>
 
-          <p
-            v-if="currentKnowledgeBase.loadingGraphTables"
-            class="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-3 py-4 text-[12px] text-gray-500"
-          >
+          <p v-if="currentKnowledgeBase.loadingGraphTables" class="py-4 text-[12px] text-gray-500">
             正在加载图谱表…
           </p>
 
-          <div v-else class="space-y-2">
+          <div v-else class="mt-1 space-y-1">
             <div
               v-for="table in currentKnowledgeBase.graphTables"
               :key="table.graphTableBase"
-              class="rounded-xl border border-gray-200 bg-white px-3 py-2"
+              class="border-l border-gray-200 pl-2"
             >
-              <label class="flex items-center gap-2">
+              <label
+                class="flex items-center gap-2 px-2 py-1.5 transition-colors hover:bg-violet-50"
+              >
                 <input
                   :checked="table.selected"
                   :disabled="store.kgMode !== 'tables'"
-                  class="h-4 w-4 rounded border-gray-300 text-gray-900"
+                  class="h-4 w-4 accent-violet-500"
                   type="checkbox"
                   @change="
                     store.toggleKgGraphTableSelection(currentKnowledgeBase.id, table.graphTableBase)
                   "
                 />
                 <div class="min-w-0 flex-1">
-                  <p class="truncate text-[13px] font-medium text-gray-900">
+                  <p class="truncate text-[13px] font-medium text-gray-800">
                     {{ table.displayName || table.graphTableBase }}
                   </p>
                   <p class="truncate text-[12px] text-gray-500">{{ table.graphTableBase }}</p>
                 </div>
-                <span class="rounded bg-gray-100 px-2 py-1 text-[11px] text-gray-500">
+                <span class="shrink-0 text-[11px] text-gray-500">
                   {{ table.entityCount }} / {{ table.relationCount }}
                 </span>
               </label>
@@ -135,19 +127,38 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
-import { X } from 'lucide-vue-next'
+import { computed, onMounted, ref } from 'vue'
+import { Ban, Boxes, ScanSearch, X } from 'lucide-vue-next'
 import { useNormalChatRetrievalConfigStore } from '@renderer/stores/normal-chat/retrieval-config/retrieval-config.store'
 
 const store = useNormalChatRetrievalConfigStore()
+const activeModeTooltip = ref<string | null>(null)
 
 const modeOptions = [
-  { label: '全局', value: 'global' as const },
-  { label: '图表', value: 'tables' as const },
-  { label: '禁用', value: 'disabled' as const }
+  {
+    label: '全局检索',
+    value: 'global' as const,
+    icon: ScanSearch,
+    description: '只锁定 KG 知识库，图谱表交给模型自行选择。'
+  },
+  {
+    label: '指定图表',
+    value: 'tables' as const,
+    icon: Boxes,
+    description: '展开图谱表列表，精确勾选要参与检索的表。'
+  },
+  {
+    label: '禁用检索',
+    value: 'disabled' as const,
+    icon: Ban,
+    description: '关闭 kg-retrieval functioncall。'
+  }
 ]
 
 const currentKnowledgeBase = computed(() => store.currentKgKnowledgeBase)
+const activeModeMeta = computed(() => {
+  return modeOptions.find((item) => item.value === activeModeTooltip.value) ?? null
+})
 
 onMounted(() => {
   void store.loadKgKnowledgeBases()
