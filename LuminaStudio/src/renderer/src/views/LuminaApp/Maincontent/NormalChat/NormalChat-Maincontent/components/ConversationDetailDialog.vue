@@ -167,6 +167,7 @@
               :format-text-payload="formatTextPayload"
               :should-render-markdown="shouldRenderMarkdown"
               :get-doc-item-class="getDocItemClass"
+              :mounted-doc-ids="mountedDocIds"
               @set-content-ref="setContentRef"
               @scroll-to-doc="scrollToDoc"
               @register-doc-ref="registerDocRef"
@@ -221,6 +222,7 @@ const activeTooltipId = ref('')
 const tooltipStyles = ref<Record<string, Record<string, string>>>({})
 const tooltipRefRegistry = new Map<string, HTMLElement>()
 const docRefRegistry = new Map<string, HTMLElement>()
+const mountedDocIds = ref<string[]>([])
 const docMetaMap = computed(() => {
   const entries = selectedGroups.value.flatMap((group) =>
     group.items.map((item) => [item.id, { docId: item.id, groupId: group.id }] as const)
@@ -318,7 +320,9 @@ function registerDocRef(docId: string, el: Element | { $el?: Element } | null): 
 function rebuildObserver(): void {
   observer?.disconnect()
   observer = null
+  const visibleIds = new Set<string>()
   if (!contentRef.value || typeof IntersectionObserver === 'undefined') {
+    mountedDocIds.value = []
     return
   }
 
@@ -327,6 +331,16 @@ function rebuildObserver(): void {
       const visibleEntries = entries
         .filter((entry) => entry.isIntersecting)
         .sort((left, right) => left.boundingClientRect.top - right.boundingClientRect.top)
+      for (const entry of entries) {
+        const entryId = entry.target.getAttribute('id')
+        if (!entryId) continue
+        if (entry.isIntersecting) {
+          visibleIds.add(entryId)
+        } else {
+          visibleIds.delete(entryId)
+        }
+      }
+      mountedDocIds.value = Array.from(visibleIds)
       const nextDocId = visibleEntries[0]?.target.getAttribute('id') ?? ''
       if (!nextDocId) return
       if (isProgrammaticScroll && nextDocId !== programmaticTargetDocId) return
@@ -341,6 +355,7 @@ function rebuildObserver(): void {
     }
   )
 
+  mountedDocIds.value = []
   Array.from(docRefRegistry.values()).forEach((element) => observer?.observe(element))
 }
 

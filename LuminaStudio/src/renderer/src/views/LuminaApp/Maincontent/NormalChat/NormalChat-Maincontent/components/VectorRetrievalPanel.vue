@@ -54,7 +54,7 @@
             @click="store.selectVectorKnowledgeBase(base.id)"
           >
             <span class="truncate">{{ base.name }}</span>
-            <span class="ml-2 shrink-0 text-[11px] text-gray-400">{{ base.docCount }}</span>
+            <span class="ml-2 shrink-0 text-[11px] text-gray-400">{{ base.displayDocCount }}</span>
           </button>
         </div>
 
@@ -126,7 +126,7 @@
                   <p class="truncate text-[12px] text-gray-500">{{ document.fileKey }}</p>
                 </div>
                 <span class="shrink-0 text-[11px] text-gray-500">
-                  {{ document.embeddingCount }} tables
+                  {{ document.displayEmbeddingCount }} tables
                 </span>
               </div>
 

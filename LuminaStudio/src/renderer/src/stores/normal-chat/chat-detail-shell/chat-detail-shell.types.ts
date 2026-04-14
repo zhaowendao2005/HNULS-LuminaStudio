@@ -35,10 +35,33 @@ export interface ChatDetailShellDocItem {
   kind: 'json-object' | 'markdown' | 'text'
 }
 
+export interface ChatDetailShellDocTreeLeafNode {
+  id: string
+  kind: 'leaf'
+  title: string
+  summary: string
+  doc: ChatDetailShellDocItem
+  children?: never
+}
+
+export interface ChatDetailShellDocTreeBranchNode {
+  id: string
+  kind: 'branch'
+  title: string
+  summary: string
+  children: ChatDetailShellDocTreeNode[]
+  doc?: never
+}
+
+export type ChatDetailShellDocTreeNode =
+  | ChatDetailShellDocTreeLeafNode
+  | ChatDetailShellDocTreeBranchNode
+
 export interface ChatDetailShellDocGroup {
   id: ChatDetailShellDocGroupId
   title: string
   items: ChatDetailShellDocItem[]
+  tree?: ChatDetailShellDocTreeNode[]
 }
 
 export interface ChatDetailShellCallItem {

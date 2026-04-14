@@ -9,6 +9,9 @@ import type {
 import type {
   ChatDetailShellDocGroup,
   ChatDetailShellDocItem,
+  ChatDetailShellDocTreeBranchNode,
+  ChatDetailShellDocTreeLeafNode,
+  ChatDetailShellDocTreeNode,
   ChatDetailShellFunctioncallItem,
   ChatDetailShellRecord,
   ChatDetailShellSnapshot,
@@ -130,6 +133,156 @@ function buildCallBadge(modelCall: NormalChatModelCallSnapshot): string {
 
 function createDocItem(input: ChatDetailShellDocItem): ChatDetailShellDocItem {
   return input
+}
+
+function createDocLeafNode(input: ChatDetailShellDocItem): ChatDetailShellDocTreeLeafNode {
+  return {
+    id: input.id,
+    kind: 'leaf',
+    title: input.title,
+    summary: input.summary,
+    doc: input
+  }
+}
+
+function createDocBranchNode(input: {
+  id: string
+  title: string
+  summary: string
+  children: ChatDetailShellDocTreeNode[]
+}): ChatDetailShellDocTreeBranchNode {
+  return {
+    id: input.id,
+    kind: 'branch',
+    title: input.title,
+    summary: input.summary,
+    children: input.children
+  }
+}
+
+function flattenDocTree(nodes: ChatDetailShellDocTreeNode[]): ChatDetailShellDocItem[] {
+  const items: ChatDetailShellDocItem[] = []
+  const walk = (treeNodes: ChatDetailShellDocTreeNode[]): void => {
+    for (const node of treeNodes) {
+      if (node.kind === 'leaf') {
+        items.push(node.doc)
+        continue
+      }
+      walk(node.children)
+    }
+  }
+
+  walk(nodes)
+  return items
+}
+
+function safeParseJsonString(value: string | null): unknown {
+  if (!value) {
+    return value
+  }
+
+  try {
+    return JSON.parse(value)
+  } catch {
+    return value
+  }
+}
+
+function buildActionResultTree(
+  modelCall: NormalChatModelCallSnapshot
+): ChatDetailShellDocTreeNode[] {
+  const actionResults = parseJson<Array<Record<string, unknown>>>(modelCall.actionResultsJson, [])
+  if (actionResults.length === 0) {
+    return []
+  }
+
+  const grouped = new Map<string, Array<{ item: Record<string, unknown>; index: number }>>()
+  actionResults.forEach((item, index) => {
+    const actionKey =
+      typeof item.actionKey === 'string' && item.actionKey.trim()
+        ? item.actionKey
+        : 'unknown_action'
+    const next = grouped.get(actionKey) ?? []
+    next.push({ item, index })
+    grouped.set(actionKey, next)
+  })
+
+  return Array.from(grouped.entries()).map(([actionKey, entries]) => {
+    const children = entries.flatMap(({ item, index }) => {
+      const title = typeof item.title === 'string' ? item.title : actionKey
+      const status = typeof item.status === 'string' ? item.status : 'unknown'
+      const retryable = Boolean(item.retryable)
+      const inputJson = typeof item.inputJson === 'string' ? item.inputJson : ''
+      const outputJson = typeof item.outputJson === 'string' ? item.outputJson : null
+      const errorMessage = typeof item.errorMessage === 'string' ? item.errorMessage : null
+      const modelFacingSummaryMd =
+        typeof item.modelFacingSummaryMd === 'string' ? item.modelFacingSummaryMd : ''
+      const inputPayload = safeParseJsonString(inputJson)
+      const outputPayload = safeParseJsonString(outputJson)
+
+      return [
+        createDocLeafNode(
+          createDocItem({
+            id: `request.context.action_results.${actionKey}.${index}.summary`,
+            groupId: 'request',
+            title: `${actionKey}.summary`,
+            summary: `${title} / ${status}${retryable ? ' / retryable' : ''}`,
+            description: '展示单个 action 结果的摘要、状态、是否可重试以及模型可见的总结文本。',
+            payload: {
+              actionKey,
+              title,
+              status,
+              retryable,
+              errorMessage,
+              modelFacingSummaryMd
+            },
+            kind: 'json-object'
+          })
+        ),
+        createDocLeafNode(
+          createDocItem({
+            id: `request.context.action_results.${actionKey}.${index}.input`,
+            groupId: 'request',
+            title: `${actionKey}.input`,
+            summary: `${title} / input`,
+            description: '展示单个 action 的输入参数。',
+            payload: inputPayload,
+            kind: typeof inputPayload === 'string' ? 'text' : 'json-object'
+          })
+        ),
+        createDocLeafNode(
+          createDocItem({
+            id: `request.context.action_results.${actionKey}.${index}.output`,
+            groupId: 'request',
+            title: `${actionKey}.output`,
+            summary: `${title} / output`,
+            description: '展示单个 action 的输出结果。',
+            payload: outputPayload,
+            kind:
+              outputPayload === null || typeof outputPayload === 'string' ? 'text' : 'json-object'
+          })
+        ),
+        createDocLeafNode(
+          createDocItem({
+            id: `request.context.action_results.${actionKey}.${index}.model_facing_summary`,
+            groupId: 'request',
+            title: `${actionKey}.model_facing_summary`,
+            summary: `${title} / model summary`,
+            description: '展示单个 action 面向模型的摘要文本。',
+            payload: modelFacingSummaryMd,
+            kind: 'markdown'
+          })
+        )
+      ]
+    })
+
+    return createDocBranchNode({
+      id: `request.context.action_results.${actionKey}`,
+      title: actionKey,
+      summary: `${entries.length} items`,
+      children
+    })
+  })
 }
 
 function buildRequestGroup(modelCall: NormalChatModelCallSnapshot): ChatDetailShellDocGroup {
@@ -268,10 +421,45 @@ function buildRequestGroup(modelCall: NormalChatModelCallSnapshot): ChatDetailSh
     })
   ]
 
+  const actionResultTree = buildActionResultTree(modelCall)
+  const requestTree: ChatDetailShellDocTreeNode[] = [
+    createDocBranchNode({
+      id: 'request.base',
+      title: 'request.base',
+      summary: '请求与 prompt 基础信息',
+      children: items
+        .filter(
+          (item) =>
+            item.id !== 'request.context.action_results' &&
+            item.id !== 'request.context.action_feedback'
+        )
+        .map((item) => createDocLeafNode(item))
+    }),
+    createDocBranchNode({
+      id: 'request.context.action_results.branch',
+      title: 'action_results',
+      summary: `${actionResultTree.length} action groups`,
+      children: actionResultTree
+    }),
+    createDocLeafNode(
+      items.find((item) => item.id === 'request.context.action_feedback') ??
+        createDocItem({
+          id: 'request.context.action_feedback',
+          groupId: 'request',
+          title: 'context.action_feedback',
+          summary: '动作反馈上下文',
+          description: '展示 action feedback 的原始内容。',
+          payload: actionFeedback,
+          kind: actionFeedback ? 'text' : 'json-object'
+        })
+    )
+  ]
+
   return {
     id: 'request',
     title: 'request',
-    items
+    items: [...items, ...flattenDocTree(actionResultTree)],
+    tree: requestTree
   }
 }
 

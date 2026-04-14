@@ -23,6 +23,7 @@ export interface RetrievalConfigVectorDocumentNode extends DocumentInfo {
   embeddingsLoaded: boolean
   loadingEmbeddings: boolean
   embeddingCount: number
+  displayEmbeddingCount: number
   availableTables: NormalChatKnowledgeRetrievalPolicyTable[]
   embeddings: RetrievalConfigVectorEmbeddingNode[]
 }
@@ -32,6 +33,7 @@ export interface RetrievalConfigVectorKnowledgeBaseNode extends KnowledgeBaseInf
   selected: boolean
   documentsLoaded: boolean
   loadingDocuments: boolean
+  displayDocCount: number
   documents: RetrievalConfigVectorDocumentNode[]
 }
 
