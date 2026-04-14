@@ -1,6 +1,9 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import type {
+  KGModelInfo,
+  NormalChatKgRetrievalPolicyInput,
+  NormalChatKgRetrievalPolicyTable,
   NormalChatKnowledgeRetrievalPolicyInput,
   NormalChatKnowledgeRetrievalPolicyTable,
   KnowledgeDatabaseListDocumentEmbeddingsRequest,
@@ -121,6 +124,12 @@ export const useNormalChatRetrievalConfigStore = defineStore('normal-chat-retrie
   const kgGraphTablesByKnowledgeBaseId = ref<Record<number, KGGraphTableInfo[]>>({})
   const kgGraphTablesLoadedByKnowledgeBaseId = ref<Record<number, boolean>>({})
   const kgGraphTablesLoadingByKnowledgeBaseId = ref<Record<number, boolean>>({})
+  const kgRerankEnabled = ref(false)
+  const kgRerankModelId = ref<string | null>(null)
+  const kgRerankTopN = ref(5)
+  const kgModelsData = ref<KGModelInfo[]>([])
+  const kgModelsLoading = ref(false)
+  const kgModelsError = ref<string | null>(null)
 
   const vectorKnowledgeBases = computed<RetrievalConfigVectorKnowledgeBaseNode[]>(() => {
     return vectorKnowledgeBasesData.value.map((knowledgeBase) => {
@@ -181,6 +190,22 @@ export const useNormalChatRetrievalConfigStore = defineStore('normal-chat-retrie
   const currentKgKnowledgeBase = computed(
     () => kgKnowledgeBases.value.find((item) => item.id === kgSelectedKnowledgeBaseId.value) ?? null
   )
+  const currentKgGraphTables = computed(() => {
+    const knowledgeBaseId = kgSelectedKnowledgeBaseId.value
+    if (knowledgeBaseId == null) {
+      return []
+    }
+
+    return kgGraphTablesByKnowledgeBaseId.value[knowledgeBaseId] ?? []
+  })
+  const isCurrentKgGraphScopeReady = computed(() => {
+    const knowledgeBaseId = kgSelectedKnowledgeBaseId.value
+    if (knowledgeBaseId == null || kgMode.value === 'disabled') {
+      return false
+    }
+
+    return Boolean(kgGraphTablesLoadedByKnowledgeBaseId.value[knowledgeBaseId])
+  })
 
   const vectorTableNames = computed(() => {
     const kb = currentVectorKnowledgeBase.value
@@ -221,7 +246,7 @@ export const useNormalChatRetrievalConfigStore = defineStore('normal-chat-retrie
     }
 
     if (kgMode.value === 'global') {
-      return kb.selected ? [kb.name] : []
+      return kb.graphTables.map((item) => item.graphTableBase)
     }
 
     return kb.graphTables.filter((item) => item.selected).map((item) => item.graphTableBase)
@@ -593,6 +618,13 @@ export const useNormalChatRetrievalConfigStore = defineStore('normal-chat-retrie
       kgKnowledgeBasesData.value = knowledgeBases
       cleanupKgKnowledgeBaseState(knowledgeBases.map((item) => item.id))
 
+      if (
+        kgSelectedKnowledgeBaseId.value != null &&
+        knowledgeBases.some((item) => item.id === kgSelectedKnowledgeBaseId.value)
+      ) {
+        void loadKgGraphTables(kgSelectedKnowledgeBaseId.value, true)
+      }
+
       for (const knowledgeBaseId of kgExpandedKnowledgeBaseIds.value) {
         void loadKgGraphTables(knowledgeBaseId, true)
       }
@@ -642,6 +674,24 @@ export const useNormalChatRetrievalConfigStore = defineStore('normal-chat-retrie
     }
   }
 
+  async function loadKgModels(forceRefresh = false): Promise<void> {
+    if (kgModelsLoading.value && !forceRefresh) {
+      return
+    }
+
+    kgModelsLoading.value = true
+    kgModelsError.value = null
+
+    try {
+      const response = await window.api.knowledgeDatabase.listKGModels()
+      kgModelsData.value = unwrap(response)
+    } catch (error) {
+      kgModelsError.value = error instanceof Error ? error.message : '加载 KG 模型失败'
+    } finally {
+      kgModelsLoading.value = false
+    }
+  }
+
   async function toggleKgKnowledgeBaseExpanded(knowledgeBaseId: number): Promise<void> {
     const expanded = !kgExpandedKnowledgeBaseIds.value.includes(knowledgeBaseId)
     kgExpandedKnowledgeBaseIds.value = expanded
@@ -664,6 +714,7 @@ export const useNormalChatRetrievalConfigStore = defineStore('normal-chat-retrie
   function selectKgKnowledgeBase(knowledgeBaseId: number): void {
     kgSelectedKnowledgeBaseId.value = knowledgeBaseId
     kgSelectedGraphTableBases.value = []
+    void loadKgGraphTables(knowledgeBaseId)
   }
 
   function toggleKgGraphTableSelection(knowledgeBaseId: number, graphTableBase: string): void {
@@ -690,6 +741,7 @@ export const useNormalChatRetrievalConfigStore = defineStore('normal-chat-retrie
     }
 
     void loadKgKnowledgeBases(true)
+    void loadKgModels(true)
   }
 
   function closePanel(): void {
@@ -811,6 +863,81 @@ export const useNormalChatRetrievalConfigStore = defineStore('normal-chat-retrie
     }
   })
 
+  const kgRetrievalPolicy = computed<NormalChatKgRetrievalPolicyInput>(() => {
+    const kb = currentKgKnowledgeBase.value
+    const rerank = {
+      enabled: kgRerankEnabled.value,
+      modelId: kgRerankModelId.value,
+      topN: kgRerankTopN.value
+    }
+
+    if (
+      !workspaceStore.effectiveFunctionCallKgRetrievalEnabled ||
+      kgMode.value === 'disabled' ||
+      !kb ||
+      !kb.selected ||
+      !isCurrentKgGraphScopeReady.value
+    ) {
+      return {
+        mode: 'disabled',
+        knowledgeBaseId: null,
+        knowledgeBaseName: null,
+        graphTables: [],
+        rerank
+      }
+    }
+
+    const graphTables = currentKgGraphTables.value.map<NormalChatKgRetrievalPolicyTable>(
+      (table) => ({
+        graphTableBase: table.graphTableBase,
+        displayName: table.displayName,
+        entityCount: table.entityCount,
+        relationCount: table.relationCount
+      })
+    )
+
+    if (kgMode.value === 'global') {
+      if (graphTables.length === 0) {
+        return {
+          mode: 'disabled',
+          knowledgeBaseId: null,
+          knowledgeBaseName: null,
+          graphTables: [],
+          rerank
+        }
+      }
+
+      return {
+        mode: 'global',
+        knowledgeBaseId: kb.id,
+        knowledgeBaseName: kb.name,
+        graphTables,
+        rerank
+      }
+    }
+
+    const selectedGraphTables = graphTables.filter((table) =>
+      kgSelectedGraphTableBases.value.includes(table.graphTableBase)
+    )
+    if (selectedGraphTables.length === 0) {
+      return {
+        mode: 'disabled',
+        knowledgeBaseId: null,
+        knowledgeBaseName: null,
+        graphTables: [],
+        rerank
+      }
+    }
+
+    return {
+      mode: 'tables',
+      knowledgeBaseId: kb.id,
+      knowledgeBaseName: kb.name,
+      graphTables: selectedGraphTables,
+      rerank
+    }
+  })
+
   return {
     activePanel,
     vectorMode,
@@ -829,11 +956,20 @@ export const useNormalChatRetrievalConfigStore = defineStore('normal-chat-retrie
     kgKnowledgeBasesError,
     kgSelectedKnowledgeBaseId,
     kgSelectedGraphTableBases,
+    kgRerankEnabled,
+    kgRerankModelId,
+    kgRerankTopN,
+    kgModelsData,
+    kgModelsLoading,
+    kgModelsError,
     currentVectorKnowledgeBase,
     currentKgKnowledgeBase,
     vectorTableNames,
     kgTableNames,
     knowledgeRetrievalPolicy,
+    kgRetrievalPolicy,
+    currentKgGraphTables,
+    isCurrentKgGraphScopeReady,
     isVectorFunctioncallEnabled,
     isKgFunctioncallEnabled,
     loadVectorKnowledgeBases,
@@ -847,6 +983,7 @@ export const useNormalChatRetrievalConfigStore = defineStore('normal-chat-retrie
     toggleVectorEmbeddingSelection,
     loadKgKnowledgeBases,
     loadKgGraphTables,
+    loadKgModels,
     toggleKgKnowledgeBaseExpanded,
     setKgMode,
     selectKgKnowledgeBase,

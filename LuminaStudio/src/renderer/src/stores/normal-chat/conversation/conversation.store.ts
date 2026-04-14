@@ -547,12 +547,14 @@ export const useNormalChatConversationStore = defineStore('normal-chat-conversat
       const knowledgeRetrievalPolicy = toStructuredCloneSafe(
         retrievalConfigStore.knowledgeRetrievalPolicy
       )
+      const kgRetrievalPolicy = toStructuredCloneSafe(retrievalConfigStore.kgRetrievalPolicy)
       const accepted = await NormalChatConversationDatasource.sendMessage({
         topicId: topic.id,
         providerId,
         modelId,
         input,
-        knowledgeRetrievalPolicy
+        knowledgeRetrievalPolicy,
+        kgRetrievalPolicy
       })
 
       state.value.messagesByTopicId = {

@@ -72,6 +72,10 @@ function createBootstrap(): NormalChatBootstrap {
           systemActionSubAgentEnabled: true,
           functionCallPubMedEnabled: true,
           functionCallPubMedMode: 'fast',
+          functionCallKnowledgeRetrievalEnabled: true,
+          functionCallKnowledgeRetrievalMode: 'fast',
+          functionCallKgRetrievalEnabled: true,
+          functionCallKgRetrievalMode: 'fast',
           mcpEnabled: false,
           persistencePreset: 'light',
           sortOrder: 0
@@ -106,6 +110,14 @@ function createBootstrap(): NormalChatBootstrap {
             functionCallPubMedEnabledOverride: null,
             functionCallPubMedExecutionMode: 'inherit',
             functionCallPubMedExecutionModeOverride: null,
+            functionCallKnowledgeRetrievalMode: 'inherit',
+            functionCallKnowledgeRetrievalEnabledOverride: null,
+            functionCallKnowledgeRetrievalExecutionMode: 'inherit',
+            functionCallKnowledgeRetrievalExecutionModeOverride: null,
+            functionCallKgRetrievalMode: 'inherit',
+            functionCallKgRetrievalEnabledOverride: null,
+            functionCallKgRetrievalExecutionMode: 'inherit',
+            functionCallKgRetrievalExecutionModeOverride: null,
             mcpMode: 'inherit',
             mcpEnabledOverride: null,
             sortOrder: 0
@@ -237,7 +249,7 @@ describe('NormalChat conversation store', () => {
   it('sends only topicId/providerId/modelId/input and stops streaming after transcript refresh', async () => {
     installWorkspaceDatasource()
 
-    let topicTraceHandler: (() => void) | null = null
+    let triggerTopicTrace = (): void => undefined
     const getTopicTranscript = vi
       .fn()
       .mockResolvedValueOnce(createTranscriptSnapshot())
@@ -288,9 +300,11 @@ describe('NormalChat conversation store', () => {
       abort: vi.fn().mockResolvedValue(undefined),
       onStream: vi.fn().mockImplementation(() => () => undefined),
       onTopicTraceEntry: vi.fn().mockImplementation((_topicId, handler) => {
-        topicTraceHandler = handler
+        triggerTopicTrace = () => {
+          handler({} as any)
+        }
         return () => {
-          topicTraceHandler = null
+          triggerTopicTrace = () => undefined
         }
       }),
       onRequestTraceEntry: vi.fn().mockImplementation(() => () => undefined)
@@ -311,7 +325,7 @@ describe('NormalChat conversation store', () => {
     })
     expect(store.isCurrentTopicStreaming).toBe(true)
 
-    topicTraceHandler?.()
+    triggerTopicTrace()
     await store.loadTopicConversation('topic-1')
 
     expect(store.isCurrentTopicStreaming).toBe(false)
@@ -324,7 +338,7 @@ describe('NormalChat conversation store', () => {
   it('renders transcript blocks from refreshed snapshots instead of stream overlays', async () => {
     installWorkspaceDatasource()
 
-    let topicTraceHandler: (() => void) | null = null
+    let triggerTopicTrace = (): void => undefined
     const getTopicTranscript = vi
       .fn()
       .mockResolvedValueOnce(createTranscriptSnapshot())
@@ -387,9 +401,11 @@ describe('NormalChat conversation store', () => {
       abort: vi.fn().mockResolvedValue(undefined),
       onStream: vi.fn().mockImplementation(() => () => undefined),
       onTopicTraceEntry: vi.fn().mockImplementation((_topicId, handler) => {
-        topicTraceHandler = handler
+        triggerTopicTrace = () => {
+          handler({} as any)
+        }
         return () => {
-          topicTraceHandler = null
+          triggerTopicTrace = () => undefined
         }
       }),
       onRequestTraceEntry: vi.fn().mockImplementation(() => () => undefined)
@@ -401,7 +417,7 @@ describe('NormalChat conversation store', () => {
     await store.initialize()
     store.setDraftText('继续')
     await store.sendCurrentDraft()
-    topicTraceHandler?.()
+    triggerTopicTrace()
     await store.loadTopicConversation('topic-1')
 
     const assistantMessage = store.currentDisplayMessages[1]

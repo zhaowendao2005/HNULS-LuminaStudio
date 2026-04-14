@@ -97,6 +97,9 @@
             </div>
             <div class="text-right text-[12px] text-gray-500">
               <span class="block">{{ store.kgMode }}</span>
+              <span v-if="store.kgMode !== 'disabled'" class="block">
+                functioncall {{ store.isKgFunctioncallEnabled ? 'on' : 'off' }}
+              </span>
               <span
                 v-if="
                   !currentKnowledgeBase.graphTablesLoaded &&
@@ -104,7 +107,7 @@
                 "
                 class="block"
               >
-                点击左侧箭头展开图谱表
+                选中后会自动加载图谱表
               </span>
             </div>
           </div>
@@ -117,7 +120,7 @@
             v-else-if="!currentKnowledgeBase.graphTablesLoaded"
             class="py-4 text-[12px] text-gray-500"
           >
-            先展开左侧知识图谱条目，再查看文件级图谱表。
+            正在等待图谱表范围准备完成。
           </p>
 
           <div v-else class="mt-1 space-y-1">
@@ -150,19 +153,72 @@
               </label>
             </div>
           </div>
+
+          <div class="mt-3 border-t border-gray-200 pt-2 text-[12px] text-gray-600">
+            <div class="grid grid-cols-[80px_minmax(0,1fr)_92px] gap-3">
+              <label class="flex items-center gap-2">
+                <span class="shrink-0 text-gray-500">重排</span>
+                <input
+                  v-model="store.kgRerankEnabled"
+                  class="h-4 w-4 accent-violet-500"
+                  type="checkbox"
+                />
+              </label>
+              <label class="flex items-center gap-2">
+                <span class="shrink-0 text-gray-500">模型</span>
+                <button
+                  class="min-w-0 flex-1 border-b border-gray-200 px-1 py-1 text-left text-[12px] text-gray-700 transition-colors hover:border-violet-400 disabled:cursor-not-allowed disabled:text-gray-400"
+                  :disabled="kgModelProviders.length === 0"
+                  type="button"
+                  @click="rerankSelectorVisible = true"
+                >
+                  {{ kgRerankModelLabel }}
+                </button>
+              </label>
+              <label class="flex items-center gap-2">
+                <span class="shrink-0 text-gray-500">TopN</span>
+                <input
+                  v-model.number="store.kgRerankTopN"
+                  class="w-16 border-b border-gray-200 bg-transparent px-1 py-1 text-[12px] text-gray-700 outline-none"
+                  min="1"
+                  type="number"
+                />
+              </label>
+            </div>
+            <p v-if="store.kgModelsError" class="mt-2 text-[12px] text-rose-600">
+              {{ store.kgModelsError }}
+            </p>
+          </div>
         </template>
       </section>
     </div>
+
+    <ModelSelector
+      v-model:visible="rerankSelectorVisible"
+      :current-provider-id="currentKgRerankModelProviderId"
+      :current-model-id="store.kgRerankModelId"
+      :providers="kgModelProviders"
+      :show-manage-button="false"
+      title="选择 KG 重排模型"
+      search-placeholder="搜索 KG 模型..."
+      empty-text="暂无可用 KG 模型"
+      hint-text="这里展示知识库服务暴露的 KG 模型"
+      @select="handleKgRerankModelSelect"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { Ban, Boxes, ChevronDown, ChevronRight, ScanSearch, X } from 'lucide-vue-next'
+import ModelSelector from '@renderer/components/ModelSelector/index.vue'
+import type { ModelProvider } from '@renderer/stores/model-config/types'
+import type { KGModelInfo } from '@preload/types'
 import { useNormalChatRetrievalConfigStore } from '@renderer/stores/normal-chat/retrieval-config/retrieval-config.store'
 
 const store = useNormalChatRetrievalConfigStore()
 const activeModeTooltip = ref<string | null>(null)
+const rerankSelectorVisible = ref(false)
 
 const modeOptions = [
   {
@@ -189,8 +245,74 @@ const currentKnowledgeBase = computed(() => store.currentKgKnowledgeBase)
 const activeModeMeta = computed(() => {
   return modeOptions.find((item) => item.value === activeModeTooltip.value) ?? null
 })
+const kgModelProviders = computed<ModelProvider[]>(() => {
+  const groups = new Map<string, KGModelInfo[]>()
+  for (const model of store.kgModelsData) {
+    const key = model.providerId || 'kg'
+    const current = groups.get(key) ?? []
+    current.push(model)
+    groups.set(key, current)
+  }
+
+  return Array.from(groups.entries()).map(([providerId, models]) => ({
+    id: providerId,
+    type: 'openai-completion',
+    name: models[0]?.providerName || providerId,
+    apiKey: '',
+    baseUrl: '',
+    officialWebsite: '',
+    icon: 'server',
+    enabled: true,
+    models: models.map((model) => ({
+      id: model.id,
+      name: model.displayName,
+      group: model.group || model.providerName || providerId
+    }))
+  }))
+})
+const currentKgRerankModelProviderId = computed(() => {
+  const provider = kgModelProviders.value.find((item) => {
+    return item.models.some((model) => model.id === store.kgRerankModelId)
+  })
+  return provider?.id ?? kgModelProviders.value[0]?.id ?? null
+})
+const kgRerankModelLabel = computed(() => {
+  if (!store.kgRerankModelId) {
+    return kgModelProviders.value.length === 0 ? '暂无模型' : '选择模型'
+  }
+
+  const currentModel = store.kgModelsData.find((model) => model.id === store.kgRerankModelId)
+  return currentModel?.displayName ?? store.kgRerankModelId
+})
+
+function handleKgRerankModelSelect(payload: {
+  provider: ModelProvider
+  model: { id: string }
+}): void {
+  store.kgRerankModelId = payload.model.id
+}
+
+watch(
+  kgModelProviders,
+  (providers) => {
+    if (providers.length === 0) {
+      store.kgRerankModelId = null
+      return
+    }
+
+    const currentModelExists = providers.some((provider) => {
+      return provider.models.some((model) => model.id === store.kgRerankModelId)
+    })
+    if (currentModelExists) {
+      return
+    }
+
+    store.kgRerankModelId = providers[0]?.models[0]?.id ?? null
+  },
+  { immediate: true, deep: true }
+)
 
 onMounted(() => {
-  void store.loadKgKnowledgeBases()
+  void Promise.all([store.loadKgKnowledgeBases(), store.loadKgModels()])
 })
 </script>

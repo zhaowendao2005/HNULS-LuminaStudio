@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { kgRetrievalActionDescriptor } from '../functioncall/kg-retrieval/descriptor'
+import { hasUsableKgRetrievalPolicy } from '../functioncall/kg-retrieval/policy-prompt'
 import { kgRetrievalActionPrompt } from '../functioncall/kg-retrieval/prompt'
 import { kgRetrievalActionSchema } from '../functioncall/kg-retrieval/schema'
 import { knowledgeRetrievalActionDescriptor } from '../functioncall/knowledge-retrieval/descriptor'
@@ -79,6 +80,27 @@ const kgRetrievalInputSchema = z
       .optional()
   })
   .strict()
+
+function normalizeKeywordList(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined
+  }
+
+  const normalized = [...new Set(value.map((item) => String(item).trim()).filter(Boolean))]
+  return normalized.length > 0 ? normalized : undefined
+}
+
+function allowedKgGraphTableBases(input: {
+  executionSnapshot: {
+    kgRetrievalPolicy?: { graphTables: Array<{ graphTableBase: string }> } | null
+  }
+}): Set<string> {
+  return new Set(
+    (input.executionSnapshot.kgRetrievalPolicy?.graphTables ?? []).map(
+      (table) => table.graphTableBase
+    )
+  )
+}
 
 const getActionSpecActionDefinition: NormalChatActionDefinition = {
   descriptor: getActionSpecActionDescriptor,
@@ -162,10 +184,14 @@ const kgRetrievalActionDefinition: NormalChatActionDefinition = {
   }),
   isReadOnly: () => true,
   isConcurrencySafe: () => true,
-  async validateInput(input) {
-    const hasQuery = typeof input.query === 'string' && input.query.trim().length > 0
-    const hasHighLevel = Array.isArray(input.highLevelKeywords) && input.highLevelKeywords.length > 0
-    const hasLowLevel = Array.isArray(input.lowLevelKeywords) && input.lowLevelKeywords.length > 0
+  async validateInput(input, context) {
+    const query = typeof input.query === 'string' ? input.query.trim() : undefined
+    const highLevelKeywords = normalizeKeywordList(input.highLevelKeywords)
+    const lowLevelKeywords = normalizeKeywordList(input.lowLevelKeywords)
+    const graphTableBase = String(input.graphTableBase ?? '').trim()
+    const hasQuery = Boolean(query)
+    const hasHighLevel = Boolean(highLevelKeywords?.length)
+    const hasLowLevel = Boolean(lowLevelKeywords?.length)
     if (!hasQuery && !hasHighLevel && !hasLowLevel) {
       return {
         ok: false,
@@ -174,7 +200,31 @@ const kgRetrievalActionDefinition: NormalChatActionDefinition = {
         retryable: true
       }
     }
-    if (input.rerank && input.rerank.enabled && !input.rerank.modelId) {
+    if (!hasUsableKgRetrievalPolicy(context.executionSnapshot.kgRetrievalPolicy)) {
+      return {
+        ok: false,
+        kind: 'business',
+        message: '当前请求未启用可用的 KG 检索范围，不能调用 kg_retrieval。',
+        retryable: true
+      }
+    }
+    const allowedGraphTableBases = allowedKgGraphTableBases(context)
+    if (!allowedGraphTableBases.has(graphTableBase)) {
+      return {
+        ok: false,
+        kind: 'business',
+        message: `graphTableBase 不在当前请求允许范围内：${graphTableBase || '--'}`,
+        retryable: true
+      }
+    }
+    const rerank = input.rerank as
+      | {
+          enabled?: boolean
+          modelId?: string
+          topN?: number
+        }
+      | undefined
+    if (rerank?.enabled && !rerank.modelId) {
       return {
         ok: false,
         kind: 'business',
@@ -182,7 +232,17 @@ const kgRetrievalActionDefinition: NormalChatActionDefinition = {
         retryable: true
       }
     }
-    return { ok: true }
+    return {
+      ok: true,
+      normalizedInput: {
+        graphTableBase,
+        ...(typeof input.mode === 'string' ? { mode: input.mode } : {}),
+        ...(query ? { query } : {}),
+        ...(highLevelKeywords ? { highLevelKeywords } : {}),
+        ...(lowLevelKeywords ? { lowLevelKeywords } : {}),
+        ...(rerank ? { rerank } : {})
+      }
+    }
   }
 }
 

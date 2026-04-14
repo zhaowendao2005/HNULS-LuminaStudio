@@ -78,7 +78,10 @@ interface AgentExecutionResult {
   finalReply: string
   finalResponse: NormalChatTaskFinalResponse
   assistantParts: Array<
-    NormalChatFunctionCallMessagePart | NormalChatThinkingMessagePart | NormalChatTextMessagePart | NormalChatSubAgentMessagePart
+    | NormalChatFunctionCallMessagePart
+    | NormalChatThinkingMessagePart
+    | NormalChatTextMessagePart
+    | NormalChatSubAgentMessagePart
   >
   roundCount: number
 }
@@ -203,12 +206,17 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
         depth: parentContext.depth,
         status: 'running'
       }
-      this.streamPublisher.publish(parentContext.taskId, parentContext.topicId, parentContext.requestId, {
-        type: 'assistant-part-upsert',
-        requestId: parentContext.requestId,
-        topicId: parentContext.topicId,
-        part: runningWithChildPart
-      })
+      this.streamPublisher.publish(
+        parentContext.taskId,
+        parentContext.topicId,
+        parentContext.requestId,
+        {
+          type: 'assistant-part-upsert',
+          requestId: parentContext.requestId,
+          topicId: parentContext.topicId,
+          part: runningWithChildPart
+        }
+      )
     }
 
     let childExecution: AgentExecutionResult
@@ -273,12 +281,17 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
         depth: parentContext.depth,
         status: 'completed'
       }
-      this.streamPublisher.publish(parentContext.taskId, parentContext.topicId, parentContext.requestId, {
-        type: 'assistant-part-upsert',
-        requestId: parentContext.requestId,
-        topicId: parentContext.topicId,
-        part: completedPart
-      })
+      this.streamPublisher.publish(
+        parentContext.taskId,
+        parentContext.topicId,
+        parentContext.requestId,
+        {
+          type: 'assistant-part-upsert',
+          requestId: parentContext.requestId,
+          topicId: parentContext.topicId,
+          part: completedPart
+        }
+      )
     }
 
     return {
@@ -299,7 +312,10 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
     })
 
     const assistantParts: Array<
-      NormalChatFunctionCallMessagePart | NormalChatThinkingMessagePart | NormalChatTextMessagePart | NormalChatSubAgentMessagePart
+      | NormalChatFunctionCallMessagePart
+      | NormalChatThinkingMessagePart
+      | NormalChatTextMessagePart
+      | NormalChatSubAgentMessagePart
     > = []
     const replyChunks: string[] = []
     let currentModelCallId: string | null = null
@@ -431,7 +447,7 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
               onCaptureProviderRequest: (snapshot) => {
                 this.streamPublisher.appendProviderRequestCaptured({
                   requestId: input.requestId,
-                  modelCallId: currentModelCallId,
+                  modelCallId: currentModelCallId!,
                   snapshot
                 })
               }
@@ -487,7 +503,7 @@ export class NormalChatAgentRuntime implements NormalChatDispatchSubAgentRunner 
               onCaptureProviderRequest: (snapshot) => {
                 this.streamPublisher.appendProviderRequestCaptured({
                   requestId: input.requestId,
-                  modelCallId: currentModelCallId,
+                  modelCallId: currentModelCallId!,
                   snapshot
                 })
               }

@@ -285,7 +285,55 @@ function buildActionResultTree(
   })
 }
 
-function buildRequestGroup(modelCall: NormalChatModelCallSnapshot): ChatDetailShellDocGroup {
+function buildFunctioncallSummary(
+  actionKey: string,
+  input: Record<string, unknown>,
+  outputJson: string | null
+): { title: string; summary: string; contextText: string; badge: string } {
+  if (actionKey === 'functioncall.kg_retrieval') {
+    const output = parseJson<Record<string, unknown> | null>(outputJson, null)
+    const meta = output?.meta as Record<string, unknown> | undefined
+    const mode =
+      typeof input.mode === 'string'
+        ? input.mode
+        : typeof meta?.mode === 'string'
+          ? meta.mode
+          : '--'
+    const graphTableBase = typeof input.graphTableBase === 'string' ? input.graphTableBase : '--'
+    const entityCount = typeof meta?.entityCount === 'number' ? meta.entityCount : '--'
+    const relationCount = typeof meta?.relationCount === 'number' ? meta.relationCount : '--'
+    const chunkCount = typeof meta?.chunkCount === 'number' ? meta.chunkCount : '--'
+    return {
+      title: 'KG Retrieval',
+      summary: `kg / ${graphTableBase} / mode ${mode}`,
+      contextText: `entities ${entityCount} / relations ${relationCount} / chunks ${chunkCount}`,
+      badge: graphTableBase
+    }
+  }
+
+  if (actionKey === 'functioncall.knowledge_retrieval') {
+    const tableName = typeof input.tableName === 'string' ? input.tableName : '--'
+    const fileKey = typeof input.fileKey === 'string' ? input.fileKey : null
+    return {
+      title: 'Knowledge Retrieval',
+      summary: `vector / ${tableName}`,
+      contextText: fileKey ? `file ${fileKey}` : 'global table retrieval',
+      badge: tableName
+    }
+  }
+
+  return {
+    title: actionKey,
+    summary: `${actionKey} / round --`,
+    contextText: '',
+    badge: actionKey
+  }
+}
+
+function buildRequestGroup(
+  detail: NormalChatRequestDetailSnapshot,
+  modelCall: NormalChatModelCallSnapshot
+): ChatDetailShellDocGroup {
   const requestPayload = parseJson<Record<string, unknown>>(modelCall.requestPayloadJson, {})
   const historyMessages = parseJson<unknown[]>(modelCall.historyMessagesJson, [])
   const loadedActions = parseJson<unknown[]>(modelCall.loadedActionsJson, [])
@@ -293,6 +341,10 @@ function buildRequestGroup(modelCall: NormalChatModelCallSnapshot): ChatDetailSh
   const promptSnapshot = modelCall.compiledPromptJson
   const actionFeedback =
     (promptSnapshot.roundSections.actionFeedback as unknown as string | undefined) ?? ''
+  const retrievalPolicies = {
+    knowledgeRetrievalPolicy: detail.executionSnapshot?.knowledgeRetrievalPolicy ?? null,
+    kgRetrievalPolicy: detail.executionSnapshot?.kgRetrievalPolicy ?? null
+  }
 
   const items: ChatDetailShellDocItem[] = [
     createDocItem({
@@ -388,6 +440,16 @@ function buildRequestGroup(modelCall: NormalChatModelCallSnapshot): ChatDetailSh
       description:
         '展示本轮构建 prompt 时使用的历史消息种子，通常来自当前对话最近若干轮的持久化消息。',
       payload: historyMessages,
+      kind: 'json-object'
+    }),
+    createDocItem({
+      id: 'request.context.retrieval_policies',
+      groupId: 'request',
+      title: 'context.retrieval_policies',
+      summary: '请求级检索策略',
+      description:
+        '展示本次请求在进入 runtime 时携带的向量检索策略与 KG 检索策略，是 action gating、prompt injection 和权限校验的共同来源。',
+      payload: retrievalPolicies,
       kind: 'json-object'
     }),
     createDocItem({
@@ -656,6 +718,7 @@ function toFunctioncallItem(
     assistantPart?.input ?? call.inputJson,
     {}
   )
+  const display = buildFunctioncallSummary(call.actionKey, normalizedInputPayload, call.outputJson)
   const part = {
     kind: 'functioncall' as const,
     callId: call.id,
@@ -690,10 +753,10 @@ function toFunctioncallItem(
     startedAt: call.startedAt,
     finishedAt: call.finishedAt,
     indexLabel: `#${index + 1}`,
-    title: call.actionKey,
-    summary: `${call.actionKind} / round ${call.roundIndex}`,
-    contextText: `Round ${call.roundIndex} / batch ${call.batchIndex + 1} / parallel ${call.parallelIndex + 1}`,
-    badge: call.actionKey,
+    title: display.title,
+    summary: `${display.summary} / round ${call.roundIndex + 1}`,
+    contextText: `${display.contextText} / batch ${call.batchIndex + 1} / parallel ${call.parallelIndex + 1}`,
+    badge: display.badge,
     statusLabel: formatActionStatusLabel(call.status),
     statusClass: formatActionStatusClass(call.status),
     rawInputPayload,
@@ -759,7 +822,7 @@ function toRecord(snapshot: NormalChatRequestDebugSnapshot): ChatDetailShellReco
       : null
   const calls = detail.modelCalls.map((modelCall) => {
     const status = buildCallStatus(modelCall)
-    const groups = [buildRequestGroup(modelCall), buildResponseGroup(modelCall)]
+    const groups = [buildRequestGroup(detail, modelCall), buildResponseGroup(modelCall)]
     const schemaDebugGroup = buildSchemaDebugGroup(modelCall)
     if (schemaDebugGroup) {
       groups.push(schemaDebugGroup)

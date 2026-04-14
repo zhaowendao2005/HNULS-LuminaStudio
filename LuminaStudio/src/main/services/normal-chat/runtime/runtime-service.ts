@@ -6,6 +6,7 @@ import type Database from 'better-sqlite3'
 import type {
   NormalChatAssistant,
   NormalChatConversationMessage,
+  NormalChatKgRetrievalPolicyInput,
   NormalChatKnowledgeRetrievalPolicyInput,
   NormalChatSendMessageAccepted,
   NormalChatSendMessageRequest,
@@ -20,6 +21,10 @@ import { TopicTranscriptProjector } from '../projectors/topic-transcript.project
 import { nowIso } from '../shared/utils'
 import { NormalChatWorkspaceService } from '../workspace/workspace-service'
 import { NormalChatAgentRuntime } from './agent/agent-runtime'
+import {
+  buildKgRetrievalPolicyPrompt,
+  hasUsableKgRetrievalPolicy
+} from './actions/functioncall/kg-retrieval/policy-prompt'
 import {
   buildKnowledgeRetrievalPolicyPrompt,
   hasUsableKnowledgeRetrievalPolicy
@@ -96,7 +101,10 @@ export class NormalChatRuntimeService {
       topic.streamingMode === 'override'
         ? (topic.streamingEnabledOverride ?? assistant.streamingEnabled)
         : assistant.streamingEnabled
-    const dynamicPromptInjections = buildDynamicPromptInjections(payload.knowledgeRetrievalPolicy)
+    const dynamicPromptInjections = buildDynamicPromptInjections(
+      payload.knowledgeRetrievalPolicy,
+      payload.kgRetrievalPolicy
+    )
 
     const initialHistoryMessages = this.topicTranscriptProjector
       .project({
@@ -140,8 +148,15 @@ export class NormalChatRuntimeService {
         maxProviderRetries: DEFAULT_MAX_PROVIDER_RETRIES
       },
       historyMessages: initialHistoryMessages,
+      knowledgeRetrievalPolicy: payload.knowledgeRetrievalPolicy ?? null,
+      kgRetrievalPolicy: payload.kgRetrievalPolicy ?? null,
       promptInjections: [...conversation.programPromptInjections, ...dynamicPromptInjections],
-      actions: resolveActionSnapshots(assistant, topic, payload.knowledgeRetrievalPolicy),
+      actions: resolveActionSnapshots(
+        assistant,
+        topic,
+        payload.knowledgeRetrievalPolicy,
+        payload.kgRetrievalPolicy
+      ),
       createdAt: timestamp
     }
 
@@ -206,6 +221,8 @@ export class NormalChatRuntimeService {
           request: persistedExecutionSnapshot.request,
           runtime: persistedExecutionSnapshot.runtime,
           historyMessages: persistedExecutionSnapshot.historyMessages,
+          knowledgeRetrievalPolicy: persistedExecutionSnapshot.knowledgeRetrievalPolicy,
+          kgRetrievalPolicy: persistedExecutionSnapshot.kgRetrievalPolicy,
           promptInjections: persistedExecutionSnapshot.promptInjections,
           actions: persistedExecutionSnapshot.actions,
           createdAt: persistedExecutionSnapshot.createdAt,
@@ -316,6 +333,8 @@ function createPersistedExecutionSnapshot(
       systemPrompt: ''
     },
     historyMessages: [],
+    knowledgeRetrievalPolicy: null,
+    kgRetrievalPolicy: null,
     promptInjections: [],
     actions: []
   }
@@ -353,7 +372,8 @@ function resolveActionSnapshots(
     | 'functionCallKgRetrievalExecutionMode'
     | 'functionCallKgRetrievalExecutionModeOverride'
   >,
-  knowledgeRetrievalPolicy?: NormalChatKnowledgeRetrievalPolicyInput | null
+  knowledgeRetrievalPolicy?: NormalChatKnowledgeRetrievalPolicyInput | null,
+  kgRetrievalPolicy?: NormalChatKgRetrievalPolicyInput | null
 ): NormalChatTaskExecutionActionSnapshot[] {
   const actions: NormalChatTaskExecutionActionSnapshot[] = [
     { actionKey: 'system.get_action_spec', kind: 'system', mode: 'fast' },
@@ -406,8 +426,10 @@ function resolveActionSnapshots(
     topic.functionCallKgRetrievalMode === 'override'
       ? (topic.functionCallKgRetrievalEnabledOverride ?? assistant.functionCallKgRetrievalEnabled)
       : assistant.functionCallKgRetrievalEnabled
+  const kgRetrievalAllowedByPolicy =
+    kgRetrievalPolicy === undefined ? true : hasUsableKgRetrievalPolicy(kgRetrievalPolicy)
 
-  if (kgRetrievalEnabled) {
+  if (kgRetrievalEnabled && kgRetrievalAllowedByPolicy) {
     const kgRetrievalMode =
       topic.functionCallKgRetrievalExecutionMode === 'override'
         ? (topic.functionCallKgRetrievalExecutionModeOverride ??
@@ -425,12 +447,18 @@ function resolveActionSnapshots(
 }
 
 function buildDynamicPromptInjections(
-  knowledgeRetrievalPolicy?: NormalChatKnowledgeRetrievalPolicyInput | null
+  knowledgeRetrievalPolicy?: NormalChatKnowledgeRetrievalPolicyInput | null,
+  kgRetrievalPolicy?: NormalChatKgRetrievalPolicyInput | null
 ): string[] {
   const injections: string[] = []
   const knowledgeRetrievalPrompt = buildKnowledgeRetrievalPolicyPrompt(knowledgeRetrievalPolicy)
   if (knowledgeRetrievalPrompt) {
     injections.push(knowledgeRetrievalPrompt)
+  }
+
+  const kgRetrievalPrompt = buildKgRetrievalPolicyPrompt(kgRetrievalPolicy)
+  if (kgRetrievalPrompt) {
+    injections.push(kgRetrievalPrompt)
   }
 
   return injections

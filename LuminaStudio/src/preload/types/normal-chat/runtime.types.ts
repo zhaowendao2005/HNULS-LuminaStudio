@@ -8,6 +8,8 @@
  * 流事件通过 IPC 从主进程推送到渲染进程，用于前端实时展示 Agent 执行状态。
  * 所有事件都继承自 NormalChatConversationBaseEvent（包含 requestId 和 topicId）。
  */
+import type { NormalChatConversationMessage } from './conversation.types'
+
 /** 动作 Schema 调试快照（与主进程的 action-runtime.types.ts 中的定义对应） */
 export interface NormalChatActionSchemaDebugSnapshot {
   actionKey: string

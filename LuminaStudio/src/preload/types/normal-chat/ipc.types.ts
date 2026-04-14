@@ -5,6 +5,10 @@ import type {
   NormalChatRequestEntry,
   NormalChatTopicTranscriptSnapshot
 } from './conversation.types'
+import type {
+  NormalChatKgRetrievalPolicyInput,
+  NormalChatKnowledgeRetrievalPolicyInput
+} from './policy.types'
 import type { NormalChatConversationStreamEvent } from './runtime.types'
 import type {
   NormalChatBootstrap,
@@ -43,36 +47,6 @@ export interface NormalChatGetRequestDebugSnapshotRequest {
   requestId: string
 }
 
-export type NormalChatKnowledgeRetrievalPolicyMode = 'global' | 'documents' | 'disabled'
-
-export interface NormalChatKnowledgeRetrievalPolicyTable {
-  tableName: string
-  embeddingConfigId: string
-  embeddingConfigName?: string
-  dimensions: number
-}
-
-export interface NormalChatKnowledgeRetrievalPolicyDocument {
-  fileKey: string
-  fileName: string
-  tables: NormalChatKnowledgeRetrievalPolicyTable[]
-}
-
-export interface NormalChatKnowledgeRetrievalPolicyRerank {
-  enabled: boolean
-  modelId: string | null
-  topN: number | null
-}
-
-export interface NormalChatKnowledgeRetrievalPolicyInput {
-  mode: NormalChatKnowledgeRetrievalPolicyMode
-  knowledgeBaseId: number | null
-  knowledgeBaseName: string | null
-  tables: NormalChatKnowledgeRetrievalPolicyTable[]
-  documents: NormalChatKnowledgeRetrievalPolicyDocument[]
-  rerank?: NormalChatKnowledgeRetrievalPolicyRerank
-}
-
 export interface NormalChatSendMessageRequest {
   topicId: string
   providerId: string
@@ -80,6 +54,7 @@ export interface NormalChatSendMessageRequest {
   input: string
   clientRequestId?: string
   knowledgeRetrievalPolicy?: NormalChatKnowledgeRetrievalPolicyInput | null
+  kgRetrievalPolicy?: NormalChatKgRetrievalPolicyInput | null
 }
 
 export interface NormalChatSendMessageAccepted {

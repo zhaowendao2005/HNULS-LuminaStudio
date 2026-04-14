@@ -1,4 +1,5 @@
 export * from './common.types'
+export * from './policy.types'
 export * from './workspace.types'
 export * from './conversation.types'
 

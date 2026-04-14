@@ -247,6 +247,14 @@ function createExecutionSnapshot(payload: EntryPayload): NormalChatTaskExecution
     historyMessages: Array.isArray(payload.historyMessages)
       ? (payload.historyMessages as NormalChatConversationMessage[])
       : [],
+    knowledgeRetrievalPolicy:
+      payload.knowledgeRetrievalPolicy != null
+        ? (payload.knowledgeRetrievalPolicy as NormalChatTaskExecutionSnapshot['knowledgeRetrievalPolicy'])
+        : null,
+    kgRetrievalPolicy:
+      payload.kgRetrievalPolicy != null
+        ? (payload.kgRetrievalPolicy as NormalChatTaskExecutionSnapshot['kgRetrievalPolicy'])
+        : null,
     promptInjections: Array.isArray(payload.promptInjections)
       ? payload.promptInjections.map((value) => String(value))
       : [],
@@ -443,7 +451,9 @@ export class RequestDetailProjector {
             capturedAt: String(payload.capturedAt ?? entry.createdAt),
             requestId: String(payload.requestId ?? input.requestId),
             modelCallId: String(payload.modelCallId ?? entry.entityId),
-            protocol: String(payload.protocol ?? '') as NormalChatCapturedProviderRequestSnapshot['protocol'],
+            protocol: String(
+              payload.protocol ?? ''
+            ) as NormalChatCapturedProviderRequestSnapshot['protocol'],
             providerId: String(payload.providerId ?? ''),
             modelId: String(payload.modelId ?? ''),
             streaming: Boolean(payload.streaming),

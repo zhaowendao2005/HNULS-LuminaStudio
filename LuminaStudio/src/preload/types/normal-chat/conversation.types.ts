@@ -17,6 +17,10 @@ import type {
   NormalChatMessagePartKind,
   NormalChatSubAgentMessagePartStatus
 } from './common.types'
+import type {
+  NormalChatKgRetrievalPolicyInput,
+  NormalChatKnowledgeRetrievalPolicyInput
+} from './policy.types'
 import type { NormalChatPersistencePreset } from './workspace.types'
 
 /** 文本消息片段 */
@@ -201,6 +205,8 @@ export interface NormalChatTaskExecutionSnapshot {
     maxProviderRetries?: number
   }
   historyMessages: NormalChatConversationMessage[]
+  knowledgeRetrievalPolicy?: NormalChatKnowledgeRetrievalPolicyInput | null
+  kgRetrievalPolicy?: NormalChatKgRetrievalPolicyInput | null
   promptInjections: string[]
   actions: NormalChatTaskExecutionActionSnapshot[]
   createdAt: string
